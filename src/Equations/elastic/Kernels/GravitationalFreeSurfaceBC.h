@@ -22,9 +22,13 @@ namespace seissol {
 // Used to avoid including SeisSo.h here as this leads to all sorts of issues
 double getGravitationalAcceleration();
 
+template<typename Config>
 class GravitationalFreeSurfaceBc {
 public:
   GravitationalFreeSurfaceBc() = default;
+
+  using RealT = typename Config::RealT;
+  using MaterialT = typename Config::MaterialT;
 
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType);
@@ -33,10 +37,10 @@ public:
   void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
-                real* displacementNodalData,
-                real* integratedDisplacementNodalData,
+                RealT* displacementNodalData,
+                RealT* integratedDisplacementNodalData,
                 TimeKrnl& timeKernel,
-                real* derivatives,
+                RealT* derivatives,
                 double timeStepWidth,
                 const MaterialT& materialData,
                 FaceType faceType) {
@@ -62,9 +66,9 @@ public:
     projectKernel.Tinv = Tinv.data();
 
     // Prepare projection of displacement/velocity to face-nodal basis.
-    alignas(Alignment) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) RealT rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
-    alignas(Alignment) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) RealT rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToGlobal = init::displacementRotationMatrix::view::create(rotateDisplacementToGlobalData);
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -74,7 +78,7 @@ public:
       }
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
-    alignas(Alignment) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
+    alignas(Alignment) RealT rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
 
     auto integratedDisplacementNodal = init::averageNormalDisplacement::view::create(integratedDisplacementNodalData);
     auto rotatedFaceDisplacement = init::faceDisplacement::view::create(rotatedFaceDisplacementData);
@@ -88,11 +92,11 @@ public:
     rotateFaceDisplacementKrnl.execute();
 
     // Temporary buffer to store nodal face dofs at some time t
-    alignas(Alignment) real dofsFaceNodalStorage[tensor::INodal::size()];
+    alignas(Alignment) RealT dofsFaceNodalStorage[tensor::INodal::size()];
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     // Temporary buffer to store nodal face coefficients at some time t
-    alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
+    alignas(Alignment) std::array<RealT, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
 
     const double deltaT = timeStepWidth;
     const double deltaTInt = timeStepWidth;
@@ -175,19 +179,19 @@ public:
     ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if(dataTable.find(key) != dataTable.end()) {
 
-      real** rotateDisplacementToFaceNormalPtrs{nullptr};
-      real** rotateDisplacementToGlobalPtrs{nullptr};
-      real** rotatedFaceDisplacementPtrs{nullptr};
-      real** dofsFaceNodalPtrs{nullptr};
-      real** prevCoefficientsPtrs{nullptr};
+      RealT** rotateDisplacementToFaceNormalPtrs{nullptr};
+      RealT** rotateDisplacementToGlobalPtrs{nullptr};
+      RealT** rotatedFaceDisplacementPtrs{nullptr};
+      RealT** dofsFaceNodalPtrs{nullptr};
+      RealT** prevCoefficientsPtrs{nullptr};
 
-      real* rotateDisplacementToFaceNormalMemory{nullptr};
-      real* rotateDisplacementToGlobalMemory{nullptr};
-      real* rotatedFaceDisplacementMemory{nullptr};
-      real* dofsFaceNodalMemory{nullptr};
-      real* prevCoefficientsMemory{nullptr};
+      RealT* rotateDisplacementToFaceNormalMemory{nullptr};
+      RealT* rotateDisplacementToGlobalMemory{nullptr};
+      RealT* rotatedFaceDisplacementMemory{nullptr};
+      RealT* dofsFaceNodalMemory{nullptr};
+      RealT* prevCoefficientsMemory{nullptr};
 
-      std::array<std::tuple<real***, real**, unsigned long>, 5> dataPack{
+      std::array<std::tuple<RealT***, RealT**, unsigned long>, 5> dataPack{
           std::make_tuple(&rotateDisplacementToFaceNormalPtrs, &rotateDisplacementToFaceNormalMemory, init::displacementRotationMatrix::Size),
           std::make_tuple(&rotateDisplacementToGlobalPtrs, &rotateDisplacementToGlobalMemory, init::displacementRotationMatrix::Size),
           std::make_tuple(&rotatedFaceDisplacementPtrs, &rotatedFaceDisplacementMemory, init::rotatedFaceDisplacement::Size),
@@ -200,8 +204,8 @@ public:
         auto& ptrs = *std::get<0>(item);
         auto& memory = *std::get<1>(item);
         auto elementSize = std::get<2>(item);
-        memory = reinterpret_cast<real*>(device.api->getStackMemory(elementSize * numElements * sizeof(real)));
-        ptrs  = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
+        memory = reinterpret_cast<RealT*>(device.api->getStackMemory(elementSize * numElements * sizeof(RealT)));
+        ptrs  = reinterpret_cast<RealT**>(device.api->getStackMemory(numElements * sizeof(RealT*)));
         device.algorithms.incrementalAdd(ptrs, memory, elementSize, numElements, deviceStream);
       }
       size_t memCounter{2 * dataPack.size()};
@@ -217,13 +221,13 @@ public:
 
       auto rotateFaceDisplacementKrnl = kernel::gpu_rotateFaceDisplacement();
       const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
-      auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
+      auto* auxTmpMem = reinterpret_cast<RealT*>(device.api->getStackMemory(auxTmpMemSize * numElements));
       ++memCounter;
 
       auto** displacementsPtrs = dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
       rotateFaceDisplacementKrnl.numElements = numElements;
-      rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const real**>(displacementsPtrs);
-      rotateFaceDisplacementKrnl.displacementRotationMatrix = const_cast<const real**>(rotateDisplacementToFaceNormalPtrs);
+      rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const RealT**>(displacementsPtrs);
+      rotateFaceDisplacementKrnl.displacementRotationMatrix = const_cast<const RealT**>(rotateDisplacementToFaceNormalPtrs);
       rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementPtrs;
       rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem);
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;
@@ -270,14 +274,14 @@ public:
 
         auto projectKernel = projectKernelPrototype;
         projectKernel.numElements = numElements;
-        projectKernel.Tinv = const_cast<const real**>(TinvDataPtrs);
+        projectKernel.Tinv = const_cast<const RealT**>(TinvDataPtrs);
         projectKernel.INodal = dofsFaceNodalPtrs;
         projectKernel.linearAllocator.initialize(auxTmpMem);
         projectKernel.streamPtr = deviceStream;
 
         auto* derivativesOffsets = timeKernel.getDerivativesOffsets();
         for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-          projectKernel.dQ(i) = const_cast<const real **>(derivativesPtrs);
+          projectKernel.dQ(i) = const_cast<const RealT **>(derivativesPtrs);
           projectKernel.extraOffset_dQ(i) = derivativesOffsets[i];
         }
 
@@ -298,8 +302,8 @@ public:
       }
 
       rotateFaceDisplacementKrnl.numElements = numElements;
-      rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const real**>(rotatedFaceDisplacementPtrs);
-      rotateFaceDisplacementKrnl.displacementRotationMatrix = const_cast<const real**>(rotateDisplacementToGlobalPtrs);
+      rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const RealT**>(rotatedFaceDisplacementPtrs);
+      rotateFaceDisplacementKrnl.displacementRotationMatrix = const_cast<const RealT**>(rotateDisplacementToGlobalPtrs);
       rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementsPtrs;
       rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem);
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;

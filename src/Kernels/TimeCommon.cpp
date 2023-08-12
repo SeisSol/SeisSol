@@ -40,15 +40,17 @@
 
 #include "TimeCommon.h"
 #include <stdint.h>
+#include "Common/cellconfigconv.hpp"
 
-void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
+template<typename Config>
+void seissol::kernels::TimeCommon<Config>::computeIntegrals(Time<Config>& i_time,
                                                     unsigned short i_ltsSetup,
                                                     const FaceType i_faceTypes[4],
                                                     const double i_currentTime[5],
                                                     double i_timeStepWidth,
-                                                    real * const i_timeDofs[4],
-                                                    real o_integrationBuffer[4][tensor::I::size()],
-                                                    real * o_timeIntegrated[4] )
+                                                    RealT * const i_timeDofs[4],
+                                                    RealT o_integrationBuffer[4][ConfigConstants<Config>::TensorSizeI],
+                                                    RealT * o_timeIntegrated[4] )
 {
   /*
    * assert valid input.
@@ -89,14 +91,15 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
   }
 }
 
-void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
+template<typename Config>
+void seissol::kernels::TimeCommon<Config>::computeIntegrals(Time<Config>& i_time,
                                                     unsigned short i_ltsSetup,
                                                     const FaceType i_faceTypes[4],
                                                     const double i_timeStepStart,
                                                     const double i_timeStepWidth,
-                                                    real * const i_timeDofs[4],
-                                                    real o_integrationBuffer[4][tensor::I::size()],
-                                                    real * o_timeIntegrated[4])
+                                                    RealT * const i_timeDofs[4],
+                                                    RealT o_integrationBuffer[4][ConfigConstants<Config>::TensorSizeI],
+                                                    RealT * o_timeIntegrated[4])
 {
   double l_startTimes[5];
   l_startTimes[0] = i_timeStepStart;
@@ -110,7 +113,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
   }
 
   // call the more general assembly
-  computeIntegrals( i_time,
+  computeIntegrals<Config>( i_time,
                     i_ltsSetup,
                     i_faceTypes,
                     l_startTimes,
@@ -120,7 +123,8 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
                     o_timeIntegrated );
 }
 
-void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
+template<typename Config>
+void seissol::kernels::TimeCommon<Config>::computeBatchedIntegrals(Time<Config>& i_time,
                                                            const double i_timeStepStart,
                                                            const double i_timeStepWidth,
                                                            ConditionalPointersToRealsTable &table) {
@@ -153,4 +157,8 @@ void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
 #else
   assert(false && "no implementation provided");
 #endif
+}
+
+namespace seissol::_definitions {
+  const seissol::DeclareForAllConfigs<seissol::kernels::TimeCommon> declTimeCommon;
 }

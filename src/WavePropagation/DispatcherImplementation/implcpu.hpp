@@ -23,18 +23,18 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
   virtual void
       dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
     // local integration buffer
-    real l_integrationBuffer[tensor::I::size()] alignas(Alignment);
+    RealT l_integrationBuffer[tensor::I::size()] alignas(Alignment);
 
     // pointer for the call of the ADER-function
-    real* l_bufferPointer;
+    RealT* l_bufferPointer;
 
-    real** buffers = this->layer.var(this->lts.buffers);
-    real** derivatives = this->layer.var(this->lts.derivatives);
+    RealT** buffers = this->layer.var(this->lts.buffers);
+    RealT** derivatives = this->layer.var(this->lts.derivatives);
     CellMaterialData* materialData = this->layer.var(this->lts.material);
 
-    kernels::LocalData::Loader loader;
+    kernels::LocalData<Config>::Loader loader;
     loader.load(this->lts, this->layer);
-    kernels::LocalTmp tmp{};
+    kernels::LocalTmp<Config> tmp{};
 
 #ifdef _OPENMP
 #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer, tmp) schedule(static)
@@ -108,25 +108,25 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
       return;
     }
 
-    real*(*faceNeighbors)[4] = this->layer.var(this->lts.faceNeighbors);
+    RealT*(*faceNeighbors)[4] = this->layer.var(this->lts.faceNeighbors);
     CellDRMapping(*drMapping)[4] = this->layer.var(this->lts.drMapping);
     CellLocalInformation* cellInformation = this->layer.var(this->lts.cellInformation);
     auto* plasticity = this->layer.var(this->lts.plasticity);
     auto* pstrain = this->layer.var(this->lts.pstrain);
     unsigned numberOTetsWithPlasticYielding = 0;
 
-    kernels::NeighborData::Loader loader;
+    kernels::NeighborData<Config>::Loader loader;
     loader.load(this->lts, this->layer);
 
-    real* l_timeIntegrated[4];
-    real* l_faceNeighbors_prefetch[4];
+    RealT* l_timeIntegrated[4];
+    RealT* l_faceNeighbors_prefetch[4];
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
 #endif
     for (unsigned int l_cell = 0; l_cell < this->layer.getNumberOfCells(); l_cell++) {
       auto data = loader.entry(l_cell);
-      seissol::kernels::TimeCommon::computeIntegrals(
+      seissol::kernels::TimeCommon<Config>::computeIntegrals(
           this->timeKernel,
           data.cellInformation.ltsSetup,
           data.cellInformation.faceTypes,
@@ -134,11 +134,11 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
           timeStepSize,
           faceNeighbors[l_cell],
 #ifdef _OPENMP
-          *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+          *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
               &(this->globalData.onHost
                     ->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
 #else
-          *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+          *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
               this->globalData.onHost->integrationBufferLTS),
 #endif
           l_timeIntegrated);

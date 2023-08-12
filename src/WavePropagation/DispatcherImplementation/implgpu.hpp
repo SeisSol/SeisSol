@@ -25,14 +25,14 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
       dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
     device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
-    real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
+    RealT*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
     auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
     auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    kernels::LocalData::Loader loader;
+    kernels::LocalData<Config>::Loader loader;
     loader.load(lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp<Config> tmp;
 
     ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
     auto computeGraphKey = initializers::GraphKey(graphType, timeStepSize, true);
@@ -85,7 +85,7 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
           kernel::gpu_addVelocity displacementKrnl;
           displacementKrnl.faceDisplacement =
               entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
-          displacementKrnl.integratedVelocities = const_cast<real const**>(
+          displacementKrnl.integratedVelocities = const_cast<RealT const**>(
               entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
           displacementKrnl.V3mTo2nFace = globalData.onDevice->V3mTo2nFace;
 

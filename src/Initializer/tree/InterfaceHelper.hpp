@@ -63,7 +63,7 @@ namespace seissol {
 #define _LTSTREE_INIT_MEMBER(HANDLE_STRUCT, X) X(X)
 #define _LTSTREE_ACCESS(HANDLE_STRUCT, X) X[index]
 #define _LTSTREE_LOOKUP(HANDLE_STRUCT, X) lut.lookup(handleStruct.X,meshId)
-#define LTSTREE_GENERATE_INTERFACE(NAME, HANDLE_STRUCT, ...)  struct NAME { \
+#define LTSTREE_GENERATE_INTERFACE(NAME, HANDLE_STRUCT, ...)  template<typename Config> struct NAME { \
                                                                 MAGIC_FOR_EACH(_LTSTREE_MEMBER_REF, HANDLE_STRUCT, __VA_ARGS__) \
                                                                 NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_MEMBER_REF_CS, HANDLE_STRUCT, __VA_ARGS__)) \
                                                                   : MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_INIT_MEMBER, HANDLE_STRUCT, __VA_ARGS__) {} \

@@ -71,6 +71,7 @@
 #ifndef TIME_H_
 #define TIME_H_
 
+#include <Common/configtensor.hpp>
 #include <cassert>
 #include <limits>
 #include <Initializer/typedefs.hpp>
@@ -79,32 +80,30 @@
 #include <Kernels/TimeBase.h>
 #include <generated_code/tensor.h>
 
-namespace seissol {
-  namespace kernels {
-    class Time;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Time : public TimeBase {
+template<typename Config, bool=true>
+class Time : public TimeBase<Config> {
   public:
+    using RealT = typename Config::RealT;
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
     void computeAder(double i_timeStepWidth,
-                     LocalData& data,
-                     LocalTmp& tmp,
-                     real o_timeIntegrated[tensor::I::size()],
-                     real* o_timeDerivatives = nullptr,
+                     LocalData<Config>& data,
+                     LocalTmp<Config>& tmp,
+                     RealT o_timeIntegrated[ConfigConstants<Config>::TensorSizeI],
+                     RealT* o_timeDerivatives = nullptr,
                      bool updateDisplacement = false);
 
 #ifdef USE_STP
     void executeSTP( double     i_timeStepWidth,
-                     LocalData& data,
-                     real       o_timeIntegrated[tensor::I::size()],
-                     real*      stp );
+                     LocalData<Config>& data,
+                     RealT       o_timeIntegrated[ConfigConstants<Config>::TensorSizeI],
+                     RealT*      stp );
 #endif
     void computeBatchedAder(double i_timeStepWidth,
-                            LocalTmp& tmp,
+                            LocalTmp<Config>& tmp,
                             ConditionalPointersToRealsTable &dataTable,
                             ConditionalMaterialTable &materialTable,
                             bool updateDisplacement = false);
@@ -117,38 +116,40 @@ class seissol::kernels::Time : public TimeBase {
     void computeIntegral( double                                      i_expansionPoint,
                           double                                      i_integrationStart,
                           double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::I::size()] );
+                          RealT const*                                 i_timeDerivatives,
+                          RealT                                        o_timeIntegrated[ConfigConstants<Config>::TensorSizeI] );
 
     void computeBatchedIntegral(double i_expansionPoint,
                                 double i_integrationStart,
                                 double i_integrationEnd,
-                                const real** i_timeDerivatives,
-                                real ** o_timeIntegratedDofs,
+                                const RealT** i_timeDerivatives,
+                                RealT ** o_timeIntegratedDofs,
                                 unsigned numElements);
 
-    void computeTaylorExpansion( real         time,
-                                 real         expansionPoint,
-                                 real const*  timeDerivatives,
-                                 real         timeEvaluated[tensor::Q::size()] );
+    void computeTaylorExpansion( RealT         time,
+                                 RealT         expansionPoint,
+                                 RealT const*  timeDerivatives,
+                                 RealT         timeEvaluated[ConfigConstants<Config>::TensorSizeQ] );
 
-    void computeDerivativeTaylorExpansion(real time,
-                                          real expansionPoint,
-                                          real const*  timeDerivatives,
-                                          real timeEvaluated[tensor::Q::size()],
+    void computeDerivativeTaylorExpansion(RealT time,
+                                          RealT expansionPoint,
+                                          RealT const*  timeDerivatives,
+                                          RealT timeEvaluated[ConfigConstants<Config>::TensorSizeQ],
                                           unsigned derivativeOrder);
 
 
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
+  void computeBatchedTaylorExpansion(RealT time,
+                                     RealT expansionPoint,
+                                     RealT** timeDerivatives,
+                                     RealT** timeEvaluated,
                                      size_t numElements);
 
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
   unsigned int* getDerivativesOffsets();
 };
+
+}
 
 #endif
 

@@ -42,13 +42,16 @@
 #ifndef KERNELS_TIMECOMMON_H_
 #define KERNELS_TIMECOMMON_H_
 
+#include <Common/configtensor.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <generated_code/tensor.h>
 
 namespace seissol {
   namespace kernels {
-    namespace TimeCommon {
+    template<typename Config>
+    struct TimeCommon {
+      using RealT = typename Config::RealT;
       /**
        * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time derivatives.
        *   Evaluation depends on bit 0-3  of the LTS setup.
@@ -72,14 +75,14 @@ namespace seissol {
        * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
        * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
        **/
-      void computeIntegrals(Time& i_time,
+      void computeIntegrals(Time<Config>& i_time,
                             unsigned short i_ltsSetup,
                             const FaceType i_faceTypes[4],
                             const double i_currentTime[5],
                             double i_timeStepWidth,
-                            real * const i_timeDofs[4],
-                            real o_integrationBuffer[4][tensor::I::size()],
-                            real * o_timeIntegrated[4]);
+                            RealT * const i_timeDofs[4],
+                            RealT o_integrationBuffer[4][ConfigConstants<Config>::TensorSizeI],
+                            RealT * o_timeIntegrated[4]);
 
       /**
        * Special case of the computeIntegrals function, which assumes a common "current time" for all face neighbors which provide derivatives.
@@ -92,20 +95,20 @@ namespace seissol {
        * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
        * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
        **/
-      void computeIntegrals(Time& i_time,
+      void computeIntegrals(Time<Config>& i_time,
                             unsigned short i_ltsSetup,
                             const FaceType i_faceTypes[4],
                             const double i_timeStepStart,
                             const double i_timeStepWidth,
-                            real * const i_timeDofs[4],
-                            real o_integrationBuffer[4][tensor::I::size()],
-                            real * o_timeIntegrated[4]);
+                            RealT * const i_timeDofs[4],
+                            RealT o_integrationBuffer[4][ConfigConstants<Config>::TensorSizeI],
+                            RealT * o_timeIntegrated[4]);
 
-      void computeBatchedIntegrals(Time& i_time,
+      void computeBatchedIntegrals(Time<Config>& i_time,
                                    const double i_timeStepStart,
                                    const double i_timeStepWidth,
                                    ConditionalPointersToRealsTable &table);
-    }
+    };
   }
 }
 

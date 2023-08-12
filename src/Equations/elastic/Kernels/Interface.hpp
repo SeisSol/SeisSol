@@ -43,18 +43,20 @@
 #include <Initializer/tree/InterfaceHelper.hpp>
 #include <Initializer/LTS.h>
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
+#include "Equations/datastructures.hpp"
 
 namespace seissol::kernels {
+    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, seissol::model::ElasticMaterial> || std::is_same_v<typename Config::MaterialT, seissol::model::PoroElasticMaterial> || std::is_same_v<typename Config::MaterialT, seissol::model::AnisotropicMaterial>, bool> = true>
     struct LocalTmp {
-        alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
-        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+        alignas(Alignment) std::array<typename Config::RealT, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+        GravitationalFreeSurfaceBc<Config> gravitationalFreeSurfaceBc{};
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, materialData)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS<Config>, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, materialData)
+    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS<Config>, cellInformation, neighboringIntegration, dofs)
 #else
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, materialData)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS<Config>, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, materialData)
+    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS<Config>, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
 #endif
   }
 

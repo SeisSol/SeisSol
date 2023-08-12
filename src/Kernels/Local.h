@@ -48,20 +48,21 @@
 #include <Kernels/LocalBase.h>
 #include <generated_code/tensor.h>
 
-namespace seissol {
-  namespace kernels {
-    class Local;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Local : public LocalBase {
+template<typename Config>
+class LocalBase{};
+
+template<typename Config>
+class Local : public LocalBase<Config> {
   public:
+    using RealT = typename Config::RealT;
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                         LocalData& data,
-                         LocalTmp& tmp,
+    void computeIntegral(RealT i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                         LocalData<Config>& data,
+                         LocalTmp<Config>& tmp,
                          const CellMaterialData* materialData,
                          CellBoundaryMapping const (*cellBoundaryMapping)[4],
                          double time,
@@ -70,13 +71,13 @@ class seissol::kernels::Local : public LocalBase {
     void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                 ConditionalMaterialTable& materialTable,
                                 ConditionalIndicesTable& indicesTable,
-                                kernels::LocalData::Loader& loader,
-                                LocalTmp& tmp,
+                                typename LocalData<Config>::Loader& loader,
+                                LocalTmp<Config>& tmp,
                                 double timeStepWidth);
 
     void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                         ConditionalIndicesTable& indicesTable,
-                                        kernels::LocalData::Loader& loader,
+                                        typename LocalData<Config>::Loader& loader,
                                         double time,
                                         double timeStepWidt);
 
@@ -86,6 +87,8 @@ class seissol::kernels::Local : public LocalBase {
                         
     unsigned bytesIntegral();
 };
+
+}
 
 #endif
 

@@ -8,6 +8,7 @@
 #include "Initializer/typedefs.hpp"
 
 #include "Numerical_aux/Quadrature.h"
+#include <Common/configtensor.hpp>
 
 #ifdef ACL_DEVICE
 #include "yateto.h"
@@ -38,23 +39,24 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& 
 
 }
 
-namespace seissol {
-namespace kernels {
+namespace seissol::kernels {
 
+template<typename Config>
 class DirichletBoundary {
  public:
+  using RealT = typename Config::RealT;
 
   DirichletBoundary() {
-    quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder);
+    quadrature::GaussLegendre(quadPoints, quadWeights, Config::ConvergenceOrder);
   }
 
   template<typename Func, typename MappingKrnl>
-  void evaluate(const real* dofsVolumeInteriorModal,
+  void evaluate(const RealT* dofsVolumeInteriorModal,
                 int faceIdx,
                 const CellBoundaryMapping &boundaryMapping,
                 MappingKrnl&& projectKernelPrototype,
                 Func&& evaluateBoundaryCondition,
-                real* dofsFaceBoundaryNodal) const {
+                RealT* dofsFaceBoundaryNodal) const {
     auto projectKrnl = projectKernelPrototype;
     addRotationToProjectKernel(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;
@@ -136,12 +138,12 @@ class DirichletBoundary {
 #endif
 
   template<typename Func, typename MappingKrnl>
-  void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
+  void evaluateTimeDependent(const RealT* dofsVolumeInteriorModal,
 			     int faceIdx,
 			     const CellBoundaryMapping &boundaryMapping,
 			     MappingKrnl&& projectKernelPrototype,
 			     Func&& evaluateBoundaryCondition,
-			     real* dofsFaceBoundaryNodal,
+			     RealT* dofsFaceBoundaryNodal,
 			     double startTime,
 			     double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
@@ -153,14 +155,14 @@ class DirichletBoundary {
     assert(boundaryMapping.nodes != nullptr);
   
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[ConvergenceOrder];
-    double timeWeights[ConvergenceOrder];
-    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
+    double timePoints[Config::ConvergenceOrder];
+    double timeWeights[Config::ConvergenceOrder];
+    for (unsigned point = 0; point < Config::ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth)/2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
   
-    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
+    alignas(Alignment) RealT dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
     auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
   
     boundaryDofs.setZero();
@@ -171,7 +173,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
   
-    for (int i = 0; i < ConvergenceOrder; ++i) {
+    for (int i = 0; i < Config::ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],
@@ -184,15 +186,37 @@ class DirichletBoundary {
   }
 
  private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  double quadPoints[Config::ConvergenceOrder];
+  double quadWeights[Config::ConvergenceOrder];
 };
 
-
+template<typename Config>
 void computeAverageDisplacement(double deltaT,
-				const real* timeDerivatives,
-				const unsigned int derivativesOffsets[ConvergenceOrder],
-				real timeIntegrated[tensor::I::size()]);
+				const typename Config::RealT* timeDerivatives,
+				const unsigned int derivativesOffsets[Config::ConvergenceOrder],
+				typename Config::RealT timeIntegrated[ConfigConstants<Config>::TensorSizeI]) {
+    // TODO(Lukas) Only compute integral for displacement, not for all vars.
+    assert(reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+    assert(deltaT > 0);
+    
+    kernel::derivativeTaylorExpansion intKrnl;
+    intKrnl.I = timeIntegrated;
+    for (size_t i = 0; i < Config::ConvergenceOrder; ++i) {
+      intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
+    }
+    
+    typename Config::RealT factorial = 2.0;
+    double power = deltaT * deltaT;
+    
+    for (int der = 0; der < Config::ConvergenceOrder; ++der) {
+      intKrnl.power = power / factorial;
+      intKrnl.execute(der);
+
+      factorial *= der + 2.0;
+      power *= deltaT;
+    }
+  }
 
 } // namespace kernels
 } // namespace seissol

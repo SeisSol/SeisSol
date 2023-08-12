@@ -16,6 +16,9 @@ namespace seissol::waveprop {
 template <typename Config>
 class WavePropDispatcherPre : public WavePropDispatcherBase {
   public:
+  using RealT = typename Config::RealT;
+  using MaterialT = typename Config::MaterialT;
+
   WavePropDispatcherPre(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
       : lts(lts), layer(layer),
         globalData(seissol::SeisSol::main.getMemoryManager().getGlobalData()) {
@@ -89,9 +92,9 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
   CompoundGlobalData globalData;
   seissol::initializers::Layer& layer;
   const seissol::initializers::LTS& lts;
-  kernels::Time timeKernel;
-  kernels::Local localKernel;
-  kernels::Neighbor neighborKernel;
+  kernels::Time<Config> timeKernel;
+  kernels::Local<Config> localKernel;
+  kernels::Neighbor<Config> neighborKernel;
   double tv;
 };
 } // namespace seissol::waveprop

@@ -75,21 +75,19 @@
 #include <Kernels/Interface.hpp>
 #include <Kernels/NeighborBase.h>
 
-namespace seissol {
-  namespace kernels {
-    class Neighbor;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Neighbor : public NeighborBase {
+template<typename Config, bool=true>
+class Neighbor : public NeighborBase<Config> {
   public:
+    using RealT = typename Config::RealT;
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeNeighborsIntegral(NeighborData& data,
+    void computeNeighborsIntegral(NeighborData<Config>& data,
                                   CellDRMapping const (&cellDrMapping)[4],
-                                  real* i_timeIntegrated[4],
-                                  real* faceNeighbors_prefetch[4]);
+                                  RealT* i_timeIntegrated[4],
+                                  RealT* faceNeighbors_prefetch[4]);
 
     void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table);
 
@@ -103,5 +101,7 @@ class seissol::kernels::Neighbor : public NeighborBase {
                                  
     unsigned bytesNeighborsIntegral();
 };
+
+}
 
 #endif

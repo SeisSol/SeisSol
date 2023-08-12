@@ -46,13 +46,15 @@
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {
+    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
     struct alignas(Alignment) LocalTmp {
-      alignas(Alignment) real timeIntegratedAne[tensor::Iane::size()]{};
-      alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
-      GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+      using RealT = typename Config::RealT;
+      alignas(Alignment) RealT timeIntegratedAne[tensor::Iane::size()]{};
+      alignas(Alignment) std::array<RealT, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
+      GravitationalFreeSurfaceBc<Config> gravitationalFreeSurfaceBc{};
     };
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
-  LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS<Config>, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
+  LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS<Config>, cellInformation, neighboringIntegration, dofs, dofsAne)
 }
 
 #endif

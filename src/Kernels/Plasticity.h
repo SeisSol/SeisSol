@@ -48,36 +48,36 @@
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
 #include <limits>
 
-namespace seissol {
-  namespace kernels {
-    class Plasticity;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Plasticity {
+template<typename Config>
+class Plasticity {
 public:
+  using RealT = typename Config::RealT;
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
   static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
                                      double                      timeStepWidth,
                                      double                      T_v,
                                      GlobalData const*           global,
-                                     seissol::model::PlasticityData<> const*       plasticityData,
-                                     real                        degreesOfFreedom[tensor::Q::size()],
-                                     real*                       pstrain);
+                                     seissol::model::PlasticityData<RealT> const*       plasticityData,
+                                     RealT                        degreesOfFreedom[tensor::Q::size()],
+                                     RealT*                       pstrain);
 
   static unsigned computePlasticityBatched(double relaxTime,
                                            double timeStepWidth,
                                            double T_v,
                                            GlobalData const *global,
                                            initializers::recording::ConditionalPointersToRealsTable &table,
-                                           seissol::model::PlasticityData<> *plasticity);
+                                           seissol::model::PlasticityData<RealT> *plasticity);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,
                                 long long&  o_nonZeroFlopsYield,
                                 long long&  o_hardwareFlopsYield );
 };
+
+}
 
 #endif
 
