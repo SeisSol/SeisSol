@@ -109,12 +109,6 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-QueryGenerator* getBestQueryGenerator(bool anelasticity,
-                                      bool plasticity,
-                                      bool anisotropy,
-                                      bool poroelasticity,
-                                      bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& cellToVertex);
 } // namespace initializers
 } // namespace seissol
 
@@ -122,32 +116,6 @@ class seissol::initializers::QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   virtual easi::Query generate() const = 0;
-};
-
-class seissol::initializers::ElementBarycentreGenerator
-    : public seissol::initializers::QueryGenerator {
-  public:
-  explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
-      : m_cellToVertex(cellToVertex) {}
-  virtual easi::Query generate() const;
-
-  private:
-  CellToVertexArray m_cellToVertex;
-};
-
-class seissol::initializers::ElementAverageGenerator
-    : public seissol::initializers::QueryGenerator {
-  public:
-  explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
-  virtual easi::Query generate() const;
-  const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const {
-    return m_quadratureWeights;
-  };
-
-  private:
-  CellToVertexArray m_cellToVertex;
-  std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
-  std::array<std::array<double, 3>, NUM_QUADPOINTS> m_quadraturePoints;
 };
 
 class seissol::initializers::FaultBarycentreGenerator
@@ -178,20 +146,6 @@ class seissol::initializers::ParameterDB {
   public:
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const* const queryGen) = 0;
   static easi::Component* loadModel(std::string const& fileName);
-};
-
-template <class T>
-class seissol::initializers::MaterialParameterDB : seissol::initializers::ParameterDB {
-  public:
-  T computeAveragedMaterial(unsigned elementIdx,
-                            std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-                            std::vector<T> const& materialsFromQuery);
-  void evaluateModel(std::string const& fileName, QueryGenerator const* const queryGen) override;
-  void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter){};
-
-  private:
-  std::vector<T>* m_materials;
 };
 
 class seissol::initializers::FaultParameterDB : seissol::initializers::ParameterDB {

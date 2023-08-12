@@ -4,9 +4,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Model/common_datastructures.hpp"
 #include "Model/plasticity.hpp"
-#include <Equations/anisotropic/Model/datastructures.hpp>
-#include <Equations/poroelastic/Model/datastructures.hpp>
-#include <Model/datastructures.hpp>
+#include <Equations/datastructures.hpp>
 #include <unordered_map>
 #include <vector>
 #include <array>
@@ -62,9 +60,9 @@ struct ModelQuadratureRule {
 
 class ModelQuadratureRuleCollection {
   public:
-  ModelQuadratureRuleCollection(int maxOrder) : rules(maxOrder + 1) {
+  ModelQuadratureRuleCollection(int maxOrder) {
     for (int i = 0; i < rules.size(); ++i) {
-      rules[i] = ModelQuadratureRule(i);
+      rules.emplace_back(ModelQuadratureRule(i));
     }
   }
 
