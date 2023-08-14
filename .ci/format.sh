@@ -12,6 +12,7 @@ format() {
         src/Common
         src/DynamicRupture
         src/Geometry
+        src/Model
         src/WavePropagation
         src/tests/DynamicRupture
         src/tests/Model
