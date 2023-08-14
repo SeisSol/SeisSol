@@ -25,6 +25,17 @@ static constexpr std::array<seissol::SupportedConfigs,
     return array;
   }
 }
+
+template <std::size_t I>
+void printSupportedConfigsSub() {
+  if constexpr (I < std::variant_size_v<seissol::SupportedConfigs>) {
+    using ConfigI = std::variant_alternative_t<I, seissol::SupportedConfigs>;
+    logInfo() << I << ":::" << ConfigI::MaterialT::Text
+              << seissol::PrecisionFromType<typename ConfigI::RealT>::Text
+              << ConfigI::ConvergenceOrder << ConfigI::Plasticity;
+    printSupportedConfigsSub<I + 1>();
+  }
+}
 } // namespace
 
 namespace seissol {
@@ -44,10 +55,11 @@ struct VerifyTensorSizes {
   static_assert(std::is_same_v<RealT, real>,
                 "CellConfig correctness check failed: RealT does not match the internal real type "
                 "[KERNELS MISSING].");
-  static_assert(Constants::DofsElaSize == seissol::tensor::Q::size(),
+  static_assert(Constants::DofsElaSize == YATeToAdapter<Config>::Tensor::Q::size(),
                 "CellConfig correctness check failed: tensor sizes do no match [KERNELS MISSING].");
   static_assert(
-      Constants::DofsAneSize == seissol::kernel::size<seissol::tensor::Qane>(),
+      Constants::DofsAneSize ==
+          YATeToAdapter<Config>::Kernel::size<YATeToAdapter<Config>::Tensor::Qane>(),
       "CellConfig correctness check failed: anelastic tensor sizes do no match [KERNELS MISSING].");
 
   static_assert(::seissol::GivenNumberOfQuantities == Config::MaterialT::NumberOfQuantities,
@@ -56,9 +68,15 @@ struct VerifyTensorSizes {
                 "by the material [KERNELS MISSING].");
 
   static_assert(
-      Config::ConvergenceOrder <= yateto::numFamilyMembers<tensor::dQ>(),
+      Config::ConvergenceOrder <= yateto::numFamilyMembers<YATeToAdapter<Config>::Tensor::dQ>(),
       "CellConfig correctness check failed: Too high convergence order for generated kernels.");
 };
+
+void printSupportedConfigs() {
+  logInfo() << "The following cell configurations are supported in this build of SeisSol:";
+  printSupportedConfigsSub<0>();
+  logInfo() << "The end.";
+}
 
 const std::array<SupportedConfigs, std::variant_size_v<SupportedConfigs>> ConfigInstances =
     configArray<0>({});

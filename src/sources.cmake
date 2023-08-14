@@ -10,6 +10,8 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 
+src/Common/cellconfigconv.cpp
+
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
