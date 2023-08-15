@@ -1,33 +1,53 @@
-#pragma once
+#ifndef COMMON_CONFIGTENSOR_HPP
+#define COMMON_CONFIGTENSOR_HPP
 
-#include <Kernels/common.hpp>
-#include <Model/plasticity.hpp>
-#include <cstddef>
-#include "constants.hpp"
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
 namespace seissol {
-template <typename Config>
-struct ConfigConstants {
-  ConfigConstants() = delete; // static class
 
-  using RealT = typename Config::RealT;
-  using MaterialT = typename Config::MaterialT;
+namespace model {
+class ElasticMaterial;
+template <std::size_t>
+class ViscoElasticMaterial;
+class PoroElasticMaterial;
+class AnisotropicMaterial;
+} // namespace model
 
-  static constexpr std::size_t ElaSize = MaterialT::NumberOfQuantities;
-  static constexpr std::size_t AneSize = MaterialT::NumberPerMechanism * MaterialT::Mechanisms;
+template <typename MaterialT>
+struct MaterialToYATeTo {};
 
-  static constexpr std::size_t DofsElaSize =
-      ElaSize * seissol::kernels::NumberOfBasisFunctions(Config::ConvergenceOrder);
-  static constexpr std::size_t DofsAneSize =
-      AneSize * seissol::kernels::NumberOfBasisFunctions(Config::ConvergenceOrder);
-  static constexpr std::size_t PStrainSize =
-      seissol::model::PlasticityData<RealT>::NumberOfQuantities *
-      seissol::kernels::NumberOfAlignedBasisFunctions(Config::ConvergenceOrder);
-
-  static constexpr std::size_t TensorSizeQ = DofsElaSize * Config::ConvergenceOrder;
-  static constexpr std::size_t TensorSizeI = DofsElaSize;
-  static constexpr std::size_t TensorSizeQAne =
-      ZeroLengthArrayHandler(DofsAneSize * Config::ConvergenceOrder);
-  static constexpr std::size_t TensorSizeIAne = ZeroLengthArrayHandler(DofsAneSize);
+template <>
+struct MaterialToYATeTo<seissol::model::ElasticMaterial> {
+  constexpr static std::size_t Position = 0;
 };
+
+template <>
+struct MaterialToYATeTo<seissol::model::ViscoElasticMaterial<3>> {
+  constexpr static std::size_t Position = 1;
+};
+
+template <>
+struct MaterialToYATeTo<seissol::model::PoroElasticMaterial> {
+  constexpr static std::size_t Position = 2;
+};
+
+template <>
+struct MaterialToYATeTo<seissol::model::AnisotropicMaterial> {
+  constexpr static std::size_t Position = 3;
+};
+
+template <typename Config>
+struct Yateto {
+  using Kernel = seissol::
+      kernel<MaterialToYATeTo<typename Config::MaterialT>::Position, Config::ConvergenceOrder, 0>;
+  using Init = seissol::
+      init<MaterialToYATeTo<typename Config::MaterialT>::Position, Config::ConvergenceOrder, 0>;
+  using Tensor = seissol::
+      tensor<MaterialToYATeTo<typename Config::MaterialT>::Position, Config::ConvergenceOrder, 0>;
+};
+
 } // namespace seissol
+
+#endif

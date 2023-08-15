@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
+#include "utils/logger.h"
 
 namespace {
 template <std::size_t I>
@@ -55,11 +56,11 @@ struct VerifyTensorSizes {
   static_assert(std::is_same_v<RealT, real>,
                 "CellConfig correctness check failed: RealT does not match the internal real type "
                 "[KERNELS MISSING].");
-  static_assert(Constants::DofsElaSize == YATeToAdapter<Config>::Tensor::Q::size(),
+  static_assert(Constants::DofsElaSize == Yateto<Config>::Tensor::Q::size(),
                 "CellConfig correctness check failed: tensor sizes do no match [KERNELS MISSING].");
   static_assert(
       Constants::DofsAneSize ==
-          YATeToAdapter<Config>::Kernel::size<YATeToAdapter<Config>::Tensor::Qane>(),
+          Yateto<Config>::Kernel::template size<Yateto<Config>::Tensor::Qane>(),
       "CellConfig correctness check failed: anelastic tensor sizes do no match [KERNELS MISSING].");
 
   static_assert(::seissol::GivenNumberOfQuantities == Config::MaterialT::NumberOfQuantities,
@@ -68,7 +69,7 @@ struct VerifyTensorSizes {
                 "by the material [KERNELS MISSING].");
 
   static_assert(
-      Config::ConvergenceOrder <= yateto::numFamilyMembers<YATeToAdapter<Config>::Tensor::dQ>(),
+      Config::ConvergenceOrder <= yateto::numFamilyMembers<Yateto<Config>::Tensor::dQ>(),
       "CellConfig correctness check failed: Too high convergence order for generated kernels.");
 };
 
