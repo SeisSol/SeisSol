@@ -11,6 +11,9 @@ format() {
     local whitelist_dir="
         src/Common
         src/DynamicRupture
+        src/Equations/elastic/Kernels
+        src/Equations/poroelastic/Kernels
+        src/Equations/viscoelastic/Kernels
         src/Geometry
         src/Model
         src/WavePropagation
