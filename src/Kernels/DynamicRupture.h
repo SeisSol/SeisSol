@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -42,52 +43,60 @@
 #define KERNELS_DYNAMICRUPTURE_H_
 
 #include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
-#include <Kernels/Time.h>
+#include "Common/configtensor.hpp"
+#include "Equations/Time.hpp"
 
-#define NUMBER_OF_SPACE_QUADRATURE_POINTS ((ConvergenceOrder+1)*(ConvergenceOrder+1))
+#define NUMBER_OF_SPACE_QUADRATURE_POINTS                                                          \
+  ((Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1))
 
 namespace seissol::kernels {
 
+template <typename Config>
 class DynamicRupture {
+  public:
+  using RealT = typename Config::RealT;
+
   private:
-    dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
-    kernels::Time m_timeKernel;
+  typename Yateto<Config>::Kernel::dynamicRupture::evaluateAndRotateQAtInterpolationPoints
+      m_krnlPrototype;
+  seissol::waveprop::kernel::time::Time<Config> m_timeKernel;
 #ifdef ACL_DEVICE
-    dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints m_gpuKrnlPrototype;
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  typename Yateto<Config>::Kernel::dynamicRupture::gpu_evaluateAndRotateQAtInterpolationPoints
+      m_gpuKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
   public:
-    double timePoints[ConvergenceOrder];
-    double timeWeights[ConvergenceOrder];
+  double timePoints[Config::ConvergenceOrder];
+  double timeWeights[Config::ConvergenceOrder];
 
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
-    void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const CompoundGlobalData& global);
-    
-    void setTimeStepWidth(double timestep);
+  static void checkGlobalData(GlobalData<Config> const* global, size_t alignment);
+  void setHostGlobalData(GlobalData<Config> const* global);
+  void setGlobalData(const CompoundGlobalData<Config>& global);
 
-    void spaceTimeInterpolation(DRFaceInformation const&    faceInfo,
-                                GlobalData const*           global,
-                                DRGodunovData const*        godunovData,
-                                DREnergyOutput*             drEnergyOutput,
-                                real const*                 timeDerivativePlus,
-                                real const*                 timeDerivativeMinus,
-                                real                        QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                real                        QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                real const*                 timeDerivativePlus_prefetch,
-                                real const*                 timeDerivativeMinus_prefetch);
+  void setTimeStepWidth(double timestep);
+
+  void spaceTimeInterpolation(
+      DRFaceInformation const& faceInfo,
+      GlobalData<Config> const* global,
+      DRGodunovData<Config> const* godunovData,
+      DREnergyOutput<Config>* drEnergyOutput,
+      RealT const* timeDerivativePlus,
+      RealT const* timeDerivativeMinus,
+      RealT QInterpolatedPlus[Config::ConvergenceOrder]
+                             [seissol::Yateto<Config>::Tensor::QInterpolated::size()],
+      RealT QInterpolatedMinus[Config::ConvergenceOrder]
+                              [seissol::Yateto<Config>::Tensor::QInterpolated::size()],
+      RealT const* timeDerivativePlus_prefetch,
+      RealT const* timeDerivativeMinus_prefetch);
 
   void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table);
 
-    void flopsGodunovState( DRFaceInformation const&  faceInfo,
-                            long long&                o_nonZeroFlops,
-                            long long&                o_hardwareFlops );
+  void flopsGodunovState(DRFaceInformation const& faceInfo,
+                         long long& o_nonZeroFlops,
+                         long long& o_hardwareFlops);
 };
 
-}
+} // namespace seissol::kernels
 
 #endif
-

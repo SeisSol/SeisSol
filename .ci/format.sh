@@ -40,6 +40,8 @@ format() {
         src/Initializer/time_stepping/Timestep.cpp
         src/Initializer/tree/VariableContainer.hpp
         src/Kernels/common.hpp
+        src/Kernels/DynamicRupture.h
+        src/Kernels/DynamicRupture.cpp
         src/Monitoring/instrumentation.hpp
         src/SourceTerm/Manager.h
         src/SourceTerm/Manager.cpp
