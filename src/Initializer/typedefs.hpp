@@ -47,6 +47,7 @@
 #include <mpi.h>
 #endif
 
+#include "Common/configtensor.hpp"
 #include "BasicTypedefs.hpp"
 #include <Initializer/preProcessorMacros.hpp>
 #include <Kernels/common.hpp>
@@ -98,11 +99,23 @@ struct CellLocalInformation {
   // mapping of the neighboring elements to the references element in relation to this element
   int faceRelations[4][2];
 
-  // ids of the face neighbors
-  unsigned int faceNeighborIds[4];
+  // neighbor config IDs
+  unsigned int neighborConfigIds[4];
 
   // LTS setup
   unsigned short ltsSetup;
+};
+
+// cell local information which is not needed during iterations
+struct SecondaryCellLocalInformation {
+  // local mesh ID (for interior/copy) or position in the linearized ghost layer
+  unsigned int meshId;
+
+  // ids of the face neighbors (in their respective Config LTS tree)
+  unsigned int faceNeighborIds[4];
+
+  // own config ID
+  unsigned int configId;
 
   // unique global id of the time cluster
   unsigned int clusterId;
@@ -204,9 +217,9 @@ struct MeshStructure {
 
 };
 
-//template<typename RealT=real>
-struct GlobalData {  
-  using RealT=real;
+template<typename Config>
+struct GlobalData {
+  using RealT=typename Config::RealT;
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
    * 
@@ -215,7 +228,7 @@ struct GlobalData {
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  seissol::tensor::rDivM::Container<RealT const*> changeOfBasisMatrices;
+  typename seissol::Yateto<Config>::Tensor::rDivM::template Container<RealT const*> changeOfBasisMatrices;
   
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
@@ -225,7 +238,7 @@ struct GlobalData {
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  seissol::tensor::fMrT::Container<RealT const*> localChangeOfBasisMatricesTransposed;
+  typename seissol::Yateto<Config>::Tensor::fMrT::template Container<RealT const*> localChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the transposed global change of basis matrices:
@@ -235,7 +248,7 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<RealT const*> neighbourChangeOfBasisMatricesTransposed;
+  typename seissol::Yateto<Config>::Tensor::rT::template Container<RealT const*> neighbourChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the global flux matrices:
@@ -244,7 +257,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP::Container<RealT const*> neighbourFluxMatrices;
+  typename seissol::Yateto<Config>::Tensor::fP::template Container<RealT const*> neighbourFluxMatrices;
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -255,7 +268,7 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  seissol::tensor::kDivM::Container<RealT const*> stiffnessMatrices;
+  typename seissol::Yateto<Config>::Tensor::kDivM::template Container<RealT const*> stiffnessMatrices;
 
   /** 
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -266,7 +279,7 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  seissol::tensor::kDivMT::Container<RealT const*> stiffnessMatricesTransposed;
+  typename seissol::Yateto<Config>::Tensor::kDivMT::template Container<RealT const*> stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
@@ -287,10 +300,10 @@ struct GlobalData {
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
    **/ 
-  seissol::tensor::V3mTo2nTWDivM::Container<RealT const*> nodalFluxMatrices;
+  typename seissol::Yateto<Config>::Tensor::V3mTo2nTWDivM::template Container<RealT const*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace::Container<RealT const*> V3mTo2nFace;
-  seissol::tensor::project2nFaceTo3m::Container<RealT const*> project2nFaceTo3m;
+  typename seissol::Yateto<Config>::Tensor::nodal::V3mTo2nFace::template Container<RealT const*> V3mTo2nFace;
+  typename seissol::Yateto<Config>::Tensor::project2nFaceTo3m::template Container<RealT const*> project2nFaceTo3m;
 
   /** 
    * Addresses of the global face to nodal matrices
@@ -308,7 +321,7 @@ struct GlobalData {
    **/ 
 
  
-  seissol::tensor::V3mTo2n::Container<RealT const*> faceToNodalMatrices;
+  typename seissol::Yateto<Config>::Tensor::V3mTo2n::template Container<RealT const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
   RealT* evalAtQPMatrix{nullptr};
@@ -325,19 +338,20 @@ struct GlobalData {
   RealT* replicateStresses{nullptr};
 };
 
+template<typename Config>
 struct CompoundGlobalData {
-  GlobalData* onHost{nullptr};
-  GlobalData* onDevice{nullptr};
+  GlobalData<Config>* onHost{nullptr};
+  GlobalData<Config>* onDevice{nullptr};
 };
 
 // data for the cell local integration
 template<typename Config>
 struct LocalIntegrationData {
   // star matrices
-  typename Config::RealT starMatrices[3][seissol::tensor::star::size(0)];
+  typename Config::RealT starMatrices[3][seissol::Yateto<Config>::Tensor::star::size(0)];
 
   // flux solver for element local contribution
-  typename Config::RealT nApNm1[4][seissol::tensor::AplusT::size()];
+  typename Config::RealT nApNm1[4][seissol::Yateto<Config>::Tensor::AplusT::size()];
 
   // equation-specific data
   seissol::model::LocalSpecificData<Config> specific;
@@ -347,7 +361,7 @@ struct LocalIntegrationData {
 template<typename Config>
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  typename Config::RealT nAmNm1[4][seissol::tensor::AminusT::size()];
+  typename Config::RealT nAmNm1[4][seissol::Yateto<Config>::Tensor::AminusT::size()];
 
   // equation-specific data
   seissol::model::NeighborSpecificData<Config> specific;
@@ -394,17 +408,21 @@ struct DRFaceInformation {
   bool     plusSideOnThisRank;
 };
 
+template<typename Config>
 struct DRGodunovData {
-  real TinvT[seissol::tensor::TinvT::size()];
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  using RealT = typename Config::RealT;
+  RealT TinvT[seissol::Yateto<Config>::Tensor::TinvT::size()];
+  RealT tractionPlusMatrix[seissol::Yateto<Config>::Tensor::tractionPlusMatrix::size()];
+  RealT tractionMinusMatrix[seissol::Yateto<Config>::Tensor::tractionMinusMatrix::size()];
   double doubledSurfaceArea;
 };
 
+template<typename Config>
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipRateInterpolated::size()];
-  real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
-  real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
+  using RealT = typename Config::RealT;
+  RealT slip[seissol::Yateto<Config>::Tensor::slipRateInterpolated::size()];
+  RealT accumulatedSlip[seissol::dr::misc::numPaddedPoints<Config>];
+  RealT frictionalEnergy[seissol::dr::misc::numPaddedPoints<Config>];
 };
 
 struct CellDRMapping {
@@ -422,13 +440,15 @@ struct CellBoundaryMapping {
   real* easiBoundaryMap;
 };
 
+template<typename Config>
 struct BoundaryFaceInformation {
+  using RealT = typename Config::RealT;
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
-  real TData[seissol::tensor::T::size()];
-  real TinvData[seissol::tensor::Tinv::size()];
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+  RealT nodes[seissol::Yateto<Config>::Tensor::nodal::nodes2D::Shape[0] * 3];
+  RealT TData[seissol::Yateto<Config>::Tensor::T::size()];
+  RealT TinvData[seissol::Yateto<Config>::Tensor::Tinv::size()];
+  RealT easiBoundaryConstant[seissol::Yateto<Config>::Tensor::easiBoundaryConstant::size()];
+  RealT easiBoundaryMap[seissol::Yateto<Config>::Tensor::easiBoundaryMap::size()];
 };
 
 

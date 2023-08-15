@@ -17,7 +17,7 @@ namespace seissol {
   namespace initializers {
     template<typename Config>
     struct Boundary : LTSVariableContainer {
-      Variable<BoundaryFaceInformation> faceInformation;
+      Variable<BoundaryFaceInformation<Config>> faceInformation;
       
       void addTo(LTSTree& tree) override {
         LayerMask mask = LayerMask(Ghost);
