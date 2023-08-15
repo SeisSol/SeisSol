@@ -1,33 +1,36 @@
 #include "Recorders.h"
 #include <Kernels/Interface.hpp>
+#include <Common/cellconfigconv.hpp>
 #include <yateto.h>
 
 using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
+template<typename Config>
+void DynamicRuptureRecorder<Config>::record(DynamicRupture<Config>& handler, Layer& layer) {
   setUpContext(handler, layer);
   recordDofsTimeEvaluation();
   recordSpaceInterpolation();
 }
 
-void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
-  real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
-  real* idofsPlus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+template<typename Config>
+void DynamicRuptureRecorder<Config>::recordDofsTimeEvaluation() {
+  RealT** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
+  RealT** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
+  RealT* idofsPlus =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
+  RealT* idofsMinus =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
-    std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
-    std::vector<real*> idofsPlusPtrs(size, nullptr);
-    std::vector<real*> idofsMinusPtrs(size, nullptr);
+    std::vector<RealT*> timeDerivativePlusPtrs(size, nullptr);
+    std::vector<RealT*> timeDerivativeMinusPtrs(size, nullptr);
+    std::vector<RealT*> idofsPlusPtrs(size, nullptr);
+    std::vector<RealT*> idofsMinusPtrs(size, nullptr);
 
-    const size_t idofsSize = tensor::Q::size();
+    const size_t idofsSize = Yateto<Config>::Tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
       timeDerivativePlusPtrs[faceId] = timeDerivativePlus[faceId];
       timeDerivativeMinusPtrs[faceId] = timeDerivativeMinus[faceId];
@@ -45,29 +48,30 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
   }
 }
 
-void DynamicRuptureRecorder::recordSpaceInterpolation() {
+template<typename Config>
+void DynamicRuptureRecorder<Config>::recordSpaceInterpolation() {
   auto* qInterpolatedPlus = currentLayer->var(currentHandler->qInterpolatedPlus);
   auto* qInterpolatedMinus = currentLayer->var(currentHandler->qInterpolatedMinus);
 
-  real* idofsPlus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+  RealT* idofsPlus =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
+  RealT* idofsMinus =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
 
   DRGodunovData* godunovData = currentLayer->var(currentHandler->godunovData);
   DRFaceInformation* faceInfo = currentLayer->var(currentHandler->faceInformation);
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> TinvTPlusPtr{};
+    std::array<std::vector<RealT*>, *FaceId::Count> qInterpolatedPlusPtr{};
+    std::array<std::vector<RealT*>, *FaceId::Count> idofsPlusPtr{};
+    std::array<std::vector<RealT*>, *FaceId::Count> TinvTPlusPtr{};
 
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> TinvTMinusPtr {};
+    std::array<std::vector<RealT*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
+    std::array<std::vector<RealT*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
+    std::array<std::vector<RealT*>[*FaceId::Count], *FaceId::Count> TinvTMinusPtr {};
 
-    const size_t idofsSize = tensor::Q::size();
+    const size_t idofsSize = Yateto<Config>::Tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
@@ -102,3 +106,5 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     }
   }
 }
+
+const DeclareForAllConfigs<DynamicRuptureRecorder> declDynamicRuptureRecorder;

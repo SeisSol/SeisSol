@@ -2,13 +2,15 @@
 #include "utils/logger.h"
 #include <Kernels/Interface.hpp>
 #include <yateto.h>
+#include <Common/cellconfigconv.hpp>
 
 using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
-  kernels::NeighborData::Loader loader;
+template<typename Config>
+void NeighIntegrationRecorder<Config>::record(LTS<Config>& handler, Layer& layer) {
+  typename kernels::NeighborData<Config>::Loader loader;
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
   idofsAddressRegistry.clear();
@@ -17,23 +19,24 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
   recordNeighbourFluxIntegrals();
 }
 
-void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
-  real* integratedDofsScratch =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
+template<typename Config>
+void NeighIntegrationRecorder<Config>::recordDofsTimeEvaluation() {
+  RealT*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
+  RealT* integratedDofsScratch =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::vector<real*> ltsIDofsPtrs{};
-    std::vector<real*> ltsDerivativesPtrs{};
-    std::vector<real*> gtsDerivativesPtrs{};
-    std::vector<real*> gtsIDofsPtrs{};
+    std::vector<RealT*> ltsIDofsPtrs{};
+    std::vector<RealT*> ltsDerivativesPtrs{};
+    std::vector<RealT*> gtsDerivativesPtrs{};
+    std::vector<RealT*> gtsIDofsPtrs{};
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        real* neighbourBuffer = faceNeighbors[cell][face];
+        RealT* neighbourBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbour element idofs has not been counted twice
         if ((idofsAddressRegistry.find(neighbourBuffer) == idofsAddressRegistry.end())) {
@@ -47,7 +50,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
               bool isNeighbProvidesDerivatives = ((data.cellInformation.ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
-                real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
+                RealT* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 bool isGtsNeigbour = ((data.cellInformation.ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {
@@ -61,7 +64,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(NextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighbourBuffer);
                 }
-                integratedDofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += Yateto<Config>::Tensor::I::size();
               } else {
                 idofsAddressRegistry[neighbourBuffer] = neighbourBuffer;
               }
@@ -87,16 +90,18 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   }
 }
 
-void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
-  real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+template<typename Config>
+void NeighIntegrationRecorder<Config>::recordNeighbourFluxIntegrals() {
+  RealT*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
 
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
+  std::array<std::vector<RealT*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
+  std::array<std::vector<RealT*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
+  std::array<std::vector<RealT*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+
+  std::array<std::vector<RealT*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
+  std::array<std::vector<RealT*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
+  std::array<std::vector<RealT*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
   CellDRMapping(*drMapping)[4] = currentLayer->var(currentHandler->drMapping);
 
@@ -110,7 +115,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
       case FaceType::periodic: {
         // compute face type relation
 
-        real* neighbourBufferPtr = faceNeighbors[cell][face];
+        RealT* neighbourBufferPtr = faceNeighbors[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighbourBufferPtr != nullptr) {
           unsigned faceRelation = data.cellInformation.faceRelations[face][1] +
@@ -119,11 +124,11 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
 
-          regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs));
+          regularPeriodicDofs[face][faceRelation].push_back(static_cast<RealT*>(data.dofs));
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighbourBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighIntegrationOnDevice.nAmNm1[face]));
+              static_cast<RealT*>(data.neighIntegrationOnDevice.nAmNm1[face]));
         }
         break;
       }
@@ -134,7 +139,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         unsigned faceRelation = drMapping[cell][face].side + 4 * drMapping[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
-        drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs));
+        drDofs[face][faceRelation].push_back(static_cast<RealT*>(data.dofs));
         drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
 
@@ -192,3 +197,5 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
     }
   }
 }
+
+const DeclareForAllConfigs<NeighIntegrationRecorder> declNeighIntegrationRecorder;

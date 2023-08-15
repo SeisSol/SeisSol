@@ -1,4 +1,6 @@
 #include "Recorders.h"
+#include "Common/configtensor.hpp"
+#include <Common/cellconfigconv.hpp>
 #include <Kernels/Interface.hpp>
 #include <yateto.h>
 
@@ -6,30 +8,31 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-void PlasticityRecorder::record(LTS& handler, Layer& layer) {
-  kernels::LocalData::Loader loader;
+template<typename Config>
+void PlasticityRecorder<Config>::record(LTS<Config>& handler, Layer& layer) {
+  typename kernels::LocalData<Config>::Loader loader;
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
 
-  real(*pstrains)[7 * seissol::kernels::NumberOfAlignedBasisFunctions()] =
+  RealT(*pstrains)[ConfigConstants<Config>::PStrainSize] =
       currentLayer->var(currentHandler->pstrain);
   size_t nodalStressTensorCounter = 0;
-  real* scratchMem =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
+  RealT* scratchMem =
+      static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::vector<real*> dofsPtrs(size, nullptr);
-    std::vector<real*> qstressNodalPtrs(size, nullptr);
-    std::vector<real*> pstransPtrs(size, nullptr);
-    std::vector<real*> initialLoadPtrs(size, nullptr);
+    std::vector<RealT*> dofsPtrs(size, nullptr);
+    std::vector<RealT*> qstressNodalPtrs(size, nullptr);
+    std::vector<RealT*> pstransPtrs(size, nullptr);
+    std::vector<RealT*> initialLoadPtrs(size, nullptr);
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
-      dofsPtrs[cell] = static_cast<real*>(data.dofs);
+      dofsPtrs[cell] = static_cast<RealT*>(data.dofs);
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
-      nodalStressTensorCounter += tensor::QStressNodal::size();
-      pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity.initialLoading);
+      nodalStressTensorCounter += Yateto<Config>::Tensor::QStressNodal::size();
+      pstransPtrs[cell] = static_cast<RealT*>(pstrains[cell]);
+      initialLoadPtrs[cell] = static_cast<RealT*>(data.plasticity.initialLoading);
     }
 
     ConditionalKey key(*KernelNames::Plasticity);
@@ -40,3 +43,5 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
   }
 }
+
+const DeclareForAllConfigs<PlasticityRecorder> declPlasticityRecorder;
