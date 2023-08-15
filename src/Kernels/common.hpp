@@ -48,9 +48,6 @@
 #include <utility>
 #include <algorithm>
 #include "Common/constants.hpp"
-#include <Initializer/typedefs.hpp>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
 #include <cassert>
 
 /**
@@ -126,15 +123,17 @@ constexpr unsigned int NumberOfBasisFunctions(unsigned int i_convergenceOrder = 
  * @param i_alignment alignment in bytes.
  * @return aligned number of reals.
  **/
+template <typename RealT>
 constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
                                             unsigned int i_alignment = Alignment) {
   // in principle, we could simplify this formula by substituting alignment = i_alignment /
-  // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
-  // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
-  // there is ever such a use case, and if the alignment then still makes much sense).
-  return (i_numberOfReals * sizeof(real) +
-          (i_alignment - (i_numberOfReals * sizeof(real)) % i_alignment) % i_alignment) /
-         sizeof(real);
+  // sizeof(RealT). However, this will cause errors, if i_alignment is not dividable by
+  // sizeof(RealT) which could happen e.g. if i_alignment < sizeof(RealT), or if we have RealT ==
+  // long double (if there is ever such a use case, and if the alignment then still makes much
+  // sense).
+  return (i_numberOfReals * sizeof(RealT) +
+          (i_alignment - (i_numberOfReals * sizeof(RealT)) % i_alignment) % i_alignment) /
+         sizeof(RealT);
 }
 
 /**
@@ -144,13 +143,14 @@ constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
  * @param i_alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
+template <typename RealT>
 constexpr unsigned int
     NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
                                   unsigned int i_alignment = Alignment) {
   // return (NumberOfBasisFunctions(O) * REAL_BYTES + (Alignment - (NumberOfBasisFunctions(O) *
   // REAL_BYTES) % Alignment) % Alignment) / REAL_BYTES
   unsigned int l_NumberOfBasisFunctions = NumberOfBasisFunctions(i_convergenceOrder);
-  return NumberOfAlignedReals(l_NumberOfBasisFunctions);
+  return NumberOfAlignedReals<RealT>(l_NumberOfBasisFunctions);
 }
 
 /**
@@ -160,40 +160,14 @@ constexpr unsigned int
  * @param i_alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
+template <typename RealT>
 constexpr unsigned
     NumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
                                             unsigned int i_alignment = Alignment) {
   return (i_convergenceOrder > 0)
-             ? NumberOfAlignedBasisFunctions(i_convergenceOrder) +
-                   NumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
+             ? NumberOfAlignedBasisFunctions<RealT>(i_convergenceOrder) +
+                   NumberOfAlignedDerivativeBasisFunctions<RealT>(i_convergenceOrder - 1)
              : 0;
-}
-
-/**
- * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
- *zero padding) storage.
- *
- * @param i_alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
- * @param o_unalignedDofs unaligned degrees of freedom.
- **/
-template <typename real_from, typename real_to>
-void convertAlignedDofs(const real_from i_alignedDofs[tensor::Q::size()],
-                        real_to o_unalignedDofs[tensor::QFortran::size()]) {
-  kernel::copyQToQFortran krnl;
-  krnl.Q = i_alignedDofs;
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
-#endif
-
-  if (std::is_same<real_from, real_to>::value) {
-    krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
-    krnl.execute();
-  } else {
-    real_from unalignedDofs[tensor::QFortran::size()];
-    krnl.QFortran = unalignedDofs;
-    krnl.execute();
-    std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
-  }
 }
 
 /**
@@ -223,6 +197,12 @@ template <class T>
 constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type {
   return 0;
 }
+
+template<typename T>
+class LocalData{};
+
+template<typename T>
+class NeighborData{};
 } // namespace kernels
 
 constexpr bool isDeviceOn() {

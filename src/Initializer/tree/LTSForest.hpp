@@ -35,12 +35,13 @@ namespace seissol {
                 });
             }
 
-            // F == void(LTSTree, LTS<typed>)
+            // F == void(LtsRef<Config>), where Config is from SupportedConfigs
             template<typename F>
             constexpr void visit(F&& visitor) {
                 visitInternal<0>(std::forward<F>(visitor));
             }
 
+            // F == void(LtsRef<Lts<Config>>, LtsRef<Lts2<Config>>), where Config is from SupportedConfigs
             template<typename F, template<typename> typename Lts2T>
             constexpr void visitTwo(F&& visitor, LTSForest<T, Lts2T>& two) {
                 visitTwoInternal<0, F, Lts2T>(std::forward<F>(visitor), two);
