@@ -53,10 +53,11 @@
 
 #include <generated_code/kernel.h>
 #include "Equations/datastructures.hpp"
+#include "Equations/Time.hpp"
 
 namespace seissol::waveprop::kernel::time {
-  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
-  class Time {
+  template<typename Config>
+  class Time<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
     using RealT = typename Config::RealT;
   protected:
     kernel::derivative m_krnlPrototype;

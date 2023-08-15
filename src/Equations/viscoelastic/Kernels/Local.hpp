@@ -51,11 +51,11 @@
 #include <cstring>
 
 #include <yateto.h>
+#include "Equations/Local.hpp"
 
-namespace seissol {
-  namespace kernels {
-    template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
-    class Local {
+namespace seissol::waveprop::kernel::local {
+    template<typename Config>
+    class Local<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
         using RealT = typename Config::RealT;
     protected:
       kernel::volumeExt m_volumeKernelPrototype;
@@ -178,7 +178,6 @@ unsigned bytesIntegral()
 }
 
     };
-  }
 }
 
 #endif
