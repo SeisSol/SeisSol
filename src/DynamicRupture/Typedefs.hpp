@@ -28,8 +28,10 @@ enum class FrictionLawType : unsigned int {
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
  * Carsten Uphoff's dissertation equation (4.51)
  */
+template <typename Config>
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  using RealT = typename Config::RealT;
+  RealT zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
 };
 
 /**
@@ -37,19 +39,23 @@ struct ImpedancesAndEta {
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
+template <typename Config>
 struct FaultStresses {
-  alignas(Alignment) real normalStress[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  using RealT = typename Config::RealT;
+  alignas(Alignment) RealT normalStress[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
+  alignas(Alignment) RealT traction1[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
+  alignas(Alignment) RealT traction2[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
 };
 
 /**
  * Struct that contains all traction results
  * traction1, traction2 in the direction of the respective tangential vectors
  */
+template <typename Config>
 struct TractionResults {
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  using RealT = typename Config::RealT;
+  alignas(Alignment) RealT traction1[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
+  alignas(Alignment) RealT traction2[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
 };
 
 } // namespace seissol::dr

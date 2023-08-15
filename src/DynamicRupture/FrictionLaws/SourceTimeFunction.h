@@ -7,34 +7,42 @@
 #include "Numerical_aux/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law {
+template <typename Config>
 class YoffeSTF {
+  public:
+  using RealT = typename Config::RealT;
+
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*tauS)[misc::numPaddedPoints];
-  real (*tauR)[misc::numPaddedPoints];
+  RealT (*onsetTime)[misc::numPaddedPoints<Config>];
+  RealT (*tauS)[misc::numPaddedPoints<Config>];
+  RealT (*tauR)[misc::numPaddedPoints<Config>];
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime);
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime);
 
-  real evaluate(real currentTime,
-                [[maybe_unused]] real timeIncrement,
-                size_t ltsFace,
-                size_t pointIndex);
+  RealT evaluate(RealT currentTime,
+                 [[maybe_unused]] RealT timeIncrement,
+                 size_t ltsFace,
+                 size_t pointIndex);
 };
 
+template <typename Config>
 class GaussianSTF {
+  public:
+  using RealT = typename Config::RealT;
+
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*riseTime)[misc::numPaddedPoints];
+  RealT (*onsetTime)[misc::numPaddedPoints<Config>];
+  RealT (*riseTime)[misc::numPaddedPoints<Config>];
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime);
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  RealT evaluate(RealT currentTime, RealT timeIncrement, size_t ltsFace, size_t pointIndex);
 };
 
 } // namespace seissol::dr::friction_law

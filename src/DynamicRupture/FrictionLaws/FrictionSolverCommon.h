@@ -26,21 +26,22 @@ struct ForLoopRange {
 
 enum class RangeType { CPU, GPU };
 
-template <RangeType Type>
+template <typename Config, RangeType Type>
 struct NumPoints {
   private:
-  using CpuRange = ForLoopRange<0, dr::misc::numPaddedPoints, 1>;
+  using CpuRange = ForLoopRange<0, dr::misc::numPaddedPoints<Config>, 1>;
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
   using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
 };
 
-template <RangeType Type>
+template <typename Config, RangeType Type>
 struct QInterpolated {
   private:
-  using CpuRange = ForLoopRange<0, tensor::QInterpolated::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::numPaddedPoints>;
+  using CpuRange = ForLoopRange<0, Yateto<Config>::Tensor::QInterpolated::size(), 1>;
+  using GpuRange =
+      ForLoopRange<0, Yateto<Config>::Tensor::QInterpolated::size(), misc::numPaddedPoints<Config>>;
 
   public:
   using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
@@ -49,12 +50,15 @@ struct QInterpolated {
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
+template <typename Config>
 inline void checkAlignmentPreCompute(
-    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses) {
+    const typename Config::RealT qIPlus[Config::ConvergenceOrder][dr::misc::numQuantities<Config>]
+                                       [dr::misc::numPaddedPoints<Config>],
+    const typename Config::RealT qIMinus[Config::ConvergenceOrder][dr::misc::numQuantities<Config>]
+                                        [dr::misc::numPaddedPoints<Config>],
+    const FaultStresses<Config>& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Config::ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -88,15 +92,18 @@ inline void checkAlignmentPreCompute(
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Config, RangeType Type = RangeType::CPU>
 inline void precomputeStressFromQInterpolated(
-    FaultStresses& faultStresses,
-    const ImpedancesAndEta& impAndEta,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    FaultStresses<Config>& faultStresses,
+    const ImpedancesAndEta<Config>& impAndEta,
+    const typename Config::RealT qInterpolatedPlus[Config::ConvergenceOrder]
+                                                  [Yateto<Config>::Tensor::QInterpolated::size()],
+    const typename Config::RealT qInterpolatedMinus[Config::ConvergenceOrder]
+                                                   [Yateto<Config>::Tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
+  static_assert(Yateto<Config>::Tensor::QInterpolated::Shape[0] ==
+                    Yateto<Config>::Tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
   const auto etaP = impAndEta.etaP;
@@ -106,18 +113,19 @@ inline void precomputeStressFromQInterpolated(
   const auto invZpNeig = impAndEta.invZpNeig;
   const auto invZsNeig = impAndEta.invZsNeig;
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
+  using QInterpolatedShapeT =
+      const typename Config::RealT(*)[misc::numQuantities<Config>][misc::numPaddedPoints<Config>];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
-  checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+  checkAlignmentPreCompute<Config>(qIPlus, qIMinus, faultStresses);
 #endif
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
-    using Range = typename NumPoints<Type>::Range;
+  for (unsigned o = 0; o < Config::ConvergenceOrder; ++o) {
+    using Range = typename NumPoints<Config, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -142,13 +150,18 @@ inline void precomputeStressFromQInterpolated(
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
+template <typename Config>
 inline void checkAlignmentPostCompute(
-    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real imposedStateP[ConvergenceOrder][dr::misc::numPaddedPoints],
-    const real imposedStateM[ConvergenceOrder][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults) {
+    const typename Config::RealT qIPlus[Config::ConvergenceOrder][dr::misc::numQuantities<Config>]
+                                       [dr::misc::numPaddedPoints<Config>],
+    const typename Config::RealT qIMinus[Config::ConvergenceOrder][dr::misc::numQuantities<Config>]
+                                        [dr::misc::numPaddedPoints<Config>],
+    const typename Config::RealT imposedStateP[Config::ConvergenceOrder]
+                                              [dr::misc::numPaddedPoints<Config>],
+    const typename Config::RealT imposedStateM[Config::ConvergenceOrder]
+                                              [dr::misc::numPaddedPoints<Config>],
+    const FaultStresses<Config>& faultStresses,
+    const TractionResults<Config>& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
   assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
@@ -165,7 +178,7 @@ inline void checkAlignmentPostCompute(
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
-  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < Config::ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -188,7 +201,7 @@ inline void checkAlignmentPostCompute(
 
 /**
  * Integrate over all Time points with the time weights and calculate the traction for each side
- * according to Carsten Uphoff Thesis: EQ.: 4.60
+ * according to Carsten Uphoff's Thesis: EQ.: 4.60
  *
  * @param[in] faultStresses
  * @param[in] tractionResults
@@ -199,25 +212,27 @@ inline void checkAlignmentPostCompute(
  * @param[out] imposedStatePlus
  * @param[out] imposedStateMinus
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Config, RangeType Type = RangeType::CPU>
 inline void postcomputeImposedStateFromNewStress(
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults,
-    const ImpedancesAndEta& impAndEta,
-    real imposedStatePlus[tensor::QInterpolated::size()],
-    real imposedStateMinus[tensor::QInterpolated::size()],
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const double timeWeights[ConvergenceOrder],
+    const FaultStresses<Config>& faultStresses,
+    const TractionResults<Config>& tractionResults,
+    const ImpedancesAndEta<Config>& impAndEta,
+    typename Config::RealT imposedStatePlus[Yateto<Config>::Tensor::QInterpolated::size()],
+    typename Config::RealT imposedStateMinus[Yateto<Config>::Tensor::QInterpolated::size()],
+    const typename Config::RealT qInterpolatedPlus[Config::ConvergenceOrder]
+                                                  [Yateto<Config>::Tensor::QInterpolated::size()],
+    const typename Config::RealT qInterpolatedMinus[Config::ConvergenceOrder]
+                                                   [Yateto<Config>::Tensor::QInterpolated::size()],
+    const double timeWeights[Config::ConvergenceOrder],
     unsigned startIndex = 0) {
 
   // set imposed state to zero
-  using QInterpolatedRange = typename QInterpolated<Type>::Range;
+  using QInterpolatedRange = typename QInterpolated<Config, Type>::Range;
   for (auto index = QInterpolatedRange::start; index < QInterpolatedRange::end;
        index += QInterpolatedRange::step) {
     auto i{startIndex + index};
-    imposedStatePlus[i] = static_cast<real>(0.0);
-    imposedStateMinus[i] = static_cast<real>(0.0);
+    imposedStatePlus[i] = static_cast<typename Config::RealT>(0.0);
+    imposedStateMinus[i] = static_cast<typename Config::RealT>(0.0);
   }
 
   const auto invZs = impAndEta.invZs;
@@ -225,11 +240,12 @@ inline void postcomputeImposedStateFromNewStress(
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
-  using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
+  using ImposedStateShapeT = typename Config::RealT(*)[misc::numPaddedPoints<Config>];
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
+  using QInterpolatedShapeT =
+      const typename Config::RealT(*)[misc::numQuantities<Config>][misc::numPaddedPoints<Config>];
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -240,10 +256,10 @@ inline void postcomputeImposedStateFromNewStress(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Config::ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
 
-    using NumPointsRange = typename NumPoints<Type>::Range;
+    using NumPointsRange = typename NumPoints<Config, Type>::Range;
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
@@ -284,19 +300,21 @@ inline void postcomputeImposedStateFromNewStress(
  * @param[in] dt
  * @param[in] index - device iteration index
  */
-template <RangeType Type = RangeType::CPU,
+template <typename Config,
+          RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
-inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
-                                const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
-                                real fullUpdateTime,
-                                real t0,
-                                real dt,
-                                unsigned startIndex = 0) {
+inline void adjustInitialStress(
+    typename Config::RealT initialStressInFaultCS[misc::numPaddedPoints<Config>][6],
+    const typename Config::RealT nucleationStressInFaultCS[misc::numPaddedPoints<Config>][6],
+    typename Config::RealT fullUpdateTime,
+    typename Config::RealT t0,
+    typename Config::RealT dt,
+    unsigned startIndex = 0) {
   if (fullUpdateTime <= t0) {
-    const real gNuc =
+    const typename Config::RealT gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
 
-    using Range = typename NumPoints<Type>::Range;
+    using Range = typename NumPoints<Config, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -319,25 +337,26 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
  * param[in] slipRateMagnitude
  * param[in] fullUpdateTime
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Config, RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
-inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real ruptureTime[misc::numPaddedPoints],
-                                   const real slipRateMagnitude[misc::numPaddedPoints],
-                                   real fullUpdateTime,
-                                   unsigned startIndex = 0) {
+inline void saveRuptureFrontOutput(
+    bool ruptureTimePending[misc::numPaddedPoints<Config>],
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    typename Config::RealT ruptureTime[misc::numPaddedPoints<Config>],
+    const typename Config::RealT slipRateMagnitude[misc::numPaddedPoints<Config>],
+    typename Config::RealT fullUpdateTime,
+    unsigned startIndex = 0) {
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Config, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
-    constexpr real ruptureFrontThreshold = 0.001;
+    constexpr typename Config::RealT ruptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
@@ -351,14 +370,15 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in] slipRateMagnitude
  * param[in, out] peakSlipRate
  */
-template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real peakSlipRate[misc::numPaddedPoints],
-                                   unsigned startIndex = 0) {
+template <typename Config, RangeType Type = RangeType::CPU>
+inline void savePeakSlipRateOutput(
+    const typename Config::RealT slipRateMagnitude[misc::numPaddedPoints<Config>],
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    typename Config::RealT peakSlipRate[misc::numPaddedPoints<Config>],
+    unsigned startIndex = 0) {
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Config, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -369,23 +389,27 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedP
   }
 }
 
-template <RangeType Type = RangeType::CPU>
+template <typename Config, RangeType Type = RangeType::CPU>
 inline void computeFrictionEnergy(
-    DREnergyOutput& energyData,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const ImpedancesAndEta& impAndEta,
-    const double timeWeights[ConvergenceOrder],
-    const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
-    const DRGodunovData& godunovData,
+    DREnergyOutput<Config>& energyData,
+    const typename Config::RealT qInterpolatedPlus[Config::ConvergenceOrder]
+                                                  [Yateto<Config>::Tensor::QInterpolated::size()],
+    const typename Config::RealT qInterpolatedMinus[Config::ConvergenceOrder]
+                                                   [Yateto<Config>::Tensor::QInterpolated::size()],
+    const ImpedancesAndEta<Config>& impAndEta,
+    const double timeWeights[Config::ConvergenceOrder],
+    const typename Config::RealT spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
+    const DRGodunovData<Config>& godunovData,
     size_t startIndex = 0) {
 
-  auto* slip = reinterpret_cast<real(*)[misc::numPaddedPoints]>(energyData.slip);
+  auto* slip =
+      reinterpret_cast<typename Config::RealT(*)[misc::numPaddedPoints<Config>]>(energyData.slip);
   auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
+  using QInterpolatedShapeT =
+      const typename Config::RealT(*)[misc::numQuantities<Config>][misc::numPaddedPoints<Config>];
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -395,10 +419,10 @@ inline void computeFrictionEnergy(
   const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Config, Type>::Range;
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < Config::ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE
@@ -407,11 +431,11 @@ inline void computeFrictionEnergy(
     for (size_t index = Range::start; index < Range::end; index += Range::step) {
       const size_t i{startIndex + index};
 
-      const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
-      const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
-      const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
+      const auto interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
+      const auto interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
+      const auto interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
-      const real interpolatedSlipRateMagnitude =
+      const auto interpolatedSlipRateMagnitude =
           misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
       accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
@@ -420,9 +444,9 @@ inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const auto interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
+      const auto interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
+      const auto interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;

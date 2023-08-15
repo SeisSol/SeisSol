@@ -15,7 +15,11 @@ namespace seissol::dr::initializers {
  * global parameters from the parameters.par file Furthermore derived quantities (such as e.g.
  * initial friction) are computed.
  */
+template <typename Config>
 class BaseDRInitializer {
+  public:
+  using RealT = typename Config::RealT;
+
   protected:
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
@@ -44,7 +48,7 @@ class BaseDRInitializer {
       yz.reserve(size);
       xz.reserve(size);
     }
-    using VectorOfArrays_t = std::vector<std::array<real, misc::numPaddedPoints>>;
+    using VectorOfArrays_t = std::vector<std::array<RealT, misc::numPaddedPoints<Config>>>;
     VectorOfArrays_t xx;
     VectorOfArrays_t yy;
     VectorOfArrays_t zz;
@@ -73,7 +77,7 @@ class BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+  virtual void initializeFault(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                                seissol::initializers::LTSTree* const dynRupTree);
 
   protected:
@@ -86,8 +90,8 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    */
   virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture const* const dynRup,
+      addAdditionalParameters(std::unordered_map<std::string, RealT*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture<Config> const* const dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -97,7 +101,7 @@ class BaseDRInitializer {
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
   std::vector<unsigned>
-      getFaceIDsInIterator(seissol::initializers::DynamicRupture const* const dynRup,
+      getFaceIDsInIterator(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                            seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -115,7 +119,7 @@ class BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  void initializeOtherVariables(seissol::initializers::DynamicRupture const* const dynRup,
+  void initializeOtherVariables(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                                 seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -142,9 +146,10 @@ class BaseDRInitializer {
    * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
    */
-  void rotateTractionToCartesianStress(seissol::initializers::DynamicRupture const* const dynRup,
-                                       seissol::initializers::LTSTree::leaf_iterator& it,
-                                       StressTensor& stress);
+  void rotateTractionToCartesianStress(
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      seissol::initializers::LTSTree::leaf_iterator& it,
+      StressTensor& stress);
 
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
@@ -154,9 +159,9 @@ class BaseDRInitializer {
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
-  void rotateStressToFaultCS(seissol::initializers::DynamicRupture const* const dynRup,
+  void rotateStressToFaultCS(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                              seissol::initializers::LTSTree::leaf_iterator& it,
-                             real (*stressInFaultCS)[misc::numPaddedPoints][6],
+                             RealT (*stressInFaultCS)[misc::numPaddedPoints<Config>][6],
                              StressTensor const& stress);
 
   /**

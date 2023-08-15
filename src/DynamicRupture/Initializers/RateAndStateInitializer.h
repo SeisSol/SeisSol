@@ -9,22 +9,24 @@ namespace seissol::dr::initializers {
  * Derived initializer class for the common part of RateAndState friction laws
  * For the slip and aging law, this initializer is sufficient
  */
-class RateAndStateInitializer : public BaseDRInitializer {
+template <typename Config>
+class RateAndStateInitializer : public BaseDRInitializer<Config> {
   public:
-  using BaseDRInitializer::BaseDRInitializer;
+  using BaseDRInitializer<Config>::BaseDRInitializer;
 
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+  void initializeFault(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                        seissol::initializers::LTSTree* const dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+  void addAdditionalParameters(
+      std::unordered_map<std::string, typename Config::RealT*>& parameterToStorageMap,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -50,31 +52,33 @@ class RateAndStateInitializer : public BaseDRInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  virtual StateAndFriction computeInitialStateAndFriction(real traction1,
-                                                          real traction2,
-                                                          real pressure,
-                                                          real rsA,
-                                                          real rsB,
-                                                          real rsSl0,
-                                                          real rsSr0,
-                                                          real rsF0,
-                                                          real initialSlipRate);
+  virtual StateAndFriction computeInitialStateAndFriction(typename Config::RealT traction1,
+                                                          typename Config::RealT traction2,
+                                                          typename Config::RealT pressure,
+                                                          typename Config::RealT rsA,
+                                                          typename Config::RealT rsB,
+                                                          typename Config::RealT rsSl0,
+                                                          typename Config::RealT rsSr0,
+                                                          typename Config::RealT rsF0,
+                                                          typename Config::RealT initialSlipRate);
 };
 
 /**
  * Derived initializer class for FastVelocityWeakening friction laws
  */
-class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
+template <typename Config>
+class RateAndStateFastVelocityInitializer : public RateAndStateInitializer<Config> {
   public:
-  using RateAndStateInitializer::RateAndStateInitializer;
+  using RateAndStateInitializer<Config>::RateAndStateInitializer;
 
   protected:
   /**
    * Adds the additional parameters rs_srW
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+  void addAdditionalParameters(
+      std::unordered_map<std::string, typename Config::RealT*>& parameterToStorageMap,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
@@ -93,38 +97,42 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  StateAndFriction computeInitialStateAndFriction(real traction1,
-                                                  real traction2,
-                                                  real pressure,
-                                                  real rsA,
-                                                  real rsB,
-                                                  real rsSl0,
-                                                  real rsSr0,
-                                                  real rsF0,
-                                                  real initialSlipRate) override;
+  typename RateAndStateInitializer<Config>::StateAndFriction
+      computeInitialStateAndFriction(typename Config::RealT traction1,
+                                     typename Config::RealT traction2,
+                                     typename Config::RealT pressure,
+                                     typename Config::RealT rsA,
+                                     typename Config::RealT rsB,
+                                     typename Config::RealT rsSl0,
+                                     typename Config::RealT rsSr0,
+                                     typename Config::RealT rsF0,
+                                     typename Config::RealT initialSlipRate) override;
 };
 
 /**
  * Derived initializer class for FastVelocityWeakening friction law with additional thermal
  * pressurization
  */
-class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelocityInitializer {
+template <typename Config>
+class RateAndStateThermalPressurizationInitializer
+    : public RateAndStateFastVelocityInitializer<Config> {
   public:
-  using RateAndStateFastVelocityInitializer::RateAndStateFastVelocityInitializer;
+  using RateAndStateFastVelocityInitializer<Config>::RateAndStateFastVelocityInitializer;
 
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+  void initializeFault(seissol::initializers::DynamicRupture<Config> const* const dynRup,
                        seissol::initializers::LTSTree* const dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+  void addAdditionalParameters(
+      std::unordered_map<std::string, typename Config::RealT*>& parameterToStorageMap,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 } // namespace seissol::dr::initializers

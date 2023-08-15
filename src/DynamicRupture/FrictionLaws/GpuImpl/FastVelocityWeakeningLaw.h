@@ -5,24 +5,27 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename TPMethod>
+template <typename Config, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Config, FastVelocityWeakeningLaw<Config, TPMethod>, TPMethod> {
   public:
+  using RealT = typename Config::RealT;
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {}
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {}
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
-                                      real fullUpdateTime) override {
-    using SelfInitializerType = seissol::initializers::LTSRateAndStateFastVelocityWeakening;
+  void copySpecificLtsDataTreeToLocal(
+      seissol::initializers::Layer& layerData,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      RealT fullUpdateTime) override {
+    using SelfInitializerType = seissol::initializers::LTSRateAndStateFastVelocityWeakening<Config>;
     auto* concreteLts = dynamic_cast<SelfInitializerType const* const>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW);
 
-    using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
+    using ParentType =
+        RateAndStateBase<Config, FastVelocityWeakeningLaw<Config, TPMethod>, TPMethod>;
     ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -53,7 +56,8 @@ class FastVelocityWeakeningLaw
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -106,19 +110,20 @@ class FastVelocityWeakeningLaw
     return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
-  void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(RealT (*devStateVariableBuffer)[misc::numPaddedPoints<Config>]) {
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::numPaddedPoints);
+    static_assert(dim0 == misc::numPaddedPoints<Config>);
     static_assert(dim0 >= dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::numPaddedPoints, cgh);
+      sycl::accessor<RealT, 1, sycl::access::mode::read_write, sycl::access::target::local>
+          deltaStateVar(misc::numPaddedPoints<Config>, cgh);
 
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -129,7 +134,7 @@ class FastVelocityWeakeningLaw
             devStateVariableBuffer[ltsFace][pointIndex] - localStateVariable;
         item.barrier(sycl::access::fence_space::local_space);
 
-        real resampledDeltaStateVar{0.0};
+        RealT resampledDeltaStateVar{0.0};
         for (size_t i{0}; i < dim1; ++i) {
           resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
         }
@@ -142,7 +147,7 @@ class FastVelocityWeakeningLaw
   void executeIfNotConverged() {}
 
   protected:
-  real (*srW)[misc::numPaddedPoints];
+  RealT (*srW)[misc::numPaddedPoints<Config>];
 };
 } // namespace seissol::dr::friction_law::gpu
 

@@ -5,12 +5,13 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::initializers {
-void ImposedSlipRatesInitializer::initializeFault(
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesInitializer<Config>::initializeFault(
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::numberOfBoundaryGaussPoints << " points.";
+                << misc::numberOfBoundaryGaussPoints<Config> << " points.";
   seissol::initializers::FaultParameterDB faultParameterDB;
 
   for (auto it = dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
@@ -18,22 +19,23 @@ void ImposedSlipRatesInitializer::initializeFault(
        ++it) {
 
     // parameters to be read from fault parameters yaml file
-    std::unordered_map<std::string, real*> parameterToStorageMap;
+    std::unordered_map<std::string, typename Config::RealT*> parameterToStorageMap;
 
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSImposedSlipRates const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSImposedSlipRates<Config> const* const>(dynRup);
     auto* imposedSlipDirection1 = it->var(concreteLts->imposedSlipDirection1);
     auto* imposedSlipDirection2 = it->var(concreteLts->imposedSlipDirection2);
     auto* onsetTime = it->var(concreteLts->onsetTime);
 
     // First read slip in strike/dip direction. Later we will rotate this to the face aligned
     // coordinate system.
-    using VectorOfArraysT = std::vector<std::array<real, misc::numPaddedPoints>>;
+    using VectorOfArraysT =
+        std::vector<std::array<typename Config::RealT, misc::numPaddedPoints<Config>>>;
     VectorOfArraysT strikeSlip(it->getNumberOfCells());
     VectorOfArraysT dipSlip(it->getNumberOfCells());
     parameterToStorageMap.insert({"strike_slip", strikeSlip.data()->data()});
     parameterToStorageMap.insert({"dip_slip", dipSlip.data()->data()});
-    parameterToStorageMap.insert({"rupture_onset", (real*)onsetTime});
+    parameterToStorageMap.insert({"rupture_onset", (typename Config::RealT*)onsetTime});
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -48,14 +50,14 @@ void ImposedSlipRatesInitializer::initializeFault(
     rotateSlipToFaultCS(
         dynRup, it, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
-    real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
+    typename Config::RealT(*nucleationStressInFaultCS)[misc::numPaddedPoints<Config>][6] =
         it->var(dynRup->nucleationStressInFaultCS);
-    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
+    typename Config::RealT(*initialStressInFaultCS)[misc::numPaddedPoints<Config>][6] =
         it->var(dynRup->initialStressInFaultCS);
 
     // Set initial and nucleation stress to zero, these are not needed for this FL
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; ++pointIndex) {
         for (unsigned int dim = 0; dim < 6; ++dim) {
           initialStressInFaultCS[ltsFace][pointIndex][dim] = 0;
           nucleationStressInFaultCS[ltsFace][pointIndex][dim] = 0;
@@ -69,13 +71,15 @@ void ImposedSlipRatesInitializer::initializeFault(
   }
 }
 
-void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesInitializer<Config>::rotateSlipToFaultCS(
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSTree::leaf_iterator& it,
-    std::vector<std::array<real, misc::numPaddedPoints>> const& strikeSlip,
-    std::vector<std::array<real, misc::numPaddedPoints>> const& dipSlip,
-    real (*imposedSlipDirection1)[misc::numPaddedPoints],
-    real (*imposedSlipDirection2)[misc::numPaddedPoints]) {
+    std::vector<std::array<typename Config::RealT, misc::numPaddedPoints<Config>>> const&
+        strikeSlip,
+    std::vector<std::array<typename Config::RealT, misc::numPaddedPoints<Config>>> const& dipSlip,
+    typename Config::RealT (*imposedSlipDirection1)[misc::numPaddedPoints<Config>],
+    typename Config::RealT (*imposedSlipDirection2)[misc::numPaddedPoints<Config>]) {
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
@@ -86,12 +90,13 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
 
     // cos^2 can be greater than 1 because of rounding errors
-    real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
+    typename Config::RealT cos =
+        std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
     VrtxCoords crossProduct{};
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
-    real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
-    real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
-    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    typename Config::RealT scalarProduct = MeshTools::dot(crossProduct, fault.normal);
+    typename Config::RealT sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; ++pointIndex) {
       imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];
       imposedSlipDirection2[ltsFace][pointIndex] =
@@ -100,48 +105,53 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   }
 }
 
-void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesInitializer<Config>::fixInterpolatedSTFParameters(
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // do nothing
 }
 
-void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesYoffeInitializer<Config>::addAdditionalParameters(
+    std::unordered_map<std::string, typename Config::RealT*>& parameterToStorageMap,
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe const* const>(dynRup);
-  real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
-  real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
-  parameterToStorageMap.insert({"tau_S", (real*)tauS});
-  parameterToStorageMap.insert({"tau_R", (real*)tauR});
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe<Config> const* const>(dynRup);
+  typename Config::RealT(*tauS)[misc::numPaddedPoints<Config>] = it->var(concreteLts->tauS);
+  typename Config::RealT(*tauR)[misc::numPaddedPoints<Config>] = it->var(concreteLts->tauR);
+  parameterToStorageMap.insert({"tau_S", (typename Config::RealT*)tauS});
+  parameterToStorageMap.insert({"tau_R", (typename Config::RealT*)tauR});
 }
 
-void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesYoffeInitializer<Config>::fixInterpolatedSTFParameters(
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe const* const>(dynRup);
-  real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
-  real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe<Config> const* const>(dynRup);
+  typename Config::RealT(*tauS)[misc::numPaddedPoints<Config>] = it->var(concreteLts->tauS);
+  typename Config::RealT(*tauR)[misc::numPaddedPoints<Config>] = it->var(concreteLts->tauR);
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
   // can happen due to ASAGI interpolation)
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      tauS[ltsFace][pointIndex] = std::max(static_cast<real>(0.0), tauS[ltsFace][pointIndex]);
+    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; ++pointIndex) {
+      tauS[ltsFace][pointIndex] =
+          std::max(static_cast<typename Config::RealT>(0.0), tauS[ltsFace][pointIndex]);
       tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
     }
   }
 }
 
-void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture const* const dynRup,
+template <typename Config>
+void ImposedSlipRatesGaussianInitializer<Config>::addAdditionalParameters(
+    std::unordered_map<std::string, typename Config::RealT*>& parameterToStorageMap,
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTSImposedSlipRatesGaussian const* const>(dynRup);
-  real(*riseTime)[misc::numPaddedPoints] = it->var(concreteLts->riseTime);
-  parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesGaussian<Config> const* const>(dynRup);
+  typename Config::RealT(*riseTime)[misc::numPaddedPoints<Config>] = it->var(concreteLts->riseTime);
+  parameterToStorageMap.insert({"rupture_rise_time", (typename Config::RealT*)riseTime});
 }
 } // namespace seissol::dr::initializers

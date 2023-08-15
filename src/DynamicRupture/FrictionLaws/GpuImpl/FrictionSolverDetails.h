@@ -11,8 +11,10 @@ namespace sycl = cl::sycl;
 #endif
 
 namespace seissol::dr::friction_law::gpu {
+template <typename Config>
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
+  using RealT = typename Config::RealT;
   explicit FrictionSolverDetails(dr::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
@@ -20,21 +22,21 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   void allocateAuxiliaryMemory() override;
   void copyStaticDataToDevice() override;
 
-  virtual void
-      copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                     seissol::initializers::DynamicRupture const* const dynRup,
-                                     real fullUpdateTime) = 0;
+  virtual void copySpecificLtsDataTreeToLocal(
+      seissol::initializers::Layer& layerData,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      RealT fullUpdateTime) = 0;
 
   protected:
   size_t currLayerSize{};
 
-  FaultStresses* faultStresses{nullptr};
-  TractionResults* tractionResults{nullptr};
-  real (*stateVariableBuffer)[misc::numPaddedPoints]{nullptr};
-  real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
-  real* resampleMatrix{nullptr};
+  FaultStresses<Config>* faultStresses{nullptr};
+  TractionResults<Config>* tractionResults{nullptr};
+  RealT (*stateVariableBuffer)[misc::numPaddedPoints<Config>]{nullptr};
+  RealT (*strengthBuffer)[misc::numPaddedPoints<Config>]{nullptr};
+  RealT* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
-  real* devSpaceWeights{nullptr};
+  RealT* devSpaceWeights{nullptr};
 
   sycl::device device;
   sycl::queue queue;

@@ -4,11 +4,12 @@
 #include "SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law {
-template <typename TPMethod>
-class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
+template <typename Config, typename TPMethod>
+class SlipLaw : public SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod>::
+      SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
 /**
  * Integrates the state variable ODE in time

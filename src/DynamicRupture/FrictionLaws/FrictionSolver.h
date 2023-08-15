@@ -13,19 +13,22 @@ namespace seissol::dr::friction_law {
  * BaseFrictionLaw has a template argument for CRTP, hence, we can't store a pointer to any
  * BaseFrictionLaw.
  */
+template <typename Config>
 class FrictionSolver {
   public:
+  using RealT = typename Config::RealT;
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
-    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
-              &init::quadweights::Values[init::quadweights::Stop[0]],
-              &spaceWeights[0]);
+    std::copy(
+        &Yateto<Config>::Init::quadweights::Values[Yateto<Config>::Init::quadweights::Start[0]],
+        &Yateto<Config>::Init::quadweights::Values[Yateto<Config>::Init::quadweights::Stop[0]],
+        &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializers::Layer& layerData,
-                        seissol::initializers::DynamicRupture const* const dynRup,
-                        real fullUpdateTime,
+                        seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                        RealT fullUpdateTime,
                         const double timeWeights[ConvergenceOrder]) = 0;
 
   /**
@@ -38,47 +41,47 @@ class FrictionSolver {
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime);
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime);
 
   protected:
   /**
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[ConvergenceOrder] = {};
+  RealT deltaT[ConvergenceOrder] = {};
 
   dr::DRParameters* drParameters;
-  ImpedancesAndEta* impAndEta;
-  real mFullUpdateTime;
+  ImpedancesAndEta<Config>* impAndEta;
+  RealT mFullUpdateTime;
   // CS = coordinate system
-  real (*initialStressInFaultCS)[misc::numPaddedPoints][6];
-  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
-  real (*cohesion)[misc::numPaddedPoints];
-  real (*mu)[misc::numPaddedPoints];
-  real (*accumulatedSlipMagnitude)[misc::numPaddedPoints];
-  real (*slip1)[misc::numPaddedPoints];
-  real (*slip2)[misc::numPaddedPoints];
-  real (*slipRateMagnitude)[misc::numPaddedPoints];
-  real (*slipRate1)[misc::numPaddedPoints];
-  real (*slipRate2)[misc::numPaddedPoints];
-  real (*ruptureTime)[misc::numPaddedPoints];
-  bool (*ruptureTimePending)[misc::numPaddedPoints];
-  real (*peakSlipRate)[misc::numPaddedPoints];
-  real (*traction1)[misc::numPaddedPoints];
-  real (*traction2)[misc::numPaddedPoints];
-  real (*imposedStatePlus)[tensor::QInterpolated::size()];
-  real (*imposedStateMinus)[tensor::QInterpolated::size()];
-  real spaceWeights[misc::numPaddedPoints];
-  DREnergyOutput* energyData{};
-  DRGodunovData* godunovData{};
+  RealT (*initialStressInFaultCS)[misc::numPaddedPoints<Config>][6];
+  RealT (*nucleationStressInFaultCS)[misc::numPaddedPoints<Config>][6];
+  RealT (*cohesion)[misc::numPaddedPoints<Config>];
+  RealT (*mu)[misc::numPaddedPoints<Config>];
+  RealT (*accumulatedSlipMagnitude)[misc::numPaddedPoints<Config>];
+  RealT (*slip1)[misc::numPaddedPoints<Config>];
+  RealT (*slip2)[misc::numPaddedPoints<Config>];
+  RealT (*slipRateMagnitude)[misc::numPaddedPoints<Config>];
+  RealT (*slipRate1)[misc::numPaddedPoints<Config>];
+  RealT (*slipRate2)[misc::numPaddedPoints<Config>];
+  RealT (*ruptureTime)[misc::numPaddedPoints<Config>];
+  bool (*ruptureTimePending)[misc::numPaddedPoints<Config>];
+  RealT (*peakSlipRate)[misc::numPaddedPoints<Config>];
+  RealT (*traction1)[misc::numPaddedPoints<Config>];
+  RealT (*traction2)[misc::numPaddedPoints<Config>];
+  RealT (*imposedStatePlus)[Yateto<Config>::Tensor::QInterpolated::size()];
+  RealT (*imposedStateMinus)[Yateto<Config>::Tensor::QInterpolated::size()];
+  RealT spaceWeights[misc::numPaddedPoints<Config>];
+  DREnergyOutput<Config>* energyData{};
+  DRGodunovData<Config>* godunovData{};
 
   // be careful only for some FLs initialized:
-  real (*dynStressTime)[misc::numPaddedPoints];
-  bool (*dynStressTimePending)[misc::numPaddedPoints];
+  RealT (*dynStressTime)[misc::numPaddedPoints<Config>];
+  bool (*dynStressTimePending)[misc::numPaddedPoints<Config>];
 
-  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()];
-  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()];
+  RealT (*qInterpolatedPlus)[ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
+  RealT (*qInterpolatedMinus)[ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
 };
 } // namespace seissol::dr::friction_law
 

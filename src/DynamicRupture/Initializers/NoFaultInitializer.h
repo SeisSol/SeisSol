@@ -9,10 +9,11 @@ namespace seissol::dr::initializers {
  * Derived initializer class for the NoFault friction law
  * does nothing in particular
  */
-class NoFaultInitializer : public BaseDRInitializer {
+template <typename Config>
+class NoFaultInitializer : public BaseDRInitializer<Config> {
   public:
-  using BaseDRInitializer::BaseDRInitializer;
-  using BaseDRInitializer::initializeFault;
+  using BaseDRInitializer<Config>::BaseDRInitializer;
+  using BaseDRInitializer<Config>::initializeFault;
 };
 } // namespace seissol::dr::initializers
 

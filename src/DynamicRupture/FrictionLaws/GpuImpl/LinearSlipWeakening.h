@@ -9,13 +9,17 @@ namespace seissol::dr::friction_law::gpu {
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
-template <typename Derived>
-class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
+template <typename Config, typename Derived>
+class LinearSlipWeakeningBase
+    : public BaseFrictionSolver<Config, LinearSlipWeakeningBase<Config, Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
-      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+  using RealT = typename Config::RealT;
+  LinearSlipWeakeningBase<Config, Derived>(dr::DRParameters* drParameters)
+      : BaseFrictionSolver<Config, LinearSlipWeakeningBase<Config, Derived>>(drParameters){};
 
-  void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
+  void allocateAuxiliaryMemory() override {
+    FrictionSolverDetails<Config>::allocateAuxiliaryMemory();
+  }
 
   void updateFrictionAndSlip(unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
@@ -33,9 +37,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  void calcSlipRateAndTraction(FaultStresses* devFaultStresses,
-                               TractionResults* devTractionResults,
-                               real (*devStrengthBuffer)[misc::numPaddedPoints],
+  void calcSlipRateAndTraction(FaultStresses<Config>* devFaultStresses,
+                               TractionResults<Config>* devTractionResults,
+                               RealT (*devStrengthBuffer)[misc::numPaddedPoints<Config>],
                                unsigned int timeIndex) {
 
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
@@ -49,7 +53,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devSlip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -60,14 +65,14 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         auto& strength = devStrengthBuffer[ltsFace];
 
         // calculate absolute value of stress in Y and Z direction
-        const real totalStress1 = devInitialStressInFaultCS[ltsFace][pointIndex][3] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
-        const real totalStress2 = devInitialStressInFaultCS[ltsFace][pointIndex][5] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
-        const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
+        const RealT totalStress1 = devInitialStressInFaultCS[ltsFace][pointIndex][3] +
+                                   faultStresses.traction1[timeIndex][pointIndex];
+        const RealT totalStress2 = devInitialStressInFaultCS[ltsFace][pointIndex][5] +
+                                   faultStresses.traction2[timeIndex][pointIndex];
+        const RealT absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         devSlipRateMagnitude[ltsFace][pointIndex] =
-            std::max(static_cast<real>(0.0),
+            std::max(static_cast<RealT>(0.0),
                      (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
         const auto divisor = strength[pointIndex] +
                              devImpAndEta[ltsFace].etaS * devSlipRateMagnitude[ltsFace][pointIndex];
@@ -95,12 +100,13 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  void frictionFunctionHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void frictionFunctionHook(RealT (*stateVariableBuffer)[misc::numPaddedPoints<Config>]) {
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -125,7 +131,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* devDC{this->dC};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -141,31 +148,34 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     });
   }
 
-  void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
-  void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
+  void preHook(RealT (*stateVariableBuffer)[misc::numPaddedPoints<Config>]) {}
+  void postHook(RealT (*stateVariableBuffer)[misc::numPaddedPoints<Config>]) {}
 
   protected:
-  static constexpr real u0 = 10e-14;
-  real (*dC)[misc::numPaddedPoints];
-  real (*muS)[misc::numPaddedPoints];
-  real (*muD)[misc::numPaddedPoints];
-  real (*cohesion)[misc::numPaddedPoints];
-  real (*forcedRuptureTime)[misc::numPaddedPoints];
+  static constexpr RealT u0 = 10e-14;
+  RealT (*dC)[misc::numPaddedPoints<Config>];
+  RealT (*muS)[misc::numPaddedPoints<Config>];
+  RealT (*muD)[misc::numPaddedPoints<Config>];
+  RealT (*cohesion)[misc::numPaddedPoints<Config>];
+  RealT (*forcedRuptureTime)[misc::numPaddedPoints<Config>];
 };
 
-template <class SpecializationT>
+template <typename Config, class SpecializationT>
 class LinearSlipWeakeningLaw
-    : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
+    : public LinearSlipWeakeningBase<Config, LinearSlipWeakeningLaw<Config, SpecializationT>> {
   public:
+  using RealT = typename Config::RealT;
   LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters* drParameters)
-      : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
+      : LinearSlipWeakeningBase<Config, LinearSlipWeakeningLaw<Config, SpecializationT>>(
+            drParameters),
         specialization(drParameters){};
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
-                                      real fullUpdateTime) override {
+  void copySpecificLtsDataTreeToLocal(
+      seissol::initializers::Layer& layerData,
+      seissol::initializers::DynamicRupture<Config> const* const dynRup,
+      RealT fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening<Config> const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -174,8 +184,8 @@ class LinearSlipWeakeningLaw
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
-  void calcStrengthHook(FaultStresses* devFaultStresses,
-                        real (*devStrengthBuffer)[misc::numPaddedPoints],
+  void calcStrengthHook(FaultStresses<Config>* devFaultStresses,
+                        RealT (*devStrengthBuffer)[misc::numPaddedPoints<Config>],
                         unsigned int timeIndex) {
 
     auto deltaT{this->deltaT[timeIndex]};
@@ -188,7 +198,8 @@ class LinearSlipWeakeningLaw
     const auto prakashLength{this->drParameters->prakashLength};
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -197,11 +208,11 @@ class LinearSlipWeakeningLaw
         auto& faultStresses = devFaultStresses[ltsFace];
         auto& strength = devStrengthBuffer[ltsFace];
 
-        const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
-                                       faultStresses.normalStress[timeIndex][pointIndex];
+        const RealT totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
+                                        faultStresses.normalStress[timeIndex][pointIndex];
         strength[pointIndex] =
             -devCohesion[ltsFace][pointIndex] -
-            devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+            devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<RealT>(0.0));
 
         strength[pointIndex] =
             SpecializationT::strengthHook(currentLayerDetails,
@@ -216,7 +227,7 @@ class LinearSlipWeakeningLaw
     });
   }
 
-  void calcStateVariableHook(real (*devStateVariableBuffer)[misc::numPaddedPoints],
+  void calcStateVariableHook(RealT (*devStateVariableBuffer)[misc::numPaddedPoints<Config>],
                              unsigned int timeIndex) {
 
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
@@ -225,12 +236,13 @@ class LinearSlipWeakeningLaw
     auto* devDC{this->dC};
     auto* devResample{this->resampleMatrix};
     auto deltaT{this->deltaT[timeIndex]};
-    const real tn{this->mFullUpdateTime + deltaT};
+    const RealT tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
+      sycl::accessor<RealT, 1, sycl::access::mode::read_write, sycl::access::target::local>
           resampledSlipRate(misc::numPaddedPoints, cgh);
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         auto ltsFace = item.get_group().get_group_id(0);
@@ -248,18 +260,18 @@ class LinearSlipWeakeningLaw
         // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
-        const real localStateVariable =
+        const RealT localStateVariable =
             std::min(std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
                          devDC[ltsFace][pointIndex],
-                     static_cast<real>(1.0));
+                     static_cast<RealT>(1.0));
 
-        real f2 = 0.0;
+        RealT f2 = 0.0;
         if (t0 == 0) {
           f2 = 1.0 * (tn >= devForcedRuptureTime[ltsFace][pointIndex]);
         } else {
           f2 = std::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
-                          static_cast<real>(0.0),
-                          static_cast<real>(1.0));
+                          static_cast<RealT>(0.0),
+                          static_cast<RealT>(1.0));
         }
         stateVariable[pointIndex] = std::max(localStateVariable, f2);
       });
@@ -270,26 +282,28 @@ class LinearSlipWeakeningLaw
   SpecializationT specialization;
 };
 
+template <typename Config>
 class NoSpecialization {
   public:
+  using RealT = typename Config::RealT;
   NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {}
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {}
 
-  static real resampleSlipRate(real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                               size_t pointIndex) {
+  static RealT resampleSlipRate(RealT const* resampleMatrix,
+                                RealT const (&slipRateMagnitude)[dr::misc::numPaddedPoints<Config>],
+                                size_t pointIndex) {
 
     // perform matrix vector multiplication
 
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::numPaddedPoints);
+    constexpr auto dim0 = misc::dimSize<Yateto<Config>::Init::resample, 0>();
+    constexpr auto dim1 = misc::dimSize<Yateto<Config>::Init::resample, 1>();
+    static_assert(dim0 == misc::numPaddedPoints<Config>);
     static_assert(dim0 >= dim1);
 
-    real result{0.0};
+    RealT result{0.0};
     for (size_t i{0}; i < dim1; ++i) {
       result += resampleMatrix[pointIndex + i * dim0] * slipRateMagnitude[i];
     }
@@ -298,38 +312,40 @@ class NoSpecialization {
 
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
-  static real strengthHook(Details details,
-                           real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           real vStar,
-                           real prakashLength,
-                           size_t ltsFace,
-                           size_t pointIndex) {
+  static RealT strengthHook(Details details,
+                            RealT strength,
+                            RealT localSlipRate,
+                            RealT deltaT,
+                            RealT vStar,
+                            RealT prakashLength,
+                            size_t ltsFace,
+                            size_t pointIndex) {
     return strength;
   };
 };
 
+template <typename Config>
 class BiMaterialFault {
   public:
+  using RealT = typename Config::RealT;
   BiMaterialFault(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {
+                          RealT fullUpdateTime) {
     auto* concreteLts =
         dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 
-  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                               size_t pointIndex) {
+  static RealT resampleSlipRate([[maybe_unused]] RealT const* resampleMatrix,
+                                RealT const (&slipRateMagnitude)[dr::misc::numPaddedPoints<Config>],
+                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
 
   struct Details {
-    real (*regularisedStrength)[misc::numPaddedPoints];
+    RealT (*regularisedStrength)[misc::numPaddedPoints<Config>];
   };
 
   Details getCurrentLayerDetails() {
@@ -337,22 +353,22 @@ class BiMaterialFault {
     return details;
   }
 
-  static real strengthHook(Details details,
-                           real faultStrength,
-                           real localSlipRate,
-                           real deltaT,
-                           real vStar,
-                           real prakashLength,
-                           size_t ltsFace,
-                           size_t pointIndex) {
+  static RealT strengthHook(Details details,
+                            RealT faultStrength,
+                            RealT localSlipRate,
+                            RealT deltaT,
+                            RealT vStar,
+                            RealT prakashLength,
+                            size_t ltsFace,
+                            size_t pointIndex) {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
     assert(regularisedStrength != nullptr && "regularisedStrength is not initialized");
 
-    const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
-                                   deltaT / prakashLength);
+    const RealT expterm = sycl::exp(-(sycl::max(static_cast<RealT>(0.0), localSlipRate) + vStar) *
+                                    deltaT / prakashLength);
 
-    const real newStrength =
+    const RealT newStrength =
         regularisedStrength[pointIndex] * expterm + faultStrength * (1.0 - expterm);
 
     regularisedStrength[pointIndex] = newStrength;
@@ -360,7 +376,7 @@ class BiMaterialFault {
   };
 
   private:
-  real (*regularisedStrength)[misc::numPaddedPoints];
+  RealT (*regularisedStrength)[misc::numPaddedPoints<Config>];
 };
 } // namespace seissol::dr::friction_law::gpu
 

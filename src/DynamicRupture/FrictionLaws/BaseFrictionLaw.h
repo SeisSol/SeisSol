@@ -15,18 +15,19 @@ namespace seissol::dr::friction_law {
  * Base class, has implementations of methods that are used by each friction law
  * Actual friction law is plugged in via CRTP.
  */
-template <typename Derived>
-class BaseFrictionLaw : public FrictionSolver {
+template <typename Config, typename Derived>
+class BaseFrictionLaw : public FrictionSolver<Config> {
   public:
-  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
+  using RealT = typename Config::RealT;
+  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver<Config>(drParameters){};
 
   /**
    * evaluates the current friction model
    */
   void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
-                real fullUpdateTime,
-                const double timeWeights[ConvergenceOrder]) override {
+                seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                RealT fullUpdateTime,
+                const double timeWeights[Config::ConvergenceOrder]) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -36,7 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(Alignment) FaultStresses faultStresses{};
+      alignas(Alignment) FaultStresses<Config> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
@@ -51,8 +52,8 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePreHook");
       // define some temporary variables
-      std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-      std::array<real, misc::numPaddedPoints> strengthBuffer{0};
+      std::array<RealT, misc::numPaddedPoints<Config>> stateVariableBuffer{0};
+      std::array<RealT, misc::numPaddedPoints<Config>> strengthBuffer{0};
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
@@ -62,10 +63,10 @@ class BaseFrictionLaw : public FrictionSolver {
                                "computeDynamicRuptureUpdateFrictionAndSlip",
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-      TractionResults tractionResults = {};
+      TractionResults<Config> tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+      for (unsigned timeIndex = 0; timeIndex < Config::ConvergenceOrder; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     this->mFullUpdateTime,

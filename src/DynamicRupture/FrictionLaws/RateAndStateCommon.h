@@ -8,13 +8,14 @@ namespace seissol::dr::friction_law::rs {
 // as a consequence, the SR is affected the AlmostZero value when too small
 // For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
 // too small, so we use 1e-35
-constexpr real almostZero() {
-  if constexpr (std::is_same<real, double>()) {
+template <typename RealT>
+constexpr RealT almostZero() {
+  if constexpr (std::is_same<RealT, double>()) {
     return 1e-45;
-  } else if constexpr (std::is_same<real, float>()) {
+  } else if constexpr (std::is_same<RealT, float>()) {
     return 1e-35;
   } else {
-    return std::numeric_limits<real>::min();
+    return std::numeric_limits<RealT>::min();
   }
 }
 

@@ -1,6 +1,7 @@
 #ifndef SEISSOL_DR_MISC_H
 #define SEISSOL_DR_MISC_H
 
+#include "Common/configtensor.hpp"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/precision.hpp"
 
@@ -25,8 +26,12 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
-static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
+template <typename Config>
+static constexpr inline size_t numPaddedPoints =
+    leadDim<typename seissol::Yateto<Config>::Init::QInterpolated>();
+template <typename Config>
+static constexpr inline size_t numQuantities =
+    misc::dimSize<typename seissol::Yateto<Config>::Init::QInterpolated, 1>();
 
 /**
  * Constants for Thermal Pressurization
@@ -38,7 +43,9 @@ static constexpr real tpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
+template <typename Config>
+static constexpr unsigned int numberOfBoundaryGaussPoints =
+    seissol::Yateto<Config>::Init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

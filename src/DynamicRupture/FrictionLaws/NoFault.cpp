@@ -1,14 +1,15 @@
 #include "NoFault.h"
 
 namespace seissol::dr::friction_law {
-void NoFault::updateFrictionAndSlip(
-    FaultStresses const& faultStresses,
-    TractionResults& tractionResults,
-    std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
-    std::array<real, misc::numPaddedPoints> const& strengthBuffer,
+template <typename Config>
+void NoFault<Config>::updateFrictionAndSlip(
+    FaultStresses<Config> const& faultStresses,
+    TractionResults<Config>& tractionResults,
+    std::array<RealT, misc::numPaddedPoints<Config>> const& stateVariableBuffer,
+    std::array<RealT, misc::numPaddedPoints<Config>> const& strengthBuffer,
     unsigned ltsFace,
     unsigned timeIndex) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; pointIndex++) {
     tractionResults.traction1[timeIndex][pointIndex] =
         faultStresses.traction1[timeIndex][pointIndex];
     tractionResults.traction2[timeIndex][pointIndex] =

@@ -7,11 +7,12 @@
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
-class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
+template <typename Config>
+class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver<Config> {
   public:
   explicit FrictionSolverInterface(dr::DRParameters* drParameters)
-      : seissol::dr::friction_law::FrictionSolver(drParameters) {}
-  ~FrictionSolverInterface() override{};
+      : seissol::dr::friction_law::FrictionSolver<Config>(drParameters) {}
+  ~FrictionSolverInterface() = default;
 
   virtual void initSyclQueue() = 0;
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }

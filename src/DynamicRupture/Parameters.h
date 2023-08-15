@@ -44,6 +44,7 @@ struct DRParameters {
   real prakashLength{0.0};
   std::string faultFileName{""};
 };
+// TODO: cast floats?
 
 inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   std::unique_ptr<DRParameters> drParameters = std::make_unique<DRParameters>();

@@ -7,36 +7,37 @@ namespace seissol::dr::friction_law {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
+template <typename Config, typename STF>
+class ImposedSlipRates : public BaseFrictionLaw<Config, ImposedSlipRates<Config, STF>> {
   public:
-  using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
+  using RealT = typename Config::RealT;
+  using BaseFrictionLaw<Config, ImposedSlipRates>::BaseFrictionLaw;
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSImposedSlipRates const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSImposedSlipRates<Config> const* const>(dynRup);
     imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
     imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
-  void updateFrictionAndSlip(FaultStresses const& faultStresses,
-                             TractionResults& tractionResults,
-                             std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::numPaddedPoints>& strengthBuffer,
+  void updateFrictionAndSlip(FaultStresses<Config> const& faultStresses,
+                             TractionResults<Config>& tractionResults,
+                             std::array<RealT, misc::numPaddedPoints<Config>>& stateVariableBuffer,
+                             std::array<RealT, misc::numPaddedPoints<Config>>& strengthBuffer,
                              unsigned ltsFace,
                              unsigned timeIndex) {
-    const real timeIncrement = this->deltaT[timeIndex];
-    real currentTime = this->mFullUpdateTime;
+    const RealT timeIncrement = this->deltaT[timeIndex];
+    RealT currentTime = this->mFullUpdateTime;
     for (unsigned i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT[i];
     }
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
+    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; pointIndex++) {
+      const RealT stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
           faultStresses.traction1[timeIndex][pointIndex] -
@@ -63,13 +64,15 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
+  void preHook(std::array<RealT, misc::numPaddedPoints<Config>>& stateVariableBuffer,
+               unsigned ltsFace) {}
+  void postHook(std::array<RealT, misc::numPaddedPoints<Config>>& stateVariableBuffer,
+                unsigned ltsFace) {}
   void saveDynamicStressOutput(unsigned int ltsFace) {}
 
   protected:
-  real (*imposedSlipDirection1)[misc::numPaddedPoints];
-  real (*imposedSlipDirection2)[misc::numPaddedPoints];
+  RealT (*imposedSlipDirection1)[misc::numPaddedPoints<Config>];
+  RealT (*imposedSlipDirection2)[misc::numPaddedPoints<Config>];
   STF stf{};
 };
 

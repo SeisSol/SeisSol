@@ -2,23 +2,25 @@
 #define SEISSOL_NOTP_H
 
 namespace seissol::dr::friction_law {
+template <typename Config>
 class NoTP {
   public:
+  using RealT = typename Config::RealT;
   NoTP(DRParameters* drParameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {}
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {}
 
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,
-                         real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
-                         real deltaT,
+  void calcFluidPressure(std::array<RealT, misc::numPaddedPoints<Config>>& normalStress,
+                         RealT (*mu)[misc::numPaddedPoints<Config>],
+                         std::array<RealT, misc::numPaddedPoints<Config>>& slipRateMagnitude,
+                         RealT deltaT,
                          bool saveTmpInTP,
                          unsigned int timeIndex,
                          unsigned int ltsFace) {}
 
-  real getFluidPressure(unsigned, unsigned) const { return 0; };
+  RealT getFluidPressure(unsigned, unsigned) const { return 0; };
 };
 
 } // namespace seissol::dr::friction_law

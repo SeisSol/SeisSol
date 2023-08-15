@@ -4,15 +4,18 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
 namespace seissol::dr::friction_law::gpu {
-template <class Derived, class TPMethod>
+template <typename Config, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
-    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
+    : public RateAndStateBase<Config,
+                              SlowVelocityWeakeningLaw<Config, Derived, TPMethod>,
+                              TPMethod> {
   public:
-  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using RealT = typename Config::RealT;
+  using RateAndStateBase<Config, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {}
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
   void updateStateVariable(double timeIncrement) {
@@ -67,11 +70,12 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  void resampleStateVar(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(RealT (*stateVariableBuffer)[misc::numPaddedPoints<Config>]) {
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);

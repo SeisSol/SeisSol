@@ -4,18 +4,21 @@
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
-template <class Derived, class TPMethod>
+template <typename Config, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
-    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
+    : public RateAndStateBase<Config,
+                              SlowVelocityWeakeningLaw<Config, Derived, TPMethod>,
+                              TPMethod> {
   public:
-  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using RealT = typename Config::RealT;
+  using RateAndStateBase<Config, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {}
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime) {}
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
@@ -77,17 +80,18 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+  void resampleStateVar(std::array<RealT, misc::numPaddedPoints<Config>> const& stateVariableBuffer,
                         unsigned int ltsFace) const {
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints<Config>; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
-  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                             unsigned ltsFace) {
-    [[maybe_unused]] const real tmp =
+  void executeIfNotConverged(
+      std::array<RealT, misc::numPaddedPoints<Config>> const& localStateVariable,
+      unsigned ltsFace) {
+    [[maybe_unused]] const RealT tmp =
         0.5 / this->drParameters->rsSr0 *
         std::exp(
             (this->drParameters->rsF0 +

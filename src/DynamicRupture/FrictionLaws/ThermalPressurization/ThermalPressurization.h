@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
  * Logarithmic gridpoints as defined in Noda&Lapusta (14). These are the \f$\hat{l}\f$ for
  * ThermalPressurization.
  */
-template <size_t N>
+template <typename RealT, size_t N>
 class GridPoints {
   public:
   GridPoints() {
@@ -23,20 +23,20 @@ class GridPoints {
           misc::tpMaxWaveNumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  RealT const& operator[](size_t i) const { return values[i]; };
 
   private:
-  std::array<real, N> values;
+  std::array<RealT, N> values;
 };
 
 /**
  * Inverse Fourier coefficients on the logarithmic grid.
  */
-template <size_t N>
+template <typename RealT, size_t N>
 class InverseFourierCoefficients {
   public:
   constexpr InverseFourierCoefficients() {
-    const GridPoints<N> localGridPoints;
+    const GridPoints<RealT, N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
       values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::tpLogDz;
@@ -44,31 +44,31 @@ class InverseFourierCoefficients {
     values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::tpLogDz);
     values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::tpLogDz;
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  RealT const& operator[](size_t i) const { return values[i]; };
 
   private:
-  std::array<real, N> values;
+  std::array<RealT, N> values;
 };
 
 /**
  * Stores the heat generation (without tauV) \f$\exp\left(\hat{l}^2/2\right) / \sqrt{2 \pi}\f$.
  */
-template <size_t N>
+template <typename RealT, size_t N>
 class GaussianHeatSource {
   public:
   constexpr GaussianHeatSource() {
-    const GridPoints<N> localGridPoints;
-    const real factor = 1 / std::sqrt(2.0 * M_PI);
+    const GridPoints<RealT, N> localGridPoints;
+    const RealT factor = 1 / std::sqrt(2.0 * M_PI);
 
     for (size_t i = 0; i < N; ++i) {
-      const real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
+      const RealT heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
       values[i] = factor * heatGeneration;
     }
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  RealT const& operator[](size_t i) const { return values[i]; };
 
   private:
-  std::array<real, N> values;
+  std::array<RealT, N> values;
 };
 
 /**
@@ -98,43 +98,45 @@ class GaussianHeatSource {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Config>
 class ThermalPressurization {
   public:
+  using RealT = typename Config::RealT;
   explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime);
+                          seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                          RealT fullUpdateTime);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
    */
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints> const& normalStress,
-                         real const (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints> const& slipRateMagnitude,
-                         real deltaT,
+  void calcFluidPressure(std::array<RealT, misc::numPaddedPoints<Config>> const& normalStress,
+                         RealT const (*mu)[misc::numPaddedPoints<Config>],
+                         std::array<RealT, misc::numPaddedPoints<Config>> const& slipRateMagnitude,
+                         RealT deltaT,
                          bool saveTPinLTS,
                          unsigned int timeIndex,
                          unsigned int ltsFace);
 
-  real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
+  RealT getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 
   protected:
-  real (*temperature)[misc::numPaddedPoints];
-  real (*pressure)[misc::numPaddedPoints];
-  real (*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*halfWidthShearZone)[misc::numPaddedPoints];
-  real (*hydraulicDiffusivity)[misc::numPaddedPoints];
-  real (*faultStrength)[misc::numPaddedPoints];
+  RealT (*temperature)[misc::numPaddedPoints<Config>];
+  RealT (*pressure)[misc::numPaddedPoints<Config>];
+  RealT (*theta)[misc::numPaddedPoints<Config>][misc::numberOfTPGridPoints];
+  RealT (*sigma)[misc::numPaddedPoints<Config>][misc::numberOfTPGridPoints];
+  RealT (*thetaTmpBuffer)[misc::numPaddedPoints<Config>][misc::numberOfTPGridPoints];
+  RealT (*sigmaTmpBuffer)[misc::numPaddedPoints<Config>][misc::numberOfTPGridPoints];
+  RealT (*halfWidthShearZone)[misc::numPaddedPoints<Config>];
+  RealT (*hydraulicDiffusivity)[misc::numPaddedPoints<Config>];
+  RealT (*faultStrength)[misc::numPaddedPoints<Config>];
 
   private:
   DRParameters* drParameters;
@@ -142,11 +144,16 @@ class ThermalPressurization {
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  void updateTemperatureAndPressure(real slipRateMagnitude,
-                                    real deltaT,
+  void updateTemperatureAndPressure(RealT slipRateMagnitude,
+                                    RealT deltaT,
                                     unsigned int pointIndex,
                                     unsigned int timeIndex,
                                     unsigned int ltsFace);
+
+  static const GridPoints<RealT, misc::numberOfTPGridPoints> tpGridPoints;
+  static const InverseFourierCoefficients<RealT, misc::numberOfTPGridPoints>
+      tpInverseFourierCoefficients;
+  static const GaussianHeatSource<RealT, misc::numberOfTPGridPoints> heatSource;
 };
 } // namespace seissol::dr::friction_law
 

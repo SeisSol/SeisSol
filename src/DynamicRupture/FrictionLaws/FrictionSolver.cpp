@@ -3,7 +3,8 @@
 
 namespace seissol::dr::friction_law {
 
-void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
+template <typename Config>
+void FrictionSolver<Config>::computeDeltaT(const double timePoints[ConvergenceOrder]) {
   deltaT[0] = timePoints[0];
   for (unsigned timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
@@ -12,9 +13,11 @@ void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
   deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
 }
 
-void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                        seissol::initializers::DynamicRupture const* const dynRup,
-                                        real fullUpdateTime) {
+template <typename Config>
+void FrictionSolver<Config>::copyLtsTreeToLocal(
+    seissol::initializers::Layer& layerData,
+    seissol::initializers::DynamicRupture<Config> const* const dynRup,
+    RealT fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
   nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS);

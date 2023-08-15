@@ -4,11 +4,12 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law::gpu {
-template <typename TPMethod>
-class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
+template <typename Config, typename TPMethod>
+class SlipLaw : public SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod>::
+      SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Config, SlipLaw<Config, TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
   void updateStateVariable(double timeIncrement) {
     auto* devSl0{this->sl0};
@@ -16,7 +17,8 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);

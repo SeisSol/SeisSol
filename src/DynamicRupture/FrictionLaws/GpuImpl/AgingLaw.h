@@ -5,11 +5,12 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <class TPMethod>
-class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
+template <typename Config, class TPMethod>
+class AgingLaw : public SlowVelocityWeakeningLaw<Config, AgingLaw<Config, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<Config, AgingLaw<Config, TPMethod>, TPMethod>::
+      SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Config, AgingLaw<Config, TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
   void updateStateVariable(double timeIncrement) {
     auto* devSl0{this->sl0};
@@ -17,7 +18,8 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                       {misc::numPaddedPoints<Config>}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -29,7 +31,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
 
         const double stateVarReference = devStateVarReference[ltsFace][pointIndex];
         devStateVariableBuffer[ltsFace][pointIndex] =
-            static_cast<real>(stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1));
+            static_cast<RealT>(stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1));
       });
     });
   }

@@ -9,19 +9,20 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename Derived>
+template <typename Config, typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  using RealT = typename Config::RealT;
+  explicit BaseFrictionSolver<Config, Derived>(dr::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
-  ~BaseFrictionSolver<Derived>() = default;
+  ~BaseFrictionSolver<Config, Derived>() = default;
 
   void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
-                real fullUpdateTime,
+                seissol::initializers::DynamicRupture<Config> const* const dynRup,
+                RealT fullUpdateTime,
                 const double timeWeights[ConvergenceOrder]) override {
 
-    FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    FrictionSolver<Config>::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
@@ -36,7 +37,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
 
-      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints<Config>},
+                         {misc::numPaddedPoints<Config>}};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           const auto ltsFace = item.get_group().get_group_id(0);
@@ -52,8 +54,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
-        const real t0{this->drParameters->t0};
-        const real dt = deltaT[timeIndex];
+        const RealT t0{this->drParameters->t0};
+        const RealT dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
 
