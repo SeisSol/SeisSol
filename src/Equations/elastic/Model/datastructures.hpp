@@ -41,6 +41,7 @@
 #ifndef MODEL_ELASTIC_DATASTRUCTURES_H_
 #define MODEL_ELASTIC_DATASTRUCTURES_H_
 
+#include <Equations/anisotropic/Model/datastructures.hpp>
 #include <Model/common_datastructures.hpp>
 #include <cmath>
 #include <generated_code/kernel.h>
@@ -60,7 +61,15 @@ namespace seissol {
       double lambda;
       double mu;
 
-      ElasticMaterial() {};
+      ElasticMaterial() = default;
+
+      // temporary, most likely.
+      explicit ElasticMaterial(const AnisotropicMaterial& material) {
+        rho = material.rho;
+        mu = material.getMu();
+        lambda = material.getLambda();
+      }
+
       ElasticMaterial(double* materialValues, int numMaterialValues)
       {
         assert(numMaterialValues == 3);

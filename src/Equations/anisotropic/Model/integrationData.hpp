@@ -1,6 +1,7 @@
 #ifndef MODEL_ANISOTROPIC_INTEGRATIONDATA_H_
 #define MODEL_ANISOTROPIC_INTEGRATIONDATA_H_
 
+#include "Common/cellconfigconv.hpp"
 #include <type_traits>
 #include "Model/common_datastructures.hpp"
 #include "datastructures.hpp"

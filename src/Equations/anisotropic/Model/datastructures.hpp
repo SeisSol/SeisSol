@@ -281,6 +281,10 @@ namespace seissol {
       double getMu() const {
         return (c44 + c55 + c66) / 3.0;
       }
+
+      double getLambda() const {
+        return (c11 + c22 + c33) / 3.0 - 2.0*getMu();
+      }
     };
 
 

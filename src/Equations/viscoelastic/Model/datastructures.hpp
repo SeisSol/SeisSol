@@ -70,6 +70,11 @@ namespace seissol {
       double Qp;
       double Qs;
 
+      ViscoElasticMaterial() = default;
+
+      explicit ViscoElasticMaterial(const ElasticMaterial& base) : ElasticMaterial(base) {
+      }
+
       ViscoElasticMaterial( double* materialValues, int numMaterialValues)
       {
         assert(numMaterialValues == 3 + Mechanisms * 4);
