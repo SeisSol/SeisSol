@@ -42,6 +42,7 @@
 import argparse
 import importlib.util
 import sys
+import os
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
@@ -71,105 +72,139 @@ cmdLineParser.add_argument('--gemm_tools')
 cmdLineParser.add_argument('--drQuadRule')
 cmdLineArgs = cmdLineParser.parse_args()
 
-# derive the compute platform
-gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
-targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
+subfolders = []
 
-if cmdLineArgs.memLayout == 'auto':
-  # TODO(Lukas) Don't hardcode this
-  env = {
-    'equations': cmdLineArgs.equations,
-    'order': cmdLineArgs.order,
-    'arch': cmdLineArgs.host_arch,
-    'device_arch': cmdLineArgs.device_arch,
-    'multipleSimulations': cmdLineArgs.multipleSimulations,
-    'targets': targets
-  }
-  mem_layout = memlayout.guessMemoryLayout(env)
-else:
-  mem_layout = cmdLineArgs.memLayout
+template_params = 'int equation, int order, int precision'
 
+# for now
+precisions = ['double', 'float']
 
-if cmdLineArgs.device_backend == 'none':
-    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
-else:
-    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
+for i, (equation, mechanisms) in enumerate([('elastic',0), ('viscoelastic2',3), ('poroelastic',0), ('anisotropic',0)]):
+  cmdLineArgs.equations = equation
+  cmdLineArgs.numberOfMechanisms = mechanisms
 
+  outputDir = os.path.join(cmdLineArgs.outputDir, equation)
+  if not os.path.exists(outputDir):
+    os.mkdir(outputDir)
 
-equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
-try:
-  equations = equationsSpec.loader.load_module()
-except:
-  raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
+  subfolders += [f'generated_code/{equation}'] # TODO (David) temp
 
-cmdArgsDict = vars(cmdLineArgs)
-cmdArgsDict['memLayout'] = mem_layout
+  template_args = f'{i},{cmdLineArgs.order},0'
 
-if cmdLineArgs.equations == 'anisotropic':
-    adg = equations.AnisotropicADERDG(**cmdArgsDict)
-elif cmdLineArgs.equations == 'elastic':
-    adg = equations.ElasticADERDG(**cmdArgsDict)
-elif cmdLineArgs.equations == 'viscoelastic':
-    adg = equations.ViscoelasticADERDG(**cmdArgsDict)
-elif cmdLineArgs.equations == 'viscoelastic2':
-    adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
-else:
-    adg = equations.PoroelasticADERDG(**cmdArgsDict)
+  # derive the compute platform
+  gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+  targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
-include_tensors = set()
-generator = Generator(arch)
-
-# Equation-specific kernels
-adg.addInit(generator)
-adg.addLocal(generator, targets)
-adg.addNeighbor(generator, targets)
-adg.addTime(generator, targets)
-adg.add_include_tensors(include_tensors)
-
-# Common kernels
-include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
-                                                 adg,
-                                                 cmdLineArgs.matricesDir,
-                                                 cmdLineArgs.drQuadRule,
-                                                 targets))
-
-Plasticity.addKernels(generator, 
-                      adg,
-                      cmdLineArgs.matricesDir,
-                      cmdLineArgs.PlasticityMethod,
-                      targets)
-NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
-SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
-Point.addKernels(generator, adg)
-
-# pick up the user's defined gemm tools
-gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
-gemm_generators = []
-
-for tool in gemm_tool_list:
-  if hasattr(gemm_configuration, tool):
-    specific_gemm_class = getattr(gemm_configuration, tool)
-    gemm_generators.append(specific_gemm_class(arch))
+  if cmdLineArgs.memLayout == 'auto':
+    # TODO(Lukas) Don't hardcode this
+    env = {
+      'equations': cmdLineArgs.equations,
+      'order': cmdLineArgs.order,
+      'arch': cmdLineArgs.host_arch,
+      'device_arch': cmdLineArgs.device_arch,
+      'multipleSimulations': cmdLineArgs.multipleSimulations,
+      'targets': targets
+    }
+    mem_layout = memlayout.guessMemoryLayout(env)
   else:
-    print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
-          "Please, refer to the documentation".format(tool))
-    sys.exit("failure")
+    mem_layout = cmdLineArgs.memLayout
 
 
-cost_estimators = BoundingBoxCostEstimator
-if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
+  if cmdLineArgs.device_backend == 'none':
+      arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
+  else:
+      arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
+
+
+  equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
   try:
-    chainforge_spec = importlib.util.find_spec('chainforge')
-    chainforge_spec.loader.load_module()
-    cost_estimators = FusedGemmsBoundingBoxCostEstimator
+    equations = equationsSpec.loader.load_module()
   except:
-    print('WARNING: ChainForge was not found. Falling back to GemmForge.')
+    raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
+
+  cmdArgsDict = vars(cmdLineArgs)
+  cmdArgsDict['memLayout'] = mem_layout
+
+  if cmdLineArgs.equations == 'anisotropic':
+      adg = equations.AnisotropicADERDG(**cmdArgsDict)
+  elif cmdLineArgs.equations == 'elastic':
+      adg = equations.ElasticADERDG(**cmdArgsDict)
+  elif cmdLineArgs.equations == 'viscoelastic':
+      adg = equations.ViscoelasticADERDG(**cmdArgsDict)
+  elif cmdLineArgs.equations == 'viscoelastic2':
+      adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+  else:
+      adg = equations.PoroelasticADERDG(**cmdArgsDict)
+
+  include_tensors = set()
+  generator = Generator(arch)
+
+  # Equation-specific kernels
+  adg.addInit(generator)
+  adg.addLocal(generator, targets)
+  adg.addNeighbor(generator, targets)
+  adg.addTime(generator, targets)
+  adg.add_include_tensors(include_tensors)
+
+  # Common kernels
+  include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
+                                                  adg,
+                                                  cmdLineArgs.matricesDir,
+                                                  cmdLineArgs.drQuadRule,
+                                                  targets))
+
+  Plasticity.addKernels(generator, 
+                        adg,
+                        cmdLineArgs.matricesDir,
+                        cmdLineArgs.PlasticityMethod,
+                        targets)
+  NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
+  SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
+  Point.addKernels(generator, adg)
+
+  # pick up the user's defined gemm tools
+  gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
+  gemm_generators = []
+
+  for tool in gemm_tool_list:
+    if hasattr(gemm_configuration, tool):
+      specific_gemm_class = getattr(gemm_configuration, tool)
+      gemm_generators.append(specific_gemm_class(arch))
+    else:
+      print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
+            "Please, refer to the documentation".format(tool))
+      sys.exit("failure")
 
 
-# Generate code
-gemmTools = GeneratorCollection(gemm_generators)
-generator.generate(outputDir=cmdLineArgs.outputDir,
-                   namespace='seissol',
-                   gemm_cfg=gemmTools,
-                   cost_estimator=cost_estimators,
-                   include_tensors=include_tensors)
+  cost_estimators = BoundingBoxCostEstimator
+  if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
+    try:
+      chainforge_spec = importlib.util.find_spec('chainforge')
+      chainforge_spec.loader.load_module()
+      cost_estimators = FusedGemmsBoundingBoxCostEstimator
+    except:
+      print('WARNING: ChainForge was not found. Falling back to GemmForge.')
+
+
+  # Generate code
+  gemmTools = GeneratorCollection(gemm_generators)
+  generator.generate(outputDir=outputDir,
+                    namespace='seissol',
+                    gemm_cfg=gemmTools,
+                    cost_estimator=cost_estimators,
+                    include_tensors=include_tensors,
+                    template=[template_params, template_args])
+
+def forward_files(filename):
+  with open(os.path.join(cmdLineArgs.outputDir, filename), 'w') as file:
+    file.writelines([f'#include "{os.path.join(folder, filename)}"\n' for folder in subfolders])
+
+forward_files('init.h')
+forward_files('kernel.h')
+forward_files('subroutine.h')
+forward_files('tensor.h')
+forward_files('init.cpp')
+forward_files('kernel.cpp')
+forward_files('subroutine.cpp')
+forward_files('tensor.cpp')
+forward_files('gpulike_subroutine.cpp')
