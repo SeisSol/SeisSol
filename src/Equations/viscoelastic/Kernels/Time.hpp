@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -49,235 +51,231 @@
 #include <yateto.h>
 
 #include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/init.h>
-
-#include <generated_code/kernel.h>
 #include "Equations/datastructures.hpp"
 #include "Equations/Time.hpp"
+#include "Common/configtensor.hpp"
 
 namespace seissol::waveprop::kernel::time {
-  template<typename Config>
-  class Time<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
-    using RealT = typename Config::RealT;
+template <typename Config>
+class Time<Config,
+           std::enable_if_t<Config::MaterialT::Solver ==
+                            seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
+  using RealT = typename Config::RealT;
+
   protected:
-    kernel::derivative m_krnlPrototype;
+  kernel::derivative m_krnlPrototype;
+
   public:
-    void setHostGlobalData(GlobalData const* global) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0 );
+  void setHostGlobalData(GlobalData const* global) {
+    assert(((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0);
+    assert(((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0);
+    assert(((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0);
 
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-  m_krnlPrototype.selectAne = init::selectAne::Values;
-  m_krnlPrototype.selectEla = init::selectEla::Values;
-}
+    m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+    m_krnlPrototype.selectAne = init::selectAne::Values;
+    m_krnlPrototype.selectEla = init::selectEla::Values;
+  }
 
-void setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
-}
+  void setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
 
-void computeAder(double i_timeStepWidth,
-                                         LocalData<Config>& data,
-                                         LocalTmp<Config>& tmp,
-                                         RealT o_timeIntegrated[ConfigConstants<Config>::TensorSizeI],
-                                         RealT* o_timeDerivatives,
-                                         bool updateDisplacement) {
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)data.dofs) % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated) % Alignment == 0 );
-  assert( ((uintptr_t)o_timeDerivatives) % Alignment == 0 || o_timeDerivatives == NULL );
+  void computeAder(double i_timeStepWidth,
+                   LocalData<Config>& data,
+                   LocalTmp<Config>& tmp,
+                   RealT o_timeIntegrated[ConfigConstants<Config>::TensorSizeI],
+                   RealT* o_timeDerivatives,
+                   bool updateDisplacement) {
+    /*
+     * assert alignments.
+     */
+    assert(((uintptr_t)data.dofs) % Alignment == 0);
+    assert(((uintptr_t)o_timeIntegrated) % Alignment == 0);
+    assert(((uintptr_t)o_timeDerivatives) % Alignment == 0 || o_timeDerivatives == NULL);
 
-  /*
-   * compute ADER scheme.
-   */
-  // temporary result
-  RealT temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
-  RealT temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
-  RealT temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+    /*
+     * compute ADER scheme.
+     */
+    // temporary result
+    RealT temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+    RealT temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
+    RealT temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
 
-  kernel::derivative krnl = m_krnlPrototype;
-  kernel::derivativeTaylorExpansion intKrnl;
+    kernel::derivative krnl = m_krnlPrototype;
+    kernel::derivativeTaylorExpansion intKrnl;
 
-  krnl.dQ(0) = const_cast<RealT*>(data.dofs);
-  intKrnl.dQ(0) = data.dofs;
-  if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
-    RealT* derOut = o_timeDerivatives;
-    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-      derOut += tensor::dQ::size(i-1);
-      krnl.dQ(i) = derOut;
-      intKrnl.dQ(i) = derOut;
+    krnl.dQ(0) = const_cast<RealT*>(data.dofs);
+    intKrnl.dQ(0) = data.dofs;
+    if (o_timeDerivatives != nullptr) {
+      streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+      RealT* derOut = o_timeDerivatives;
+      for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+        derOut += tensor::dQ::size(i - 1);
+        krnl.dQ(i) = derOut;
+        intKrnl.dQ(i) = derOut;
+      }
+    } else {
+      for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+        krnl.dQ(i) = temporaryBuffer[i % 2];
+        intKrnl.dQ(i) = temporaryBuffer[i % 2];
+      }
     }
-  } else {
+
+    krnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
+    intKrnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-      krnl.dQ(i) = temporaryBuffer[i%2];
-      intKrnl.dQ(i) = temporaryBuffer[i%2];
+      krnl.dQane(i) = temporaryBufferAne[i % 2];
+      intKrnl.dQane(i) = temporaryBufferAne[i % 2];
+      krnl.dQext(i) = temporaryBufferExt[i % 2];
+    }
+
+    intKrnl.I = o_timeIntegrated;
+    intKrnl.Iane = tmp.timeIntegratedAne;
+
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      krnl.star(i) = data.localIntegration.starMatrices[i];
+    }
+    krnl.w = data.localIntegration.specific.w;
+    krnl.W = data.localIntegration.specific.W;
+    krnl.E = data.localIntegration.specific.E;
+
+    // powers in the taylor-series expansion
+    intKrnl.power = i_timeStepWidth;
+
+    intKrnl.execute0();
+
+    for (unsigned der = 1; der < Config::ConvergenceOrder; ++der) {
+      krnl.execute(der);
+
+      // update scalar for this derivative
+      intKrnl.power *= i_timeStepWidth / RealT(der + 1);
+      intKrnl.execute(der);
+    }
+
+    // TODO(Lukas) Implement!
+    // Compute integrated displacement over time step if needed.
+  }
+
+  void flopsAder(unsigned int& o_nonZeroFlops, unsigned int& o_hardwareFlops) {
+    // reset flops
+    o_nonZeroFlops = 0;
+    o_hardwareFlops = 0;
+
+    // initialization
+    o_nonZeroFlops += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
+    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
+
+    // interate over derivatives
+    for (unsigned der = 1; der < Config::ConvergenceOrder; ++der) {
+      o_nonZeroFlops += kernel::derivative::nonZeroFlops(der);
+      o_hardwareFlops += kernel::derivative::hardwareFlops(der);
+
+      // update of time integrated DOFs
+      o_nonZeroFlops += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
+      o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
     }
   }
 
-  krnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
-  intKrnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQane(i) = temporaryBufferAne[i%2];
-    intKrnl.dQane(i) = temporaryBufferAne[i%2];
-    krnl.dQext(i) = temporaryBufferExt[i%2];
+  unsigned bytesAder() {
+    unsigned reals = 0;
+
+    // DOFs load, tDOFs load, tDOFs write
+    reals +=
+        tensor::Q::size() + tensor::Qane::size() + 2 * tensor::I::size() + 2 * tensor::Iane::size();
+    // star matrices, source matrix
+    reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
+             tensor::E::size();
+
+    /// \todo incorporate derivatives
+
+    return reals * sizeof(RealT);
   }
 
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.Iane = tmp.timeIntegratedAne;
+  void computeIntegral(double i_expansionPoint,
+                       double i_integrationStart,
+                       double i_integrationEnd,
+                       RealT const* i_timeDerivatives,
+                       RealT o_timeIntegrated[ConfigConstants<Config>::TensorSizeI]) {
 
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
-  }
-  krnl.w = data.localIntegration.specific.w;
-  krnl.W = data.localIntegration.specific.W;
-  krnl.E = data.localIntegration.specific.E;
-  
-  // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
+    /*
+     * assert alignments.
+     */
+    assert(((uintptr_t)i_timeDerivatives) % Alignment == 0);
+    assert(((uintptr_t)o_timeIntegrated) % Alignment == 0);
 
-  intKrnl.execute0();
-  
-  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
-    krnl.execute(der);
+    // compute lengths of integration intervals
+    RealT l_deltaTLower = i_integrationStart - i_expansionPoint;
+    RealT l_deltaTUpper = i_integrationEnd - i_expansionPoint;
 
-    // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / RealT(der+1);    
-    intKrnl.execute(der);
-  }
+    // initialization of scalars in the taylor series expansion (0th term)
+    RealT l_firstTerm = static_cast<RealT>(1.0);
+    RealT l_secondTerm = static_cast<RealT>(1.0);
+    RealT l_factorial = static_cast<RealT>(1.0);
 
-  // TODO(Lukas) Implement!
-  // Compute integrated displacement over time step if needed.
-}
+    kernel::derivativeTaylorExpansionEla intKrnl;
+    intKrnl.I = o_timeIntegrated;
+    RealT const* der = i_timeDerivatives;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      intKrnl.dQ(i) = der;
+      der += tensor::dQ::size(i);
+    }
 
-void flopsAder( unsigned int        &o_nonZeroFlops,
-                                        unsigned int        &o_hardwareFlops ) {  
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
+    // iterate over time derivatives
+    for (int der = 0; der < Config::ConvergenceOrder; ++der) {
+      l_firstTerm *= l_deltaTUpper;
+      l_secondTerm *= l_deltaTLower;
+      l_factorial *= static_cast<RealT>(der + 1);
 
-  // initialization
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
+      intKrnl.power = l_firstTerm - l_secondTerm;
+      intKrnl.power /= l_factorial;
 
-  // interate over derivatives
-  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
-    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(der);
-    o_hardwareFlops += kernel::derivative::hardwareFlops(der);
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
-  }
-}
-
-unsigned bytesAder()
-{
-  unsigned reals = 0;
-  
-  // DOFs load, tDOFs load, tDOFs write
-  reals += tensor::Q::size() + tensor::Qane::size() + 2 * tensor::I::size() + 2 * tensor::Iane::size();
-  // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star>()
-        + tensor::w::size()
-        + tensor::W::size()
-        + tensor::E::size();
-           
-  /// \todo incorporate derivatives
-
-  return reals * sizeof(RealT);
-}
-
-void computeIntegral( double                                      i_expansionPoint,
-                                              double                                      i_integrationStart,
-                                              double                                      i_integrationEnd,
-                                              RealT const*                                 i_timeDerivatives,
-                                              RealT                                        o_timeIntegrated[ConfigConstants<Config>::TensorSizeI] )
-{
-
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
-
-  // compute lengths of integration intervals
-  RealT l_deltaTLower = i_integrationStart - i_expansionPoint;
-  RealT l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
-  
-  // initialization of scalars in the taylor series expansion (0th term)
-  RealT l_firstTerm  = static_cast<RealT>(1.0);
-  RealT l_secondTerm = static_cast<RealT>(1.0);
-  RealT l_factorial  = static_cast<RealT>(1.0);
-  
-  kernel::derivativeTaylorExpansionEla intKrnl;
-  intKrnl.I = o_timeIntegrated;
-  RealT const* der = i_timeDerivatives;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = der;
-    der += tensor::dQ::size(i);
+      intKrnl.execute(der);
+    }
   }
 
-  // iterate over time derivatives
-  for(int der = 0; der < ConvergenceOrder; ++der ) {
-    l_firstTerm  *= l_deltaTUpper;
-    l_secondTerm *= l_deltaTLower;
-    l_factorial  *= static_cast<RealT>(der+1);
+  void computeTaylorExpansion(RealT time,
+                              RealT expansionPoint,
+                              RealT const* timeDerivatives,
+                              RealT timeEvaluated[tensor::Q::size()]) {
+    /*
+     * assert alignments.
+     */
+    assert(((uintptr_t)timeDerivatives) % Alignment == 0);
+    assert(((uintptr_t)timeEvaluated) % Alignment == 0);
 
-    intKrnl.power  = l_firstTerm - l_secondTerm;
-    intKrnl.power /= l_factorial;
+    // assert that this is a forward evaluation in time
+    assert(time >= expansionPoint);
 
-    intKrnl.execute(der);
+    RealT deltaT = time - expansionPoint;
+
+    static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+
+    kernel::derivativeTaylorExpansionEla intKrnl;
+    intKrnl.I = timeEvaluated;
+    RealT const* der = timeDerivatives;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      intKrnl.dQ(i) = der;
+      der += tensor::dQ::size(i);
+    }
+    intKrnl.power = 1.0;
+
+    // iterate over time derivatives
+    for (int derivative = 0; derivative < Config::ConvergenceOrder; ++derivative) {
+      intKrnl.execute(derivative);
+      intKrnl.power *= deltaT / RealT(derivative + 1);
+    }
   }
-}
 
-void computeTaylorExpansion( RealT         time,
-                                                     RealT         expansionPoint,
-                                                     RealT const*  timeDerivatives,
-                                                     RealT         timeEvaluated[tensor::Q::size()] ) {
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
+  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+    // reset flops
+    nonZeroFlops = 0;
+    hardwareFlops = 0;
 
-  // assert that this is a forward evaluation in time
-  assert( time >= expansionPoint );
-
-  RealT deltaT = time - expansionPoint;
-
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-
-  kernel::derivativeTaylorExpansionEla intKrnl;
-  intKrnl.I = timeEvaluated;
-  RealT const* der = timeDerivatives;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = der;
-    der += tensor::dQ::size(i);
+    // interate over derivatives
+    for (unsigned der = 0; der < Config::ConvergenceOrder; ++der) {
+      nonZeroFlops += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
+      hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
+    }
   }
-  intKrnl.power = 1.0;
- 
-  // iterate over time derivatives
-  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / RealT(derivative+1);
-  }
-}
-
-void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0; hardwareFlops = 0;
-
-  // interate over derivatives
-  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
-    nonZeroFlops  += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
-    hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
-  }
-}
-
-  };
-}
+};
+} // namespace seissol::waveprop::kernel::time
 
 #endif
-

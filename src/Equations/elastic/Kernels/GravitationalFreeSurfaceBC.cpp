@@ -3,7 +3,5 @@
 
 namespace seissol {
 
-double getGravitationalAcceleration() {
-  return SeisSol::main.getGravitationSetup().acceleration;
-}
+double getGravitationalAcceleration() { return SeisSol::main.getGravitationSetup().acceleration; }
 } // namespace seissol

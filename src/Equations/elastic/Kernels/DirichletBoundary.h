@@ -18,10 +18,10 @@
 #endif
 
 namespace {
-// Helper functions, needed because C++ doesnt allow partial func. template specialisation  
-template<typename MappingKrnl>
+// Helper functions, needed because C++ doesnt allow partial func. template specialisation
+template <typename MappingKrnl>
 void addRotationToProjectKernel(MappingKrnl& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+                                const CellBoundaryMapping& boundaryMapping) {
   // do nothing
 }
 
@@ -31,7 +31,7 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+                                const CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.TinvData != nullptr);
   projectKernel.Tinv = boundaryMapping.TinvData;
 }
@@ -41,19 +41,19 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& 
 
 namespace seissol::kernels {
 
-template<typename Config>
+template <typename Config>
 class DirichletBoundary {
- public:
+  public:
   using RealT = typename Config::RealT;
 
   DirichletBoundary() {
     quadrature::GaussLegendre(quadPoints, quadWeights, Config::ConvergenceOrder);
   }
 
-  template<typename Func, typename MappingKrnl>
+  template <typename Func, typename MappingKrnl>
   void evaluate(const RealT* dofsVolumeInteriorModal,
                 int faceIdx,
-                const CellBoundaryMapping &boundaryMapping,
+                const CellBoundaryMapping& boundaryMapping,
                 MappingKrnl&& projectKernelPrototype,
                 Func&& evaluateBoundaryCondition,
                 RealT* dofsFaceBoundaryNodal) const {
@@ -62,46 +62,48 @@ class DirichletBoundary {
     projectKrnl.I = dofsVolumeInteriorModal;
     projectKrnl.INodal = dofsFaceBoundaryNodal;
     projectKrnl.execute(faceIdx);
-  
+
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
-  
+
     static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
-		  "Need evaluation at all nodes!");
+                  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
-  
+
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
     std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
   }
 
 #ifdef ACL_DEVICE
-  template<typename Func, typename MappingKrnl, typename InverseMappingKrnl>
+  template <typename Func, typename MappingKrnl, typename InverseMappingKrnl>
   void evaluateOnDevice(int faceIdx,
                         ConditionalKey& key,
                         MappingKrnl& projectKernelPrototype,
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
-                        ConditionalPointersToRealsTable &dataTable,
+                        ConditionalPointersToRealsTable& dataTable,
                         device::DeviceInstance& device) const {
 
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     size_t memCounter{0};
-    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
-    auto** dofsFaceBoundaryNodalPtrs = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
+    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(
+        device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
+    auto** dofsFaceBoundaryNodalPtrs =
+        reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
     memCounter += 2;
 
     auto* deviceStream = device.api->getDefaultStream();
-    device.algorithms.incrementalAdd(
-      dofsFaceBoundaryNodalPtrs,
-      dofsFaceBoundaryNodalData,
-      tensor::INodal::size(),
-      numElements,
-      deviceStream
-    );
+    device.algorithms.incrementalAdd(dofsFaceBoundaryNodalPtrs,
+                                     dofsFaceBoundaryNodalData,
+                                     tensor::INodal::size(),
+                                     numElements,
+                                     deviceStream);
 
-    const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
-    auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
+    const auto auxTmpMemSize =
+        yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
+    auto* auxTmpMem =
+        reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
     memCounter += 1;
 
     auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
@@ -109,16 +111,14 @@ class DirichletBoundary {
 
     auto projectKrnl = projectKernelPrototype;
     projectKrnl.numElements = numElements;
-    projectKrnl.Tinv = const_cast<const real **>(TinvData);
-    projectKrnl.I = const_cast<const real **>(idofsPtrs);
+    projectKrnl.Tinv = const_cast<const real**>(TinvData);
+    projectKrnl.I = const_cast<const real**>(idofsPtrs);
     projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
     projectKrnl.linearAllocator.initialize(auxTmpMem);
     projectKrnl.streamPtr = deviceStream;
     projectKrnl.execute(faceIdx);
 
-
     boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
-
 
     auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
     auto** nAmNm1 = dataTable[key].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr();
@@ -126,8 +126,8 @@ class DirichletBoundary {
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
     nodalLfKrnl.Q = dofsPtrs;
-    nodalLfKrnl.INodal = const_cast<const real **>(dofsFaceBoundaryNodalPtrs);
-    nodalLfKrnl.AminusT = const_cast<const real **>(nAmNm1);
+    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
+    nodalLfKrnl.AminusT = const_cast<const real**>(nAmNm1);
     nodalLfKrnl.linearAllocator.initialize(auxTmpMem);
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);
@@ -137,86 +137,85 @@ class DirichletBoundary {
   }
 #endif
 
-  template<typename Func, typename MappingKrnl>
+  template <typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const RealT* dofsVolumeInteriorModal,
-			     int faceIdx,
-			     const CellBoundaryMapping &boundaryMapping,
-			     MappingKrnl&& projectKernelPrototype,
-			     Func&& evaluateBoundaryCondition,
-			     RealT* dofsFaceBoundaryNodal,
-			     double startTime,
-			     double timeStepWidth) const {
+                             int faceIdx,
+                             const CellBoundaryMapping& boundaryMapping,
+                             MappingKrnl&& projectKernelPrototype,
+                             Func&& evaluateBoundaryCondition,
+                             RealT* dofsFaceBoundaryNodal,
+                             double startTime,
+                             double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
-  
+
     static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
-		  "Need evaluation at all nodes!");
+                  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
-  
+
     // Compute quad points/weights for interval [t, t+dt]
     double timePoints[Config::ConvergenceOrder];
     double timeWeights[Config::ConvergenceOrder];
     for (unsigned point = 0; point < Config::ConvergenceOrder; ++point) {
-      timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth)/2;
+      timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth) / 2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
-  
+
     alignas(Alignment) RealT dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
     auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
-  
+
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
-  
+
     auto updateKernel = kernel::updateINodal{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
-  
+
     for (int i = 0; i < Config::ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
-      std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
-						    timePoints[i],
-						    boundaryDofsTmp);
-    
+      std::forward<Func>(evaluateBoundaryCondition)(
+          boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
+
       updateKernel.factor = timeWeights[i];
       updateKernel.execute();
     }
-  
   }
 
- private:
+  private:
   double quadPoints[Config::ConvergenceOrder];
   double quadWeights[Config::ConvergenceOrder];
 };
 
-template<typename Config>
-void computeAverageDisplacement(double deltaT,
-				const typename Config::RealT* timeDerivatives,
-				const unsigned int derivativesOffsets[Config::ConvergenceOrder],
-				typename Config::RealT timeIntegrated[ConfigConstants<Config>::TensorSizeI]) {
-    // TODO(Lukas) Only compute integral for displacement, not for all vars.
-    assert(reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
-    assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
-    assert(deltaT > 0);
-    
-    kernel::derivativeTaylorExpansion intKrnl;
-    intKrnl.I = timeIntegrated;
-    for (size_t i = 0; i < Config::ConvergenceOrder; ++i) {
-      intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
-    }
-    
-    typename Config::RealT factorial = 2.0;
-    double power = deltaT * deltaT;
-    
-    for (int der = 0; der < Config::ConvergenceOrder; ++der) {
-      intKrnl.power = power / factorial;
-      intKrnl.execute(der);
+template <typename Config>
+void computeAverageDisplacement(
+    double deltaT,
+    const typename Config::RealT* timeDerivatives,
+    const unsigned int derivativesOffsets[Config::ConvergenceOrder],
+    typename Config::RealT timeIntegrated[ConfigConstants<Config>::TensorSizeI]) {
+  // TODO(Lukas) Only compute integral for displacement, not for all vars.
+  assert(reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(deltaT > 0);
 
-      factorial *= der + 2.0;
-      power *= deltaT;
-    }
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = timeIntegrated;
+  for (size_t i = 0; i < Config::ConvergenceOrder; ++i) {
+    intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
   }
+
+  typename Config::RealT factorial = 2.0;
+  double power = deltaT * deltaT;
+
+  for (int der = 0; der < Config::ConvergenceOrder; ++der) {
+    intKrnl.power = power / factorial;
+    intKrnl.execute(der);
+
+    factorial *= der + 2.0;
+    power *= deltaT;
+  }
+}
 
 } // namespace kernels
 } // namespace seissol
