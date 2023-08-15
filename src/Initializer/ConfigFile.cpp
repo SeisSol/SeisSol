@@ -34,12 +34,21 @@ static std::pair<std::size_t, seissol::SupportedConfigs> testConfig(const std::s
   }
 }
 
-static std::unordered_map<int, CellConfigInfo> fallbackConfig() {
+constexpr SupportedConfigs defaultConfig(bool plasticity) {
+  if (plasticity) {
+    return SupportedConfigs(CellConfig<seissol::model::Material_t, real, ConvergenceOrder, true>());
+  } else {
+    return SupportedConfigs(
+        CellConfig<seissol::model::Material_t, real, ConvergenceOrder, false>());
+  }
+}
+
+static std::unordered_map<int, seissol::initializer::CellConfigInfo> fallbackConfig() {
   const auto& parameters = seissol::SeisSol::main.getSeisSolParameters();
-  std::unordered_map<int, CellConfigInfo> configs;
+  std::unordered_map<int, seissol::initializer::CellConfigInfo> configs;
   configs[0] = initializer::CellConfigInfo{0, // TODO(David): fix
                                            defaultConfig(parameters.model.plasticity),
-                                           parameters.model.modelFileName};
+                                           parameters.model.materialFileName};
   return configs;
 }
 } // namespace

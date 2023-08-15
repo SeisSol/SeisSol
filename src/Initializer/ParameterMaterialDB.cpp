@@ -55,6 +55,7 @@ struct ModelQuadratureRule {
                                                                points[i].data(),
                                                                mappedPoints[i].data());
     }
+    return mappedPoints;
   }
 };
 
@@ -137,7 +138,6 @@ struct MaterialAverager<::seissol::model::AcousticMaterial> {
 
     // Harmonic average is used for mu/K, so take the reciprocal
     result.lambda = 1.0 / kMeanInv;
-    result.mu = 0.0;
 
     return result;
   }
@@ -468,6 +468,7 @@ namespace seissol::model {
   for (const auto& [groupArg, info] : infoMap) {
     // TODO(C++20): assignment needed for C++17 compatibility (once C++20 hits, it can be removed)
     int group = groupArg;
+    std::size_t compressedIndex = infoMapIndex;
     ::std::visit(
         [&](const auto& config) {
           using Config = ::std::decay_t<decltype(config)>;
@@ -480,12 +481,29 @@ namespace seissol::model {
           }
 
           configPlasticity[group] = Config::Plasticity;
+
+          for (const auto& [otherGroup, existingIndex] : compressedInfoMap) {
+            // TODO(David): enforce same RealT as well?
+            const bool canMerge = ::std::visit(
+                [&](const auto& otherConfig) {
+                  using OtherConfig = ::std::decay_t<decltype(config)>;
+                  return std::is_same_v<typename Config::MaterialT,
+                                        typename OtherConfig::MaterialT> &&
+                         std::is_same_v<typename Config::RealT, typename OtherConfig::RealT>;
+                },
+                infoMap[otherGroup]);
+            if (canMerge) {
+              compressedIndex = existingIndex;
+              break;
+            }
+          }
         },
         info.config);
-    // (for now, no compression; i.e. different groups with the same material get computed in two
-    // passes)
-    compressedInfoMap[group] = infoMapIndex;
-    ++infoMapIndex;
+    compressedInfoMap[group] = compressedIndex;
+    if (compressedIndex = infoMapIndex) {
+      // new material found
+      ++infoMapIndex;
+    }
   }
 
   int maxOrder = 0;
