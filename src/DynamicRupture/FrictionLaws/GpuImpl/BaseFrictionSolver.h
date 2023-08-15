@@ -20,13 +20,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture<Config> const* const dynRup,
                 RealT fullUpdateTime,
-                const double timeWeights[ConvergenceOrder]) override {
+                const double timeWeights[Config::ConvergenceOrder]) override {
 
     FrictionSolver<Config>::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
+    size_t requiredNumBytes = Config::ConvergenceOrder * sizeof(double);
     this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
 
     {
@@ -53,7 +53,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+      for (unsigned timeIndex = 0; timeIndex < Config::ConvergenceOrder; ++timeIndex) {
         const RealT t0{this->drParameters->t0};
         const RealT dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};

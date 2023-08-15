@@ -4,13 +4,13 @@
 namespace seissol::dr::friction_law {
 
 template <typename Config>
-void FrictionSolver<Config>::computeDeltaT(const double timePoints[ConvergenceOrder]) {
+void FrictionSolver<Config>::computeDeltaT(const double timePoints[Config::ConvergenceOrder]) {
   deltaT[0] = timePoints[0];
-  for (unsigned timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
+  for (unsigned timeIndex = 1; timeIndex < Config::ConvergenceOrder; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
   // to fill last segment of Gaussian integration
-  deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
+  deltaT[Config::ConvergenceOrder - 1] = deltaT[Config::ConvergenceOrder - 1] + deltaT[0];
 }
 
 template <typename Config>

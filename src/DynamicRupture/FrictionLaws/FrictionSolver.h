@@ -29,13 +29,13 @@ class FrictionSolver {
   virtual void evaluate(seissol::initializers::Layer& layerData,
                         seissol::initializers::DynamicRupture<Config> const* const dynRup,
                         RealT fullUpdateTime,
-                        const double timeWeights[ConvergenceOrder]) = 0;
+                        const double timeWeights[Config::ConvergenceOrder]) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[ConvergenceOrder]);
+  void computeDeltaT(const double timePoints[Config::ConvergenceOrder]);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
@@ -49,7 +49,7 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  RealT deltaT[ConvergenceOrder] = {};
+  RealT deltaT[Config::ConvergenceOrder] = {};
 
   dr::DRParameters* drParameters;
   ImpedancesAndEta<Config>* impAndEta;
@@ -80,8 +80,10 @@ class FrictionSolver {
   RealT (*dynStressTime)[misc::numPaddedPoints<Config>];
   bool (*dynStressTimePending)[misc::numPaddedPoints<Config>];
 
-  RealT (*qInterpolatedPlus)[ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
-  RealT (*qInterpolatedMinus)[ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
+  RealT (
+      *qInterpolatedPlus)[Config::ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
+  RealT (
+      *qInterpolatedMinus)[Config::ConvergenceOrder][Yateto<Config>::Tensor::QInterpolated::size()];
 };
 } // namespace seissol::dr::friction_law
 

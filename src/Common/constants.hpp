@@ -6,7 +6,7 @@
 namespace seissol {
 // TODO: remove these, once properly templated
 constexpr std::size_t GivenNumberOfQuantities = NUMBER_OF_QUANTITIES;
-constexpr std::size_t ConvergenceOrder = CONVERGENCE_ORDER;
+constexpr std::size_t GivenConvergenceOrder = CONVERGENCE_ORDER;
 
 constexpr std::size_t Alignment = ALIGNMENT;
 

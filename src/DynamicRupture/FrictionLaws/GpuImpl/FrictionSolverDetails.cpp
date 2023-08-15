@@ -46,7 +46,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
+    const size_t requiredNumBytes = Config::ConvergenceOrder * sizeof(double);
     devTimeWeights = static_cast<double*>(sycl::malloc_shared(requiredNumBytes, queue));
   }
 

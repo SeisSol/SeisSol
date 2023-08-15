@@ -15,12 +15,12 @@ namespace seissol {
     std::variant<CellConfig<seissol::model::Material_t, real, ConvergenceOrder, true>,
                  CellConfig<seissol::model::Material_t, real, ConvergenceOrder, false>>;*/
 
-using SupportedConfigs =
-    std::variant<CellConfig<seissol::model::ElasticMaterial, real, ConvergenceOrder, true>,
-                 CellConfig<seissol::model::ElasticMaterial, real, ConvergenceOrder, false>,
-                 CellConfig<seissol::model::ViscoElasticMaterial<3>, real, ConvergenceOrder, true>,
-                 CellConfig<seissol::model::ViscoElasticMaterial<3>, real, ConvergenceOrder, false>,
-                 CellConfig<seissol::model::AnisotropicMaterial, real, ConvergenceOrder, true>,
-                 CellConfig<seissol::model::AnisotropicMaterial, real, ConvergenceOrder, false>>;
+using SupportedConfigs = std::variant<
+    CellConfig<seissol::model::ElasticMaterial, real, GivenConvergenceOrder, true>,
+    CellConfig<seissol::model::ElasticMaterial, real, GivenConvergenceOrder, false>,
+    CellConfig<seissol::model::ViscoElasticMaterial<3>, real, GivenConvergenceOrder, true>,
+    CellConfig<seissol::model::ViscoElasticMaterial<3>, real, GivenConvergenceOrder, false>,
+    CellConfig<seissol::model::AnisotropicMaterial, real, GivenConvergenceOrder, true>,
+    CellConfig<seissol::model::AnisotropicMaterial, real, GivenConvergenceOrder, false>>;
 
 } // namespace seissol

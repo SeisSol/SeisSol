@@ -42,9 +42,12 @@ struct ImpedancesAndEta {
 template <typename Config>
 struct FaultStresses {
   using RealT = typename Config::RealT;
-  alignas(Alignment) RealT normalStress[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
-  alignas(Alignment) RealT traction1[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
-  alignas(Alignment) RealT traction2[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
+  alignas(Alignment) RealT normalStress[Config::ConvergenceOrder][misc::numPaddedPoints<Config>] = {
+      {}};
+  alignas(Alignment) RealT traction1[Config::ConvergenceOrder][misc::numPaddedPoints<Config>] = {
+      {}};
+  alignas(Alignment) RealT traction2[Config::ConvergenceOrder][misc::numPaddedPoints<Config>] = {
+      {}};
 };
 
 /**
@@ -54,8 +57,10 @@ struct FaultStresses {
 template <typename Config>
 struct TractionResults {
   using RealT = typename Config::RealT;
-  alignas(Alignment) RealT traction1[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
-  alignas(Alignment) RealT traction2[ConvergenceOrder][misc::numPaddedPoints<Config>] = {{}};
+  alignas(Alignment) RealT traction1[Config::ConvergenceOrder][misc::numPaddedPoints<Config>] = {
+      {}};
+  alignas(Alignment) RealT traction2[Config::ConvergenceOrder][misc::numPaddedPoints<Config>] = {
+      {}};
 };
 
 } // namespace seissol::dr
