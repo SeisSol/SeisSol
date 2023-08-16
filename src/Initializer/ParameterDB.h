@@ -59,7 +59,7 @@
 
 #include "Equations/datastructures.hpp"
 
-#ifdef USE_HDF5
+#ifdef USE_HDF
 #include <PUML/PUML.h>
 #endif
 
