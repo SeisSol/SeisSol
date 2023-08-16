@@ -4,6 +4,6 @@
     <matrix name="kDivMT(1)"/>
     <matrix name="kDivMT(2)"/>
   </group>
-  <!--  <matrix name="star" sparse="True"/> -->
+  <matrix name="star" sparse="True"/>
 </memory_layouts>
 
