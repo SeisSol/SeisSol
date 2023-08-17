@@ -40,16 +40,12 @@
 #ifndef MPI_BASIC_H
 #define MPI_BASIC_H
 
-#include "FaultMPI.h"
-
-namespace seissol
-{
+namespace seissol {
 
 /**
  * Basic MPI abstraction
  */
-class MPIBasic
-{
+class MPIBasic {
 protected:
 	/** This rank */
 	int m_rank;
@@ -66,18 +62,10 @@ protected:
 	/** Requires threadsafe MPI */
 	bool m_threadsafe;
 
-public:
-	/** The fault MPI wrapper */
-	FaultMPI fault;
-
-protected:
-	MPIBasic()
-		: m_rank(0), m_size(1)
-	{ }
+	MPIBasic() : m_rank(0), m_size(1) {}
 
 public:
-	~MPIBasic()
-	{ }
+	virtual ~MPIBasic() = default;
 
 	/**
 	 * @return The rank of this process
@@ -111,7 +99,6 @@ public:
 		return m_sharedMemMpiSize;
 	}
 };
-
-}
+} // namespace seissol
 
 #endif // MPI_BASIC_H

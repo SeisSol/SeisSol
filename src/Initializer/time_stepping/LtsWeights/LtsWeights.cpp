@@ -47,7 +47,7 @@
 #include <PUML/Upward.h>
 #include "LtsWeights.h"
 
-#include <Initializer/ParameterDB.h>
+#include <Initializer/time_stepping/GlobalTimestep.hpp>
 #include <Parallel/MPI.h>
 
 #include <generated_code/init.h>
@@ -186,7 +186,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     wiggleFactor = wiggleFactorResult.wiggleFactor;
     if (ltsParameters->isAutoMergeUsed()) {
       maxClusterIdToEnforce =
-          std::min(maxClusterIdToEnforce, wiggleFactorResult.numberOfClusters - 1);
+          std::min(maxClusterIdToEnforce, wiggleFactorResult.maxClusterId);
     }
   } else {
     wiggleFactor = 1.0;
@@ -222,8 +222,8 @@ LtsWeights::ComputeWiggleFactorResult
   const auto rank = seissol::MPI::mpi.rank();
 
   // Maps that keep track of number of clusters vs cost
-  auto mapNumberOfClustersToLowestCost = std::map<int, double>{};
-  auto mapNumberOfClustersToBestWiggleFactor = std::map<int, double>{};
+  auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
+  auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
@@ -296,28 +296,28 @@ LtsWeights::ComputeWiggleFactorResult
                                                       m_details.globalMinTimeStep,
                                                       MPI::mpi.comm());
 
-    if (auto it = mapNumberOfClustersToLowestCost.find(maxClusterId);
-        it == mapNumberOfClustersToLowestCost.end() || cost <= it->second) {
-      mapNumberOfClustersToBestWiggleFactor[maxClusterId] = curWiggleFactor;
-      mapNumberOfClustersToLowestCost[maxClusterId] = cost;
+    if (auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
+        it == mapMaxClusterIdToLowestCost.end() || cost <= it->second) {
+      maxMapClusterIdToBestWiggleFactor[maxClusterId] = curWiggleFactor;
+      mapMaxClusterIdToLowestCost[maxClusterId] = cost;
     }
   }
 
   // Find best wiggle factor after merging of clusters
   // We compare against cost of baselineCost.
-  int minAdmissibleNumberOfClusters = std::numeric_limits<int>::max();
+  int minAdmissibleMaxClusterId = std::numeric_limits<int>::max();
   if (isAutoMergeUsed) {
     // When merging clusters, we want to find the minimum number of clusters with admissible performance.
     bool foundAdmissibleMerge = false;
-    for (const auto& [noOfClusters, cost] : mapNumberOfClustersToLowestCost) {
+    for (const auto& [noOfClusters, cost] : mapMaxClusterIdToLowestCost) {
       if (cost <= maxAdmissibleCost) {
         foundAdmissibleMerge = true;
-        minAdmissibleNumberOfClusters = std::min(minAdmissibleNumberOfClusters, noOfClusters);
+        minAdmissibleMaxClusterId = std::min(minAdmissibleMaxClusterId, noOfClusters);
         logDebug(rank) << "Admissible. cluster:" << noOfClusters << ",cost" << cost
-                       << "with wiggle factor" << mapNumberOfClustersToBestWiggleFactor[noOfClusters];
+                       << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       } else {
         logDebug(rank) << "Not admissible. cluster:" << noOfClusters << ",cost" << cost
-                       << "with wiggle factor" << mapNumberOfClustersToBestWiggleFactor[noOfClusters];
+                       << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       }
     }
     if (!foundAdmissibleMerge) {
@@ -325,9 +325,9 @@ LtsWeights::ComputeWiggleFactorResult
     }
   } else {
     // Otherwise choose one with the smallest cost
-    minAdmissibleNumberOfClusters =
-        std::min_element(mapNumberOfClustersToLowestCost.begin(),
-                         mapNumberOfClustersToLowestCost.end(),
+    minAdmissibleMaxClusterId =
+        std::min_element(mapMaxClusterIdToLowestCost.begin(),
+                         mapMaxClusterIdToLowestCost.end(),
                          [](const auto& a, const auto& b) { return a.second < b.second; })
             ->first;
   }
@@ -335,10 +335,10 @@ LtsWeights::ComputeWiggleFactorResult
   logInfo(rank) << "Enforcing maximum difference when finding best wiggle factor took"
                 << totalWiggleFactorReductions << "reductions.";
 
-  const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleNumberOfClusters];
-  const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleNumberOfClusters];
+  const auto bestWiggleFactor = maxMapClusterIdToBestWiggleFactor[minAdmissibleMaxClusterId];
+  const auto bestCostEstimate = mapMaxClusterIdToLowestCost[minAdmissibleMaxClusterId];
   logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
-                << bestCostEstimate << "and" << minAdmissibleNumberOfClusters << "time clusters";
+                << bestCostEstimate << "and" << minAdmissibleMaxClusterId + 1 << "time clusters";
 
   if (baselineCost > bestCostEstimate) {
     logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
@@ -351,7 +351,7 @@ LtsWeights::ComputeWiggleFactorResult
     logInfo(rank) << "Note: Cost increased due to cluster merging!";
   }
 
-  return ComputeWiggleFactorResult{ minAdmissibleNumberOfClusters, bestWiggleFactor, bestCostEstimate};
+  return ComputeWiggleFactorResult{minAdmissibleMaxClusterId, bestWiggleFactor, bestCostEstimate};
 }
 
 const int* LtsWeights::vertexWeights() const {
@@ -367,40 +367,6 @@ const double* LtsWeights::imbalances() const {
 int LtsWeights::nWeightsPerVertex() const {
   assert(m_ncon != std::numeric_limits<int>::infinity() && "num. constrains has not been initialized yet");
   return m_ncon;
-}
-
-void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
-                                     std::vector<double> &timeSteps, double maximumAllowedTimeStep) {
-  std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
-  std::vector<PUML::TETPUML::vertex_t> const &vertices = m_mesh->vertices();
-
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    // Compute insphere radius
-    Eigen::Vector3d barycentre(0., 0., 0.);
-    Eigen::Vector3d x[4];
-    unsigned vertLids[4];
-    PUML::Downward::vertices(*m_mesh, cells[cell], vertLids);
-    for (unsigned vtx = 0; vtx < 4; ++vtx) {
-      for (unsigned d = 0; d < 3; ++d) {
-        x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
-      }
-    }
-    Eigen::Matrix4d A;
-    A << x[0](0), x[0](1), x[0](2), 1.0,
-        x[1](0), x[1](1), x[1](2), 1.0,
-        x[2](0), x[2](1), x[2](2), 1.0,
-        x[3](0), x[3](1), x[3](2), 1.0;
-
-    double alpha = A.determinant();
-    double Nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
-    double Nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();
-    double Nacd = ((x[2] - x[0]).cross(x[3] - x[0])).norm();
-    double Nbcd = ((x[2] - x[1]).cross(x[3] - x[1])).norm();
-    double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
-
-    // Compute maximum timestep (CFL=1)
-    timeSteps[cell] = std::fmin(maximumAllowedTimeStep, 2.0 * insphere / (pWaveVel[cell] * (2 * CONVERGENCE_ORDER - 1)));
-  }
 }
 
 int LtsWeights::getCluster(double timestep, double globalMinTimestep, double ltsWiggleFactor, unsigned rate) {
@@ -439,46 +405,8 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-
-  const auto &cells = m_mesh->cells();
-  std::vector<double> pWaveVel;
-  pWaveVel.resize(cells.size());
-
-  // TODO(Sebastian) Use averaged generator here as well.
-  seissol::initializers::ElementBarycentreGeneratorPUML queryGen(*m_mesh);
-  //up to now we only distinguish between anisotropic elastic any other isotropic material
-#ifdef USE_ANISOTROPIC
-  std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
-#elif defined(USE_POROELASTIC)
-  std::vector<seissol::model::PoroElasticMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial> parameterDB;
-#else
-  std::vector<seissol::model::ElasticMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
-#endif
-  parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(m_velocityModel, &queryGen);
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
-  }
-
-  GlobalTimeStepDetails details{};
-  details.timeSteps.resize(cells.size());
-  computeMaxTimesteps(pWaveVel, details.timeSteps, maximumAllowedTimeStep);
-
-  double localMinTimestep = *std::min_element(details.timeSteps.begin(), details.timeSteps.end());
-  double localMaxTimestep = *std::max_element(details.timeSteps.begin(), details.timeSteps.end());
-
-#ifdef USE_MPI
-  MPI_Allreduce(&localMinTimestep, &details.globalMinTimeStep, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
-  MPI_Allreduce(&localMaxTimestep, &details.globalMaxTimeStep, 1, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
-#else
-  details.globalMinTimeStep = localMinTimestep;
-  details.globalMaxTimeStep = localMaxTimestep;
-#endif
-  return details;
+seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh));
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -502,7 +430,7 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto &cells = m_mesh->cells();
   std::vector<int> clusterIds(cells.size(), 0);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = getCluster(m_details.timeSteps[cell],
+    clusterIds[cell] = getCluster(m_details.cellTimeStepWidths[cell],
                                   m_details.globalMinTimeStep, curWiggleFactor,
                                   m_rate);
   }

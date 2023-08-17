@@ -206,6 +206,8 @@ namespace proxy::device {
       assert(device.api->isCircularStreamsJoinedWithDefault() &&
              "circular streams must be joined with the default stream");
 
+      device.api->streamEndCapture();
+
       computeGraphHandle = device.api->getLastGraphHandle();
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
       device.api->syncDefaultStreamWithHost();

@@ -51,7 +51,7 @@ build_seissol:
             pwd;
             CMAKE_PREFIX_PATH=~ ;
             cmake ..
-            -DNETCDF=OFF
+            -DNETCDF=ON
             -DMETIS=ON
             -DCOMMTHREAD=OFF
             -DASAGI=OFF

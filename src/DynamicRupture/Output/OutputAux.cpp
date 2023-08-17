@@ -1,3 +1,4 @@
+#include "Common/filesystem.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Quadrature.h"
@@ -5,7 +6,6 @@
 #include "OutputAux.hpp"
 #include <Eigen/Dense>
 #include <ctime>
-#include <filesystem>
 #include <iomanip>
 #include <limits>
 #include <unordered_map>
@@ -253,15 +253,15 @@ std::string getTimeStamp() {
 void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension) {
   std::stringstream fullName;
   fullName << fileName << '.' << fileExtension;
-  std::filesystem::path path(fullName.str());
-  std::filesystem::directory_entry entry(path);
+  seissol::filesystem::path path(fullName.str());
+  seissol::filesystem::directory_entry entry(path);
 
-  if (entry.exists()) {
+  if (seissol::directoryExists(entry)) {
     auto stamp = getTimeStamp();
     std::stringstream backupFileName;
     backupFileName << fileName << ".bak_" << stamp << '.' << fileExtension;
-    std::filesystem::path copyPath(backupFileName.str());
-    std::filesystem::rename(path, copyPath);
+    seissol::filesystem::path copyPath(backupFileName.str());
+    seissol::filesystem::rename(path, copyPath);
   }
 }
 } // namespace seissol::dr::filesystem_aux

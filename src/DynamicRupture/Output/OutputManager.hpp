@@ -14,7 +14,7 @@ class OutputManager {
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
       : ewOutputData(std::make_shared<ReceiverOutputData>()),
         ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)){};
-  void setInputParam(const YAML::Node& inputData, MeshReader& userMesher);
+  void setInputParam(const YAML::Node& inputData, seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
                   seissol::initializers::Lut* userWpLut,
@@ -49,7 +49,7 @@ class OutputManager {
   seissol::initializers::DynamicRupture* drDescr{nullptr};
 
   FaceToLtsMapType faceToLtsMap{};
-  MeshReader* meshReader{nullptr};
+  seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};
   static constexpr double timeMargin{1.005};

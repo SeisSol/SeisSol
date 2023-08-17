@@ -49,7 +49,7 @@
 #include "utils/logger.h"
 
 #include "AsagiModule.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 namespace seissol
 {

@@ -2,9 +2,14 @@
 
 #include "Parallel/Pin.h"
 
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif // ACL_DEVICE
+
 seissol::time_stepping::AbstractCommunicationManager::AbstractCommunicationManager(
-    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters)
-    : ghostClusters(std::move(ghostClusters)) {}
+    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters) : ghostClusters(std::move(ghostClusters)) {
+
+}
 void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncTime) {
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->setSyncTime(newSyncTime);
@@ -28,23 +33,30 @@ bool seissol::time_stepping::AbstractCommunicationManager::poll() {
 
 seissol::time_stepping::SerialCommunicationManager::SerialCommunicationManager(
     seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters)
-    : AbstractCommunicationManager(std::move(ghostClusters)) {}
+    : AbstractCommunicationManager(std::move(ghostClusters)) {
+
+}
 
 bool seissol::time_stepping::SerialCommunicationManager::checkIfFinished() const {
   for (auto& ghostCluster : ghostClusters) {
-    if (!ghostCluster->synced())
-      return false;
+    if (!ghostCluster->synced()) return false;
   }
   return true;
 }
 
-void seissol::time_stepping::SerialCommunicationManager::progression() { poll(); }
+void seissol::time_stepping::SerialCommunicationManager::progression() {
+  poll();
+}
 
 seissol::time_stepping::ThreadedCommunicationManager::ThreadedCommunicationManager(
     seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters,
     const seissol::parallel::Pinning* pinning)
-    : AbstractCommunicationManager(std::move(ghostClusters)), thread(), shouldReset(false),
-      isFinished(false), pinning(pinning) {}
+    : AbstractCommunicationManager(std::move(ghostClusters)),
+      thread(),
+      shouldReset(false),
+      isFinished(false),
+      pinning(pinning) {
+}
 
 void seissol::time_stepping::ThreadedCommunicationManager::progression() {
   // Do nothing: Thread takes care of that.
@@ -68,12 +80,16 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
 
   // Start a new communication thread.
   // Note: Easier than keeping one alive, and not that expensive.
-  thread = std::thread([this]() {
+  thread = std::thread([this](){
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    device.api->setDevice(0);
+#endif // ACL_DEVICE
     // Pin this thread to the last core
     // We compute the mask outside the thread because otherwise
     // it confuses profilers and debuggers!
     pinning->pinToFreeCPUs();
-    while (!shouldReset.load() && !isFinished.load()) {
+    while(!shouldReset.load() && !isFinished.load()) {
       isFinished.store(this->poll());
     }
   });
@@ -84,3 +100,6 @@ seissol::time_stepping::ThreadedCommunicationManager::~ThreadedCommunicationMana
     thread.join();
   }
 }
+
+
+

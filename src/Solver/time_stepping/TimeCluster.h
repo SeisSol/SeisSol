@@ -87,6 +87,7 @@
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
+#include <Kernels/PointSourceCluster.h>
 #include <Kernels/TimeCommon.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
@@ -167,14 +168,7 @@ private:
     dr::friction_law::FrictionSolver* frictionSolver;
     dr::output::OutputManager* faultOutputManager;
 
-    //! Mapping of cells to point sources
-    sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
-
-    //! Number of mapping of cells to point sources
-    unsigned m_numberOfCellToPointSourcesMappings;
-
-    //! Point sources
-    sourceterm::PointSources const* m_pointSources;
+    std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -420,15 +414,12 @@ public:
   ~TimeCluster() override;
 
   /**
-   * Sets the pointer to the cluster's point sources
+   * Sets the the cluster's point sources
    *
-   * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
-   * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
-   * @param i_pointSources pointer to all point sources used on this cluster
+   * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                        unsigned i_numberOfCellToPointSourcesMappings,
-                        sourceterm::PointSources const* i_pointSources );
+  void setPointSources(std::unique_ptr<kernels::PointSourceCluster> sourceCluster);
+  void freePointSources() { m_sourceCluster.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;

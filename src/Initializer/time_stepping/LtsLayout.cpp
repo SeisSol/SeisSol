@@ -46,10 +46,14 @@
 
 #include "LtsLayout.h"
 #include "MultiRate.hpp"
+#include "GlobalTimestep.hpp"
 #include <iterator>
 
+#include "Initializer/ParameterDB.h"
+
+#include <iomanip>
+
 seissol::initializers::time_stepping::LtsLayout::LtsLayout():
- m_cellTimeStepWidths(       NULL ),
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
@@ -59,7 +63,6 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout():
 
 seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
-  delete[] m_cellTimeStepWidths;
   delete[] m_cellClusterIds;
   delete[] m_globalTimeStepWidths;
   delete[] m_globalTimeStepRates;
@@ -73,27 +76,25 @@ seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   delete[] m_plainCopyRegions;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader &i_mesh ) {
+void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::geometry::MeshReader &i_mesh ) {
   // TODO: remove the copy by a pointer once the mesh stays constant
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
 
-  m_cellTimeStepWidths = new double[       m_cells.size() ];
   m_cellClusterIds     = new unsigned int[ m_cells.size() ];
 
   // initialize with invalid values
   for (unsigned int l_cell = 0; l_cell < m_cells.size(); ++l_cell) {
-    m_cellTimeStepWidths[l_cell] = std::numeric_limits<double>::min();
     m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
-}
 
-void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned int i_cellId,
-                                                                        double       i_timeStepWidth ) {
-  if( i_cellId >= m_cells.size() ) logError() << "cell id >= mesh size: " << i_cellId << m_cells.size() << "aborting";
+  auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
-  // set time step width
-  m_cellTimeStepWidths[i_cellId] = i_timeStepWidth;
+  // compute timesteps
+  auto timesteps = seissol::initializer::computeTimesteps(seissolParams.timeStepping.cfl, seissolParams.timeStepping.maxTimestepWidth, seissolParams.model.materialFileName,
+        seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
+  
+  m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }
 
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
@@ -1159,7 +1160,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   if( m_clusteringStrategy == single ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  std::numeric_limits<unsigned int>::max(),
-                                 m_cellTimeStepWidths,
+                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
                                  m_globalTimeStepWidths,
@@ -1168,7 +1169,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   else if ( m_clusteringStrategy == multiRate ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  i_clusterRate,
-                                 m_cellTimeStepWidths,
+                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
                                  m_globalTimeStepWidths,

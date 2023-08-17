@@ -1,8 +1,8 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "Parallel/MPI.h"
+#include "Common/filesystem.h"
 #include <sys/sysinfo.h>
 #include <sched.h>
-#include <filesystem>
 #include <fstream>
 
 #ifdef USE_NUMA_AWARE_PINNING
@@ -72,8 +72,8 @@ void seissol::writer::ThreadsPinningWriter::write(seissol::parallel::Pinning& pi
   auto numNProcs = seissol::MPI::mpi.collect(get_nprocs());
 
   if (seissol::MPI::mpi.rank() == 0) {
-    std::filesystem::path path(outputDirectory);
-    path += std::filesystem::path("-threadPinning.csv");
+    seissol::filesystem::path path(outputDirectory);
+    path += seissol::filesystem::path("-threadPinning.csv");
 
     std::fstream fileStream(path, std::ios::out);
     fileStream

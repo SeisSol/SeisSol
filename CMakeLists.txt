@@ -9,7 +9,8 @@ if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
 
-project(SeisSol LANGUAGES C CXX Fortran)
+project(SeisSol LANGUAGES C CXX)
+
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
@@ -21,7 +22,8 @@ endif()
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
-#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND, PROXY_PYBINDING, ENABLE_PIC_COMPILATION
+#       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -63,11 +65,23 @@ endif()
 # Generate version.h
 
 include(GetGitRevisionDescription)
-git_describe(PACKAGE_GIT_VERSION  --dirty=\ \(modified\) --always)
+
+# get GIT info
+git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
+if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
+  set(PACKAGE_GIT_VERSION "(unknown)")
+  set(PACKAGE_GIT_HASH "(unknown)")
+  set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
+else()
+  get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
+  string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
+endif()
+
+# write file and print info
 configure_file("src/version_template.h"
                "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
-message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
-
+message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
+message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
@@ -190,7 +204,6 @@ target_link_libraries(SeisSol-common-properties INTERFACE easi::easi)
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_CXX)
-  target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_Fortran)
   target_compile_definitions(SeisSol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
 endif()
 
@@ -199,9 +212,6 @@ if (MPI)
 
   target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
   target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
-
-  target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${MPI_Fortran_INCLUDE_PATH})
-  target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_Fortran)
 
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
 
@@ -241,15 +251,28 @@ if (HDF5)
 endif()  
 
 # Parmetis
-if (METIS)
+if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
   find_package(METIS REQUIRED)
   if (NOT METIS_64_BIT_INTEGER)
-    message(WARNING "Found METIS which does not support IDXTYPEWIDTH = 64. But this is required for SeisSol.")
+      message(WARNING "Found METIS compiled with IDXTYPEWIDTH = 32. It is strongly recommend to compile METIS with IDXTYPEWIDTH = 64, because otherwise the partitioning of large meshes might fail.")
   endif()
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-common-properties INTERFACE ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${PARMETIS_LIBRARIES})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS USE_PARMETIS)
+endif()
+if ("parhip" IN_LIST GRAPH_PARTITIONING_LIBS)
+    find_package(ParHIP REQUIRED)
+    target_link_libraries(SeisSol-common-properties INTERFACE ParHIP::ParHIP)
+    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PARHIP)
+endif()
+if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
+    find_package(SCOTCH REQUIRED)
+    target_link_libraries(SeisSol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
+    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PTSCOTCH)
+endif()
+if (NOT GRAPH_PARTITIONING_LIBS)
+    message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
 endif()
 
 find_package(PkgConfig REQUIRED) 
@@ -278,7 +301,6 @@ if(${EQUATIONS} STREQUAL "poroelastic")
     FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
     find_package(LAPACK REQUIRED)
     target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-    message(${LAPACK_LIBRARIES})
     target_link_libraries(SeisSol-lib PUBLIC ${LAPACK_LIBRARIES})
   else()
     message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
@@ -307,6 +329,15 @@ target_include_directories(SeisSol-common-properties SYSTEM INTERFACE
 find_package(Eigen3 3.4 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen yaml-cpp)
+
+# Note: eigen3 enables cuda support in its headers by default.
+# The problem happens in `eigen3/Eigen/src/Core/util/Meta.h` while
+# including `math_constants.h`. This header file is located in
+# a different sub-folder in case of ROCm HIP. SeisSol does not
+# use eigen in GPU kernels. Therefore, it is better to change
+# the default behaviour (which assumes CUDA support) and
+# set `EIGEN_NO_CUDA`
+target_compile_definitions(SeisSol-common-properties INTERFACE EIGEN_NO_CUDA)
 
 if (EIGEN3_INCLUDE_DIR)
   target_include_directories(SeisSol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
@@ -392,26 +423,7 @@ if (WITH_GPU)
   install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-lib PUBLIC ${SYCL_DEPENDENT_SRC_FILES})
-endif()
-
-
-# Fortran compliler settings
-if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
-elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
-  # todo intel, is needed:  -align -align array64byte
-  # todo -r8 -WB is needed for intel (8 byte precision for reals)
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
-    # NOTE:
-    # 1. -Mpreprocess enables a C preprocessor macro
-    # 2. -Mfree specifies fortran free format
-    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
-    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
-elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
+  target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 # C++ compiler settings
@@ -534,6 +546,7 @@ if (TESTING)
           src/tests/ResultWriter/TestResultWriter.cpp
           src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
+          src/tests/Common/TestCommon.cpp
           )
 
 
@@ -560,6 +573,17 @@ if (TESTING)
     COPYONLY
   )
 
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
+    COPYONLY
+  )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
+    COPYONLY
+  )
+
   if (NETCDF)
     configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
@@ -573,6 +597,9 @@ if (TESTING)
             ${seissol_test_sources}
             src/tests/test_main.cpp)
   target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+if(WITH_GPU)
+  target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
+endif()
   target_include_directories(SeisSol-serial-test PUBLIC external/)
   doctest_discover_tests(SeisSol-serial-test)
 

@@ -1,7 +1,7 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
 
 namespace seissol::dr::output {
-void ReceiverBasedOutputBuilder::setMeshReader(const MeshReader* reader) {
+void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
   localRank = MPI::mpi.rank();
 }
@@ -10,7 +10,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& faultInfo = meshReader->getFault();
   const auto& elementsInfo = meshReader->getElements();
   const auto& verticesInfo = meshReader->getVertices();
-  const auto& mpiNeighborVertices = meshReader->getMPINeighborVertices();
+  const auto& mpiGhostMetadata = meshReader->getGhostlayerMetadata();
 
   constexpr size_t numVertices{4};
   for (const auto& point : outputData->receiverPoints) {
@@ -35,13 +35,13 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       } else {
         const auto faultSide = faultInfo[point.faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];
-        const auto& neighborVerticesItr = mpiNeighborVertices.find(neighborRank);
-        assert(neighborVerticesItr != mpiNeighborVertices.end());
+        const auto& ghostMetadataItr = mpiGhostMetadata.find(neighborRank);
+        assert(ghostMetadataItr != mpiGhostMetadata.end());
 
         const auto neighborIndex = element.mpiIndices[faultSide];
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
-          const auto& array3d = neighborVerticesItr->second[neighborIndex][vertexIdx];
-          auto* data = const_cast<double*>(array3d.data());
+          const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
+          auto* data = const_cast<double*>(array3d);
           neighborElemCoords[vertexIdx] = reinterpret_cast<double(*)[3]>(data);
         }
       }

@@ -30,9 +30,7 @@ ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 /
 
 &Boundaries
-BC_fs = 1                               ! enable free surface boundaries
 BC_dr = 1                               ! enable fault boundaries
-BC_of = 1                               ! enable absorbing boundaries
 /
 
 &DynamicRupture
@@ -76,17 +74,14 @@ PPFileName = 'tpv33_faultreceivers.dat'
 !Type = 42   ! 42: finite source in netcdf format
 !FileName = 'source_norm.dat'
 /
-
-&SpongeLayer
-/
             
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
-meshgenerator = 'PUML'          ! Name of meshgenerator (Gambit3D-fast, Netcdf or PUML)
+meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
 vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
 vertexWeightFreeSurfaceWithGravity = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
-
+PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 /
 
 &Discretization
@@ -113,20 +108,20 @@ LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging c
 FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
 OutputFile = '../output_tpv33/tpv33'
 Format = 10                          ! Format (10= no output, 6=hdf5 output)
+WavefieldOutput = 1                  ! disable/enable wavefield output (right now, format=6 needs to be set as well)
 !             |stress     |vel
 iOutputMask = 0 0 0 0 0 0 1 1 1
 !                 |strain     |eta
 iPlasticityMask = 0 0 0 0 0 0 1
-printIntervalCriterion = 2           ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
 TimeInterval = 2.                    ! Index of printed info at time
 refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region 
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
 
 ! off-fault ascii receivers
-RFileName = 'tpv33_receivers.dat'      ! Record Points in extra file
+ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
+RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
-pickDtType = 1                       ! Pickpoint Type
 ! (Optional) Synchronization point for receivers.
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
@@ -138,6 +133,7 @@ SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
 
 !Checkpointing
+Checkpoint = 1                       ! enable/disable checkpointing
 checkPointFile = 'checkpoint/checkpoint'
 checkPointBackend = 'mpio'           ! Checkpoint backend
 checkPointInterval = 6
@@ -155,11 +151,5 @@ LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produ
 /
            
 &AbortCriteria
-EndTime = 13.0
-/
-
-&Analysis
-/
-
-&Debugging
+EndTime = 15.0
 /
