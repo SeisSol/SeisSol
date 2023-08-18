@@ -63,6 +63,13 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
+struct ITMParameters{
+  double ITMTime;
+  double ITMVelocityScalingFactor;
+  double ITMStartingTime;
+  bool ITMToggle;
+};
+
 enum class InitializationType : int {
   Zero,
   Planarwave,
@@ -211,6 +218,7 @@ struct SeisSolParameters {
   TimeSteppingParameters timeStepping;
   SourceParameters source;
   EndParameters end;
+  ITMParameters itmParameters;
 
   void readParameters(const YAML::Node& baseNode);
 };

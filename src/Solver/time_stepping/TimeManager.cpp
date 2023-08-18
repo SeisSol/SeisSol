@@ -396,4 +396,3 @@ void seissol::time_stepping::TimeManager::freeDynamicResources() {
   }
   communicationManager.reset(nullptr);
 }
-
