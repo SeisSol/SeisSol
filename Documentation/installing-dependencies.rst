@@ -205,8 +205,8 @@ Installing GemmForge, ChainForge (for GPUs)
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
+   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
+   pip3 install --user git+https://github.com/SeisSol/chainforge.git
 
 Installing SYCL (for GPUs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

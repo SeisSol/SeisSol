@@ -77,7 +77,7 @@ def find_compilation_database(path):
   while not os.path.isfile(os.path.join(result, path)):
     parent = os.path.dirname(result)
     if result == parent:
-      print('Error: could not find compilation database.')
+      print('Error: could not find compilation database. Try setting CMAKE_EXPORT_COMPILE_COMMANDS=ON for CMake.')
       sys.exit(1)
     result = parent
   return result
@@ -337,7 +337,6 @@ def main():
 
   # Build up a big regexy filter from all command line arguments.
   file_name_re = re.compile('|'.join(args.files))
-  file_name_dyn_rup = re.compile('src/DynamicRupture')
 
   return_code = 0
   try:
@@ -355,7 +354,7 @@ def main():
 
     # Fill the queue with files.
     for name in files:
-      if file_name_re.search(name) and file_name_dyn_rup.search(name):
+      if file_name_re.search(name):
         task_queue.put(name)
 
     # Wait for all threads to be done.

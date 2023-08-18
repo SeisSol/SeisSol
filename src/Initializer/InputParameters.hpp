@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <unordered_set>
 #include <yaml-cpp/yaml.h>
 
 #include <xdmfwriter/XdmfWriter.h>

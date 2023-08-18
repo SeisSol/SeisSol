@@ -31,7 +31,10 @@ TEST_CASE("NRF Reader") {
   REQUIRE(nrf.subfaults[0].tinit == AbsApprox(0.0));
   REQUIRE(nrf.subfaults[0].timestep == AbsApprox(0.0002));
   REQUIRE(nrf.subfaults[0].mu == AbsApprox(0.0));
-  // REQUIRE(nrf.source == 1);
+
+  REQUIRE(nrf.size() == 1);
+  REQUIRE(nrf.subfaults.size() == nrf.centres.size());
+  REQUIRE(nrf.centres.size() + 1 == nrf.sroffsets.size());
 
   for (size_t dim = 0; dim < 3; dim++) {
     for (unsigned i = 0;
