@@ -8,7 +8,7 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Solver/time_stepping/TimeCluster.h"
-#include "Solver/time_stepping/GhostTimeCluster.h"
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 namespace seissol::ITM {
 
@@ -17,21 +17,21 @@ class InstantaneousTimeMirrorManager : Module {
   double velocityScalingFactor{};
   double triggerTime{};
 
-  MeshReader* meshReader{};
+  seissol::geometry::MeshReader* meshReader{};
   initializers::LTSTree* ltsTree{};
   initializers::LTS* lts{};
   initializers::Lut* ltsLut{};
   TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
 
   public:
   InstantaneousTimeMirrorManager() : isEnabled(false){};
 
   void init(double velocityScalingFactor,
             double triggerTime,
-            MeshReader* meshReader,
+            seissol::geometry::MeshReader* meshReader,
             initializers::LTSTree* ltsTree,
             initializers::LTS* lts,
             initializers::Lut* ltsLut,
@@ -42,7 +42,7 @@ class InstantaneousTimeMirrorManager : Module {
       std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
 
   void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* clusters);
+      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
 
   void syncPoint(double currentTime) override;
 
@@ -54,7 +54,7 @@ class InstantaneousTimeMirrorManager : Module {
 void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
-    MeshReader* meshReader,
+    seissol::geometry::MeshReader* meshReader,
     initializers::LTSTree* ltsTree,
     initializers::LTS* lts,
     initializers::Lut* ltsLut,

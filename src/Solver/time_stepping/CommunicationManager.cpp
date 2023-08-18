@@ -17,7 +17,7 @@ void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncT
   }
 }
 
-std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>*
+std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
     seissol::time_stepping::AbstractCommunicationManager::getGhostClusters() {
   return &ghostClusters;
 }

@@ -18,6 +18,9 @@ public:
                            int globalTimeClusterId,
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure);
+    ClusterTimes& getClusterTimes();
+    std::vector<seissol::time_stepping::NeighborCluster>* getNeighborClusters();
+
 };
 } // namespace seissol::time_stepping
 

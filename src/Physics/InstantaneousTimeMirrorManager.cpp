@@ -7,7 +7,7 @@ namespace seissol::ITM {
 
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
-                                          MeshReader* meshReader,
+                                          seissol::geometry::MeshReader* meshReader,
                                           initializers::LTSTree* ltsTree,
                                           initializers::LTS* lts,
                                           initializers::Lut* ltsLut,
@@ -153,13 +153,13 @@ void InstantaneousTimeMirrorManager::setTimeClusterVector(
 }
 
 void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* clusters) {
+    std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters) {
   ghostTimeClusters = clusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
-                                  MeshReader* meshReader,
+                                  seissol::geometry::MeshReader* meshReader,
                                   initializers::LTSTree* ltsTree,
                                   initializers::LTS* lts,
                                   initializers::Lut* ltsLut,

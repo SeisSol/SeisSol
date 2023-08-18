@@ -64,6 +64,7 @@
 #include "Solver/Simulator.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
 
 namespace seissol {
 
@@ -143,6 +144,12 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+  /**
+   * Reference for timeMirrorManagers to be accessed externally when required
+   */
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager, seissol::ITM::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
+    return timeMirrorManagers;
+  }
 
   /**
    * Set the mesh reader

@@ -116,4 +116,13 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
         << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
+
+ClusterTimes& AbstractGhostTimeCluster::getClusterTimes(){
+  return ct;
+}
+
+std::vector<seissol::time_stepping::NeighborCluster>* seissol::time_stepping::AbstractGhostTimeCluster::getNeighborClusters(){
+  return &neighbors;
+}
+
 } // namespace seissol::time_stepping
