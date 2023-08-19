@@ -23,7 +23,7 @@ endif()
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -33,7 +33,7 @@ endif()
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -104,6 +104,12 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
+if(DEFINED PREMULTIPLY_FLUX) 
+  set(PREMULTIPLY_FLUX_VALUE ${PREMULTIPLY_FLUX})
+else()
+  set(PREMULTIPLY_FLUX_VALUE OFF)
+endif()
+
 add_custom_command(
   COMMAND
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
@@ -120,6 +126,7 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--use_premultiply_flux" ${PREMULTIPLY_FLUX_VALUE}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
         build-time-make-directory
@@ -361,6 +368,9 @@ target_compile_definitions(SeisSol-common-properties INTERFACE
     ${DR_QUAD_RULE}
 )
 
+if (PREMULTIPLY_FLUX)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
+endif()
 
 if (WITH_GPU)
   # set SeisSol GPU definitions

@@ -69,6 +69,7 @@ cmdLineParser.add_argument('--multipleSimulations', type=int)
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
 cmdLineParser.add_argument('--drQuadRule')
+cmdLineParser.add_argument('--use_premultiply_flux', default='OFF')
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform

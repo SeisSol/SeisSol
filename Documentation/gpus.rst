@@ -98,6 +98,11 @@ Compile SeisSol with (e.g.)
     -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
 
+The following two CMake options can be useful to improve performance:
+
+* `USE_GRAPH_CAPTURING`: enables CUDA/HIP graphs. These are used to speed up the kernel execution for elastic or anisotropic equations.
+* `PREMULTIPLY_FLUX`: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
+
 Execution
 ~~~~~~~~~
 

@@ -306,7 +306,7 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
-#ifdef ACL_DEVICE
+#if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
   seissol::tensor::minusFluxMatrices::Container<real const*> minusFluxMatrices;
 #endif //ACL_DEVICE

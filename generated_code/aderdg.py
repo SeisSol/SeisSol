@@ -41,8 +41,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from common import generate_kernel_name_prefix
-from common import tensor_to_numpy
-from common import numpy_to_tensor
 
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
@@ -121,7 +119,7 @@ class ADERDGBase(ABC):
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
-      group_indices=range(4),
+      group_indices=simpleParameterSpace(4),
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
@@ -268,63 +266,38 @@ class LinearADERDG(ADERDGBase):
                         target='cpu')
 
     if 'gpu' in targets:
-      # Note: quadpy used to generate matricies in SeisSol/matrices
-      # requires to a license. Therefore, we use numpy to
-      # precompute. rDivM[i] * fMrT[i]
-      flux_matrices = dict()
-      for i in range(4):
-       rDivM = tensor_to_numpy(self.db.rDivM[i])
-       fMrT = tensor_to_numpy(self.db.fMrT[i])
+      plusFluxMatrixAccessor = lambda i: self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')]
+      if self.kwargs['use_premultiply_flux'] == 'ON':
+        contractionResult = tensor_collection_from_constant_expression('plusFluxMatrices', plusFluxMatrixAccessor, simpleParameterSpace(4), target_indices='kl')
+        self.db.update(contractionResult)
+        plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]['kl']
 
-       matrix = np.matmul(rDivM, fMrT)
-       name = f'plusFluxMatrices({i})'
-       flux_matrices[name] = numpy_to_tensor(name=name,
-                                             np_array=matrix,
-                                             alignStride=True)
-      collection = create_collection(flux_matrices)
-      self.db.update(collection)
-
-      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.plusFluxMatrices[i]['kl'] * self.I['lq'] * self.AplusT['qp']
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + plusFluxMatrixAccessor(i) * self.I['lq'] * self.AplusT['qp']
       generator.addFamily(f'gpu_localFlux',
                           simpleParameterSpace(4),
                           localFlux,
                           target='gpu')
 
   def addNeighbor(self, generator, targets):
-    neighbourFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-    neighbourFluxPrefetch = lambda h, j, i: self.I
+    neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighborFluxPrefetch = lambda h, j, i: self.I
     generator.addFamily(f'neighboringFlux',
                         simpleParameterSpace(3, 4, 4),
-                        neighbourFlux,
-                        neighbourFluxPrefetch,
+                        neighborFlux,
+                        neighborFluxPrefetch,
                         target='cpu')
 
     if 'gpu' in targets:
-      # Note: quadpy used to generate matricies in SeisSol/matrices
-      # requires to a license. Therefore, we use numpy to
-      # precompute. rDivM[i] * fP[h] * rT[j]
-      flux_matrices = dict()
-      for h in range(3):
-        for j in range(4):
-          for i in range(4):
+      minusFluxMatrixAccessor = lambda h, j, i: self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')]
+      if self.kwargs['use_premultiply_flux'] == 'ON':
+        contractionResult = tensor_collection_from_constant_expression('minusFluxMatrices', minusFluxMatrixAccessor, simpleParameterSpace(3,4,4), target_indices='kl')
+        self.db.update(contractionResult)
+        minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[h,j,i]['kl']
 
-            rDivM = tensor_to_numpy(self.db.rDivM[i])
-            fP = tensor_to_numpy(self.db.fP[h])
-            rT = tensor_to_numpy(self.db.rT[j])
-
-            flux_index = h + 3 * j + 12 * i
-            matrix = np.matmul(rDivM, np.matmul(fP, rT))
-            name = f'minusFluxMatrices({flux_index})'
-            flux_matrices[name] = numpy_to_tensor(name=name,
-                                                  np_array=matrix,
-                                                  alignStride=True)
-      collection = create_collection(flux_matrices)
-      self.db.update(collection)
-
-      neighbourFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.minusFluxMatrices[i]['kl'] * self.I['lq'] * self.AminusT['qp']
+      neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + minusFluxMatrixAccessor(h, j, i) * self.I['lq'] * self.AminusT['qp']
       generator.addFamily(f'gpu_neighboringFlux',
-                          simpleParameterSpace(48),
-                          neighbourFlux,
+                          simpleParameterSpace(3,4,4),
+                          neighborFlux,
                           target='gpu')
 
   def addTime(self, generator, targets):
