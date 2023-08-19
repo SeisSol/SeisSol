@@ -100,6 +100,7 @@ void seissol::initializers::MemoryManager::initialize()
       serialize = strcmp(value, "1") == 0;
     }
     if (serialize) {
+      logInfo(MPI::mpi.rank()) << "Serializing device global data initialization.";
       MPI::mpi.serializeOperation([&]() {
         GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
       }, MPI::mpi.sharedMemComm());
