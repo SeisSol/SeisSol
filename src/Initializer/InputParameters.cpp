@@ -18,6 +18,8 @@
 
 using namespace seissol::initializer::parameters;
 
+namespace {
+
 // converts a string to lower case, and trims it.
 static void sanitize(std::string& input) {
   utils::StringUtils::trim(input);
@@ -499,6 +501,8 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
   reader.warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
   reader.warnUnknown();
 }
+
+} // namespace
 
 void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
