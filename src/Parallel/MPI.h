@@ -42,6 +42,7 @@
 #ifndef MPI_H
 #define MPI_H
 
+#include <functional>
 #ifndef USE_MPI
 #include "MPIDummy.h"
 #else // USE_MPI
@@ -178,6 +179,30 @@ class MPI : public MPIBasic {
       collected[rank] = ContainerType(&recvBuffer[begin], &recvBuffer[end]);
     }
     return collected;
+  }
+
+  template<typename F>
+  void serializeOperation(F&& operation, std::optional<MPI_Comm> comm = {}) {
+    if (!comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+
+    int rank, size;
+    MPI_Comm_rank(comm.value(), &rank);
+    MPI_Comm_size(comm.value(), &size);
+
+    const int tag = 15; // TODO(David, or someone else): replace by a tag allocation system one day
+    char flag = 0;
+    if (rank > 0) {
+      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+    }
+
+    std::invoke(std::forward<F>(operation));
+
+    // size >= 1 is ensured
+    if (rank < size - 1) {
+      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+    }
   }
 
   /**
