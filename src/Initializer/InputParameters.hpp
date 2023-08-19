@@ -177,7 +177,6 @@ struct OutputParameters {
   ReceiverOutputParameters receiverParameters;
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
-  bool faultOutput;
   bool loopStatisticsNetcdfOutput;
 };
 

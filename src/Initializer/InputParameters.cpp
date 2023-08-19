@@ -467,9 +467,6 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "receiveroutput",
                          "receiveroutputinterval");
 
-  // output: fault
-  seissolParams.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
-
   // output: loop statistics
   seissolParams.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
