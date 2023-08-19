@@ -178,16 +178,6 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   reader.warnUnknown();
 }
 
-static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
-  auto reader = baseReader.readSubNode("boundaries");
-  seissolParams.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
-
-  // TODO(David): ? port DR reading here, maybe.
-
-  reader.warnDeprecated({"bc_fs", "bc_nc", "bc_if", "bc_of", "bc_pe"});
-  reader.warnUnknown();
-}
-
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("meshnml");
 
@@ -516,7 +506,6 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   ParameterReader baseReader(baseNode, false);
 
   readModel(baseReader, *this);
-  readBoundaries(baseReader, *this);
   readMesh(baseReader, *this);
   readTimeStepping(baseReader, *this);
   readInitialization(baseReader, *this);
@@ -529,7 +518,8 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   baseReader.markUnused("elementwise");
   baseReader.markUnused("pickpoint");
 
-  baseReader.warnDeprecated({"rffile",
+  baseReader.warnDeprecated({"boundaries",
+                             "rffile",
                              "inflowbound",
                              "inflowboundpwfile",
                              "inflowbounduin",

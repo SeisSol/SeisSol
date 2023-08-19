@@ -29,10 +29,6 @@ kVec = 6.283 0 0             ! Gives direction of wave propagation, the waveleng
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 /
 
-&Boundaries
-BC_dr = 1                               ! enable fault boundaries
-/
-
 &DynamicRupture
 FL = 16                      ! Friction law  
 !0: none, 16:LSW, 103: RS with strong velocity weakening
