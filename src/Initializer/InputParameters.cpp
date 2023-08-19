@@ -468,7 +468,8 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "nrecordpoints",
                          "printintervalcriterion",
                          "pickdttype",
-                         "ioutputmaskmaterial"});
+                         "ioutputmaskmaterial",
+                         "faultoutputflag"});
   reader.warnUnknown();
 }
 
