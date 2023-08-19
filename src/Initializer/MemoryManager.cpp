@@ -95,7 +95,18 @@ void seissol::initializers::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
   if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+    bool serialize = false;
+    if (const char* value = std::getenv("SEISSOL_SERIALIZE_NODE_DEVICE_INIT")) {
+      serialize = strcmp(value, "1") == 0;
+    }
+    if (serialize) {
+      MPI::mpi.serializeOperation([&]() {
+        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+      }, MPI::mpi.sharedMemComm());
+    }
+    else {
+      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+    }
   }
 }
 
