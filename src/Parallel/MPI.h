@@ -192,7 +192,7 @@ class MPI : public MPIBasic {
     MPI_Comm_rank(comm.value(), &rank);
     MPI_Comm_size(comm.value(), &size);
 
-    const int tag = 15; // TODO(David, or someone else): replace by a tag allocation system one day
+    const int tag = 15; // TODO(David): replace by a tag allocation system one day
     char flag = 0;
     if (rank > 0) {
       MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
