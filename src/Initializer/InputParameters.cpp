@@ -18,6 +18,8 @@
 
 using namespace seissol::initializer::parameters;
 
+namespace {
+
 // converts a string to lower case, and trims it.
 static void sanitize(std::string& input) {
   utils::StringUtils::trim(input);
@@ -175,16 +177,6 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
 #endif
 
   reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
-  reader.warnUnknown();
-}
-
-static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
-  auto reader = baseReader.readSubNode("boundaries");
-  seissolParams.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
-
-  // TODO(David): ? port DR reading here, maybe.
-
-  reader.warnDeprecated({"bc_fs", "bc_nc", "bc_if", "bc_of", "bc_pe"});
   reader.warnUnknown();
 }
 
@@ -467,9 +459,6 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "receiveroutput",
                          "receiveroutputinterval");
 
-  // output: fault
-  seissolParams.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
-
   // output: loop statistics
   seissolParams.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
@@ -479,7 +468,8 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "nrecordpoints",
                          "printintervalcriterion",
                          "pickdttype",
-                         "ioutputmaskmaterial"});
+                         "ioutputmaskmaterial",
+                         "faultoutputflag"});
   reader.warnUnknown();
 }
 
@@ -513,13 +503,14 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
   reader.warnUnknown();
 }
 
+} // namespace
+
 void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
   ParameterReader baseReader(baseNode, false);
 
   readModel(baseReader, *this);
-  readBoundaries(baseReader, *this);
   readMesh(baseReader, *this);
   readTimeStepping(baseReader, *this);
   readInitialization(baseReader, *this);
@@ -532,7 +523,8 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   baseReader.markUnused("elementwise");
   baseReader.markUnused("pickpoint");
 
-  baseReader.warnDeprecated({"rffile",
+  baseReader.warnDeprecated({"boundaries",
+                             "rffile",
                              "inflowbound",
                              "inflowboundpwfile",
                              "inflowbounduin",
