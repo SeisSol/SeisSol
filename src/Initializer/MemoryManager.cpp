@@ -95,13 +95,23 @@ void seissol::initializers::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
   if constexpr (seissol::isDeviceOn()) {
+    // the serial order for initialization is needed for some (older) driver versions on some GPUs
     bool serialize = false;
-    if (const char* value = std::getenv("SEISSOL_SERIALIZE_NODE_DEVICE_INIT")) {
-      serialize = strcmp(value, "1") == 0;
+    const char* envvalue = std::getenv("SEISSOL_SERIAL_NODE_DEVICE_INIT");
+    if (envvalue != nullptr) {
+      if (strcmp(envvalue, "1") == 0) {
+        serialize = true;
+      }
+      else if (strcmp(envvalue, "0") == 0) {
+        serialize = false;
+      }
+      else {
+        logError() << "Invalid value for \"SEISSOL_SERIAL_NODE_DEVICE_INIT\"";
+      }
     }
     if (serialize) {
-      logInfo(MPI::mpi.rank()) << "Serializing device global data initialization.";
-      MPI::mpi.serializeOperation([&]() {
+      logInfo(MPI::mpi.rank()) << "Initializing device global data on a node in serial order.";
+      MPI::mpi.serialOrderExecute([&]() {
         GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
       }, MPI::mpi.sharedMemComm());
     }

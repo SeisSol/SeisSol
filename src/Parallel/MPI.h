@@ -181,8 +181,9 @@ class MPI : public MPIBasic {
     return collected;
   }
 
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
   template<typename F>
-  void serializeOperation(F&& operation, std::optional<MPI_Comm> comm = {}) {
+  void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
       comm = std::optional<MPI_Comm>(m_comm);
     }
