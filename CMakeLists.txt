@@ -32,7 +32,7 @@ endif()
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
-#                     DR_QUAD_RULE
+#                     DR_QUAD_RULE, TARGETDART
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
@@ -158,6 +158,9 @@ if (WITH_GPU)
   add_dependencies(SeisSol-device-lib SeisSol-codegen)
 endif()
 
+if(TARGETDART)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_TARGETDART)
+endif()
 
 if(GemmTools_INCLUDE_DIRS)
   target_include_directories(SeisSol-common-properties INTERFACE ${GemmTools_INCLUDE_DIRS})
