@@ -63,6 +63,8 @@
 #include "Reader/AsagiModule.h"
 #endif
 
+void targetDartTextPointer() {}
+
 bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
@@ -74,6 +76,10 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
+
+#ifdef USE_TARGETDART
+  initTargetDART(&targetDartTextPointer);
+#endif
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
@@ -179,6 +185,10 @@ void seissol::SeisSol::finalize() {
   const int rank = MPI::mpi.rank();
 
   m_timeManager.freeDynamicResources();
+
+#ifdef USE_TARGETDART
+  finalizeTargetDART();
+#endif
 
   MPI::mpi.finalize();
 
