@@ -16,7 +16,7 @@ static TravellingWaveParameters getTravellingWaveInformation() {
   travellingWaveParameters.kVec = initConditionParams.kVec;
   constexpr double eps = 1e-15;
   for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    if (std::abs(travellingWaveParameters.ampField[i]) > eps) {
+    if (std::abs(initConditionParams.ampField[i]) > eps) {
       travellingWaveParameters.varField.push_back(i);
       travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);
     }

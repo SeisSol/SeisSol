@@ -69,22 +69,22 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 //      }
 
       // Refocusing only P-waves
-//      material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
-//      for(int i=0; i<4; i++){
-//        material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
-//      }
+      material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
+      for(int i=0; i<4; i++){
+        material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
+      }
 
       // Refocusing only S-waves
 
-      material.local.lambda = -2.0*velocityScalingFactor*material.local.mu + (material.local.lambda + 2.0*material.local.mu)/velocityScalingFactor ;
-      material.local.mu *= velocityScalingFactor;
-      material.local.rho *= velocityScalingFactor;
-
-      for(int i=0; i<4; i++){
-        material.neighbor[i].lambda = -2.0*velocityScalingFactor*material.neighbor[i].mu + (material.neighbor[i].lambda + 2.0*material.neighbor[i].mu)/velocityScalingFactor;
-        material.neighbor[i].mu *= velocityScalingFactor;
-        material.neighbor[i].rho *= velocityScalingFactor;
-      }
+//      material.local.lambda = -2.0*velocityScalingFactor*material.local.mu + (material.local.lambda + 2.0*material.local.mu)/velocityScalingFactor ;
+//      material.local.mu *= velocityScalingFactor;
+//      material.local.rho *= velocityScalingFactor;
+//
+//      for(int i=0; i<4; i++){
+//        material.neighbor[i].lambda = -2.0*velocityScalingFactor*material.neighbor[i].mu + (material.neighbor[i].lambda + 2.0*material.neighbor[i].mu)/velocityScalingFactor;
+//        material.neighbor[i].mu *= velocityScalingFactor;
+//        material.neighbor[i].rho *= velocityScalingFactor;
+//      }
 
       // Scaling with impedance remaining constant to show no reflections
 //      material.local.mu *= velocityScalingFactor;
@@ -102,48 +102,48 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant impedance case
-//  for (auto& cluster : *timeClusters) {
-//    cluster->getClusterTimes().getTimeStepSize() =
-//        cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
-//
-//    auto neighborClusters = cluster->getNeighborClusters();
-//    for (auto& neighborCluster : *neighborClusters) {
-//      neighborCluster.ct.getTimeStepSize() =
-//          neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
-//    }
-//  }
-//
-//  for (auto& cluster : *ghostTimeClusters) {
-//    cluster->getClusterTimes().getTimeStepSize() =
-//        cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
-//    auto ghostNeighborClusters = cluster->getNeighborClusters();
-//    for (auto& neighborcluster : *ghostNeighborClusters) {
-//      neighborcluster.ct.getTimeStepSize() =
-//          neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
-//    }
-//  }
-
-  // refocusing only S-waves
   for (auto& cluster : *timeClusters) {
     cluster->getClusterTimes().getTimeStepSize() =
-        cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
+        cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
 
     auto neighborClusters = cluster->getNeighborClusters();
     for (auto& neighborCluster : *neighborClusters) {
       neighborCluster.ct.getTimeStepSize() =
-          neighborCluster.ct.getTimeStepSize()*velocityScalingFactor;
+          neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
     }
   }
 
   for (auto& cluster : *ghostTimeClusters) {
     cluster->getClusterTimes().getTimeStepSize() =
-        cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
+        cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
     auto ghostNeighborClusters = cluster->getNeighborClusters();
     for (auto& neighborcluster : *ghostNeighborClusters) {
       neighborcluster.ct.getTimeStepSize() =
-          neighborcluster.ct.getTimeStepSize()*velocityScalingFactor;
+          neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
     }
   }
+
+  // refocusing only S-waves
+//  for (auto& cluster : *timeClusters) {
+//    cluster->getClusterTimes().getTimeStepSize() =
+//        cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
+//
+//    auto neighborClusters = cluster->getNeighborClusters();
+//    for (auto& neighborCluster : *neighborClusters) {
+//      neighborCluster.ct.getTimeStepSize() =
+//          neighborCluster.ct.getTimeStepSize()*velocityScalingFactor;
+//    }
+//  }
+//
+//  for (auto& cluster : *ghostTimeClusters) {
+//    cluster->getClusterTimes().getTimeStepSize() =
+//        cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
+//    auto ghostNeighborClusters = cluster->getNeighborClusters();
+//    for (auto& neighborcluster : *ghostNeighborClusters) {
+//      neighborcluster.ct.getTimeStepSize() =
+//          neighborcluster.ct.getTimeStepSize()*velocityScalingFactor;
+//    }
+//  }
 
 }
 
