@@ -19,6 +19,7 @@ enum Kernel {
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
+  unsigned phase{10};
   Kernel kernel{Kernel::all};
   bool verbose{true};
 };

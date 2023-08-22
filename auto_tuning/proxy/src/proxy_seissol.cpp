@@ -98,39 +98,58 @@ using namespace proxy::device;
 using namespace proxy::cpu;
 #endif
 
-void testKernel(unsigned kernel, unsigned timesteps) {
+namespace {
+static inline void advanceTd(unsigned t, unsigned phase, bool skip) {
+#ifdef USE_TARGETDART
+  if (!skip) {
+    td_advance(1);
+    if (t % phase == 0) {
+      td_phase_progress(1);
+    }
+  }
+#endif
+}
+} // namespace
+
+void testKernel(unsigned kernel, unsigned timesteps, unsigned phase, bool skip) {
   unsigned t = 0;
   switch (kernel) {
     case all:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
         computeNeighboringIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case local:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case neigh:
     case neigh_dr:
       for (; t < timesteps; ++t) {
         computeNeighboringIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case ader:
       for (; t < timesteps; ++t) {
         computeAderIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case localwoader:
       for (; t < timesteps; ++t) {
         computeLocalWithoutAderIntegration();
+        advanceTd(t, phase, skip);
       }
       break;    
     case godunov_dr:
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();
+        advanceTd(t, phase, skip);
       }
       break;
     default:
@@ -182,7 +201,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   double total_cycles = 0.0;
 
   // init OpenMP and LLC
-  testKernel(config.kernel, 1);
+  testKernel(config.kernel, 1, 10, true);
 
   seissol::monitoring::FlopCounter flopCounter;
 
@@ -191,7 +210,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   cycles_start = __rdtsc();
 #endif
 
-  testKernel(config.kernel, config.timesteps);
+  testKernel(config.kernel, config.timesteps, config.phase, false);
 
 #ifdef __USE_RDTSC  
   cycles_end = __rdtsc();
