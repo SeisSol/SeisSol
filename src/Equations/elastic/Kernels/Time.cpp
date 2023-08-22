@@ -311,15 +311,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
-
-  o_nonZeroFlops  += kernel::derivative::NonZeroFlops;
-  o_hardwareFlops += kernel::derivative::HardwareFlops;
-
-  // update of time integrated DOFs
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::NonZeroFlops;
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::HardwareFlops;
+  o_nonZeroFlops  = kernel::derivative::NonZeroFlops;
+  o_hardwareFlops = kernel::derivative::HardwareFlops;
 
 }
 
@@ -505,8 +498,8 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
 
 
 void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  nonZeroFlops  += kernel::derivativeTaylorExpansion::NonZeroFlops;
-  hardwareFlops += kernel::derivativeTaylorExpansion::HardwareFlops;
+  nonZeroFlops  = kernel::derivativeTaylorExpansion::NonZeroFlops;
+  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
 unsigned int* seissol::kernels::Time::getDerivativesOffsets() {
