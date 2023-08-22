@@ -126,7 +126,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
     // update scalar for this derivative
-    krnl.power(der) *= i_timeStepWidth / real(der+1);
+    krnl.power(der) = krnl.power(der-1) * i_timeStepWidth / real(der+1);
   }
 
   krnl.execute();
@@ -229,7 +229,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
  
   // iterate over time derivatives
   for(int derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.power(derivative) *= deltaT / real(derivative);
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
 
   intKrnl.execute();
