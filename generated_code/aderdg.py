@@ -117,7 +117,7 @@ class ADERDGBase(ABC):
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
-      group_indices=range(4),
+      group_indices=simpleParameterSpace(4),
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
@@ -282,7 +282,7 @@ class LinearADERDG(ADERDGBase):
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
       power = Scalar('power(0)')
       derivatives = [dQ0]
-      derivativeExpr = [self.I['kp'] <= power * dQ0['kp']]
+      derivativeExpr = [] # for interleaving: self.I['kp'] <= power * dQ0['kp']
       derivativeTaylorExpansion = power * dQ0['kp']
 
       self.dQs = [dQ0]
@@ -300,15 +300,17 @@ class LinearADERDG(ADERDGBase):
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
         self.dQs.append(dQ)
 
-        # TODO(David): de-mangle derivative and Taylor expansion computation -- or not?
-        derivativeExpr += [dQ['kp'] <= derivativeSum, self.I['kp'] <= self.I['kp'] + power * dQ['kp']]
+        # TODO(David): interleave derivative and derivativeTaylorExpansion kernels?
+        derivativeExpr += [dQ['kp'] <= derivativeSum] # for interleaving, add: self.I['kp'] <= self.I['kp'] + power * dQ['kp']
         derivativeTaylorExpansion += power * dQ['kp']
 
         derivatives.append(dQ)
 
+      derivativeTaylorExpansionExpr = self.I['kp'] <= derivativeTaylorExpansion
+      derivativeExpr += [derivativeTaylorExpansionExpr]
       generator.add(f'{name_prefix}derivative', derivativeExpr, target=target)
       generator.add(f'{name_prefix}derivativeTaylorExpansion',
-                    self.I['kp'] <= derivativeTaylorExpansion,
+                    derivativeTaylorExpansionExpr,
                     target=target)
 
   def add_include_tensors(self, include_tensors):
