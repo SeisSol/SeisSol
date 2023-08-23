@@ -104,10 +104,10 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(DEFINED PREMULTIPLY_FLUX) 
-  set(PREMULTIPLY_FLUX_VALUE ${PREMULTIPLY_FLUX})
+if(PREMULTIPLY_FLUX)
+  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
 else()
-  set(PREMULTIPLY_FLUX_VALUE OFF)
+  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
 add_custom_command(
@@ -126,7 +126,7 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
-     "--use_premultiply_flux" ${PREMULTIPLY_FLUX_VALUE}
+     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
         build-time-make-directory

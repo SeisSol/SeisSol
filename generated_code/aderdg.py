@@ -267,7 +267,7 @@ class LinearADERDG(ADERDGBase):
 
     if 'gpu' in targets:
       plusFluxMatrixAccessor = lambda i: self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')]
-      if self.kwargs['use_premultiply_flux'] == 'ON':
+      if self.kwargs['enable_premultiply_flux']:
         contractionResult = tensor_collection_from_constant_expression('plusFluxMatrices', plusFluxMatrixAccessor, simpleParameterSpace(4), target_indices='kl')
         self.db.update(contractionResult)
         plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]['kl']
@@ -289,7 +289,7 @@ class LinearADERDG(ADERDGBase):
 
     if 'gpu' in targets:
       minusFluxMatrixAccessor = lambda h, j, i: self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')]
-      if self.kwargs['use_premultiply_flux'] == 'ON':
+      if self.kwargs['enable_premultiply_flux']:
         contractionResult = tensor_collection_from_constant_expression('minusFluxMatrices', minusFluxMatrixAccessor, simpleParameterSpace(3,4,4), target_indices='kl')
         self.db.update(contractionResult)
         minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[h,j,i]['kl']
