@@ -78,7 +78,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   const int rank = MPI::mpi.rank();
 
 #ifdef USE_TARGETDART
-  initTargetDART(&targetDartTextPointer);
+  initTargetDART(static_cast<void*>(&targetDartTextPointer));
 #endif
 
   // Print welcome message
