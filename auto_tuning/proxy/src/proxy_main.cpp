@@ -2,11 +2,12 @@
 #include "proxy_common.hpp"
 #include <iostream>
 
+void targetDartTextPointer() {}
 
 int main(int argc, char* argv[]) {
   // the proxy does not have MPI
 #ifdef USE_TARGETDART
-  initTargetDART(reinterpret_cast<void*>(&main));
+  initTargetDART(reinterpret_cast<void*>(&targetDartTextPointer));
 #endif
 
   // argument reading
