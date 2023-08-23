@@ -429,6 +429,11 @@ public:
     updateRelaxTime();
   }
 
+  // TODO(David): move these two methods
+  ClusterTimes clusterTimes() const {
+    return ct;
+  }
+
 
   void reset() override;
 

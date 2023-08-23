@@ -281,10 +281,33 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     assert(cluster->getState() == ActorState::Corrected);
   }
 
+  long int maxRate = 0;
+  for (const auto& cluster : highPrioClusters) {
+    maxRate = std::max(maxRate, cluster->clusterTimes().timeStepRate);
+  }
+  for (const auto& cluster : lowPrioClusters) {
+    maxRate = std::max(maxRate, cluster->clusterTimes().timeStepRate);
+  }
+  long int nextPhasePoint = maxRate;
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
     communicationManager->progression();
+
+    bool advancement = true;
+    for (const auto& cluster : highPrioClusters) {
+      advancement = advancement && cluster->clusterTimes().stepsSinceLastSync >= nextPhasePoint;
+    }
+    for (const auto& cluster : lowPrioClusters) {
+      advancement = advancement && cluster->clusterTimes().stepsSinceLastSync >= nextPhasePoint;
+    }
+    if (advancement) {
+      logDebug(MPI::mpi.rank()) << "TD advance by" << maxRate;
+#ifdef USE_TARGETDART
+      td_advance(maxRate);
+#endif
+      nextPhasePoint += maxRate;
+    }
 
     // Update all high priority clusters
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
@@ -327,6 +350,12 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
+#endif
+
+  logDebug(MPI::mpi.rank()) << "TD phase";
+// a phase has ended
+#ifdef USE_TARGETDART
+    td_phase_progress(1);
 #endif
 }
 
