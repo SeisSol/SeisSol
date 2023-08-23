@@ -8,6 +8,8 @@
 
 #include "Parallel/MPI.h"
 
+namespace {
+
 static TravellingWaveParameters getTravellingWaveInformation() {
   const auto& initConditionParams = seissol::SeisSol::main.getSeisSolParameters().initialization;
 
@@ -140,6 +142,8 @@ static void initBoundary() {
         seissolParams.model.boundaryFileName.c_str());
   }
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::initSideConditions() {
   logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";

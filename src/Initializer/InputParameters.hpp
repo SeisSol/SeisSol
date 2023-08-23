@@ -92,11 +92,6 @@ struct InitializationParameters {
   double width;
 };
 
-struct DynamicRuptureParameters {
-  bool hasFault;
-  // TODO(David): port rest of the DR parameters here?
-};
-
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class OutputRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
@@ -184,7 +179,6 @@ struct OutputParameters {
   ReceiverOutputParameters receiverParameters;
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
-  bool faultOutput;
   bool loopStatisticsNetcdfOutput;
 };
 
@@ -211,7 +205,6 @@ struct EndParameters {
 
 struct SeisSolParameters {
   ModelParameters model;
-  DynamicRuptureParameters dynamicRupture;
   MeshParameters mesh;
   InitializationParameters initialization;
   OutputParameters output;

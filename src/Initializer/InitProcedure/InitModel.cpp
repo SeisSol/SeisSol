@@ -23,6 +23,8 @@
 
 using namespace seissol::initializer;
 
+namespace {
+
 using Material_t = seissol::model::Material_t;
 using Plasticity = seissol::model::Plasticity;
 
@@ -333,6 +335,8 @@ static void initializeMemoryLayout(LtsInfo& ltsInfo) {
 
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::initModel() {
   SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
