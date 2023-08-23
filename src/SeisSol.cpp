@@ -63,6 +63,8 @@
 #include "Reader/AsagiModule.h"
 #endif
 
+#include <omp.h>
+
 void targetDartTextPointer() {}
 
 bool seissol::SeisSol::init(int argc, char* argv[]) {

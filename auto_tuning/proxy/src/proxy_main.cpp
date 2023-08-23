@@ -2,6 +2,8 @@
 #include "proxy_common.hpp"
 #include <iostream>
 
+#include <omp.h>
+
 void targetDartTextPointer() {}
 
 int main(int argc, char* argv[]) {
