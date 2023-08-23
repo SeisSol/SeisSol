@@ -6,7 +6,7 @@
 int main(int argc, char* argv[]) {
   // the proxy does not have MPI
 #ifdef USE_TARGETDART
-  initTargetDART(static_cast<void*>(&main));
+  initTargetDART(reinterpret_cast<void*>(&main));
 #endif
 
   // argument reading
