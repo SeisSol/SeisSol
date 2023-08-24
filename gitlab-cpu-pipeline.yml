@@ -44,10 +44,9 @@ build_seissol:
         - cmake --version
         - mechanisms=0
         - dirname="build_${equation}_${precision}_${build_type}";
-          echo "mkdir $dirname";
-          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
           mkdir -p $dirname && cd $dirname ;
           pwd;
+          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
           CMAKE_PREFIX_PATH=~ ;
           cmake ..
           -DNETCDF=ON

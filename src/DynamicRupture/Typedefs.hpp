@@ -3,7 +3,6 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Kernels/precision.hpp"
-#include <Eigen/Dense>
 
 namespace seissol::dr {
 

@@ -161,12 +161,6 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                    material[cell].neighbor[side],
-                                                    cellInformation[cell].faceTypes[side],
-                                                    QgodLocal,
-                                                    QgodNeighbor );
-
         VrtxCoords normal;
         VrtxCoords tangent1;
         VrtxCoords tangent2;
@@ -567,7 +561,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
           logError() << "Dynamic Rupture does not work with an acoustic material.";
@@ -581,6 +574,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
           auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
           auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
 
+          // The impedance matrices are diagonal in the (visco)elastic case, so we only store
+          // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
+          // of the traction depend on each other, so we need a more complicated matrix structure.
           Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
           Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
           Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();

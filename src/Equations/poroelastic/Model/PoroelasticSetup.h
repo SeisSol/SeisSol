@@ -253,6 +253,7 @@ namespace seissol {
       setBlocks(QgodLocal, S, tractionIndices, velocityIndices);
     }
 
+    // zeroThreshold has default parameter 1e-7, see src/Model/common.hpp
     template<>
     inline seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> getEigenDecomposition (PoroElasticMaterial const& material, double zeroThreshold) {
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
@@ -265,7 +266,7 @@ namespace seissol {
           A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
         }
       }
-      eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair;
+      eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair;
       eigenvalues::computeEigenvaluesWithLapack(A, eigenpair);
 
 #ifndef NDEBUG
