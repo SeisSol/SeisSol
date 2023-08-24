@@ -50,7 +50,6 @@ set(DEVICE_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_
         dg1 bdw skl Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
-
 set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
 set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
@@ -139,6 +138,23 @@ else()
     set(WITH_GPU off)
 endif()
 message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
+
+
+if (DEVICE_ARCH MATCHES "sm_*")
+    set(DEVICE_VENDOR "nvidia")
+    set(PREMULTIPLY_FLUX_DEFAULT ON)
+elseif(DEVICE_ARCH MATCHES "gfx*")
+    set(DEVICE_VENDOR "amd")
+    set(PREMULTIPLY_FLUX_DEFAULT ON)
+else()
+    # TODO(David): adjust as soon as we add support for more vendors
+    set(DEVICE_VENDOR "intel")
+    set(PREMULTIPLY_FLUX_DEFAULT OFF)
+endif()
+
+if (WITH_GPU)
+    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
+endif()
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")

@@ -26,6 +26,8 @@ class PoroelasticADERDG(LinearADERDG):
 
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+    self.kwargs = kwargs
+
   def numberOfQuantities(self):
     return 13 
 

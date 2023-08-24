@@ -49,6 +49,8 @@ from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 from yateto.memory import CSCMemoryLayout
+from yateto.util import create_collection
+
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -117,7 +119,7 @@ class ADERDGBase(ABC):
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
-      group_indices=range(4),
+      group_indices=simpleParameterSpace(4),
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
@@ -267,14 +269,6 @@ class LinearADERDG(ADERDGBase):
       volume = (self.Q['kp'] <= volumeSum)
       generator.add(f'{name_prefix}volume', volume, target=target)
 
-      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-      localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-      generator.addFamily(f'{name_prefix}localFlux',
-                          simpleParameterSpace(4),
-                          localFlux,
-                          localFluxPrefetch,
-                          target=target)
-
       localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
       localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
       generator.addFamily(f'{name_prefix}localFluxNodal',
@@ -283,16 +277,48 @@ class LinearADERDG(ADERDGBase):
                           localFluxNodalPrefetch,
                           target=target)
 
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily(f'localFlux',
+                        simpleParameterSpace(4),
+                        localFlux,
+                        localFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      plusFluxMatrixAccessor = lambda i: self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')]
+      if self.kwargs['enable_premultiply_flux']:
+        contractionResult = tensor_collection_from_constant_expression('plusFluxMatrices', plusFluxMatrixAccessor, simpleParameterSpace(4), target_indices='kl')
+        self.db.update(contractionResult)
+        plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]['kl']
+
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + plusFluxMatrixAccessor(i) * self.I['lq'] * self.AplusT['qp']
+      generator.addFamily(f'gpu_localFlux',
+                          simpleParameterSpace(4),
+                          localFlux,
+                          target='gpu')
+
   def addNeighbor(self, generator, targets):
-    for target in targets:
-      name_prefix = generate_kernel_name_prefix(target)
-      neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-      neighbourFluxPrefetch = lambda h,j,i: self.I
-      generator.addFamily(f'{name_prefix}neighboringFlux',
+    neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighborFluxPrefetch = lambda h, j, i: self.I
+    generator.addFamily(f'neighboringFlux',
+                        simpleParameterSpace(3, 4, 4),
+                        neighborFlux,
+                        neighborFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      minusFluxMatrixAccessor = lambda h, j, i: self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')]
+      if self.kwargs['enable_premultiply_flux']:
+        contractionResult = tensor_collection_from_constant_expression('minusFluxMatrices', minusFluxMatrixAccessor, simpleParameterSpace(3,4,4), target_indices='kl')
+        self.db.update(contractionResult)
+        minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[h,j,i]['kl']
+
+      neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + minusFluxMatrixAccessor(h, j, i) * self.I['lq'] * self.AminusT['qp']
+      generator.addFamily(f'gpu_neighboringFlux',
                           simpleParameterSpace(3,4,4),
-                          neighbourFlux,
-                          neighbourFluxPrefetch,
-                          target=target)
+                          neighborFlux,
+                          target='gpu')
 
   def addTime(self, generator, targets):
     for target in targets:
