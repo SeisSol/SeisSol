@@ -102,7 +102,7 @@ extern "C" {
   {
     e_interoperability.setInitialConditionType(type);
   }
-  
+
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -165,7 +165,7 @@ extern "C" {
                                         iniStress,
                                         waveSpeeds );
   }
-  
+
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -584,7 +584,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   };
   seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
 
-  if (anisotropy) { 
+  if (anisotropy) {
     if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
@@ -653,17 +653,29 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         calcWaveSpeeds(&materials[i], i);
       }
     } else {
-      auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
-      seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
+      auto materials = std::vector<seissol::model::DamagedElasticMaterial>(nElements);
+      seissol::initializers::MaterialParameterDB<seissol::model::DamagedElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
       parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         materialVal[i] = materials[i].rho;
-        materialVal[nElements + i] = materials[i].mu;
-        materialVal[2*nElements + i] = materials[i].lambda;
+        materialVal[nElements + i] = materials[i].mu0;
+        materialVal[2*nElements + i] = materials[i].lambda0;
+        materialVal[3*nElements + i] = materials[i].gammaR;
+        materialVal[4*nElements + i] = materials[i].xi0;
+        materialVal[5*nElements + i] = materials[i].mu;
+        materialVal[6*nElements + i] = materials[i].lambda;
+        materialVal[7*nElements + i] = materials[i].gamma;
+        materialVal[8*nElements + i] = materials[i].epsxx_alpha;
+        materialVal[9*nElements + i] = materials[i].epsyy_alpha;
+        materialVal[10*nElements + i] = materials[i].epszz_alpha;
+        materialVal[11*nElements + i] = materials[i].epsxy_alpha;
+        materialVal[12*nElements + i] = materials[i].epsyz_alpha;
+        materialVal[13*nElements + i] = materials[i].epszx_alpha;
+        materialVal[14*nElements + i] = materials[i].Cd;
         calcWaveSpeeds(&materials[i], i);
       }
-    } 
+    }
 
     //now initialize the plasticity data
     if (plasticity) {
@@ -681,7 +693,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         iniStress[i*6+4] = materials[i].s_yz;
         iniStress[i*6+5] = materials[i].s_xz;
       }
-    } 
+    }
   }
   delete queryGen;
 }
@@ -721,6 +733,8 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   new(material) seissol::model::ViscoElasticMaterial(i_materialVal, i_numMaterialVals);
 #elif defined USE_POROELASTIC
   new(material) seissol::model::PoroElasticMaterial(i_materialVal, i_numMaterialVals);
+#elif defined USE_DAMAGEDELASTIC
+  new(material) seissol::model::DamagedElasticMaterial(i_materialVal, i_numMaterialVals);
 #else
   new(material) seissol::model::ElasticMaterial(i_materialVal, i_numMaterialVals);
 #endif
@@ -885,7 +899,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         double energySyncInterval, bool receiverComputeRotation)
 {
   auto type = writer::backendType(xdmfWriterBackend);
-  
+
 	// Initialize checkpointing
 	int faultTimeStep;
 

@@ -214,6 +214,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 
         #if defined USE_DAMAGEDELASTIC
+        // Atilde for BC
+        auto ATtildeBC = init::star::view<0>::create(localIntegration[cell].ATtildeBC);
+        seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, ATtildeBC );
+
         // store T and Tinv
         auto TStore = init::T::view::create(localIntegration[cell].T[side]);
         auto TinvStore = init::Tinv::view::create(localIntegration[cell].Tinv[side]);

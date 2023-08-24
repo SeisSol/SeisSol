@@ -6,20 +6,25 @@
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
 
+#include <iostream>
+
 namespace seissol {
   namespace model {
     struct DamagedElasticMaterial : Material {
-      double lambda;
-      double mu;
-      double sigmaxx_alpha;
-      double sigmaxy_alpha;
-      double sigmaxz_alpha;
-      double sigmayx_alpha;
-      double sigmayy_alpha;
-      double sigmayz_alpha;
-      double sigmazx_alpha;
-      double sigmazy_alpha;
-      double sigmazz_alpha;
+      double lambda0;
+      double mu0;
+      double gammaR;
+      double xi0;
+      double lambda; //effective
+      double mu; //effective
+      double gamma; //effective
+      double epsxx_alpha;
+      double epsyy_alpha;
+      double epszz_alpha;
+      double epsxy_alpha;
+      double epsyz_alpha;
+      double epszx_alpha;
+      double Cd;
 
       DamagedElasticMaterial() {};
       DamagedElasticMaterial(double* materialValues, int numMaterialValues)
@@ -27,17 +32,22 @@ namespace seissol {
         assert(numMaterialValues == 3);
 
         this->rho = materialValues[0];
-        this->mu = materialValues[1];
-        this->lambda = materialValues[2];
-        this->sigmaxx_alpha = materialValues[3];
-        this->sigmaxy_alpha = materialValues[4];
-        this->sigmaxz_alpha = materialValues[5];
-        this->sigmayx_alpha = materialValues[6];
-        this->sigmayy_alpha = materialValues[7];
-        this->sigmayz_alpha = materialValues[8];
-        this->sigmazx_alpha = materialValues[9];
-        this->sigmazy_alpha = materialValues[10];
-        this->sigmazz_alpha = materialValues[11];
+        this->mu0 = materialValues[1];
+        this->lambda0 = materialValues[2];
+        this->gammaR = materialValues[3];
+        this->xi0 = materialValues[4];
+        this->mu = materialValues[5];
+        this->lambda = materialValues[6];
+        this->gamma = materialValues[7];
+        this->epsxx_alpha = materialValues[8];
+        this->epsyy_alpha = materialValues[9];
+        this->epszz_alpha = materialValues[10];
+        this->epsxy_alpha = materialValues[11];
+        this->epsyz_alpha = materialValues[12];
+        this->epszx_alpha = materialValues[13];
+        this->Cd = materialValues[14];
+
+        // std::cout << "==================------" << this->gammaR << std::endl;
       }
 
       virtual ~DamagedElasticMaterial() {};

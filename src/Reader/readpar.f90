@@ -281,7 +281,7 @@ CONTAINS
     UseCellHomogenizedMaterial = 1
     MaterialFileName    = ''
     BoundaryFileName    = ''
-    
+
 
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
@@ -341,7 +341,7 @@ CONTAINS
 #elif defined(USE_DAMAGEDELASTIC)
       EQN%nVar = 10
       EQN%nVarTotal = 10
-      EQN%nBackgroundVar = 12
+      EQN%nBackgroundVar = 15
 #else
       EQN%nVarTotal = EQN%nVar
       EQN%nBackgroundVar = 3
@@ -375,7 +375,7 @@ CONTAINS
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
         call exit(134)
       END SELECT
-    
+
     EQN%Anisotropy = Anisotropy
     SELECT CASE(Anisotropy)
     CASE(0)
@@ -808,7 +808,7 @@ CONTAINS
         CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
            logInfo(*) 'Beginning dynamic rupture initialization. '
-           
+
     inquire(file=ModelFileName , exist=fileExists)
     if (.NOT. fileExists) then
      logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'
@@ -1549,9 +1549,9 @@ CONTAINS
        IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
-       ENDIF 
+       ENDIF
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
-       READ(IO%UNIT%other01,*)                                           ! Read comment 
+       READ(IO%UNIT%other01,*)                                           ! Read comment
        ALLOCATE ( dummy(8) )
        ALLOCATE ( SOURCE%RP%SpacePosition(3,SOURCE%RP%nSbfs(1)), &
                   SOURCE%RP%Strks(1,SOURCE%RP%nSbfs(1)),         &

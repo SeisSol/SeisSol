@@ -76,6 +76,10 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 
+  // for initial strain BC
+  m_localInitFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+  m_localInitFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
@@ -171,6 +175,44 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       if (data.cellInformation.faceTypes[face] != FaceType::regular
       && data.cellInformation.faceTypes[face] != FaceType::periodic) {
         lfKrnl.execute(face);
+
+        #ifdef USE_DAMAGEDELASTIC
+        if (data.cellInformation.faceTypes[face] == FaceType::freeSurface
+        || data.cellInformation.faceTypes[face] == FaceType::outflow) {
+          // additional term on free-surface BC to accomodate initial strain
+          alignas(PAGESIZE_STACK) real QInitialModal[tensor::Q::size()] = {0.0};
+          alignas(PAGESIZE_STACK) real QInitialNodal[tensor::QNodal::size()] = {0.0};
+          real* exxNodal = (QInitialNodal + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          real* eyyNodal = (QInitialNodal + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          real* ezzNodal = (QInitialNodal + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          real* exyNodal = (QInitialNodal + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          real* eyzNodal = (QInitialNodal + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          real* ezxNodal = (QInitialNodal + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+          for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+            exxNodal[q] = -1e-2;
+            eyyNodal[q] = -0e-1;
+            ezzNodal[q] = -0e-1;
+            exyNodal[q] = -0e-3;
+            eyzNodal[q] = -0e-3;
+            ezxNodal[q] = -0e-3;
+          }
+          kernel::damageAssignFToDQ d_convertInitialToModal;
+          d_convertInitialToModal.dQModal = QInitialModal;
+          d_convertInitialToModal.vInv = init::vInv::Values;
+          d_convertInitialToModal.FNodal = QInitialNodal;
+          d_convertInitialToModal.execute();
+
+          // Integrate it and add to Q
+          kernel::localInitFlux lfIKrnl = m_localInitFluxKernelPrototype;
+          lfIKrnl.Q = data.dofs;
+          lfIKrnl.dQModal = QInitialModal;
+          lfIKrnl.T = data.localIntegration.T[face];
+          lfIKrnl.Tinv = data.localIntegration.Tinv[face];
+          lfIKrnl.star(0) = data.localIntegration.ATtildeBC;
+          lfIKrnl.fluxScale = data.localIntegration.fluxScales[face] * timeStepWidth;
+          lfIKrnl.execute(face);
+        }
+        #endif
       }
     }
 

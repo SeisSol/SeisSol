@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * 
+ *
  **/
 
 #ifdef USE_HDF
@@ -64,7 +64,7 @@
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
-  
+
   easi::Query query(elements.size(), 3);
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     // Compute barycentre for each element
@@ -103,7 +103,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
 
   // Generate query using quadrature points for each element
   easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
-  
+
   // Transform quadrature points to global coordinates for all elements
   #pragma omp parallel for
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
@@ -127,12 +127,12 @@ easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() co
   std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
 
   int const* material = m_mesh.cellData(0);
-  
+
   easi::Query query(cells.size(), 3);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     unsigned vertLids[4];
     PUML::Downward::vertices(m_mesh, cells[cell], vertLids);
-    
+
     // Compute barycentre for each element
     for (unsigned dim = 0; dim < 3; ++dim) {
       query.x(cell,dim) = vertices[ vertLids[0] ].coordinate()[dim];
@@ -303,19 +303,22 @@ namespace seissol {
     template<>
     void MaterialParameterDB<DamagedElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<DamagedElasticMaterial> &adapter) {
       adapter.addBindingPoint("rho", &DamagedElasticMaterial::rho);
-      adapter.addBindingPoint("lambda", &DamagedElasticMaterial::lambda);
+      adapter.addBindingPoint("mu0", &DamagedElasticMaterial::mu0);
+      adapter.addBindingPoint("lambda0", &DamagedElasticMaterial::lambda0);
+      adapter.addBindingPoint("gammaR", &DamagedElasticMaterial::gammaR);
+      adapter.addBindingPoint("xi0", &DamagedElasticMaterial::xi0);
       adapter.addBindingPoint("mu", &DamagedElasticMaterial::mu);
-      adapter.addBindingPoint("sigmaxx_alpha", &DamagedElasticMaterial::sigmaxx_alpha);
-      adapter.addBindingPoint("sigmaxy_alpha", &DamagedElasticMaterial::sigmaxy_alpha);
-      adapter.addBindingPoint("sigmaxz_alpha", &DamagedElasticMaterial::sigmaxz_alpha);
-      adapter.addBindingPoint("sigmayx_alpha", &DamagedElasticMaterial::sigmayx_alpha);
-      adapter.addBindingPoint("sigmayy_alpha", &DamagedElasticMaterial::sigmayy_alpha);
-      adapter.addBindingPoint("sigmayz_alpha", &DamagedElasticMaterial::sigmayz_alpha);
-      adapter.addBindingPoint("sigmazx_alpha", &DamagedElasticMaterial::sigmazx_alpha);
-      adapter.addBindingPoint("sigmazy_alpha", &DamagedElasticMaterial::sigmazy_alpha);
-      adapter.addBindingPoint("sigmazz_alpha", &DamagedElasticMaterial::sigmazz_alpha);
-    }                                                               
-    
+      adapter.addBindingPoint("lambda", &DamagedElasticMaterial::lambda);
+      adapter.addBindingPoint("gamma", &DamagedElasticMaterial::gamma);
+      adapter.addBindingPoint("epsxx_alpha", &DamagedElasticMaterial::epsxx_alpha);
+      adapter.addBindingPoint("epsyy_alpha", &DamagedElasticMaterial::epsyy_alpha);
+      adapter.addBindingPoint("epszz_alpha", &DamagedElasticMaterial::epszz_alpha);
+      adapter.addBindingPoint("epsxy_alpha", &DamagedElasticMaterial::epsxy_alpha);
+      adapter.addBindingPoint("epsyz_alpha", &DamagedElasticMaterial::epsyz_alpha);
+      adapter.addBindingPoint("epszx_alpha", &DamagedElasticMaterial::epszx_alpha);
+      adapter.addBindingPoint("Cd", &DamagedElasticMaterial::Cd);
+    }
+
     template<class T>
     void MaterialParameterDB<T>::evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) {
       easi::Component* model = loadEasiModel(fileName);
@@ -335,7 +338,7 @@ namespace seissol {
         // Compute homogenized material parameters for every element in a specialization for the particular material
         #pragma omp parallel for
         for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-          m_materials->at(elementIdx) = this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery); 
+          m_materials->at(elementIdx) = this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
         }
       } else {
       // Usual behavior without homogenization
@@ -346,9 +349,9 @@ namespace seissol {
       delete model;
     }
 
-    // Computes the averaged material, assuming that materialsFromQuery, stores 
+    // Computes the averaged material, assuming that materialsFromQuery, stores
     // NUM_QUADPOINTS material samples per mesh element.
-    // We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1] 
+    // We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
     // stores samples from element i.
     // Fallback variant: if no specialization is implemented return materialsFromQuery[i*NUM_QUADPOINTS]
     // Note: this base variant should actually never be called, but only the specializations!
@@ -363,7 +366,7 @@ namespace seissol {
     }
 
     template<>
-    ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial (unsigned elementIdx, 
+    ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial (unsigned elementIdx,
      std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
      std::vector<ElasticMaterial> const& materialsFromQuery) {
       double muMeanInv = 0.0;
@@ -425,10 +428,78 @@ namespace seissol {
       result.lambda = lambdaMean;
       result.Qp = QpMean;
       result.Qs = QsMean;
-      
+
       return result;
     }
-    
+
+    template<>
+    DamagedElasticMaterial MaterialParameterDB<DamagedElasticMaterial>::computeAveragedMaterial (unsigned elementIdx,
+        std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
+        std::vector<DamagedElasticMaterial> const& materialsFromQuery) {
+      double mu0MeanInv = 0.0;
+      double rhoMean = 0.0;
+      double vERatio0Mean = 0.0;
+      double gammaRMean = 0.0;
+      double xi0Mean = 0.0;
+      double muMeanInv = 0.0;
+      double vERatioMean = 0.0;
+      double gammaMean = 0.0;
+      double epsxx_alphaMean = 0.0;
+      double epsyy_alphaMean = 0.0;
+      double epszz_alphaMean = 0.0;
+      double epsxy_alphaMean = 0.0;
+      double epsyz_alphaMean = 0.0;
+      double epszx_alphaMean = 0.0;
+      double CdMean = 0.0;
+
+      for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
+        const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+        const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+        const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+        mu0MeanInv += 1.0 / elementMaterial.mu0 * quadWeight;
+        rhoMean += elementMaterial.rho * quadWeight;
+        vERatioMean += elementMaterial.lambda / (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) * quadWeight;
+        vERatio0Mean += elementMaterial.lambda0 / (2.0 * elementMaterial.mu0 * (3.0 * elementMaterial.lambda0 + 2.0 * elementMaterial.mu0)) * quadWeight;
+        gammaRMean += elementMaterial.gammaR * quadWeight;
+        xi0Mean += elementMaterial.xi0 * quadWeight;
+        gammaMean += elementMaterial.gamma * quadWeight;
+        epsxx_alphaMean += elementMaterial.epsxx_alpha * quadWeight;
+        epsyy_alphaMean += elementMaterial.epsyy_alpha * quadWeight;
+        epszz_alphaMean += elementMaterial.epszz_alpha * quadWeight;
+        epsxy_alphaMean += elementMaterial.epsxy_alpha * quadWeight;
+        epsyz_alphaMean += elementMaterial.epsyz_alpha * quadWeight;
+        epszx_alphaMean += elementMaterial.epszx_alpha * quadWeight;
+        CdMean += elementMaterial.Cd * quadWeight;
+      }
+
+      // Harmonic average is used for mu, so take the reciprocal
+      double muMean = 1.0 / muMeanInv;
+      double mu0Mean = 1.0 / mu0MeanInv;
+      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+      double lambdaMean = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+      double lambda0Mean = (4.0 * std::pow(mu0Mean, 2) * vERatio0Mean) / (1.0 - 6.0 * mu0Mean * vERatio0Mean);
+
+      DamagedElasticMaterial result{};
+      result.rho = rhoMean;
+      result.mu0 = mu0Mean;
+      result.lambda0 = lambda0Mean;
+      result.gammaR = gammaRMean;
+      result.xi0 = xi0Mean;
+      result.mu = muMean;
+      result.lambda = lambdaMean;
+      result.gamma = gammaMean;
+      result.epsxx_alpha = epsxx_alphaMean;
+      result.epsyy_alpha = epsyy_alphaMean;
+      result.epszz_alpha = epszz_alphaMean;
+      result.epsxy_alpha = epsxy_alphaMean;
+      result.epsyz_alpha = epsyz_alphaMean;
+      result.epszx_alpha = epszx_alphaMean;
+      result.Cd = CdMean;
+
+      return result;
+    }
+
     template<>
     void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) {
       easi::Component* model = loadEasiModel(fileName);
@@ -437,7 +508,7 @@ namespace seissol {
       //TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
       //                 and in other parts the full elastic tensor is given
 
-      //if we look for an anisotropic material and only mu and lambda are supplied, 
+      //if we look for an anisotropic material and only mu and lambda are supplied,
       //assume isotropic behavior and calculate the parameters accordingly
       if (suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
         std::vector<ElasticMaterial> elasticMaterials(query.numPoints());
@@ -453,8 +524,8 @@ namespace seissol {
       else {
         easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
         addBindingPoints(arrayOfStructsAdapter);
-        model->evaluate(query, arrayOfStructsAdapter);  
-        
+        model->evaluate(query, arrayOfStructsAdapter);
+
       }
       delete model;
     }
@@ -467,8 +538,8 @@ namespace seissol {
       for (auto& kv : m_parameters) {
         adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
       }
-      model->evaluate(query, adapter); 
-      
+      model->evaluate(query, adapter);
+
       delete model;
     }
 
@@ -620,7 +691,7 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   return queryGen;
 }
 } // namespace seissol::initializers
-    
+
 
 template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;

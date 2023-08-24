@@ -418,8 +418,11 @@ private:
             using namespace seissol::dr::misc::quantity_indices;
             unsigned DAM = 9;
 
-            real lambda0 = 9.71e10;
-            real mu0 = 8.27e10;
+            real epsInitxx = -1e-2; // eps_xx0
+            real epsInityy = -0e-1; // eps_yy0
+            real epsInitzz = -0e-1; // eps_zz0
+            real lambda0 = materialData[l_cell].local.lambda0;
+            real mu0 = materialData[l_cell].local.mu0;
             real rho0 = materialData[l_cell].local.rho;
 
             real lambda_max = 1.0*std::sqrt( (lambda0+2*mu0)/rho0 ) ;
@@ -437,47 +440,95 @@ private:
                   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0+2*mu0)/rho0 )
                 );
 
-                sxxP = (1-qIPlus[o][DAM][i])*lambda0
-                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
-                +
-                2*(1-qIPlus[o][DAM][i])*mu0
-                *qIPlus[o][XX][i];
+                real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
+                real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
+                  + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
+                  + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
+                  + 2*qIPlus[o][XY][i]*qIPlus[o][XY][i]
+                  + 2*qIPlus[o][YZ][i]*qIPlus[o][YZ][i]
+                  + 2*qIPlus[o][XZ][i]*qIPlus[o][XZ][i];
+                real alphap = qIPlus[o][DAM][i];
+                real xip;
+                if (EspIIp > 1e-30){
+                  xip = EspIp / std::sqrt(EspIIp);
+                } else{
+                  xip = 0.0;
+                }
 
-                syyP = (1-qIPlus[o][DAM][i])*lambda0
-                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
-                +
-                2*(1-qIPlus[o][DAM][i])*mu0
-                *qIPlus[o][YY][i];
+                sxxP = (lambda0*EspIp - alphap*materialData[l_cell].local.gammaR*std::sqrt(EspIIp))
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *(qIPlus[o][XX][i]+epsInitxx);
 
-                szzP = (1-qIPlus[o][DAM][i])*lambda0
-                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
-                +
-                2*(1-qIPlus[o][DAM][i])*mu0
-                *qIPlus[o][ZZ][i];
-                sxyP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XY][i];
-                syzP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][YZ][i];
-                szxP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XZ][i];
+                syyP = (lambda0*EspIp - alphap*materialData[l_cell].local.gammaR*std::sqrt(EspIIp))
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *(qIPlus[o][YY][i]+epsInityy);
 
-                sxxM = (1-qIMinus[o][DAM][i])*lambda0
-                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
-                +
-                2*(1-qIMinus[o][DAM][i])*mu0
-                *qIMinus[o][XX][i];
+                szzP = (lambda0*EspIp - alphap*materialData[l_cell].local.gammaR*std::sqrt(EspIIp))
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *(qIPlus[o][ZZ][i]+epsInitzz);
 
-                syyM = (1-qIMinus[o][DAM][i])*lambda0
-                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
-                +
-                2*(1-qIMinus[o][DAM][i])*mu0
-                *qIMinus[o][YY][i];
+                sxyP = 0
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *qIPlus[o][XY][i];
 
-                szzM = (1-qIMinus[o][DAM][i])*lambda0
-                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
-                +
-                2*(1-qIMinus[o][DAM][i])*mu0
-                *qIMinus[o][ZZ][i];
-                sxyM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XY][i];
-                syzM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][YZ][i];
-                szxM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XZ][i];
+                syzP = 0
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *qIPlus[o][YZ][i];
+
+                szxP = 0
+                      + (2*(mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
+                          - alphap*materialData[l_cell].local.gammaR*xip)
+                        *qIPlus[o][XZ][i];
+
+                real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
+                real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
+                  + (qIMinus[o][YY][i]+epsInityy)*(qIMinus[o][YY][i]+epsInityy)
+                  + (qIMinus[o][ZZ][i]+epsInitzz)*(qIMinus[o][ZZ][i]+epsInitzz)
+                  + 2*qIMinus[o][XY][i]*qIMinus[o][XY][i]
+                  + 2*qIMinus[o][YZ][i]*qIMinus[o][YZ][i]
+                  + 2*qIMinus[o][XZ][i]*qIMinus[o][XZ][i];
+                real alpham = qIMinus[o][DAM][i];
+                real xim;
+                if (EspIIm > 1e-30){
+                  xim = EspIm / std::sqrt(EspIIm);
+                } else{
+                  xim = 0.0;
+                }
+
+                sxxM = (lambda0*EspIm - alpham*materialData[l_cell].neighbor[side].gammaR*std::sqrt(EspIIm))
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *(qIMinus[o][XX][i]+epsInitxx);
+
+                syyM = (lambda0*EspIm - alpham*materialData[l_cell].neighbor[side].gammaR*std::sqrt(EspIIm))
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *(qIMinus[o][YY][i]+epsInityy);
+
+                szzM = (lambda0*EspIm - alpham*materialData[l_cell].neighbor[side].gammaR*std::sqrt(EspIIm))
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *(qIMinus[o][ZZ][i]+epsInitzz);
+
+                sxyM = 0
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *qIMinus[o][XY][i];
+
+                syzM = 0
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *qIMinus[o][YZ][i];
+
+                szxM = 0
+                      + (2*(mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
+                          - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
+                        *qIMinus[o][XZ][i];
 
                 rusanovFluxP[XX][i] += weight * (
                   (
@@ -489,7 +540,7 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][XX][i]) - 0.5*lambda_max*(qIMinus[o][XX][i])
+                  + 0.5*lambda_max*(qIPlus[o][XX][i]+epsInitxx) - 0.5*lambda_max*(qIMinus[o][XX][i]+epsInitxx)
                 );
 
                 rusanovFluxP[YY][i] += weight * (
@@ -502,7 +553,7 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][YY][i]) - 0.5*lambda_max*(qIMinus[o][YY][i])
+                  + 0.5*lambda_max*(qIPlus[o][YY][i]+epsInityy) - 0.5*lambda_max*(qIMinus[o][YY][i]+epsInityy)
                 );
 
                 rusanovFluxP[ZZ][i] += weight * (
@@ -515,7 +566,7 @@ private:
                   + (
                     0.5*(-qIPlus[o][W][i]) + 0.5*(-qIMinus[o][W][i])
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][ZZ][i]) - 0.5*lambda_max*(qIMinus[o][ZZ][i])
+                  + 0.5*lambda_max*(qIPlus[o][ZZ][i]+epsInitzz) - 0.5*lambda_max*(qIMinus[o][ZZ][i]+epsInitzz)
                 );
 
                 rusanovFluxP[XY][i] += weight * (

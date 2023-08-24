@@ -185,10 +185,13 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real const damage_para1 = 1.2e4/2;
-  real const damage_para2 = 3e-6;
-  real const lambda0 = 9.71e10;
-  real const mu0 = 8.27e10;
+  real epsInitxx = -1e-2; // eps_xx0
+  real epsInityy = -0e-1; // eps_yy0
+  real epsInitzz = -0e-1; // eps_zz0
+  real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
+  // real const damage_para2 = 3e-6;
+  real const lambda0 = 9.71e10; // data.material.local.lambda0
+  real const mu0 = 8.27e10; // data.material.local.mu0
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions
@@ -204,12 +207,36 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* exxNodal = (solNData + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* eyyNodal = (solNData + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* ezzNodal = (solNData + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* exyNodal = (solNData + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* eyzNodal = (solNData + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* ezxNodal = (solNData + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-    fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-    1.0e0/(damage_para2*damage_para1)
-      *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
+    real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
+    real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
+      + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
+      + (ezzNodal[q]+epsInitzz)*(ezzNodal[q]+epsInitzz)
+      + 2*exyNodal[q]*exyNodal[q]
+      + 2*eyzNodal[q]*eyzNodal[q]
+      + 2*ezxNodal[q]*ezxNodal[q];
+    real xi;
+    if (EspII > 1e-30){
+      xi = EspI / std::sqrt(EspII);
+    } else{
+      xi = 0.0;
+    }
+
+    if (alphaNodal[q] > -1e-10) {
+      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        damage_para1
+          *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+    } else{
+      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
+    }
+
+    // std::cout << fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] << std::endl;
+
     // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
   }
 

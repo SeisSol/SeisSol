@@ -135,5 +135,15 @@ class DamagedElasticADERDG(ADERDGBase):
                           simpleParameterSpace(4,4),
                           nodalFluxGenerator)
 
+      # integrate for BCs that are comptible with the initial strain
+      # self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.starMatrix(0)['kl'] * self.T['jl']
+
+      localInitFlux = lambda i: self.Q['kp'] <= self.Q['kp'] \
+        + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.dQModal['lq'] \
+        * self.Tinv['rq'] * self.starMatrix(0)['rs'] * self.T['ps'] * fluxScale
+      generator.addFamily(f'localInitFlux',
+                          simpleParameterSpace(4),
+                          localInitFlux)
+
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

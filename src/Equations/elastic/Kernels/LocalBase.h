@@ -67,6 +67,9 @@ class seissol::kernels::LocalBase {
     kernel::localFlux m_localFluxKernelPrototype;
     kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
+    // Added for initial strain
+    kernel::localInitFlux m_localInitFluxKernelPrototype;
+
     kernel::projectToNodalBoundary m_projectKrnlPrototype;
     kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 

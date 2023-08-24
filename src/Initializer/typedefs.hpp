@@ -358,6 +358,7 @@ struct LocalIntegrationData {
   real TinvT[4][seissol::tensor::TinvT::size()];
   real fluxScales[4];
   real surfaceNormal[4][3];
+  real ATtildeBC[seissol::tensor::star::size(0)];
   seissol::model::DamagedElasticLocalData specific;
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
