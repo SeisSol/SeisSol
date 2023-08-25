@@ -10,19 +10,26 @@ It also has 2 GPGPUs (NVIDIA GeForce RTX 3090), that can be used to run the GPU 
 The RTX 3090 belongs to a consumer kind of graphics cards and thus does not perform well with double precision. 
 Therefore, it is preferable to compile SeisSol with single precision.
 
-A module integrating all libraries relevant for SeisSol-GPU is preinstalled at ``/export/dump/ravil/modulefiles``.
+A module integrating all libraries relevant for compiling SeisSol with CUDA and SYCL is available on heisenbug.
 It can be discovered at startup after adding the following to ``~/.bashrc``:
 
 .. code-block:: bash
 
-    module_hpcsdk=/export/dump/ravil/modulefiles
-    export MODULEPATH=$MODULEPATH:${module_hpcsdk}
+    module use /import/exception-dump/ulrich/spack/modules/linux-debian11-zen2
 
 It is then loaded with:
 
 .. code-block:: bash
 
-    module load seissol-env-gcc-11.1.0
+    # load the (first in the list) seissol-env module compiled with cuda support
+    module load $(module avail seissol-env/*-cuda-* | awk '/seissol-env/ {print $1}')
+
+This module has been compiled based on the main branch of https://github.com/SeisSol/seissol-spack-aid with the command:
+
+.. code-block:: bash
+
+    spack install -j 40 --fresh seissol-env +cuda %gcc@10
+    spack module tcl refresh $(spack find -d --format "{name}{/hash:5}" seissol-env +cuda)
 
 Install YATeTo GPU backends (i.e., GemmForge and ChainForge) as 
 shown :ref:`here <gemmforge_installation>`.
@@ -36,7 +43,13 @@ Then clone SeisSol with:
     git submodule update --init --recursive
 
 
-To compile the GPU version of SeisSol on heisenbug, use the following cmake options ``-DDEVICE_ARCH=sm_86 -DHOST_ARCH=hsw -DDEVICE_BACKEND=cuda -DPRECISION=single``.
+To compile the GPU version of SeisSol on heisenbug, use the following cmake options 
+
+.. code-block:: bash
+
+    -DDEVICE_ARCH=sm_86 -DHOST_ARCH=hsw -DDEVICE_BACKEND=cuda -DPRECISION=single -DHIPSYCL_CUDA_PATH=$CUDA_HOME
+
+
 Use ``-DCOMMTHREAD=ON`` for multiple GPUs, and ``-DCOMMTHREAD=OFF`` for one GPU.
 
 As there is no queuing system on heisenbug, you need to make sure that nobody is running anything on the GPUs.
@@ -57,7 +70,9 @@ On 2 ranks, use:
 
 .. code-block:: bash
 
-    export OMP_NUM_THREADS=1
+    # Note that it is possible to increase OMP_NUM_THREADS 
+    # This will speed up (the rare) portions of the code running only CPUs, e.g. the wiggle factor calculation 
+    export OMP_NUM_THREADS=1 
     export OMP_PLACES="cores"
     export OMP_PROC_BIND=spread
     mpirun -n 2 --map-by ppr:1:numa:pe=2 --report-bindings ./launch ./SeisSol_RelWithDebInfo_ssm_86_cuda_6_elastic ./parameters.par
