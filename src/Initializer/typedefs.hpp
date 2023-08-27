@@ -465,10 +465,7 @@ struct TravellingWaveParameters {
 };
 
 struct AcousticTravellingWaveParametersITM {
-    std::array<double, 3> origin;
-    std::array<double, 3> kVec;
-    std::vector<int> varField;
-    std::vector<std::complex<double>> ampField;
+    double k;
 };
 
 #endif

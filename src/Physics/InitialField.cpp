@@ -10,6 +10,7 @@
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
 #include <Numerical_aux/Eigenvalues.h>
+#include <SeisSol.h>
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
@@ -144,24 +145,69 @@ seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materia
   }
 }
 
-seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM)
-: Planarwave(materialData, 0.5*M_PI, acousticTravellingWaveParametersITM.kVec, acousticTravellingWaveParametersITM.varField, acousticTravellingWaveParametersITM.ampField),
-m_origin(acousticTravellingWaveParametersITM.origin){
+seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm) {
+  logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
+  rho0 = materialData.local.rho;
+  c0 = sqrt(materialData.local.lambda/materialData.local.rho);
+  logInfo() << "rho0 = " << rho0;
+  logInfo() << "c0 = " << c0;
+  logInfo() << "Setting up the Initial Conditions";
+  auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
+  k = acousticTravellingWaveParametersItm.k;
+  tITMMinus = itmParameters.ITMStartingTime;
+  tau = itmParameters.ITMTime;
+  tITMPlus = tITMMinus + tau;
+  n = itmParameters.ITMVelocityScalingFactor;
+  init(materialData);
+}
 
-    logInfo() << "Impose a travelling wave as initial condition";
-    logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
-    logInfo() << "kVec = (" << m_kVec[0] << ", " << m_kVec[1] << ", " << m_kVec[2] << ")";
-    logInfo() << "Combine following wave modes";
-    for (size_t i = 0; i < m_ampField.size(); i++) {
-        logInfo() << "(" << m_varField[i] << ": " << m_ampField[i] << ")";
-    }
+void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {
+
 }
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(double time,
-                                                           const std::vector<std::array<double, 3>> &points,
-                                                           const CellMaterialData &materialData, yateto::DenseTensorView<2, real, unsigned >& dofsQp) const {
-    dofsQp.setZero();
-    auto R = yateto::DenseTensorView<2, std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+                                                           std::vector<std::array<double, 3>> const& points,
+                                                           const CellMaterialData& materialData,
+                                                           yateto::DenseTensorView<2,real,unsigned>& dofsQP) const {
+dofsQP.setZero();
+for (size_t i = 0; i < points.size(); ++i) {
+  const auto& coordinates = points[i];
+  const auto x = coordinates[0];
+  const auto t = time;
+  if (t <= tITMMinus){
+      dofsQP(i,0) = c0*rho0*std::cos(k*x - c0*k*t); //sigma_xx
+        dofsQP(i,1) = c0*rho0*std::cos(k*x - c0*k*t); //sigma_yy
+        dofsQP(i,2) = c0*rho0*std::cos(k*x - c0*k*t); //sigma_zz
+        dofsQP(i,3) = 0.0; //sigma_xy
+        dofsQP(i,4) = 0.0; //sigma_yz
+        dofsQP(i,5) = 0.0; //sigma_xz
+        dofsQP(i,6) = std::cos(k*x - c0*k*t); //u
+        dofsQP(i,7) = 0.0; //v
+        dofsQP(i,8) = 0.0; //w
+  }
+  else if (t<=tITMPlus){
+      dofsQP(i,0) = -0.5*(n-1)*c0*rho0*std::cos(k*x + c0*k*n*t - (c0*k*n + c0*k)*tITMMinus) + 0.5*(n+1)*c0*rho0*std::cos(k*x - c0*k*n*t + (c0*k*n - c0*k)*tITMMinus); //sigma_xx
+      dofsQP(i,1) = -0.5*(n-1)*c0*rho0*std::cos(k*x + c0*k*n*t - (c0*k*n + c0*k)*tITMMinus) + 0.5*(n+1)*c0*rho0*std::cos(k*x - c0*k*n*t + (c0*k*n - c0*k)*tITMMinus); //sigma_yy
+      dofsQP(i,2) = -0.5*(n-1)*c0*rho0*std::cos(k*x + c0*k*n*t - (c0*k*n + c0*k)*tITMMinus) + 0.5*(n+1)*c0*rho0*std::cos(k*x - c0*k*n*t + (c0*k*n - c0*k)*tITMMinus); //sigma_zz
+        dofsQP(i,3) = 0.0; //sigma_xy
+        dofsQP(i,4) = 0.0; //sigma_yz
+        dofsQP(i,5) = 0.0; //sigma_xz
+        dofsQP(i,6) = 0.5*(n-1)*std::cos(k*x + c0*k*n*t - (c0*k*n + c0*k)*tITMMinus) + 0.5*(n+1)*std::cos(k*x - c0*k*n*t + (c0*k*n - c0*k)*tITMMinus); //u
+        dofsQP(i,7) = 0.0; //v
+        dofsQP(i,8) = 0.0; //w
+  }
+  else{
+        dofsQP(i,0) = -0.25*(1/n)*c0*rho0*((-n*n+1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus - (c0*k*n + c0*k)*tau) + (n*n-1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus + (c0*k*n - c0*k)*tau) + (n*n - 2*n + 1)*std::cos(k*x - c0*k*t + (c0*k*n + c0*k)*tau) + (-n*n - 2*n -1)*std::cos(k*x - c0*k*t - (c0*k*n-c0*k)*tau)); //sigma_xx
+        dofsQP(i,1) = -0.25*(1/n)*c0*rho0*((-n*n+1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus - (c0*k*n + c0*k)*tau) + (n*n-1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus + (c0*k*n - c0*k)*tau) + (n*n - 2*n + 1)*std::cos(k*x - c0*k*t + (c0*k*n + c0*k)*tau) + (-n*n - 2*n -1)*std::cos(k*x - c0*k*t - (c0*k*n-c0*k)*tau)); //sigma_yy
+        dofsQP(i,2) = -0.25*(1/n)*c0*rho0*((-n*n+1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus - (c0*k*n + c0*k)*tau) + (n*n-1)*std::cos(k*x + c0*k*t - 2.0*c0*k*tITMMinus + (c0*k*n - c0*k)*tau) + (n*n - 2*n + 1)*std::cos(k*x - c0*k*t + (c0*k*n + c0*k)*tau) + (-n*n - 2*n -1)*std::cos(k*x - c0*k*t - (c0*k*n-c0*k)*tau)); //sigma_zz
+        dofsQP(i,3) = 0.0; //sigma_xy
+        dofsQP(i,4) = 0.0; //sigma_yz
+        dofsQP(i,5) = 0.0; //sigma_xz
+        dofsQP(i,6) = (-0.25/n)*((n*n-1)*std::cos(k*x + c0*k*t - 2*c0*k*tITMMinus - (c0*k*n + c0*k)*tau) + (-n*n+1)*std::cos(k*x + c0*k*t - 2*c0*k*tITMMinus + (c0*k*n - c0*k)*tau) + (n*n-2*n+1)*std::cos(k*x - c0*k*t + (c0*k*n + c0*k)*tau) + (-n*n - 2*n - 1)*std::cos(k*x - c0*k*t - (c0*k*n - c0*k)*tau)); //u
+        dofsQP(i,7) = 0.0; //v
+        dofsQP(i,8) = 0.0; //w
+  }
+}
 }
 
 void seissol::physics::TravellingWave::evaluate(double time,

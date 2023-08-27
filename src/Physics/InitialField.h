@@ -7,6 +7,7 @@
 #include "Initializer/typedefs.hpp"
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
+#include <Initializer/InputParameters.hpp>
 
 namespace seissol {
   namespace physics {
@@ -87,17 +88,22 @@ namespace seissol {
       std::array<double, 3> m_origin;
     };
 
-    class AcousticTravellingWaveITM : public Planarwave{
+    class AcousticTravellingWaveITM : public InitialField{
     public:
         AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
-
         void evaluate(double time,
                       std::vector<std::array<double, 3>> const& points,
                       const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
-
     private:
-        std::array<double, 3> m_origin;
+        void init(const CellMaterialData& materialData);
+        double rho0;
+        double c0;
+        double k;
+        double tITMMinus;
+        double tau;
+        double tITMPlus;
+        double n;
     };
 
     class ScholteWave : public InitialField {
