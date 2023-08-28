@@ -95,7 +95,6 @@ class seissol::kernels::Time : public TimeBase {
                      LocalTmp& tmp,
                      real o_timeIntegrated[tensor::I::size()],
                      real* o_timeDerivatives = nullptr,
-                     double startTime = 0.0,
                      bool updateDisplacement = false);
 
 #ifdef USE_STP
@@ -106,7 +105,9 @@ class seissol::kernels::Time : public TimeBase {
 #endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
-                            ConditionalBatchTableT &table);
+                            ConditionalPointersToRealsTable &dataTable,
+                            ConditionalMaterialTable &materialTable,
+                            bool updateDisplacement = false);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );

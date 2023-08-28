@@ -15,6 +15,7 @@
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Initializer/InputParameters.hpp"
 
 namespace seissol::writer {
 
@@ -45,14 +46,13 @@ class EnergyOutput : public Module {
   void init(GlobalData* newGlobal,
             seissol::initializers::DynamicRupture* newDynRup,
             seissol::initializers::LTSTree* newDynRuptTree,
-            MeshReader* newMeshReader,
+            seissol::geometry::MeshReader* newMeshReader,
             seissol::initializers::LTSTree* newLtsTree,
             seissol::initializers::LTS* newLts,
             seissol::initializers::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
-            bool newIsTerminalOutputEnabled,
             const std::string& outputFileNamePrefix,
-            double newSyncPointInterval);
+            const seissol::initializer::parameters::EnergyOutputParameters& parameters);
 
   void syncPoint(double time) override;
 
@@ -67,6 +67,8 @@ class EnergyOutput : public Module {
 
   void computeDynamicRuptureEnergies();
 
+  void computeVolumeEnergies();
+
   void computeEnergies();
 
   void reduceEnergies();
@@ -77,10 +79,14 @@ class EnergyOutput : public Module {
 
   void writeEnergies(double time);
 
+  bool shouldComputeVolumeEnergies() const;
+
   bool isEnabled = false;
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
+  int computeVolumeEnergiesEveryOutput = 1;
+  int outputId = 0;
 
   std::string outputFileName;
   std::ofstream out;
@@ -88,7 +94,7 @@ class EnergyOutput : public Module {
   const GlobalData* global = nullptr;
   seissol::initializers::DynamicRupture* dynRup = nullptr;
   seissol::initializers::LTSTree* dynRupTree = nullptr;
-  MeshReader* meshReader = nullptr;
+  seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializers::LTSTree* ltsTree = nullptr;
   seissol::initializers::LTS* lts = nullptr;
   seissol::initializers::Lut* ltsLut = nullptr;

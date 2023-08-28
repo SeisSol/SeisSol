@@ -69,6 +69,9 @@ cmdLineParser.add_argument('--multipleSimulations', type=int)
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
 cmdLineParser.add_argument('--drQuadRule')
+cmdLineParser.add_argument('--enable_premultiply_flux', action='store_true')
+cmdLineParser.add_argument('--disable_premultiply_flux', dest='enable_premultiply_flux', action='store_false')
+cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
@@ -138,7 +141,7 @@ Plasticity.addKernels(generator,
                       cmdLineArgs.matricesDir,
                       cmdLineArgs.PlasticityMethod,
                       targets)
-NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
+NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
 SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
 Point.addKernels(generator, adg)
 

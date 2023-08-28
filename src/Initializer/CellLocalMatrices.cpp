@@ -75,7 +75,7 @@ void setStarMatrix( real* i_AT,
   }
 }
 
-void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,
+void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
@@ -161,12 +161,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                    material[cell].neighbor[side],
-                                                    cellInformation[cell].faceTypes[side],
-                                                    QgodLocal,
-                                                    QgodNeighbor );
-
         VrtxCoords normal;
         VrtxCoords tangent1;
         VrtxCoords tangent2;
@@ -240,7 +234,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   }
 }
 
-void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
+void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshReader,
                             unsigned               meshId,
                             unsigned               side,
                             double*                surfaceArea,
@@ -258,7 +252,7 @@ void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
   *surfaceArea = MeshTools::surface(normal);
 }
 
-void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshReader,
+void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
                                                        const EasiBoundary* easiBoundary,
                                                        LTSTree* io_ltsTree,
                                                        LTS* i_lts,
@@ -356,7 +350,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
   }
 }
 
-void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,
+void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
                                                               Lut*                   i_ltsLut,

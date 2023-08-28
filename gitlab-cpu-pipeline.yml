@@ -29,6 +29,7 @@ fetch_submodules:
     artifacts:
         paths:
             - submodules
+    retry: 2
         
 build_seissol:
     stage: build
@@ -50,9 +51,9 @@ build_seissol:
             pwd;
             CMAKE_PREFIX_PATH=~ ;
             cmake ..
-            -DNETCDF=OFF
+            -DNETCDF=ON
             -DMETIS=ON
-            -DCOMMTHREAD=ON
+            -DCOMMTHREAD=OFF
             -DASAGI=OFF
             -DHDF5=ON
             -DCMAKE_BUILD_TYPE=$build_type
@@ -73,6 +74,7 @@ build_seissol:
     artifacts:
         paths:
             - build_*
+    retry: 2
             
 run_unit_tests:
     stage: test
@@ -92,6 +94,7 @@ run_unit_tests:
         - cd $DIR
         - export CTEST_OUTPUT_ON_FAILURE=1
         - make test
+    retry: 2
 
 run_tpv:
     stage: test
@@ -104,10 +107,10 @@ run_tpv:
               tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
-        - git clone https://github.com/7bits-register/precomputed-seissol.git
+        - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 64fd94e
+        - git checkout b60e02c
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
@@ -123,6 +126,7 @@ run_tpv:
     artifacts:
         paths:
             - output-*
+    retry: 2
 
 
 check_faultoutput:
@@ -144,6 +148,7 @@ check_faultoutput:
         - cd output-tpv{$tpv}-${precision}
         - ls
         - python3 ../postprocessing/validation/compare-faults.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
+    retry: 2
 
 
 check_receivers:
@@ -164,6 +169,7 @@ check_receivers:
         - ls
         - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
           python3 ../postprocessing/validation/compare-receivers.py . ./precomputed --epsilon ${epsilon} --mode $mode
+    retry: 2
 
 
 check_energies:
@@ -184,3 +190,4 @@ check_energies:
         - cd output-tpv{$tpv}-${precision}
         - ls
         - python3 ../postprocessing/validation/compare-energies.py ./${energy_file} ./precomputed/${energy_file} --epsilon ${epsilon}
+    retry: 2

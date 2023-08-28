@@ -45,7 +45,7 @@
 #include <Geometry/MeshReader.h>
 #include <Geometry/refinement/TriangleRefiner.h>
 #include <Kernels/precision.hpp>
-#include <Kernels/equations.hpp>
+#include <Kernels/common.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>

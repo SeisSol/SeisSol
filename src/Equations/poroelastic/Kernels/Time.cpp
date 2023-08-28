@@ -81,6 +81,16 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
+  krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
+  krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
+  krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
+
+  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.I = o_timeIntegrated;
+  krnl.timestep = i_timeStepWidth;
+  krnl.spaceTimePredictor = stp;
+  krnl.spaceTimePredictorRhs = stpRhs;
+
   //The matrix Zinv depends on the timestep
   //If the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
@@ -91,21 +101,14 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
+    // krnl.execute has to be run here: ZinvData is only allocated locally
+    krnl.execute();
   } else {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
     }
+    krnl.execute();
   }
-  krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
-  krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
-  krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
-
-  krnl.Q = const_cast<real*>(data.dofs);
-  krnl.I = o_timeIntegrated;
-  krnl.timestep = i_timeStepWidth;
-  krnl.spaceTimePredictor = stp;
-  krnl.spaceTimePredictorRhs = stpRhs;
-  krnl.execute();
 }
                                           
 
@@ -114,7 +117,6 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
                                           LocalTmp& tmp,
                                           real o_timeIntegrated[tensor::I::size()],
                                           real* o_timeDerivatives,
-                                          double startTime,
                                           bool updateDisplacement)
 {
   /*

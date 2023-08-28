@@ -1,7 +1,7 @@
 #ifndef SEISSOL_GPU_LINEARSLIPWEAKENING_H
 #define SEISSOL_GPU_LINEARSLIPWEAKENING_H
 
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuFrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -10,12 +10,12 @@ namespace seissol::dr::friction_law::gpu {
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
 template <typename Derived>
-class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase<Derived>> {
+class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
   LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
-      : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
-  void allocateAuxiliaryMemory() override { GpuBaseFrictionLaw::allocateAuxiliaryMemory(); }
+  void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
   void updateFrictionAndSlip(unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
@@ -236,8 +236,8 @@ class LinearSlipWeakeningLaw
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        resampledSlipRate[pointIndex] =
-            specialization.resampleSlipRate(devResample, devSlipRateMagnitude[ltsFace], pointIndex);
+        resampledSlipRate[pointIndex] = SpecializationT::resampleSlipRate(
+            devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
         item.barrier(sycl::access::fence_space::local_space);
         auto& stateVariable = devStateVariableBuffer[ltsFace];
@@ -278,9 +278,9 @@ class NoSpecialization {
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
-  real resampleSlipRate(real const* resampleMatrix,
-                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                        size_t pointIndex) {
+  static real resampleSlipRate(real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
 
     // perform matrix vector multiplication
 
@@ -322,9 +322,9 @@ class BiMaterialFault {
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 
-  real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                        size_t pointIndex) {
+  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
 

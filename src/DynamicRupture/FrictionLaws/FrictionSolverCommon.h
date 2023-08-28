@@ -119,7 +119,7 @@ inline void precomputeStressFromQInterpolated(
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto i{startLoopIndex + index};
@@ -244,7 +244,7 @@ inline void postcomputeImposedStateFromNewStress(
 
     using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = NumPointsRange::start; index < NumPointsRange::end;
          index += NumPointsRange::step) {
@@ -298,7 +298,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto pointIndex{startIndex + index};
@@ -319,7 +319,11 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime,
@@ -328,7 +332,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -347,14 +351,16 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in, out] peakSlipRate
  */
 template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
+inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real peakSlipRate[misc::numPaddedPoints],
                                    unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -395,7 +401,7 @@ inline void computeFrictionEnergy(
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (size_t index = Range::start; index < Range::end; index += Range::step) {
       const size_t i{startIndex + index};

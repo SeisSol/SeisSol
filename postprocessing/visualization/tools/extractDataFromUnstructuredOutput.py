@@ -9,7 +9,7 @@ import argparse
 parser = argparse.ArgumentParser(description="resample output file and write as binary files")
 parser.add_argument("xdmfFilename", help="xdmf output file")
 parser.add_argument("--add2prefix", help="string to append to prefix for new file", type=str, default="_resampled")
-parser.add_argument("--Data", nargs="+", metavar=("variable"), default=(""), help="Data to resample (example SRs)")
+parser.add_argument("--Data", nargs="+", metavar=("variable"), help="Data to resample (example SRs, or all)", required=True)
 parser.add_argument("--downsample", help="write one out of n output", type=int)
 parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
 parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
@@ -102,7 +102,8 @@ else:
         indices = range(0, ndt, args.downsample)
 
 # Check if input is in hdf5 format or not
-dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension("partition")
+first_data_field = list(sx.ReadAvailableDataFields())[0]
+dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension(first_data_field)
 splitArgs = dataLocation.split(":")
 if len(splitArgs) == 2:
     isHdf5 = True
@@ -167,6 +168,13 @@ else:
 
 
 # Write data items
+if args.Data[0]=='all':
+    args.Data = sorted(sx.ReadAvailableDataFields())
+    for to_remove in ["partition", "locationFlag"]:
+        if to_remove in args.Data:
+            args.Data.remove(to_remove)
+    print(f"args.Data was set to all and now contains {args.Data}")
+
 for ida, sdata in enumerate(args.Data):
     if write2Binary:
         fname2 = prefix_new + "_cell/mesh0/" + args.Data[ida] + ".bin"

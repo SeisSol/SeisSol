@@ -43,15 +43,12 @@
 
 #include "Simulator.h"
 #include "SeisSol.h"
-#include "Interoperability.h"
 #include "time_stepping/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
-
-extern seissol::Interoperability e_interoperability;
 
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
@@ -75,8 +72,8 @@ void seissol::Simulator::setFinalTime( double i_finalTime ) {
   m_finalTime = i_finalTime;
 }
 
-void seissol::Simulator::setUsePlasticity( int i_plasticity ) {
-  m_usePlasticity = i_plasticity==1 ? true : false;
+void seissol::Simulator::setUsePlasticity( bool plasticity ) {
+  m_usePlasticity = plasticity;
 }
 
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
@@ -139,7 +136,7 @@ void seissol::Simulator::simulate() {
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
-    printPerformance(stopwatch.split());
+    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
   }
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
@@ -147,9 +144,13 @@ void seissol::Simulator::simulate() {
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
-  seissol::SeisSol::main.timeManager().printComputationTime();
+  const auto& memoryManager = SeisSol::main.getMemoryManager();
+  const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
+  const auto& outputPrefix = memoryManager.getOutputPrefix();
+  seissol::SeisSol::main.timeManager().printComputationTime(outputPrefix,
+                                                            isLoopStatisticsNetcdfOutputOn);
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
-  printFlops();
+  seissol::SeisSol::main.flopCounter().printPerformanceSummary(wallTime);
 }

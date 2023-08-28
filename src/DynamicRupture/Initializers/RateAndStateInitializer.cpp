@@ -70,8 +70,9 @@ RateAndStateInitializer::StateAndFriction
                                    rsA * std::log(initialSlipRate / rsSr0)) /
                                   rsB);
   if (result.stateVariable < 0) {
-    logError() << "Found a negative state variable while initializing the fault. Are you sure your "
-                  "setup is correct?";
+    logWarning()
+        << "Found a negative state variable while initializing the fault. Are you sure your "
+           "setup is correct?";
   }
   const double tmp2 = initialSlipRate * 0.5 / rsSr0 *
                       std::exp((rsF0 + rsB * std::log(rsSr0 * result.stateVariable / rsSl0)) / rsA);
@@ -106,8 +107,9 @@ RateAndStateInitializer::StateAndFriction
   result.stateVariable =
       rsA * std::log(2.0 * rsSr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);
   if (result.stateVariable < 0) {
-    logError() << "Found a negative state variable while initializing the fault. Are you sure your "
-                  "setup is correct?";
+    logWarning()
+        << "Found a negative state variable while initializing the fault. Are you sure your "
+           "setup is correct?";
   }
   const real tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
   result.frictionCoefficient = rsA * misc::asinh(tmp2);

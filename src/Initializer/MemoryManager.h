@@ -82,9 +82,17 @@
 
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
+#include <Initializer/time_stepping/LtsParameters.h>
+
+#include <Physics/InitialField.h>
+
+#include <vector>
+#include <memory>
 
 #include <DynamicRupture/Factory.h>
 #include <yaml-cpp/yaml.h>
@@ -154,9 +162,12 @@ class seissol::initializers::MemoryManager {
     GlobalData            m_globalDataOnHost;
     GlobalData            m_globalDataOnDevice;
 
-    //! Memory organisation tree
+    //! Memory organization tree
     LTSTree               m_ltsTree;
     LTS                   m_lts;
+    Lut                   m_ltsLut;
+
+    std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
     
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
@@ -165,6 +176,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
+    std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -202,13 +214,6 @@ class seissol::initializers::MemoryManager {
      */
     void deriveDisplacementsBucket();
 
-#ifdef ACL_DEVICE
-    /**
-     * Derives the sizes of scratch memory required during the computations
-     */
-    void deriveRequiredScratchpadMemory();
-#endif
-    
     /**
      * Initializes the displacement accumulation buffer.
      */
@@ -264,10 +269,8 @@ class seissol::initializers::MemoryManager {
     void fixateBoundaryLtsTree();
     /**
      * Set up the internal structure.
-     *
-     * @param enableFreeSurfaceIntegration Create buffers to accumulate displacement.
      **/
-    void initializeMemoryLayout(bool enableFreeSurfaceIntegration);
+    void initializeMemoryLayout();
 
     /**
      * Gets global data on the host.
@@ -315,7 +318,16 @@ class seissol::initializers::MemoryManager {
     inline LTS* getLts() {
       return &m_lts;
     }
-                          
+
+    inline Lut* getLtsLut() {
+      return &m_ltsLut;
+    }
+
+    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
+    inline Lut& getLtsLutUnsafe() {
+      return m_ltsLut;
+    }
+
     inline LTSTree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
@@ -330,6 +342,14 @@ class seissol::initializers::MemoryManager {
 
     inline Boundary* getBoundary() {
       return &m_boundary;
+    }
+
+    inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+      m_iniConds = std::move(iniConds);
+    }
+
+    inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+      return m_iniConds;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);
@@ -351,13 +371,36 @@ class seissol::initializers::MemoryManager {
         return m_dynRupParameters.get();
     }
 
+    inline time_stepping::LtsParameters* getLtsParameters() {
+        return ltsParameters.get();
+    };
+
     void setInputParams(std::shared_ptr<YAML::Node> params) {
       m_inputParams = params;
       m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
+      ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
+    }
+
+    std::string getOutputPrefix() const {
+      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
+    }
+
+    bool isLoopStatisticsNetcdfOutputOn() const {
+      return getWithDefault((*m_inputParams)["output"], "loopstatisticsnetcdfoutput", false);
     }
 
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Wave Propagation solver
+   **/
+  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
+   **/
+  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
 #endif
 
   void initializeFrictionLaw();

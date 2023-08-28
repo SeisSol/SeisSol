@@ -44,8 +44,10 @@
 #include <numeric>
 #include <vector>
 #include <type_traits>
+#include "generated_code/init.h"
 
 #include "Functions.h"
+#include "Transformation.h"
 
 namespace seissol {
 namespace basisFunction {
@@ -67,7 +69,9 @@ private:
      * Source : https://github.com/pjabardo/Jacobi.jl/blob/master/src/jac_poly.jl
      * @param x Sampling point
      */
-    static T sampleJacobiPolynomial(T x, unsigned int n, unsigned int a, unsigned int b);
+    static T sampleJacobiPolynomial(T x, unsigned int n, unsigned int a, unsigned int b) {
+      return seissol::functions::JacobiP(n, a, b, x);
+    }
 
 public:
     /**
@@ -91,11 +95,52 @@ public:
      * @param j Polynomial index information
      * @param k Polynomial index information
      */
-    T operator()(unsigned int i, unsigned int j, unsigned int k) const;
+    T operator()(unsigned int i, unsigned int j, unsigned int k) const {
+      return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
+    }
+
+};
+//------------------------------------------------------------------------------
+
+/**
+ * Functor to sample Basis function derivatives for a given point in the reference
+ * tetrahedron.
+ * @param T the type to calculate internally.
+ */
+template<class T>
+class BasisFunctionDerivativeGenerator {
+private:
+  T xi_, eta_, zeta_;
+
+public:
+  /**
+   * Constructs a BasisFunctionDerivativeGenerator which fixes it to a specific point
+   * in the reference tetrahedron.
+   * @param eta The eta coordinate in the reference terahedron.
+   * @param zeta The zeta coordinate in the reference terahedron.
+   * @param xi The xi coordinate in the reference terahedron.
+   */
+  BasisFunctionDerivativeGenerator(T xi, T eta, T zeta) :
+      xi_(xi), eta_(eta), zeta_(zeta)
+  {}
+
+  /**
+   * Allows functor style call.
+   * @param i Polynomial index information
+   * @param j Polynomial index information
+   * @param k Polynomial index information
+   */
+  std::array<T, 3> operator()(unsigned int i, unsigned int j, unsigned int k) const {
+    std::array<double, 3> gradEvaluated = functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
+    return {static_cast<T>(gradEvaluated[0]), static_cast<T>(gradEvaluated[1]), static_cast<T>(gradEvaluated[2])};
+  }
 
 };
 
-//------------------------------------------------------------------------------
+inline unsigned int basisFunctionsForOrder(unsigned int order)
+{
+  return (order)*(order+1)*(order+2)/6;
+}
 
 /**
  * This class represents a vector Basis functions sampled at a specific point.
@@ -104,122 +149,169 @@ public:
 template<class T>
 class SampledBasisFunctions {
   static_assert(std::is_arithmetic<T>::value, "Type T for SampledBasisFunctions must be arithmetic.");
+
+public:
+  /** The basis function samples */
+  std::vector<T> m_data{};
+
+public:
+  SampledBasisFunctions() {};
+  /**
+   * Constructor to generate the sampled basis functions of given order
+   * and at a given point in the reference tetrahedron.
+   * @param order The order of the computation. It determines how many Basis
+   * functions are generated. @see getBasisFunctionsPerOrder
+   * @param eta The eta coordinate in the reference tetrahedron.
+   * @param zeta The zeta coordinate in the reference tetrahedron.
+   * @param xi The xi coordinate in the reference tetrahedron.
+   */
+  SampledBasisFunctions(unsigned int order,
+                        T xi, T eta, T zeta)
+      : m_data(basisFunctionsForOrder(order))
+  {
+    BasisFunctionGenerator<T> gen(xi, eta, zeta);
+
+    unsigned int i = 0;
+    for (unsigned int ord = 0; ord < order; ord++)
+      for (unsigned int k = 0; k <= ord; k++)
+        for (unsigned int j = 0; j <= ord-k; j++)
+          m_data[i++] = gen(ord-j-k, j, k);
+  }
+
+public:
+  /**
+   * Function to evaluate the samples by multiplying the sampled Basis
+   * function with its coefficient and summing up the products.
+   * res = c0 * bf0 + c1 * bf1 + ... + cn * bfn
+   * @param coeffIter the const iterator to read the coefficients
+   */
+  template<class ConstIterator>
+  T evalWithCoeffs(ConstIterator coeffIter) const
+  {
+    return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+  }
+
+  /**
+   * Returns the amount of Basis functions this class represents.
+   */
+  unsigned int getSize() const
+  {
+    return m_data.size();
+  }
+};
+
+//------------------------------------------------------------------------------
+
+/**
+ * This class represents the derivatives of vector Basis functions sampled at a specific point.
+ * @param T denotes the type to calculate internally.
+ */
+template<class T>
+class SampledBasisFunctionDerivatives {
+  static_assert(std::is_arithmetic<T>::value, "Type T for SampledBasisFunctions must be arithmetic.");
   
 public:
-    /** The basis function samples */
-    std::vector<T> m_data;
+  /**
+   * The basis function derivative samples w.r.t. the three spatial dimension
+   * Use DenseTensorView to access data
+   */
+  std::vector<T> m_data{};
 
 public:
-    /**
-     * Constructor to generate the sampled basis functions of given order
-     * and at a given point in the reference tetrahedron.
-     * @param order The order of the computation. It determines how many Basis
-     * functions are generated. @see getBasisFunctionsPerOrder
-     * @param eta The eta coordinate in the reference terahedron.
-     * @param zeta The zeta coordinate in the reference terahedron.
-     * @param xi The xi coordinate in the reference terahedron.
-     */
-    SampledBasisFunctions(unsigned int order,
-			  T xi, T eta, T zeta)
-    	: m_data(basisFunctionsForOrder(order))
-    {
-        BasisFunctionGenerator<T> gen(xi, eta, zeta);
+  SampledBasisFunctionDerivatives() {};
+  /**
+   * Constructor to generate the sampled basis functions of given order
+   * and at a given point in the reference tetrahedron.
+   * @param order The order of the computation. It determines how many Basis
+   * functions are generated. @see getBasisFunctionsPerOrder
+   * @param eta The eta coordinate in the reference tetrahedron.
+   * @param zeta The zeta coordinate in the reference tetrahedron.
+   * @param xi The xi coordinate in the reference tetrahedron.
+   */
+  SampledBasisFunctionDerivatives(unsigned int order,
+                                  T xi, T eta, T zeta)
+  	: m_data(3*basisFunctionsForOrder(order))
+  {
+      BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+      auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
 
-        unsigned int i = 0;
-        for (unsigned int ord = 0; ord < order; ord++)
-            for (unsigned int k = 0; k <= ord; k++)
-                for (unsigned int j = 0; j <= ord-k; j++)
-                	m_data[i++] = gen(ord-j-k, j, k);
+      unsigned int i = 0;
+      for (unsigned int ord = 0; ord < order; ord++) {
+        for (unsigned int k = 0; k <= ord; k++) {
+          for (unsigned int j = 0; j <= ord - k; j++) {
+            const auto derivatives = gen(ord - j - k, j, k);
+            for (unsigned int direction = 0; direction < 3; direction++) {
+              dataView(i, direction) = derivatives[direction];
+            }
+            i++;
+          }
+        }
+      }
+  }
+
+  /**
+   * After a call to the constructor m_data contains the sampled derivatives
+   * w.r.t. xi, eta, zeta on the reference triangle. Use this function to
+   * transform the derivatives to derivatives w.r.t. to x, y, z in a physical
+   * tetrahedron.
+   * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
+   * physical tetrahedron.
+   */
+  void transformToGlobalCoordinates(double const* coords[4])  {
+    real xCoords[4];
+    real yCoords[4];
+    real zCoords[4];
+    for (size_t i = 0; i < 4; ++i) {
+      xCoords[i] = coords[i][0];
+      yCoords[i] = coords[i][1];
+      zCoords[i] = coords[i][2];
     }
 
-public:
-    /**
-     * Function to evaluate the samples by multiplying the sampled Basis
-     * function with its coefficient and summing up the products.
-     * res = c0 * bf0 + c1 * bf1 + ... + cn * bfn
-     * @param coeffIter the const iterator to read the coefficients
-     */
-    template<class ConstIterator>
-    T evalWithCoeffs(ConstIterator coeffIter) const
-    {
-        return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
-    }
+    real gradXi[3];
+    real gradEta[3];
+    real gradZeta[3];
 
-    /**
-     * Returns the amount of Basis functions this class represents.
-     */
-    unsigned int getSize() const
-    {
-        return m_data.size();
+    seissol::transformations::tetrahedronGlobalToReferenceJacobian(xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
+    std::vector<T> oldData = m_data;
+
+    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
+    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
+      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1]; ++direction) {
+        // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
+        newView(i, direction) = oldView(i,0) * gradXi[direction] + oldView(i,1) * gradEta[direction] + oldView(i,2) * gradZeta[direction];
+      }
     }
-    
-private:
-    static inline unsigned int basisFunctionsForOrder(unsigned int order)
-    {
-        return (order)*(order+1)*(order+2)/6;
-    }
+  }
+
+  /**
+   * Returns the amount of Basis functions this class represents.
+   */
+  unsigned int getSize() const
+  {
+      return m_data.size();
+  }
 };
 
 //==============================================================================
-
-template<class T>
-T BasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n,
-						    unsigned int a,
-						    unsigned b) {
-  return seissol::functions::JacobiP(n, a, b, x);
-  /*
-    if (n == 0) {
-        return T(1);
-      }
-    T Pm_2;
-    T Pm_1 = T(1);
-    T Pm = 0.5*a - 0.5*b + (T(1) + 0.5*(a+b)) * x;
-    T a2_b2 = T(a*a)-T(b*b);
-    for (unsigned m = 2; m <= n; ++m) {
-      Pm_2 = Pm_1;
-      Pm_1 = Pm;
-      Pm = ( (T(2)*m+a+b-T(1))*(a2_b2 + (T(2)*m+a+b)*(T(2)*m+a+b-T(2))*x)*Pm_1 - T(2)*(m+a-T(1))*(m+b-T(1))*(T(2)*m+a+b)*Pm_2 ) / (T(2)*m*(m+a+b)*(T(2)*m+a+b-T(2)));
-    }      
-    return Pm;
-  */
-}
-
-
-//------------------------------------------------------------------------------
-
-template<class T>
-T BasisFunctionGenerator<T>::operator()(unsigned int i,
-					unsigned int j,
-					unsigned int k) const {
-  /*
-    const T r = (eta_-1.0+zeta_+2.0*xi_)/(1.0-eta_-zeta_);
-    const T s = (2.0*eta_-1.0+zeta_)/(1.0-zeta_);
-    const T t = 2.0*zeta_-1.0;
-
-    const T theta_a = sampleJacobiPolynomial(r, i, 0, 0);
-    const T theta_b = std::pow((1-s)/2, i) * sampleJacobiPolynomial(s, j, 2*i+1, 0);
-    const T theta_c = std::pow((1-t)/2, i+j) * sampleJacobiPolynomial(t, k, 2*i+2*j+2, 0);
-
-    return  theta_a * theta_b * theta_c;
-  */
-  return functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
-}
-
-//------------------------------------------------------------------------------
 
 template<class T>
 class TimeBasisFunctionGenerator {
 private:
     T tau_;
 
-    static T sampleJacobiPolynomial(T x, unsigned int n);
+    static T sampleJacobiPolynomial(T x, unsigned int n) {
+      return seissol::functions::JacobiP(n, 0, 0, x);
+    }
 
 public:
     TimeBasisFunctionGenerator(T tau) :
       tau_(tau)
     {}
 
-    T operator()(unsigned int i) const;
+    T operator()(unsigned int i) const {
+      return functions::DubinerP<1>({i}, {tau_});
+    }
 
 };
 
@@ -252,17 +344,6 @@ public:
         return m_data.size();
     }
 };
-
-template<class T>
-T TimeBasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n) {
-  return seissol::functions::JacobiP(n, 0, 0, x);
-}
-
-
-template<class T>
-T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
-  return functions::DubinerP<1>({i}, {tau_});
-}
 
 namespace tri_dubiner {
 inline void evaluatePolynomials(double* phis, double xi, double eta, int numPoly) {

@@ -109,7 +109,7 @@ void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faul
                                    std::vector<unsigned> const& faceIDs) {
   // create a query and evaluate the model
   seissol::initializers::FaultGPGenerator queryGen(seissol::SeisSol::main.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
+  faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(

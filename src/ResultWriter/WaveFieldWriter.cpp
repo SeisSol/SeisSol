@@ -45,7 +45,7 @@
 #include "WaveFieldWriter.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 #include <Modules/Modules.h>
 
 void seissol::writer::WaveFieldWriter::setUp() {
@@ -148,17 +148,13 @@ std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClust
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
                                             int order,
                                             int numAlignedDOF,
-                                            const MeshReader& meshReader,
+                                            const seissol::geometry::MeshReader& meshReader,
                                             const std::vector<unsigned>& LtsClusteringData,
                                             const real* dofs,
                                             const real* pstrain,
                                             const real* integrals,
                                             unsigned int* map,
-                                            int refinement,
-                                            int* outputMask,
-                                            int* plasticityMask,
-                                            const double* outputRegionBounds,
-                                            const std::unordered_set<int>& outputGroups,
+                                            const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
                                             xdmfwriter::BackendType backend) {
   if (!m_enabled)
     return;
@@ -190,16 +186,16 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   m_numVariables = numVars + WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
   m_outputFlags = new bool[m_numVariables];
   for (size_t i = 0; i < numVars; i++)
-    m_outputFlags[i] = (outputMask[i] != 0);
+    m_outputFlags[i] = (parameters.outputMask[i]);
   for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++)
-    m_outputFlags[numVars + i] = (pstrain != 0L) && (plasticityMask[i] != 0L);
+    m_outputFlags[numVars + i] = (pstrain != 0L) && (parameters.plasticityMask[i]);
 
   // WARNING: The m_outputFlags memory might be directly used by the executor.
   // Do not modify this array after the following line
   param.bufferIds[OUTPUT_FLAGS] = addSyncBuffer(m_outputFlags, m_numVariables * sizeof(bool), true);
 
   // Setup the tetrahedron refinement strategy
-  refinement::TetrahedronRefiner<double>* tetRefiner = createRefiner(refinement);
+  refinement::TetrahedronRefiner<double>* tetRefiner = createRefiner(static_cast<int>(parameters.refinement));
 
   unsigned int numElems = meshReader.getElements().size();
   unsigned int numVerts = meshReader.getVertices().size();
@@ -217,13 +213,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   // Mesh refiner
   refinement::MeshRefiner<double>* meshRefiner = nullptr;
 
-  // If at least one of the outputRegionBounds is non-zero then extract.
-  const bool isExtractBoxEnabled = outputRegionBounds[0] != 0.0 || outputRegionBounds[1] != 0.0 ||
-                                   outputRegionBounds[2] != 0.0 || outputRegionBounds[3] != 0.0 ||
-                                   outputRegionBounds[4] != 0.0 || outputRegionBounds[5] != 0.0;
+  // If at least one of the bounds is non-zero then extract.
+  const bool isExtractBoxEnabled = parameters.bounds.enabled;
 
   // If at least one group is explicitly enabled, extract
-  const bool isExtractGroupEnabled = !outputGroups.empty();
+  const bool isExtractGroupEnabled = !parameters.groups.empty();
 
   isExtractRegionEnabled = isExtractBoxEnabled || isExtractGroupEnabled;
   // isExtractRegionEnabled = true  : Extract region
@@ -244,11 +238,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
       // Store the current number of elements to check if new was added
       const bool isInRegion =
           !isExtractBoxEnabled ||
-          vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
-          vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords) ||
-          vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
-          vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords);
-      const bool isInGroup = !isExtractGroupEnabled || outputGroups.count(groupId) > 0;
+          parameters.bounds.contains(allVertices[allElements[i].vertices[0]].coords[0], allVertices[allElements[i].vertices[0]].coords[1], allVertices[allElements[i].vertices[0]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[1]].coords[0], allVertices[allElements[i].vertices[1]].coords[1], allVertices[allElements[i].vertices[1]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[2]].coords[0], allVertices[allElements[i].vertices[2]].coords[1], allVertices[allElements[i].vertices[2]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[3]].coords[0], allVertices[allElements[i].vertices[3]].coords[1], allVertices[allElements[i].vertices[3]].coords[2]);
+      const bool isInGroup = !isExtractGroupEnabled || parameters.groups.count(groupId) > 0;
       if (isInRegion && isInGroup) {
         // Assign the new map
         size_t iNew = subElements.size();
