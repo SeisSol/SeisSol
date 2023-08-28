@@ -122,12 +122,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
   tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
   frictionalEnergy = Tensor('frictionalEnergy', ())
+  timeWeight = Scalar('timeWeight')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
-
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
+  # note that timeWeight is set to -0.5 * godunovData.doubledSurfaceArea in the Kernel (not a TimeWeight)
+  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
 
   return {db.resample, db.quadpoints, db.quadweights}
