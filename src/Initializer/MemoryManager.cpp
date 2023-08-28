@@ -95,7 +95,29 @@ void seissol::initializers::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
   if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+    // the serial order for initialization is needed for some (older) driver versions on some GPUs
+    bool serialize = false;
+    const char* envvalue = std::getenv("SEISSOL_SERIAL_NODE_DEVICE_INIT");
+    if (envvalue != nullptr) {
+      if (strcmp(envvalue, "1") == 0) {
+        serialize = true;
+      }
+      else if (strcmp(envvalue, "0") == 0) {
+        serialize = false;
+      }
+      else {
+        logError() << "Invalid value for \"SEISSOL_SERIAL_NODE_DEVICE_INIT\"";
+      }
+    }
+    if (serialize) {
+      logInfo(MPI::mpi.rank()) << "Initializing device global data on a node in serial order.";
+      MPI::mpi.serialOrderExecute([&]() {
+        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+      }, MPI::mpi.sharedMemComm());
+    }
+    else {
+      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+    }
   }
 }
 
@@ -676,7 +698,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
   }
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
+void seissol::initializers::MemoryManager::initializeMemoryLayout()
 {
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
@@ -847,7 +869,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
     m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_lts,
-                                     e_interoperability.getLtsLut(),
+                                     &m_ltsLut,
                                      &m_dynRupTree,
                                      m_dynRup.get());
     m_faultOutputManager->init();

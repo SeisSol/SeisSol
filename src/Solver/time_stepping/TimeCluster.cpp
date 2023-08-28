@@ -77,21 +77,17 @@
 
 #include "SeisSol.h"
 #include "TimeCluster.h"
-#include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
-#include <Monitoring/instrumentation.fpp>
+#include <Monitoring/instrumentation.hpp>
 
 #include <cassert>
 #include <cstring>
 
 #include <generated_code/kernel.h>
-
-//! fortran interoperability
-extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  unsigned int profilingId,
@@ -122,9 +118,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_dynRup(i_dynRup),
     frictionSolver(i_FrictionSolver),
     faultOutputManager(i_faultOutputManager),
-    m_cellToPointSources(nullptr),
-    m_numberOfCellToPointSourcesMappings(0),
-    m_pointSources(nullptr),
+    m_sourceCluster{nullptr},
     // cells
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
@@ -148,7 +142,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
 
   m_timeKernel.setGlobalData(i_globalData);
   m_localKernel.setGlobalData(i_globalData);
-  m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
+  m_localKernel.setInitConds(&seissol::SeisSol::main.getMemoryManager().getInitialConditions());
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
@@ -165,13 +159,9 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 #endif
 }
 
-void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                                                           unsigned i_numberOfCellToPointSourcesMappings,
-                                                           sourceterm::PointSources const* i_pointSources )
-{
-  m_cellToPointSources = i_cellToPointSources;
-  m_numberOfCellToPointSourcesMappings = i_numberOfCellToPointSourcesMappings;
-  m_pointSources = i_pointSources;
+void seissol::time_stepping::TimeCluster::setPointSources(
+    std::unique_ptr<kernels::PointSourceCluster> sourceCluster) {
+  m_sourceCluster = std::move(sourceCluster);
 }
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {
@@ -191,36 +181,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
   // Return when point sources not initialised. This might happen if there
   // are no point sources on this rank.
-  if (m_numberOfCellToPointSourcesMappings != 0) {
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-    for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
-      unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
-      unsigned endSource =
-          m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-      if (m_pointSources->mode == sourceterm::PointSources::NRF) {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
-                                                      m_pointSources->tensor[source],
-                                                      m_pointSources->A[source],
-                                                      m_pointSources->stiffnessTensor[source],
-                                                      m_pointSources->slipRates[source],
-                                                      ct.correctionTime,
-                                                      ct.correctionTime + timeStepSize(),
-                                                      *m_cellToPointSources[mapping].dofs);
-        }
-      } else {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
-                                                       m_pointSources->tensor[source],
-                                                       m_pointSources->slipRates[source][0],
-                                                       ct.correctionTime,
-                                                       ct.correctionTime + timeStepSize(),
-                                                       *m_cellToPointSources[mapping].dofs);
-        }
-      }
-    }
+  if (m_sourceCluster) {
+    m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSize());
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
@@ -628,6 +590,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   }
 
   if (usePlasticity) {
+    updateRelaxTime();
     PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
     unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                       timeStepWidth,

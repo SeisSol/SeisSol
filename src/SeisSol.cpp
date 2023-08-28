@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2014-2016, SeisSol Group
@@ -43,10 +44,6 @@
 #include <sys/resource.h>
 #include <fty/fty.hpp>
 
-#ifdef ACL_DEVICE
-#include "device.h"
-#endif
-
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
@@ -75,18 +72,15 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   // Call pre MPI hooks
   seissol::Modules::callHook<seissol::PRE_MPI>();
 
-#if defined(ACL_DEVICE) && defined(USE_MPI)
-  MPI::mpi.bindAcceleratorDevice();
-#endif
-
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2021, SeisSol Group";
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
+  logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
+  logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
+  logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 
   if (MPI::mpi.rank() == 0) {
     const auto& hostNames = MPI::mpi.getHostNames();
@@ -95,28 +89,26 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+  // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
+  MPI::mpi.setDataTransferModeFromEnv();
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-  logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
-      pinning.getWorkerUnionMask());
-  logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
-      pinning.getNodeMask());
+  logInfo(rank) << "OpenMP worker affinity (this process):"
+                << parallel::Pinning::maskToString(pinning.getWorkerUnionMask());
+  logInfo(rank) << "OpenMP worker affinity (this node)   :"
+                << parallel::Pinning::maskToString(pinning.getNodeMask());
 #endif
 #ifdef USE_COMM_THREAD
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity        :" << parallel::Pinning::maskToString(freeCpus);
+  logInfo(rank) << "Communication thread affinity        :"
+                << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
-    logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
+    logError()
+        << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
 #endif // _OPENMP
-
-#ifdef ACL_DEVICE
-  device::DeviceInstance &device = device::DeviceInstance::getInstance();
-  device.api->initialize();
-  device.api->allocateStackMem();
-#endif
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
@@ -129,21 +121,18 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
     if (rlim.rlim_cur == RLIM_INFINITY) {
       logInfo(rank) << "The stack size ulimit is unlimited.";
     } else {
-      logInfo(rank) << "The stack size ulimit is " << rlimInKb
-		    << "[kb].";
+      logInfo(rank) << "The stack size ulimit is " << rlimInKb << "[kb].";
     }
     if (rlimInKb < reasonableStackLimit) {
-      logWarning(rank) << "Stack size of"
-		       << rlimInKb
-		       << "[kb] is lower than recommended minimum of"
-		       << reasonableStackLimit
-		       << "[kb]."
-		       << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
+      logWarning(rank)
+          << "Stack size of" << rlimInKb << "[kb] is lower than recommended minimum of"
+          << reasonableStackLimit << "[kb]."
+          << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
     }
   } else {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
   }
-  
+
   // Call post MPI initialization hooks
   seissol::Modules::callHook<seissol::POST_MPI_INIT>();
 
@@ -151,23 +140,29 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   utils::Args args;
   args.addAdditionalOption("file", "The parameter file", false);
   switch (args.parse(argc, argv)) {
-  case utils::Args::Help:
-  case utils::Args::Error:
-	  MPI::mpi.finalize();
-	  exit(1);
-	  break;
-  case utils::Args::Success:
-	  break;
+  case utils::Args::Help: {
+    [[fallthrough]];
+  }
+  case utils::Args::Error: {
+    MPI::mpi.finalize();
+    exit(1);
+    break;
+  }
+  case utils::Args::Success: {
+    break;
+  }
   }
 
   // Initialize the ASYNC I/O library
   if (!m_asyncIO.init())
-	  return false;
+    return false;
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   m_memoryManager->initialize();
   // read parameter file input
   readInputParams();
+
+  m_seissolparameters.readParameters(*m_inputParams);
 
   m_memoryManager->setInputParams(m_inputParams);
 
@@ -177,21 +172,17 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   return true;
 }
 
-void seissol::SeisSol::finalize()
-{
-	// Cleanup ASYNC I/O library
-	m_asyncIO.finalize();
+void seissol::SeisSol::finalize() {
+  // Cleanup ASYNC I/O library
+  m_asyncIO.finalize();
 
-	const int rank = MPI::mpi.rank();
+  const int rank = MPI::mpi.rank();
 
-#ifdef ACL_DEVICE
-	device::DeviceInstance &device = device::DeviceInstance::getInstance();
-	device.api->finalize();
-#endif
+  m_timeManager.freeDynamicResources();
 
-	MPI::mpi.finalize();
+  MPI::mpi.finalize();
 
-	logInfo(rank) << "SeisSol done. Goodbye.";
+  logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
 void seissol::SeisSol::readInputParams() {
@@ -199,8 +190,7 @@ void seissol::SeisSol::readInputParams() {
   fty::Loader<fty::AsLowercase> loader{};
   try {
     m_inputParams = std::make_shared<YAML::Node>(loader.load(m_parameterFile));
-  }
-  catch (const std::exception& error) {
+  } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
     finalize();
   }

@@ -25,7 +25,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize = layerData.getNumberOfCells();
 
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-    this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
+    auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
 
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
@@ -57,6 +57,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
 
         this->queue.submit([&](sycl::handler& cgh) {
+          if (timeIndex == 0) {
+            cgh.depends_on(timeWeightsCopy);
+          }
           cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
             auto ltsFace = item.get_group().get_group_id(0);
             auto pointIndex = item.get_local_id(0);
@@ -103,6 +106,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
 
+      auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -121,14 +125,16 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      devTimeWeights,
                                                                      pointIndex);
 
-          common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
-                                                      devQInterpolatedPlus[ltsFace],
-                                                      devQInterpolatedMinus[ltsFace],
-                                                      devImpAndEta[ltsFace],
-                                                      devTimeWeights,
-                                                      devSpaceWeights,
-                                                      devGodunovData[ltsFace],
-                                                      pointIndex);
+          if (isFrictionEnergyRequired) {
+            common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
+                                                        devQInterpolatedPlus[ltsFace],
+                                                        devQInterpolatedMinus[ltsFace],
+                                                        devImpAndEta[ltsFace],
+                                                        devTimeWeights,
+                                                        devSpaceWeights,
+                                                        devGodunovData[ltsFace],
+                                                        pointIndex);
+          }
         });
       });
       queue.wait_and_throw();

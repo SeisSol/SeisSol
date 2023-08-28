@@ -17,6 +17,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         tpMethod(TPMethod(drParameters)) {}
 
   ~RateAndStateBase() {
+    if (this->maxClusterSize == 0)
+      return;
+
     sycl::free(initialVariables.absoluteShearTraction, this->queue);
     sycl::free(initialVariables.localSlipRate, this->queue);
     sycl::free(initialVariables.normalStress, this->queue);
@@ -26,6 +29,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   void allocateAuxiliaryMemory() override {
     FrictionSolverDetails::allocateAuxiliaryMemory();
+    if (this->maxClusterSize == 0)
+      return;
 
     {
       using gpPointType = real(*)[misc::numPaddedPoints];

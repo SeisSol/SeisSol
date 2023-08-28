@@ -2,7 +2,7 @@ diff --git a/src/Geometry/PUMLReader.cpp b/src/Geometry/PUMLReader.cpp
 index 23e5379a..ba0115f7 100644
 --- a/src/Geometry/PUMLReader.cpp
 +++ b/src/Geometry/PUMLReader.cpp
-@@ -313,8 +313,8 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
+@@ -313,8 +313,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML &puml)
  	const std::vector<PUML::TETPUML::face_t> &faces = puml.faces();
  	const std::vector<PUML::TETPUML::vertex_t> &vertices = puml.vertices();
  
@@ -13,7 +13,7 @@ index 23e5379a..ba0115f7 100644
  
  	std::unordered_map<int, std::vector<unsigned int> > neighborInfo; // List of shared local face ids
  
-@@ -369,8 +369,8 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
+@@ -369,8 +369,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML &puml)
  				m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
  			}
  
@@ -24,7 +24,7 @@ index 23e5379a..ba0115f7 100644
  			if (bcCurrentFace > 64) {
  				bcCurrentFace = 3;
  			}
-@@ -379,7 +379,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
+@@ -379,7 +379,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML &puml)
  			m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
  		}
  

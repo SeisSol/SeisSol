@@ -50,7 +50,7 @@ namespace seissol {
      *  We use short here as bool. For MPI use cleanDoubles afterwards.
      */
     void findMeshIds( Eigen::Vector3d const*  points,
-                      MeshReader const& mesh,
+                      seissol::geometry::MeshReader const& mesh,
                       unsigned          numPoints,
                       short*            contained,
                       unsigned*         meshId );

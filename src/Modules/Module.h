@@ -144,9 +144,30 @@ public:
 	}
 
 	/**
+	 * Called before mesh initialization
+	 */
+	virtual void preMesh()
+	{
+	}
+
+	/**
 	 * Called after mesh initialization
 	 */
 	virtual void postMesh()
+	{
+	}
+
+	/**
+	 * Called before LTS initialization
+	 */
+	virtual void preLtsInit()
+	{
+	}
+
+	/**
+	 * Called after LTS initialization
+	 */
+	virtual void postLtsInit()
 	{
 	}
 

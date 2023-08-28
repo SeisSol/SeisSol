@@ -119,7 +119,7 @@ inline void precomputeStressFromQInterpolated(
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto i{startLoopIndex + index};
@@ -244,7 +244,7 @@ inline void postcomputeImposedStateFromNewStress(
 
     using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = NumPointsRange::start; index < NumPointsRange::end;
          index += NumPointsRange::step) {
@@ -298,7 +298,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto pointIndex{startIndex + index};
@@ -332,7 +332,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -360,7 +360,7 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedP
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -401,7 +401,7 @@ inline void computeFrictionEnergy(
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (size_t index = Range::start; index < Range::end; index += Range::step) {
       const size_t i{startIndex + index};

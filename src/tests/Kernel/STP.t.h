@@ -6,14 +6,13 @@
 #include <type_traits>
 #include <random>
 
-#include "Initializer/preProcessorMacros.fpp"
-
 #include "generated_code/kernel.h"
 #include "generated_code/init.h"
 #include <Numerical_aux/Transformation.h>
 #include <Model/common.hpp>
 #include <Model/PoroelasticSetup.h>
 
+#include "Kernels/common.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
 #include "generated_code/tensor.h"
 

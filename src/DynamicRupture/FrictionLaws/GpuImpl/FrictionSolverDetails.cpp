@@ -7,6 +7,9 @@ FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {
+  if (maxClusterSize == 0)
+    return;
+
   free(faultStresses, queue);
   free(tractionResults, queue);
   free(stateVariableBuffer, queue);
@@ -22,6 +25,9 @@ void FrictionSolverDetails::initSyclQueue() {
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
+  if (maxClusterSize == 0)
+    return;
+
   faultStresses = static_cast<FaultStresses*>(
       sycl::malloc_shared(maxClusterSize * sizeof(FaultStresses), queue));
 
@@ -41,7 +47,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
 
   {
     const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-    devTimeWeights = static_cast<double*>(sycl::malloc_shared(requiredNumBytes, queue));
+    devTimeWeights = static_cast<double*>(sycl::malloc_device(requiredNumBytes, queue));
   }
 
   {
@@ -51,6 +57,9 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
 }
 
 void FrictionSolverDetails::copyStaticDataToDevice() {
+  if (maxClusterSize == 0)
+    return;
+
   {
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();

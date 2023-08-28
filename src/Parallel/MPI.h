@@ -42,6 +42,7 @@
 #ifndef MPI_H
 #define MPI_H
 
+#include <functional>
 #ifndef USE_MPI
 #include "MPIDummy.h"
 #else // USE_MPI
@@ -68,15 +69,8 @@ typedef MPIDummy MPI;
  * Make sure only one instance of this class exists!
  */
 class MPI : public MPIBasic {
-  private:
-  MPI_Comm m_comm;
-  MPI_Comm m_sharedMemComm;
-  MPI() : m_comm(MPI_COMM_NULL) {}
-
-  std::vector<std::string> hostNames{};
-
   public:
-  ~MPI() {}
+  ~MPI() override = default;
 
 #ifdef ACL_DEVICE
   /**
@@ -160,7 +154,7 @@ class MPI : public MPIBasic {
     std::vector<int> displacements(commSize);
     displacements[0] = 0;
     for (std::size_t i = 1; i < displacements.size(); ++i) {
-      displacements[i] = displacements[i-1] + lengths[i-1];
+      displacements[i] = displacements[i - 1] + lengths[i - 1];
     }
 
     const auto recvBufferSize = std::accumulate(lengths.begin(), lengths.end(), 0);
@@ -187,6 +181,31 @@ class MPI : public MPIBasic {
     return collected;
   }
 
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
+  template<typename F>
+  void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
+    if (!comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+
+    int rank, size;
+    MPI_Comm_rank(comm.value(), &rank);
+    MPI_Comm_size(comm.value(), &size);
+
+    const int tag = 15; // TODO(David): replace by a tag allocation system one day
+    char flag = 0;
+    if (rank > 0) {
+      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+    }
+
+    std::invoke(std::forward<F>(operation));
+
+    // size >= 1 is ensured
+    if (rank < size - 1) {
+      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+    }
+  }
+
   /**
    * @return The main communicator for the application
    */
@@ -208,12 +227,23 @@ class MPI : public MPIBasic {
    * Finalize MPI
    */
   void finalize() {
-    fault.finalize();
     MPI_Finalize();
   }
 
+  void setDataTransferModeFromEnv();
+
+  enum class DataTransferMode { Direct, CopyInCopyOutDevice, CopyInCopyOutHost };
+  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
+
   /** The only instance of the class */
   static MPI mpi;
+
+  private:
+  MPI_Comm m_comm;
+  MPI_Comm m_sharedMemComm;
+  MPI() : m_comm(MPI_COMM_NULL) {}
+  DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
+  std::vector<std::string> hostNames{};
 };
 
 #endif // USE_MPI
