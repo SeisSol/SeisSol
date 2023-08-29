@@ -52,95 +52,97 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <utils/logger.h>
+#include "Common/cellconfigconv.hpp"
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
 
-void setStarMatrix( real* i_AT,
-                    real* i_BT,
-                    real* i_CT,
-                    real  i_grad[3],
-                    real* o_starMatrix )
+template <typename Config>
+static void setStarMatrix( typename Config::RealT* i_AT,
+                    typename Config::RealT* i_BT,
+                    typename Config::RealT* i_CT,
+                    typename Config::RealT  i_grad[3],
+                    typename Config::RealT* o_starMatrix )
 {
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+  for (unsigned idx = 0; idx < seissol::Yateto<Config>::Tensor::star::size(0); ++idx) {
     o_starMatrix[idx] = i_grad[0] * i_AT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (unsigned idx = 0; idx < seissol::Yateto<Config>::Tensor::star::size(1); ++idx) {
     o_starMatrix[idx] += i_grad[1] * i_BT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (unsigned idx = 0; idx < seissol::Yateto<Config>::Tensor::star::size(2); ++idx) {
     o_starMatrix[idx] += i_grad[2] * i_CT[idx];
   }
 }
 
 void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
-                                                         LTSTree*               io_ltsTree,
-                                                         LTS*                   i_lts,
+                                                         ClusterLTSForest&      forest,
                                                          Lut*                   i_ltsLut,
                                                          TimeStepping const&    timeStepping )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
-  assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
+  assert(seissol::Yateto<Config>::Tensor::AplusT::Shape[0] == seissol::Yateto<Config>::Tensor::AminusT::Shape[0]);
+  assert(seissol::Yateto<Config>::Tensor::AplusT::Shape[1] == seissol::Yateto<Config>::Tensor::AminusT::Shape[1]);
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  forest.visit([&](auto&& ltsview) {
+    using Config = typename std::decay_t<decltype(ltsview.lts)>::ConfigT;
+    using RealT = typename Config::RealT;
+    using MaterialT = typename Config::MaterialT;
 
-  assert(LayerMask(Ghost) == i_lts->material.mask);
-  assert(LayerMask(Ghost) == i_lts->localIntegration.mask);
-  assert(LayerMask(Ghost) == i_lts->neighboringIntegration.mask);
+  assert(LayerMask(Ghost) == ltsview.lts.material.mask);
+  assert(LayerMask(Ghost) == ltsview.lts.localIntegration.mask);
+  assert(LayerMask(Ghost) == ltsview.lts.neighboringIntegration.mask);
 
-  assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
-  assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
-
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    CellMaterialData*           material                = it->var(i_lts->material);
-    seissol::model::Material_t*           materialData                = it->var(i_lts->materialData);
-    LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
-    NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
-    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
+  for (LTSTree::leaf_iterator it = ltsview.tree.beginLeaf(LayerMask(Ghost)); it != ltsview.tree.endLeaf(); ++it) {
+    CellMaterialData*           material                = it->var(ltsview.lts.material);
+    MaterialT*           materialData                = it->var(ltsview.lts.materialData);
+    LocalIntegrationData<Config>*       localIntegration        = it->var(ltsview.lts.localIntegration);
+    NeighboringIntegrationData<Config>* neighboringIntegration  = it->var(ltsview.lts.neighboringIntegration);
+    CellLocalInformation*       cellInformation         = it->var(ltsview.lts.cellInformation);
+    SecondaryCellLocalInformation*       secondaryCellInformation         = it->var(ltsview.lts.secondaryCellInformation);
 
 #ifdef _OPENMP
   #pragma omp parallel
     {
 #endif
-    real ATData[tensor::star::size(0)];
-    real ATtildeData[tensor::star::size(0)];
-    real BTData[tensor::star::size(1)];
-    real CTData[tensor::star::size(2)];
-    auto AT = init::star::view<0>::create(ATData);
+    RealT ATData[Yateto<Config>::Tensor::star::size(0)];
+    RealT ATtildeData[Yateto<Config>::Tensor::star::size(0)];
+    RealT BTData[Yateto<Config>::Tensor::star::size(1)];
+    RealT CTData[Yateto<Config>::Tensor::star::size(2)];
+    auto AT = Yateto<Config>::Init::star::template view<0>::create(ATData);
     // AT with elastic parameters in local coordinate system, used for flux kernel
-    auto ATtilde = init::star::view<0>::create(ATtildeData);
-    auto BT = init::star::view<0>::create(BTData);
-    auto CT = init::star::view<0>::create(CTData);
+    auto ATtilde = Yateto<Config>::Init::star::template view<0>::create(ATtildeData);
+    auto BT = Yateto<Config>::Init::star::template view<0>::create(BTData);
+    auto CT = Yateto<Config>::Init::star::template view<0>::create(CTData);
 
-    real TData[seissol::tensor::T::size()];
-    real TinvData[seissol::tensor::Tinv::size()];
-    auto T = init::T::view::create(TData);
-    auto Tinv = init::Tinv::view::create(TinvData);
+    RealT TData[seissol::Yateto<Config>::Tensor::T::size()];
+    RealT TinvData[seissol::Yateto<Config>::Tensor::Tinv::size()];
+    auto T = Yateto<Config>::Init::T::view::create(TData);
+    auto Tinv = Yateto<Config>::Init::Tinv::view::create(TinvData);
 
-    real QgodLocalData[tensor::QgodLocal::size()];
-    real QgodNeighborData[tensor::QgodNeighbor::size()];
-    auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
-    auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+    RealT QgodLocalData[Yateto<Config>::Tensor::QgodLocal::size()];
+    RealT QgodNeighborData[Yateto<Config>::Tensor::QgodNeighbor::size()];
+    auto QgodLocal = Yateto<Config>::Init::QgodLocal::view::create(QgodLocalData);
+    auto QgodNeighbor = Yateto<Config>::Init::QgodNeighbor::view::create(QgodNeighborData);
     
 #ifdef _OPENMP
     #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      unsigned clusterId = cellInformation[cell].clusterId;
+      unsigned clusterId = secondaryCellInformation[cell].clusterId;
       auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
-      unsigned meshId = ltsToMesh[cell];
+      unsigned meshId = secondaryCellInformation[cell].meshId;
 
-      real x[4];
-      real y[4];
-      real z[4];
-      real gradXi[3];
-      real gradEta[3];
-      real gradZeta[3];
+      RealT x[4];
+      RealT y[4];
+      RealT z[4];
+      RealT gradXi[3];
+      RealT gradEta[3];
+      RealT gradZeta[3];
 
       // Iterate over all 4 vertices of the tetrahedron
       for (unsigned vertex = 0; vertex < 4; ++vertex) {
@@ -155,9 +157,9 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
       seissol::model::getTransposedCoefficientMatrix( materialData[cell], 0, AT );
       seissol::model::getTransposedCoefficientMatrix( materialData[cell], 1, BT );
       seissol::model::getTransposedCoefficientMatrix( materialData[cell], 2, CT );
-      setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
-      setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
-      setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
+      setStarMatrix<Config>(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
+      setStarMatrix<Config>(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
+      setStarMatrix<Config>(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
       double volume = MeshTools::volume(elements[meshId], vertices);
 
@@ -171,32 +173,32 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
-        real NLocalData[6*6];
+        RealT NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        if (materialData[cell].getMaterialType() == seissol::model::MaterialType::anisotropic) {
-          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[cell])),
-                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(material[cell].neighbor[side])),
+
+        std::visit([&](auto&& config) {
+          using NeighborConfig = std::decay_t<decltype(config)>;
+          using NeighborMaterialT = typename NeighborConfig::MaterialT;
+          const auto* neighborMaterialData = material[cell].neighbor[side];
+          const auto* neighborMaterialCasted = dynamic_cast<const NeighborMaterialT*>(neighborMaterialData);
+          auto neighborMaterialConverged = MaterialT(*neighborMaterialCasted);
+          // TODO(David): implement others here...
+          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, materialData[cell]),
+                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, neighborMaterialConverged),
                                                       cellInformation[cell].faceTypes[side],
                                                       QgodLocal,
                                                       QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[cell])), 0, ATtilde );
-        } else {
-          seissol::model::getTransposedGodunovState(  materialData[cell],
-                                                      *dynamic_cast<seissol::model::Material_t*>(material[cell].neighbor[side]),
-                                                      cellInformation[cell].faceTypes[side],
-                                                      QgodLocal,
-                                                      QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( materialData[cell], 0, ATtilde );
-        }
+        }, ConfigInstances[cellInformation.neighborConfigIds[side]]);
+        seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, materialData[cell]), 0, ATtilde );
 
         // Calculate transposed T instead
-        seissol::model::getFaceRotationMatrix<seissol::model::Material_t>(normal, tangent1, tangent2, T, Tinv);
+        seissol::model::getFaceRotationMatrix<MaterialT>(normal, tangent1, tangent2, T, Tinv);
 
         // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
         // must be subtracted.
-        real fluxScale = -2.0 * surface / (6.0 * volume);
+        RealT fluxScale = -2.0 * surface / (6.0 * volume);
 
-        kernel::computeFluxSolverLocal localKrnl;
+        typename Yateto<Config>::Kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
         localKrnl.QgodLocal = QgodLocalData;
@@ -205,7 +207,7 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
         
-        kernel::computeFluxSolverNeighbor neighKrnl;
+        typename Yateto<Config>::Kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
         neighKrnl.QgodNeighbor = QgodNeighborData;
@@ -215,7 +217,7 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
         if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
             cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           // Already rotated!
-          neighKrnl.Tinv = init::identityT::Values;
+          neighKrnl.Tinv = Yateto<Config>::Init::identityT::Values;
         }
         neighKrnl.execute();
       }
@@ -231,8 +233,9 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
 #ifdef _OPENMP
     }
 #endif
-    ltsToMesh += it->getNumberOfCells();
   }
+
+  });
 }
 
 void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshReader,
@@ -255,23 +258,25 @@ void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshRead
 
 void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
                                                        const EasiBoundary* easiBoundary,
-                                                       LTSTree* io_ltsTree,
-                                                       LTS* i_lts,
+                                                       ClusterLTSForest&      forest,
                                                        Lut* i_ltsLut) {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
-
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    auto* cellInformation = it->var(i_lts->cellInformation);
-    auto* boundary = it->var(i_lts->boundaryMapping);
+  forest.visit([&](auto&& ltsview) {
+    using Config = typename std::decay_t<decltype(ltsview.lts)>::ConfigT;
+    using RealT = typename Config::RealT;
+    using MaterialT = typename Config::MaterialT;
+  for (LTSTree::leaf_iterator it = ltsview.tree.beginLeaf(LayerMask(Ghost)); it != ltsview.tree.endLeaf(); ++it) {
+    auto* cellInformation = it->var(ltsview.lts.cellInformation);
+    auto* secondaryCellInformation = it->var(ltsview.lts.secondaryCellInformation);
+    auto* boundary = it->var(ltsview.lts.boundaryMapping);
 
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      const auto& element = elements[ltsToMesh[cell]];
+      const auto& element = elements[secondaryCellInformation[cell].meshId];
       double const* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
         coords[v] = vertices[ element.vertices[ v ] ].coords;
@@ -283,15 +288,15 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
           continue;
         }
         // Compute nodal points in global coordinates for each side.
-        real nodesReferenceData[nodal::tensor::nodes2D::Size];
-        std::copy_n(nodal::init::nodes2D::Values,
-                    nodal::tensor::nodes2D::Size,
+        RealT nodesReferenceData[Yateto<Config>::Tensor::nodal::nodes2D::Size];
+        std::copy_n(Yateto<Config>::Init::nodal::nodes2D::Values,
+                    Yateto<Config>::Tensor::nodal::nodes2D::Size,
                     nodesReferenceData);
-        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
+        auto nodesReference = Yateto<Config>::Init::nodal::nodes2D::view::create(nodesReferenceData);
         auto nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+        for (unsigned int i = 0; i < Yateto<Config>::Tensor::nodal::nodes2D::Shape[0]; ++i) {
           double nodeReference[2];
           nodeReference[0] = nodesReference(i,0);
           nodeReference[1] = nodesReference(i,1);
@@ -312,12 +317,12 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
         }
 
         // Compute map that rotates to normal aligned coordinate system.
-        real* TData = boundary[cell][side].TData;
-        real* TinvData = boundary[cell][side].TinvData;
+        RealT* TData = boundary[cell][side].TData;
+        RealT* TinvData = boundary[cell][side].TinvData;
         assert(TData != nullptr);
         assert(TinvData != nullptr);
-        auto T = init::T::view::create(TData);
-        auto Tinv = init::Tinv::view::create(TinvData);
+        auto T = Yateto<Config>::Init::T::view::create(TData);
+        auto Tinv = Yateto<Config>::Init::Tinv::view::create(TinvData);
 
         VrtxCoords normal;
         VrtxCoords tangent1;
@@ -326,11 +331,11 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
-        seissol::model::getFaceRotationMatrix<seissol::model::Material_t>(normal, tangent1, tangent2, T, Tinv);
+        seissol::model::getFaceRotationMatrix<MaterialT>(normal, tangent1, tangent2, T, Tinv);
 
         // Evaluate easi boundary condition matrices if needed
-        real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
-        real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
+        RealT* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
+        RealT* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
         assert(easiBoundaryMap != nullptr);
         assert(easiBoundaryConstant != nullptr);
         if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
@@ -338,56 +343,62 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
         } else {
           // Boundary should not be evaluated
           std::fill_n(easiBoundaryMap,
-                      seissol::tensor::easiBoundaryMap::size(),
-                      std::numeric_limits<real>::signaling_NaN());
+                      seissol::Yateto<Config>::Tensor::easiBoundaryMap::size(),
+                      std::numeric_limits<RealT>::signaling_NaN());
           std::fill_n(easiBoundaryConstant,
-                      seissol::tensor::easiBoundaryConstant::size(),
-                      std::numeric_limits<real>::signaling_NaN());
+                      seissol::Yateto<Config>::Tensor::easiBoundaryConstant::size(),
+                      std::numeric_limits<RealT>::signaling_NaN());
         }
 
       }
     }
-    ltsToMesh += it->getNumberOfCells();
   }
+
+  });
 }
 
 void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
-                                                              LTSTree*               io_ltsTree,
-                                                              LTS*                   i_lts,
+                                                              ClusterLTSForest&      forest,
                                                               Lut*                   i_ltsLut,
-                                                              LTSTree*               dynRupTree,
-                                                              DynamicRupture*        dynRup,
+                                                              DynRupLTSForest&       dynrupforest,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
-  real TData[tensor::T::size()];
-  real TinvData[tensor::Tinv::size()];
-  real APlusData[tensor::star::size(0)];
-  real AMinusData[tensor::star::size(0)];
 
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
-  CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
-  CellMaterialData* material = io_ltsTree->var(i_lts->material);
-  real** derivatives = io_ltsTree->var(i_lts->derivatives);
-  real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
-  CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
+
+  forest.visitTwo([&](auto&& ltsview, auto&& dynrup) {
+    using Config = typename std::decay_t<decltype(ltsview.lts)>::ConfigT;
+    using RealT = typename Config::RealT;
+    using MaterialT = typename Config::MaterialT;
+
+    RealT TData[Yateto<Config>::Tensor::T::size()];
+  RealT TinvData[Yateto<Config>::Tensor::Tinv::size()];
+  RealT APlusData[Yateto<Config>::Tensor::star::size(0)];
+  RealT AMinusData[Yateto<Config>::Tensor::star::size(0)];
+
+  CellDRMapping (*drMapping)[4] = ltsview.tree.var(ltsview.lts.drMapping);
+  CellMaterialData* material = ltsview.tree.var(ltsview.lts.material);
+  RealT** derivatives = ltsview.tree.var(ltsview.lts.derivatives);
+  RealT* (*faceNeighbors)[4] = ltsview.tree.var(ltsview.lts.faceNeighbors);
+  CellLocalInformation* cellInformation = ltsview.tree.var(ltsview.lts.cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
-  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-    real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
-    DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
-    DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
+  for (LTSTree::leaf_iterator it = dynrup.tree.beginLeaf(LayerMask(Ghost)); it != dynrup.tree.endLeaf(); ++it) {
+    RealT**                                timeDerivativePlus                                        = it->var(dynrup.lts.timeDerivativePlus);
+    RealT**                                timeDerivativeMinus                                       = it->var(dynrup.lts.timeDerivativeMinus);
+    RealT                                (*imposedStatePlus)[Yateto<Config>::Tensor::QInterpolated::size()]          = it->var(dynrup.lts.imposedStatePlus);
+    RealT                                (*imposedStateMinus)[Yateto<Config>::Tensor::QInterpolated::size()]         = it->var(dynrup.lts.imposedStateMinus);
+    DRGodunovData<Config>*                        godunovData                                               = it->var(dynrup.lts.godunovData);
+    RealT                                (*fluxSolverPlus)[Yateto<Config>::Tensor::fluxSolver::size()]               = it->var(dynrup.lts.fluxSolverPlus);
+    RealT                                (*fluxSolverMinus)[Yateto<Config>::Tensor::fluxSolver::size()]              = it->var(dynrup.lts.fluxSolverMinus);
+    DRFaceInformation*                    faceInformation                                           = it->var(dynrup.lts.faceInformation);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynrup.lts.waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynrup.lts.waveSpeedsMinus);
+    seissol::dr::ImpedancesAndEta<Config>*        impAndEta                                                 = it->var(dynrup.lts.impAndEta);
 
 
 #ifdef _OPENMP
@@ -420,15 +431,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
         derivativesMeshId = fault[meshFace].neighborElement;
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
-      real* timeDerivative1 = NULL;
-      real* timeDerivative2 = NULL;
+      RealT* timeDerivative1 = NULL;
+      RealT* timeDerivative2 = NULL;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned ltsId = i_ltsLut->ltsId(i_lts->cellInformation.mask, derivativesMeshId, duplicate);
+        unsigned ltsId = i_ltsLut->ltsId(ltsview.lts.cellInformation.mask, derivativesMeshId, duplicate);
         if (timeDerivative1 == NULL && (cellInformation[ltsId].ltsSetup >> 9)%2 == 1) {
-          timeDerivative1 = derivatives[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
+          timeDerivative1 = derivatives[ i_ltsLut->ltsId(ltsview.lts.derivatives.mask, derivativesMeshId, duplicate) ];
         }
         if (timeDerivative2 == NULL && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
-          timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
+          timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(ltsview.lts.faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
         }
       }
 
@@ -446,8 +457,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[meshFace].element, duplicate) : std::numeric_limits<unsigned>::max();
-        unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[meshFace].neighborElement, duplicate) : std::numeric_limits<unsigned>::max();
+        unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(ltsview.lts.drMapping.mask, fault[meshFace].element, duplicate) : std::numeric_limits<unsigned>::max();
+        unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(ltsview.lts.drMapping.mask, fault[meshFace].neighborElement, duplicate) : std::numeric_limits<unsigned>::max();
 
         assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
@@ -478,15 +489,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       }
 
       /// Transformation matrix
-      auto T = init::T::view::create(TData);
-      auto Tinv = init::Tinv::view::create(TinvData);
-      seissol::model::getFaceRotationMatrix<seissol::model::Material_t>(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
+      auto T = Yateto<Config>::Init::T::view::create(TData);
+      auto Tinv = Yateto<Config>::Init::Tinv::view::create(TinvData);
+      seissol::model::getFaceRotationMatrix<MaterialT>(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
       seissol::model::Material* plusMaterial;
       seissol::model::Material* minusMaterial;
-      unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
-      unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
+      unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(ltsview.lts.material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
+      unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(ltsview.lts.material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
@@ -500,8 +511,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto APlus = init::star::view<0>::create(APlusData);
-      auto AMinus = init::star::view<0>::create(AMinusData);
+      auto APlus = Yateto<Config>::Init::star::template view<0>::create(APlusData);
+      auto AMinus = Yateto<Config>::Init::star::template view<0>::create(AMinusData);
       
       waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
       waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
@@ -525,36 +536,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<MaterialT*>(plusMaterial), 0, APlus);
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<MaterialT*>(minusMaterial), 0, AMinus);
 
-      switch (plusMaterial->getMaterialType()) {
-        case seissol::model::MaterialType::acoustic: {
-          logError() << "Dynamic Rupture does not work with an acoustic material.";
-          break;
-        }
-        case seissol::model::MaterialType::poroelastic: {
-          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
-          //TODO(SW): Make DR work with poroelasticity
-          break;
-        }
-        case seissol::model::MaterialType::anisotropic: {
-          logError() << "Dynamic Rupture does not work with anisotropy yet.";
-          //TODO(SW): Make DR work with anisotropy 
-          break;
-        }
-        case seissol::model::MaterialType::elastic: {
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
-          break;
-        }
-        case seissol::model::MaterialType::viscoelastic: {
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial<>*>(plusMaterial), 0, APlus);
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial<>*>(minusMaterial), 0, AMinus);
-          break;
-        }
-      }
       /// Traction matrices for "average" traction
-      auto tractionPlusMatrix = init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-      auto tractionMinusMatrix = init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
+      auto tractionPlusMatrix = Yateto<Config>::Init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
+      auto tractionMinusMatrix = Yateto<Config>::Init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
       double ZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
       double ZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
       double ZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
@@ -573,7 +560,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       tractionMinusMatrix(5,2) = etaS / ZsM;
 
       /// Transpose Tinv
-      dynamicRupture::kernel::transposeTinv ttKrnl;
+      typename Yateto<Config>::Kernel::dynamicRupture::transposeTinv ttKrnl;
       ttKrnl.Tinv = TinvData;
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
@@ -595,7 +582,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
-      dynamicRupture::kernel::rotateFluxMatrix krnl;
+      typename Yateto<Config>::Kernel::dynamicRupture::rotateFluxMatrix krnl;
       krnl.T = TData;
 
       krnl.fluxSolver = fluxSolverPlus[ltsFace];
@@ -611,25 +598,26 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+
+  }, dynrupforest);
 }
 
-void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
-                                                     LTS*              lts,
-                                                     LTSTree*          dynRupTree,
-                                                     DynamicRupture*   dynRup,
-                                                     LTSTree*          boundaryTree,
-                                                     Boundary*         boundary) {
+void seissol::initializers::copyCellMatricesToDevice(ClusterLTSForest& forest,
+                                                     DynRupLTSForest& dynrupforest,
+                                                     BoundaryLTSForest& boundaryforest) {
 #ifdef ACL_DEVICE
-  // Byte-copy of element compute-static data from the host to device
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+  forest.visit([&](auto&& ltsview) {
+    // Byte-copy of element compute-static data from the host to device
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    const std::vector<size_t > &variableSizes = ltsview.tree.getVariableSizes();
 
-  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
-                     ltsTree->var(lts->localIntegration),
-                     variableSizes[lts->localIntegration.index]);
+    device.api->copyTo(ltsview.tree.var(ltsview.lts.localIntegrationOnDevice),
+                      ltsview.tree.var(ltsview.lts.localIntegration),
+                      variableSizes[ltsview.lts.localIntegration.index]);
 
-  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
-                     ltsTree->var(lts->neighboringIntegration),
-                     variableSizes[lts->neighboringIntegration.index]);
+    device.api->copyTo(ltsview.tree.var(ltsview.lts.neighIntegrationOnDevice),
+                      ltsview.tree.var(ltsview.lts.neighboringIntegration),
+                      variableSizes[ltsview.lts.neighboringIntegration.index]);
+  });
 #endif // ACL_DEVICE
 }

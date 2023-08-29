@@ -51,25 +51,29 @@
 namespace seissol {
   namespace initializers {
     namespace matrixmanip {
+      template<typename Config>
       struct OnHost {
-        using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+        using RealT = typename Config::RealT;
+        using CopyManagerT = typename yateto::DefaultCopyManager<RealT>;
         static MemoryProperties getProperties();
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initSpecificGlobalData(GlobalData& globalData,
+        static void negateStiffnessMatrix(GlobalData<Config>& globalData);
+        static void initSpecificGlobalData(GlobalData<Config>& globalData,
                                            memory::ManagedAllocator& allocator,
                                            CopyManagerT& copyManager,
                                            size_t alignment,
                                            seissol::memory::Memkind memkind);
       };
 
+      template<typename Config>
       struct OnDevice {
+        using RealT = typename Config::RealT;
         struct DeviceCopyPolicy {
-          real* copy(real const* first, real const* last, real*& mem);
+          RealT* copy(RealT const* first, RealT const* last, RealT*& mem);
         };
-        using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+        using CopyManagerT = typename yateto::CopyManager<RealT, DeviceCopyPolicy>;
         static MemoryProperties getProperties();
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initSpecificGlobalData(GlobalData& globalData,
+        static void negateStiffnessMatrix(GlobalData<Config>& globalData);
+        static void initSpecificGlobalData(GlobalData<Config>& globalData,
                                            memory::ManagedAllocator& allocator,
                                            CopyManagerT& copyManager,
                                            size_t alignment,
@@ -77,18 +81,21 @@ namespace seissol {
       };
     }  // namespace matrixmanip
 
-
     // Generalized Global data initializers of SeisSol.
-    template<typename MatrixManipPolicyT>
+    template<typename Config, typename MatrixManipPolicyT>
     struct GlobalDataInitializer {
-      static void init(GlobalData &globalData,
+      using RealT = typename Config::RealT;
+      static void init(GlobalData<Config> &globalData,
                        memory::ManagedAllocator &memoryAllocator,
                        enum memory::Memkind memkind);
     };
 
     // Specific Global data initializers of SeisSol.
-    using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
-    using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
+    template<typename Config>
+    using GlobalDataInitializerOnHost = GlobalDataInitializer<Config, matrixmanip::OnHost<Config>>;
+
+    template<typename Config>
+    using GlobalDataInitializerOnDevice = GlobalDataInitializer<Config, matrixmanip::OnDevice<Config>>;
   }  // namespace initializers
 } // namespace seissol
 

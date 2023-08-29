@@ -46,8 +46,6 @@
 #  include <omp.h>
 #endif
 
-namespace init = seissol::init;
-
 namespace seissol::initializers {
   namespace matrixmanip {
     MemoryProperties OnHost::getProperties() {
@@ -55,16 +53,16 @@ namespace seissol::initializers {
       return MemoryProperties();
     }
 
-    void OnHost::negateStiffnessMatrix(GlobalData &globalData) {
+    void OnHost::negateStiffnessMatrix(GlobalData<Config> &globalData) {
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-        real *matrix = const_cast<real *>(globalData.stiffnessMatricesTransposed(transposedStiffness));
-        for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
+        RealT *matrix = const_cast<RealT *>(globalData.stiffnessMatricesTransposed(transposedStiffness));
+        for (unsigned i = 0; i < seissol::Yateto<Config>::Init::kDivMT::size(transposedStiffness); ++i) {
           matrix[i] *= -1.0;
         }
       }
     }
 
-    void OnHost::initSpecificGlobalData(GlobalData& globalData,
+    void OnHost::initSpecificGlobalData(GlobalData<Config>& globalData,
                                         memory::ManagedAllocator& allocator,
                                         CopyManagerT& copyManager,
                                         size_t alignment,
@@ -74,8 +72,8 @@ namespace seissol::initializers {
 #ifdef _OPENMP
         l_numberOfThreads = omp_get_max_threads();
 #endif
-        real *integrationBufferLTS
-          = (real *) allocator.allocateMemory(l_numberOfThreads * (4 * tensor::I::size()) * sizeof(real),
+        RealT *integrationBufferLTS
+          = (RealT *) allocator.allocateMemory(l_numberOfThreads * (4 * Yateto<Config>::Tensor::I::size()) * sizeof(RealT),
                                                           alignment,
                                                           memkind);
 
@@ -83,12 +81,12 @@ namespace seissol::initializers {
       #ifdef _OPENMP
       #pragma omp parallel
       {
-        size_t l_threadOffset = omp_get_thread_num() * (4 * tensor::I::size());
+        size_t l_threadOffset = omp_get_thread_num() * (4 * Yateto<Config>::Tensor::I::size());
       #else
         size_t l_threadOffset = 0;
       #endif
-        for (unsigned int l_dof = 0; l_dof < (4 * tensor::I::size()); l_dof++) {
-          integrationBufferLTS[l_dof + l_threadOffset] = (real) 0.0;
+        for (unsigned int l_dof = 0; l_dof < (4 * Yateto<Config>::Tensor::I::size()); l_dof++) {
+          integrationBufferLTS[l_dof + l_threadOffset] = (RealT) 0.0;
         }
       #ifdef _OPENMP
       }
@@ -108,41 +106,41 @@ namespace seissol::initializers {
       return prop;
     }
 
-    void OnDevice::negateStiffnessMatrix(GlobalData &globalData) {
+    void OnDevice::negateStiffnessMatrix(GlobalData<Config> &globalData) {
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-        const real scaleFactor = -1.0;
-        device.algorithms.scaleArray(const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
+        const RealT scaleFactor = -1.0;
+        device.algorithms.scaleArray(const_cast<RealT*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
                                      scaleFactor,
-                                     init::kDivMT::size(transposedStiffness),
+                                     Yateto<Config>::Init::kDivMT::size(transposedStiffness),
                                      device.api->getDefaultStream());
       }
 #endif // ACL_DEVICE
     }
-    void OnDevice::initSpecificGlobalData(GlobalData& globalData,
+    void OnDevice::initSpecificGlobalData(GlobalData<Config>& globalData,
                                           memory::ManagedAllocator& allocator,
                                           CopyManagerT& copyManager,
                                           size_t alignment,
                                           seissol::memory::Memkind memkind) {
 #ifdef ACL_DEVICE
-      const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
-                                               yateto::alignedReals<real>(alignment));
-      real* plasticityStressReplication =
-          static_cast<real*>(allocator.allocateMemory(size * sizeof(real),
+      const size_t size = yateto::alignedUpper(Yateto<Config>::Tensor::replicateInitialLoadingM::size(),
+                                               yateto::alignedReals<RealT>(alignment));
+      RealT* plasticityStressReplication =
+          static_cast<RealT*>(allocator.allocateMemory(size * sizeof(RealT),
                                                       alignment,
                                                       memkind));
 
-      copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(plasticityStressReplication,
+      copyManager.template copyTensorToMemAndSetPtr<Yateto<Config>::Init::replicateInitialLoadingM>(plasticityStressReplication,
                                                                                     globalData.replicateStresses,
                                                                                     alignment);
 #endif // ACL_DEVICE
     }
 
-    real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {
+    RealT* OnDevice::DeviceCopyPolicy::copy(RealT const* first, RealT const* last, RealT*& mem) {
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      const unsigned bytes = (last - first) * sizeof(real);
+      const unsigned bytes = (last - first) * sizeof(RealT);
       device.api->copyTo(mem, first, bytes);
       mem += (last - first);
       return mem;
@@ -155,7 +153,7 @@ namespace seissol::initializers {
 
 
 template<typename MatrixManipPolicyT>
-void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
+void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData<Config>& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
                                                      enum seissol::memory::Memkind memkind) {
   MemoryProperties prop = MatrixManipPolicyT::getProperties();
@@ -163,35 +161,35 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   // We ensure that global matrices always start at an aligned memory address,
   // such that mixed cases with aligned and non-aligned global matrices do also work.
   unsigned globalMatrixMemSize = 0;
-  globalMatrixMemSize += yateto::computeFamilySize<init::kDivM>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::kDivMT>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::rDivM>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<nodal::init::V3mTo2nFace>(yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::computeFamilySize<init::project2nFaceTo3m>(yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::kDivM>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::kDivMT>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::rDivM>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::rT>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::fMrT>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::fP>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::nodal::V3mTo2nFace>(yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::project2nFaceTo3m>(yateto::alignedReals<RealT>(prop.alignment));
 
-  globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP::size(),  yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(Yateto<Config>::Tensor::evalAtQP::size(),  yateto::alignedReals<RealT>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(Yateto<Config>::Tensor::projectQP::size(), yateto::alignedReals<RealT>(prop.alignment));
 
-  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(globalMatrixMemSize * sizeof(real),
+  RealT* globalMatrixMem = static_cast<RealT*>(memoryAllocator.allocateMemory(globalMatrixMemSize * sizeof(RealT),
                                                                             prop.pagesizeHeap,
                                                                             memkind));
 
-  real* globalMatrixMemPtr = globalMatrixMem;
+  RealT* globalMatrixMemPtr = globalMatrixMem;
   typename MatrixManipPolicyT::CopyManagerT copyManager;
-  copyManager.template copyFamilyToMemAndSetPtr<init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::rT>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::fMrT>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::fP>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(globalMatrixMemPtr, globalData.V3mTo2nFace, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(globalMatrixMemPtr, globalData.project2nFaceTo3m, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::rT>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::fMrT>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::fP>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::nodal::V3mTo2nFace>(globalMatrixMemPtr, globalData.V3mTo2nFace, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::project2nFaceTo3m>(globalMatrixMemPtr, globalData.project2nFaceTo3m, prop.alignment);
 
-  copyManager.template copyTensorToMemAndSetPtr<init::evalAtQP>(globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
-  copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<Yateto<Config>::Init::evalAtQP>(globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<Yateto<Config>::Init::projectQP>(globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
@@ -200,32 +198,32 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   // Dynamic Rupture global matrices
   unsigned drGlobalMatrixMemSize = 0;
-  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nTWDivM>(yateto::alignedReals<real>(prop.alignment));
-  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2n>(yateto::alignedReals<real>(prop.alignment));
+  drGlobalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::V3mTo2nTWDivM>(yateto::alignedReals<RealT>(prop.alignment));
+  drGlobalMatrixMemSize += yateto::computeFamilySize<typename Yateto<Config>::Init::V3mTo2n>(yateto::alignedReals<RealT>(prop.alignment));
 
-  real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(drGlobalMatrixMemSize  * sizeof(real),
+  RealT* drGlobalMatrixMem = static_cast<RealT*>(memoryAllocator.allocateMemory(drGlobalMatrixMemSize  * sizeof(RealT),
                                                                               prop.pagesizeHeap,
                                                                               memkind));
 
-  real* drGlobalMatrixMemPtr = drGlobalMatrixMem;
-  copyManager.template copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM>(drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::V3mTo2n>(drGlobalMatrixMemPtr, globalData.faceToNodalMatrices, prop.alignment);
+  RealT* drGlobalMatrixMemPtr = drGlobalMatrixMem;
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::V3mTo2nTWDivM>(drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<typename Yateto<Config>::Init::V3mTo2n>(drGlobalMatrixMemPtr, globalData.faceToNodalMatrices, prop.alignment);
 
   assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
   // Plasticity global matrices
   unsigned plasticityGlobalMatrixMemSize = 0;
-  plasticityGlobalMatrixMemSize += yateto::alignedUpper(tensor::v::size(),    yateto::alignedReals<real>(prop.alignment));
-  plasticityGlobalMatrixMemSize += yateto::alignedUpper(tensor::vInv::size(), yateto::alignedReals<real>(prop.alignment));
+  plasticityGlobalMatrixMemSize += yateto::alignedUpper(Yateto<Config>::Tensor::v::size(),    yateto::alignedReals<RealT>(prop.alignment));
+  plasticityGlobalMatrixMemSize += yateto::alignedUpper(Yateto<Config>::Tensor::vInv::size(), yateto::alignedReals<RealT>(prop.alignment));
 
-  real* plasticityGlobalMatrixMem
-      = static_cast<real*>(memoryAllocator.allocateMemory(plasticityGlobalMatrixMemSize * sizeof(real),
+  RealT* plasticityGlobalMatrixMem
+      = static_cast<RealT*>(memoryAllocator.allocateMemory(plasticityGlobalMatrixMemSize * sizeof(RealT),
                                                           prop.pagesizeHeap,
                                                           memkind));
 
-  real* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
-  copyManager.template copyTensorToMemAndSetPtr<init::v>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, prop.alignment);
-  copyManager.template copyTensorToMemAndSetPtr<init::vInv>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, prop.alignment);
+  RealT* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
+  copyManager.template copyTensorToMemAndSetPtr<Yateto<Config>::Init::v>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<Yateto<Config>::Init::vInv>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, prop.alignment);
 
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
 

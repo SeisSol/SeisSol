@@ -48,6 +48,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Boundary.h>
+#include <Initializer/tree/LTSForest.hpp>
 
 namespace seissol {
   namespace initializers {
@@ -56,33 +57,26 @@ namespace seissol {
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
       **/
      void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
-                                       LTSTree*               io_ltsTree,
-                                       LTS*                   i_lts,
+                                       ClusterLTSForest& forest,
                                        Lut*                   i_ltsLut,
                                        TimeStepping const&    timeStepping );
                                        
      void initializeBoundaryMappings(seissol::geometry::MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,
-                                     LTSTree* io_ltsTree,
-                                     LTS* i_lts,
+                                     ClusterLTSForest& forest,
                                      Lut* i_ltsLut);
  
      void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,                                                    
-                                            LTSTree*               io_ltsTree,
-                                            LTS*                   i_lts,
+                                            ClusterLTSForest& forest,
                                             Lut*                   i_ltsLut,
-                                            LTSTree*               dynRupTree,
-                                            DynamicRupture*        dynRup,
+                                            DynRupLTSForest& dynrupforest,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
 
-      void copyCellMatricesToDevice(LTSTree*          ltsTree,
-                                    LTS*              lts,
-                                    LTSTree*          dynRupTree,
-                                    DynamicRupture*   dynRup,
-                                    LTSTree*          boundaryTree,
-                                    Boundary*         boundary);
+      void copyCellMatricesToDevice(ClusterLTSForest& forest,
+                                                     DynRupLTSForest& dynrupforest,
+                                                     BoundaryLTSForest& boundaryforest);
   }
 }
 
