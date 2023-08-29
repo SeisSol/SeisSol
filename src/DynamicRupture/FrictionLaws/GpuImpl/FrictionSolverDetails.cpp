@@ -1,6 +1,9 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Parallel/AcceleratorDevice.h"
 #include <device.h>
+#include <omp.h>
+
+#include "utils/logger.h"
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
@@ -10,18 +13,17 @@ FrictionSolverDetails::~FrictionSolverDetails() {
   if (maxClusterSize == 0)
     return;
 
-  free(faultStresses, queue);
-  free(tractionResults, queue);
-  free(stateVariableBuffer, queue);
-  free(strengthBuffer, queue);
-  free(devTimeWeights, queue);
-  free(devSpaceWeights, queue);
-  free(resampleMatrix, queue);
+  omp_free(faultStresses);
+  omp_free(tractionResults);
+  omp_free(stateVariableBuffer);
+  omp_free(strengthBuffer);
+  omp_free(devTimeWeights);
+  omp_free(devSpaceWeights);
+  omp_free(resampleMatrix);
 }
 
 void FrictionSolverDetails::initSyclQueue() {
-  auto& instance = seissol::AcceleratorDevice::getInstance();
-  queue = instance.getSyclDefaultQueue();
+  
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
@@ -29,30 +31,30 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
     return;
 
   faultStresses = static_cast<FaultStresses*>(
-      sycl::malloc_shared(maxClusterSize * sizeof(FaultStresses), queue));
+      omp_aligned_alloc(ALIGNMENT, maxClusterSize * sizeof(FaultStresses)));
 
   tractionResults = static_cast<TractionResults*>(
-      sycl::malloc_shared(maxClusterSize * sizeof(TractionResults), queue));
+      omp_aligned_alloc(ALIGNMENT, maxClusterSize * sizeof(TractionResults)));
 
   {
     const size_t requiredNumBytes = misc::numPaddedPoints * maxClusterSize * sizeof(real);
     using StateVariableType = decltype(stateVariableBuffer);
     stateVariableBuffer =
-        reinterpret_cast<StateVariableType>(sycl::malloc_shared(requiredNumBytes, queue));
+        reinterpret_cast<StateVariableType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
 
     using StrengthBufferType = decltype(stateVariableBuffer);
     strengthBuffer =
-        reinterpret_cast<StrengthBufferType>(sycl::malloc_shared(requiredNumBytes, queue));
+        reinterpret_cast<StrengthBufferType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
   }
 
   {
     const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-    devTimeWeights = static_cast<double*>(sycl::malloc_device(requiredNumBytes, queue));
+    devTimeWeights = static_cast<double*>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
   }
 
   {
     const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
-    devSpaceWeights = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
+    devSpaceWeights = static_cast<real*>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
   }
 }
 
@@ -65,13 +67,13 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
     const size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
 
-    resampleMatrix = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
-    queue.memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes).wait();
+    resampleMatrix = static_cast<real*>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
+    memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes);
   }
 
   {
     const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
-    queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes).wait();
+    memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
   }
 }
 } // namespace seissol::dr::friction_law::gpu

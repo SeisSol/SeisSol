@@ -16,7 +16,7 @@ PointSourceClusterOnDevice::PointSourceClusterOnDevice(sourceterm::ClusterMappin
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, double to) {
-  auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
+  // auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   auto& mapping = clusterMapping_.cellToSources;
   if (mapping.size() > 0) {
     auto* mapping_ptr = mapping.data();
@@ -28,13 +28,13 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
     auto* A = sources_.A.data();
     auto* stiffnessTensor = sources_.stiffnessTensor.data();
 
-    sycl::range rng{mapping.size()};
     if (sources_.mode == sourceterm::PointSources::NRF) {
-      queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
-                               mapping_ptr[id[0]].numberOfPointSources;
+      #pragma omp target teams distribute
+      for (int i = 0; i < mapping.size(); ++i) {
+          unsigned startSource = mapping_ptr[i].pointSourcesOffset;
+          unsigned endSource = mapping_ptr[i].pointSourcesOffset +
+                               mapping_ptr[i].numberOfPointSources;
+          #pragma omp parallel for
           for (unsigned source = startSource; source < endSource; ++source) {
             addTimeIntegratedPointSourceNRF(
                 {&slipRates0[source], &slipRates1[source], &slipRates2[source]},
@@ -44,26 +44,25 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
                 stiffnessTensor[source].data(),
                 from,
                 to,
-                *mapping_ptr[id[0]].dofs);
+                *mapping_ptr[i].dofs);
           }
-        });
-      }).wait();
+      }
     } else {
-      queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
-                               mapping_ptr[id[0]].numberOfPointSources;
+      #pragma omp target teams distribute
+      for (int i = 0; i < mapping.size(); ++i) {
+          unsigned startSource = mapping_ptr[i].pointSourcesOffset;
+          unsigned endSource = mapping_ptr[i].pointSourcesOffset +
+                               mapping_ptr[i].numberOfPointSources;
+          #pragma omp parallel for
           for (unsigned source = startSource; source < endSource; ++source) {
             addTimeIntegratedPointSourceFSRM(&slipRates0[source],
                                              mInvJInvPhisAtSources[source].data(),
                                              tensor[source].data(),
                                              from,
                                              to,
-                                             *mapping_ptr[id[0]].dofs);
+                                             *mapping_ptr[i].dofs);
           }
-        });
-      }).wait();
+      }
     }
   }
 }

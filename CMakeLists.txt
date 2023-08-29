@@ -385,34 +385,26 @@ if (WITH_GPU)
       # we assume that hipsycl was compiled with nvhpc compiler collection
       string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
       set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}")
+      set(OMPT_TARGETS "${NVCPP_ARCH}")
+
+      target_compile_options(general-sycl-offloading INTERFACE -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
+      target_link_options(general-sycl-offloading INTERFACE -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
     else()
+      # for now, this is DPCPP
+      target_compile_options(general-sycl-offloading INTERFACE -fiopenmp -fopenmp-targets=spir64)
+      target_link_options(general-sycl-offloading INTERFACE -fiopenmp -fopenmp-targets=spir64)
+
       set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
-      target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
     endif()
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
   elseif(DEVICE_ARCH MATCHES "gfx*")
     set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}")
+    set(OMPT_TARGETS "${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
   else()
     set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
+    set(OMPT_TARGETS "${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
-  endif()
-
-  find_package(hipSYCL QUIET)
-  if (hipSYCL_FOUND)
-    message(STATUS "Using HipSYCL for general SYCL offloading")
-
-    # note, we need to add openmp as a link option explicitly for some compilers.
-    # it is probably an issue of `add_sycl_to_target` macro
-    target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-    add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
-  else()
-    unset(HIPSYCL_TARGETS)
-
-    find_package(DpcppFlags REQUIRED)
-    message(STATUS "Using DPC++ for general SYCL offloading")
-    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
-    target_link_libraries(SeisSol-common-properties INTERFACE dpcpp::interface)
   endif()
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)

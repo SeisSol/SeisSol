@@ -72,6 +72,7 @@
 #include <Parallel/MPI.h>
 
 #include <utils/logger.h>
+#include <omp.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -93,10 +94,12 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
   if( i_memkind == 0 ) {
 #endif
       if (i_alignment % (sizeof(void*)) != 0) {
-        l_ptrBuffer = malloc( i_size );
+        l_ptrBuffer = omp_alloc( i_size );
         error = (l_ptrBuffer == nullptr);
       } else {
-        error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
+        // error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
+        l_ptrBuffer = omp_aligned_alloc(i_alignment, i_size);
+        error = (l_ptrBuffer == nullptr);
       }
 #ifdef USE_MEMKIND
     }
@@ -139,7 +142,7 @@ void seissol::memory::free(void* i_pointer, enum Memkind i_memkind) {
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (i_memkind == Standard) {
 #endif
-    ::free(i_pointer);
+    ::omp_free(i_pointer);
 #ifdef USE_MEMKIND
     } else if (i_memkind == HighBandwidth) {
       hbw_free( i_pointer );

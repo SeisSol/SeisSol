@@ -19,6 +19,7 @@ class SlowVelocityWeakeningLaw
     static_cast<Derived*>(this)->updateStateVariable(timeIncrement);
   }
 
+  #pragma omp declare target
   struct Details {
     decltype(SlowVelocityWeakeningLaw::a) a;
     decltype(SlowVelocityWeakeningLaw::sl0) sl0;
@@ -44,10 +45,10 @@ class SlowVelocityWeakeningLaw
                          size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double localSl0 = details.sl0[ltsFace][pointIndex];
-    const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
+    const double log1 = std::log(details.rsSr0 * localStateVariable / localSl0);
     const double x = 0.5 * (localSlipRateMagnitude / details.rsSr0) *
-                     sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * sycl::asinh(x);
+                     std::exp((details.rsF0 + details.rsB * log1) / localA);
+    return localA * std::asinh(x);
   }
 
   static double updateMuDerivative(double localSlipRateMagnitude,
@@ -57,10 +58,10 @@ class SlowVelocityWeakeningLaw
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double localSl0 = details.sl0[ltsFace][pointIndex];
-    const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
+    const double log1 = std::log(details.rsSr0 * localStateVariable / localSl0);
     const double c =
-        (0.5 / details.rsSr0) * sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+        (0.5 / details.rsSr0) * std::exp((details.rsF0 + details.rsB * log1) / localA);
+    return localA * c / std::sqrt(std::pow(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   /**
@@ -71,18 +72,18 @@ class SlowVelocityWeakeningLaw
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         stateVariable[ltsFace][pointIndex] = stateVariableBuffer[ltsFace][pointIndex];
-      });
-    });
+      }
+    }
   }
 
   void executeIfNotConverged() {}
+  #pragma omp end declare target
 };
 } // namespace seissol::dr::friction_law::gpu
 

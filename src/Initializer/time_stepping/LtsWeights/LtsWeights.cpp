@@ -490,43 +490,64 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   std::unordered_map<int, int> localFaceIdToLocalCellId;
 #endif // USE_MPI
 
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    int timeCluster = m_clusterIds[cell];
-
-    unsigned int faceids[4];
-    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
-      int difference = maxDifference;
-      int boundary = getBoundaryCondition(boundaryCond, cell, f);
-      // Continue for regular, dynamic rupture, and periodic boundary cells
-      if (boundary == 0 || boundary == 3 || boundary == 6) {
-        // We treat MPI neighbours later
-        auto const &face = faces[faceids[f]];
-        if (!face.isShared()) {
-          int cellIds[2];
-          PUML::Upward::cells(*m_mesh, face, cellIds);
-
-          int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          int otherTimeCluster = m_clusterIds[neighbourCell];
-
-          if (boundary == 3) {
-            difference = 0;
-          }
-
-          if (timeCluster > otherTimeCluster + difference) {
-            timeCluster = otherTimeCluster + difference;
-            ++numberOfReductions;
-          }
-        }
-#ifdef USE_MPI
-        else {
-          rankToSharedFaces[face.shared()[0]].push_back(faceids[f]);
-          localFaceIdToLocalCellId[faceids[f]] = cell;
-        }
-#endif // USE_MPI
-      }
+  int reductionsRound = 0;
+  //#pragma omp parallel
+  {
+  do
+  {
+    //#pragma omp single
+    {
+      reductionsRound = 0;
     }
-    m_clusterIds[cell] = timeCluster;
+    //#pragma omp barrier
+    //#pragma omp for reduction(+:reductionsRound)
+    for (unsigned cell = 0; cell < cells.size(); ++cell) {
+      int timeCluster = m_clusterIds[cell];
+
+      unsigned int faceids[4];
+      PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+      for (unsigned f = 0; f < 4; ++f) {
+        int difference = maxDifference;
+        int boundary = getBoundaryCondition(boundaryCond, cell, f);
+        // Continue for regular, dynamic rupture, and periodic boundary cells
+        if (boundary == 0 || boundary == 3 || boundary == 6) {
+          // We treat MPI neighbours later
+          auto const &face = faces[faceids[f]];
+          if (!face.isShared()) {
+            int cellIds[2];
+            PUML::Upward::cells(*m_mesh, face, cellIds);
+
+            int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
+            int otherTimeCluster = m_clusterIds[neighbourCell];
+
+            if (boundary == 3) {
+              difference = 0;
+            }
+
+            if (timeCluster > otherTimeCluster + difference) {
+              timeCluster = otherTimeCluster + difference;
+              ++reductionsRound;
+            }
+          }
+#ifdef USE_MPI
+          else {
+//#pragma omp critical
+{
+            rankToSharedFaces[face.shared()[0]].push_back(faceids[f]);
+}
+            localFaceIdToLocalCellId[faceids[f]] = cell;
+          }
+#endif // USE_MPI
+        }
+      }
+      m_clusterIds[cell] = timeCluster;
+    }
+    //#pragma omp single
+    {
+      numberOfReductions += reductionsRound;
+      reductionsRound = 0;
+    }
+  } while(reductionsRound > 0);
   }
 
 #ifdef USE_MPI
