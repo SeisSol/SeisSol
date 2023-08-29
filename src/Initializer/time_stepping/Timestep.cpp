@@ -18,6 +18,7 @@
 namespace seissol::initializer {
 static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                                   double pWaveVel,
+                                  int order,
                                   double cfl,
                                   double maximumAllowedTimeStep) {
   // Compute insphere radius
@@ -34,14 +35,14 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
   double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
 
   // Compute maximum timestep
-  return std::fmin(maximumAllowedTimeStep,
-                   cfl * 2.0 * insphere / (pWaveVel * (2 * ConvergenceOrder - 1)));
+  return std::fmin(maximumAllowedTimeStep, cfl * 2.0 * insphere / (pWaveVel * (2 * order - 1)));
 }
 
-static int determineCellCluster(double timestep, double startTimestep, double rate) {
+static int
+    determineCellCluster(double timestep, double startTimestep, double rate, int maxCluster) {
   int cluster = -1;
   double clusterTimestep = startTimestep;
-  while (timestep >= clusterTimestep) {
+  while (timestep >= clusterTimestep && cluster < maxCluster) {
     clusterTimestep *= rate;
     ++cluster;
   }
@@ -166,9 +167,12 @@ GlobalTimestep computeTimesteps(double cfl,
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
     double pWaveVel = 0;
     std::visit([&](auto&& material) { pWaveVel = material.getMaxWaveSpeed(); }, materials[cell]);
+    int order = std::visit(
+        [&](const auto& config) { return std::decay_t<decltype(config)>::ConvergenceOrder; },
+        configs[cellToVertex.elementGroups(cell)].config);
     std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep);
+        computeCellTimestep(vertices, pWaveVel, order, cfl, maximumAllowedTimeStep);
   }
 
   const auto minmaxCellPosition =
@@ -201,7 +205,10 @@ std::vector<int> clusterTimesteps(const GlobalTimestep& timestep, double rate, d
   std::vector<int> cluster(timestep.cellTimeStepWidths.size());
   const double startTimestep = wiggle * timestep.globalMinTimeStep;
   for (unsigned cell = 0; cell < cluster.size(); ++cell) {
-    cluster[cell] = determineCellCluster(timestep.cellTimeStepWidths[cell], startTimestep, rate);
+    cluster[cell] = determineCellCluster(timestep.cellTimeStepWidths[cell],
+                                         startTimestep,
+                                         rate,
+                                         seissol::SeisSol::main.maxNumberOfClusters);
   }
   return cluster;
 }

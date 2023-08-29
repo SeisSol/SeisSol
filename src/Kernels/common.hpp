@@ -113,7 +113,7 @@ namespace kernels {
  * @param i_convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int NumberOfBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder) {
+constexpr unsigned int NumberOfBasisFunctions(unsigned int i_convergenceOrder) {
   return i_convergenceOrder * (i_convergenceOrder + 1) * (i_convergenceOrder + 2) / 6;
 }
 
@@ -144,9 +144,8 @@ constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
  * @return aligned number of basis functions.
  **/
 template <typename RealT>
-constexpr unsigned int
-    NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
-                                  unsigned int i_alignment = Alignment) {
+constexpr unsigned int NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder,
+                                                     unsigned int i_alignment = Alignment) {
   // return (NumberOfBasisFunctions(O) * REAL_BYTES + (Alignment - (NumberOfBasisFunctions(O) *
   // REAL_BYTES) % Alignment) % Alignment) / REAL_BYTES
   unsigned int l_NumberOfBasisFunctions = NumberOfBasisFunctions(i_convergenceOrder);
@@ -161,9 +160,8 @@ constexpr unsigned int
  * @return aligned number of basis functions.
  **/
 template <typename RealT>
-constexpr unsigned
-    NumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
-                                            unsigned int i_alignment = Alignment) {
+constexpr unsigned NumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder,
+                                                           unsigned int i_alignment = Alignment) {
   return (i_convergenceOrder > 0)
              ? NumberOfAlignedBasisFunctions<RealT>(i_convergenceOrder) +
                    NumberOfAlignedDerivativeBasisFunctions<RealT>(i_convergenceOrder - 1)
@@ -198,11 +196,11 @@ constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>:
   return 0;
 }
 
-template<typename T>
-class LocalData{};
+template <typename T>
+class LocalData {};
 
-template<typename T>
-class NeighborData{};
+template <typename T>
+class NeighborData {};
 } // namespace kernels
 
 constexpr bool isDeviceOn() {

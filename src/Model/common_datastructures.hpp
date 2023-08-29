@@ -68,7 +68,8 @@ struct Material {
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
-  static const inline std::string Text = "material";
+  static inline const std::string Text = "material";
+  static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
 
   double rho;
   virtual double getMaxWaveSpeed() const = 0;
@@ -77,7 +78,6 @@ struct Material {
   virtual double getMu() const = 0;
   virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0;
   virtual MaterialType getMaterialType() const = 0;
-  virtual ~Material(){};
 };
 
 struct Plasticity {
