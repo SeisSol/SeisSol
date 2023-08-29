@@ -7,14 +7,14 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-template<typename Config>
+template <typename Config>
 void DynamicRuptureRecorder<Config>::record(DynamicRupture<Config>& handler, Layer& layer) {
   setUpContext(handler, layer);
   recordDofsTimeEvaluation();
   recordSpaceInterpolation();
 }
 
-template<typename Config>
+template <typename Config>
 void DynamicRuptureRecorder<Config>::recordDofsTimeEvaluation() {
   RealT** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
   RealT** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
@@ -48,7 +48,7 @@ void DynamicRuptureRecorder<Config>::recordDofsTimeEvaluation() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void DynamicRuptureRecorder<Config>::recordSpaceInterpolation() {
   auto* qInterpolatedPlus = currentLayer->var(currentHandler->qInterpolatedPlus);
   auto* qInterpolatedMinus = currentLayer->var(currentHandler->qInterpolatedMinus);

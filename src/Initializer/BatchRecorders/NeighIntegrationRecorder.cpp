@@ -8,7 +8,7 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-template<typename Config>
+template <typename Config>
 void NeighIntegrationRecorder<Config>::record(LTS<Config>& handler, Layer& layer) {
   typename kernels::NeighborData<Config>::Loader loader;
   loader.load(handler, layer);
@@ -19,7 +19,7 @@ void NeighIntegrationRecorder<Config>::record(LTS<Config>& handler, Layer& layer
   recordNeighbourFluxIntegrals();
 }
 
-template<typename Config>
+template <typename Config>
 void NeighIntegrationRecorder<Config>::recordDofsTimeEvaluation() {
   RealT*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
   RealT* integratedDofsScratch =
@@ -90,8 +90,7 @@ void NeighIntegrationRecorder<Config>::recordDofsTimeEvaluation() {
   }
 }
 
-
-template<typename Config>
+template <typename Config>
 void NeighIntegrationRecorder<Config>::recordNeighbourFluxIntegrals() {
   RealT*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
 

@@ -8,7 +8,7 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-template<typename Config>
+template <typename Config>
 void PlasticityRecorder<Config>::record(LTS<Config>& handler, Layer& layer) {
   typename kernels::LocalData<Config>::Loader loader;
   loader.load(handler, layer);

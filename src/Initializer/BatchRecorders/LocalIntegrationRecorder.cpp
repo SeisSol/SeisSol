@@ -12,7 +12,7 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::record(LTS<Config>& handler, Layer& layer) {
   typename kernels::LocalData<Config>::Loader loader;
   loader.load(handler, layer);
@@ -27,7 +27,7 @@ void LocalIntegrationRecorder<Config>::record(LTS<Config>& handler, Layer& layer
   recordDisplacements();
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordTimeAndVolumeIntegrals() {
   RealT* integratedDofsScratch =
       static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
@@ -90,7 +90,8 @@ void LocalIntegrationRecorder<Config>::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
-        derivativesAddressCounter += yateto::computeFamilySize<typename Yateto<Config>::Tensor::dQ>();
+        derivativesAddressCounter +=
+            yateto::computeFamilySize<typename Yateto<Config>::Tensor::dQ>();
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
@@ -113,7 +114,7 @@ void LocalIntegrationRecorder<Config>::recordTimeAndVolumeIntegrals() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordLocalFluxIntegral() {
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned face = 0; face < 4; ++face) {
@@ -147,7 +148,7 @@ void LocalIntegrationRecorder<Config>::recordLocalFluxIntegral() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordDisplacements() {
   RealT*(*faceDisplacements)[4] = currentLayer->var(currentHandler->faceDisplacements);
   std::array<std::vector<RealT*>, 4> iVelocitiesPtrs{{}};
@@ -182,10 +183,11 @@ void LocalIntegrationRecorder<Config>::recordDisplacements() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer->getNumberOfCells();
-  constexpr size_t nodalAvgDisplacementsSize = Yateto<Config>::Tensor::averageNormalDisplacement::size();
+  constexpr size_t nodalAvgDisplacementsSize =
+      Yateto<Config>::Tensor::averageNormalDisplacement::size();
 
   RealT* nodalAvgDisplacements =
       static_cast<RealT*>(currentLayer->getScratchpadMemory(currentHandler->nodalAvgDisplacements));
@@ -260,7 +262,7 @@ void LocalIntegrationRecorder<Config>::recordFreeSurfaceGravityBc() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordDirichletBc() {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
@@ -307,7 +309,7 @@ void LocalIntegrationRecorder<Config>::recordDirichletBc() {
   }
 }
 
-template<typename Config>
+template <typename Config>
 void LocalIntegrationRecorder<Config>::recordAnalyticalBc() {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
