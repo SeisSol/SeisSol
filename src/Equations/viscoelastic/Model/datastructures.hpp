@@ -58,6 +58,9 @@ namespace seissol {
       static constexpr MaterialType Type = MaterialType::viscoelastic;
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
       static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
+      static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+        "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"
+      };
 
       //! Relaxation frequencies
       double omega[ZeroLengthArrayHandler(Mechanisms)];
@@ -72,7 +75,15 @@ namespace seissol {
 
       ViscoElasticMaterial() = default;
 
+      // temporary, most likely.
+      explicit ViscoElasticMaterial(const AnisotropicMaterial& material) : ViscoElasticMaterial(ElasticMaterial(material)) {
+      }
+
       explicit ViscoElasticMaterial(const ElasticMaterial& base) : ElasticMaterial(base) {
+        std::memset(omega, 0, sizeof(omega));
+        std::memset(theta, 0, sizeof(theta));
+        Qp = std::numeric_limits<double>::signaling_NaN();
+        Qs = std::numeric_limits<double>::signaling_NaN();
       }
 
       ViscoElasticMaterial( double* materialValues, int numMaterialValues)
@@ -96,9 +107,9 @@ namespace seissol {
         Qs = std::numeric_limits<double>::signaling_NaN();
       }
 
-      virtual ~ViscoElasticMaterial() {}
+      ~ViscoElasticMaterial() = default;
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override {
         return Type;
       }
     };

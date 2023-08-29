@@ -57,6 +57,9 @@ namespace seissol {
       static constexpr MaterialType Type = MaterialType::anisotropic;
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "anisotropic";
+      static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+        "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"
+      };
 
       double c11;
       double c12;

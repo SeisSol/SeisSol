@@ -41,7 +41,6 @@
 #ifndef MODEL_ELASTIC_DATASTRUCTURES_H_
 #define MODEL_ELASTIC_DATASTRUCTURES_H_
 
-#include <Equations/anisotropic/Model/datastructures.hpp>
 #include <Model/common_datastructures.hpp>
 #include <cmath>
 #include <generated_code/kernel.h>
@@ -50,6 +49,8 @@
 
 namespace seissol {
   namespace model {
+    struct AnisotropicMaterial;
+
     struct ElasticMaterial : Material {
       static constexpr std::size_t NumberOfQuantities = 9;
       static constexpr std::size_t NumberPerMechanism = 0;
@@ -57,9 +58,18 @@ namespace seissol {
       static constexpr MaterialType Type = MaterialType::elastic;
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "elastic";
+      static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+        "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"
+      };
 
       double lambda;
       double mu;
+
+      /*static inline const std::array<std::pair<std::string, void ElasticMaterial::*>, 3> Parameters = {
+        {"rho", &ElasticMaterial::rho},
+        {"lambda", &ElasticMaterial::lambda},
+        {"mu", &ElasticMaterial::mu}
+      };*/
 
       ElasticMaterial() = default;
 
@@ -79,9 +89,9 @@ namespace seissol {
         this->lambda = materialValues[2];
       }
 
-      virtual ~ElasticMaterial() {};
+      ~ElasticMaterial() = default;
 
-      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const override {
 
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
         stiffnessTensorView.setZero();
@@ -107,39 +117,42 @@ namespace seissol {
         stiffnessTensorView(2,2,2,2) = lambda + 2*mu;
       }
 
-      double getMaxWaveSpeed() const {
+      double getMaxWaveSpeed() const override {
         return getPWaveSpeed();
       }
 
-      double getPWaveSpeed() const {
+      double getPWaveSpeed() const override {
         return std::sqrt((lambda + 2*mu) / rho);
       }
 
-      double getSWaveSpeed() const {
+      double getSWaveSpeed() const override {
         return std::sqrt(mu / rho);
       }
 
-      double getMu() const {
+      double getMu() const override {
         return mu;
       }
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override {
         return Type;
       }
     };
 
     // TODO(someone): inheritance?
     struct AcousticMaterial : Material {
-      static constexpr std::size_t NumberOfQuantities = 3;
+      static constexpr std::size_t NumberOfQuantities = 4;
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::acoustic;
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "acoustic";
+      static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+        "pp", "v1", "v2", "v3"
+      };
 
       double lambda;
 
-      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const override {
 
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
         stiffnessTensorView.setZero();
@@ -154,23 +167,23 @@ namespace seissol {
         stiffnessTensorView(2,2,2,2) = lambda;
       }
 
-      double getMaxWaveSpeed() const {
+      double getMaxWaveSpeed() const override {
         return getPWaveSpeed();
       }
 
-      double getPWaveSpeed() const {
+      double getPWaveSpeed() const override {
         return std::sqrt(lambda / rho);
       }
 
-      double getSWaveSpeed() const {
+      double getSWaveSpeed() const override {
         return 0;
       }
 
-      double getMu() const {
+      double getMu() const override {
         return 0;
       }
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override {
         return Type;
       }
     };
@@ -184,29 +197,30 @@ namespace seissol {
       static constexpr MaterialType Type = MaterialType::solid;
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "solid";
+      static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
 
-      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const override {
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
         stiffnessTensorView.setZero();
       }
 
-      double getMaxWaveSpeed() const {
+      double getMaxWaveSpeed() const override {
         return 0;
       }
 
-      double getPWaveSpeed() const {
+      double getPWaveSpeed() const override {
         return 0;
       }
 
-      double getSWaveSpeed() const {
+      double getSWaveSpeed() const override {
         return 0;
       }
 
-      double getMu() const {
+      double getMu() const override {
         return 0;
       }
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override {
         return Type;
       }
     };
