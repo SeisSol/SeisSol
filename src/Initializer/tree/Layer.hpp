@@ -72,9 +72,11 @@ namespace seissol {
 
 template<typename T>
 struct seissol::initializers::Variable {
+  using Type = T;
   unsigned index;
   LayerMask mask;
   unsigned count;
+  constexpr static size_t Size = sizeof(T);
   Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
 };
 
@@ -126,7 +128,7 @@ public:
 
   void* bucket(Bucket const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(!m_buckets.empty() != nullptr && m_buckets[handle.index] != nullptr);
+    assert(!m_buckets.empty() && m_buckets[handle.index] != nullptr);
     return m_buckets[handle.index];
   }
 
