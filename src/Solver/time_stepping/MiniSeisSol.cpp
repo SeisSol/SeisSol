@@ -90,26 +90,27 @@ Config getConfig() {
 } // namespace seissol::mini
 
 
-void seissol::localIntegration(GlobalData* globalData,
-                               initializers::LTS& lts,
+template<typename Config>
+void seissol::localIntegration<Config>(GlobalData<Config>* globalData,
+                               initializers::LTS<Config>& lts,
                                initializers::Layer& layer) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
   timeKernel.setHostGlobalData(globalData);
 
-  real**                buffers                       = layer.var(lts.buffers);
+  typename Config::RealT**                buffers                       = layer.var(lts.buffers);
 
-  kernels::LocalData::Loader loader;
+  typename kernels::LocalData<Config>::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp<Config> tmp;
 
 #ifdef _OPENMP
   #pragma omp parallel for private(tmp) schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
-    timeKernel.computeAder(miniSeisSolTimeStep,
+    timeKernel.computeAder(miniSeisSolTimeStep<Config>,
                            data,
                            tmp,
                            buffers[cell],
@@ -124,19 +125,21 @@ void seissol::localIntegration(GlobalData* globalData,
   }
 }
 
-void seissol::fillWithStuff(  real* buffer,
+template<typename Config>
+void seissol::fillWithStuff(  typename Config::RealT* buffer,
                               unsigned nValues) {
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
   for (unsigned n = 0; n < nValues; ++n) {
     // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
-    buffer[n] = static_cast<real>((214013*n + 2531011) / 65536);
+    buffer[n] = static_cast<typename Config::RealT>((214013*n + 2531011) / 65536);
   }
 }
 
-void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
-                                       initializers::LTS& lts,
+template<typename Config>
+void seissol::localIntegrationOnDevice<Config>(CompoundGlobalData<Config>& globalData,
+                                       initializers::LTS<Config>& lts,
                                        initializers::Layer& layer) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
@@ -147,9 +150,9 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 
   const auto &device = device::DeviceInstance::getInstance();
 
-  kernels::LocalData::Loader loader;
+  typename kernels::LocalData<Config>::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp<Config> tmp;
 
   auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -160,20 +163,22 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 #endif
 }
 
-void seissol::fakeData(initializers::LTS& lts,
+template<typename Config>
+void seissol::fakeData<Config>(initializers::LTS<Config>& lts,
                        initializers::Layer& layer,
                        FaceType faceTp) {
-  real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
-  real**                      buffers                       = layer.var(lts.buffers);
-  real**                      derivatives                   = layer.var(lts.derivatives);
-  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
+  using RealT = typename Config::RealT;
+  RealT                      (*dofs)[Yateto<Config>::Tensor::Q::size()]      = layer.var(lts.dofs);
+  RealT**                      buffers                       = layer.var(lts.buffers);
+  RealT**                      derivatives                   = layer.var(lts.derivatives);
+  RealT*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
   LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
+  RealT*                       bucket                        = static_cast<RealT*>(layer.bucket(lts.buffersDerivatives));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    buffers[cell] = bucket + cell * tensor::I::size();
+    buffers[cell] = bucket + cell * Yateto<Config>::Tensor::I::size();
     derivatives[cell] = nullptr;
 
     for (unsigned f = 0; f < 4; ++f) {
@@ -205,10 +210,10 @@ void seissol::fakeData(initializers::LTS& lts,
     }
   }
   
-  fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells());
-  fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
-  fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
-  fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
+  fillWithStuff(reinterpret_cast<RealT*>(dofs),   Yateto<Config>::Tensor::Q::size() * layer.getNumberOfCells());
+  fillWithStuff(bucket, Yateto<Config>::Tensor::I::size() * layer.getNumberOfCells());
+  fillWithStuff(reinterpret_cast<RealT*>(localIntegration), sizeof(LocalIntegrationData<Config>)/sizeof(RealT) * layer.getNumberOfCells());
+  fillWithStuff(reinterpret_cast<RealT*>(neighboringIntegration), sizeof(NeighboringIntegrationData<Config>)/sizeof(RealT) * layer.getNumberOfCells());
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
@@ -220,9 +225,10 @@ void seissol::fakeData(initializers::LTS& lts,
 #endif
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
+template<typename Config>
+double seissol::miniSeisSol<Config>(initializers::MemoryManager& memoryManager, bool usePlasticity) {
   initializers::LTSTree ltsTree;
-  initializers::LTS     lts;
+  initializers::LTS<Config>     lts;
 
   lts.Plasticity = usePlasticity;
   lts.addTo(ltsTree);
@@ -245,7 +251,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   
   initializers::Layer& layer = cluster.child<Interior>();
   
-  layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setBucketSize(lts.buffersDerivatives, sizeof(typename Config::RealT) * Yateto<Config>::Tensor::I::size() * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
 
   fakeData(lts, layer);

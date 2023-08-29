@@ -48,6 +48,7 @@
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
 #include "common.hpp"
+#include "Common/configtensor.hpp"
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -60,29 +61,29 @@ namespace seissol::kernels {
   unsigned Plasticity<Config>::computePlasticity(double oneMinusIntegratingFactor,
                                          double timeStepWidth,
                                          double T_v,
-                                         GlobalData const *global,
+                                         GlobalData<Config> const *global,
                                          seissol::model::PlasticityData<RealT> const *plasticityData,
-                                         RealT degreesOfFreedom[tensor::Q::size()],
+                                         RealT degreesOfFreedom[Yateto<Config>::Tensor::Q::size()],
                                          RealT *pstrain) {
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
-    constexpr auto NUMBER_OF_ALIGNED_BASIS_FUNCTIONS = seissol::kernels::NumberOfAlignedBasisFunctions(Config::ConvergenceOrder);
+    constexpr auto NUMBER_OF_ALIGNED_BASIS_FUNCTIONS = seissol::kernels::NumberOfAlignedBasisFunctions<RealT>(Config::ConvergenceOrder);
 
-    RealT QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(Alignment)));
-    RealT QEtaNodal[tensor::QEtaNodal::size()] __attribute__((aligned(Alignment)));
-    RealT QEtaModal[tensor::QEtaModal::size()] __attribute__((aligned(Alignment)));
-    RealT meanStress[tensor::meanStress::size()] __attribute__((aligned(Alignment)));
-    RealT secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
-    RealT tau[tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
-    RealT taulim[tensor::meanStress::size()] __attribute__((aligned(Alignment)));
-    RealT yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(Alignment)));
-    RealT dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(Alignment)));
+    RealT QStressNodal[Yateto<Config>::Tensor::QStressNodal::size()] __attribute__((aligned(Alignment)));
+    RealT QEtaNodal[Yateto<Config>::Tensor::QEtaNodal::size()] __attribute__((aligned(Alignment)));
+    RealT QEtaModal[Yateto<Config>::Tensor::QEtaModal::size()] __attribute__((aligned(Alignment)));
+    RealT meanStress[Yateto<Config>::Tensor::meanStress::size()] __attribute__((aligned(Alignment)));
+    RealT secondInvariant[Yateto<Config>::Tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
+    RealT tau[Yateto<Config>::Tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
+    RealT taulim[Yateto<Config>::Tensor::meanStress::size()] __attribute__((aligned(Alignment)));
+    RealT yieldFactor[Yateto<Config>::Tensor::yieldFactor::size()] __attribute__((aligned(Alignment)));
+    RealT dudt_pstrain[Yateto<Config>::Tensor::QStress::size()] __attribute__((aligned(Alignment)));
 
-    static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
+    static_assert(Yateto<Config>::Tensor::secondInvariant::size() == Yateto<Config>::Tensor::meanStress::size(),
                   "Second invariant tensor and mean stress tensor must be of the same size().");
-    static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
+    static_assert(Yateto<Config>::Tensor::yieldFactor::size() <= Yateto<Config>::Tensor::meanStress::size(),
                   "Yield factor tensor must be smaller than mean stress tensor.");
 
     //copy dofs for later comparison, only first dof of stresses required
@@ -95,50 +96,50 @@ namespace seissol::kernels {
     /* Convert modal to nodal and add sigma0.
      * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
      * sigma0 is constant */
-    kernel::plConvertToNodal m2nKrnl;
+    typename Yateto<Config>::Kernel::plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = degreesOfFreedom;
     m2nKrnl.QStressNodal = QStressNodal;
-    m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
+    m2nKrnl.replicateInitialLoading = Yateto<Config>::Init::replicateInitialLoading::Values;
     m2nKrnl.initialLoading = plasticityData->initialLoading;
     m2nKrnl.execute();
 
     // Computes m = s_{ii} / 3.0 for every node
-    kernel::plComputeMean cmKrnl;
+    typename Yateto<Config>::Kernel::plComputeMean cmKrnl;
     cmKrnl.meanStress = meanStress;
     cmKrnl.QStressNodal = QStressNodal;
-    cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
+    cmKrnl.selectBulkAverage = Yateto<Config>::Init::selectBulkAverage::Values;
     cmKrnl.execute();
 
     /* Compute s_{ij} := s_{ij} - m delta_{ij},
      * where delta_{ij} = 1 if i == j else 0.
      * Thus, s_{ij} contains the deviatoric stresses. */
-    kernel::plSubtractMean smKrnl;
+    typename Yateto<Config>::Kernel::plSubtractMean smKrnl;
     smKrnl.meanStress = meanStress;
     smKrnl.QStressNodal = QStressNodal;
-    smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
+    smKrnl.selectBulkNegative = Yateto<Config>::Init::selectBulkNegative::Values;
     smKrnl.execute();
 
     // Compute I_2 = 0.5 s_{ij} s_ji for every node
-    kernel::plComputeSecondInvariant siKrnl;
+    typename Yateto<Config>::Kernel::plComputeSecondInvariant siKrnl;
     siKrnl.secondInvariant = secondInvariant;
     siKrnl.QStressNodal = QStressNodal;
-    siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
+    siKrnl.weightSecondInvariant = Yateto<Config>::Init::weightSecondInvariant::Values;
     siKrnl.execute();
 
     // tau := sqrt(I_2) for every node
-    for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+    for (unsigned ip = 0; ip < Yateto<Config>::Tensor::secondInvariant::size(); ++ip) {
       tau[ip] = sqrt(secondInvariant[ip]);
     }
 
     // Compute tau_c for every node
-    for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
+    for (unsigned ip = 0; ip < Yateto<Config>::Tensor::meanStress::size(); ++ip) {
       taulim[ip] = std::max((RealT) 0.0, plasticityData->cohesionTimesCosAngularFriction -
                                         meanStress[ip] * plasticityData->sinAngularFriction);
     }
 
     bool adjust = false;
-    for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+    for (unsigned ip = 0; ip < Yateto<Config>::Tensor::yieldFactor::size(); ++ip) {
       // Compute yield := (t_c / tau - 1) r for every node,
       // where r = 1 - exp(-timeStepWidth / T_v)
       if (tau[ip] > taulim[ip]) {
@@ -166,7 +167,7 @@ namespace seissol::kernels {
        *                = sigma_{ij} + (f^* - 1) s_{ij}
        *                = sigma_{ij} + yield s_{ij}
        */
-      kernel::plAdjustStresses adjKrnl;
+      typename Yateto<Config>::Kernel::plAdjustStresses adjKrnl;
       adjKrnl.QStress = degreesOfFreedom;
       adjKrnl.vInv = global->vandermondeMatrixInverse;
       adjKrnl.QStressNodal = QStressNodal;
@@ -204,7 +205,7 @@ namespace seissol::kernels {
         pstrain[q] += timeStepWidth * dudt_pstrain[q];
       }
       /* Convert modal to nodal */
-      kernel::plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
+      typename Yateto<Config>::Kernel::plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
       m2nKrnl_dudt_pstrain.v = global->vandermondeMatrix;
       m2nKrnl_dudt_pstrain.QStress = dudt_pstrain;
       m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
@@ -215,13 +216,13 @@ namespace seissol::kernels {
       }
 
       /* Convert modal to nodal */
-      kernel::plConvertEtaModal2Nodal m2n_eta_Krnl;
+      typename Yateto<Config>::Kernel::plConvertEtaModal2Nodal m2n_eta_Krnl;
       m2n_eta_Krnl.v = global->vandermondeMatrix;
       m2n_eta_Krnl.QEtaModal = QEtaModal;
       m2n_eta_Krnl.QEtaNodal = QEtaNodal;
       m2n_eta_Krnl.execute();
 
-      auto QStressNodalView = init::QStressNodal::view::create(QStressNodal);
+      auto QStressNodalView = Yateto<Config>::Init::QStressNodal::view::create(QStressNodal);
       unsigned numNodes = QStressNodalView.shape(0);
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
@@ -233,7 +234,7 @@ namespace seissol::kernels {
       }
  
       /* Convert nodal to modal */
-      kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
+      typename Yateto<Config>::Kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
       n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
       n2m_eta_Krnl.QEtaNodal = QEtaNodal;
       n2m_eta_Krnl.QEtaModal = QEtaModal;
@@ -251,13 +252,13 @@ namespace seissol::kernels {
   unsigned Plasticity<Config>::computePlasticityBatched(double oneMinusIntegratingFactor,
                                                 double timeStepWidth,
                                                 double T_v,
-                                                GlobalData const *global,
+                                                GlobalData<Config> const *global,
                                                 initializers::recording::ConditionalPointersToRealTsTable &table,
                                                 seissol::model::PlasticityData<RealT> *plasticityData) {
 #ifdef ACL_DEVICE
-    static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
+    static_assert(Yateto<Config>::Tensor::Q::Shape[0] == Yateto<Config>::Tensor::QStressNodal::Shape[0],
                   "modal and nodal dofs must have the same leading dimensions");
-    static_assert(tensor::Q::Shape[0] == tensor::v::Shape[0],
+    static_assert(Yateto<Config>::Tensor::Q::Shape[0] == Yateto<Config>::Tensor::v::Shape[0],
                   "modal dofs and vandermonde matrix must hage the same leading dimensions");
 
     DeviceInstance &device = DeviceInstance::getInstance();
@@ -270,7 +271,7 @@ namespace seissol::kernels {
       const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
       //copy dofs for later comparison, only first dof of stresses required
-      constexpr unsigned dofsSize = tensor::Q::Size;
+      constexpr unsigned dofsSize = Yateto<Config>::Tensor::Q::Size;
       const size_t prevDofsSize = dofsSize * numElements * sizeof(RealT);
       RealT *prevDofs = reinterpret_cast<RealT*>(device.api->getStackMemory(prevDofsSize));
       ++stackMemCounter;
@@ -284,9 +285,9 @@ namespace seissol::kernels {
       RealT** nodalStressTensors = (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
       assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
-      static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
+      static_assert(Yateto<Config>::Kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
       RealT** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
-      kernel::gpu_plConvertToNodal m2nKrnl;
+      typename Yateto<Config>::Kernel::gpu_plConvertToNodal m2nKrnl;
       m2nKrnl.v = global->vandermondeMatrix;
       m2nKrnl.QStress = const_cast<const RealT**>(modalStressTensors);
       m2nKrnl.QStressNodal = nodalStressTensors;
@@ -315,8 +316,8 @@ namespace seissol::kernels {
                                                                     defaultStream);
 
       // convert back to modal (taking into account the adjustment)
-      static_assert(kernel::gpu_plConvertToModal::TmpMaxMemRequiredInBytes == 0);
-      kernel::gpu_plConvertToModal n2mKrnl;
+      static_assert(typename Yateto<Config>::Kernel::gpu_plConvertToModal::TmpMaxMemRequiredInBytes == 0);
+      typename Yateto<Config>::Kernel::gpu_plConvertToModal n2mKrnl;
       n2mKrnl.vInv = global->vandermondeMatrixInverse;
       n2mKrnl.QStressNodal = const_cast<const RealT**>(nodalStressTensors);
       n2mKrnl.QStress = modalStressTensors;
@@ -327,16 +328,16 @@ namespace seissol::kernels {
 
 
       // prepare memory
-      const size_t QEtaNodalSize = tensor::QEtaNodal::Size * numElements * sizeof(RealT);
+      const size_t QEtaNodalSize = Yateto<Config>::Tensor::QEtaNodal::Size * numElements * sizeof(RealT);
       RealT *QEtaNodal = reinterpret_cast<RealT*>(device.api->getStackMemory(QEtaNodalSize));
       RealT **QEtaNodalPtrs = reinterpret_cast<RealT**>(device.api->getStackMemory(numElements * sizeof(RealT*)));
 
-      const size_t QEtaModalSize = tensor::QEtaModal::Size * numElements * sizeof(RealT);
+      const size_t QEtaModalSize = Yateto<Config>::Tensor::QEtaModal::Size * numElements * sizeof(RealT);
       RealT *QEtaModal = reinterpret_cast<RealT*>(device.api->getStackMemory(QEtaModalSize));
       RealT **QEtaModalPtrs = reinterpret_cast<RealT**>(device.api->getStackMemory(numElements * sizeof(RealT*)));
 
-      static_assert(tensor::QStress::Size == tensor::QStressNodal::Size);
-      const size_t dUdTpstrainSize = tensor::QStressNodal::Size * numElements * sizeof(RealT);
+      static_assert(Yateto<Config>::Tensor::QStress::Size == Yateto<Config>::Tensor::QStressNodal::Size);
+      const size_t dUdTpstrainSize = Yateto<Config>::Tensor::QStressNodal::Size * numElements * sizeof(RealT);
       RealT *dUdTpstrain = reinterpret_cast<RealT*>(device.api->getStackMemory(dUdTpstrainSize));
       RealT **dUdTpstrainPtrs = reinterpret_cast<RealT**>(device.api->getStackMemory(numElements * sizeof(RealT*)));
 
@@ -368,8 +369,8 @@ namespace seissol::kernels {
 
 
       // Convert modal to nodal
-      static_assert(kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
-      kernel::gpu_plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
+      static_assert(typename Yateto<Config>::Kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
+      typename Yateto<Config>::Kernel::gpu_plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
       m2nKrnl_dudt_pstrain.v = global->vandermondeMatrix;
       m2nKrnl_dudt_pstrain.QStress = const_cast<const RealT**>(dUdTpstrainPtrs);
       m2nKrnl_dudt_pstrain.QStressNodal = nodalStressTensors;
@@ -385,8 +386,8 @@ namespace seissol::kernels {
                                                   defaultStream);
 
       // Convert modal to nodal
-      static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
-      kernel::gpu_plConvertEtaModal2Nodal m2n_eta_Krnl;
+      static_assert(typename Yateto<Config>::Kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
+      typename Yateto<Config>::Kernel::gpu_plConvertEtaModal2Nodal m2n_eta_Krnl;
       m2n_eta_Krnl.v = global->vandermondeMatrix;
       m2n_eta_Krnl.QEtaModal = const_cast<const RealT**>(QEtaModalPtrs);
       m2n_eta_Krnl.QEtaNodal = QEtaNodalPtrs;
@@ -404,8 +405,8 @@ namespace seissol::kernels {
                                                defaultStream);
 
       // Convert nodal to modal
-      static_assert(kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
-      kernel::gpu_plConvertEtaNodal2Modal n2m_eta_Krnl;
+      static_assert(typename Yateto<Config>::Kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
+      typename Yateto<Config>::Kernel::gpu_plConvertEtaNodal2Modal n2m_eta_Krnl;
       n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
       n2m_eta_Krnl.QEtaNodal = const_cast<const RealT**>(QEtaNodalPtrs);
       n2m_eta_Krnl.QEtaModal = QEtaModalPtrs;
@@ -457,30 +458,30 @@ namespace seissol::kernels {
     o_HardwareFlopsYield = 0;
 
     // flops from checking, i.e. outside if (adjust) {}
-    o_NonZeroFlopsCheck += kernel::plConvertToNodal::NonZeroFlops;
-    o_HardwareFlopsCheck += kernel::plConvertToNodal::HardwareFlops;
+    o_NonZeroFlopsCheck += Yateto<Config>::Kernel::plConvertToNodal::NonZeroFlops;
+    o_HardwareFlopsCheck += Yateto<Config>::Kernel::plConvertToNodal::HardwareFlops;
 
     // compute mean stress
-    o_NonZeroFlopsCheck += kernel::plComputeMean::NonZeroFlops;
-    o_HardwareFlopsCheck += kernel::plComputeMean::HardwareFlops;
+    o_NonZeroFlopsCheck += Yateto<Config>::Kernel::plComputeMean::NonZeroFlops;
+    o_HardwareFlopsCheck += Yateto<Config>::Kernel::plComputeMean::HardwareFlops;
 
     // subtract mean stress
-    o_NonZeroFlopsCheck += kernel::plSubtractMean::NonZeroFlops;
-    o_HardwareFlopsCheck += kernel::plSubtractMean::HardwareFlops;
+    o_NonZeroFlopsCheck += Yateto<Config>::Kernel::plSubtractMean::NonZeroFlops;
+    o_HardwareFlopsCheck += Yateto<Config>::Kernel::plSubtractMean::HardwareFlops;
 
     // compute second invariant
-    o_NonZeroFlopsCheck += kernel::plComputeSecondInvariant::NonZeroFlops;
-    o_HardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
+    o_NonZeroFlopsCheck += Yateto<Config>::Kernel::plComputeSecondInvariant::NonZeroFlops;
+    o_HardwareFlopsCheck += Yateto<Config>::Kernel::plComputeSecondInvariant::HardwareFlops;
 
     // compute taulim (1 add, 1 mul, max NOT counted)
-    o_NonZeroFlopsCheck += 2 * tensor::meanStress::size();
-    o_HardwareFlopsCheck += 2 * tensor::meanStress::size();
+    o_NonZeroFlopsCheck += 2 * Yateto<Config>::Tensor::meanStress::size();
+    o_HardwareFlopsCheck += 2 * Yateto<Config>::Tensor::meanStress::size();
 
     // check for yield (NOT counted, as it would require counting the number of yielding points)
 
     // flops from plastic yielding, i.e. inside if (adjust) {}
-    o_NonZeroFlopsYield += kernel::plAdjustStresses::NonZeroFlops;
-    o_HardwareFlopsYield += kernel::plAdjustStresses::HardwareFlops;
+    o_NonZeroFlopsYield += Yateto<Config>::Kernel::plAdjustStresses::NonZeroFlops;
+    o_HardwareFlopsYield += Yateto<Config>::Kernel::plAdjustStresses::HardwareFlops;
   }
 } // namespace seissol::kernels
 

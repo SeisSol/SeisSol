@@ -44,9 +44,9 @@
 
 #include "Model/plasticity.hpp"
 #include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
 #include <limits>
+#include "Common/configtensor.hpp"
 
 namespace seissol::kernels {
 
@@ -59,15 +59,15 @@ public:
   static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
                                      double                      timeStepWidth,
                                      double                      T_v,
-                                     GlobalData const*           global,
+                                     GlobalData<Config> const*           global,
                                      seissol::model::PlasticityData<RealT> const*       plasticityData,
-                                     RealT                        degreesOfFreedom[tensor::Q::size()],
+                                     RealT                        degreesOfFreedom[Yateto<Config>::Tensor::Q::size()],
                                      RealT*                       pstrain);
 
   static unsigned computePlasticityBatched(double relaxTime,
                                            double timeStepWidth,
                                            double T_v,
-                                           GlobalData const *global,
+                                           GlobalData<Config> const *global,
                                            initializers::recording::ConditionalPointersToRealsTable &table,
                                            seissol::model::PlasticityData<RealT> *plasticity);
 
