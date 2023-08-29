@@ -1,11 +1,6 @@
 #ifndef SEISSOL_COMMON_CELLCONFIG_HPP_
 #define SEISSOL_COMMON_CELLCONFIG_HPP_
 
-#include "Model/common_datastructures.hpp"
-#include <cstddef>
-#include <string>
-#include "precision.hpp"
-
 namespace seissol {
 // TODO(David): once C++20 hits, make CellConfig implement a concept
 // dummy template type

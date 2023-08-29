@@ -3,10 +3,18 @@
 #include "cellconfig.hpp"
 #include "constants.hpp"
 #include "Kernels/precision.hpp"
-#include "Equations/datastructures.hpp"
 #include <variant>
 
 namespace seissol {
+
+// TODO(David): forward-declare all models
+namespace model {
+class ElasticMaterial;
+template <std::size_t>
+class ViscoElasticMaterial;
+class PoroElasticMaterial;
+class AnisotropicMaterial;
+} // namespace model
 
 // This is it where it all comes together.
 
