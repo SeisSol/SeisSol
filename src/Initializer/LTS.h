@@ -82,6 +82,7 @@ namespace seissol::initializers {
     Variable<RealT*>                         buffers;
     Variable<RealT*>                         derivatives;
     Variable<CellLocalInformation>          cellInformation;
+    Variable<SecondaryCellLocalInformation>          secondaryCellInformation;
     Variable<RealT*[4]>                      faceNeighbors;
     Variable<LocalIntegrationData<Config>>          localIntegration;
     Variable<NeighboringIntegrationData<Config>>    neighboringIntegration;
@@ -119,6 +120,7 @@ namespace seissol::initializers {
       tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
       tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
       tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(         secondaryCellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
       tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS );
       tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
       tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );

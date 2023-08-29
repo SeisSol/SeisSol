@@ -119,6 +119,9 @@ struct SecondaryCellLocalInformation {
 
   // unique global id of the time cluster
   unsigned int clusterId;
+
+  // duplicate id of own cell
+  int duplicate;
 };
 
 struct MeshStructure {
