@@ -19,7 +19,8 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
   using RealT = typename Config::RealT;
   using MaterialT = typename Config::MaterialT;
 
-  WavePropDispatcherPre(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
+  WavePropDispatcherPre(const seissol::initializers::LTS<Config>& lts,
+                        seissol::initializers::Layer& layer)
       : lts(lts), layer(layer),
         globalData(seissol::SeisSol::main.getMemoryManager().getGlobalData()) {
     timeKernel.setGlobalData(globalData);
@@ -28,8 +29,7 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
     neighborKernel.setGlobalData(globalData);
   }
 
-  virtual void computePredictFlops(long long int& flopsNonZero,
-                                   long long int& flopsHardware) override {
+  void computePredictFlops(long long int& flopsNonZero, long long int& flopsHardware) override {
     flopsNonZero = 0;
     flopsHardware = 0;
 
@@ -46,7 +46,7 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
       for (unsigned face = 0; face < 4; ++face) {
         if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
           const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
-              GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
+              seissol::kernels::GravitationalFreeSurfaceBc<Config>::getFlopsDisplacementFace(
                   face, cellInformation[cell].faceTypes[face]);
           flopsNonZero += nonZeroFlopsDisplacement;
           flopsHardware += hardwareFlopsDisplacement;
@@ -55,10 +55,10 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
     }
   }
 
-  virtual void computeCorrectFlops(long long int& flopsNonZero,
-                                   long long int& flopsHardware,
-                                   long long int& drFlopsNonZero,
-                                   long long int& drFlopsHardware) override {
+  void computeCorrectFlops(long long int& flopsNonZero,
+                           long long int& flopsHardware,
+                           long long int& drFlopsNonZero,
+                           long long int& drFlopsHardware) override {
     flopsNonZero = 0;
     flopsHardware = 0;
     drFlopsNonZero = 0;
@@ -86,15 +86,15 @@ class WavePropDispatcherPre : public WavePropDispatcherBase {
     }
   }
 
-  virtual void setTV(double tv) override { this->tv = tv; }
+  void setTV(double tv) override { this->tv = tv; }
 
   protected: // for now, at least
-  CompoundGlobalData globalData;
+  CompoundGlobalData<Config> globalData;
   seissol::initializers::Layer& layer;
-  const seissol::initializers::LTS& lts;
-  kernels::Time<Config> timeKernel;
-  kernels::Local<Config> localKernel;
-  kernels::Neighbor<Config> neighborKernel;
+  const seissol::initializers::LTS<Config>& lts;
+  seissol::waveprop::kernel::time::Time<Config> timeKernel;
+  seissol::waveprop::kernel::local::Local<Config> localKernel;
+  seissol::waveprop::kernel::neighbor::Neighbor<Config> neighborKernel;
   double tv;
 };
 } // namespace seissol::waveprop

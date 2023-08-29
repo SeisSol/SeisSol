@@ -6,6 +6,7 @@
 #include "Kernels/Plasticity.h"
 #include "Kernels/TimeCommon.h"
 #include "Model/plasticity.hpp"
+#include "Common/configtensor.hpp"
 #include "implbase.hpp"
 
 #include <vector>
@@ -15,12 +16,13 @@ namespace seissol::waveprop {
 template <typename Config>
 class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
   public:
-  WavePropDispatcherGPU(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
+  using RealT = typename Config::RealT;
+  WavePropDispatcherGPU(const seissol::initializers::LTS<Config>& lts,
+                        seissol::initializers::Layer& layer)
       : WavePropDispatcherPre<Config>(lts, layer) {}
 
 #ifdef ACL_DEVICE
-  virtual void
-      dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
+  void dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
     device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
     RealT*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
@@ -80,7 +82,7 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
           // NOTE: integrated velocities have been computed implicitly, i.e
           // it is 6th, 7the and 8th columns of integrated dofs
 
-          kernel::gpu_addVelocity displacementKrnl;
+          typename Yateto<Config>::Kernel::gpu_addVelocity displacementKrnl;
           displacementKrnl.faceDisplacement =
               entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
           displacementKrnl.integratedVelocities = const_cast<RealT const**>(
@@ -102,14 +104,14 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
           device.algorithms.streamBatchedData(
               (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
               (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-              tensor::I::Size,
+              Yateto<Config>::Tensor::I::Size,
               (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
               defaultStream);
         } else {
           device.algorithms.accumulateBatchedData(
               (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
               (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-              tensor::I::Size,
+              Yateto<Config>::Tensor::I::Size,
               (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
               defaultStream);
         }
@@ -130,7 +132,7 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
     device.api->popLastProfilingMark();
   }
 
-  virtual void dispatchNeighborCorrect(double timeStepSize, double subTimeStart) override {
+  void dispatchNeighborCorrect(double timeStepSize, double subTimeStart) override {
     device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
 
     const double timeStepSize = timeStepSize();

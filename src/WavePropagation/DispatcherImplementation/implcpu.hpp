@@ -16,13 +16,13 @@ namespace seissol::waveprop {
 template <typename Config>
 class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
   public:
+  using RealT = typename Config::RealT;
   WavePropDispatcherCPU(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
       : WavePropDispatcherPre<Config>(lts, layer) {}
 
-  virtual void
-      dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
+  void dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
     // local integration buffer
-    RealT l_integrationBuffer[tensor::I::size()] alignas(Alignment);
+    RealT l_integrationBuffer[Yateto<Config>::Tensor::I::size()] alignas(Alignment);
 
     // pointer for the call of the ADER-function
     RealT* l_bufferPointer;
@@ -31,7 +31,7 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
     RealT** derivatives = this->layer.var(this->lts.derivatives);
     CellMaterialData* materialData = this->layer.var(this->lts.material);
 
-    kernels::LocalData<Config>::Loader loader;
+    typename kernels::LocalData<Config>::Loader loader;
     loader.load(this->lts, this->layer);
     kernels::LocalTmp<Config> tmp{};
 
@@ -79,10 +79,10 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
         // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
         if (curFaceDisplacements != nullptr &&
             data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
-          kernel::addVelocity addVelocityKrnl;
+          typename Yateto<Config>::Kernel::addVelocity addVelocityKrnl;
 
           addVelocityKrnl.V3mTo2nFace = this->globalData.onHost->V3mTo2nFace;
-          addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+          addVelocityKrnl.selectVelocity = Yateto<Config>::Init::selectVelocity::Values;
           addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
           addVelocityKrnl.I = l_bufferPointer;
           addVelocityKrnl.execute(face);
@@ -95,14 +95,14 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
       if (!resetMyBuffers && buffersProvided) {
         assert(buffers[l_cell] != nullptr);
 
-        for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
+        for (unsigned int l_dof = 0; l_dof < Yateto<Config>::Tensor::I::size(); ++l_dof) {
           buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
         }
       }
     }
   }
 
-  virtual void dispatchNeighborCorrect(double timeStepSize, double subTimeStart) override {
+  void dispatchNeighborCorrect(double timeStepSize, double subTimeStart) override {
     if (this->layer.getNumberOfCells() == 0) {
       return;
     }
@@ -114,7 +114,7 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
     auto* pstrain = this->layer.var(this->lts.pstrain);
     unsigned numberOTetsWithPlasticYielding = 0;
 
-    kernels::NeighborData<Config>::Loader loader;
+    typename kernels::NeighborData<Config>::Loader loader;
     loader.load(this->lts, this->layer);
 
     RealT* l_timeIntegrated[4];
@@ -129,11 +129,11 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
           l_timeIntegrated,
           faceNeighbors[l_cell],
 #ifdef _OPENMP
-          *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
-              &(this->globalData.onHost
-                    ->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
+          *reinterpret_cast<RealT(*)[4][Yateto<Config>::Tensor::I::size()]>(
+              &(this->globalData.onHost->integrationBufferLTS[omp_get_thread_num() * 4 *
+                                                              Yateto<Config>::Tensor::I::size()])),
 #else
-          *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
+          *reinterpret_cast<RealT(*)[4][Yateto<Config>::Tensor::I::size()]>(
               this->globalData.onHost->integrationBufferLTS),
 #endif
           data.cellInformation,
