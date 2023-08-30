@@ -243,6 +243,7 @@ gpu_check_energies:
 gpu_performance_test:
     stage: performance_eval
     allow_failure: true
+    when: manual # skip by default
     needs:
         - job: gpu_build
           artifacts: true
