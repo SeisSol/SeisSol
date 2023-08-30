@@ -34,6 +34,8 @@ std::unique_ptr<AbstractFactory> getFactory(std::shared_ptr<dr::DRParameters> dr
     return std::unique_ptr<AbstractFactory>(nullptr);
   case FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters);
+  case FrictionLawType::RateAndStateThermalProxy:
+    return std::make_unique<RateAndStateThermalProxyFactory>(drParameters);
   default:
     logError() << "unknown friction law";
     return nullptr;
@@ -134,5 +136,14 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
                 drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
+}
+
+DynamicRuptureTuple RateAndStateThermalProxyFactory::produce() {
+  return {
+    std::make_unique<seissol::initializers::LTSRateAndStateThermalPressurization>(),
+      std::make_unique<initializers::RateAndStateThermalPressurizationInitializer>(drParameters),
+      std::make_unique<friction_law::RateAndStateThermalProxyLaw<friction_law_impl::NoTP>>(
+          drParameters.get()),
+      std::make_unique<output::OutputManager>(std::make_unique<output::RateAndStateThermalPressurization>())};
 }
 } // namespace seissol::dr::factory

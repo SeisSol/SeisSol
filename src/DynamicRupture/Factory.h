@@ -82,6 +82,12 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
+class RateAndStateThermalProxyFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(std::shared_ptr<dr::DRParameters> dynRupParameter);
 
