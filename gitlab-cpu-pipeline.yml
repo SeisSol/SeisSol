@@ -1,6 +1,7 @@
 default:
     tags:
-        - lrzcc-k8s-4cores-10gb 
+        - sccs
+        - helper
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
@@ -33,6 +34,9 @@ fetch_submodules:
         
 build_seissol:
     stage: build
+    tags:
+        - sccs
+        - build
     needs:
         - job: fetch_submodules
     parallel:
@@ -76,6 +80,9 @@ build_seissol:
 run_unit_tests:
     stage: test
     allow_failure: true
+    tags:
+        - sccs
+        - cpu-hsw
     needs:
         - job: build_seissol
     parallel:
@@ -98,6 +105,9 @@ run_unit_tests:
 run_tpv:
     stage: test
     allow_failure: false
+    tags:
+        - sccs
+        - cpu-hsw
     needs:
         - job: build_seissol
     parallel:
