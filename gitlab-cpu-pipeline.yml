@@ -43,14 +43,18 @@ build_seissol:
         matrix:
         - precision: [double, single]
           build_type: [Debug, Release]
-          equation: [elastic, poroelastic]
+          equation: [elastic, anisotropic, poroelastic, viscoelastic2]
     script:
         - cmake --version
         - mechanisms=0
         - dirname="build_${equation}_${precision}_${build_type}";
+          if [ "$equation" = viscoelastic2 ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = anisotropic ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = poroelastic ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+          echo "mkdir $dirname";
           mkdir -p $dirname && cd $dirname ;
           pwd;
-          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
           CMAKE_PREFIX_PATH=~ ;
           cmake ..
           -DNETCDF=ON
@@ -91,8 +95,12 @@ run_unit_tests:
             - DIR: build_elastic_single_Debug
             - DIR: build_elastic_double_Release
             - DIR: build_elastic_single_Release
+            - DIR: build_anisotropic_double_Release
+            - DIR: build_anisotropic_single_Release
             - DIR: build_poroelastic_double_Release
             - DIR: build_poroelastic_single_Release
+            - DIR: build_viscoelastic2_double_Release
+            - DIR: build_viscoelastic2_single_Release
     script: 
         - echo "testing"
         - pwd
@@ -113,15 +121,18 @@ run_tpv:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 5b9ebc8 
+        - git checkout 8b1201c
         - cd ..
-        - if [ "$tpv" = 5-poro ]; then equations=poroelastic; else equations=elastic; fi;
+        - export equations=elastic
+        - if [ "$tpv" = ahsp ]; then equations=anisotropic; fi;
+        - if [ "$tpv" = 5-poro ]; then equations=poroelastic; else equations=elastic; fi;      
+        - if [ "$tpv" = 5-visco ]; then equations=viscoelastic2; fi;
         - cd build_${equations}_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
         - ls
@@ -151,7 +162,7 @@ check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -171,7 +182,7 @@ check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 5-poro, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
@@ -193,7 +204,7 @@ check_energies:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
