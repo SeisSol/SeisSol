@@ -5,7 +5,8 @@ stages:
 build-cpu-image:
   stage: build
   tags:
-    - image_builder
+    - sccs
+    - build
   allow_failure: false
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
@@ -27,7 +28,8 @@ build-cpu-image:
 build-gpu-image:
   stage: build
   tags:
-    - image_builder
+    - sccs
+    - gpubuild # for now
   allow_failure: false
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
