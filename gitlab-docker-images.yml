@@ -1,18 +1,21 @@
 stages:
     - build
 
+# (split this one here, if the nvidia docker container needs it)
 default:
+  tags:
+    - sccs
+    - build
   image:
     name: docker:24.0.5
     entrypoint: [""]
 
 build-cpu-image:
   stage: build
-  tags:
-    - sccs
-    - build
   allow_failure: false
   before_script:
+    - git branch -vva
+    - pwd
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - export full_image_name="${CI_REGISTRY_USER}/${cpu_image_name}:${cpu_image_version}"
@@ -31,11 +34,10 @@ build-cpu-image:
 
 build-gpu-image:
   stage: build
-  tags:
-    - sccs
-    - gpubuild # for now
   allow_failure: false
   before_script:
+    - git branch -vva
+    - pwd
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - export full_image_name="${CI_REGISTRY_USER}/${gpu_image_name}:${gpu_image_version}"
