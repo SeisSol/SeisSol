@@ -13,9 +13,10 @@ default:
 build-cpu-image:
   stage: build
   allow_failure: false
+  variables:
+    GIT_STRATEGY: clone
   before_script:
     - git branch -vva
-    - pwd
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - export full_image_name="${CI_REGISTRY_USER}/${cpu_image_name}:${cpu_image_version}"
@@ -35,6 +36,8 @@ build-cpu-image:
 build-gpu-image:
   stage: build
   allow_failure: false
+  variables:
+    GIT_STRATEGY: clone
   before_script:
     - git branch -vva
     - pwd
