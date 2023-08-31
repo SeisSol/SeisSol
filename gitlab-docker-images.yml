@@ -1,6 +1,10 @@
 stages:
     - build
 
+default:
+  image:
+    name: docker:24.0.5
+    entrypoint: [""]
 
 build-cpu-image:
   stage: build
