@@ -278,6 +278,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
           {"planarwave", InitializationType::Planarwave},
           {"superimposedplanarwave", InitializationType::SuperimposedPlanarwave},
           {"travelling", InitializationType::Travelling},
+          {"acoustictravellingwithitm", InitializationType::AcousticTravellingwithITM},
           {"scholte", InitializationType::Scholte},
           {"snell", InitializationType::Snell},
           {"ocean_0", InitializationType::Ocean0},
@@ -289,6 +290,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
   seissolParams.initialization.origin =
       seissol::initializers::convertStringToArray<double, 3>(originString);
   const auto kVecString = reader.readWithDefault("kvec", std::string("0.0 0.0 0.0"));
+  seissolParams.initialization.k = reader.readWithDefault("k", 0.0);
   seissolParams.initialization.kVec =
       seissol::initializers::convertStringToArray<double, 3>(kVecString);
   std::string defaultAmpFieldString;

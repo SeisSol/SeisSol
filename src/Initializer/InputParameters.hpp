@@ -80,7 +80,8 @@ enum class InitializationType : int {
   Ocean0,
   Ocean1,
   Ocean2,
-  PressureInjection
+  PressureInjection,
+  AcousticTravellingwithITM,
 };
 
 struct InitializationParameters {
@@ -90,6 +91,7 @@ struct InitializationParameters {
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
   double magnitude;
   double width;
+  double k;
 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };

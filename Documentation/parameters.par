@@ -19,6 +19,7 @@ cICType = 'Zero'                  ! Initial Condition
 !Zero        All zero - the standard case to work with point source or dynamic rupture
 !Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
 !Travelling  A planar wave travelling wave (one period of a plane wave), needs more parameters to be specified
+!AcousticTravellingwithITM A travelling acoustic wave with ITM
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
