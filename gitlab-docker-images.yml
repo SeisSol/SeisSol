@@ -7,7 +7,7 @@ default:
     - sccs
     - build
   image:
-    name: docker:24.0.5
+    name: docker:24.0.5-git
     entrypoint: [""]
 
 build-cpu-image:
