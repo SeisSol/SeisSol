@@ -336,6 +336,9 @@ struct LocalIntegrationData {
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()];
 
+  // GlobalmeshId
+  unsigned int globalMeshId;
+
   // equation-specific data
   //TODO(Lukas/Sebastian):
   //Get rid of ifdefs

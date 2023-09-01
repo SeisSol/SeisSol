@@ -185,7 +185,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else //USE_STP
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-
+  
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
@@ -399,7 +399,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_firstTerm  = (real) 1;
   real l_secondTerm = (real) 1;
   real l_factorial  = (real) 1;
-  
+  // std::cout << *i_timeDerivatives << std::endl;
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

@@ -61,7 +61,7 @@ namespace seissol {
                                          unsigned         i_dim,
                                          Tmatrix&         o_M )
     { o_M.setZero(); }
-    
+
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
                                                 T& E) {}

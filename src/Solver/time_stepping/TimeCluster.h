@@ -33,21 +33,21 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -94,6 +94,8 @@
 
 #include "AbstractTimeCluster.h"
 
+#include <generated_code/kernel.h>
+
 #ifdef ACL_DEVICE
 #include <device.h>
 #include <Solver/Pipeline/DrPipeline.h>
@@ -139,7 +141,10 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
-    
+
+    // //! cell average kernel
+    // kernel::cellAve m_cellAverageKernel;
+
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
   /*
@@ -155,7 +160,7 @@ private:
 
     /*
      * element data
-     */     
+     */
     seissol::initializers::Layer* m_clusterData;
     seissol::initializers::Layer* dynRupInteriorData;
     seissol::initializers::Layer* dynRupCopyData;
@@ -186,13 +191,13 @@ private:
 
     long long m_flops_nonZero[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
     long long m_flops_hardware[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
-    
+
     //! Tv parameter for plasticity
     double m_tv;
-    
+
     //! Relax time for plasticity
     double m_oneMinusIntegratingFactor;
-    
+
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
     ActorStateStatistics* actorStateStatistics;
@@ -216,6 +221,21 @@ private:
      * Computes dynamic rupture.
      **/
     void computeDynamicRupture( seissol::initializers::Layer&  layerData );
+
+    // /**
+    //  * Update all cell local material properties and the resulted matrices.
+    //  *
+    //  * This are:
+    //  *  * time integration
+    //  *  * volume integration
+    //  *  * local boundary integration
+    //  *
+    //  * Remark: After this step the DOFs are only updated half with the boundary contribution
+    //  *         of the neighborings cells missing.
+    //  *
+    //  * @param i_layerData number of cells.
+    //  **/
+    // void updateMaterialLocal( seissol::initializers::Layer&  i_layerData);
 
     /**
      * Computes all cell local integration.
@@ -362,9 +382,9 @@ private:
     void computeDynamicRuptureFlops(seissol::initializers::Layer &layerData,
                                     long long& nonZeroFlops,
                                     long long& hardwareFlops);
-                                          
+
     void computeFlops();
-    
+
     //! Update relax time for plasticity
     void updateRelaxTime() {
       m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;

@@ -70,9 +70,17 @@ class ADERDGBase(ABC):
     self.db.update(parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir)))
     self.db.update(parseJSONMatrixFile('{}/mass_{}.json'.format(matricesDir, order)))
 
+    # For cell-average
+    # self.db.update(parseXMLMatrixFile('{}/phi_ave_{}.xml'.format(matricesDir, order), transpose=self.transpose, alignStride=self.alignStride))
+
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
     self.I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=True)
+
+    # # For cell-average
+    # qAveShape = (self.numberOfQuantities(),)
+    # self.QAve = OptionalDimTensor('QAve', 's', multipleSimulations, 0, qAveShape, alignStride=True)
+
 
     Aplusminus_spp = self.flux_solver_spp()
     self.AplusT = Tensor('AplusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
@@ -235,6 +243,9 @@ class LinearADERDG(ADERDGBase):
 
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+
+    # For cell average
+    # generator.add('cellAve', self.QAve['p'] <= self.db.phiAve[self.t('l')] * self.Q['lp'] * 6.0 )
 
   def addLocal(self, generator, targets):
     for target in targets:

@@ -55,6 +55,9 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
    */
   // only lower 10 bits are used for lts encoding
   assert (i_ltsSetup < 2048 );
+  // std::cout << i_timeDofs[0][0] << std::endl;
+
+  
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
@@ -68,15 +71,18 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
    * set/compute time integrated DOFs.
    */
   for( unsigned int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
+    // std::cout << i_timeDofs[l_dofeighbor][0] << std::endl;
     // collect information only in the case that neighboring element contributions are required
     if (i_faceTypes[l_dofeighbor] != FaceType::outflow &&
 	i_faceTypes[l_dofeighbor] != FaceType::dynamicRupture) {
+      // std::cout << i_timeDofs[l_dofeighbor][0] << std::endl;
       // check if the time integration is already done (-> copy pointer)
       if( (i_ltsSetup >> l_dofeighbor ) % 2 == 0 ) {
         o_timeIntegrated[l_dofeighbor] = i_timeDofs[l_dofeighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
+        // std::cout << i_timeDofs[l_dofeighbor][0] << std::endl;
         i_time.computeIntegral( i_currentTime[    l_dofeighbor+1],
                                 i_currentTime[    0           ],
                                 i_currentTime[    0           ] + i_timeStepWidth,
