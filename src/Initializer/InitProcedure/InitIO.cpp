@@ -8,6 +8,8 @@
 
 #include "Parallel/MPI.h"
 
+namespace {
+
 static void setupCheckpointing() {
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
   auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
@@ -195,6 +197,8 @@ static void setIntegralMask() {
   seissol::SeisSol::main.postProcessor().setIntegrationMask(
       seissolParams.output.waveFieldParameters.integrationMask);
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::initIO() {
   logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
