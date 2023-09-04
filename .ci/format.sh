@@ -39,6 +39,9 @@ format() {
         src/Initializer/time_stepping/Timestep.hpp
         src/Initializer/time_stepping/Timestep.cpp
         src/Initializer/tree/VariableContainer.hpp
+        src/Initializer/tree/Backmap.hpp
+        src/Initializer/tree/LayerMap.hpp
+        src/Initializer/tree/LTSForest.hpp
         src/Kernels/common.hpp
         src/Kernels/DynamicRupture.h
         src/Kernels/DynamicRupture.cpp
