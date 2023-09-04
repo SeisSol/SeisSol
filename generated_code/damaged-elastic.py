@@ -56,6 +56,16 @@ class DamagedElasticADERDG(ADERDGBase):
     generator.add('cellAve', self.QAve['p'] <= self.db.phiAve[self.t('l')] * self.Q['lp'] * 6.0 )
     generator.add('transposeTRot', self.TT['ij'] <= self.T['ji'])
 
+    # integrate for nonlinear free-surface
+    # fluxScale = Scalar('fluxScale')
+    numberOfPoints = self.db.resample.shape()[0]
+    gShape = (numberOfPoints, self.numberOfQuantities())
+    QInterpolated = OptionalDimTensor('QInterpolated', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+    QbInterpolated = OptionalDimTensor('QbInterpolated', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+
+    computeQbAtFreeSurface = QbInterpolated['im'] <= QInterpolated['in'] * self.Tinv['kn'] * self.QgodLocal['qk'] * self.T['mq']
+    generator.add(f'computeQbAtFreeSurface', computeQbAtFreeSurface)
+
 
   def addTime(self, generator, targets):
     super().addTime(generator, targets)

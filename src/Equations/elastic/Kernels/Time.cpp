@@ -231,7 +231,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         damage_para1
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-    } else if (alphaNodal[q] > 1e-4) {
+    } else if (alphaNodal[q] > 1e-2) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         damage_para1
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
