@@ -468,4 +468,10 @@ struct TravellingWaveParameters {
   std::vector<std::complex<double>> ampField;
 };
 
+struct PressureInjectionParameters {
+  std::array<double, 3> origin;
+  double magnitude;
+  double width;
+};
+
 #endif

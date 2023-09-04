@@ -142,7 +142,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
       const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
-                                     faultStresses.normalStress[timeIndex][pointIndex];
+                                     faultStresses.normalStress[timeIndex][pointIndex] +
+                                     this->initialPressure[ltsFace][pointIndex] +
+                                     faultStresses.fluidPressure[timeIndex][pointIndex];
+
       strength[pointIndex] =
           -cohesion[ltsFace][pointIndex] -
           this->mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));

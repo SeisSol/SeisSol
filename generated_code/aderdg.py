@@ -160,6 +160,26 @@ class ADERDGBase(ABC):
   def transformation_inv_spp(self):
     return self.godunov_spp()
 
+  def extractVelocities(self):
+    extractVelocitiesSPP = np.zeros((3, self.numberOfQuantities()))
+    extractVelocitiesSPP[0, 6] = 1
+    extractVelocitiesSPP[1, 7] = 1
+    extractVelocitiesSPP[2, 8] = 1
+    return extractVelocitiesSPP
+
+  def mapToVelocities(self):
+    return self.extractVelocities().T
+
+  def extractTractions(self):
+    extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+    extractTractionsSPP[0, 0] = 1
+    extractTractionsSPP[1, 3] = 1
+    extractTractionsSPP[2, 5] = 1
+    return extractTractionsSPP
+
+  def mapToTractions(self):
+    return self.extractTractions().T
+
   @abstractmethod
   def numberOfQuantities(self):
     pass
