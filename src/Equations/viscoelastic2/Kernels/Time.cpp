@@ -85,6 +85,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
    * compute ADER scheme.
    */
   // temporary result
+  // TODO(David): move these temporary buffers into the Yateto kernel, maybe
   real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
   real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
   real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));

@@ -169,12 +169,12 @@ class Viscoelastic2ADERDG(ADERDGBase):
     powers = [Scalar(f'power({i})') for i in range(self.order)]
 
     derivativeTaylorExpansionEla = Add()
-    derivativeTaylorExpansionAne = Add()
+    # derivativeTaylorExpansionAne = Add()
     for d in range(0, self.order):
       derivativeTaylorExpansionEla += powers[d] * dQ[d]['kp']
-      derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
+      # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
     derivativeTaylorExpansionElaExpr = self.I['kp'] <= derivativeTaylorExpansionEla
-    derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
+    # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
     def derivative(kthDer):
       derivativeSum = Add()
@@ -182,17 +182,27 @@ class Viscoelastic2ADERDG(ADERDGBase):
         derivativeSum += self.db.kDivMT[j][self.t('kl')] * dQ[kthDer-1]['lq'] * self.db.star[j]['qp']
       return derivativeSum
     
-    derivativeExpr = []
+    # WARNING: the following kernel may produce incorrect results, if not executed in the order as specified here
+    # the reason for that is that dQext, dQane (except dQane(0)) and potentially dQ (except dQ(0)) are allocated in temporary arrays
+    # which are smaller than the whole tensor families (even indices share the same buffer, and odd indices share the same buffer)
+    derivativeExpr = [
+      self.I['kp'] <= powers[0] * dQ[0]['kp'],
+      self.Iane['kpm'] <= powers[0] * dQane[0]['kpm'],
+    ]
     for d in range(1, self.order):
       derivativeExpr += [
         dQext[d]['kp'] <= derivative(d),
         dQ[d]['kp'] <= dQext[d]['kq'] * self.selectEla['qp'] + dQane[d-1]['kqm'] * self.E['qmp'],
-        dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm']
+        dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm'],
+        self.I['kp'] <= self.I['kp'] + powers[d] * dQ[d]['kp'],
+        self.Iane['kpm'] <= self.Iane['kpm'] + powers[d] * dQane[d]['kpm'],
       ]
-    derivativeExpr += [
-      derivativeTaylorExpansionElaExpr,
-      derivativeTaylorExpansionAneExpr
-    ]
+    # TODO(David): we'll need to add intermediate results to Yateto, then the temporary storage needed can be reduced
+    # for now, we'll interleave the Taylor expansion with the derivative computation
+    # derivativeExpr += [
+    #   derivativeTaylorExpansionElaExpr,
+    #   derivativeTaylorExpansionAneExpr
+    # ]
 
     generator.add('derivative', derivativeExpr)
     generator.add('derivativeTaylorExpansionEla', derivativeTaylorExpansionElaExpr)
