@@ -34,7 +34,7 @@ pages:
     stage: post-test
     tags:
         - sccs
-        - helper
+        - build
     allow_failure: false
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
