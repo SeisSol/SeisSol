@@ -321,12 +321,13 @@ class LinearADERDG(ADERDGBase):
                           target='gpu')
 
   def addTime(self, generator, targets):
+    powers = [Scalar(f'power({i})') for i in range(self.order)]
     for target in targets:
       name_prefix = generate_kernel_name_prefix(target)
 
       qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
-      power = Scalar('power(0)')
+      power = powers[0]
       derivatives = [dQ0]
       derivativeExpr = [] # for interleaving: self.I['kp'] <= power * dQ0['kp']
       derivativeTaylorExpansion = power * dQ0['kp']
@@ -334,7 +335,7 @@ class LinearADERDG(ADERDGBase):
       self.dQs = [dQ0]
 
       for i in range(1,self.order):
-        power = Scalar(f'power({i})')
+        power = powers[i]
         derivativeSum = Add()
         if self.sourceMatrix():
           derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
