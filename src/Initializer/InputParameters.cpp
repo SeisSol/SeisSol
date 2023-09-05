@@ -18,6 +18,8 @@
 
 using namespace seissol::initializer::parameters;
 
+namespace {
+
 // converts a string to lower case, and trims it.
 static void sanitize(std::string& input) {
   utils::StringUtils::trim(input);
@@ -164,27 +166,22 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.model.useCellHomogenizedMaterial =
       reader.readWithDefault("usecellhomogenizedmaterial", true);
 
-#if NUMBER_OF_RELAXATION_MECHANISMS > 0
-  seissolParams.model.freqCentral = reader.readOrFail<double>(
-      "freqcentral", "equations.freqcentral is needed for the attenuation fitting.");
-  seissolParams.model.freqRatio = reader.readOrFail<double>(
-      "freqratio", "equations.freqratio is needed for the attenuation fitting.");
-#else
-  reader.markUnused("freqcentral");
-  reader.markUnused("freqratio");
-#endif
+  if (isModelViscoelastic()) {
+    seissolParams.model.freqCentral = reader.readOrFail<double>(
+        "freqcentral", "equations.freqcentral is needed for the attenuation fitting.");
+    seissolParams.model.freqRatio = reader.readOrFail<double>(
+        "freqratio", "equations.freqratio is needed for the attenuation fitting.");
+
+    if (seissolParams.model.freqRatio <= 0) {
+      logError()
+          << "The freqratio parameter must be positive---but that is currently not the case.";
+    }
+  } else {
+    reader.markUnused("freqcentral");
+    reader.markUnused("freqratio");
+  }
 
   reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
-  reader.warnUnknown();
-}
-
-static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
-  auto reader = baseReader.readSubNode("boundaries");
-  seissolParams.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
-
-  // TODO(David): ? port DR reading here, maybe.
-
-  reader.warnDeprecated({"bc_fs", "bc_nc", "bc_if", "bc_of", "bc_pe"});
   reader.warnUnknown();
 }
 
@@ -228,7 +225,6 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
   auto reader = baseReader.readSubNode("discretization");
 
   seissolParams.timeStepping.cfl = reader.readWithDefault("cfl", 0.5);
-  seissolParams.timeStepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
   seissolParams.timeStepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
   seissolParams.timeStepping.lts.weighttype = reader.readWithDefaultEnum(
       "ltsweighttypeid",
@@ -238,6 +234,36 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
           seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialBalancedWeights,
           seissol::initializers::time_stepping::LtsWeightsTypes::EncodedBalancedWeights,
       });
+
+  if (isModelViscoelastic()) {
+    // NOTE: we are using a half-initialized struct here... (i.e. be careful)
+    double maxTimestepWidthDefault =
+        0.25 / (seissolParams.model.freqCentral * std::sqrt(seissolParams.model.freqRatio));
+    if (reader.hasField("fixtimestep")) {
+      seissolParams.timeStepping.maxTimestepWidth =
+          reader.readWithDefault("fixtimestep", maxTimestepWidthDefault);
+      if (seissolParams.timeStepping.maxTimestepWidth > maxTimestepWidthDefault) {
+        logWarning(seissol::MPI::mpi.rank())
+            << "The given maximum timestep width (fixtimestep) is set to"
+            << seissolParams.timeStepping.maxTimestepWidth
+            << "which is larger than the recommended value of" << maxTimestepWidthDefault
+            << " for visco-elastic material (as specified in the documentation). Please be aware "
+               "that a too large maximum timestep width may cause the solution to become unstable.";
+      } else {
+        logInfo(seissol::MPI::mpi.rank())
+            << "Maximum timestep width (fixtimestep) given as"
+            << seissolParams.timeStepping.maxTimestepWidth << "(less or equal to reference timestep"
+            << maxTimestepWidthDefault << ")";
+      }
+    } else {
+      seissolParams.timeStepping.maxTimestepWidth = maxTimestepWidthDefault;
+      logInfo(seissol::MPI::mpi.rank())
+          << "Setting maximum timestep width to" << maxTimestepWidthDefault
+          << " for visco-elastic material (as specified in the documentation).";
+    }
+  } else {
+    seissolParams.timeStepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
+  }
 
   // TODO(David): integrate LTS parameters here
   reader.markUnused("ltswigglefactormin");
@@ -467,9 +493,6 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "receiveroutput",
                          "receiveroutputinterval");
 
-  // output: fault
-  seissolParams.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
-
   // output: loop statistics
   seissolParams.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
@@ -479,7 +502,8 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
                          "nrecordpoints",
                          "printintervalcriterion",
                          "pickdttype",
-                         "ioutputmaskmaterial"});
+                         "ioutputmaskmaterial",
+                         "faultoutputflag"});
   reader.warnUnknown();
 }
 
@@ -513,13 +537,14 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
   reader.warnUnknown();
 }
 
+} // namespace
+
 void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
   ParameterReader baseReader(baseNode, false);
 
   readModel(baseReader, *this);
-  readBoundaries(baseReader, *this);
   readMesh(baseReader, *this);
   readTimeStepping(baseReader, *this);
   readInitialization(baseReader, *this);
@@ -532,7 +557,8 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   baseReader.markUnused("elementwise");
   baseReader.markUnused("pickpoint");
 
-  baseReader.warnDeprecated({"rffile",
+  baseReader.warnDeprecated({"boundaries",
+                             "rffile",
                              "inflowbound",
                              "inflowboundpwfile",
                              "inflowbounduin",

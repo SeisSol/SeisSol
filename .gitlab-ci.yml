@@ -5,7 +5,7 @@ stages:
 
 variables:
   cpu_image_name: "cpu-ci-image"
-  cpu_image_version: "v0.0.3"
+  cpu_image_version: "v0.0.5"
   gpu_image_name: "gpu-ci-image"
   gpu_image_version: "v0.0.4"
 
@@ -33,7 +33,8 @@ Testing_SeisSol_GPU:
 pages:
     stage: post-test
     tags:
-        - lrzcc-k8s-4cores-10gb
+        - sccs
+        - helper
     allow_failure: false
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version

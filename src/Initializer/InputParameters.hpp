@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <unordered_set>
 #include <yaml-cpp/yaml.h>
 
 #include <xdmfwriter/XdmfWriter.h>
@@ -82,11 +83,6 @@ struct InitializationParameters {
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
   double magnitude;
   double width;
-};
-
-struct DynamicRuptureParameters {
-  bool hasFault;
-  // TODO(David): port rest of the DR parameters here?
 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
@@ -176,7 +172,6 @@ struct OutputParameters {
   ReceiverOutputParameters receiverParameters;
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
-  bool faultOutput;
   bool loopStatisticsNetcdfOutput;
 };
 
@@ -203,7 +198,6 @@ struct EndParameters {
 
 struct SeisSolParameters {
   ModelParameters model;
-  DynamicRuptureParameters dynamicRupture;
   MeshParameters mesh;
   InitializationParameters initialization;
   OutputParameters output;

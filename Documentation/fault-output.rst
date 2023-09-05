@@ -106,9 +106,9 @@ The output is generated every printtimeinterval (local) time step. Using
 this output with local time-stepping may result in differently sampled
 receiver files.
 
-.. _ioutputmask-1:
+.. _outputmask-1:
 
-iOutputMask
+OutputMask
 ~~~~~~~~~~~
 
 same as for ParaView output.

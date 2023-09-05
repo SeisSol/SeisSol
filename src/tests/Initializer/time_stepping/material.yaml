@@ -1,5 +1,5 @@
 !Switch
-[rho_fluid,bulk_fluid,bulk_solid,porosity,tortuosity,permeability,viscosity]: !ConstantMap
+[rho_fluid,bulk_fluid,bulk_solid,porosity,tortuosity,permeability,viscosity,Qp,Qs]: !ConstantMap
   map:
     rho_fluid:       1.0
     bulk_fluid:      1.0
@@ -8,6 +8,8 @@
     tortuosity:      6
     permeability:    6.0e-13
     viscosity:       0.0
+    Qp:              1
+    Qs:              1
 [rho, mu, lambda]: !Any
   components:
     - !AxisAlignedCuboidalDomainFilter
