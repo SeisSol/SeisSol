@@ -8,6 +8,8 @@
 
 #include "Parallel/MPI.h"
 
+namespace {
+
 static TravellingWaveParameters getTravellingWaveInformation() {
   const auto& initConditionParams = seissol::SeisSol::main.getSeisSolParameters().initialization;
 
@@ -16,7 +18,7 @@ static TravellingWaveParameters getTravellingWaveInformation() {
   travellingWaveParameters.kVec = initConditionParams.kVec;
   constexpr double eps = 1e-15;
   for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    if (std::abs(travellingWaveParameters.ampField[i]) > eps) {
+    if (std::abs(initConditionParams.ampField[i]) > eps) {
       travellingWaveParameters.varField.push_back(i);
       travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);
     }
@@ -94,6 +96,14 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(2, g));
+  } else if (initConditionParams.type ==
+             seissol::initializer::parameters::InitializationType::PressureInjection) {
+    initialConditionDescription = "Pressure Injection";
+#ifndef USE_POROELASTIC
+    logError()
+        << "The initial condition 'Pressure Injection' only works with poroelastic materials.";
+#endif
+    initConditions.emplace_back(new physics::PressureInjection(initConditionParams));
   }
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   else {
@@ -140,6 +150,8 @@ static void initBoundary() {
         seissolParams.model.boundaryFileName.c_str());
   }
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::initSideConditions() {
   logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";

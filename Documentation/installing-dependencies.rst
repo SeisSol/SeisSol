@@ -31,7 +31,7 @@ In addition, the following packages need to be installed for the GPU version of 
 - CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
 - SYCL: either hipSYCL >= 0.9.3 or DPC++
 - gemmforge (>= 0.0.207)
-- chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
+- chainforge (>= 0.0.3, for Nvidia and AMD GPUs)
 
 
 These dependencies can be installed automatically with spack or can be installed manually one by one.
@@ -205,8 +205,8 @@ Installing GemmForge, ChainForge (for GPUs)
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
+   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
+   pip3 install --user git+https://github.com/SeisSol/chainforge.git
 
 Installing SYCL (for GPUs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

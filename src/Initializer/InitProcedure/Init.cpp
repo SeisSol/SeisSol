@@ -10,6 +10,8 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include <sstream>
 
+namespace {
+
 static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -74,6 +76,8 @@ static void closeSeisSol() {
   // deallocate memory manager
   seissol::SeisSol::main.deleteMemoryManager();
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();

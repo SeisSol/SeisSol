@@ -16,7 +16,7 @@ namespace filesystem = std::experimental::filesystem;
 inline bool directoryExists(seissol::filesystem::directory_entry entry) {
   auto pathName = entry.path().string();
   struct stat info;
-  return stat(pathName.c_str(), &info) != 0;
+  return stat(pathName.c_str(), &info) == 0;
 }
 } // namespace seissol
 

@@ -57,8 +57,6 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
 src/SeisSol.cpp
 src/Parallel/Pin.cpp
-src/Parallel/mpiC.cpp
-src/Parallel/FaultMPI.cpp
 
 src/Geometry/MeshTools.cpp
 src/Geometry/MeshReader.cpp

@@ -49,7 +49,7 @@
 int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
 #ifdef USE_MPI
-  MPI::mpi.bindAcceleratorDevice();
+  seissol::MPI::mpi.bindAcceleratorDevice();
 #endif // USE_MPI
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();

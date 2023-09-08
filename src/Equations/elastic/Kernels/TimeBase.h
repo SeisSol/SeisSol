@@ -89,7 +89,7 @@ class seissol::kernels::TimeBase {
     static void checkGlobalData(GlobalData const* global, size_t alignment);
 #ifdef USE_STP
     kernel::spaceTimePredictor m_krnlPrototype;
-#else    
+#else
     kernel::derivative m_krnlPrototype;
 #endif
     kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
