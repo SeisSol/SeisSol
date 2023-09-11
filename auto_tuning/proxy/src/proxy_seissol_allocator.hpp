@@ -61,6 +61,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
 #include <Solver/time_stepping/MiniSeisSol.cpp>
+#include <DynamicRupture/Factory.h>
+#include <memory>
 #include <yateto.h>
 #include <unordered_set>
 
@@ -74,7 +76,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 seissol::initializers::LTSTree               *m_ltsTree{nullptr};
 seissol::initializers::LTS                   m_lts;
 seissol::initializers::LTSTree               *m_dynRupTree{nullptr};
-seissol::initializers::DynamicRupture        m_dynRup;
+std::unique_ptr<seissol::initializers::DynamicRupture>        m_dynRup{nullptr};
 
 GlobalData m_globalDataOnHost;
 GlobalData m_globalDataOnDevice;
@@ -85,6 +87,8 @@ seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
 seissol::kernels::Neighbor  m_neighborKernel;
 seissol::kernels::DynamicRupture m_dynRupKernel;
+
+std::unique_ptr<seissol::dr::friction_law::FrictionSolver> m_frictionSolver{nullptr};
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 
@@ -110,7 +114,7 @@ void initGlobalData() {
   m_dynRupKernel.setGlobalData(globalData);
 }
 
-unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
+unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture, int frictionLaw) {
   // init RNG
   srand48(i_cells);
   m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
@@ -130,7 +134,13 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   m_ltsTree->allocateBuckets();
   
   if (enableDynamicRupture) {
-    m_dynRup.addTo(*m_dynRupTree);
+    seissol::dr::DRParameters parameters;
+    parameters.frictionLawType = static_cast<decltype(parameters.frictionLawType)>(frictionLaw);
+    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::dr::DRParameters>(parameters))->produce();
+    m_dynRup = std::move(drTuple.ltsTree);
+    m_frictionSolver = std::move(drTuple.frictionLaw);
+
+    m_dynRup->addTo(*m_dynRupTree);
     m_dynRupTree->setNumberOfTimeClusters(1);
     m_dynRupTree->fixate();
     
@@ -162,11 +172,11 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 
     // From dynamic rupture tree
     seissol::initializers::Layer& interior = m_dynRupTree->child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::tensor::QInterpolated::size()] = interior.var(m_dynRup.imposedStatePlus);
-    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup.fluxSolverPlus);
-    real** timeDerivativePlus = interior.var(m_dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = interior.var(m_dynRup.timeDerivativeMinus);
-    DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
+    real (*imposedStatePlus)[seissol::tensor::QInterpolated::size()] = interior.var(m_dynRup->imposedStatePlus);
+    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup->fluxSolverPlus);
+    real** timeDerivativePlus = interior.var(m_dynRup->timeDerivativePlus);
+    real** timeDerivativeMinus = interior.var(m_dynRup->timeDerivativeMinus);
+    DRFaceInformation* faceInformation = interior.var(m_dynRup->faceInformation);
     
     /* init drMapping */
     for (unsigned cell = 0; cell < i_cells; ++cell) {

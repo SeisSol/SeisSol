@@ -133,6 +133,11 @@ void testKernel(unsigned kernel, unsigned timesteps) {
         computeDynRupGodunovState();
       }
       break;
+    case dynrup:
+      for (; t < timesteps; ++t) {
+        computeDynamicRupture();
+      }
+      break;
     default:
       break;
   }
@@ -145,7 +150,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   registerMarkers();
 
   bool enableDynamicRupture = false;
-  if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
+  if (config.kernel == neigh_dr || config.kernel == godunov_dr || config.kernel == dynrup) {
     enableDynamicRupture = true;
   }
 
@@ -166,7 +171,7 @@ ProxyOutput runProxy(ProxyConfig config) {
     printf("Allocating fake data...\n");
 
   initGlobalData();
-  config.cells = initDataStructures(config.cells, enableDynamicRupture);
+  config.cells = initDataStructures(config.cells, enableDynamicRupture, config.fault);
 #ifdef ACL_DEVICE
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
@@ -180,6 +185,11 @@ ProxyOutput runProxy(ProxyConfig config) {
 #endif
   double total = 0.0;
   double total_cycles = 0.0;
+
+  // run Godunov DR kernel first
+  if (config.kernel == dynrup) {
+    testKernel(godunov_dr, 1);
+  }
 
   // init OpenMP and LLC
   testKernel(config.kernel, 1);
@@ -223,18 +233,21 @@ ProxyOutput runProxy(ProxyConfig config) {
       break;
     case ader:
       flop_fun = &flops_ader_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
     case localwoader:
       flop_fun = &flops_localWithoutAder_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
     case godunov_dr:
       flop_fun = &flops_drgod_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
-  }
- 
+    case dynrup:
+      flop_fun = &flops_noestimate;
+      bytes_fun = &bytes_noestimate;
+      break;
+  } 
 
   assert(flop_fun != nullptr);
   assert(bytes_fun != nullptr);

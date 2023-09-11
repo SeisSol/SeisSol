@@ -203,11 +203,11 @@ namespace proxy::cpu {
   void computeDynRupGodunovState()
   {
     seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
-    DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
-    DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
-    DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
-    real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
+    DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
+    DRGodunovData* godunovData = layerData.var(m_dynRup->godunovData);
+    DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup->drEnergyOutput);
+    real** timeDerivativePlus = layerData.var(m_dynRup->timeDerivativePlus);
+    real** timeDerivativeMinus = layerData.var(m_dynRup->timeDerivativeMinus);
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
     alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
@@ -227,5 +227,14 @@ namespace proxy::cpu {
                                               timeDerivativePlus[prefetchFace],
                                               timeDerivativeMinus[prefetchFace] );
     }
+  }
+
+  void computeDynamicRupture() {
+    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    m_frictionSolver->computeDeltaT(m_dynRupKernel.timePoints);
+    m_frictionSolver->evaluate(layerData,
+                           m_dynRup.get(),
+                           seissol::miniSeisSolTimeStep,
+                           m_dynRupKernel.timeWeights);
   }
 } // namespace proxy::cpu

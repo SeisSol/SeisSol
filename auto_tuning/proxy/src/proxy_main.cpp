@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
+  args.addAdditionalOption("fault", "Fault type (only used if kernel == \"dynrup\")", false);
 
   if (args.parse(argc, argv) != utils::Args::Success) {
     return -1;
@@ -23,6 +24,7 @@ int main(int argc, char* argv[]) {
   ProxyConfig config{};
   config.cells = args.getAdditionalArgument<unsigned>("cells");
   config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
+  config.fault = args.getAdditionalArgument<unsigned>("fault", 0);
   auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
 
   try {
