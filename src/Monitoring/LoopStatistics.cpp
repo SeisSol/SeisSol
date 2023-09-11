@@ -39,6 +39,7 @@
  */
 
 #include "LoopStatistics.h"
+#include "Unit.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -221,7 +222,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
       char const* names[] = {"constant", "per element"};
       logInfo(rank) << regions[region].name << "(total time):" << y
-                    << "s";
+                    << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
         logInfo(rank) << regions[region].name << "(" << names[c]
                       << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
@@ -231,7 +232,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     }
 
     logInfo(rank) << "Total time spent in compute kernels:" << totalTime
-                  << "s";
+                  << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
 }
 

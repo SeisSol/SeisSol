@@ -5,6 +5,7 @@
 #include "utils/logger.h"
 
 #include <string>
+#include "Unit.hpp"
 
 namespace seissol {
 
@@ -87,9 +88,10 @@ void Stopwatch::printTime(const char* text, MPI_Comm comm) const {
   }
 #endif // USE_MPI
 
-  logInfo(rank) << text << avg
+  logInfo(rank) << text << UnitTime.formatTime(avg).c_str()
 #ifdef USE_MPI
-                << "(min:" << min << ", max: " << max << ')'
+                << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
+                << ", max: " << UnitTime.formatTime(max).c_str() << ')'
 #endif // USE_MPI
       ;
 }

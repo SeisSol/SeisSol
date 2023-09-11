@@ -64,6 +64,7 @@ src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
 src/Monitoring/ActorStateStatistics.cpp
 src/Monitoring/Stopwatch.cpp
+src/Monitoring/Unit.cpp
 
 src/Checkpoint/Manager.cpp
 

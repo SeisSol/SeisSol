@@ -43,6 +43,7 @@
  * Counts the floating point operations in SeisSol.
  **/
 
+#include "Unit.hpp"
 #include <cassert>
 #include <fstream>
 
@@ -91,18 +92,28 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   if (rank == 0) {
     double accumulatedGflopsSum = 0;
     double previousGflopsSum = 0;
+#ifdef _OPENMP
+#pragma omp simd reduction(+ : accumulatedGflopsSum, previousGflopsSum)
+#endif
     for (size_t i = 0; i < worldSize; i++) {
       accumulatedGflopsSum += accumulatedGflopsPerSecondOnRanks[i];
       previousGflopsSum += previousGflopsPerSecondOnRanks[i];
     }
     const auto accumulatedGflopsPerRank = accumulatedGflopsSum / seissol::MPI::mpi.size();
     const auto previousGflopsPerRank = previousGflopsSum / seissol::MPI::mpi.size();
-    logInfo(rank) << "Performance since the start:" << accumulatedGflopsSum * 1.e-3 << "TFLOP/s"
-                  << "(rank 0:" << accumulatedGflopsPerSecond
-                  << "GFLOP/s, average over ranks:" << accumulatedGflopsPerRank << "GFLOP/s)";
-    logInfo(rank) << "Performance since last sync point:" << previousGflopsSum * 1.e-3 << "TFLOP/s"
-                  << "(rank 0:" << previousGflopsPerSecond
-                  << "GFLOP/s, average over ranks:" << previousGflopsPerRank << "GFLOP/s)";
+
+    // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
+    logInfo(rank) << "Performance since the start:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsSum * 1e9).c_str() << "(rank 0:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecond * 1e9).c_str()
+                  << ", average over ranks:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerRank * 1e9).c_str() << ")";
+    logInfo(rank) << "Performance since last sync point:"
+                  << UnitFlopPerS.formatPrefix(previousGflopsSum * 1e9).c_str()
+                  << "(rank 0:" << UnitFlopPerS.formatPrefix(previousGflopsPerSecond * 1e9).c_str()
+                  << ", average over ranks:"
+                  << UnitFlopPerS.formatPrefix(previousGflopsPerRank * 1e9).c_str() << ")";
+
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
       out << accumulatedGflopsPerSecondOnRanks[i] << ",";
