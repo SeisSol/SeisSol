@@ -98,6 +98,7 @@ gpu_build:
     artifacts:
         paths:
             - build_*
+    retry: 2
 
 
 gpu_convergence_test:
