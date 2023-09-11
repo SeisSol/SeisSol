@@ -62,6 +62,8 @@ src/Geometry/MeshTools.cpp
 src/Geometry/MeshReader.cpp
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
+src/Monitoring/ActorStateStatistics.cpp
+src/Monitoring/Stopwatch.cpp
 
 src/Checkpoint/Manager.cpp
 

@@ -1,6 +1,7 @@
 #ifndef SEISSOL_ACTORSTATE_H
 #define SEISSOL_ACTORSTATE_H
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <variant>
