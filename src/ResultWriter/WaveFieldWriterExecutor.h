@@ -77,9 +77,9 @@ enum BufferTags {
 struct WaveFieldInitParam
 {
 	int timestep;
-
 	int bufferIds[BUFFERTAG_MAX+1];
-  xdmfwriter::BackendType backend;
+	xdmfwriter::BackendType backend;
+	std::string backupTimeStamp;
 };
 
 struct WaveFieldParam
@@ -204,6 +204,7 @@ public:
 #ifdef USE_MPI
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+		m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
 		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
 		m_waveFieldWriter->setMesh(
@@ -246,8 +247,10 @@ public:
 				type, (std::string(outputPrefix)+"-low").c_str());
 
 #ifdef USE_MPI
-		m_lowWaveFieldWriter->setComm(m_comm);
+			m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+			m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
+
 
 			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
 			m_lowWaveFieldWriter->setMesh(
