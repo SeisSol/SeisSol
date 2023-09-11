@@ -223,14 +223,14 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   recorder.addRecorder(new seissol::initializers::recording::PlasticityRecorder);
   recorder.record(m_lts, layer);
   if (enableDynamicRupture) {
-    seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForDr(*m_dynRupTree, m_dynRup);
+    seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForDr(*m_dynRupTree, *m_dynRup);
     m_dynRupTree->allocateScratchPads();
 
     CompositeRecorder <seissol::initializers::DynamicRupture> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
     auto &drLayer = m_dynRupTree->child(0).child<Interior>();
-    drRecorder.record(m_dynRup, drLayer);
+    drRecorder.record(*m_dynRup, drLayer);
   }
 }
 #endif // ACL_DEVICE
