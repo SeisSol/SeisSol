@@ -212,6 +212,7 @@ void seissol::initializer::initprocedure::initIO() {
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
   if (!filesystem::exists(outputDir)) {
+    logWarning(rank) << "Output directory does not exist yet. We therefore create it now.";
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }

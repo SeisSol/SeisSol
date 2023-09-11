@@ -39,8 +39,8 @@
  */
 
 #include "SeisSol.h"
-#include "Initializer/InitProcedure/Init.hpp"
 #include "Common/filesystem.h"
+#include "Initializer/InitProcedure/Init.hpp"
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   // Initialize SeisSol
-  bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
+  const bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
   const auto stamp = utils::TimeUtils::timeAsString("%F_%T", time(0L));
   seissol::SeisSol::main.setBackupTimeStamp(stamp);
