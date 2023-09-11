@@ -13,7 +13,7 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .value("localwoader", Kernel::localwoader)
       .value("neigh_dr", Kernel::neigh_dr)
       .value("godunov_dr", Kernel::godunov_dr)
-      .value("dr", Kernel::dr)
+      .value("dynrup", Kernel::dynrup)
       .export_values();
 
   py::class_<ProxyConfig>(module, "ProxyConfig")
