@@ -74,7 +74,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
     m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1;
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-      variables.push_back(LABELS[i]);
+			variables.push_back(LABELS[i]);
 		}
 
 		// TODO get the timestep from the checkpoint
@@ -85,6 +85,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
+		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
 
 		m_xdmfWriter->init(variables, std::vector<const char*>());
 		m_xdmfWriter->setMesh(nCells,

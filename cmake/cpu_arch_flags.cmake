@@ -60,7 +60,11 @@ function(get_arch_flags architecture compiler)
             set(HAS_REDZONE OFF PARENT_SCOPE)
             set(CPU_ARCH_FLAGS "-mtune=power9" PARENT_SCOPE)
         endif()
-    endif()
+
+    elseif ("${HOST_ARCH}" STREQUAL "a64fx")
+        set(HAS_REDZONE OFF PARENT_SCOPE)
+	set(CPU_ARCH_FLAGS "-mcpu=a64fx" PARENT_SCOPE)
+     endif()
 
     if (compiler MATCHES "NVHPC|PGI")
         #NOTE: PGI-based compiler does not have `-mno-red-zone` flag

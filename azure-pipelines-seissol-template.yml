@@ -69,6 +69,7 @@ jobs:
                         make -j $(nproc)
                       displayName: build
                     - bash: |
+                        set -eou pipefail
                         cd build
                         make test
 

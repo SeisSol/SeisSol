@@ -37,6 +37,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
       auto* devImpAndEta{this->impAndEta};
+      auto* devImpedanceMatrices{this->impedanceMatrices};
       auto* devQInterpolatedPlus{this->qInterpolatedPlus};
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
@@ -46,10 +47,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         #pragma omp parallel for
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
-                                                                      devImpAndEta[ltsFace],
-                                                                      devQInterpolatedPlus[ltsFace],
-                                                                      devQInterpolatedMinus[ltsFace],
-                                                                      pointIndex);
+                                                                  devImpAndEta[ltsFace],
+                                                                  devImpedanceMatrices[ltsFace],
+                                                                  devQInterpolatedPlus[ltsFace],
+                                                                  devQInterpolatedMinus[ltsFace],
+                                                                  pointIndex);
         }
       }
 
@@ -60,6 +62,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        auto* devInitialPressure{this->initialPressure};
+        const auto* devNucleationPressure{this->nucleationPressure};
 
         #pragma omp distribute
         for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
@@ -69,6 +73,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             common::adjustInitialStress<gpuRangeType>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
+                devInitialPressure[ltsFace],
+                devNucleationPressure[ltsFace],
                 fullUpdateTime,
                 t0,
                 dt,
@@ -119,6 +125,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           common::postcomputeImposedStateFromNewStress<gpuRangeType>(devFaultStresses[ltsFace],
                                                                      devTractionResults[ltsFace],
                                                                      devImpAndEta[ltsFace],
+                                                                     devImpedanceMatrices[ltsFace],
                                                                      devImposedStatePlus[ltsFace],
                                                                      devImposedStateMinus[ltsFace],
                                                                      devQInterpolatedPlus[ltsFace],

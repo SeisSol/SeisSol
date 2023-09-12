@@ -5,12 +5,13 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <unordered_set>
 #include <yaml-cpp/yaml.h>
 
 #include <xdmfwriter/XdmfWriter.h>
 
 #include "Geometry/MeshReader.h"
-#include "SourceTerm/Manager.h"
+#include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
 
@@ -71,7 +72,8 @@ enum class InitializationType : int {
   Snell,
   Ocean0,
   Ocean1,
-  Ocean2
+  Ocean2,
+  PressureInjection
 };
 
 struct InitializationParameters {
@@ -79,11 +81,8 @@ struct InitializationParameters {
   std::array<double, 3> origin;
   std::array<double, 3> kVec;
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
-};
-
-struct DynamicRuptureParameters {
-  bool hasFault;
-  // TODO(David): port rest of the DR parameters here?
+  double magnitude;
+  double width;
 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
@@ -173,7 +172,6 @@ struct OutputParameters {
   ReceiverOutputParameters receiverParameters;
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
-  bool faultOutput;
   bool loopStatisticsNetcdfOutput;
 };
 
@@ -200,7 +198,6 @@ struct EndParameters {
 
 struct SeisSolParameters {
   ModelParameters model;
-  DynamicRuptureParameters dynamicRupture;
   MeshParameters mesh;
   InitializationParameters initialization;
   OutputParameters output;
