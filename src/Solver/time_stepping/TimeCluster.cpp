@@ -399,7 +399,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                              true);
 
     #ifdef USE_DAMAGEDELASTIC
-    real epsInitxx = -1e-2; // eps_xx0
+    real epsInitxx = -0e-2; // eps_xx0
     real epsInityy = -0e-1; // eps_yy0
     real epsInitzz = -0e-1; // eps_zz0
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
@@ -480,11 +480,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             damage_para1
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-        } else if (alphaNodal[q] > 1e-2 ) {
-          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            damage_para1
-              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
         }
+        // else if (alphaNodal[q] > 1e-2 ) {
+        //   FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        //     damage_para1
+        //       *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+        // }
         else {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
         }
@@ -942,7 +943,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 
 
       // std::cout << data.dofs[0+0] << std::endl;
-      real epsInitxx = -1e-2; // eps_xx0
+      real epsInitxx = -0e-2; // eps_xx0
       real epsInityy = -0e-1; // eps_yy0
       real epsInitzz = -0e-1; // eps_zz0
 
@@ -1317,6 +1318,7 @@ void TimeCluster::correct() {
 
   }
   computeNeighboringIntegration(*m_clusterData, subTimeStart);
+  // computeSources();
 
   seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsNeighbor(m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)]);
   seissol::SeisSol::main.flopCounter().incrementHardwareFlopsNeighbor(m_flops_hardware[static_cast<int>(ComputePart::Neighbor)]);

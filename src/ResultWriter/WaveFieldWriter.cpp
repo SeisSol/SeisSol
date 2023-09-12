@@ -189,8 +189,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   //
   m_numVariables = numVars + WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
   m_outputFlags = new bool[m_numVariables];
-  for (size_t i = 0; i < numVars; i++)
+  for (size_t i = 0; i < numVars; i++) {
     m_outputFlags[i] = (outputMask[i] != 0);
+    // m_outputFlags[9] = true;}
   for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++)
     m_outputFlags[numVars + i] = (pstrain != 0L) && (plasticityMask[i] != 0L);
 

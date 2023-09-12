@@ -185,7 +185,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real epsInitxx = -1e-2; // eps_xx0
+  real epsInitxx = -0e-2; // eps_xx0
   real epsInityy = -0e-1; // eps_yy0
   real epsInitzz = -0e-1; // eps_zz0
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
@@ -231,11 +231,12 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         damage_para1
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-    } else if (alphaNodal[q] > 1e-2) {
-      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        damage_para1
-          *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
     }
+    // else if (alphaNodal[q] > 1e-2) {
+    //   fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+    //     damage_para1
+    //       *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+    // }
     else {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
     }
