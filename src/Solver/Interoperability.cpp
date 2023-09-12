@@ -102,7 +102,7 @@ extern "C" {
   {
     e_interoperability.setInitialConditionType(type);
   }
-  
+
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -165,7 +165,7 @@ extern "C" {
                                         iniStress,
                                         waveSpeeds );
   }
-  
+
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -584,7 +584,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   };
   seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
 
-  if (anisotropy) { 
+  if (anisotropy) {
     if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
@@ -653,6 +653,33 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         calcWaveSpeeds(&materials[i], i);
       }
     } else {
+      #if USE_DAMAGEDELASTIC
+      auto materials = std::vector<seissol::model::DamagedElasticMaterial>(nElements);
+      seissol::initializers::MaterialParameterDB<seissol::model::DamagedElasticMaterial> parameterDB;
+      parameterDB.setMaterialVector(&materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+      for (unsigned int i = 0; i < nElements; i++) {
+        materialVal[i] = materials[i].rho;
+        materialVal[1*nElements + i] = materials[i].mu;
+        materialVal[2*nElements + i] = materials[i].lambda;
+        materialVal[3*nElements + i] = materials[i].mu0;
+        materialVal[4*nElements + i] = materials[i].lambda0;
+        materialVal[5*nElements + i] = materials[i].beta;
+        materialVal[6*nElements + i] = materials[i].delta;
+        materialVal[7*nElements + i] = materials[i].gammaB;
+        materialVal[8*nElements + i] = materials[i].tauB;
+        materialVal[9*nElements + i] = materials[i].sigmaxx_alpha;
+        materialVal[10*nElements + i] = materials[i].sigmaxy_alpha;
+        materialVal[11*nElements + i] = materials[i].sigmaxz_alpha;
+        materialVal[12*nElements + i] = materials[i].sigmayx_alpha;
+        materialVal[13*nElements + i] = materials[i].sigmayy_alpha;
+        materialVal[14*nElements + i] = materials[i].sigmayz_alpha;
+        materialVal[15*nElements + i] = materials[i].sigmazx_alpha;
+        materialVal[16*nElements + i] = materials[i].sigmazy_alpha;
+        materialVal[17*nElements + i] = materials[i].sigmazz_alpha;
+        calcWaveSpeeds(&materials[i], i);
+      }
+      #else
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
@@ -663,7 +690,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[2*nElements + i] = materials[i].lambda;
         calcWaveSpeeds(&materials[i], i);
       }
-    } 
+      #endif
+    }
 
     //now initialize the plasticity data
     if (plasticity) {
@@ -681,7 +709,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         iniStress[i*6+4] = materials[i].s_yz;
         iniStress[i*6+5] = materials[i].s_xz;
       }
-    } 
+    }
   }
   delete queryGen;
 }
@@ -721,6 +749,8 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   new(material) seissol::model::ViscoElasticMaterial(i_materialVal, i_numMaterialVals);
 #elif defined USE_POROELASTIC
   new(material) seissol::model::PoroElasticMaterial(i_materialVal, i_numMaterialVals);
+#elif defined USE_DAMAGEDELASTIC
+  new(material) seissol::model::DamagedElasticMaterial(i_materialVal, i_numMaterialVals);
 #else
   new(material) seissol::model::ElasticMaterial(i_materialVal, i_numMaterialVals);
 #endif
@@ -885,7 +915,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         double energySyncInterval, bool receiverComputeRotation)
 {
   auto type = writer::backendType(xdmfWriterBackend);
-  
+
 	// Initialize checkpointing
 	int faultTimeStep;
 

@@ -399,10 +399,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                              true);
 
     #ifdef USE_DAMAGEDELASTIC
-    real const damage_para1 = 1.2e4/2;
-    real const damage_para2 = 3e-6;
-    real const lambda0 = 9.71e10;
-    real const mu0 = 8.27e10;
+    real const damage_para1 = data.material.local.gammaB;// 1.2e4/2;
+    real const damage_para2 = data.material.local.tauB;// 3e-6;
+    real const lambda0 = data.material.local.lambda0;// 9.71e10;
+    real const mu0 = data.material.local.mu0;// 8.27e10;
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
     double timePoints[CONVERGENCE_ORDER];
@@ -912,9 +912,11 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // END TODO
       real EspI = Q_aveData[0] + Q_aveData[1] + Q_aveData[2];
       real alphaAve = Q_aveData[9];
-      real lambda0 = 9.71e10;
-      real mu0 = 8.27e10;
-      real beta_m = 0e2;
+      real lambda0 = materialData[l_cell].local.lambda0;// 9.71e10;
+      real mu0 = materialData[l_cell].local.mu0;// 8.27e10;
+      real beta_m = materialData[l_cell].local.beta;// 0e2;
+
+      // std::cout << lambda0 << mu0 << ", " << beta_m << std::endl;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 

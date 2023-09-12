@@ -185,10 +185,13 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real const damage_para1 = 1.2e4/2;
-  real const damage_para2 = 3e-6;
-  real const lambda0 = 9.71e10;
-  real const mu0 = 8.27e10;
+  real const damage_para1 = data.material.local.gammaB;// 1.2e4/2;
+  real const damage_para2 = data.material.local.tauB;// 3e-6;
+  real const lambda0 = data.material.local.lambda0;// 9.71e10;
+  real const mu0 = data.material.local.mu0;// 8.27e10;
+
+  // std::cout << damage_para1 << damage_para2 << std::endl;
+
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions

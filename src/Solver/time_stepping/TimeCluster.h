@@ -418,8 +418,8 @@ private:
             using namespace seissol::dr::misc::quantity_indices;
             unsigned DAM = 9;
 
-            real lambda0 = 9.71e10;
-            real mu0 = 8.27e10;
+            real lambda0 = materialData[l_cell].local.lambda0;// 9.71e10;
+            real mu0 = materialData[l_cell].local.mu0; // 8.27e10;
             real rho0 = materialData[l_cell].local.rho;
 
             real lambda_max = 1.0*std::sqrt( (lambda0+2*mu0)/rho0 ) ;

@@ -11,6 +11,12 @@ namespace seissol {
     struct DamagedElasticMaterial : Material {
       double lambda;
       double mu;
+      double lambda0;
+      double mu0;
+      double beta;
+      double delta;
+      double gammaB;
+      double tauB;
       double sigmaxx_alpha;
       double sigmaxy_alpha;
       double sigmaxz_alpha;
@@ -24,20 +30,26 @@ namespace seissol {
       DamagedElasticMaterial() {};
       DamagedElasticMaterial(double* materialValues, int numMaterialValues)
       {
-        assert(numMaterialValues == 3);
+        assert(numMaterialValues == 18);
 
         this->rho = materialValues[0];
         this->mu = materialValues[1];
         this->lambda = materialValues[2];
-        this->sigmaxx_alpha = materialValues[3];
-        this->sigmaxy_alpha = materialValues[4];
-        this->sigmaxz_alpha = materialValues[5];
-        this->sigmayx_alpha = materialValues[6];
-        this->sigmayy_alpha = materialValues[7];
-        this->sigmayz_alpha = materialValues[8];
-        this->sigmazx_alpha = materialValues[9];
-        this->sigmazy_alpha = materialValues[10];
-        this->sigmazz_alpha = materialValues[11];
+        this->mu0 = materialValues[3];
+        this->lambda0 = materialValues[4];
+        this->beta = materialValues[5];
+        this->delta = materialValues[6];
+        this->gammaB = materialValues[7];
+        this->tauB = materialValues[8];
+        this->sigmaxx_alpha = materialValues[9];
+        this->sigmaxy_alpha = materialValues[10];
+        this->sigmaxz_alpha = materialValues[11];
+        this->sigmayx_alpha = materialValues[12];
+        this->sigmayy_alpha = materialValues[13];
+        this->sigmayz_alpha = materialValues[14];
+        this->sigmazx_alpha = materialValues[15];
+        this->sigmazy_alpha = materialValues[16];
+        this->sigmazz_alpha = materialValues[17];
       }
 
       virtual ~DamagedElasticMaterial() {};
