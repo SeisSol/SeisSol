@@ -13,13 +13,15 @@ enum Kernel {
   ader,
   localwoader,
   neigh_dr,
-  godunov_dr
+  godunov_dr,
+  dynrup
 };
 
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
   unsigned phase{10};
+  unsigned fault{0};
   Kernel kernel{Kernel::all};
   bool verbose{true};
 };
@@ -100,7 +102,8 @@ protected:
       {Kernel::ader,        "ader"},
       {Kernel::localwoader, "localwoader"},
       {Kernel::neigh_dr,    "neigh_dr"},
-      {Kernel::godunov_dr,  "godunov_dr"}
+      {Kernel::godunov_dr,  "godunov_dr"},
+      {Kernel::dynrup,  "dynrup"},
   };
 
   inline static std::unordered_map<std::string, Kernel> invMap{
@@ -110,7 +113,8 @@ protected:
       {"ader", Kernel::ader},
       {"localwoader", Kernel::localwoader},
       {"neigh_dr", Kernel::neigh_dr},
-      {"godunov_dr", Kernel::godunov_dr}
+      {"godunov_dr", Kernel::godunov_dr},
+      {"dynrup", Kernel::dynrup},
   };
 };
 
