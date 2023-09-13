@@ -53,6 +53,7 @@ class ElasticADERDG(LinearADERDG):
     )
 
     memoryLayoutFromFile(memLayout, self.db, clones)
+    self.kwargs = kwargs
 
   def numberOfQuantities(self):
     return 9

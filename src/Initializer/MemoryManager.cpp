@@ -863,7 +863,7 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   m_faultOutputManager = std::move(product.output);
 }
 
-void seissol::initializers::MemoryManager::initFaultOutputManager() {
+void seissol::initializers::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
   // TODO: switch m_dynRup to shared or weak pointer
   if (m_dynRupParameters->isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
@@ -872,6 +872,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
                                      &m_ltsLut,
                                      &m_dynRupTree,
                                      m_dynRup.get());
+    m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     m_faultOutputManager->init();
 
   }
