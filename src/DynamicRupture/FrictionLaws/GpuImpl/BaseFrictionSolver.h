@@ -19,6 +19,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
 
+    Derived& self = *(static_cast<Derived*>(this));
+
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
@@ -56,7 +58,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       }
 
       auto* devStateVariableBuffer = this->stateVariableBuffer;
-      static_cast<Derived*>(this)->preHook(devStateVariableBuffer);
+      self.preHook(devStateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
@@ -82,9 +84,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         }
 
-        static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
+        self.updateFrictionAndSlip(timeIndex);
       }
-      static_cast<Derived*>(this)->postHook(devStateVariableBuffer);
+      self.postHook(devStateVariableBuffer);
 
       auto* devRuptureTimePending{this->ruptureTimePending};
       auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -102,7 +104,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         }
       }
 
-      static_cast<Derived*>(this)->saveDynamicStressOutput();
+      self.saveDynamicStressOutput();
 
       auto* devPeakSlipRate{this->peakSlipRate};
       auto* devImposedStatePlus{this->imposedStatePlus};
