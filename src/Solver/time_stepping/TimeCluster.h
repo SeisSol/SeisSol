@@ -418,7 +418,7 @@ private:
             using namespace seissol::dr::misc::quantity_indices;
             unsigned DAM = 9;
 
-            real epsInitxx = -1e-2; // eps_xx0
+            real epsInitxx = -0e-2; // eps_xx0
             real epsInityy = -0e-1; // eps_yy0
             real epsInitzz = -0e-1; // eps_zz0
             real lambda0 = materialData[l_cell].local.lambda0;

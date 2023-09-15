@@ -185,7 +185,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real epsInitxx = -1e-2; // eps_xx0
+  real epsInitxx = -0e-2; // eps_xx0
   real epsInityy = -0e-1; // eps_yy0
   real epsInitzz = -0e-1; // eps_zz0
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;

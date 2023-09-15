@@ -108,11 +108,11 @@ inline void precomputeStressFromQInterpolated(
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
-  auto rhoP = impAndEta.gammaRP;
+  auto rhoP = impAndEta.rho0P;
   auto la0M = impAndEta.lambda0M;
   auto mu0M = impAndEta.mu0M;
   auto gaRM = impAndEta.gammaRM;
-  auto rhoM = impAndEta.gammaRP;
+  auto rhoM = impAndEta.rho0M;
 
   using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
