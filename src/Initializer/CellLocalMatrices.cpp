@@ -561,8 +561,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
         #if defined USE_DAMAGEDELASTIC
-        minusDamMaterial = &material[plusLtsId].local;
-        plusDamMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        minusDamMaterial = &material[minusLtsId].local;
+        plusDamMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
         #endif
         plusMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
         minusMaterial = &material[minusLtsId].local;
