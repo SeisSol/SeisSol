@@ -671,6 +671,24 @@ private:
             m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
+          } else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
+            // No neighboring cell contribution, interior bc.
+            assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+
+            kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
+            m_drIntegral.Q = data.dofs;
+            m_drIntegral.Flux = drMapping[l_cell][side].godunov;
+            // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
+            m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+            // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
+            m_drIntegral.execute(side, 0);
+
+            // dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+            // drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
+            // drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
+            // drKrnl.Q = data.dofs;
+            // drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+            // drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
           } // if (faceTypes)
         } // for (side)
 

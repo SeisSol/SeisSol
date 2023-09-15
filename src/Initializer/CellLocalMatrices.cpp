@@ -540,16 +540,30 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Materials
       seissol::model::Material* plusMaterial;
       seissol::model::Material* minusMaterial;
+
+      #if defined USE_DAMAGEDELASTIC
+      seissol::model::DamagedElasticMaterial* plusDamMaterial;
+      seissol::model::DamagedElasticMaterial* minusDamMaterial;
+      #endif
+
       unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+        #if defined USE_DAMAGEDELASTIC
+        plusDamMaterial = &material[plusLtsId].local;
+        minusDamMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        #endif
         plusMaterial = &material[plusLtsId].local;
         minusMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
+        #if defined USE_DAMAGEDELASTIC
+        minusDamMaterial = &material[plusLtsId].local;
+        plusDamMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        #endif
         plusMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
         minusMaterial = &material[minusLtsId].local;
       }
@@ -564,6 +578,32 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+
+      #if defined USE_DAMAGEDELASTIC
+      impAndEta[ltsFace].lambda0P = plusDamMaterial->lambda0;
+      impAndEta[ltsFace].mu0P = plusDamMaterial->mu0;
+      impAndEta[ltsFace].gammaRP = plusDamMaterial->gammaR;
+      impAndEta[ltsFace].xi0P = plusDamMaterial->xi0;
+      impAndEta[ltsFace].rho0P = plusDamMaterial->rho;
+
+      impAndEta[ltsFace].lambda0M = minusDamMaterial->lambda0;
+      impAndEta[ltsFace].mu0M = minusDamMaterial->mu0;
+      impAndEta[ltsFace].gammaRM = minusDamMaterial->gammaR;
+      impAndEta[ltsFace].xi0M = minusDamMaterial->xi0;
+      impAndEta[ltsFace].rho0M = minusDamMaterial->rho;
+
+      impAndEta[ltsFace].faultN[0] = fault[meshFace].normal[0];
+      impAndEta[ltsFace].faultT1[0] = fault[meshFace].tangent1[0];
+      impAndEta[ltsFace].faultT2[0] = fault[meshFace].tangent2[0];
+
+      impAndEta[ltsFace].faultN[1] = fault[meshFace].normal[1];
+      impAndEta[ltsFace].faultT1[1] = fault[meshFace].tangent1[1];
+      impAndEta[ltsFace].faultT2[1] = fault[meshFace].tangent2[1];
+
+      impAndEta[ltsFace].faultN[2] = fault[meshFace].normal[2];
+      impAndEta[ltsFace].faultT1[2] = fault[meshFace].tangent1[2];
+      impAndEta[ltsFace].faultT2[2] = fault[meshFace].tangent2[2];
+      #endif
 
       //calculate Impedances Z and eta
       impAndEta[ltsFace].zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
@@ -580,6 +620,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
+      #if defined USE_DAMAGEDELASTIC
+      impAndEta[ltsFace].csOcpTZsOZp = waveSpeedsPlus[ltsFace].sWaveVelocity / waveSpeedsPlus[ltsFace].pWaveVelocity
+                                        * impAndEta[ltsFace].zs / impAndEta[ltsFace].zp;
+      impAndEta[ltsFace].csOcpTZsOZpNeig = waveSpeedsMinus[ltsFace].sWaveVelocity / waveSpeedsMinus[ltsFace].pWaveVelocity
+                                        * impAndEta[ltsFace].zsNeig / impAndEta[ltsFace].zpNeig;
+      #endif
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
