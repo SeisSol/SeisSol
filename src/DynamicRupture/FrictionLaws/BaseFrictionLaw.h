@@ -168,6 +168,10 @@ class BaseFrictionLaw : public FrictionSolver {
           qStressIMinus[o][W][i] = qIMinus[o][W][i];
           qStressIMinus[o][DAM][i] = qIMinus[o][DAM][i];
         }
+        // std::cout << qInterpolatedPlus[ltsFace][o][3*seissol::dr::misc::numPaddedPoints+0]
+        // << ", " << qStressInterpolatedPlus[o][3*seissol::dr::misc::numPaddedPoints+0]
+        // << ", " << qStressInterpolatedPlus[o][3*seissol::dr::misc::numPaddedPoints+0]/qInterpolatedPlus[ltsFace][o][3*seissol::dr::misc::numPaddedPoints+0]
+        // << std::endl;
       } // time integration loop
 
       common::precomputeStressFromQInterpolated(faultStresses,
@@ -237,15 +241,15 @@ class BaseFrictionLaw : public FrictionSolver {
                                                    impAndEta[ltsFace],
                                                    imposedStatePlus[ltsFace],
                                                    imposedStateMinus[ltsFace],
-                                                   qInterpolatedPlus[ltsFace],
-                                                   qInterpolatedMinus[ltsFace],
+                                                   qStressInterpolatedPlus,
+                                                   qStressInterpolatedMinus,
                                                    timeWeights);
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
 
       common::computeFrictionEnergy(energyData[ltsFace],
-                                    qInterpolatedPlus[ltsFace],
-                                    qInterpolatedMinus[ltsFace],
+                                    qStressInterpolatedPlus,
+                                    qStressInterpolatedMinus,
                                     impAndEta[ltsFace],
                                     timeWeights,
                                     spaceWeights,

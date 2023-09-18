@@ -671,7 +671,8 @@ private:
             m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
-          } else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
+          }
+          else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
             // No neighboring cell contribution, interior bc.
             assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
@@ -681,7 +682,7 @@ private:
             // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
             m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
-            m_drIntegral.execute(side, 0);
+            m_drIntegral.execute(side, drMapping[l_cell][side].faceRelation);
 
             // dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
             // drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
