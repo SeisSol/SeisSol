@@ -674,7 +674,7 @@ private:
           }
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
             // No neighboring cell contribution, interior bc.
-            assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+            assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
 
             kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
             m_drIntegral.Q = data.dofs;

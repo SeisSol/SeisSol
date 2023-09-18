@@ -147,7 +147,7 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
 
       if( i_copy ) { // set the buffer invalid in copy layers
                      // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
-        l_ltsSetup |= ( 1 << 10 );
+        // l_ltsSetup |= ( 1 << 10 );
       }
     }
     // derive the LTS setup based on the cluster ids
