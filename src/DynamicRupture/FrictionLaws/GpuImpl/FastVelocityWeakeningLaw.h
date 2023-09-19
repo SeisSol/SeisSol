@@ -56,7 +56,7 @@ class FastVelocityWeakeningLaw
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const double localSl0 = details.sl0[ltsFace][pointIndex];
@@ -120,12 +120,12 @@ class FastVelocityWeakeningLaw
     #pragma omp distribute // map(alloc:deltaStateVar[0:misc::numPaddedPoints])
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
         real deltaStateVar[misc::numPaddedPoints];
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           deltaStateVar[pointIndex] =
               devStateVariableBuffer[ltsFace][pointIndex] - devStateVariable[ltsFace][pointIndex];
         }
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         real resampledDeltaStateVar{0.0};
         for (size_t i{0}; i < dim1; ++i) {

@@ -19,7 +19,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const double localSl0 = devSl0[ltsFace][pointIndex];

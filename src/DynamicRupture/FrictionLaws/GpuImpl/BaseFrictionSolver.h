@@ -34,7 +34,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       this->devTimeWeights[i] = timeWeights[i];
     }
 
-    #pragma omp target teams // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
+     // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
+
+    #pragma omp target teams
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
@@ -46,7 +48,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
@@ -69,7 +71,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
         #pragma omp distribute
         for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-          #pragma omp parallel for
+          #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
             common::adjustInitialStress<gpuRangeType>(
@@ -94,7 +96,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
@@ -118,7 +120,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
           common::savePeakSlipRateOutput<gpuRangeType>(

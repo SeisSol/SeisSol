@@ -52,7 +52,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         auto& faultStresses = devFaultStresses[ltsFace];
@@ -102,7 +102,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         auto& stateVariable = stateVariableBuffer[ltsFace];
@@ -126,7 +126,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
@@ -190,7 +190,7 @@ class LinearSlipWeakeningLaw
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         auto& faultStresses = devFaultStresses[ltsFace];
@@ -229,7 +229,7 @@ class LinearSlipWeakeningLaw
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         real resampledSlipRate = SpecializationT::resampleSlipRate(

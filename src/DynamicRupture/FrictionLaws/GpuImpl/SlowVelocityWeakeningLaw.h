@@ -74,7 +74,7 @@ class SlowVelocityWeakeningLaw
 
     #pragma omp distribute
       for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         stateVariable[ltsFace][pointIndex] = stateVariableBuffer[ltsFace][pointIndex];
