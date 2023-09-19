@@ -404,7 +404,7 @@ class seissol::initializers::MemoryManager {
 #endif
 
   void initializeFrictionLaw();
-  void initFaultOutputManager();
+  void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
 };
 
