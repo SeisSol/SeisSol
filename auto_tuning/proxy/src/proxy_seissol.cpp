@@ -273,6 +273,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
   output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
 
+  m_frictionSolver.reset();
   delete m_ltsTree;
   delete m_dynRupTree;
   delete m_allocator;
