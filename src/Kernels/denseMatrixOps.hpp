@@ -57,6 +57,8 @@
 #include "denseMatrixOps_SSE3.hpp"
 #elif defined(__ARM_FEATURE_SVE)
 #include "denseMatrixOps_SVE.hpp"
+#elif defined(__aarch64__)
+#include "denseMatrixOps_AARCH64.hpp"
 #else
 #include "denseMatrixOps_noarch.hpp"
 #endif
