@@ -25,8 +25,9 @@
 
 #include "Parallel/MPI.h"
 
+namespace {
+
 static void postMeshread(seissol::geometry::MeshReader& meshReader,
-                         bool hasFault,
                          const std::array<double, 3>& displacement,
                          const std::array<std::array<double, 3>, 3>& scalingMatrix) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
@@ -39,15 +40,13 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
-  if (hasFault) {
-    logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
+  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
 
-    auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
-    VrtxCoords center{drParameters->referencePoint[0],
-                      drParameters->referencePoint[1],
-                      drParameters->referencePoint[2]};
-    meshReader.extractFaultInformation(center, drParameters->refPointMethod);
-  }
+  auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
+  VrtxCoords center{drParameters->referencePoint[0],
+                    drParameters->referencePoint[1],
+                    drParameters->referencePoint[2]};
+  meshReader.extractFaultInformation(center, drParameters->refPointMethod);
 
   logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
@@ -120,7 +119,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 #endif // defined(USE_HDF) && defined(USE_MPI)
 }
 
-size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
+static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   auto& mpiNeighbors = meshReader.getMPINeighbors();
   size_t numEdges{0};
   for (auto& [_, neighborInfo] : mpiNeighbors) {
@@ -130,6 +129,8 @@ size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   }
   return numEdges;
 }
+
+} // namespace
 
 static void
     readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
@@ -192,10 +193,7 @@ void seissol::initializer::initprocedure::initMesh() {
   }
 
   auto& meshReader = seissol::SeisSol::main.meshReader();
-  postMeshread(meshReader,
-               seissolParams.dynamicRupture.hasFault,
-               seissolParams.mesh.displacement,
-               seissolParams.mesh.scaling);
+  postMeshread(meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling);
 
   watch.pause();
   watch.printTime("Mesh initialized in:");

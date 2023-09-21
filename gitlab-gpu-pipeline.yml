@@ -1,12 +1,13 @@
 default:
     tags:
-        - tum05-k8s-4cores-16gb
+        - sccs
+        - helper
     image:
         name: $CI_REGISTRY_USER/$gpu_image_name:$gpu_image_version
         entrypoint: [""]
 
 variables:
-    HOST: "snb"
+    HOST: "wsm"
     GPU_VENDOR: "nvidia"
     GPU_MODEL: "sm_60"
 
@@ -22,7 +23,9 @@ gpu_pre_build:
     allow_failure: false
     variables:
         GIT_STRATEGY: clone
-
+    tags:
+        - sccs
+        - build
     before_script:
         - git branch -vva
         - echo $commit_author_name
@@ -62,6 +65,9 @@ gpu_pre_build:
 gpu_build:
     stage: build
     allow_failure: false
+    tags:
+        - sccs
+        - gpubuild
     needs:
         - job: gpu_pre_build
     parallel:
@@ -92,6 +98,7 @@ gpu_build:
     artifacts:
         paths:
             - build_*
+    retry: 2
 
 
 gpu_convergence_test:
@@ -100,7 +107,8 @@ gpu_convergence_test:
     needs:
         - job: gpu_build
     tags:
-        - tum05-k8s-1core-8gb-gpu
+        - sccs
+        - gpu-nvidia-sm_60
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
@@ -127,6 +135,7 @@ gpu_convergence_test:
     artifacts:
         paths:
             - build_*
+    retry: 2
 
 
 gpu_run_tpv:
@@ -135,7 +144,8 @@ gpu_run_tpv:
     needs:
         - job: gpu_build
     tags:
-        - tum05-k8s-1core-8gb-gpu
+        - sccs
+        - gpu-nvidia-sm_60
     parallel:
         matrix:
             - precision: [single]
@@ -162,6 +172,7 @@ gpu_run_tpv:
     artifacts:
         paths:
             - output-*
+    retry: 2
 
 
 check_faultoutput:
@@ -235,13 +246,15 @@ gpu_check_energies:
 gpu_performance_test:
     stage: performance_eval
     allow_failure: true
+    when: manual # skip by default
     needs:
         - job: gpu_build
           artifacts: true
         - job: gpu_run_tpv
           artifacts: false
     tags:
-        - tum05-k8s-1core-8gb-gpu
+        - sccs
+        - gpu-nvidia-sm_60
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]

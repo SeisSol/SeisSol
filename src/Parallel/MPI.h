@@ -42,6 +42,7 @@
 #ifndef MPI_H
 #define MPI_H
 
+#include <functional>
 #ifndef USE_MPI
 #include "MPIDummy.h"
 #else // USE_MPI
@@ -178,6 +179,63 @@ class MPI : public MPIBasic {
       collected[rank] = ContainerType(&recvBuffer[begin], &recvBuffer[end]);
     }
     return collected;
+  }
+
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
+  template<typename F>
+  void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
+    if (!comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+
+    int rank, size;
+    MPI_Comm_rank(comm.value(), &rank);
+    MPI_Comm_size(comm.value(), &size);
+
+    const int tag = 15; // TODO(David): replace by a tag allocation system one day
+    char flag = 0;
+    if (rank > 0) {
+      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+    }
+
+    std::invoke(std::forward<F>(operation));
+
+    // size >= 1 is ensured
+    if (rank < size - 1) {
+      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+    }
+  }
+
+  /**
+   * sends a value to all processors
+   */
+  template <typename T>
+  void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto mpiType = castToMpiType<T>();
+    MPI_Bcast(value, 1, mpiType, root, comm.value());
+  }
+
+  /**
+   * sends a container to all processors
+   */
+  template <typename ContainerType>
+  void broadcastContainer(ContainerType& container,
+                          int root,
+                          std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = typename ContainerType::value_type;
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto size = static_cast<unsigned>(container.size());
+    broadcast(&size, root);
+    if (m_rank != root) {
+      container.resize(size);
+    }
+    auto mpiType = castToMpiType<InternalType>();
+    MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
   }
 
   /**
