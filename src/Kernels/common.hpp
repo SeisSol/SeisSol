@@ -126,7 +126,7 @@ constexpr unsigned int
  * @return aligned number of reals.
  **/
 constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
-                                               unsigned int i_alignment = ALIGNMENT) {
+                                               unsigned int i_alignment = VECTORSIZE) {
   // in principle, we could simplify this formula by substituting alignment = i_alignment /
   // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
   // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
@@ -145,7 +145,7 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
  **/
 constexpr unsigned int
     getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                     unsigned int i_alignment = ALIGNMENT) {
+                                     unsigned int i_alignment = VECTORSIZE) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions(i_convergenceOrder);
@@ -161,7 +161,7 @@ constexpr unsigned int
  **/
 constexpr unsigned
     getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                               unsigned int i_alignment = ALIGNMENT) {
+                                               unsigned int i_alignment = VECTORSIZE) {
   return (i_convergenceOrder > 0)
              ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) +
                    getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
