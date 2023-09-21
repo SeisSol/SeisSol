@@ -151,11 +151,11 @@ if (HDF5 AND MPI)
     )
 endif()
 
-
 if (NETCDF)
   list(APPEND SYCL_DEPENDENT_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
     )
 endif()
 

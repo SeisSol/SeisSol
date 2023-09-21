@@ -104,14 +104,11 @@ class ParameterReader {
     }
   }
 
-  void markUnusedSingle(const std::string& field) {
-    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
-    visited.emplace(field);
-  }
-
-  void markUnused(const std::vector<std::string>& fields) {
-    for (const auto& field : fields) {
-      markUnusedSingle(field);
+  template <typename... Args>
+  void markUnused(const Args&... argFields) {
+    for (const auto& field : {argFields...}) {
+      logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
+      visited.emplace(field);
     }
   }
 
@@ -176,8 +173,7 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.model.freqRatio = reader.readOrFail<double>(
       "freqratio", "equations.freqratio is needed for the attenuation fitting.");
 #else
-  reader.markUnused({"freqcentral",
-                     "freqratio"});
+  reader.markUnused("freqcentral", "freqratio");
 #endif
 
   reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
@@ -197,50 +193,33 @@ static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seiss
 static void readCubeGenerator(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("cubegenerator");
 
-  seissolParams.cubeGenerator.boundaries.cubeMinX =
-      reader.readWithDefault("cubeminx", 6);
-  seissolParams.cubeGenerator.boundaries.cubeMaxX =
-      reader.readWithDefault("cubemaxx", 6);
-  seissolParams.cubeGenerator.boundaries.cubeMinY =
-      reader.readWithDefault("cubeminy", 6);
-  seissolParams.cubeGenerator.boundaries.cubeMaxY =
-      reader.readWithDefault("cubemaxy", 6);
-  seissolParams.cubeGenerator.boundaries.cubeMinZ =
-      reader.readWithDefault("cubeminz", 6);
-  seissolParams.cubeGenerator.boundaries.cubeMaxZ =
-      reader.readWithDefault("cubemaxz", 6);
+  seissolParams.cubeGenerator.parameters.cubeMinX = reader.readWithDefault("cubeminx", 6);
+  seissolParams.cubeGenerator.parameters.cubeMaxX = reader.readWithDefault("cubemaxx", 6);
+  seissolParams.cubeGenerator.parameters.cubeMinY = reader.readWithDefault("cubeminy", 6);
+  seissolParams.cubeGenerator.parameters.cubeMaxY = reader.readWithDefault("cubemaxy", 6);
+  seissolParams.cubeGenerator.parameters.cubeMinZ = reader.readWithDefault("cubeminz", 6);
+  seissolParams.cubeGenerator.parameters.cubeMaxZ = reader.readWithDefault("cubemaxz", 6);
 
-  seissolParams.cubeGenerator.dims.cubeX =
-      reader.readWithDefault("cubex", 2);
-  seissolParams.cubeGenerator.dims.cubeY =
-      reader.readWithDefault("cubey", 2);
-  seissolParams.cubeGenerator.dims.cubeZ =
-      reader.readWithDefault("cubez", 2);
+  seissolParams.cubeGenerator.parameters.cubeX = reader.readWithDefault("cubex", 2);
+  seissolParams.cubeGenerator.parameters.cubeY = reader.readWithDefault("cubey", 2);
+  seissolParams.cubeGenerator.parameters.cubeZ = reader.readWithDefault("cubez", 2);
 
-  seissolParams.cubeGenerator.partitions.cubePx =
-      reader.readWithDefault("cubepx", 1);
-  seissolParams.cubeGenerator.partitions.cubePy =
-      reader.readWithDefault("cubepy", 1);
-  seissolParams.cubeGenerator.partitions.cubePz =
-      reader.readWithDefault("cubepz", 1);
+  seissolParams.cubeGenerator.parameters.cubePx = seissol::MPI::mpi.size();
+  seissolParams.cubeGenerator.parameters.cubePy = seissol::MPI::mpi.size();
+  seissolParams.cubeGenerator.parameters.cubePz = seissol::MPI::mpi.size();
 
-  seissolParams.cubeGenerator.scaling.cubeS =
-      reader.readWithDefault("cubes", 100);
-  seissolParams.cubeGenerator.scaling.cubeSx =
-      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.scaling.cubeS);
-  seissolParams.cubeGenerator.scaling.cubeSy =
-      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.scaling.cubeS);
-  seissolParams.cubeGenerator.scaling.cubeSz =
-      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.scaling.cubeS);
+  seissolParams.cubeGenerator.parameters.cubeS = reader.readWithDefault("cubes", 100);
+  seissolParams.cubeGenerator.parameters.cubeSx =
+      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.parameters.cubeS);
+  seissolParams.cubeGenerator.parameters.cubeSy =
+      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.parameters.cubeS);
+  seissolParams.cubeGenerator.parameters.cubeSz =
+      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.parameters.cubeS);
 
-  seissolParams.cubeGenerator.translation.cubeTx =
-      reader.readWithDefault("cubetx", 0.0);
-  seissolParams.cubeGenerator.translation.cubeTy =
-      reader.readWithDefault("cubety", 0.0);
-  seissolParams.cubeGenerator.translation.cubeTz =
-      reader.readWithDefault("cubetz", 0.0); 
+  seissolParams.cubeGenerator.parameters.cubeTx = reader.readWithDefault("cubetx", 0.0);
+  seissolParams.cubeGenerator.parameters.cubeTy = reader.readWithDefault("cubety", 0.0);
+  seissolParams.cubeGenerator.parameters.cubeTz = reader.readWithDefault("cubetz", 0.0);
 }
-
 
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("meshnml");
@@ -258,28 +237,24 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
 
   if (seissolParams.mesh.meshFormat == seissol::geometry::MeshFormat::CubeGenerator) {
     readCubeGenerator(baseReader, seissolParams);
-  }
-  else {
-    reader.markUnused({"cubegenerator",
-                       "cubeminx",
-                       "cubemaxx",
-                       "cubeminy",
-                       "cubemaxy",
-                       "cubeminz",
-                       "cubemaxz",
-                       "cubex",
-                       "cubey",
-                       "cubez",
-                       "cubepx",
-                       "cubepy",
-                       "cubepz",
-                       "cubes",
-                       "cubesx",
-                       "cubesy",
-                       "cubesz",
-                       "cubeTx",
-                       "cubeTy",
-                       "cubeTz"});
+  } else {
+    reader.markUnused("cubegenerator",
+                      "cubeminx",
+                      "cubemaxx",
+                      "cubeminy",
+                      "cubemaxy",
+                      "cubeminz",
+                      "cubemaxz",
+                      "cubex",
+                      "cubey",
+                      "cubez",
+                      "cubes",
+                      "cubesx",
+                      "cubesy",
+                      "cubesz",
+                      "cubetx",
+                      "cubety",
+                      "cubetz");
   }
 
   seissolParams.mesh.displacement = seissol::initializers::convertStringToArray<double, 3>(
@@ -321,13 +296,13 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
       });
 
   // TODO(David): integrate LTS parameters here
-  reader.markUnused({"ltswigglefactormin",
-                     "ltswigglefactorstepsize",
-                     "ltswigglefactorenforcemaximumdifference",
-                     "ltsmaxnumberofclusters",
-                     "ltsautomergeclusters",
-                     "ltsallowedrelativeperformancelossautomerge",
-                     "ltsautomergecostbaseline"});
+  reader.markUnused("ltswigglefactormin",
+                    "ltswigglefactorstepsize",
+                    "ltswigglefactorenforcemaximumdifference",
+                    "ltsmaxnumberofclusters",
+                    "ltsautomergeclusters",
+                    "ltsallowedrelativeperformancelossautomerge",
+                    "ltsautomergecostbaseline");
 
   reader.warnDeprecated({"ckmethod",
                          "dgfineout1d",
@@ -441,7 +416,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
     seissolParams.output.checkpointParameters.fileName =
         reader.readOrFail<std::string>("checkpointfile", "No checkpoint filename given.");
   } else {
-    reader.markUnused({"checkpointfile"});
+    reader.markUnused("checkpointfile");
   }
 
   // output: wavefield
@@ -587,7 +562,7 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
     seissolParams.source.fileName =
         reader.readOrFail<std::string>("filename", "No source file specified.");
   } else {
-    reader.markUnused({"filename"});
+    reader.markUnused("filename");
   }
 
   reader.warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
@@ -609,9 +584,7 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   readAbortCriteria(baseReader, *this);
 
   // TODO(David): remove once DR parameter reading is integrated here
-  baseReader.markUnused({"dynamicrupture",
-                         "elementwise",
-                         "pickpoint"});
+  baseReader.markUnused("dynamicrupture", "elementwise", "pickpoint");
 
   baseReader.warnDeprecated({"rffile",
                              "inflowbound",

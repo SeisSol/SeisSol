@@ -14,7 +14,7 @@
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "cubeGenerator.h"
+#include "Geometry/CubeGenerator.h"
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.hpp"
 #include "Monitoring/Stopwatch.h"
@@ -30,7 +30,7 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
                          const std::array<double, 3>& displacement,
                          const std::array<std::array<double, 3>, 3>& scalingMatrix) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
-  
+
   if (meshReader.getElements().empty()) {
     logWarning(seissol::MPI::mpi.rank())
         << "There are no local mesh elements on this rank. Is your mesh big enough?";
@@ -131,95 +131,20 @@ size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   return numEdges;
 }
 
-static void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+static void
+    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   // unpack seissolParams
-  const auto cubeGeneratorParameters = seissolParams.cubeGenerator;
-  const auto boundaries = cubeGeneratorParameters.boundaries;
-  const auto dims = cubeGeneratorParameters.dims;
-  const auto partitions = cubeGeneratorParameters.partitions;
-  const auto scaling = cubeGeneratorParameters.scaling;
-  const auto translation = cubeGeneratorParameters.translation;
+  const auto cubeParameters = seissolParams.cubeGenerator.parameters;
 
-  // get cubeGenerator parameters 
-  unsigned int cubeMinX = boundaries.cubeMinX;
-  unsigned int cubeMaxX = boundaries.cubeMaxX;
-  unsigned int cubeMinY = boundaries.cubeMinY;
-  unsigned int cubeMaxY = boundaries.cubeMaxY;
-  unsigned int cubeMinZ = boundaries.cubeMinZ;
-  unsigned int cubeMaxZ = boundaries.cubeMaxZ;
+  const auto commRank = seissol::MPI::mpi.rank();
+  const auto commSize = seissol::MPI::mpi.size();
+  std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+  auto meshReader = new seissol::geometry::CubeGenerator::CubeGenerator(
+      commRank, commSize, realMeshFileName.c_str(), cubeParameters);
 
-  unsigned int cubeX = dims.cubeX;
-  unsigned int cubeY = dims.cubeY;
-  unsigned int cubeZ = dims.cubeZ;
-
-  unsigned int cubePx = partitions.cubePx;
-  unsigned int cubePy = partitions.cubePy;
-  unsigned int cubePz = partitions.cubePz;
-
-  double cubeScale = scaling.cubeS;
-  double cubeScaleX = scaling.cubeSx;
-  double cubeScaleY = scaling.cubeSy;
-  double cubeScaleZ = scaling.cubeSz;
-
-  double cubeTx = translation.cubeTx;
-  double cubeTy = translation.cubeTy;
-  double cubeTz = translation.cubeTz;
- 
-  // create additional variables necessary for cubeGenerator()
-  unsigned int numCubes[4];
-  unsigned int numPartitions[4];
-
-  // check input arguments
-  numCubes[0] = cubeX;
-  numCubes[1] = cubeY;
-  numCubes[2] = cubeZ;
-
-  numPartitions[0] = cubePx;
-  numPartitions[1] = cubePy;
-  numPartitions[2] = cubePz;
-
-  for (int i = 0; i < 3; i++) {
-    if (numCubes[i] < 2)
-      logError() << "Number of cubes in" << dim2str(i) << "dimension must be at least 2";
-      if (numCubes[i] % numPartitions[i] != 0)
-        logError() << "Number of cubes in" << dim2str(i)
-                   << "dimension can not be distribute to" << numPartitions[i] << "partitions";
-      if ((numCubes[i] / numPartitions[i]) % 2 != 0)
-        logError() << "Number of cubes per partition in" << dim2str(i) << "dimension must be a multiple of 2";
-  }
-
-  // Compute additional sizes
-  numCubes[3] = numCubes[0] * numCubes[1] * numCubes[2];
-  numPartitions[3] = numPartitions[0] * numPartitions[1] * numPartitions[2];
-
-  unsigned int numCubesPerPart[4];
-  unsigned long numElemPerPart[4];
-  for (int i = 0; i < 4; i++) {
-    numCubesPerPart[i] = numCubes[i] / numPartitions[i];
-    numElemPerPart[i] = numCubesPerPart[i] * 5;
-  }
-
-  unsigned int numVrtxPerPart[4];
-  for (int i = 0; i < 3; i++)
-          numVrtxPerPart[i] = numCubesPerPart[i] + 1;
-  numVrtxPerPart[3] = numVrtxPerPart[0] * numVrtxPerPart[1] * numVrtxPerPart[2];
-
-  unsigned int numBndElements[3];
-  numBndElements[0] = 2*numCubesPerPart[1]*numCubesPerPart[2];
-  numBndElements[1] = 2*numCubesPerPart[0]*numCubesPerPart[2];
-  numBndElements[2] = 2*numCubesPerPart[0]*numCubesPerPart[1];
-
-  // output file name
-  auto cubeOutput = seissolParams.mesh.meshFileName + ".nc";  // mesh file name doesnt include file type ending
-  std::string fileName = seissolParams.mesh.meshFileName + ".nc";
-
-  // TODO: I think passing output into the cubeGenerator function breaks the call? there was a case where the output name's string representation was suddenly empty when passing output to the funciton
-  // instead, replace the outut variable with its value in the function call
-  logInfo() << "Start generating a mesh using the CubeGenerator";
-  cubeGenerator(numCubes, numPartitions, \
-                cubeMinX, cubeMaxX, cubeMinY, cubeMaxY, cubeMinZ, cubeMaxZ, \
-                numCubesPerPart, numElemPerPart, numVrtxPerPart, numBndElements, \
-                cubeScale, cubeScaleX, cubeScaleY, cubeScaleZ, cubeTx, cubeTy, cubeTz, fileName.c_str());
+  // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
+  seissol::SeisSol::main.setMeshReader(
+      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
 }
 
 void seissol::initializer::initprocedure::initMesh() {
@@ -261,9 +186,6 @@ void seissol::initializer::initprocedure::initMesh() {
     break;
   case seissol::geometry::MeshFormat::CubeGenerator:
     readCubeGenerator(seissolParams);
-    realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-    seissol::SeisSol::main.setMeshReader(
-        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
     break;
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);

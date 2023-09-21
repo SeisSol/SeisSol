@@ -10,6 +10,7 @@
 #include <xdmfwriter/XdmfWriter.h>
 
 #include "Geometry/MeshReader.h"
+#include "Geometry/CubeGenerator.h"
 #include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
@@ -108,46 +109,9 @@ struct MeshParameters {
   bool showEdgeCutStatistics;
 };
 
-struct CubeGeneratorBoundaries {
-  unsigned int cubeMinX;
-  unsigned int cubeMaxX;
-  unsigned int cubeMinY;
-  unsigned int cubeMaxY;
-  unsigned int cubeMinZ;
-  unsigned int cubeMaxZ;
-};
-
-struct CubeGeneratorDims {
-  unsigned cubeX;
-  unsigned cubeY;
-  unsigned cubeZ;
-};
-
-struct CubeGeneratorPartitions {
-  unsigned cubePx;
-  unsigned cubePy;
-  unsigned cubePz;
-};
-
-struct CubeGeneratorScaling {
-  double cubeS;
-  double cubeSx;
-  double cubeSy;
-  double cubeSz;
-};
-
-struct CubeGeneratorTranslation {
-  double cubeTx;
-  double cubeTy;
-  double cubeTz;
-};
-
 struct CubeGeneratorParameters {
-  CubeGeneratorBoundaries boundaries;
-  CubeGeneratorDims dims;
-  CubeGeneratorPartitions partitions;
-  CubeGeneratorScaling scaling;
-  CubeGeneratorTranslation translation;
+  seissol::geometry::CubeGeneratorParameters
+      parameters; // parameters struct from Geometry/CubeGenerator.h
 };
 
 struct OutputInterval {
