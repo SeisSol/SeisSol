@@ -177,7 +177,9 @@ class BaseFrictionLaw : public FrictionSolver {
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 qStressInterpolatedPlus,
-                                                qStressInterpolatedMinus);
+                                                qStressInterpolatedMinus,
+                                                qInterpolatedPlus[ltsFace],
+                                                qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 

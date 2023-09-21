@@ -93,6 +93,8 @@ inline void precomputeStressFromQInterpolated(
     ImpedancesAndEta& impAndEta,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -117,6 +119,8 @@ inline void precomputeStressFromQInterpolated(
   using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
+  auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
   unsigned DAM = 9;
@@ -141,21 +145,21 @@ inline void precomputeStressFromQInterpolated(
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto i{startLoopIndex + index};
 
-    exxP += qIPlus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyyP += qIPlus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezzP += qIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    exyP += qIPlus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyzP += qIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezxP += qIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    damP += qIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exxP += qStrainIPlus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    eyyP += qStrainIPlus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    ezzP += qStrainIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exyP += qStrainIPlus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
 
-    exxM += qIMinus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyyM += qIMinus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezzM += qIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    exyM += qIMinus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyzM += qIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezxM += qIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    damM += qIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    ezzM += qStrainIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exyM += qStrainIMinus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
   }
 
   real epsInitxx = -0e-2; // eps_xx0
