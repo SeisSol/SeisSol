@@ -76,6 +76,120 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
+    // Derive stress solutions from strain
+    real dofsStressPlus[tensor::Q::size()]{};
+    real dofsStressMinus[tensor::Q::size()]{};
+
+    seissol::dr::ImpedancesAndEta* impAndEtaGet = &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+
+    real epsInitxx = -0e-2; // eps_xx0
+    real epsInityy = -0e-1; // eps_yy0
+    real epsInitzz = -0e-1; // eps_zz0
+    real lambda0P = impAndEtaGet->lambda0P;
+    real mu0P = impAndEtaGet->mu0P;
+    real lambda0M = impAndEtaGet->lambda0M;
+    real mu0M = impAndEtaGet->mu0M;
+
+    real EspIp = (dofsPlus[0]+epsInitxx) + (dofsPlus[1]+epsInityy) + (dofsPlus[2]+epsInitzz);
+    real EspIIp = (dofsPlus[0]+epsInitxx)*(dofsPlus[0]+epsInitxx)
+      + (dofsPlus[1]+epsInityy)*(dofsPlus[1]+epsInityy)
+      + (dofsPlus[2]+epsInitzz)*(dofsPlus[2]+epsInitzz)
+      + 2*dofsPlus[3]*dofsPlus[3]
+      + 2*dofsPlus[4]*dofsPlus[4]
+      + 2*dofsPlus[5]*dofsPlus[5];
+    real alphap = dofsPlus[9];
+    real xip;
+    if (EspIIp > 1e-30){
+      xip = EspIp / std::sqrt(EspIIp);
+    } else{
+      xip = 0.0;
+    }
+
+    dofsStressPlus[0] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *(dofsPlus[0]+epsInitxx);
+
+    dofsStressPlus[1] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *(dofsPlus[1]+epsInityy);
+
+    dofsStressPlus[2] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *(dofsPlus[2]+epsInitzz);
+
+    dofsStressPlus[3] = 0
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *dofsPlus[3];
+
+    dofsStressPlus[4] = 0
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *dofsPlus[4];
+
+    dofsStressPlus[5] = 0
+          + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
+              - alphap*impAndEtaGet->gammaRP*xip)
+            *dofsPlus[5];
+
+    real EspIm = (dofsMinus[0]+epsInitxx) + (dofsMinus[1]+epsInityy) + (dofsMinus[2]+epsInitzz);
+    real EspIIm = (dofsMinus[0]+epsInitxx)*(dofsMinus[0]+epsInitxx)
+      + (dofsMinus[1]+epsInityy)*(dofsMinus[1]+epsInityy)
+      + (dofsMinus[2]+epsInitzz)*(dofsMinus[2]+epsInitzz)
+      + 2*dofsMinus[3]*dofsMinus[3]
+      + 2*dofsMinus[4]*dofsMinus[4]
+      + 2*dofsMinus[5]*dofsMinus[5];
+    real alpham = dofsMinus[9];
+    real xim;
+    if (EspIIm > 1e-30){
+      xim = EspIIm / std::sqrt(EspIIm);
+    } else{
+      xim = 0.0;
+    }
+
+    dofsStressMinus[0] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *(dofsMinus[0]+epsInitxx);
+
+    dofsStressMinus[1] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *(dofsMinus[1]+epsInityy);
+
+    dofsStressMinus[2] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *(dofsMinus[2]+epsInitzz);
+
+    dofsStressMinus[3] = 0
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *dofsMinus[3];
+
+    dofsStressMinus[4] = 0
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *dofsMinus[4];
+
+    dofsStressMinus[5] = 0
+          + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
+              - alpham*impAndEtaGet->gammaRM*xim)
+            *dofsMinus[5];
+
+    dofsStressPlus[6] = dofsPlus[6];
+    dofsStressPlus[7] = dofsPlus[7];
+    dofsStressPlus[8] = dofsPlus[8];
+    dofsStressPlus[9] = dofsPlus[9];
+
+    dofsStressMinus[6] = dofsMinus[6];
+    dofsStressMinus[7] = dofsMinus[7];
+    dofsStressMinus[8] = dofsMinus[8];
+    dofsStressMinus[9] = dofsMinus[9];
+
     const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
@@ -99,12 +213,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    kernel.Q = dofsPlus;
+    kernel.Q = dofsStressPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
 
-    kernel.Q = dofsMinus;
+    kernel.Q = dofsStressMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
