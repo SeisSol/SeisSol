@@ -117,7 +117,7 @@ class ADERDGBase(ABC):
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
-      group_indices=range(4),
+      group_indices=simpleParameterSpace(4),
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
