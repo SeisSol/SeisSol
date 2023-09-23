@@ -563,14 +563,9 @@ void NetcdfReader::addMPINeighbor(int localID,
                                   int bndRank,
                                   int elemSize,
                                   const int* bndElemLocalIds) {
-  MPINeighbor neighbor;
-  neighbor.localID = localID;
-
-  neighbor.elements.resize(elemSize);
+  m_MPINeighbors[bndRank].resize(elemSize);
   for (int i = 0; i < elemSize; i++)
-    neighbor.elements[i].localElement = bndElemLocalIds[i];
-
-  m_MPINeighbors[bndRank] = neighbor;
+    m_MPINeighbors[bndRank][i].localElement = bndElemLocalIds[i];
 }
 
 void NetcdfReader::findElementsPerVertex() {

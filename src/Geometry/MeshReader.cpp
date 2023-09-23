@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <memory>
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -24,15 +25,17 @@ const std::vector<Element>& MeshReader::getElements() const { return m_elements;
 
 const std::vector<Vertex>& MeshReader::getVertices() const { return m_vertices; }
 
-const std::map<int, MPINeighbor>& MeshReader::getMPINeighbors() const { return m_MPINeighbors; }
+const std::unordered_map<int, std::vector<BoundaryElement>>& MeshReader::getMPINeighbors() const {
+  return m_MPINeighbors;
+}
+
+const std::vector<std::reference_wrapper<const BoundaryElement>>&
+    MeshReader::getBoundaryElements() const {
+  return m_boundaryElements;
+}
 
 const std::map<int, std::vector<MPINeighborElement>>& MeshReader::getMPIFaultNeighbors() const {
   return m_MPIFaultNeighbors;
-}
-
-const std::unordered_map<int, std::vector<GhostElementMetadata>>
-    MeshReader::getGhostlayerMetadata() const {
-  return m_ghostlayerMetadata;
 }
 
 const std::vector<Fault>& MeshReader::getFault() const { return m_fault; }
@@ -220,24 +223,20 @@ void MeshReader::extractFaultInformation(const VrtxCoords refPoint, const int re
 
 void MeshReader::exchangeGhostlayerMetadata() {
 #ifdef USE_MPI
-  std::unordered_map<int, std::vector<GhostElementMetadata>> sendData;
-  std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
-
-  constexpr int tag = 10;
   const auto comm = seissol::MPI::mpi.comm();
-
-  std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 
   // TODO(David): Once a generic MPI type inference module is ready, replace this part here ...
   // Maybe.
   MPI_Datatype ghostElementType;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 2;
-  const std::vector<int> datatypeBlocklen{12, 1};
-  const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
-                                                   offsetof(GhostElementMetadata, group)};
-  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE, MPI_INT};
+  const std::vector<int> datatypeBlocklen{12, 1, 1, 1};
+  const std::vector<MPI_Aint> datatypeDisplacement{offsetof(BoundaryElement, neighborVertices),
+                                                   offsetof(BoundaryElement, neighborGroup),
+                                                   offsetof(BoundaryElement, neighborElement),
+                                                   offsetof(BoundaryElement, neighborGlobalId)};
+  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT};
+  const int datatypeCount = datatypeBlocklen.size();
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -246,50 +245,33 @@ void MeshReader::exchangeGhostlayerMetadata() {
                          &ghostElementType);
   MPI_Type_commit(&ghostElementType);
 
-  size_t counter = 0;
-  for (auto it = m_MPINeighbors.begin(); it != m_MPINeighbors.end(); ++it, counter += 2) {
-    const auto targetRank = it->first;
-    const auto count = it->second.elements.size();
-
-    recvData[targetRank].resize(count);
-
-    sendData[targetRank].resize(count);
-    for (size_t j = 0; j < count; ++j) {
-      const auto elementIdx = it->second.elements[j].localElement;
-      const auto& element = m_elements.at(elementIdx);
-      auto& ghost = sendData[targetRank][j];
-
-      for (size_t v = 0; v < 4; ++v) {
-        const auto& vertex = m_vertices[element.vertices[v]];
-        ghost.vertices[v][0] = vertex.coords[0];
-        ghost.vertices[v][1] = vertex.coords[1];
-        ghost.vertices[v][2] = vertex.coords[2];
-      }
-      ghost.group = element.group;
+  auto preF = [&](std::size_t linIdx, std::size_t elementIdx, const auto& element) {
+    auto ghost = m_boundaryElements[linIdx].get();
+    for (size_t v = 0; v < 4; ++v) {
+      const auto& vertex = m_vertices[element.vertices[v]];
+      ghost.neighborVertices[v][0] = vertex.coords[0];
+      ghost.neighborVertices[v][1] = vertex.coords[1];
+      ghost.neighborVertices[v][2] = vertex.coords[2];
     }
+    ghost.neighborGroup = element.group;
+    ghost.neighborElement = elementIdx;
+    ghost.neighborGlobalId = element.globalId;
+    ghost.neighborRank = seissol::MPI::mpi.rank();
+    return ghost;
+  };
 
-    // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
-    MPI_Irecv(recvData[targetRank].data(),
-              count,
-              ghostElementType,
-              targetRank,
-              tag,
-              comm,
-              &requests[counter]);
-    MPI_Isend(sendData[targetRank].data(),
-              count,
-              ghostElementType,
-              targetRank,
-              tag,
-              comm,
-              &requests[counter + 1]);
+  auto output = exchangeGhostData<BoundaryElement, BoundaryElement>(
+      m_elements, comm, ghostElementType, preF, PassThrough());
+
+  for (auto& [rank, section] : m_MPINeighbors) {
+    // TODO: do we need to sort?
+    std::sort(section.begin(), section.end(), [](const auto& first, const auto& second) {
+      return first.neighborElement < second.neighborElement;
+    });
+    for (const auto& item : section) {
+      m_boundaryElements.emplace_back(std::cref(item));
+    }
   }
-
-  MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE);
-
-  m_ghostlayerMetadata = std::move(recvData);
-
-  MPI_Type_free(&ghostElementType);
 #endif
 }
 

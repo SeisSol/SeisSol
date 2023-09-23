@@ -46,7 +46,10 @@
 #include "MeshTools.h"
 
 #include <cmath>
+#include <functional>
 #include <map>
+#include <memory>
+#include <mpi.h>
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -56,10 +59,13 @@ namespace seissol::geometry {
 
 enum class MeshFormat : int { Netcdf, PUML };
 
-struct GhostElementMetadata {
-  double vertices[4][3];
-  int group;
+struct TransferRegion {
+  int rank;
+  std::size_t start;
+  std::size_t size;
 };
+
+struct PassThrough {};
 
 class MeshReader {
   protected:
@@ -69,23 +75,23 @@ class MeshReader {
 
   std::vector<Vertex> m_vertices;
 
+  std::vector<std::reference_wrapper<const BoundaryElement>> m_boundaryElements;
+
+  std::vector<TransferRegion> m_regions;
+
+  std::unordered_map<int, std::vector<BoundaryElement>> m_MPINeighbors;
+
   /** Convert global element index to local */
   std::map<int, int> m_g2lElements;
 
   /** Convert global vertex index to local */
   std::map<int, int> m_g2lVertices;
 
-  /** Number of MPI neighbors */
-  std::map<int, MPINeighbor> m_MPINeighbors;
-
   /** Number of MPI fault neighbors */
   std::map<int, std::vector<MPINeighborElement>> m_MPIFaultNeighbors;
 
   /** Fault information */
   std::vector<Fault> m_fault;
-
-  /** Vertices of MPI Neighbors*/
-  std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
 
   /** Has a plus fault side */
   bool m_hasPlusFault;
@@ -98,9 +104,9 @@ class MeshReader {
 
   const std::vector<Element>& getElements() const;
   const std::vector<Vertex>& getVertices() const;
-  const std::map<int, MPINeighbor>& getMPINeighbors() const;
+  const std::unordered_map<int, std::vector<BoundaryElement>>& getMPINeighbors() const;
+  const std::vector<std::reference_wrapper<const BoundaryElement>>& getBoundaryElements() const;
   const std::map<int, std::vector<MPINeighborElement>>& getMPIFaultNeighbors() const;
-  const std::unordered_map<int, std::vector<GhostElementMetadata>> getGhostlayerMetadata() const;
   const std::vector<Fault>& getFault() const;
   bool hasFault() const;
   bool hasPlusFault() const;
@@ -117,6 +123,76 @@ class MeshReader {
   void extractFaultInformation(const VrtxCoords refPoint, const int refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  template <typename SendT, typename OutT, typename InT, typename PreF, typename PostF>
+  std::vector<OutT> exchangeGhostData(const std::vector<InT>& data,
+                                      MPI_Comm comm,
+                                      MPI_Datatype datatype,
+                                      PreF&& preSelector = PassThrough(),
+                                      PostF&& postSelector = PassThrough()) {
+#ifdef USE_MPI
+    const std::size_t size = m_boundaryElements.size();
+    std::vector<SendT> sendElements(size);
+    std::vector<SendT> recvElements(size);
+
+    if constexpr (std::is_same_v<PreF, PassThrough>) {
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < size; ++i) {
+        sendElements[i] = data[m_boundaryElements[i].get().localElement];
+      }
+    } else {
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < size; ++i) {
+        sendElements[i] =
+            std::forward<SendT>(std::invoke(preSelector,
+                                            i,
+                                            m_boundaryElements[i].get().localElement,
+                                            data[m_boundaryElements[i].get().localElement]));
+      }
+    }
+
+    std::vector<MPI_Request> requests(m_regions.size() * 2);
+    std::size_t index = 0;
+    const int tag = 15;
+    for (const auto& region : m_regions) {
+      MPI_Isend(&sendElements[region.start],
+                region.size,
+                datatype,
+                region.rank,
+                tag,
+                comm,
+                &requests[index]);
+      MPI_Irecv(&recvElements[region.start],
+                region.size,
+                datatype,
+                region.rank,
+                tag,
+                comm,
+                &requests[index + 1]);
+      index += 2;
+    }
+    MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE);
+
+    if constexpr (std::is_same_v<PostF, PassThrough>) {
+      return recvElements;
+    } else {
+      std::vector<OutT> outElements(size);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < size; ++i) {
+        outElements[i] = std::forward<OutT>(std::invoke(postSelector, recvElements[i]));
+      }
+      return outElements;
+    }
+#else
+    return {};
+#endif
+  }
 };
 
 } // namespace seissol::geometry

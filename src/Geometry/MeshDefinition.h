@@ -60,6 +60,7 @@ typedef int ElemFaultTags[4];
 
 struct Element {
   int localId;
+  int globalId;
   ElemVertices vertices;
   ElemNeighbors neighbors;
   ElemNeighborSides neighborSides;
@@ -82,14 +83,22 @@ struct Vertex {
   std::vector<int> elements;
 };
 
-struct MPINeighborElement {
-  /** Local number of the local element */
+struct BoundaryElement {
   int localElement;
-  /** Side of the local element */
   int localSide;
-  /** Global number neighbor element */
   int neighborElement;
-  /** Side of the neighbor element */
+  int neighborSide;
+  int neighborRank;
+  double neighborVertices[4][3];
+  int neighborGroup;
+  int neighborGlobalId;
+  int linearId;
+};
+
+struct MPINeighborElement {
+  int localElement;
+  int localSide;
+  int neighborElement;
   int neighborSide;
 };
 
@@ -108,13 +117,6 @@ struct Fault {
   /** Rotation matrix */
   VrtxCoords tangent1;
   VrtxCoords tangent2;
-};
-
-struct MPINeighbor {
-  /** Local ID of the MPI neighbor */
-  int localID;
-
-  std::vector<MPINeighborElement> elements;
 };
 
 } // namespace seissol

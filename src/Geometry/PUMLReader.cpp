@@ -539,16 +539,15 @@ void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
                                                   int rank,
                                                   const std::vector<unsigned int>& faces) {
   unsigned int id = m_MPINeighbors.size();
-  MPINeighbor& neighbor = m_MPINeighbors[rank];
+  auto& neighbor = m_MPINeighbors[rank];
 
-  neighbor.localID = id;
-  neighbor.elements.resize(faces.size());
+  neighbor.resize(faces.size());
 
   for (unsigned int i = 0; i < faces.size(); i++) {
     int cellIds[2];
     PUML::Upward::cells(puml, puml.faces()[faces[i]], cellIds);
 
-    neighbor.elements[i].localElement = cellIds[0];
+    neighbor[i].localElement = cellIds[0];
   }
 }
 
