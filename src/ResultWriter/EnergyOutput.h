@@ -1,6 +1,7 @@
 #ifndef ENERGYOUTPUT_H
 #define ENERGYOUTPUT_H
 
+#include <Initializer/tree/LTSForest.hpp>
 #include <array>
 #include <string>
 #include <fstream>
@@ -43,13 +44,11 @@ struct EnergiesStorage {
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData* newGlobal,
-            seissol::initializers::DynamicRupture* newDynRup,
-            seissol::initializers::LTSTree* newDynRuptTree,
+  void init(seissol::initializers::GlobalDataStorage* newGlobal,
+            seissol::initializers::DynRupLTSForest* dynrupForest,
             seissol::geometry::MeshReader* newMeshReader,
-            seissol::initializers::LTSTree* newLtsTree,
-            seissol::initializers::LTS* newLts,
-            seissol::initializers::Lut* newLtsLut,
+            seissol::initializers::ClusterLTSForest* clusterForest,
+            seissol::initializers::ClusterBackmap* backmap,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -59,12 +58,6 @@ class EnergyOutput : public Module {
   void simulationStart() override;
 
   private:
-  real computeStaticWork(const real* degreesOfFreedomPlus,
-                         const real* degreesOfFreedomMinus,
-                         DRFaceInformation const& faceInfo,
-                         DRGodunovData const& godunovData,
-                         const real slip[seissol::tensor::slipRateInterpolated::size()]);
-
   void computeDynamicRuptureEnergies();
 
   void computeVolumeEnergies();
@@ -91,13 +84,11 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
-  const GlobalData* global = nullptr;
-  seissol::initializers::DynamicRupture* dynRup = nullptr;
-  seissol::initializers::LTSTree* dynRupTree = nullptr;
+  seissol::initializers::GlobalDataStorage* global = nullptr;
+  seissol::initializers::DynRupLTSForest* dynrupForest = nullptr;
   seissol::geometry::MeshReader* meshReader = nullptr;
-  seissol::initializers::LTSTree* ltsTree = nullptr;
-  seissol::initializers::LTS* lts = nullptr;
-  seissol::initializers::Lut* ltsLut = nullptr;
+  seissol::initializers::ClusterLTSForest* clusterForest = nullptr;
+  seissol::initializers::ClusterBackmap* backmap = nullptr;
 
   EnergiesStorage energiesStorage{};
 };

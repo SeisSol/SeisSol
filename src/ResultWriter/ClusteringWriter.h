@@ -13,6 +13,7 @@ public:
   ClusteringWriter(const std::string& outputPrefix);
     void addCluster(unsigned profilingId,
                     unsigned localClusterId,
+                    unsigned localConfigId,
                     LayerType layerType,
                     unsigned size,
                     unsigned dynRupSize);
@@ -24,6 +25,7 @@ public:
     std::vector<int> localRanks;
     std::vector<int> profilingIds;
     std::vector<int> localClusterIds;
+    std::vector<int> localConfigIds;
     std::vector<std::underlying_type<LayerType>::type> layerTypes;
     std::vector<unsigned> sizes;
     std::vector<unsigned> dynamicRuptureSizes;

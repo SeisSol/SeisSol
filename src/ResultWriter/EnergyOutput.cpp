@@ -1,4 +1,5 @@
 #include "EnergyOutput.h"
+#include <Common/executor.hpp>
 #include <Kernels/DynamicRupture.h>
 #include <Numerical_aux/Quadrature.h>
 #include "DynamicRupture/Misc.h"
@@ -27,13 +28,11 @@ double& EnergiesStorage::plasticMoment() { return energies[7]; }
 double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
 void EnergyOutput::init(
-    GlobalData* newGlobal,
-    seissol::initializers::DynamicRupture* newDynRup,
-    seissol::initializers::LTSTree* newDynRuptTree,
+    seissol::initializers::GlobalDataStorage* newGlobal,
+    seissol::initializers::DynRupLTSForest* dynrupForest,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializers::LTSTree* newLtsTree,
-    seissol::initializers::LTS* newLts,
-    seissol::initializers::Lut* newLtsLut,
+    seissol::initializers::ClusterLTSForest* clusterForest,
+    seissol::initializers::ClusterBackmap* backmap,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -51,12 +50,10 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRup = newDynRup;
-  dynRupTree = newDynRuptTree;
+  this->dynrupForest = dynrupForest;
   meshReader = newMeshReader;
-  ltsTree = newLtsTree;
-  lts = newLts;
-  ltsLut = newLtsLut;
+  this->clusterForest = clusterForest;
+  this->backmap = backmap;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
@@ -89,22 +86,29 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computeStaticWork(
-    const real* degreesOfFreedomPlus,
-    const real* degreesOfFreedomMinus,
-    const DRFaceInformation& faceInfo,
-    const DRGodunovData& godunovData,
-    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
-  real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
+template <typename Config>
+static typename Config::RealT
+    computeStaticWork(const typename Config::RealT* degreesOfFreedomPlus,
+                      const typename Config::RealT* degreesOfFreedomMinus,
+                      const DRFaceInformation& faceInfo,
+                      const DRGodunovData<Config>& godunovData,
+                      const typename Config::RealT
+                          slip[seissol::Yateto<Config>::Tensor::slipRateInterpolated::size()],
+                      const GlobalData<Config>& global) {
+  using RealT = typename Config::RealT;
+  RealT points[(Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1)][2];
+  RealT spaceWeights[(Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1)];
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, Config::ConvergenceOrder + 1);
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
-  krnl.V3mTo2n = global->faceToNodalMatrices;
+  typename Yateto<Config>::Kernel::dynamicRupture::evaluateAndRotateQAtInterpolationPoints krnl;
+  krnl.V3mTo2n = global.faceToNodalMatrices;
 
-  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(PAGESIZE_STACK)
+      RealT QInterpolatedPlus[Yateto<Config>::Tensor::QInterpolatedPlus::size()];
+  alignas(PAGESIZE_STACK)
+      RealT QInterpolatedMinus[Yateto<Config>::Tensor::QInterpolatedMinus::size()];
+  alignas(Alignment)
+      RealT tractionInterpolated[Yateto<Config>::Tensor::tractionInterpolated::size()];
 
   krnl.QInterpolated = QInterpolatedPlus;
   krnl.Q = degreesOfFreedomPlus;
@@ -118,7 +122,7 @@ real EnergyOutput::computeStaticWork(
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+  typename Yateto<Config>::Kernel::dynamicRupture::computeTractionInterpolated trKrnl;
   trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
   trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
   trKrnl.QInterpolatedPlus = QInterpolatedPlus;
@@ -126,8 +130,8 @@ real EnergyOutput::computeStaticWork(
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
-  real staticFrictionalWork = 0.0;
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
+  RealT staticFrictionalWork = 0.0;
+  typename Yateto<Config>::Kernel::dynamicRupture::accumulateFrictionalEnergy feKrnl;
   feKrnl.slipRateInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
@@ -142,46 +146,58 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
-  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+  dynrupForest->visitLayers([&](auto&& layerview) {
+    using Config = typename std::decay_t<decltype(layerview)>::ConfigT;
+    using RealT = typename Config::RealT;
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
-    real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
-    real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
-    DRGodunovData* godunovData = it->var(dynRup->godunovData);
-    DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
-    DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
-    seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
+    auto* timeDerivativePlus = layerview.var(layerview.lts.timeDerivativePlus);
+    auto* timeDerivativeMinus = layerview.var(layerview.lts.timeDerivativeMinus);
+    auto* godunovData = layerview.var(layerview.lts.godunovData);
+    auto* faceInformation = layerview.var(layerview.lts.faceInformation);
+    auto* drEnergyOutput = layerview.var(layerview.lts.drEnergyOutput);
+    auto* waveSpeedsPlus = layerview.var(layerview.lts.waveSpeedsPlus);
+    auto* waveSpeedsMinus = layerview.var(layerview.lts.waveSpeedsMinus);
 
 #if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drEnergyOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
+#pragma omp parallel for reduction(                                                                \
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none)                \
+    shared(layerview,                                                                              \
+               drEnergyOutput,                                                                     \
+               faceInformation,                                                                    \
+               timeDerivativeMinus,                                                                \
+               timeDerivativePlus,                                                                 \
+               godunovData,                                                                        \
+               waveSpeedsPlus,                                                                     \
+               waveSpeedsMinus)
 #endif
-    for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
+    for (unsigned i = 0; i < layerview.layer.getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints<Config>; ++j) {
           totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
         }
         staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
                                                   timeDerivativeMinus[i],
                                                   faceInformation[i],
                                                   godunovData[i],
-                                                  drEnergyOutput[i].slip);
+                                                  drEnergyOutput[i].slip,
+                                                  global->getData<Executor::Host, Config>());
 
-        real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                      waveSpeedsPlus[i].sWaveVelocity;
-        real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                       waveSpeedsMinus[i].sWaveVelocity;
-        real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-        real seismicMomentIncrease = 0.0;
-        for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
+        RealT muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
+                       waveSpeedsPlus[i].sWaveVelocity;
+        RealT muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
+                        waveSpeedsMinus[i].sWaveVelocity;
+        RealT mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+        RealT seismicMomentIncrease = 0.0;
+        for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints<Config>; ++k) {
           seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
         seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                 seissol::dr::misc::numberOfBoundaryGaussPoints;
+                                 seissol::dr::misc::numberOfBoundaryGaussPoints<Config>;
         seismicMoment += seismicMomentIncrease;
       }
     }
-  }
+  });
 }
 
 void EnergyOutput::computeVolumeEnergies() {
@@ -197,159 +213,180 @@ void EnergyOutput::computeVolumeEnergies() {
 
   const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
-  // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
-  // it
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
+  clusterForest->visitLayers([&](auto&& layerview) {
+    using Config = typename std::decay_t<decltype(layerview)>::ConfigT;
+    using MaterialT = typename Config::MaterialT;
+    using RealT = typename Config::RealT;
+    const auto* secondaryCellInformation = layerview.var(layerview.lts.secondaryCellInformation);
+#if defined(_OPENMP)
+#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
+                                                        totalAcousticEnergyLocal,                  \
+                                                        totalAcousticKineticEnergyLocal,           \
+                                                        totalElasticEnergyLocal,                   \
+                                                        totalElasticKineticEnergyLocal,            \
+                                                        totalPlasticMoment)
 #endif
-  for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
-    real volume = MeshTools::volume(elements[elementId], vertices);
-    seissol::model::Material_t& material = ltsLut->lookup(lts->materialData, elementId);
-    if constexpr (seissol::model::Material_t::Type == seissol::model::MaterialType::elastic ||
-                  seissol::model::Material_t::Type == seissol::model::MaterialType::viscoelastic) {
-      auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
-      auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
+    for (unsigned cell = 0; cell < layerview.layer.getNumberOfCells(); ++cell) {
+      if (secondaryCellInformation[cell].duplicate == 0) {
+        auto elementId = secondaryCellInformation[cell].meshId;
+        RealT volume = MeshTools::volume(elements[elementId], vertices);
+        if constexpr (MaterialT::Type == seissol::model::MaterialType::elastic ||
+                      MaterialT::Type == seissol::model::MaterialType::viscoelastic) {
+          const auto& cellInformation = layerview.var(layerview.lts.cellInformation)[cell];
+          const auto& faceDisplacements = layerview.var(layerview.lts.faceDisplacements)[cell];
+          const auto& material = layerview.var(layerview.lts.materialData)[cell];
 
-      constexpr auto quadPolyDegree = ConvergenceOrder + 1;
-      constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+          constexpr auto quadPolyDegree = Config::ConvergenceOrder + 1;
+          constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
-      double quadraturePointsTet[numQuadraturePointsTet][3];
-      double quadratureWeightsTet[numQuadraturePointsTet];
-      seissol::quadrature::TetrahedronQuadrature(
-          quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
+          double quadraturePointsTet[numQuadraturePointsTet][3];
+          double quadratureWeightsTet[numQuadraturePointsTet];
+          seissol::quadrature::TetrahedronQuadrature(
+              quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
 
-      constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
-      double quadraturePointsTri[numQuadraturePointsTri][2];
-      double quadratureWeightsTri[numQuadraturePointsTri];
-      seissol::quadrature::TriangleQuadrature(
-          quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
+          constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
+          double quadraturePointsTri[numQuadraturePointsTri][2];
+          double quadratureWeightsTri[numQuadraturePointsTri];
+          seissol::quadrature::TriangleQuadrature(
+              quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
 
-      // Needed to weight the integral.
-      const auto jacobiDet = 6 * volume;
+          // Needed to weight the integral.
+          const auto jacobiDet = 6 * volume;
 
-      alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-      auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-      // Evaluate numerical solution at quad. nodes
-      kernel::evalAtQP krnl;
-      krnl.evalAtQP = global->evalAtQPMatrix;
-      krnl.dofsQP = numericalSolutionData;
-      krnl.Q = ltsLut->lookup(lts->dofs, elementId);
-      krnl.execute();
+          alignas(Alignment) real numericalSolutionData[Yateto<Config>::Tensor::dofsQP::size()];
+          auto numericalSolution =
+              Yateto<Config>::Init::dofsQP::view::create(numericalSolutionData);
+          // Evaluate numerical solution at quad. nodes
+          typename Yateto<Config>::Kernel::evalAtQP krnl;
+          krnl.evalAtQP = global->evalAtQPMatrix;
+          krnl.dofsQP = numericalSolutionData;
+          krnl.Q = layerview.var(layerview.lts.dofs)[cell];
+          krnl.execute();
 
 #ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+          auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
-      auto numSub = numericalSolution;
+          auto numSub = numericalSolution;
 #endif
-      for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
-        constexpr int uIdx = 6;
-        const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-        const auto rho = material.rho;
+          for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
+            constexpr int uIdx = 6;
+            const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
+            const auto rho = material.rho;
 
-        const auto u = numSub(qp, uIdx + 0);
-        const auto v = numSub(qp, uIdx + 1);
-        const auto w = numSub(qp, uIdx + 2);
-        const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
+            const auto u = numSub(qp, uIdx + 0);
+            const auto v = numSub(qp, uIdx + 1);
+            const auto w = numSub(qp, uIdx + 2);
+            const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
 
-        if (std::abs(material.mu) < 10e-14) {
-          // Acoustic
-          constexpr int pIdx = 0;
-          const auto K = material.lambda;
-          const auto p = numSub(qp, pIdx);
+            if (std::abs(material.mu) < 10e-14) {
+              // Acoustic TODO: differentiate
+              constexpr int pIdx = 0;
+              const auto K = material.lambda;
+              const auto p = numSub(qp, pIdx);
 
-          const double curAcousticEnergy = (p * p) / (2 * K);
-          totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
-          totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
-        } else {
-          // Elastic
-          totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
-          auto getStressIndex = [](int i, int j) {
-            const static auto lookup =
-                std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
-            return lookup[i][j];
-          };
-          auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
+              const double curAcousticEnergy = (p * p) / (2 * K);
+              totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
+              totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
+            } else {
+              // Elastic
+              totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
+              auto getStressIndex = [](int i, int j) {
+                const static auto lookup =
+                    std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+                return lookup[i][j];
+              };
+              auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-          const auto lambda = material.lambda;
-          const auto mu = material.mu;
-          const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
-          auto computeStrain = [&](int i, int j) {
-            double strain = 0.0;
-            const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-            if (i == j) {
-              strain += factor * sumUniaxialStresses;
-            }
-            strain += 1.0 / (2.0 * mu) * getStress(i, j);
-            return strain;
-          };
-          double curElasticEnergy = 0.0;
-          for (int i = 0; i < 3; ++i) {
-            for (int j = 0; j < 3; ++j) {
-              curElasticEnergy += getStress(i, j) * computeStrain(i, j);
+              const auto lambda = material.lambda;
+              const auto mu = material.mu;
+              const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
+              auto computeStrain = [&](int i, int j) {
+                double strain = 0.0;
+                const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
+                if (i == j) {
+                  strain += factor * sumUniaxialStresses;
+                }
+                strain += 1.0 / (2.0 * mu) * getStress(i, j);
+                return strain;
+              };
+              double curElasticEnergy = 0.0;
+              for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                  curElasticEnergy += getStress(i, j) * computeStrain(i, j);
+                }
+              }
+              totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
             }
           }
-          totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
-        }
-      }
 
-      auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
-      // Compute gravitational energy
-      for (int face = 0; face < 4; ++face) {
-        if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
-          continue;
+          auto* boundaryMappings = layerview.var(layerview.lts.boundaryMapping)[cell];
+          // Compute gravitational energy
+          for (int face = 0; face < 4; ++face) {
+            if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
+              continue;
 
-        // Displacements are stored in face-aligned coordinate system.
-        // We need to rotate it to the global coordinate system.
-        auto& boundaryMapping = boundaryMappings[face];
-        auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-        alignas(Alignment)
-            real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+            // Displacements are stored in face-aligned coordinate system.
+            // We need to rotate it to the global coordinate system.
+            auto& boundaryMapping = boundaryMappings[face];
+            auto Tinv = Yateto<Config>::Init::Tinv::view::create(boundaryMapping.TinvData);
+            alignas(Alignment) RealT rotateDisplacementToFaceNormalData
+                [Yateto<Config>::Init::displacementRotationMatrix::Size];
 
-        auto rotateDisplacementToFaceNormal =
-            init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
-        for (int i = 0; i < 3; ++i) {
-          for (int j = 0; j < 3; ++j) {
-            rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+            auto rotateDisplacementToFaceNormal =
+                Yateto<Config>::Init::displacementRotationMatrix::view::create(
+                    rotateDisplacementToFaceNormalData);
+            for (int i = 0; i < 3; ++i) {
+              for (int j = 0; j < 3; ++j) {
+                rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+              }
+            }
+
+            alignas(Alignment)
+                std::array<RealT,
+                           Yateto<Config>::Tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+                    displQuadData{};
+            const auto* curFaceDisplacementsData = faceDisplacements[face];
+            typename seissol::Yateto<
+                Config>::Kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
+            evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
+            evalKrnl.V2nTo2JacobiQuad = Yateto<Config>::Init::V2nTo2JacobiQuad::Values;
+            evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
+            evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
+            evalKrnl.execute();
+
+            // Perform quadrature
+            const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+            const auto rho = material.rho;
+
+            static_assert(numQuadraturePointsTri ==
+                          Yateto<Config>::Init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
+            auto rotatedFaceDisplacement =
+                Yateto<Config>::Init::rotatedFaceDisplacementAtQuadratureNodes::view::create(
+                    displQuadData.data());
+            for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+              // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
+              // derivation.
+              const auto displ = rotatedFaceDisplacement(i, 0);
+              const auto curEnergy = 0.5 * rho * g * displ * displ;
+              const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
+              totalGravitationalEnergyLocal += curWeight * curEnergy;
+            }
           }
         }
 
-        alignas(Alignment) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
-            displQuadData{};
-        const auto* curFaceDisplacementsData = faceDisplacements[face];
-        seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
-        evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-        evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
-        evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
-        evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
-        evalKrnl.execute();
-
-        // Perform quadrature
-        const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-        const auto rho = material.rho;
-
-        static_assert(numQuadraturePointsTri ==
-                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
-        auto rotatedFaceDisplacement =
-            init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
-        for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
-          // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
-          // derivation.
-          const auto displ = rotatedFaceDisplacement(i, 0);
-          const auto curEnergy = 0.5 * rho * g * displ * displ;
-          const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
-          totalGravitationalEnergyLocal += curWeight * curEnergy;
+        if constexpr (Config::Plasticity) {
+          const auto& material = layerview.var(layerview.lts.materialData)[cell];
+          // plastic moment
+          RealT* pstrainCell = layerview.var(layerview.lts.pstrain)[cell];
+          RealT mu = material.getMu();
+          totalPlasticMoment +=
+              mu * volume *
+              pstrainCell[6 * seissol::kernels::NumberOfAlignedBasisFunctions<RealT>(
+                                  Config::ConvergenceOrder)];
         }
       }
     }
-
-    if (isPlasticityEnabled) {
-      // plastic moment
-      real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-      real mu = material.getMu();
-      totalPlasticMoment +=
-          mu * volume * pstrainCell[6 * seissol::kernels::NumberOfAlignedBasisFunctions()];
-    }
-  }
+  });
 }
 
 void EnergyOutput::computeEnergies() {

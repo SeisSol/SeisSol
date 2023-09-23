@@ -44,6 +44,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/LTS.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/tree/LTSForest.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Kernels/Time.h>
 #include <Numerical_aux/BasisFunction.h>
@@ -51,32 +52,36 @@
 #include <generated_code/init.h>
 #include <vector>
 
+template<typename>
 struct GlobalData;
 namespace seissol {
   namespace kernels {
+    template<typename Config>
     struct Receiver {
+      using RealT = typename Config::RealT;
       Receiver(unsigned pointId,
                Eigen::Vector3d position,
                double const* elementCoords[4],
-               kernels::LocalData data, size_t reserved)
+               kernels::LocalData<Config> data, size_t reserved)
           : pointId(pointId),
             position(std::move(position)),
             data(data) {
         output.reserve(reserved);
 
         auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
-        basisFunctions = basisFunction::SampledBasisFunctions<real>(ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctions = basisFunction::SampledBasisFunctions<RealT>(Config::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<RealT>(Config::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
         basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
       }
       unsigned pointId;
       Eigen::Vector3d position;
-      basisFunction::SampledBasisFunctions<real> basisFunctions;
-      basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-      kernels::LocalData data;
-      std::vector<real> output;
+      basisFunction::SampledBasisFunctions<RealT> basisFunctions;
+      basisFunction::SampledBasisFunctionDerivatives<RealT> basisFunctionDerivatives;
+      kernels::LocalData<Config> data;
+      std::vector<RealT> output;
     };
 
+    template<typename Config>
     class ReceiverCluster {
     public:
       ReceiverCluster()
@@ -84,12 +89,11 @@ namespace seissol {
           m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
       {}
 
-      ReceiverCluster(  GlobalData const*             global,
-                        std::vector<unsigned> const&  quantities,
+      ReceiverCluster(  GlobalData<Config> const*             global,
                         double                        samplingInterval,
                         double                        syncPointInterval,
                         bool                          computeRotation)
-        : m_quantities(quantities),
+        : 
           m_samplingInterval(samplingInterval),
           m_syncPointInterval(syncPointInterval),
           m_computeRotation(computeRotation){
@@ -101,24 +105,24 @@ namespace seissol {
                         unsigned          pointId,
                         Eigen::Vector3d   const& point,
                         seissol::geometry::MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
+                        seissol::initializers::ClusterBackmap const& clusterBackmap,
+                        seissol::initializers::ClusterLTSForest const& clusterForest );
 
       //! Returns new receiver time
       double calcReceivers( double time,
                             double expansionPoint,
                             double timeStepWidth );
 
-      std::vector<Receiver>::iterator begin() {
+      typename std::vector<Receiver<Config>>::iterator begin() {
         return m_receivers.begin();
       }
 
-      std::vector<Receiver>::iterator end() {
+      typename std::vector<Receiver<Config>>::iterator end() {
         return m_receivers.end();
       }
 
       size_t ncols() const {
-        size_t ncols = m_quantities.size();
+        size_t ncols = Config::MaterialT::NumberOfQuantities;
         if (m_computeRotation) {
           ncols += 3;
         }
@@ -129,9 +133,8 @@ namespace seissol {
       }
 
     private:
-      std::vector<Receiver> m_receivers;
-      seissol::kernels::Time m_timeKernel;
-      std::vector<unsigned> m_quantities;
+      std::vector<Receiver<Config>> m_receivers;
+      seissol::waveprop::kernel::Time<Config> m_timeKernel;
       unsigned m_nonZeroFlops;
       unsigned m_hardwareFlops;
       double m_samplingInterval;

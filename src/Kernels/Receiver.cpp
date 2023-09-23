@@ -47,12 +47,13 @@
 #include <Monitoring/FlopCounter.hpp>
 #include <generated_code/kernel.h>
 
-void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
+template<typename Config>
+void seissol::kernels::ReceiverCluster<Config>::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
                                                       Eigen::Vector3d const&            point,
                                                       seissol::geometry::MeshReader const&                 mesh,
-                                                      seissol::initializers::Lut const& ltsLut,
-                                                      seissol::initializers::LTS const& lts ) {
+                                                      seissol::initializers::ClusterBackmap const& clusterBackmap,
+                                                      seissol::initializers::ClusterLTSForest const& clusterForest ) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -66,39 +67,41 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
   m_receivers.emplace_back( pointId,
                             point,
                             coords,
-                            kernels::LocalData::lookup(lts, ltsLut, meshId),
+                            kernels::LocalData<Config>::lookup(clusterForest, clusterBackmap, meshId),
                             reserved);
 }
 
-double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
+template<typename Config>
+double seissol::kernels::ReceiverCluster<Config>::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
-  alignas(Alignment) real timeEvaluated[tensor::Q::size()];
-  alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-  alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+  using RealT = typename Config::RealT;
+  alignas(Alignment) RealT timeEvaluated[Yateto<Config>::Tensor::Q::size()];
+  alignas(Alignment) RealT timeEvaluatedAtPoint[Yateto<Config>::Tensor::QAtPoint::size()];
+  alignas(Alignment) RealT timeEvaluatedDerivativesAtPoint[Yateto<Config>::Tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
-  kernel::evaluateDOFSAtPointSTP krnl;
+  alignas(PAGESIZE_STACK) RealT stp[Yateto<Config>::Tensor::spaceTimePredictor::size()];
+  typename Yateto<Config>::Kernel::evaluateDOFSAtPointSTP krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.spaceTimePredictor = stp;
-  kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
+  typename Yateto<Config>::Kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
   derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
   derivativeKrnl.spaceTimePredictor = stp;
 #else
-  alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
-  kernels::LocalTmp tmp;
+  alignas(Alignment) RealT timeDerivatives[yateto::computeFamilySize<typename Yateto<Config>::Tensor::dQ>()];
+  kernels::LocalTmp<Config> tmp;
 
-  kernel::evaluateDOFSAtPoint krnl;
+  typename Yateto<Config>::Kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.Q = timeEvaluated;
-  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+  typename Yateto<Config>::Kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
   derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
   derivativeKrnl.Q = timeEvaluated;
 #endif
 
 
-  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+  auto qAtPoint = Yateto<Config>::Init::QAtPoint::view::create(timeEvaluatedAtPoint);
+  auto qDerivativeAtPoint = Yateto<Config>::Init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
@@ -135,8 +138,8 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 
         receiver.output.push_back(receiverTime);
 #ifdef MULTIPLE_SIMULATIONS
-        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
-          for (auto quantity : m_quantities) {
+        for (unsigned sim = Yateto<Config>::Init::QAtPoint::Start[0]; sim < Yateto<Config>::Init::QAtPoint::Stop[0]; ++sim) {
+          for (std::size_t quantity = 0; quantity < Config::MaterialT::NumberOfQuantities; ++quantity) {
            if (!std::isfinite(qAtPoint(sim, quantity))) {
              logError()
                  << "Detected Inf/NaN in receiver output at"
@@ -154,7 +157,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
           }
         }
 #else //MULTIPLE_SIMULATIONS
-        for (auto quantity : m_quantities) {
+        for (std::size_t quantity = 0; quantity < Config::MaterialT::NumberOfQuantities; ++quantity) {
           if (!std::isfinite(qAtPoint(quantity))) {
             logError()
                 << "Detected Inf/NaN in receiver output at"

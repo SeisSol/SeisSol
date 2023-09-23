@@ -12,11 +12,13 @@ ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPref
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
+                                  unsigned localConfigId,
                                   LayerType layerType,
                                   unsigned size,
                                   unsigned dynRupSize) {
   clusteringInformation.profilingIds.push_back(profilingId);
   clusteringInformation.localClusterIds.push_back(localClusterId);
+  clusteringInformation.localConfigIds.push_back(localConfigId);
   clusteringInformation.layerTypes.push_back(layerType);
   clusteringInformation.sizes.push_back(size);
   clusteringInformation.dynamicRuptureSizes.push_back(dynRupSize);
@@ -29,6 +31,7 @@ void ClusteringWriter::write() const {
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
   const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);
   const auto localClusterIds = mpi.collectContainer(clusteringInformation.localClusterIds);
+  const auto localConfigIds = mpi.collectContainer(clusteringInformation.localConfigIds);
   const auto layerTypes = mpi.collectContainer(clusteringInformation.layerTypes);
   const auto sizes = mpi.collectContainer(clusteringInformation.sizes);
   const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation.dynamicRuptureSizes);
@@ -40,12 +43,13 @@ void ClusteringWriter::write() const {
 
     auto fileStream = std::ofstream(filepath, std::ios::out);
 
-    fileStream << "profilingId,localId,layerType,size,dynamicRuptureSize,rank,localRank\n";
+    fileStream << "profilingId,localId,configId,layerType,size,dynamicRuptureSize,rank,localRank\n";
 
     for (int rank = 0; rank < mpi.size(); ++rank) {
       const auto localRank = localRanks[rank];
       const auto& curProfilingIds = profilingIds[rank];
       const auto& curLocalClusterIds = localClusterIds[rank];
+      const auto& curLocalConfigIds = localConfigIds[rank];
       const auto& curLayerTypes = layerTypes[rank];
       const auto& curSizes = sizes[rank];
       const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
@@ -59,6 +63,7 @@ void ClusteringWriter::write() const {
             fileStream
             << curProfilingIds[i] << ","
             << curLocalClusterIds[i] << ","
+            << curLocalConfigIds[i] << ","
             << layerTypeStr << ","
             << curSizes[i] << ","
             << curDynamicRuptureSizes[i] << ","

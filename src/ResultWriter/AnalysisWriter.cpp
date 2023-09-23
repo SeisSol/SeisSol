@@ -1,5 +1,7 @@
 #include "AnalysisWriter.h"
 
+#include <Common/executor.hpp>
+#include <Initializer/tree/LTSForest.hpp>
 #include <vector>
 #include <cmath>
 #include <string>
@@ -57,18 +59,22 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   
   auto& iniFields = seissol::SeisSol::main.getMemoryManager().getInitialConditions();
 
-  auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = seissol::SeisSol::main.getMemoryManager().getLtsLut();
-  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
-
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
 
-  constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+  auto& clusterForest; = seissol::SeisSol::main.getMemoryManager().getMemoryContainer().cluster;
+  auto& globalDataStorage; = seissol::SeisSol::main.getMemoryManager().getMemoryContainer().globalDataStorage;
+
+  clusterForest.visitLayers([&](auto&& layerview) {
+    using Config = typename std::decay_t<decltype(layerview)>::ConfigT;
+    const auto* secondaryCellInformation = layerview.var(layerview.lts.secondaryCellInformation);
+
+  // constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+  constexpr auto numberOfQuantities = Config::MaterialT::NumberOfQuantities;
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto quadPolyDegree = ConvergenceOrder+1;
+  constexpr auto quadPolyDegree = Config::ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -115,19 +121,23 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
 
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real numericalSolutionData[Yateto<Config>::Tensor::dofsQP::size()];
     alignas(Alignment) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
 #ifdef _OPENMP
     // Note: Adding default(none) leads error when using gcc-8
-#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+#pragma omp parallel for shared(elements, vertices, quadraturePoints, globalDataStorage, errsLInfLocal, simulationTime, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
-    for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
+    for (std::size_t cell = 0; cell < layerview.layer.getNumberOfCells(); ++cell) {
+      if (secondaryCellInformation[cell].duplicate != 0) {
+        continue;
+      }
+      auto meshId = secondaryCellInformation[cell].meshId;
 #ifdef _OPENMP
       const int curThreadId = omp_get_thread_num();
 #else
       const int curThreadId = 0;
 #endif
-      auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+      auto numericalSolution = Yateto<Config>::Init::dofsQP::view::create(numericalSolutionData);
       auto analyticalSolution = yateto::DenseTensorView<2,real>(analyticalSolutionData, {numQuadPoints, numberOfQuantities});
 
       // Needed to weight the integral.
@@ -144,14 +154,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
 
       // Evaluate numerical solution at quad. nodes
-      kernel::evalAtQP krnl;
-      krnl.evalAtQP = globalData->evalAtQPMatrix;
+      typename Yateto<Config>::Kernel::evalAtQP krnl;
+      krnl.evalAtQP = globalDataStorage.template getData<Executor::Host, Config>().evalAtQPMatrix;
       krnl.dofsQP = numericalSolutionData;
-      krnl.Q = ltsLut->lookup(lts->dofs, meshId);
+      krnl.Q = layerview.var(layerview.lts.dofs)[cell];
       krnl.execute();
 
       // Evaluate analytical solution at quad. nodes
-      const seissol::model::Material_t& material = ltsLut->lookup(lts->materialData, meshId);
+      const typename Config::MaterialT& material = layerview.var(layerview.lts.materialData)[cell];
       iniFields[sim % iniFields.size()]->evaluate(simulationTime,
 						  quadraturePointsXyz,
 						  material,
@@ -308,6 +318,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 #endif // USE_MPI
   }
+  });
 }
 } // namespace seissol::writer
 

@@ -40,6 +40,9 @@
 #ifndef RESULTWRITER_RECEIVERWRITER_H_
 #define RESULTWRITER_RECEIVERWRITER_H_
 
+#include <Common/configs.hpp>
+#include <Common/templating.hpp>
+#include <Initializer/tree/LTSForest.hpp>
 #include <vector>
 #include <string_view>
 
@@ -67,19 +70,10 @@ namespace seissol::writer {
 
       void addPoints(
           const seissol::geometry::MeshReader& mesh,
-          const seissol::initializers::Lut& ltsLut,
-          const seissol::initializers::LTS& lts,
-          const GlobalData* global);
+          const seissol::initializers::ClusterBackmap& backmap,
+          const seissol::initializers::ClusterLTSForest& cluster,
+          const GlobalDataStorage* global);
 
-      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
-        assert(layer != Ghost);
-        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-        auto& clusters = m_receiverClusters[layer];
-        if (clusterId < clusters.size()) {
-          return &clusters[clusterId];
-        }
-        return nullptr;
-      }
       //
       // Hooks
       //
@@ -87,6 +81,7 @@ namespace seissol::writer {
 
     private:
       [[nodiscard]] std::string fileName(unsigned pointId) const;
+      template<typename Config>
       void writeHeader(unsigned pointId, Eigen::Vector3d const& point);
 
       std::string m_receiverFileName;
@@ -94,7 +89,10 @@ namespace seissol::writer {
       double      m_samplingInterval;
       bool        m_computeRotation;
       // Map needed because LayerType enum casts weirdly to int.
-      std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
+      template<typename Config>
+      using LtsTreeReceiverCluster = std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster<Config>>>;
+
+      ChangeVariadicT<std::tuple, TransformVariadicT<LtsTreeReceiverCluster, SupportedConfigs>> m_receiverClusters;
       Stopwatch   m_stopwatch;
     };
   }
