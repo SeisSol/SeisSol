@@ -45,6 +45,7 @@ struct ConfigConstants {
 
   static constexpr std::size_t DofsElaSize =
       ElaSize * seissol::kernels::NumberOfBasisFunctions(Config::ConvergenceOrder);
+  static constexpr std::size_t DerivativesElaSize = DofsElaSize * Config::ConvergenceOrder;
   static constexpr std::size_t DofsAneSize =
       AneSize * seissol::kernels::NumberOfBasisFunctions(Config::ConvergenceOrder);
   static constexpr std::size_t PStrainSize =

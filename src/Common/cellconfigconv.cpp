@@ -1,14 +1,14 @@
-#pragma once
-
 #include "cellconfigconv.hpp"
 #include <Common/configtensor.hpp>
 #include <Kernels/common.hpp>
 #include <Model/common_datastructures.hpp>
+#include "precision.hpp"
 #include <Model/plasticity.hpp>
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
 #include "utils/logger.h"
+#include "Equations/datastructures.hpp"
 
 namespace {
 template <std::size_t I>
