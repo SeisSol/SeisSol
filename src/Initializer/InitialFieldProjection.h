@@ -46,15 +46,16 @@
 #include "Initializer/typedefs.hpp"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
+#include "Initializer/tree/LTSForest.hpp"
 #include "Physics/InitialField.h"
 
 namespace seissol {
   namespace initializers {
+    template<typename Config>
     void projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
-                             GlobalData const& globalData,
+                             GlobalDataStorage const& globalData,
                              seissol::geometry::MeshReader const& meshReader,
-                             LTS const& lts,
-                             Lut const& ltsLut );
+                             const ClusterLTSForest& cluster );
   }
 }
 

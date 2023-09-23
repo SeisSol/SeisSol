@@ -54,8 +54,9 @@ template <typename Config,
                   std::is_same_v<typename Config::MaterialT, seissol::model::AnisotropicMaterial>,
               bool> = true>
 struct LocalTmp {
-  alignas(Alignment) std::array<typename Config::RealT,
-                                tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+  alignas(Alignment) std::array<
+      typename Config::RealT,
+      Yateto<Config>::Tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
   GravitationalFreeSurfaceBc<Config> gravitationalFreeSurfaceBc{};
 };
 #ifndef ACL_DEVICE

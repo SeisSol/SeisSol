@@ -58,15 +58,23 @@ namespace seissol {
   }
 }
 
-void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
-                                                GlobalData const& globalData,
+template<typename Config>
+void seissol::initializers::projectInitialField<Config>(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+                                                GlobalDataStorage const& globalData,
                                                 seissol::geometry::MeshReader const& meshReader,
-                                                LTS const& lts,
-                                                Lut const& ltsLut) {
+                                                ClusterLTSForest const& cluster) {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
 
-  constexpr auto quadPolyDegree = ConvergenceOrder+1;
+  cluster.visitLayers([&](auto&& layerview) {
+    using Config == typename std::decay_t<decltype(layerview)>::ConfigT;
+    using RealT = typename Config::RealT;
+
+    if (layerview.icg == Ghost) {
+      return;
+    }
+
+  constexpr auto quadPolyDegree = Config::ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -77,22 +85,24 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   #pragma omp parallel
   {
 #endif
-  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(Alignment))) = {};
-  auto iniCond = init::iniCond::view::create(iniCondData);
+  RealT iniCondData[tensor::iniCond::size()] __attribute__((aligned(Alignment))) = {};
+  auto iniCond = Yateto<Config>::Init::iniCond::view::create(iniCondData);
 
   std::vector<std::array<double, 3>> quadraturePointsXyz;
   quadraturePointsXyz.resize(numQuadPoints);
 
-  kernel::projectIniCond krnl;
+  typename Yateto<Config>::Kernel::projectIniCond krnl;
   krnl.projectQP = globalData.projectQPMatrix;
   krnl.iniCond = iniCondData;
-  kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-  kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+  kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<Yateto<Config>::Init::selectAneFull>());
+  kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<Yateto<Config>::Init::selectElaFull>());
 
 #ifdef _OPENMP
   #pragma omp for schedule(static)
 #endif
-  for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
+  for (unsigned cell = 0; cell < layerview.layer.getNumberOfCells(); ++cell) {
+    int meshId = 
+
     double const* elementCoords[4];
     for (size_t v = 0; v < 4; ++v) {
       elementCoords[v] = vertices[elements[meshId].vertices[ v ] ].coords;
@@ -101,23 +111,24 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
-    const seissol::model::Material_t& material = ltsLut.lookup(lts.materialData, meshId);
+    const auto& material = layerview.var(layerview.lts.materialData)[cell];
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
-      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
+      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, &material, sub);
     }
 #else
-    iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, &material, iniCond);
 #endif
 
-    krnl.Q = ltsLut.lookup(lts.dofs, meshId);
-    if (kernels::has_size<tensor::Qane>::value) {
-      kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
+    krnl.Q = layerview.var(layerview.lts.dofs)[cell];
+    if constexpr (kernels::has_size<tensor::Qane>::value) {
+      kernels::set_Qane(krnl, layerview.var(layerview.lts.dofsAne)[cell]);
     }
     krnl.execute();
   }
 #ifdef _OPENMP
   }
 #endif
+  });
 }

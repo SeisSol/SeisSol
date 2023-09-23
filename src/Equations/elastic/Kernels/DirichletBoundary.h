@@ -1,10 +1,6 @@
 #ifndef EQUATION_DIRICHLET_BOUNDARY_H_
 #define EQUATION_DIRICHLET_BOUNDARY_H_
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
-
 #include "Initializer/typedefs.hpp"
 
 #include "Numerical_aux/Quadrature.h"
@@ -30,14 +26,15 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-                                const CellBoundaryMapping& boundaryMapping) {
+void addRotationToProjectKernel(
+    seissol::Yateto<Config>::Kernel::projectToNodalBoundaryRotated& projectKernel,
+    const CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.TinvData != nullptr);
   projectKernel.Tinv = boundaryMapping.TinvData;
 }
 #pragma GCC diagnostic pop
 
-}
+} // namespace
 
 namespace seissol::kernels {
 
@@ -63,9 +60,10 @@ class DirichletBoundary {
     projectKrnl.INodal = dofsFaceBoundaryNodal;
     projectKrnl.execute(faceIdx);
 
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = Yateto<Config>::Init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(Yateto<Config>::Tensor::nodal::nodes2D::Shape[0] ==
+                      Yateto<Config>::Tensor::INodal::Shape[0],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -87,8 +85,8 @@ class DirichletBoundary {
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     size_t memCounter{0};
-    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(
-        device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
+    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(device.api->getStackMemory(
+        Yateto<Config>::Tensor::INodal::size() * numElements * sizeof(real)));
     auto** dofsFaceBoundaryNodalPtrs =
         reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
     memCounter += 2;
@@ -96,7 +94,7 @@ class DirichletBoundary {
     auto* deviceStream = device.api->getDefaultStream();
     device.algorithms.incrementalAdd(dofsFaceBoundaryNodalPtrs,
                                      dofsFaceBoundaryNodalData,
-                                     tensor::INodal::size(),
+                                     Yateto<Config>::Tensor::INodal::size(),
                                      numElements,
                                      deviceStream);
 
@@ -147,9 +145,10 @@ class DirichletBoundary {
                              double startTime,
                              double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = Yateto<Config>::Init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(Yateto<Config>::Tensor::nodal::nodes2D::Shape[0] ==
+                      Yateto<Config>::Tensor::INodal::Shape[0],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -162,13 +161,13 @@ class DirichletBoundary {
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
 
-    alignas(Alignment) RealT dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
-    auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
+    alignas(Alignment) RealT dofsFaceBoundaryNodalTmp[Yateto<Config>::Tensor::INodal::size()];
+    auto boundaryDofsTmp = Yateto<Config>::Init::INodal::view::create(dofsFaceBoundaryNodalTmp);
 
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
 
-    auto updateKernel = kernel::updateINodal{};
+    auto updateKernel = typename Yateto<Config>::Kernel::updateINodal{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
@@ -199,7 +198,7 @@ void computeAverageDisplacement(
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
   assert(deltaT > 0);
 
-  kernel::derivativeTaylorExpansion intKrnl;
+  typename Yateto<Config>::Kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
   for (size_t i = 0; i < Config::ConvergenceOrder; ++i) {
     intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
@@ -217,7 +216,6 @@ void computeAverageDisplacement(
   }
 }
 
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels
 
 #endif

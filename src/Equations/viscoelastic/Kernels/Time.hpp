@@ -63,20 +63,20 @@ class Time<Config,
   using RealT = typename Config::RealT;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  typename Yateto<Config>::Kernel::derivative m_krnlPrototype;
 
   public:
-  void setHostGlobalData(GlobalData const* global) {
+  void setHostGlobalData(GlobalData<Config> const* global) {
     assert(((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0);
     assert(((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0);
     assert(((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0);
 
     m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-    m_krnlPrototype.selectAne = init::selectAne::Values;
-    m_krnlPrototype.selectEla = init::selectEla::Values;
+    m_krnlPrototype.selectAne = Yateto<Config>::Init::selectAne::Values;
+    m_krnlPrototype.selectEla = Yateto<Config>::Init::selectEla::Values;
   }
 
-  void setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
+  void setGlobalData(const CompoundGlobalData<Config>& global) { setHostGlobalData(global.onHost); }
 
   void computeAder(double i_timeStepWidth,
                    LocalData<Config>& data,
@@ -95,25 +95,30 @@ class Time<Config,
      * compute ADER scheme.
      */
     // temporary result
-    RealT temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
-    RealT temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
-    RealT temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+    RealT temporaryBuffer[2][Yateto<Config>::Tensor::dQ::size(0)]
+        __attribute__((aligned(PAGESIZE_STACK)));
+    RealT temporaryBufferExt[2][Yateto<Config>::Tensor::dQext::size(1)]
+        __attribute__((aligned(PAGESIZE_STACK)));
+    RealT temporaryBufferAne[2][Yateto<Config>::Tensor::dQane::size(0)]
+        __attribute__((aligned(PAGESIZE_STACK)));
 
-    kernel::derivative krnl = m_krnlPrototype;
-    kernel::derivativeTaylorExpansion intKrnl;
+    typename Yateto<Config>::Kernel::derivative krnl = m_krnlPrototype;
+    typename Yateto<Config>::Kernel::derivativeTaylorExpansion intKrnl;
 
     krnl.dQ(0) = const_cast<RealT*>(data.dofs);
     intKrnl.dQ(0) = data.dofs;
     if (o_timeDerivatives != nullptr) {
-      streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+      streamstore(Yateto<Config>::Tensor::dQ::size(0), data.dofs, o_timeDerivatives);
       RealT* derOut = o_timeDerivatives;
-      for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-        derOut += tensor::dQ::size(i - 1);
+      for (unsigned i = 1; i < yateto::numFamilyMembers<typename Yateto<Config>::Tensor::dQ>();
+           ++i) {
+        derOut += Yateto<Config>::Tensor::dQ::size(i - 1);
         krnl.dQ(i) = derOut;
         intKrnl.dQ(i) = derOut;
       }
     } else {
-      for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      for (unsigned i = 1; i < yateto::numFamilyMembers<typename Yateto<Config>::Tensor::dQ>();
+           ++i) {
         krnl.dQ(i) = temporaryBuffer[i % 2];
         intKrnl.dQ(i) = temporaryBuffer[i % 2];
       }
@@ -121,7 +126,7 @@ class Time<Config,
 
     krnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
     intKrnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
-    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (unsigned i = 1; i < yateto::numFamilyMembers<typename Yateto<Config>::Tensor::dQ>(); ++i) {
       krnl.dQane(i) = temporaryBufferAne[i % 2];
       intKrnl.dQane(i) = temporaryBufferAne[i % 2];
       krnl.dQext(i) = temporaryBufferExt[i % 2];
@@ -130,7 +135,8 @@ class Time<Config,
     intKrnl.I = o_timeIntegrated;
     intKrnl.Iane = tmp.timeIntegratedAne;
 
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (unsigned i = 0; i < yateto::numFamilyMembers<typename Yateto<Config>::Tensor::star>();
+         ++i) {
       krnl.star(i) = data.localIntegration.starMatrices[i];
     }
     krnl.w = data.localIntegration.specific.w;
@@ -160,17 +166,17 @@ class Time<Config,
     o_hardwareFlops = 0;
 
     // initialization
-    o_nonZeroFlops += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
+    o_nonZeroFlops += Yateto<Config>::Kernel::derivativeTaylorExpansion::nonZeroFlops(0);
+    o_hardwareFlops += Yateto<Config>::Kernel::derivativeTaylorExpansion::hardwareFlops(0);
 
     // interate over derivatives
     for (unsigned der = 1; der < Config::ConvergenceOrder; ++der) {
-      o_nonZeroFlops += kernel::derivative::nonZeroFlops(der);
-      o_hardwareFlops += kernel::derivative::hardwareFlops(der);
+      o_nonZeroFlops += Yateto<Config>::Kernel::derivative::nonZeroFlops(der);
+      o_hardwareFlops += Yateto<Config>::Kernel::derivative::hardwareFlops(der);
 
       // update of time integrated DOFs
-      o_nonZeroFlops += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-      o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
+      o_nonZeroFlops += Yateto<Config>::Kernel::derivativeTaylorExpansion::nonZeroFlops(der);
+      o_hardwareFlops += Yateto<Config>::Kernel::derivativeTaylorExpansion::hardwareFlops(der);
     }
   }
 
@@ -178,11 +184,12 @@ class Time<Config,
     unsigned reals = 0;
 
     // DOFs load, tDOFs load, tDOFs write
-    reals +=
-        tensor::Q::size() + tensor::Qane::size() + 2 * tensor::I::size() + 2 * tensor::Iane::size();
+    reals += Yateto<Config>::Tensor::Q::size() + Yateto<Config>::Tensor::Qane::size() +
+             2 * Yateto<Config>::Tensor::I::size() + 2 * Yateto<Config>::Tensor::Iane::size();
     // star matrices, source matrix
-    reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
-             tensor::E::size();
+    reals += yateto::computeFamilySize<typename Yateto<Config>::Tensor::star>() +
+             Yateto<Config>::Tensor::w::size() + Yateto<Config>::Tensor::W::size() +
+             Yateto<Config>::Tensor::E::size();
 
     /// \todo incorporate derivatives
 
@@ -210,12 +217,12 @@ class Time<Config,
     RealT l_secondTerm = static_cast<RealT>(1.0);
     RealT l_factorial = static_cast<RealT>(1.0);
 
-    kernel::derivativeTaylorExpansionEla intKrnl;
+    typename Yateto<Config>::Kernel::derivativeTaylorExpansionEla intKrnl;
     intKrnl.I = o_timeIntegrated;
     RealT const* der = i_timeDerivatives;
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (unsigned i = 0; i < yateto::numFamilyMembers<Yateto<Config>::Tensor::dQ>(); ++i) {
       intKrnl.dQ(i) = der;
-      der += tensor::dQ::size(i);
+      der += Yateto<Config>::Tensor::dQ::size(i);
     }
 
     // iterate over time derivatives
@@ -234,7 +241,7 @@ class Time<Config,
   void computeTaylorExpansion(RealT time,
                               RealT expansionPoint,
                               RealT const* timeDerivatives,
-                              RealT timeEvaluated[tensor::Q::size()]) {
+                              RealT timeEvaluated[Yateto<Config>::Tensor::Q::size()]) {
     /*
      * assert alignments.
      */
@@ -246,14 +253,15 @@ class Time<Config,
 
     RealT deltaT = time - expansionPoint;
 
-    static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+    static_assert(Yateto<Config>::Tensor::I::size() == Yateto<Config>::Tensor::Q::size(),
+                  "Sizes of tensors I and Q must match");
 
-    kernel::derivativeTaylorExpansionEla intKrnl;
+    typename Yateto<Config>::Kernel::derivativeTaylorExpansionEla intKrnl;
     intKrnl.I = timeEvaluated;
     RealT const* der = timeDerivatives;
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (unsigned i = 0; i < yateto::numFamilyMembers<Yateto<Config>::Tensor::dQ>(); ++i) {
       intKrnl.dQ(i) = der;
-      der += tensor::dQ::size(i);
+      der += Yateto<Config>::Tensor::dQ::size(i);
     }
     intKrnl.power = 1.0;
 
@@ -271,8 +279,8 @@ class Time<Config,
 
     // interate over derivatives
     for (unsigned der = 0; der < Config::ConvergenceOrder; ++der) {
-      nonZeroFlops += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
-      hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
+      nonZeroFlops += Yateto<Config>::Kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
+      hardwareFlops += Yateto<Config>::Kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
     }
   }
 };

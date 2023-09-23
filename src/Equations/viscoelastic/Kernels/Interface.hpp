@@ -41,6 +41,7 @@
 #ifndef KERNELS_INTERFACE_H_
 #define KERNELS_INTERFACE_H_
 
+#include "Common/configtensor.hpp"
 #include <Initializer/tree/InterfaceHelper.hpp>
 #include <Initializer/LTS.h>
 #include <Kernels/precision.hpp>
@@ -54,9 +55,10 @@ template <typename Config,
                            bool> = true>
 struct alignas(Alignment) LocalTmp {
   using RealT = typename Config::RealT;
-  alignas(Alignment) RealT timeIntegratedAne[tensor::Iane::size()]{};
-  alignas(Alignment)
-      std::array<RealT, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
+  alignas(Alignment) RealT timeIntegratedAne[Yateto<Config>::Tensor::Iane::size()]{};
+  alignas(Alignment) std::array<
+      RealT,
+      Yateto<Config>::Tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
   GravitationalFreeSurfaceBc<Config> gravitationalFreeSurfaceBc{};
 };
 LTSTREE_GENERATE_INTERFACE(LocalData,

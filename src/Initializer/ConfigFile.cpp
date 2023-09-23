@@ -36,10 +36,11 @@ static std::pair<std::size_t, seissol::SupportedConfigs> testConfig(const std::s
 
 constexpr SupportedConfigs defaultConfig(bool plasticity) {
   if (plasticity) {
-    return SupportedConfigs(CellConfig<seissol::model::Material_t, real, ConvergenceOrder, true>());
+    return SupportedConfigs(
+        CellConfig<seissol::model::Material_t, real, GivenConvergenceOrder, true>());
   } else {
     return SupportedConfigs(
-        CellConfig<seissol::model::Material_t, real, ConvergenceOrder, false>());
+        CellConfig<seissol::model::Material_t, real, GivenConvergenceOrder, false>());
   }
 }
 
