@@ -58,6 +58,8 @@
 
 #include <cstddef>
 
+namespace seissol {
+
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
@@ -106,7 +108,7 @@ struct CellLocalInformation {
   unsigned short ltsSetup;
 };
 
-// cell local information which is not needed during iterations
+// cell local information which is not needed during the main iterations, but only during setup and (maybe) output
 struct SecondaryCellLocalInformation {
   // local mesh ID (for interior/copy) or position in the linearized ghost layer
   unsigned int meshId;
@@ -114,14 +116,21 @@ struct SecondaryCellLocalInformation {
   // ids of the face neighbors (in their respective Config LTS tree)
   unsigned int faceNeighborIds[4];
 
+  // ID in layer
+  unsigned int layerId;
+
   // own config ID
   unsigned int configId;
 
   // unique global id of the time cluster
   unsigned int clusterId;
 
+  int rank;
+
+  int neighborRanks[4];
+
   // duplicate id of own cell
-  int duplicate;
+  std::byte duplicate;
 };
 
 struct MeshStructure {
@@ -428,19 +437,23 @@ struct DREnergyOutput {
   RealT frictionalEnergy[seissol::dr::misc::numPaddedPoints<Config>];
 };
 
+template<typename Config>
 struct CellDRMapping {
+  using RealT = typename Config::RealT;
   unsigned side;
   unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
+  RealT* godunov;
+  RealT* fluxSolver;
 };
 
+template<typename Config>
 struct CellBoundaryMapping {
-  real* nodes;
-  real* TData;
-  real* TinvData;
-  real* easiBoundaryConstant;
-  real* easiBoundaryMap;
+  using RealT = typename Config::RealT;
+  RealT* nodes;
+  RealT* TData;
+  RealT* TinvData;
+  RealT* easiBoundaryConstant;
+  RealT* easiBoundaryMap;
 };
 
 template<typename Config>
@@ -469,11 +482,9 @@ struct MemoryProperties {
   size_t pagesizeStack{PAGESIZE_STACK};
 };
 
-namespace seissol {
 struct GravitationSetup {
   double acceleration = 9.81; // m/s
 };
-} // namespace seissol
 
 struct TravellingWaveParameters {
   std::array<double, 3> origin;
@@ -481,5 +492,7 @@ struct TravellingWaveParameters {
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
 };
+
+} // namespace seissol
 
 #endif

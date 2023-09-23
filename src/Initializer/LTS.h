@@ -76,29 +76,32 @@ namespace seissol::initializers {
     using RealT = typename Config::RealT;
     using MaterialT = typename Config::MaterialT;
 
-    Variable<RealT[ConfigConstants<Config>::DofsElaSize]>       dofs;
+    using DofsType = RealT[ConfigConstants<Config>::DofsElaSize];
+    using DerivType = RealT[ConfigConstants<Config>::DerivativesElaSize];
+
+    Variable<DofsType>       dofs;
     // size is zero if Qane is not defined
     Variable<RealT[ZeroLengthArrayHandler(ConfigConstants<Config>::DofsAneSize)]> dofsAne;
-    Variable<RealT*>                         buffers;
-    Variable<RealT*>                         derivatives;
+    Variable<DofsType*>                         buffers;
+    Variable<DerivType*>                         derivatives;
     Variable<CellLocalInformation>          cellInformation;
     Variable<SecondaryCellLocalInformation>          secondaryCellInformation;
-    Variable<RealT*[4]>                      faceNeighbors;
+    Variable<void*[4]>                      faceNeighbors;
     Variable<LocalIntegrationData<Config>>          localIntegration;
     Variable<NeighboringIntegrationData<Config>>    neighboringIntegration;
     Variable<CellMaterialData>              material;
     Variable<MaterialT>                    materialData;
     Variable<seissol::model::PlasticityData<Config>>                plasticity;
-    Variable<CellDRMapping[4]>              drMapping;
-    Variable<CellBoundaryMapping[4]>        boundaryMapping;
+    Variable<CellDRMapping<Config>[4]>              drMapping;
+    Variable<CellBoundaryMapping<Config>[4]>        boundaryMapping;
     Variable<RealT[ConfigConstants<Config>::PStrainSize]> pstrain;
-    Variable<RealT*[4]>                      faceDisplacements;
+    Variable<RealT*[4]>                     faceDisplacements;
     Bucket                                  buffersDerivatives;
     Bucket                                  faceDisplacementsBuffer;
 
   #ifdef ACL_DEVICE
-    Variable<LocalIntegrationData>          localIntegrationOnDevice;
-    Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
+    Variable<LocalIntegrationData<Config>>          localIntegrationOnDevice;
+    Variable<NeighboringIntegrationData<Config>>    neighIntegrationOnDevice;
     ScratchpadMemory                        integratedDofsScratch;
     ScratchpadMemory                        derivativesScratch;
     ScratchpadMemory                        nodalAvgDisplacements;
