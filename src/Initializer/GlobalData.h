@@ -42,7 +42,13 @@
 
 #include "MemoryAllocator.h"
 #include "typedefs.hpp"
+#include <Common/configs.hpp>
+#include <Common/templating.hpp>
+#include <Common/varianthelper.hpp>
+#include <optional>
 #include <yateto.h>
+
+#include "Common/executor.hpp"
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -96,6 +102,43 @@ namespace seissol {
 
     template<typename Config>
     using GlobalDataInitializerOnDevice = GlobalDataInitializer<Config, matrixmanip::OnDevice<Config>>;
+
+    class GlobalDataStorage {
+    public:
+      using GlobalDataArray = ChangeVariadicT<std::tuple, TransformVariadicT<std::optional, TransformVariadicT<GlobalData, SupportedConfigs>>>;
+
+      GlobalDataStorage(memory::ManagedAllocator& allocator) : allocator(allocator) {}
+
+      template<Executor Executor, typename Config>
+      const GlobalData<Config>& getData() {
+        constexpr auto typeId = variantTypeId<Config, SupportedConfigs>();
+        if constexpr (Executor == Executor::Host) {
+          auto& element = std::get<typeId>(onHost);
+          if (!std::get<typeId>(onHost).has_value()) {
+            GlobalData<Config> globalData;
+            GlobalDataInitializerOnHost<Config>::init(globalData, allocator, memkindHost);
+            element = std::move(globalData);
+          }
+          return element;
+        }
+        else if constexpr (Executor == Executor::Device) {
+          auto& element = std::get<typeId>(onHost);
+          if (!std::get<typeId>(onDevice).has_value()) {
+            GlobalData<Config> globalData;
+            GlobalDataInitializerOnDevice<Config>::init(globalData, allocator, memkindDevice);
+            element = std::move(globalData);
+          }
+          return element;
+        }
+      }
+    private:
+      memory::ManagedAllocator& allocator;
+      enum memory::Memkind memkindHost = memory::Memkind::HighBandwidth; // TODO: really?
+      enum memory::Memkind memkindDevice = memory::Memkind::DeviceGlobalMemory;
+
+      GlobalDataArray onHost;
+      GlobalDataArray onDevice;
+    };
   }  // namespace initializers
 } // namespace seissol
 
