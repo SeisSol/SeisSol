@@ -17,9 +17,9 @@ class EnumLayer {
 
   int size() const { return supportedValues.size(); }
 
-  int argument(int index) const { return supportedValues.at(index); }
+  T argument(int index) const { return supportedValues.at(index); }
 
-  using Type = T;
+  using Type = void;
 
   private:
   std::vector<T> supportedValues;
@@ -100,22 +100,24 @@ class ColorMap {
     static void create(Head&& head) { return Type(head, StopLayerSet()); }
   };
   using NestedLayerSets = typename NestTypes<Definitions...>::Type;
-  NestedLayerSets LayerSets;
+  NestedLayerSets layerSets;
 
   public:
-  ColorMap(Definitions&&... definitions) : LayerSets(NestedLayerSets::create(definitions...)) {}
+  ColorMap(Definitions&&... definitions) : layerSets(NestedLayerSets::create(definitions...)) {}
 
   template <typename F, typename... Args>
-  void call(int color, F&& func) {
-    LayerSets.call(color, std::forward<F>(func));
+  void call(int color, F&& func) const {
+    layerSets.call(color, std::forward<F>(func));
   }
 
   template <typename... Args>
-  int color(Args... args) {
-    return LayerSets.color(args...);
+  int color(Args... args) const {
+    return layerSets.color(args...);
   }
 
-  int size() { return LayerSets.size(); }
+  int size() const { return layerSets.size(); }
+
+  std::vector<int> sizes() const { return layerSets.sizes(); }
 
   using Type = typename NestedLayerSets::Type;
 };

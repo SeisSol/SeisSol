@@ -1,6 +1,8 @@
 #pragma once
 
+#include <Initializer/tree/LayerMap.hpp>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <utility>
 #include <array>
@@ -8,18 +10,23 @@
 #include <cassert>
 
 namespace seissol::initializers {
-template <std::size_t MaxDuplicates, typename ColorMap>
+template <std::size_t MaxDuplicates, typename LtsForest>
 class StorageBackmap {
   public:
   using StoragePosition = std::pair<int, unsigned>;
   const inline static StoragePosition NullPosition =
       StoragePosition(-1, std::numeric_limits<unsigned>::max());
 
+  StorageBackmap(LtsForest& forest) : forest(std::ref(forest)) {}
+
   template <typename F>
   void lookup(F&& handler, unsigned id, unsigned duplicate = 0) const {
     assert(duplicate < MaxDuplicates);
     auto position = layerPosition(id, duplicate);
-    map.call(position.first, std::forward<F>(handler)); // TODO: forward position.second
+    forest.visitIdx(position.first,
+                    [&position, handler = std::forward<F>(handler)](auto&& ltsview) {
+                      std::invoke(std::forward<F>(handler), std::forward(ltsview), position.second);
+                    });
   }
 
   StoragePosition layerPosition(unsigned id, unsigned duplicate = 0) const {
@@ -28,7 +35,8 @@ class StorageBackmap {
   }
 
   template <typename TRef>
-  void addElement(int color, const TRef* zeroPosition, const TRef* layerData, int cell, int index) {
+  std::size_t
+      addElement(int color, const TRef* zeroPosition, const TRef* layerData, int cell, int index) {
     auto position = static_cast<std::size_t>((layerData + index) - zeroPosition) / sizeof(TRef);
     auto storagePosition = StoragePosition(color, position);
     std::size_t j = 0;
@@ -39,6 +47,7 @@ class StorageBackmap {
       }
     }
     assert(j < MaxDuplicates);
+    return j;
   }
 
   template <typename TRef>
@@ -61,6 +70,11 @@ class StorageBackmap {
   // TODO(David): initialize with NullPosition
   std::vector<CellStoragePosition> data = std::vector<CellStoragePosition>(NullCellStoragePosition);
 
-  ColorMap map;
+  std::reference_wrapper<LtsForest> forest;
 };
+
+using ClusterBackmap =
+    initializers::StorageBackmap<4,
+                                 initializers::ColorMap<initializers::EnumLayer<SupportedConfigs>>>;
+
 } // namespace seissol::initializers
