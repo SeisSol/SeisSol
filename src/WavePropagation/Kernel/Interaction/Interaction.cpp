@@ -16,15 +16,16 @@ template <std::size_t Quantities,
           std::size_t SourceOrder,
           std::size_t TargetOrder,
           std::size_t Offset>
-static inline void taylorSeriesInner(TargetRealT* target,
-                                     SourceRealT* source,
-                                     TargetRealT start,
-                                     TargetRealT end,
-                                     TargetRealT startCoeff,
-                                     TargetRealT endCoeff) {
+static inline void taylorSumInner(TargetRealT* target,
+                                  SourceRealT* source,
+                                  TargetRealT start,
+                                  TargetRealT end,
+                                  TargetRealT startCoeff,
+                                  TargetRealT endCoeff) {
   constexpr std::size_t SourceStride =
-      seissol::kernels::NumberOfAlignedBasisFunctions(SourceOrder - ThisOrder);
-  constexpr std::size_t TargetStride = seissol::kernels::NumberOfAlignedBasisFunctions(TargetOrder);
+      seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
+  constexpr std::size_t TargetStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
   TargetRealT coeff = endCoeff - startCoeff;
   constexpr std::size_t BasisFunctionsSize = std::min(SourceStride, TargetStride);
@@ -40,12 +41,12 @@ static inline void taylorSeriesInner(TargetRealT* target,
                                                       // ThisOrder < SourceOrder enough?
     TargetRealT newStartCoeff = startCoeff * start / static_cast<TargetRealT>(ThisOrder + 1);
     TargetRealT newEndCoeff = endCoeff * end / static_cast<TargetRealT>(ThisOrder + 1);
-    taylorSeriesInner<Quantities,
-                      ThisOrder + 1,
-                      SourceRealT,
-                      TargetRealT,
-                      SourceOrder,
-                      Offset + SourceStride * Quantities>(
+    taylorSumInner<Quantities,
+                   ThisOrder + 1,
+                   SourceRealT,
+                   TargetRealT,
+                   SourceOrder,
+                   Offset + SourceStride * Quantities>(
         target, source, start, end, newStartCoeff, newEndCoeff);
   }
 }
@@ -57,12 +58,13 @@ template <std::size_t SourceQuantities,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
 static void
-    taylorSeries(TargetRealT* target, SourceRealT* source, TargetRealT start, TargetRealT end) {
+    taylorSum(TargetRealT* target, SourceRealT* source, TargetRealT start, TargetRealT end) {
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
-  constexpr std::size_t TargetStride = seissol::kernels::NumberOfAlignedBasisFunctions(TargetOrder);
+  constexpr std::size_t TargetStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
   std::memset(target, 0, TargetStride * TargetQuantities * sizeof(TargetRealT));
-  taylorSeriesInner<Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0>(
+  taylorSumInner<Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0>(
       target, source, start, end, start, end);
 }
 } // namespace
@@ -131,12 +133,12 @@ typename TargetConfig::RealT* TimeIntegrator<TargetConfig>::timeIntegrateFace(
 
           static_assert(SubsetDofs<SourceMaterialT, TargetMaterialT>::Result,
                         "Only subset DOFS mode supported right now.");
-          taylorSeries<SourceMaterialT::NumberOfQuantities,
-                       TargetMaterialT::NumberOfQuantities,
-                       SourceRealT,
-                       TargetRealT,
-                       SourceConfig::ConvergenceOrder,
-                       TargetConfig::ConvergenceOrder>(tempmem, sourcePtr, start, end);
+          taylorSum<SourceMaterialT::NumberOfQuantities,
+                    TargetMaterialT::NumberOfQuantities,
+                    SourceRealT,
+                    TargetRealT,
+                    SourceConfig::ConvergenceOrder,
+                    TargetConfig::ConvergenceOrder>(tempmem, sourcePtr, start, end);
         },
         ConfigInstances[source]);
     return tempmem;
@@ -151,6 +153,7 @@ void TimeIntegrator<TargetConfig>::timeIntegrateCell(typename TargetConfig::Real
                                                      double start,
                                                      double end) {
   for (int face = 0; face < 4; ++face) {
+    //
     if (info.faceTypes[face] != FaceType::dynamicRupture &&
         info.faceTypes[face] != FaceType::outflow) {
       target[face] = timeIntegrateFace(
