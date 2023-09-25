@@ -60,7 +60,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
 #ifdef USE_COMM_THREAD
   auto freeCpus = pinning.getFreeCPUsMask();
-  auto commThreadInfo = pinning::details::getPinningInfo(freeCpus);
+  auto commThreadInfo = pinning::details::getPinningInfo(freeCpus.set);
 #else
   cpu_set_t emptyUnion;
   CPU_ZERO(&emptyUnion);
