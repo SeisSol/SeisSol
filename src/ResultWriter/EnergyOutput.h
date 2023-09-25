@@ -23,23 +23,23 @@ namespace seissol::writer {
 struct EnergiesStorage {
   std::array<double, multipleSimulations::numberOfSimulations * 9> energies{};
 
-  double& gravitationalEnergy(size_t sim = 0);
+  double& gravitationalEnergy(size_t sim);
 
-  double& acousticEnergy(size_t sim = 0);
+  double& acousticEnergy(size_t sim);
 
-  double& acousticKineticEnergy(size_t sim = 0);
+  double& acousticKineticEnergy(size_t sim);
 
-  double& elasticEnergy(size_t sim = 0);
+  double& elasticEnergy(size_t sim);
 
-  double& elasticKineticEnergy(size_t sim = 0);
+  double& elasticKineticEnergy(size_t sim);
 
-  double& totalFrictionalWork(size_t sim = 0);
+  double& totalFrictionalWork(size_t sim);
 
-  double& staticFrictionalWork(size_t sim = 0);
+  double& staticFrictionalWork(size_t sim);
 
-  double& plasticMoment(size_t sim = 0);
+  double& plasticMoment(size_t sim);
 
-  double& seismicMoment(size_t sim = 0);
+  double& seismicMoment(size_t sim);
 };
 
 class EnergyOutput : public Module {

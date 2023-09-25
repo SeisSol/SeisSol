@@ -186,12 +186,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 void EnergyOutput::computeVolumeEnergies() {
   for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-    auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
-    auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
-    auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
-    auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
-    auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
-    auto& totalPlasticMoment = energiesStorage.plasticMoment();
+    auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(s);
+    auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(s);
+    auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy(s);
+    auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy(s);
+    auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy(s);
+    auto& totalPlasticMoment = energiesStorage.plasticMoment(s);
 
     std::vector<Element> const& elements = meshReader->getElements();
     std::vector<Vertex> const& vertices = meshReader->getVertices();
@@ -239,7 +239,7 @@ void EnergyOutput::computeVolumeEnergies() {
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(s, yateto::slice<>(), yateto::slice<>());
 #else
-      auto numSub = numericalSolution;
+      auto& numSub = numericalSolution;
 #endif
       for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
         constexpr int uIdx = 6;
@@ -405,8 +405,8 @@ void EnergyOutput::printEnergies() {
           100.0 * energiesStorage.acousticKineticEnergy(s) / totalAcousticEnergy;
       const auto ratioAcousticPotential =
           100.0 * energiesStorage.acousticEnergy(s) / totalAcousticEnergy;
-      const auto totalFrictionalWork = energiesStorage.totalFrictionalWork();
-      const auto staticFrictionalWork = energiesStorage.staticFrictionalWork();
+      const auto totalFrictionalWork = energiesStorage.totalFrictionalWork(s);
+      const auto staticFrictionalWork = energiesStorage.staticFrictionalWork(s);
       const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
       const auto ratioFrictionalStatic = 100.0 * staticFrictionalWork / totalFrictionalWork;
       const auto ratioFrictionalRadiated = 100.0 * radiatedEnergy / totalFrictionalWork;
@@ -441,7 +441,7 @@ void EnergyOutput::printEnergies() {
           logInfo(rank) << "Plastic moment" << multipleSimulationSnippet
                         << "(value, equivalent Mw, % total moment):"
                         << energiesStorage.plasticMoment(s) << " ,"
-                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
+                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(s)) - 6.07 << " ,"
                         << ratioPlasticMoment;
         }
       } else {
@@ -451,8 +451,8 @@ void EnergyOutput::printEnergies() {
       if (totalFrictionalWork) {
         logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                       << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-        logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
-                      << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
+        logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment(s)
+                      << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(s)) - 6.07;
       }
 
       if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
@@ -473,25 +473,25 @@ void EnergyOutput::writeEnergies(double time) {
 #endif
     if (shouldComputeVolumeEnergies()) {
       out << time << ",gravitational_energy" << fusedSuffix << ","
-          << energiesStorage.gravitationalEnergy() << "\n"
-          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy()
+          << energiesStorage.gravitationalEnergy(s) << "\n"
+          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy(s)
           << "\n"
           << time << ",acoustic_kinetic_energy" << fusedSuffix << ","
-          << energiesStorage.acousticKineticEnergy() << "\n"
-          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy()
+          << energiesStorage.acousticKineticEnergy(s) << "\n"
+          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy(s)
           << "\n"
           << time << ",elastic_kinetic_energy" << fusedSuffix << ","
-          << energiesStorage.elasticKineticEnergy() << "\n"
-          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment()
+          << energiesStorage.elasticKineticEnergy(s) << "\n"
+          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(s)
           << "\n";
     }
     out << time << ",total_frictional_work" << fusedSuffix << ","
-        << energiesStorage.totalFrictionalWork() << "\n"
+        << energiesStorage.totalFrictionalWork(s) << "\n"
         << time << ",static_frictional_work" << fusedSuffix << ","
-        << energiesStorage.staticFrictionalWork() << "\n"
-        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment()
+        << energiesStorage.staticFrictionalWork(s) << "\n"
+        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment(s)
         << "\n"
-        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment()
+        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(s)
         << std::endl;
   }
 }
