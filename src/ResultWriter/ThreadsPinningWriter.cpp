@@ -1,19 +1,24 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "Parallel/MPI.h"
 #include "Common/filesystem.h"
-#include <sys/sysinfo.h>
 #include <sched.h>
 #include <fstream>
 
+#ifndef __APPLE__
+#include <sys/sysinfo.h>
 #ifdef USE_NUMA_AWARE_PINNING
 #include <numa.h>
 #endif // USE_NUMA_AWARE_PINNING
+#endif // __APPLE__
 
+#ifndef __APPLE__
 namespace seissol::writer::pinning::details {
 struct PinningInfo {
   std::string coreIds{};
   std::string numaIds{};
 };
+
+using cpu_set_t = int;
 
 PinningInfo getPinningInfo(cpu_set_t const& set) {
   std::stringstream coreIdsStream;
@@ -49,8 +54,11 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
   return pinningInfo;
 }
 } // namespace seissol::writer::pinning::details
+#endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
+#ifndef __APPLE__
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask());
 #ifdef USE_COMM_THREAD
   auto freeCpus = pinning.getFreeCPUsMask();
@@ -89,4 +97,5 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
 
     fileStream.close();
   }
+#endif // __APPLE__
 }
