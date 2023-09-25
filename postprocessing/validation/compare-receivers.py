@@ -9,23 +9,35 @@ import re
 import glob
 
 
-def velocity_norm(receiver):
+def velocity_norm(receiver, fused_index=""):
+    names = [f"v1{fused_index}", f"v2{fused_index}", f"v3{fused_index}"]
+
     assert (
-        "v1" in receiver.columns
-        and "v2" in receiver.columns
-        and "v3" in receiver.columns
+        names[0] in receiver.columns
+        and names[1] in receiver.columns
+        and names[2] in receiver.columns
     )
-    return np.sqrt(receiver["v1"] ** 2 + receiver["v2"] ** 2 + receiver["v3"] ** 2)
-
-
-def stress_norm(receiver):
     return np.sqrt(
-        receiver["xx"] ** 2
-        + receiver["yy"] ** 2
-        + receiver["zz"] ** 2
-        + receiver["xy"] ** 2
-        + receiver["yz"] ** 2
-        + receiver["xz"] ** 2
+        receiver[names[0]] ** 2 + receiver[names[1]] ** 2 + receiver[names[2]] ** 2
+    )
+
+
+def stress_norm(receiver, fused_index=""):
+    names = [
+        f"xx{fused_index}",
+        f"yy{fused_index}",
+        f"zz{fused_index}",
+        f"xy{fused_index}",
+        f"yz{fused_index}",
+        f"xz{fused_index}",
+    ]
+    return np.sqrt(
+        receiver[names[0]] ** 2
+        + receiver[names[1]] ** 2
+        + receiver[names[2]] ** 2
+        + receiver[names[3]] ** 2
+        + receiver[names[4]] ** 2
+        + receiver[names[5]] ** 2
     )
 
 
@@ -132,16 +144,24 @@ def read_receiver(filename):
             first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
 
-    def replace(x, y, l):
-        if x in l:
-            x_index = l.index(x)
-            l[x_index] = y
+    def replace(x, y, l, max_fused=-1):
+        if max_fused < 0:
+            if x in l:
+                x_index = l.index(x)
+                l[x_index] = y
+        else:
+            for fused_index in range(max_fused):
+                x_ = f"{x}{fused_index}"
+                y_ = f"{y}{fused_index}"
+                if x_ in l:
+                    x_index = l.index(x_)
+                    l[x_index] = y_
         return l
 
     # Recently, we changed the receiver variables from u,v,w to v1,v2,v3. If the receiver is stored in legacy format, we adapt it
-    variables = replace("u", "v1", variables)
-    variables = replace("v", "v2", variables)
-    variables = replace("w", "v3", variables)
+    variables = replace("u", "v1", variables, 4)
+    variables = replace("v", "v2", variables, 4)
+    variables = replace("w", "v3", variables, 4)
     receiver.columns = variables
     return receiver
 
@@ -158,15 +178,32 @@ def receiver_diff(args, i):
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
-    ref_velocity_norm = integrate_in_time(time, velocity_norm(ref_receiver))
-    diff_velocity_norm = integrate_in_time(time, velocity_norm(difference))
+    number_of_fused_sims = (len(sim_receiver.columns) - 1) // 9
 
-    ref_stress_norm = integrate_in_time(time, stress_norm(ref_receiver))
-    diff_stress_norm = integrate_in_time(time, stress_norm(difference))
+    max_velocity = 0
+    max_stress = 0
+    for fused_index in range(number_of_fused_sims):
+        ref_velocity_norm = integrate_in_time(
+            time, velocity_norm(ref_receiver, fused_index)
+        )
+        diff_velocity_norm = integrate_in_time(
+            time, velocity_norm(difference, fused_index)
+        )
+        rel_velocity_diff = diff_velocity_norm / ref_velocity_norm
+        max_velocity = (
+            rel_velocity_diff if rel_velocity_diff > max_velocity else max_velocity
+        )
+
+        ref_stress_norm = integrate_in_time(
+            time, stress_norm(ref_receiver, fused_index)
+        )
+        diff_stress_norm = integrate_in_time(time, stress_norm(difference, fused_index))
+        rel_stress_diff = diff_stress_norm / ref_stress_norm
+        max_stress = rel_stress_diff if rel_stress_diff > max_stress else max_stress
 
     return (
-        diff_velocity_norm / ref_velocity_norm,
-        diff_stress_norm / ref_stress_norm,
+        max_velocity,
+        max_stress,
     )
 
 
