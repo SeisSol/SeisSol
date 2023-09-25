@@ -51,7 +51,7 @@
 #include <Geometry/MeshTools.h>
 #include <Modules/Modules.h>
 
-void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const& meshReader,
+void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                                                                 unsigned*&        cells,
                                                                 double*&          vertices,
                                                                 unsigned&         nCells,
@@ -127,11 +127,12 @@ void seissol::writer::FreeSurfaceWriter::enable()
 }
 
 
-void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&                       meshReader,
+void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader const&                       meshReader,
                                                 seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
                                                 char const*                             outputPrefix,
                                                 double                                  interval,
-                                                xdmfwriter::BackendType                 backend )
+                                                xdmfwriter::BackendType                 backend,
+                                                const std::string& backupTimeStamp )
 {
 	if (!m_enabled)
 		return;
@@ -182,7 +183,8 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	// Initialize the executor
 	FreeSurfaceInitParam param;
 	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
-  param.backend = backend;
+	param.backend = backend;
+	param.backupTimeStamp = backupTimeStamp;
 	callInit(param);
 
 	// Remove unused buffers

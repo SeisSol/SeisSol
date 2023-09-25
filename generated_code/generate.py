@@ -66,9 +66,12 @@ cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
-cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
+cmdLineParser.add_argument('--drQuadRule')
+cmdLineParser.add_argument('--enable_premultiply_flux', action='store_true')
+cmdLineParser.add_argument('--disable_premultiply_flux', dest='enable_premultiply_flux', action='store_false')
+cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
@@ -130,7 +133,7 @@ adg.add_include_tensors(include_tensors)
 include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
                                                  adg,
                                                  cmdLineArgs.matricesDir,
-                                                 cmdLineArgs.dynamicRuptureMethod,
+                                                 cmdLineArgs.drQuadRule,
                                                  targets))
 
 Plasticity.addKernels(generator, 
@@ -138,7 +141,7 @@ Plasticity.addKernels(generator,
                       cmdLineArgs.matricesDir,
                       cmdLineArgs.PlasticityMethod,
                       targets)
-NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
+NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
 SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
 Point.addKernels(generator, adg)
 

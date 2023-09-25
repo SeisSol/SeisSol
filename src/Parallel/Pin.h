@@ -41,6 +41,8 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
+#include "Common/IntegerMaskParser.h"
+#include <sched.h>
 #include <string>
 
 namespace seissol {
@@ -48,10 +50,12 @@ namespace seissol {
 class Pinning {
 private:
   cpu_set_t openmpMask{};
+  IntegerMaskParser::MaskType parsedFreeCPUsMask{};
 public:
   Pinning();
 
   cpu_set_t getWorkerUnionMask() const;
+  void checkEnvVariables();
   cpu_set_t getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(cpu_set_t const& set);
   void pinToFreeCPUs() const;

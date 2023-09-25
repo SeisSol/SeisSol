@@ -150,16 +150,10 @@ namespace proxy::cpu {
     loader.load(m_lts, layer);
 
     real *l_timeIntegrated[4];
-  #ifdef ENABLE_MATRIX_PREFETCH
     real *l_faceNeighbors_prefetch[4];
-  #endif
 
   #ifdef _OPENMP
-  #  ifdef ENABLE_MATRIX_PREFETCH
     #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
-  #  else
-    #pragma omp parallel private(l_timeIntegrated)
-  #  endif
     {
     LIKWID_MARKER_START("neighboring");
     #pragma omp for schedule(static)
@@ -179,8 +173,6 @@ namespace proxy::cpu {
   #endif
                                                       l_timeIntegrated );
 
-  #ifdef ENABLE_MATRIX_PREFETCH
-  #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
       l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
           ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
       l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
@@ -195,15 +187,10 @@ namespace proxy::cpu {
       } else {
         l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
       }
-  #endif
 
       m_neighborKernel.computeNeighborsIntegral( data,
                                                  drMapping[l_cell],
-  #ifdef ENABLE_MATRIX_PREFETCH
                                                  l_timeIntegrated, l_faceNeighbors_prefetch
-  #else
-                                                 l_timeIntegrated
-  #endif
                                                  );
     }
 
@@ -218,7 +205,7 @@ namespace proxy::cpu {
     seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
-    DROutput* drOutput = layerData.var(m_dynRup.drOutput);
+    DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -232,7 +219,7 @@ namespace proxy::cpu {
       m_dynRupKernel.spaceTimeInterpolation(  faceInformation[face],
                                              &m_globalDataOnHost,
                                              &godunovData[face],
-                                             &drOutput[face],
+                                             &drEnergyOutput[face],
                                               timeDerivativePlus[face],
                                               timeDerivativeMinus[face],
                                               QInterpolatedPlus,

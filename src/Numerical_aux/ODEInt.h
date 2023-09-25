@@ -5,6 +5,7 @@
 
 #include "ODEVector.h"
 #include "Kernels/precision.hpp"
+#include <cassert>
 
 namespace seissol::ode {
 

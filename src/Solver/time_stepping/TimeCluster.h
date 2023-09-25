@@ -87,6 +87,7 @@
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
+#include <Kernels/PointSourceCluster.h>
 #include <Kernels/TimeCommon.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
@@ -161,15 +162,10 @@ private:
     seissol::initializers::Layer* dynRupCopyData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
+    dr::friction_law::FrictionSolver* frictionSolver;
+    dr::output::OutputManager* faultOutputManager;
 
-    //! Mapping of cells to point sources
-    sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
-
-    //! Number of mapping of cells to point sources
-    unsigned m_numberOfCellToPointSourcesMappings;
-
-    //! Point sources
-    sourceterm::PointSources const* m_pointSources;
+    std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -254,6 +250,7 @@ private:
     template<bool usePlasticity>
     std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializers::Layer& i_layerData,
                                                                       double subTimeStart) {
+      if (i_layerData.getNumberOfCells() == 0) return {0,0};
       SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
@@ -289,7 +286,6 @@ private:
 #endif
                                                        l_timeIntegrated);
 
-#ifdef ENABLE_MATRIX_PREFETCH
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;
@@ -308,15 +304,10 @@ private:
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
-#endif
 
         m_neighborKernel.computeNeighborsIntegral( data,
                                                    drMapping[l_cell],
-#ifdef ENABLE_MATRIX_PREFETCH
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
-#else
-            l_timeIntegrated
-#endif
         );
 
         if constexpr (usePlasticity) {
@@ -344,7 +335,7 @@ private:
           i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
           numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
 
-      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
@@ -380,6 +371,9 @@ private:
   //! global cluster cluster id
   const unsigned int m_globalClusterId;
 
+  //! id used to identify this cluster (including layer type) when profiling
+  const unsigned int m_profilingId;
+
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
@@ -393,23 +387,16 @@ public:
    * @param i_clusterId id of this cluster with respect to the current rank.
    * @param i_globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
-   * @param i_timeKernel time integration kernel.
-   * @param i_volumeKernel volume integration kernel.
-   * @param i_boundaryKernel boundary integration kernel.
-   * @param i_copyCellInformation cell information in the copy layer.
-   * @param i_interiorCellInformation cell information in the interior.
-   * @param i_globalData global data.
-   * @param i_copyCellData cell data in the copy layer.
-   * @param i_interiorCellData cell data in the interior.
-   * @param i_cells degrees of freedom, time buffers, time derivatives.
    **/
-  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
+  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, unsigned int profilingId, bool usePlasticity,
               LayerType layerType, double maxTimeStepSize,
               long timeStepRate, bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
               seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
               seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
-              seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics,
+              seissol::initializers::DynamicRupture* i_dynRup,
+              seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+              dr::output::OutputManager* i_faultOutputManager, LoopStatistics* i_loopStatistics,
               ActorStateStatistics* actorStateStatistics);
 
   /**
@@ -419,18 +406,19 @@ public:
   ~TimeCluster() override;
 
   /**
-   * Sets the pointer to the cluster's point sources
+   * Sets the the cluster's point sources
    *
-   * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
-   * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
-   * @param i_pointSources pointer to all point sources used on this cluster
+   * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                        unsigned i_numberOfCellToPointSourcesMappings,
-                        sourceterm::PointSources const* i_pointSources );
+  void setPointSources(std::unique_ptr<kernels::PointSourceCluster> sourceCluster);
+  void freePointSources() { m_sourceCluster.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;
+  }
+
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+    faultOutputManager = outputManager;
   }
 
   /**

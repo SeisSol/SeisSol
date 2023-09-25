@@ -40,6 +40,8 @@
 
 #include "InitialFieldProjection.h"
 
+#include "Initializer/tree/LTSSync.hpp"
+
 #include <Numerical_aux/Quadrature.h>
 #include <Numerical_aux/BasisFunction.h>
 #include <Numerical_aux/Transformation.h>
@@ -60,7 +62,7 @@ namespace seissol {
 
 void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                                                 GlobalData const& globalData,
-                                                MeshReader const& meshReader,
+                                                seissol::geometry::MeshReader const& meshReader,
                                                 LTS const& lts,
                                                 Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
@@ -120,4 +122,9 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
 #ifdef _OPENMP
   }
 #endif
+
+  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs);
+  if (kernels::size<tensor::Qane>() > 0) {
+    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne);
+  }
 }

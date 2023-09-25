@@ -44,16 +44,17 @@ class Waveform:
     data = numpy.array(data)
     
     self.waveforms = dict()
-    self.norms = dict()
-    self.printIndicator = dict()
+    self.norm = dict()
+    self.show = dict()
+
     for i in range(0, len(names)):
       if names[i] == 'Time':
         self.time = data[:,i]
       else:
         self.waveforms[ names[i] ] = data[:,i]
-        self.norms[ names[i] ] = numpy.max(numpy.abs(data[:,i]))
-        self.printIndicator[ names[i] ] = True
-    
+        self.norm[ names[i] ] = numpy.max(numpy.abs(data[:,i]))
+        self.show[ names[i] ] = True
+
     self.coordinates = numpy.array(coordinates)
 
   def subtract(self, other):
@@ -67,6 +68,10 @@ class Waveform:
 
   def normalize(self):
     for name, wf in self.waveforms.items():
-      if self.norms[name] > numpy.finfo(float).eps:
-        self.waveforms[name] = wf / self.norms[name]
+      if self.norm[name] > numpy.finfo(float).eps:
+        self.waveforms[name] = wf / self.norm[name]
 
+  def differentiate(self):
+    dt = self.time[1] - self.time[0]
+    for name, wf in self.waveforms.items():
+      self.waveforms[name] = numpy.gradient(wf, dt)

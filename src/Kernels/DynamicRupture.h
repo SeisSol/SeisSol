@@ -45,6 +45,11 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <Kernels/Time.h>
+#ifdef USE_STP
+#include <array>
+#include <memory>
+#include <Numerical_aux/BasisFunction.h>
+#endif
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))
 
@@ -65,9 +70,11 @@ class seissol::kernels::DynamicRupture {
 
   public:
     double timePoints[CONVERGENCE_ORDER];
-    double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
     real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+#ifdef USE_STP
+    std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
+#endif
 
   DynamicRupture() {}
 
@@ -77,18 +84,18 @@ class seissol::kernels::DynamicRupture {
     
     void setTimeStepWidth(double timestep);
 
-    void spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
-                                  GlobalData const*           global,
-                                  DRGodunovData const*        godunovData,
-                                  DROutput*                   drOutput,
-                                  real const*                 timeDerivativePlus,
-                                  real const*                 timeDerivativeMinus,
-                                  real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                  real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                  real const*                 timeDerivativePlus_prefetch,
-                                  real const*                 timeDerivativeMinus_prefetch);
+    void spaceTimeInterpolation(DRFaceInformation const&    faceInfo,
+                                GlobalData const*           global,
+                                DRGodunovData const*        godunovData,
+                                DREnergyOutput*             drEnergyOutput,
+                                real const*                 timeDerivativePlus,
+                                real const*                 timeDerivativeMinus,
+                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                real const*                 timeDerivativePlus_prefetch,
+                                real const*                 timeDerivativeMinus_prefetch);
 
-  void batchedSpaceTimeInterpolation(ConditionalBatchTableT& table);
+  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table);
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,

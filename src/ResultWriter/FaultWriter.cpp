@@ -47,9 +47,7 @@
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
 #include "Modules/Modules.h"
-#include "Solver/Interoperability.h"
-
-extern seissol::Interoperability e_interoperability;
+#include "DynamicRupture/Output/OutputManager.hpp"
 
 void seissol::writer::FaultWriter::setUp()
 {
@@ -71,7 +69,8 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	int* outputMask, const real** dataBuffer,
 	const char* outputPrefix,
 	double interval,
-  xdmfwriter::BackendType backend)
+	xdmfwriter::BackendType backend,
+	const std::string& backupTimeStamp)
 {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -84,7 +83,8 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 
 	FaultInitParam param;
 	param.timestep = m_timestep;
-  param.backend = backend;
+	param.backend = backend;
+	param.backupTimeStamp = backupTimeStamp;
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
@@ -175,6 +175,8 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime)
 {
 	SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-	e_interoperability.calcElementwiseFaultoutput(currentTime);
+	if (callbackObject) {
+		callbackObject->updateElementwiseOutput();
+	}
 	write(currentTime);
 }

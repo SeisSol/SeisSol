@@ -52,11 +52,12 @@
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
+#include <Kernels/PointSourceCluster.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "GhostTimeCluster.h"
+#include "Solver/time_stepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -116,6 +117,9 @@ class seissol::time_stepping::TimeManager {
     LoopStatistics m_loopStatistics;
     ActorStateStatisticsManager actorStateStatisticsManager;
     
+    //! dynamic rupture output
+    dr::output::OutputManager* m_faultOutputManager{};
+
   public:
     /**
      * Construct a new time manager.
@@ -140,6 +144,9 @@ class seissol::time_stepping::TimeManager {
                      initializers::MemoryManager& memoryManager,
                      bool usePlasticity);
 
+    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
+    seissol::dr::output::OutputManager* getFaultOutputManager();
+
     /**
      * Advance in time until all clusters reach the next synchronization time.
      **/
@@ -153,12 +160,10 @@ class seissol::time_stepping::TimeManager {
     /**
      * Distributes point sources pointers to clusters
      * 
-     * @param clusterMappings Maps layers+clusters to point sources
-     * @param pointSources Map from layer to list of point sources
+     * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
-        std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources);
+        std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> sourceClusters);
 
   /**
    * Returns the writer for the receivers
@@ -178,7 +183,9 @@ class seissol::time_stepping::TimeManager {
      **/
     void setInitialTimes( double i_time = 0 );
 
-    void printComputationTime();
+    void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+
+    void freeDynamicResources();
 };
 
 #endif

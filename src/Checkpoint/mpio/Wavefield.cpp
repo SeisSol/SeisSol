@@ -42,7 +42,7 @@
 #include "utils/env.h"
 
 #include "Wavefield.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 void seissol::checkpoint::mpio::Wavefield::setHeader(seissol::checkpoint::WavefieldHeader &header)
 {

@@ -68,7 +68,7 @@ private:
     const unsigned int kSubCellsPerCell;
 
 public:
-    MeshRefiner(const MeshReader& meshReader,
+    MeshRefiner(const seissol::geometry::MeshReader& meshReader,
             const TetrahedronRefiner<T>& tetRefiner);
 
     MeshRefiner(const std::vector<const Element *>& subElements,
@@ -90,7 +90,7 @@ public:
 
 template<typename T>
 MeshRefiner<T>::MeshRefiner(
-        	const MeshReader& meshReader,
+        	const seissol::geometry::MeshReader& meshReader,
         	const TetrahedronRefiner<T>& tetRefiner)
 		: kSubCellsPerCell(tetRefiner.getDivisionCount())
 

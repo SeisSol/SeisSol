@@ -1,3 +1,5 @@
+.. _fault_output:
+
 Fault output
 ============
 
@@ -22,6 +24,8 @@ of the variable `OutputPointType` of the DynamicRupture namelist:
 | 3 : ASCII fault receivers
 | 4 : paraview file
 | 5 : both
+
+.. _paraview_output:
 
 Paraview output
 ---------------
@@ -79,6 +83,8 @@ OutputMask array.
 11. **DS**: only with LSW, time at which ASl>D_c
 12. **P_f** and **Tmp**: pore pressure and temperature
 
+.. _fault_receivers:
+
 Ascii fault receivers
 ---------------------
 
@@ -100,9 +106,9 @@ The output is generated every printtimeinterval (local) time step. Using
 this output with local time-stepping may result in differently sampled
 receiver files.
 
-.. _ioutputmask-1:
+.. _outputmask-1:
 
-iOutputMask
+OutputMask
 ~~~~~~~~~~~
 
 same as for ParaView output.

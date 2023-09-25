@@ -3,19 +3,23 @@ import viscoelastic2
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
+from common import generate_kernel_name_prefix
 
-def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod):
-    easi_ident_map_shape = (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions())
-    easi_ident_map_spp = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
+def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod, targets):
+    easi_ident_map = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
+    assert(easi_ident_map.shape ==
+           (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()))
     if aderdg.multipleSimulations > 1:
-        easi_ident_map_spp = np.stack([easi_ident_map_spp] * aderdg.multipleSimulations, axis=0)
+        easi_ident_map_spp = np.stack([easi_ident_map] * aderdg.multipleSimulations, axis=0)
+    else:
+        easi_ident_map_spp = easi_ident_map
 
     easi_ident_map = OptionalDimTensor('easiIdentMap', 
             aderdg.Q.optName(), 
             aderdg.multipleSimulations, 
             0, 
-            easi_ident_map_shape, 
-            spp=easi_ident_map_spp, 
+            easi_ident_map.shape, 
+            spp=easi_ident_map_spp,
             alignStride=False)
     easi_boundary_constant = Tensor('easiBoundaryConstant',
                                     (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
@@ -34,21 +38,25 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
 
-    projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
-                                              * aderdg.I['lm'] \
-                                              * aderdg.Tinv['pm']
+    for target in targets:
+      name_prefix = generate_kernel_name_prefix(target)
+      projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
+                                                  * aderdg.I['lm'] \
+                                                  * aderdg.Tinv['pm']
 
-    generator.addFamily('projectToNodalBoundaryRotated',
-                        simpleParameterSpace(4),
-                        projectToNodalBoundaryRotated)
+      generator.addFamily(f'{name_prefix}projectToNodalBoundaryRotated',
+                          simpleParameterSpace(4),
+                          projectToNodalBoundaryRotated,
+                          target=target)
 
-    projectDerivativeToNodalBoundaryRotated = lambda i, j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
-                                              * aderdg.dQs[i]['lm'] \
-                                              * aderdg.Tinv['pm']
+      projectDerivativeToNodalBoundaryRotated = lambda i, j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
+                                                * aderdg.dQs[i]['lm'] \
+                                                * aderdg.Tinv['pm']
 
-    generator.addFamily('projectDerivativeToNodalBoundaryRotated',
-                        simpleParameterSpace(aderdg.order, 4),
-                        projectDerivativeToNodalBoundaryRotated)
+      generator.addFamily(f'{name_prefix}projectDerivativeToNodalBoundaryRotated',
+                          simpleParameterSpace(aderdg.order, 4),
+                          projectDerivativeToNodalBoundaryRotated,
+                          target=target)
 
     # To be used as Tinv in flux solver - this way we can save two rotations for
     # Dirichlet boundary, as ghost cell dofs are already rotated
