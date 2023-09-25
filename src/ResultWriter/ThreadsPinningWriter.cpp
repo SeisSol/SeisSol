@@ -18,8 +18,6 @@ struct PinningInfo {
   std::string numaIds{};
 };
 
-using cpu_set_t = int;
-
 PinningInfo getPinningInfo(cpu_set_t const& set) {
   std::stringstream coreIdsStream;
   std::stringstream numaIdsStream;
@@ -59,7 +57,7 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
   logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
 #ifndef __APPLE__
-  auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask());
+  auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
 #ifdef USE_COMM_THREAD
   auto freeCpus = pinning.getFreeCPUsMask();
   auto commThreadInfo = pinning::details::getPinningInfo(freeCpus);

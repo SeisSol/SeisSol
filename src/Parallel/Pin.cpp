@@ -151,21 +151,21 @@ CpuMask Pinning::getFreeCPUsMask() const {
     for (auto& cpu : parsedFreeCPUsMask[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
-    return freeMask;
+    return CpuMask{freeMask};
   }
 
 #ifdef USE_NUMA_AWARE_PINNING
   // Find all numa nodes on which some OpenMP worker is pinned to
   std::set<int> numaDomainsOfThisProcess{};
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
-    if (CPU_ISSET(cpu, &openmpMask)) {
+    if (CPU_ISSET(cpu, &(openmpMask.set))) {
       numaDomainsOfThisProcess.insert(numa_node_of_cpu(cpu));
     }
   }
 
   // Set free mask to all free threads which are on one of our numa nodes
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
-    const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask);
+    const bool isFree = !CPU_ISSET(cpu, &(nodeOpenMpMask.set));
     if (isFree) {
       const int numaNode = numa_node_of_cpu(cpu);
       const bool isValidNumaNode = numaDomainsOfThisProcess.count(numaNode) != 0;
@@ -178,14 +178,14 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Set now contains all unused cores on the machine.
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one rank per node!
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
-    if (!CPU_ISSET(cpu, &nodeOpenMpMask)) {
+    if (!CPU_ISSET(cpu, &(nodeOpenMpMask.set))) {
       CPU_SET(cpu, &freeMask);
     }
   }
 #endif // USE_NUMA_AWARE_PINNING
 
 
-  return CpuMask(freeMask);
+  return CpuMask{freeMask};
 #else
   return {};
 #endif // __APPLE__
