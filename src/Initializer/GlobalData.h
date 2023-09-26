@@ -109,7 +109,7 @@ namespace seissol {
 
       GlobalDataStorage(memory::ManagedAllocator& allocator) : allocator(allocator) {}
 
-      template<Executor Executor, typename Config>
+      template<typename Executor, typename Config>
       const GlobalData<Config>& getData() {
         constexpr auto typeId = variantTypeId<Config, SupportedConfigs>();
         if constexpr (Executor == Executor::Host) {

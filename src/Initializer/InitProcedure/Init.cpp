@@ -60,11 +60,6 @@ static void initSeisSol() {
 
 static void closeSeisSol() {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
-  // cleanup IO
-  seissol::SeisSol::main.waveFieldWriter().close();
-  seissol::SeisSol::main.checkPointManager().close();
-  seissol::SeisSol::main.faultWriter().close();
-  seissol::SeisSol::main.freeSurfaceWriter().close();
 
   // deallocate memory manager
   seissol::SeisSol::main.deleteMemoryManager();

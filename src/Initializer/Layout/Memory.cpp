@@ -41,7 +41,6 @@ static std::pair<std::vector<int>, std::vector<int>> computeClusters(const geome
 static void initializeCellMatrices(const geometry::MeshReader& meshReader, MemoryContainer& memoryContainer) {
   seissol::initializers::initializeCellLocalMatrices(meshReader,
                                                      memoryContainer.cluster,
-                                                     memoryContainer.clusterBackmap,
                                                      ltsInfo.timeStepping);
 
   seissol::initializers::initializeDynamicRuptureMatrices(meshReader,
@@ -49,15 +48,14 @@ static void initializeCellMatrices(const geometry::MeshReader& meshReader, Memor
                                                           memoryContainer.clusterBackmap,
                                                           memoryContainer.dynrup,
                                                           memoryContainer.dynrupBackmap,
-                                                          *memoryManager.getGlobalDataOnHost(),
+                                                          memoryContainer.globalDataStorage,
                                                           ltsInfo.timeStepping);
 
   memoryManager.initFrictionData();
 
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),
-                                                    memoryContainer.cluster,
-                                                    memoryContainer.clusterBackmap);
+                                                    memoryContainer.cluster);
 
 #ifdef ACL_DEVICE
   initializers::copyCellMatricesToDevice(memoryManager.cluster,
@@ -321,6 +319,12 @@ MemoryContainer setupMemory(const geometry::MeshReader& meshReader, seissol::tim
     // allocate boundary tree (effectively behaves like a bucket...)
     logInfo(rank) << "Initializing Boundary tree...";
     allocateBoundaryTree(container);
+
+    logInfo(rank) << "Allocate scratch pads on GPUs...";
+    internal::allocateScratchpads(container);
+
+    logInfo(rank) << "Record execution paths on GPUs...";
+    internal::allocateScratchpads(container);
 
     // pass 5: setup cell data
     logInfo(rank) << "Initializing Cell data...";

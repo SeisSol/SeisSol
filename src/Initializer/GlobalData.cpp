@@ -234,11 +234,11 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData<Config>& globalD
                                              memkind);
 }
 
-template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
+template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData<Config>& globalData,
                                                                memory::ManagedAllocator& memoryAllocator,
                                                                enum memory::Memkind memkind);
 
-template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
+template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData<Config>& globalData,
                                                                  memory::ManagedAllocator& memoryAllocator,
                                                                  enum memory::Memkind memkind);
 

@@ -58,21 +58,18 @@ namespace seissol {
       **/
      void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                        ClusterLTSForest& forest,
-                                       Lut*                   i_ltsLut,
                                        TimeStepping const&    timeStepping );
                                        
      void initializeBoundaryMappings(seissol::geometry::MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,
-                                     ClusterLTSForest& forest,
-                                     Lut* i_ltsLut);
+                                     ClusterLTSForest& forest);
  
      void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,                                                    
                                             ClusterLTSForest& forest,
-                                            Lut*                   i_ltsLut,
+                                            const ClusterBackmap&                   i_ltsLut,
                                             DynRupLTSForest& dynrupforest,
-                                            unsigned*              ltsFaceToMeshFace,
-                                            GlobalData const&      global,
-                                            TimeStepping const&    timeStepping );
+                                            const DynrupBackmap&              ltsFaceToMeshFace,
+                                            const GlobalDataStorage&      global );
 
       void copyCellMatricesToDevice(ClusterLTSForest& forest,
                                                      DynRupLTSForest& dynrupforest,

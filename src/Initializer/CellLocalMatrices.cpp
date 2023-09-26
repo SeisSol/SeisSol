@@ -79,7 +79,6 @@ static void setStarMatrix( typename Config::RealT* i_AT,
 
 void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                          ClusterLTSForest&      forest,
-                                                         Lut*                   i_ltsLut,
                                                          TimeStepping const&    timeStepping )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
@@ -258,8 +257,7 @@ void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshRead
 
 void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
                                                        const EasiBoundary* easiBoundary,
-                                                       ClusterLTSForest&      forest,
-                                                       Lut* i_ltsLut) {
+                                                       ClusterLTSForest&      forest) {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
@@ -357,13 +355,12 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
   });
 }
 
-void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
-                                                              ClusterLTSForest&      forest,
-                                                              Lut*                   i_ltsLut,
-                                                              DynRupLTSForest&       dynrupforest,
-                                                              unsigned*              ltsFaceToMeshFace,
-                                                              GlobalData const&      global,
-                                                              TimeStepping const&/*    timeStepping*/ )
+void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,                                                    
+                                            ClusterLTSForest& forest,
+                                            const ClusterBackmap&                   i_ltsLut,
+                                            DynRupLTSForest& dynrupforest,
+                                            const DynrupBackmap&              ltsFaceToMeshFace,
+                                            const GlobalDataStorage&      global)
 {
 
   std::vector<Fault> const& fault = i_meshReader.getFault();
