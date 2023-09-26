@@ -11,14 +11,17 @@ def pivot_if_necessary(df):
 
 
 def get_number_of_fused_sims(df):
-    if "simulation_index" not in df.columns:
-        max_index = 0
-        for c in df.columns:
-            current_index = int(c[-1])
-            max_index = current_index if current_index > max_index else max_index
-    else:
-        max_index = df["simulation_index"].max()
-    return max_index + 1
+    try:
+        if "simulation_index" not in df.columns:
+            max_index = 0
+            for c in df.columns:
+                current_index = int(c[-1])
+                max_index = current_index if current_index > max_index else max_index
+        else:
+            max_index = df["simulation_index"].max()
+        return max_index + 1
+    except:
+        return -1
 
 
 def get_sub_simulation(df, fused_index):
@@ -31,6 +34,19 @@ def get_sub_simulation(df, fused_index):
     else:
         is_subsim = df["simulation_index"] == fused_index
         return df.loc[is_subsim, :].reset_index()
+
+
+def perform_check(energy, energy_ref, epsilon):
+    print("Energies")
+    print(energy)
+    print("Energies reference")
+    print(energy_ref)
+    relative_difference = ((energy - energy_ref).abs() / energy_ref).iloc[1:, :]
+    print("Relative difference")
+    print(relative_difference)
+
+    relative_difference_larger_eps = (relative_difference.iloc[1:, :] > epsilon).values
+    return np.any(relative_difference_larger_eps)
 
 
 if __name__ == "__main__":
@@ -61,25 +77,18 @@ if __name__ == "__main__":
     assert get_number_of_fused_sims(energy) == get_number_of_fused_sims(energy_ref)
     number_of_fused_sims = get_number_of_fused_sims(energy)
 
-    for fused_index in range(number_of_fused_sims):
-        energy_f = get_sub_simulation(energy, fused_index)
-        energy_f = energy_f[relevant_quantities]
-
-        energy_ref_f = get_sub_simulation(energy_ref, fused_index)
-        energy_ref_f = energy_ref_f[relevant_quantities]
-        print(f"Fused sim = {fused_index}")
-        print("Energies")
-        print(energy_f)
-        print("Energies reference")
-        print(energy_ref_f)
-        relative_difference = ((energy_f - energy_ref_f).abs() / energy_ref_f).iloc[
-            1:, :
-        ]
-        print("Relative difference")
-        print(relative_difference)
-
-        relative_difference_larger_eps = (
-            relative_difference.iloc[1:, :] > args.epsilon
-        ).values
-        if np.any(relative_difference_larger_eps):
+    if number_of_fused_sims < 0:
+        result = perform_check(energy, energy_ref, args.epsilon)
+        if result:
             sys.exit(1)
+
+    else:
+        for fused_index in range(number_of_fused_sims):
+            energy_f = get_sub_simulation(energy, fused_index)
+            energy_f = energy_f[relevant_quantities]
+
+            energy_ref_f = get_sub_simulation(energy_ref, fused_index)
+            energy_ref_f = energy_ref_f[relevant_quantities]
+            result = perform_check(energy_f, energy_ref_f, args.epsilon)
+            if result:
+                sys.exit(1)

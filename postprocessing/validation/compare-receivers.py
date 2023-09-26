@@ -116,6 +116,19 @@ def integrate_quantity_in_time(receiver, quantity):
     return integrate_in_time(receiver["Time"], quantity_to_norm[quantity](receiver))
 
 
+def get_number_of_fused_sims(columns):
+    # omit time
+    relevant_columns = columns[1:]
+    try:
+        max_index = 0
+        for c in columns:
+            current_index = int(c[-1])
+            max_index = current_index if current_index > max_index else max_index
+        return max_index + 1
+    except:
+        return -1
+
+
 def read_receiver(filename):
     with open(filename) as receiver_file:
         # find variable names
@@ -158,10 +171,12 @@ def read_receiver(filename):
                     l[x_index] = y_
         return l
 
+    number_of_fused_sims = get_number_of_fused_sims(variables)
+
     # Recently, we changed the receiver variables from u,v,w to v1,v2,v3. If the receiver is stored in legacy format, we adapt it
-    variables = replace("u", "v1", variables, 4)
-    variables = replace("v", "v2", variables, 4)
-    variables = replace("w", "v3", variables, 4)
+    variables = replace("u", "v1", variables, number_of_fused_sims)
+    variables = replace("v", "v2", variables, number_of_fused_sims)
+    variables = replace("w", "v3", variables, number_of_fused_sims)
     receiver.columns = variables
     return receiver
 
@@ -178,7 +193,7 @@ def receiver_diff(args, i):
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
-    number_of_fused_sims = (len(sim_receiver.columns) - 1) // 9
+    number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns)
 
     max_velocity = 0
     max_stress = 0
