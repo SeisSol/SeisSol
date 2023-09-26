@@ -120,7 +120,7 @@ check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIO
 if (GEMM_TOOLS_LIST STREQUAL "auto")
     message(STATUS "Inferring GEMM_TOOLS_LIST for ${HOST_ARCH}")
 
-    set(SUPPORT_PSPAMM hsw knc knl skx naples rome milan bergamo thunderx2t99 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1)
+    set(SUPPORT_PSPAMM hsw knl skx naples rome milan bergamo thunderx2t99 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1)
     set(SUPPORT_LIBXSMM wsm snb hsw knc knl skx naples rome milan bergamo)
     set(SUPPORT_LIBXSMM_JIT wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 apple-m1)
 
@@ -155,8 +155,11 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
     endif()
     
     # Eigen will always be there
-    message(STATUS "Adding Eigen as last resort option")
-    list(APPEND AUTO_GEMM_TOOLS_LIST "Eigen")
+    # But it won't give us much, if there's any of the above generators found
+    if (NOT AUTO_GEMM_TOOLS_LIST)
+        message(STATUS "Adding Eigen as last resort option")
+        list(APPEND AUTO_GEMM_TOOLS_LIST "Eigen")
+    endif()
 
     list(JOIN AUTO_GEMM_TOOLS_LIST "," GEMM_TOOLS_LIST)
 endif()
