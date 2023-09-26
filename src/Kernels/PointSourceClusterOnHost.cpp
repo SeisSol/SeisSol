@@ -64,7 +64,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
   const auto originalIndex = sources_.originalIndex[source];
-  std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
   sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
@@ -82,7 +82,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.stfIntegral = sources_.slipRates[0][source].timeIntegral(from, to);
 #ifdef MULTIPLE_SIMULATIONS
   const auto originalIndex = sources_.originalIndex[source];
-  std::array<double, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
   sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
