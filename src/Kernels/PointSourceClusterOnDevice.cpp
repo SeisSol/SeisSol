@@ -34,7 +34,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
                                mapping_ptr[i].numberOfPointSources;
-          #pragma omp parallel for
+          #pragma omp parallel for schedule(static, 1)
           for (unsigned source = startSource; source < endSource; ++source) {
             addTimeIntegratedPointSourceNRF(
                 {&slipRates0[source], &slipRates1[source], &slipRates2[source]},
@@ -53,7 +53,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
                                mapping_ptr[i].numberOfPointSources;
-          #pragma omp parallel for
+          #pragma omp parallel for schedule(static, 1)
           for (unsigned source = startSource; source < endSource; ++source) {
             addTimeIntegratedPointSourceFSRM(&slipRates0[source],
                                              mInvJInvPhisAtSources[source].data(),
