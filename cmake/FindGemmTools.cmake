@@ -42,27 +42,27 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(LIBXSMM 1.17 REQUIRED)
         find_package(BLAS REQUIRED)
 
-        set(GemmTools_INCLUDE_DIRS ${LIBXSMM_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${LIBXSMM_LIBRARIES})
+        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${LIBXSMM_INCLUDE_DIRS})
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${LIBXSMM_LIBRARIES})
 
     elseif ("${component}" STREQUAL "PSpaMM")
         find_package(PSpaMM REQUIRED)
 
     elseif ("${component}" STREQUAL "MKL")
         find_package(MKL REQUIRED)
-        set(GemmTools_INCLUDE_DIRS ${MKL_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${MKL_LIBRARIES})
-        set(GemmTools_COMPILER_DEFINITIONS ${MKL_COMPILER_DEFINITIONS})
+        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${MKL_INCLUDE_DIRS})
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${MKL_LIBRARIES})
+        set(GemmTools_COMPILER_DEFINITIONS ${GemmTools_COMPILER_DEFINITIONS} ${MKL_COMPILER_DEFINITIONS})
 
     elseif ("${component}" STREQUAL "OpenBLAS")
         find_package(OpenBLAS REQUIRED)
-        set(GemmTools_INCLUDE_DIRS ${OpenBLAS_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${OpenBLAS_LIBRARIES} ${BLAS_LIBRARIES})
+        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${OpenBLAS_INCLUDE_DIRS})
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${OpenBLAS_LIBRARIES} ${BLAS_LIBRARIES})
 
     elseif ("${component}" STREQUAL "BLIS")
         find_package(BLIS REQUIRED)
-        set(GemmTools_INCLUDE_DIRS ${BLIS_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${BLIS_LIBRARIES})
+        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${BLIS_INCLUDE_DIRS})
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${BLIS_LIBRARIES})
 
     elseif ("${component}" STREQUAL "Eigen")
         # already included by default!
