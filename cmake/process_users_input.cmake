@@ -176,6 +176,23 @@ else()
 endif()
 message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
+if (DEVICE_ARCH MATCHES "sm_*")
+    set(DEVICE_VENDOR "nvidia")
+    set(PREMULTIPLY_FLUX_DEFAULT ON)
+elseif(DEVICE_ARCH MATCHES "gfx*")
+    set(DEVICE_VENDOR "amd")
+    set(PREMULTIPLY_FLUX_DEFAULT ON)
+else()
+    # TODO(David): adjust as soon as we add support for more vendors
+    set(DEVICE_VENDOR "intel")
+    set(PREMULTIPLY_FLUX_DEFAULT OFF)
+endif()
+
+if (WITH_GPU)
+    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
+endif()
+
+
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
     if (${DEVICE_BACKEND} STREQUAL "none")
