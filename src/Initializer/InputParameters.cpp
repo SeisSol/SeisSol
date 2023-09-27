@@ -202,9 +202,10 @@ static void readCubeGenerator(ParameterReader& baseReader, SeisSolParameters& se
   seissolParams.cubeGenerator.parameters.cubeY = reader.readWithDefault("cubey", 2);
   seissolParams.cubeGenerator.parameters.cubeZ = reader.readWithDefault("cubez", 2);
 
+  // only x dimension has its number of partitions set to number of MPI processes
   seissolParams.cubeGenerator.parameters.cubePx = seissol::MPI::mpi.size();
-  seissolParams.cubeGenerator.parameters.cubePy = seissol::MPI::mpi.size();
-  seissolParams.cubeGenerator.parameters.cubePz = seissol::MPI::mpi.size();
+  seissolParams.cubeGenerator.parameters.cubePy = 1;
+  seissolParams.cubeGenerator.parameters.cubePz = 1;
 
   seissolParams.cubeGenerator.parameters.cubeS = reader.readWithDefault("cubes", 100);
   seissolParams.cubeGenerator.parameters.cubeSx =
