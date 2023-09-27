@@ -26,6 +26,7 @@ class FastVelocityWeakeningLaw
     ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
+  #pragma omp declare target
   struct Details {
     decltype(FastVelocityWeakeningLaw::a) a;
     decltype(FastVelocityWeakeningLaw::sl0) sl0;
@@ -53,11 +54,10 @@ class FastVelocityWeakeningLaw
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const double localSl0 = details.sl0[ltsFace][pointIndex];
         const double localA = details.a[ltsFace][pointIndex];
@@ -65,24 +65,24 @@ class FastVelocityWeakeningLaw
         const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
 
         const double lowVelocityFriction =
-            details.rsF0 - (details.rsB - localA) * sycl::log(localSlipRate / details.rsSr0);
+            details.rsF0 - (details.rsB - localA) * std::log(localSlipRate / details.rsSr0);
 
         const double steadyStateFrictionCoefficient =
             muW + (lowVelocityFriction - muW) /
-                      sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                      std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
         const double steadyStateStateVariable =
-            localA * sycl::log(details.rsSr0 / localSlipRate *
-                               (sycl::exp(steadyStateFrictionCoefficient / localA) -
-                                sycl::exp(-steadyStateFrictionCoefficient / localA)));
+            localA * std::log(details.rsSr0 / localSlipRate *
+                               (std::exp(steadyStateFrictionCoefficient / localA) -
+                                std::exp(-steadyStateFrictionCoefficient / localA)));
 
-        const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
+        const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
         const double localStateVariable = steadyStateStateVariable * (1.0 - exp1) +
                                           exp1 * devStateVarReference[ltsFace][pointIndex];
 
         devStateVariableBuffer[ltsFace][pointIndex] = localStateVariable;
-      });
-    });
+      }
+    }
   }
 
   static double updateMu(double localSlipRateMagnitude,
@@ -92,8 +92,8 @@ class FastVelocityWeakeningLaw
                          size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double x =
-        0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA) * localSlipRateMagnitude;
-    return localA * sycl::asinh(x);
+        0.5 / details.rsSr0 * std::exp(localStateVariable / localA) * localSlipRateMagnitude;
+    return localA * std::asinh(x);
   }
 
   static double updateMuDerivative(double localSlipRateMagnitude,
@@ -102,8 +102,8 @@ class FastVelocityWeakeningLaw
                                    size_t ltsFace,
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
-    const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    const double c = 0.5 / details.rsSr0 * std::exp(localStateVariable / localA);
+    return localA * c / std::sqrt(std::pow(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
@@ -115,34 +115,33 @@ class FastVelocityWeakeningLaw
     static_assert(dim0 == misc::numPaddedPoints);
     static_assert(dim0 >= dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::numPaddedPoints, cgh);
-
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
-
-        const auto localStateVariable = devStateVariable[ltsFace][pointIndex];
-        deltaStateVar[pointIndex] =
-            devStateVariableBuffer[ltsFace][pointIndex] - localStateVariable;
-        item.barrier(sycl::access::fence_space::local_space);
-
+     /* std::accessor<real, 1, std::access::mode::read_write, std::access::target::local>
+          deltaStateVar(misc::numPaddedPoints, cgh);*/
+    #pragma omp distribute // map(alloc:deltaStateVar[0:misc::numPaddedPoints])
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        real deltaStateVar[misc::numPaddedPoints];
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+          deltaStateVar[pointIndex] =
+              devStateVariableBuffer[ltsFace][pointIndex] - devStateVariable[ltsFace][pointIndex];
+        }
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         real resampledDeltaStateVar{0.0};
         for (size_t i{0}; i < dim1; ++i) {
           resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
         }
 
-        devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
-      });
-    });
+        devStateVariable[ltsFace][pointIndex] += resampledDeltaStateVar;
+      }
+    }
   }
 
   void executeIfNotConverged() {}
 
   protected:
   real (*srW)[misc::numPaddedPoints];
+  #pragma omp end declare target
 };
 } // namespace seissol::dr::friction_law::gpu
 

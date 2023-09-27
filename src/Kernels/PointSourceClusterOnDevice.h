@@ -14,6 +14,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   void addTimeIntegratedPointSources(double from, double to) override;
 
   private:
+  #pragma omp declare target
   static void addTimeIntegratedPointSourceNRF(
       std::array<sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const*, 3> slipRates,
       real* mInvJInvPhisAtSources,
@@ -30,6 +31,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
       double from,
       double to,
       real* dofs);
+  #pragma omp end declare target
 
   sourceterm::ClusterMapping clusterMapping_;
   sourceterm::PointSources sources_;

@@ -2,7 +2,6 @@
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Numerical_aux/SyclFunctions.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
@@ -20,13 +19,24 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
 
+    Derived& self = *(static_cast<Derived*>(this));
+
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-    auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
+    // auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
+    double timeWeightsCopy[CONVERGENCE_ORDER];
 
+    for (int i = 0; i < CONVERGENCE_ORDER; ++i) {
+      timeWeightsCopy[i] = timeWeights[i];
+      this->devTimeWeights[i] = timeWeights[i];
+    }
+
+     // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
+
+    #pragma omp target teams
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
@@ -36,22 +46,21 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
 
-      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          const auto ltsFace = item.get_group().get_group_id(0);
-          const auto pointIndex = item.get_local_id(0);
-
+      #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
                                                                   devImpedanceMatrices[ltsFace],
                                                                   devQInterpolatedPlus[ltsFace],
                                                                   devQInterpolatedMinus[ltsFace],
                                                                   pointIndex);
-        });
-      });
+        }
+      }
 
-      static_cast<Derived*>(this)->preHook(stateVariableBuffer);
+      auto* devStateVariableBuffer = this->stateVariableBuffer;
+      self.preHook(devStateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
@@ -60,16 +69,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         auto* devInitialPressure{this->initialPressure};
         const auto* devNucleationPressure{this->nucleationPressure};
 
-        this->queue.submit([&](sycl::handler& cgh) {
-          if (timeIndex == 0) {
-            cgh.depends_on(timeWeightsCopy);
-          }
-          cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-            auto ltsFace = item.get_group().get_group_id(0);
-            auto pointIndex = item.get_local_id(0);
-
-            using StdMath = seissol::functions::SyclStdFunctions;
-            common::adjustInitialStress<gpuRangeType, StdMath>(
+        #pragma omp distribute
+        for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+          #pragma omp parallel for schedule(static, 1)
+          for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+          // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
+            common::adjustInitialStress<gpuRangeType>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
                 devInitialPressure[ltsFace],
@@ -78,30 +83,30 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 t0,
                 dt,
                 pointIndex);
-          });
-        });
+          }
+        }
 
-        static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
+        self.updateFrictionAndSlip(timeIndex);
       }
-      static_cast<Derived*>(this)->postHook(stateVariableBuffer);
+      self.postHook(devStateVariableBuffer);
 
       auto* devRuptureTimePending{this->ruptureTimePending};
       auto* devSlipRateMagnitude{this->slipRateMagnitude};
       auto* devRuptureTime{this->ruptureTime};
 
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+      #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
                                                        devSlipRateMagnitude[ltsFace],
                                                        fullUpdateTime,
                                                        pointIndex);
-        });
-      });
+        }
+      }
 
-      static_cast<Derived*>(this)->saveDynamicStressOutput();
+      self.saveDynamicStressOutput();
 
       auto* devPeakSlipRate{this->peakSlipRate};
       auto* devImposedStatePlus{this->imposedStatePlus};
@@ -113,10 +118,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devGodunovData{this->godunovData};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+      #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
           common::savePeakSlipRateOutput<gpuRangeType>(
               devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
@@ -142,9 +147,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                         devGodunovData[ltsFace],
                                                         pointIndex);
           }
-        });
-      });
-      queue.wait_and_throw();
+        }
+      }
     }
   }
 };

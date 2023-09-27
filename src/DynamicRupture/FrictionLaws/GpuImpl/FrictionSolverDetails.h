@@ -4,11 +4,6 @@
 #include <yaml-cpp/yaml.h>
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include <CL/sycl.hpp>
-
-#ifndef __DPCPP_COMPILER
-namespace sycl = cl::sycl;
-#endif
 
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
@@ -35,9 +30,6 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
-
-  sycl::device device;
-  sycl::queue queue;
 };
 } // namespace seissol::dr::friction_law::gpu
 

@@ -78,6 +78,7 @@ struct PiecewiseLinearFunction1D {
   }
 
   /** Returns integral_fromTime^toTime i_pwLF dt. */
+  #pragma omp declare target
   real timeIntegral(double i_fromTime, double i_toTime) const {
     real l_integral;
     // j_{from} := \argmax_j s.t. t_{from} >= t_{onset} + j*dt   =   floor[(t_{from} - t_{onset}) /
@@ -104,6 +105,7 @@ struct PiecewiseLinearFunction1D {
 
     return l_integral;
   }
+  #pragma omp end declare target
 };
 
 } // namespace seissol::sourceterm

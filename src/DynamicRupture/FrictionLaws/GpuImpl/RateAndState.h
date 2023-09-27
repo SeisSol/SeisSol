@@ -3,6 +3,7 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include <omp.h>
 
 namespace seissol::dr::friction_law::gpu {
 /**
@@ -20,11 +21,22 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     if (this->maxClusterSize == 0)
       return;
 
-    sycl::free(initialVariables.absoluteShearTraction, this->queue);
-    sycl::free(initialVariables.localSlipRate, this->queue);
-    sycl::free(initialVariables.normalStress, this->queue);
-    sycl::free(initialVariables.stateVarReference, this->queue);
-    sycl::free(hasConverged, this->queue);
+    omp_free(initialVariables.absoluteShearTraction);
+    omp_free(initialVariables.localSlipRate);
+    omp_free(initialVariables.normalStress);
+    omp_free(initialVariables.stateVarReference);
+    omp_free(hasConverged);
+  }
+
+  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                          seissol::initializers::DynamicRupture const* const dynRup,
+                          real fullUpdateTime) {
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
+    a = layerData.var(concreteLts->rsA);
+    sl0 = layerData.var(concreteLts->rsSl0);
+    stateVariable = layerData.var(concreteLts->stateVariable);
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
   void allocateAuxiliaryMemory() override {
@@ -36,17 +48,17 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       using gpPointType = real(*)[misc::numPaddedPoints];
       const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(real);
       initialVariables.absoluteShearTraction =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
       initialVariables.localSlipRate =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
       initialVariables.normalStress =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
       initialVariables.stateVarReference =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
     }
     {
       const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(bool);
-      hasConverged = static_cast<bool*>(sycl::malloc_shared(requiredNumBytes, this->queue));
+      hasConverged = static_cast<bool*>(omp_aligned_alloc(ALIGNMENT, requiredNumBytes));
     }
   }
 
@@ -60,6 +72,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     this->tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
+  #pragma omp declare target
   void updateFrictionAndSlip(unsigned timeIndex) {
     // compute initial slip rate and reference values
     static_cast<Derived*>(this)->calcInitialVariables(timeIndex);
@@ -80,29 +93,17 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // copy state variable from last time step
 
     auto* devLocalStateVariable{this->stateVariable};
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         stateVariableBuffer[ltsFace][pointIndex] = devLocalStateVariable[ltsFace][pointIndex];
-      });
-    });
+      }
+    }
   }
 
   void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer);
-  }
-
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
-    a = layerData.var(concreteLts->rsA);
-    sl0 = layerData.var(concreteLts->rsSl0);
-    stateVariable = layerData.var(concreteLts->stateVariable);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
   /**
@@ -133,11 +134,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     updateNormalStress(timeIndex);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];
 
         devStateVarReference[ltsFace][pointIndex] = devStateVariableBuffer[ltsFace][pointIndex];
@@ -156,8 +156,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         localSlipRateMagnitude = std::max(rs::almostZero(), localSlipRateMagnitude);
         devSlipRateMagnitude[ltsFace][pointIndex] = localSlipRateMagnitude;
         devLocalSlipRate[ltsFace][pointIndex] = localSlipRateMagnitude;
-      });
-    });
+      }
+    }
   }
 
   void updateStateVariableIterative(unsigned timeIndex) {
@@ -173,7 +173,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto solverSettings{this->settings};
 
     auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     for (unsigned j = 0; j < this->settings.numberStateVariableUpdates; j++) {
 
       const auto dt{this->deltaT[timeIndex]};
@@ -181,30 +180,30 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       this->tpMethod.calcFluidPressure(devNormalStress, devMu, devLocalSlipRate, dt, false);
       updateNormalStress(timeIndex);
 
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          const auto ltsFace = item.get_group().get_group_id(0);
-          const auto pointIndex = item.get_local_id(0);
+      #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        bool hasConvergedAllPoints = true;
+        #pragma omp parallel for schedule(static, 1) reduction(&&:hasConvergedAllPoints)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+        const auto localStateVariable = devStateVariableBuffer[ltsFace][pointIndex];
+        const auto normalStress = devNormalStress[ltsFace][pointIndex];
+        const auto absoluteShearStress = devAbsoluteShearStress[ltsFace][pointIndex];
+        const auto localSlipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];
+        const auto localImpAndEta = devImpAndEta[ltsFace];
 
-          const auto localStateVariable = devStateVariableBuffer[ltsFace][pointIndex];
-          const auto normalStress = devNormalStress[ltsFace][pointIndex];
-          const auto absoluteShearStress = devAbsoluteShearStress[ltsFace][pointIndex];
-          const auto localSlipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];
-          const auto localImpAndEta = devImpAndEta[ltsFace];
+        real slipRateTest{};
+        bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(slipRateTest,
+                                                                            localStateVariable,
+                                                                            normalStress,
+                                                                            absoluteShearStress,
+                                                                            localSlipRateMagnitude,
+                                                                            localImpAndEta.invEtaS,
+                                                                            details,
+                                                                            solverSettings,
+                                                                            ltsFace,
+                                                                            pointIndex);
 
-          real slipRateTest{};
-          bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(slipRateTest,
-                                                                             localStateVariable,
-                                                                             normalStress,
-                                                                             absoluteShearStress,
-                                                                             localSlipRateMagnitude,
-                                                                             localImpAndEta.invEtaS,
-                                                                             details,
-                                                                             solverSettings,
-                                                                             item);
-
-          if (pointIndex == 0)
-            devHasConverged[ltsFace] = hasConvergedLocal;
+        hasConvergedAllPoints &= hasConvergedLocal;
 
           devLocalSlipRate[ltsFace][pointIndex] =
               0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
@@ -212,8 +211,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
           devMu[ltsFace][pointIndex] = Derived::updateMu(
               localSlipRateMagnitude, localStateVariable, details, ltsFace, pointIndex);
-        });
-      });
+        }
+        devHasConverged[ltsFace] = hasConvergedAllPoints;
+      }
     }
   }
 
@@ -243,11 +243,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const auto localStateVariable = devStateVariableBuffer[ltsFace][pointIndex];
         const auto slipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];
@@ -302,8 +301,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         // update slip rate
         devSlipRate1[ltsFace][pointIndex] = slipRate1;
         devSlipRate2[ltsFace][pointIndex] = slipRate2;
-      });
-    });
+      }
+    }
   }
 
   void saveDynamicStressOutput() {
@@ -316,11 +315,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devRuptureTime{this->ruptureTime};
     auto* devMu{this->mu};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const auto localRuptureTime = devRuptureTime[ltsFace][pointIndex];
         if (localRuptureTime > 0.0 && localRuptureTime <= fullUpdateTime &&
@@ -329,8 +327,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
         }
-      });
-    });
+      }
+    }
   }
 
   template <typename DetailsType>
@@ -342,32 +340,27 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                       real invEtaS,
                                       DetailsType details,
                                       rs::Settings solverSettings,
-                                      sycl::nd_item<1> item) {
-
-    const auto ltsFace = item.get_group().get_group_id(0);
-    const auto pointIndex = item.get_local_id(0);
+                                      int ltsFace,
+                                      int pointIndex) {
 
     // Note that we need double precision here, since single precision led to NaNs.
     double muF{0.0}, dMuF{0.0}, g{0.0}, dG{0.0};
     slipRateTest = slipRateMagnitude;
 
     for (unsigned i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
-      muF = Derived::updateMu(slipRateTest, localStateVariable, details, ltsFace, pointIndex);
-      dMuF = Derived::updateMuDerivative(
-          slipRateTest, localStateVariable, details, ltsFace, pointIndex);
+      bool converged;
+        muF = Derived::updateMu(slipRateTest, localStateVariable, details, ltsFace, pointIndex);
+        dMuF = Derived::updateMuDerivative(
+            slipRateTest, localStateVariable, details, ltsFace, pointIndex);
 
-      g = -invEtaS * (sycl::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
+        g = -invEtaS * (std::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
+        converged = std::fabs(g) < solverSettings.newtonTolerance;
 
-      auto group = item.get_group();
-      const bool converged =
-          sycl::all_of_group(group, std::fabs(g) < solverSettings.newtonTolerance);
+      if (converged) { return true; }
 
-      if (converged)
-        return true;
-
-      dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
-      slipRateTest =
-          sycl::max(friction_law::rs::almostZero(), static_cast<real>(slipRateTest - (g / dG)));
+        dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
+        slipRateTest =
+            std::max(friction_law::rs::almostZero(), static_cast<real>(slipRateTest - (g / dG)));
     }
     return false;
   }
@@ -379,11 +372,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto tpCurrentLayerDetails = tpMethod.getCurrentLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    #pragma omp distribute
+      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        #pragma omp parallel for schedule(static, 1)
+        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];
 
         devNormalStress[ltsFace][pointIndex] =
@@ -391,8 +383,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                      faultStresses.normalStress[timeIndex][pointIndex] +
                          devInitialStressInFaultCS[ltsFace][pointIndex][0] -
                          TPMethod::getFluidPressure(tpCurrentLayerDetails, ltsFace, pointIndex));
-      });
-    });
+      }
+    }
   }
 
   protected:
@@ -403,6 +395,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   TPMethod tpMethod;
   rs::Settings settings{};
+  #pragma omp end declare target
 };
 
 } // namespace seissol::dr::friction_law::gpu
