@@ -3,6 +3,7 @@
 #include "CubeGenerator.h"
 #include "MeshReader.h"
 
+#ifdef USE_NETCDF
 #include <netcdf.h>
 
 #include <omp.h>
@@ -34,19 +35,6 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   unsigned int cubePx = cubeParams.cubePx;
   unsigned int cubePy = cubeParams.cubePy;
   unsigned int cubePz = cubeParams.cubePz;
-  // we want numCubes/numPartitions in each dimension to be an integer
-  if (cubeX % cubePx != 0)
-    logError()
-        << "Number of cubes in X dimension is not a multiple of number of processes/threads ("
-        << cubeX << ")";
-  if (cubeY % cubePy != 0)
-    logError()
-        << "Number of cubes in Y dimension is not a multiple of number of processes/threads ("
-        << cubeY << ")";
-  if (cubeZ % cubePz != 0)
-    logError()
-        << "Number of cubes in Z dimension is not a multiple of number of processes/threads ("
-        << cubeZ << ")";
   double cubeScale = cubeParams.cubeS;
   double cubeScaleX = cubeParams.cubeSx;
   double cubeScaleY = cubeParams.cubeSy;
@@ -79,6 +67,11 @@ seissol::geometry::CubeGenerator::CubeGenerator(
       logError() << "Number of cubes per partition in"
                  << seissol::geometry::CubeGenerator::dim2str(i)
                  << "dimension must be a multiple of 2";
+    // check if numCubes is multiple of numPartitions, can only fail in numPartitions[0]
+    if (numCubes[i] % numPartitions[i] != 0)
+      logError() << "Number of cubes in" << seissol::geometry::CubeGenerator::dim2str(i)
+                 << "dimenstion must be a multiple of number of threads/processes ="
+                 << numPartitions[i];
   }
 
   // Compute additional sizes
@@ -1586,3 +1579,4 @@ void seissol::geometry::CubeGenerator::checkNcError(int error) {
   if (error != NC_NOERR)
     logError() << "Error while writing netCDF file:" << nc_strerror(error);
 }
+#endif // USE_NETCDF

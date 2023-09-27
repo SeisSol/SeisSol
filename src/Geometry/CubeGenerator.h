@@ -44,8 +44,6 @@
 #include "utils/args.h"
 #include "MeshReader.h"
 
-#include <netcdf.h>
-
 #include <omp.h>
 
 #include <algorithm>
@@ -125,7 +123,6 @@ class CubeGenerator : public seissol::geometry::MeshReader {
   template <typename A, typename B>
   std::pair<B, A> flip_pair(const std::pair<A, B>& p);
   void checkNcError(int error);
-  void cubeGenerator();
 
   void cubeGenerator(unsigned int numCubes[4],
                      unsigned int numPartitions[4],
