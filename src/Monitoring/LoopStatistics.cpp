@@ -197,6 +197,14 @@ template <> struct type2nc<int32_t> {
 template <> struct type2nc<uint32_t> {
     static constexpr auto type = NC_UINT;
 };
+
+// Long int is guaranteed to be of size 64 on Unix/Linux:
+// https://en.cppreference.com/w/cpp/language/types
+// This specialization is required on some architectures as it is later used for the type of
+// timespec::tv_sec, which is not fixed in the C++ standard.
+template <> struct type2nc<long int> {
+    static constexpr auto type = NC_INT64;
+};
 template <> struct type2nc<int64_t> {
     static constexpr auto type = NC_INT64;
 };
