@@ -175,11 +175,13 @@ ProxyOutput runProxy(ProxyConfig config) {
   }
 
 #ifdef ACL_DEVICE
-  deviceType &device = deviceType::getInstance();
-  device.api->setDevice(0);
+#ifdef USE_MPI
+  seissol::MPI::mpi.bindAcceleratorDevice();
+#endif // USE_MPI
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
   device.api->allocateStackMem();
-#endif
+#endif // ACL_DEVICE
 
   m_ltsTree = new seissol::initializers::LTSTree;
   m_dynRupTree = new seissol::initializers::LTSTree;
@@ -291,6 +293,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
   output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
 
+  m_frictionSolver.reset();
   delete m_ltsTree;
   delete m_dynRupTree;
   delete m_allocator;

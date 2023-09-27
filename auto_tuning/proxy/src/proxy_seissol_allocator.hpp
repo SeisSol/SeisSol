@@ -71,6 +71,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unordered_set>
 #include <Initializer/BatchRecorders/Recorders.h>
 #include <Solver/Pipeline/DrPipeline.h>
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #endif
 
 seissol::initializers::LTSTree               *m_ltsTree{nullptr};
@@ -161,6 +162,8 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
         m_fakeDerivatives[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
       }
     }
+
+    // drTuple.initializer->initializeFault(m_dynRup.get(), m_dynRupTree);
   }
 
   /* cell information and integration data*/
@@ -231,6 +234,17 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
 
     auto &drLayer = m_dynRupTree->child(0).child<Interior>();
     drRecorder.record(*m_dynRup, drLayer);
+
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_frictionSolver.get())) {
+      impl->initSyclQueue();
+
+      auto mask = seissol::initializers::LayerMask(Ghost);
+      auto maxSize = m_dynRupTree->getMaxClusterSize(mask);
+      impl->setMaxClusterSize(maxSize);
+
+      impl->allocateAuxiliaryMemory();
+      impl->copyStaticDataToDevice();
+    }
   }
 }
 #endif // ACL_DEVICE
