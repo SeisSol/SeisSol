@@ -151,6 +151,11 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
+
+  // TODO(Lukas) Move to better place
+  auto filterConf = kernels::ExponentialFilter::Configuration{};
+  filterConf.filterOrder = 32;
+  filter = kernels::ExponentialFilter(filterConf);
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {

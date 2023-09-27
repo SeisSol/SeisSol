@@ -86,6 +86,7 @@
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include <Kernels/Filter.h>
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/TimeCommon.h>
@@ -140,6 +141,9 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
+
+    //! Filter
+    kernels::ExponentialFilter filter;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -326,6 +330,9 @@ private:
                                                               l_cell,
                                                               dofs[l_cell] );
 #endif // INTEGRATE_QUANTITIES
+
+
+        kernels::applyFilter(data, filter);
       }
 
       const long long nonZeroFlopsPlasticity =
