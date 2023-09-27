@@ -290,7 +290,7 @@ if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_STATIC_LDFLAGS})
+  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_LDFLAGS})
   target_include_directories(SeisSol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
   target_compile_options(SeisSol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()

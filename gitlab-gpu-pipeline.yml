@@ -98,6 +98,7 @@ gpu_build:
     artifacts:
         paths:
             - build_*
+    retry: 2
 
 
 gpu_convergence_test:
@@ -134,6 +135,7 @@ gpu_convergence_test:
     artifacts:
         paths:
             - build_*
+    retry: 2
 
 
 gpu_run_tpv:
@@ -170,6 +172,7 @@ gpu_run_tpv:
     artifacts:
         paths:
             - output-*
+    retry: 2
 
 
 check_faultoutput:
