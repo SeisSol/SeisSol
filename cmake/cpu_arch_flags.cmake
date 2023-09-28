@@ -22,7 +22,7 @@ function(get_arch_flags architecture compiler)
 
     # Knights Corner (Xeon Phi)
     elseif ("${HOST_ARCH}" STREQUAL "knc")
-        set(HAS_REDZONE ON PARENT_SCOPE)    
+        set(HAS_REDZONE ON PARENT_SCOPE)
         set(CPU_ARCH_FLAGS "-mmic" "-fma" PARENT_SCOPE)
     
     # Knight Landing (Xeon Phi)
@@ -101,8 +101,16 @@ function(get_arch_flags architecture compiler)
         set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
     elseif ("${HOST_ARCH}" STREQUAL "sve2048")
         set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
+
     elseif ("${HOST_ARCH}" STREQUAL "apple-m1")
-        set(CPU_ARCH_FLAGS "-mcpu=apple-m1" PARENT_SCOPE)
+        if (compiler MATCHES "GNU")
+            set(CPU_ARCH_FLAGS "-march=armv8.4-a -mtune=generic" PARENT_SCOPE)
+        endif()
+
+    elseif ("${HOST_ARCH}" STREQUAL "apple-m2")
+        if (compiler MATCHES "GNU")
+            set(CPU_ARCH_FLAGS "-march=armv8.5-a" "-mtune=generic" PARENT_SCOPE)
+        endif()
     endif()
 
     if (compiler MATCHES "NVHPC|PGI")

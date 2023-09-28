@@ -33,10 +33,10 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64       16     16     256     16     16     32     64     128     256      128)
-set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64       16     16      64     16     16     32     64     128     256       16)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64       16     16     256     16     16     32     64     128     256      128      128)
+set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64       16     16      64     16     16     32     64     128     256       16       16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -153,7 +153,7 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
             message(STATUS "PSpaMM would be supported, but it was not found")
         endif()
     endif()
-    
+
     # Eigen will always be there
     # But it won't give us much, if there's any of the above generators found
     if (NOT AUTO_GEMM_TOOLS_LIST)
@@ -176,7 +176,6 @@ else()
 endif()
 message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
-
 if (DEVICE_ARCH MATCHES "sm_*")
     set(DEVICE_VENDOR "nvidia")
     set(PREMULTIPLY_FLUX_DEFAULT ON)
@@ -192,6 +191,7 @@ endif()
 if (WITH_GPU)
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
 endif()
+
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
