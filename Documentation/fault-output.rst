@@ -1,19 +1,20 @@
 .. _fault_output:
 
-Fault output - Dynamic Rupture Visualization Options
+Fault output
 ============
 
 Introduction
 ------------
 
 There are two primary methods for visualizing on-fault rupture dynamics:
+
 1. Evaluation of rupture characteristics at specific on-fault locations via ASCII receiver files
 2. Visualization across the entire fault surface with files that can be opened with ParaView
 
 While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required. 
 
 DynamicRupture Namelist OutputPointType Configuration
-------------
+-----------------------------------------------------
 
 The output type generated is determined by the **OutputPointType** variable in the DynamicRupture namelist. Here is an example of how to configure it:
 
@@ -33,29 +34,27 @@ The output type generated is determined by the **OutputPointType** variable in t
 .. _paraview_output:
 
 Configuring ParaView output
----------------
+---------------------------
 
 You can adjust the ParaView output using the Elementwise namelist. Here's an example of how to do this:
 
 .. code-block:: Fortran
 
   &Elementwise
-  printIntervalCriterion = 2 ! 1=iteration, 2=time
   printtimeinterval_sec = 1.0
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
   /
 
-printIntervalCriterion
-~~~~~~~~~~~~~~~~~~~~~~
+printTimeIntervalSec
+~~~~~~~~~~~~~~~~~~~~
 
-
-- When **printIntervalCriterion** = 1, the output is generated every N time steps, where N is defined by **printInterval**. Note that this option is only compatible with Global time stepping. 
-- When **printIntervalCriterion** = 2, output is generated every **printtimeinterval_sec**.
+- Output is generated every **printtimeinterval_sec**.
 
 refinement
 ~~~~~~~~~~
+
 The **refinement** variable determines how the output mesh is created:
 
 - refinement = 0 outputs a single triangle for each mesh cell. The unknowns are calculated at the center of each cell.
@@ -85,7 +84,7 @@ Here's what each bit in the OutputMask array represents:
 12. **P_f** and **Tmp**: Only with thermal pressurisation, pore pressure and temperature
 
 SeisSolXdmf Python Module
----------------------
+-------------------------
 
 You can read SeisSol ParaView files (XDMF/Hdf5 or XDMF/binary files, describing the fault outputs and the free-surface outputs and the volume wavefield outputs) using our Python module **seissolxdmf**. Find it on PyPi at: `seissolxdmf <https://pypi.org/project/seissolxdmf/>`__.
 
@@ -113,16 +112,5 @@ iOutputMask
 ~~~~~~~~~~~
 
 This is the same as for the ParaView output.
-
-Additional Ascii output
------------------------
-
-You can output the rupture front at every Gauss point by enabling **RF_output_on** in the DynamicRupture namelist:
-
-.. code-block:: Fortran
-
-  &DynamicRupture
-  RF_output_on = 1
-  /
 
 We strongly recommend using the ParaView fault output for visualizing the rupture time, as opposed to this ASCII output.
