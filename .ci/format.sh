@@ -8,18 +8,20 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist_dir="
+    local allowlist_dir="
         src/DynamicRupture
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/SourceTerm
         "
     
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
-    local whitelist_file="
+    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
+    local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
+        src/Initializer/InputAux.hpp
         src/Initializer/InputParameters.hpp
         src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
@@ -27,12 +29,9 @@ format() {
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
+        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp
-        src/SourceTerm/Manager.h
-        src/SourceTerm/Manager.cpp
-        src/SourceTerm/FSRMReader.h
-        src/SourceTerm/FSRMReader.cpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
         src/Geometry/NetcdfReader.h
@@ -46,6 +45,9 @@ format() {
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
+        src/SeisSol.h
+        src/SeisSol.cpp
+        src/main.cpp
         "
 
     local SEISSOL_SOURCE_DIR="${2}"
@@ -62,7 +64,7 @@ format() {
         exit 166
     fi
 
-    for dir in ${whitelist_dir}; do
+    for dir in ${allowlist_dir}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
         files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
         for file in ${files}; do
@@ -70,7 +72,7 @@ format() {
         done
     done
 
-    for file in ${whitelist_file}; do
+    for file in ${allowlist_file}; do
         ${formatter} -i -style=file ${SEISSOL_SOURCE_DIR}/$file
     done
 }

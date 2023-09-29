@@ -49,8 +49,7 @@
 
 #include "Initializer/BasicTypedefs.hpp"
 
-namespace seissol {
-namespace sourceterm {
+namespace seissol::sourceterm {
 
 // TODO: when refactoring, replace raw array types
 struct FSRMSource {
@@ -71,7 +70,6 @@ struct FSRMSource {
 
   void read(const std::string& filename);
 };
-} // namespace sourceterm
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 #endif

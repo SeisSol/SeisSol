@@ -59,7 +59,9 @@
 
 #include "Equations/datastructures.hpp"
 
+#ifdef USE_HDF
 #include <PUML/PUML.h>
+#endif
 
 #include <Eigen/Dense>
 

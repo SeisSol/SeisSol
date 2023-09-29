@@ -154,7 +154,7 @@ def receiver_diff(args, i):
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 

@@ -11,6 +11,10 @@ endif()
 
 project(SeisSol LANGUAGES C CXX)
 
+# TODO: Move one dir up.
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
+                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
+                      "${CMAKE_ROOT}/Modules")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
@@ -23,7 +27,7 @@ endif()
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -33,17 +37,13 @@ endif()
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
+                         "VECTORSIZE=${VECTORSIZE}"
                          "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
-# TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
-                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
-                      "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,11 +67,14 @@ endif()
 include(GetGitRevisionDescription)
 
 # get GIT info
-get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
 if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
   set(PACKAGE_GIT_VERSION "(unknown)")
+  set(PACKAGE_GIT_HASH "(unknown)")
+  set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
+else()
+  get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
+  string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 endif()
 
 # write file and print info
@@ -101,6 +104,12 @@ else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
+if(PREMULTIPLY_FLUX)
+  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
+else()
+  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
+endif()
+
 add_custom_command(
   COMMAND
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
@@ -117,6 +126,7 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
         build-time-make-directory
@@ -277,7 +287,7 @@ if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_STATIC_LDFLAGS})
+  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_LDFLAGS})
   target_include_directories(SeisSol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
   target_compile_options(SeisSol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
@@ -358,6 +368,9 @@ target_compile_definitions(SeisSol-common-properties INTERFACE
     ${DR_QUAD_RULE}
 )
 
+if (PREMULTIPLY_FLUX)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
+endif()
 
 if (WITH_GPU)
   # set SeisSol GPU definitions
@@ -376,36 +389,45 @@ if (WITH_GPU)
       ${SYCL_ONLY_SRC_FILES})
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
 
-  # add GPU dynamic rupture target
-  if (DEVICE_ARCH MATCHES "sm_*")
-    if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-      # we assume that hipsycl was compiled with nvhpc compiler collection
-      string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
-      set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}")
-    else()
-      set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
-      target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
-    endif()
-    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
-  elseif(DEVICE_ARCH MATCHES "gfx*")
-    set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}")
-    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
-  else()
-    set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
-    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
-  endif()
+  set(SYCL_CC "hipsycl" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
+  set(SYCL_CC_OPTIONS hipsycl dpcpp)
+  set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
 
-  find_package(hipSYCL QUIET)
-  if (hipSYCL_FOUND)
+  if (SYCL_CC MATCHES "hipsycl")
     message(STATUS "Using HipSYCL for general SYCL offloading")
+    # add GPU dynamic rupture target
+    # always override HIPSYCL_TARGETS, as we may need to override it when the architecture changes
+    if (DEVICE_ARCH MATCHES "sm_*")
+      if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+        set(SYCL_USE_NVHPC_DEFAULT ON)
+      else()
+        set(SYCL_USE_NVHPC_DEFAULT OFF)
+      endif()
+      option(SYCL_USE_NVHPC "For Nvidia GPUs, use nvhpc instead of CUDA/nvcc." ${SYCL_USE_NVHPC_DEFAULT})
+      if (SYCL_USE_NVHPC)
+        # we assume that hipsycl was compiled with nvhpc compiler collection
+        string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
+        set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
+      else()
+        set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+        target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
+      endif()
+      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
+    elseif(DEVICE_ARCH MATCHES "gfx*")
+      set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
+    else()
+      set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
+    endif()
+
+    find_package(hipSYCL REQUIRED)
 
     # note, we need to add openmp as a link option explicitly for some compilers.
     # it is probably an issue of `add_sycl_to_target` macro
     target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
     add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
   else()
-    unset(HIPSYCL_TARGETS)
-
     find_package(DpcppFlags REQUIRED)
     message(STATUS "Using DPC++ for general SYCL offloading")
     target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
@@ -594,6 +616,9 @@ if (TESTING)
             ${seissol_test_sources}
             src/tests/test_main.cpp)
   target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+if(WITH_GPU)
+  target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
+endif()
   target_include_directories(SeisSol-serial-test PUBLIC external/)
   doctest_discover_tests(SeisSol-serial-test)
 

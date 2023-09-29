@@ -46,37 +46,36 @@
 #include <cstdarg>
 
 #include <Initializer/tree/Lut.hpp>
+#include <Kernels/PointSourceCluster.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <Geometry/MeshReader.h>
 #include <inttypes.h>
+#include <memory>
+#include <array>
+#include <vector>
 
-namespace seissol {
-namespace sourceterm {
-enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
+namespace seissol::sourceterm {
 
-void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
-                                  real* mInvJInvPhisAtSources,
-                                  unsigned meshId,
-                                  seissol::geometry::MeshReader const& mesh);
+void computeMInvJInvPhisAtSources(
+    Eigen::Vector3d const& centre,
+    AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>& mInvJInvPhisAtSources,
+    unsigned meshId,
+    seissol::geometry::MeshReader const& mesh);
 void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                         unsigned meshId,
                                         seissol::geometry::MeshReader const& mesh,
                                         Subfault const& subfault,
                                         Offsets const& offsets,
                                         Offsets const& nextOffsets,
-                                        double* const sliprates[3],
+                                        std::array<std::vector<double>, 3> const& sliprates,
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
-                                        unsigned index);
+                                        unsigned index,
+                                        AllocatorT const& alloc);
 class Manager;
-} // namespace sourceterm
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 class seissol::sourceterm::Manager {
-  private:
-  std::unordered_map<LayerType, std::vector<ClusterMapping>> layeredClusterMapping;
-  std::unordered_map<LayerType, std::vector<PointSources>> layeredSources;
-
   public:
   Manager() = default;
   ~Manager() = default;
@@ -89,26 +88,34 @@ class seissol::sourceterm::Manager {
                    seissol::initializers::Lut* ltsLut,
                    time_stepping::TimeManager& timeManager);
 
-  void mapPointSourcesToClusters(unsigned const* meshIds,
+  private:
+  auto mapPointSourcesToClusters(const unsigned* meshIds,
                                  unsigned numberOfSources,
                                  seissol::initializers::LTSTree* ltsTree,
                                  seissol::initializers::LTS* lts,
-                                 seissol::initializers::Lut* ltsLut);
+                                 seissol::initializers::Lut* ltsLut,
+                                 AllocatorT const& alloc)
+      -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
 
-  void loadSourcesFromFSRM(char const* fileName,
+  auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
+      -> std::unique_ptr<kernels::PointSourceCluster>;
+
+  auto loadSourcesFromFSRM(char const* fileName,
                            seissol::geometry::MeshReader const& mesh,
                            seissol::initializers::LTSTree* ltsTree,
                            seissol::initializers::LTS* lts,
                            seissol::initializers::Lut* ltsLut,
-                           time_stepping::TimeManager& timeManager);
+                           AllocatorT const& alloc)
+      -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-  void loadSourcesFromNRF(char const* fileName,
+  auto loadSourcesFromNRF(char const* fileName,
                           seissol::geometry::MeshReader const& mesh,
                           seissol::initializers::LTSTree* ltsTree,
                           seissol::initializers::LTS* lts,
                           seissol::initializers::Lut* ltsLut,
-                          time_stepping::TimeManager& timeManager);
+                          AllocatorT const& alloc)
+      -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 #endif
 };
 

@@ -106,9 +106,9 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 
 **printtimeinterval** determines how frequently the output is generated — every **printtimeinterval** (local) time step. Please note that using this output with local time-stepping may result in differently sampled receiver files.
 
-.. _ioutputmask-1:
+.. _outputmask-1:
 
-iOutputMask
+OutputMask
 ~~~~~~~~~~~
 
 This is the same as for the ParaView output.
