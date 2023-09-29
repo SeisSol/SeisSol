@@ -47,8 +47,8 @@ You can adjust the ParaView output using the Elementwise namelist. Here's an exa
   refinement = 1
   /
 
-printTimeIntervalSec
-~~~~~~~~~~~~~~~~~~~~
+printTimeInterval_Sec
+~~~~~~~~~~~~~~~~~~~~~
 
 - Output is generated every **printtimeinterval_sec**.
 
@@ -80,10 +80,10 @@ Here's what each bit in the OutputMask array represents:
 8. **ASl**: Accumulated slip
 9. **PSR**: Peak slip rate
 10. **RT**: Rupture time
-11. **DS**: Only with LSW, time at which ASl>D_c (useful for measuring the process zone size)
-12. **P_f** and **Tmp**: Only with thermal pressurisation, pore pressure and temperature
+11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c. With RS, the time at which mu <= (f0 + mu_w). DS can be used to evaluate the process zone size.
+12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
-SeisSolXdmf Python Module
+seissolxdmf python module
 -------------------------
 
 You can read SeisSol ParaView files (XDMF/Hdf5 or XDMF/binary files, describing the fault outputs and the free-surface outputs and the volume wavefield outputs) using our Python module **seissolxdmf**. Find it on PyPi at: `seissolxdmf <https://pypi.org/project/seissolxdmf/>`__.
@@ -112,5 +112,3 @@ OutputMask
 ~~~~~~~~~~~
 
 This is the same as for the ParaView output.
-
-We strongly recommend using the ParaView fault output for visualizing the rupture time, as opposed to this ASCII output.
