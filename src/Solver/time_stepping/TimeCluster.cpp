@@ -153,9 +153,9 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
 
   // TODO(Lukas) Move to better place
-  auto filterConf = kernels::ExponentialFilter::Configuration{};
-  filterConf.filterOrder = 32;
-  filter = kernels::ExponentialFilter(filterConf);
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+
+  filter = kernels::ExponentialFilter(seissolParams.filter);
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {

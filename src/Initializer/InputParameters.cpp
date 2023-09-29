@@ -287,6 +287,31 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
   reader.warnUnknown();
 }
 
+
+static void readFilter(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
+  auto reader = baseReader.readSubNode("discretization");
+
+  auto& filter = seissolParams.filter;
+
+  const auto validFilters = std::unordered_map<std::string, FilterTypes>{
+      {"none", FilterTypes::None},
+      {"exponential", FilterTypes::Exponential},
+  };
+  filter.type = reader.readWithDefaultStringEnum("filtertype", "none", validFilters);
+
+  // Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to epsilon
+  filter.alpha = reader.readWithDefault("filteralpha",
+                                        -std::log(std::numeric_limits<real>::epsilon()));
+
+  filter.order = reader.readWithDefault("filterorder", 32);
+  filter.cutoff = reader.readWithDefault("filtercutoff", 0);
+
+  // TODO(Lukas) Move the following to filter init
+  if (filter.type == FilterTypes::Exponential) {
+    logInfo() << "Using a filter with order" << filter.order << "cutoff" << filter.cutoff << "and alpha" << filter.alpha;
+  }
+}
+
 static void readInitialization(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("inicondition");
 
@@ -547,6 +572,7 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   readModel(baseReader, *this);
   readMesh(baseReader, *this);
   readTimeStepping(baseReader, *this);
+  readFilter(baseReader, *this);
   readInitialization(baseReader, *this);
   readOutput(baseReader, *this);
   readSource(baseReader, *this);

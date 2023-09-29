@@ -187,6 +187,18 @@ struct TimeSteppingParameters {
   VertexWeightParameters vertexWeight;
 };
 
+enum class FilterTypes {
+  None,
+  Exponential
+};
+
+struct FilterParameters {
+  FilterTypes type;
+  real alpha;
+  unsigned int order = 32;
+  unsigned int cutoff = 0;
+};
+
 struct SourceParameters {
   seissol::sourceterm::SourceType type;
   std::string fileName;
@@ -202,6 +214,7 @@ struct SeisSolParameters {
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;
+  FilterParameters filter;
   SourceParameters source;
   EndParameters end;
 
