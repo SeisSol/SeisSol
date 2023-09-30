@@ -532,7 +532,7 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateP[6][i] = interP[6][i];;
     imposedStateP[7][i] = interP[7][i];;
     imposedStateP[8][i] = interP[8][i];
-    imposedStateP[9][i] = interP[9][i];
+    // imposedStateP[9][i] = interP[9][i];
 
     imposedStateM[0][i] = -D1M*(interM[0][i]+interM[1][i]+interM[2][i])
                         + 1/2.0/mu0M*interP[0][i];
@@ -551,7 +551,7 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateM[6][i] = interM[6][i];;
     imposedStateM[7][i] = interM[7][i];;
     imposedStateM[8][i] = interM[8][i];
-    imposedStateM[9][i] = interM[9][i];
+    // imposedStateM[9][i] = interM[9][i];
   }
 }
 
