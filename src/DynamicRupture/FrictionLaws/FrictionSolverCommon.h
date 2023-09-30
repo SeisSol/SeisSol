@@ -414,9 +414,9 @@ inline void postcomputeImposedStateFromNewStress(
       interM[YY][i] += weight * ( qIMinus[o][YY][i] -
           (1.0 - 2.0*csOcpTZsOZpNeig) * (normalStress - qIMinus[o][N][i]) );
 
-      interP[ZZ][i] += weight * ( qIPlus[o][YY][i] +
+      interP[ZZ][i] += weight * ( qIPlus[o][ZZ][i] +
           (1.0 - 2.0*csOcpTZsOZp) * (normalStress - qIPlus[o][N][i]) );
-      interM[ZZ][i] += weight * ( qIMinus[o][YY][i] -
+      interM[ZZ][i] += weight * ( qIMinus[o][ZZ][i] -
           (1.0 - 2.0*csOcpTZsOZpNeig) * (normalStress - qIMinus[o][N][i]) );
 
       interP[YZ][i] += weight * ( qIPlus[o][YZ][i] );
