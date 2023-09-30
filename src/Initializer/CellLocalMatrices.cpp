@@ -125,7 +125,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-    
+
 #ifdef _OPENMP
     #pragma omp for schedule(static)
 #endif
@@ -159,7 +159,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
-      
+
       // auto staM = CTData[26]*gradXi[2];
       // if (meshId > 1000 && meshId < 1002){
       //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
@@ -195,7 +195,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
           seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
         } else {
           seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                      material[cell].neighbor[side],     
+                                                      material[cell].neighbor[side],
                                                       cellInformation[cell].faceTypes[side],
                                                       QgodLocal,
                                                       QgodNeighbor );
@@ -217,7 +217,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
@@ -498,16 +498,30 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Materials
       seissol::model::Material* plusMaterial;
       seissol::model::Material* minusMaterial;
+
+      #if defined USE_DAMAGEDELASTIC
+      seissol::model::DamagedElasticMaterial* plusDamMaterial;
+      seissol::model::DamagedElasticMaterial* minusDamMaterial;
+      #endif
+
       unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+        #if defined USE_DAMAGEDELASTIC
+        plusDamMaterial = &material[plusLtsId].local;
+        minusDamMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        #endif
         plusMaterial = &material[plusLtsId].local;
         minusMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
+        #if defined USE_DAMAGEDELASTIC
+        minusDamMaterial = &material[minusLtsId].local;
+        plusDamMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
+        #endif
         plusMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
         minusMaterial = &material[minusLtsId].local;
       }
@@ -515,13 +529,39 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Wave speeds and Coefficient Matrices
       auto APlus = init::star::view<0>::create(APlusData);
       auto AMinus = init::star::view<0>::create(AMinusData);
-      
+
       waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
       waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
       waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+
+      #if defined USE_DAMAGEDELASTIC
+      impAndEta[ltsFace].lambda0P = plusDamMaterial->lambda;
+      impAndEta[ltsFace].mu0P = plusDamMaterial->mu;
+      // impAndEta[ltsFace].gammaRP = plusDamMaterial->gammaR;
+      // impAndEta[ltsFace].xi0P = plusDamMaterial->xi0;
+      impAndEta[ltsFace].rho0P = plusDamMaterial->rho;
+
+      impAndEta[ltsFace].lambda0M = minusDamMaterial->lambda;
+      impAndEta[ltsFace].mu0M = minusDamMaterial->mu;
+      // impAndEta[ltsFace].gammaRM = minusDamMaterial->gammaR;
+      // impAndEta[ltsFace].xi0M = minusDamMaterial->xi0;
+      impAndEta[ltsFace].rho0M = minusDamMaterial->rho;
+
+      impAndEta[ltsFace].faultN[0] = fault[meshFace].normal[0];
+      impAndEta[ltsFace].faultT1[0] = fault[meshFace].tangent1[0];
+      impAndEta[ltsFace].faultT2[0] = fault[meshFace].tangent2[0];
+
+      impAndEta[ltsFace].faultN[1] = fault[meshFace].normal[1];
+      impAndEta[ltsFace].faultT1[1] = fault[meshFace].tangent1[1];
+      impAndEta[ltsFace].faultT2[1] = fault[meshFace].tangent2[1];
+
+      impAndEta[ltsFace].faultN[2] = fault[meshFace].normal[2];
+      impAndEta[ltsFace].faultT1[2] = fault[meshFace].tangent1[2];
+      impAndEta[ltsFace].faultT2[2] = fault[meshFace].tangent2[2];
+      #endif
 
       //calculate Impedances Z and eta
       impAndEta[ltsFace].zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
@@ -538,6 +578,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
+      #if defined USE_DAMAGEDELASTIC
+      impAndEta[ltsFace].csOcpTZsOZp = waveSpeedsPlus[ltsFace].sWaveVelocity / waveSpeedsPlus[ltsFace].pWaveVelocity
+                                        * impAndEta[ltsFace].zs / impAndEta[ltsFace].zp;
+      impAndEta[ltsFace].csOcpTZsOZpNeig = waveSpeedsMinus[ltsFace].sWaveVelocity / waveSpeedsMinus[ltsFace].pWaveVelocity
+                                        * impAndEta[ltsFace].zsNeig / impAndEta[ltsFace].zpNeig;
+      #endif
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
@@ -551,7 +597,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
-          //TODO(SW): Make DR work with anisotropy 
+          //TODO(SW): Make DR work with anisotropy
           break;
         }
         case seissol::model::MaterialType::elastic: {

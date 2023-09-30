@@ -76,6 +76,126 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
+    // Derive stress solutions from strain
+    real dofsStressPlus[tensor::Q::size()]{};
+    real dofsStressMinus[tensor::Q::size()]{};
+
+    seissol::dr::ImpedancesAndEta* impAndEtaGet = &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+
+    real epsInitxx = -0e-2; // eps_xx0
+    real epsInityy = -0e-1; // eps_yy0
+    real epsInitzz = -0e-1; // eps_zz0
+    real lambda0P = impAndEtaGet->lambda0P;
+    real mu0P = impAndEtaGet->mu0P;
+    real lambda0M = impAndEtaGet->lambda0M;
+    real mu0M = impAndEtaGet->mu0M;
+
+    for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
+      real EspIp = (dofsPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
+      + (dofsPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)
+      + (dofsPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      real EspIIp = (dofsPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)*(dofsPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
+        + (dofsPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)*(dofsPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)
+        + (dofsPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz)*(dofsPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz)
+        + 2*dofsPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]
+        + 2*dofsPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]
+        + 2*dofsPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      // real alphap = dofsPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      // real xip;
+      // if (EspIIp > 1e-30){
+      //   xip = EspIp / std::sqrt(EspIIp);
+      // } else{
+      //   xip = 0.0;
+      // }
+
+      dofsStressPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp)
+            + (2*(mu0P)
+              )
+              *(dofsPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+
+      dofsStressPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp)
+            + (2*(mu0P)
+              )
+              *(dofsPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+
+      dofsStressPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp)
+            + (2*(mu0P)
+              )
+              *(dofsPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+
+      dofsStressPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0P)
+              )
+              *dofsPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0P)
+              )
+              *dofsPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0P)
+              )
+              *dofsPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      real EspIm = (dofsMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
+      + (dofsMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)
+      + (dofsMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      real EspIIm = (dofsMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)*(dofsMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
+        + (dofsMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)*(dofsMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)
+        + (dofsMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz)*(dofsMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz)
+        + 2*dofsMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]
+        + 2*dofsMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]
+        + 2*dofsMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]*dofsMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      // real alpham = dofsMinus[9];
+      // real xim;
+      // if (EspIIm > 1e-30){
+      //   xim = EspIIm / std::sqrt(EspIIm);
+      // } else{
+      //   xim = 0.0;
+      // }
+
+      dofsStressMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm)
+            + (2*(mu0M)
+              )
+              *(dofsMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+
+      dofsStressMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm)
+            + (2*(mu0M)
+              )
+              *(dofsMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+
+      dofsStressMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm)
+            + (2*(mu0M)
+              )
+              *(dofsMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+
+      dofsStressMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0M)
+              )
+              *dofsMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0M)
+              )
+              *dofsMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
+            + (2*(mu0M)
+              )
+              *dofsMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      // dofsStressPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+
+      dofsStressMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      // dofsStressMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+    }
+
     const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
@@ -99,12 +219,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    kernel.Q = dofsPlus;
+    kernel.Q = dofsStressPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
 
-    kernel.Q = dofsMinus;
+    kernel.Q = dofsStressMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
