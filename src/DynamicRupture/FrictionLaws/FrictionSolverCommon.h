@@ -369,7 +369,7 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-  unsigned DAM = 9;
+  // unsigned DAM = 9;
 
 #ifndef ACL_DEVICE
   checkAlignmentPostCompute(
@@ -422,8 +422,8 @@ inline void postcomputeImposedStateFromNewStress(
       interP[YZ][i] += weight * ( qIPlus[o][YZ][i] );
       interM[YZ][i] += weight * ( qIMinus[o][YZ][i] );
 
-      interP[DAM][i] += weight * ( qIPlus[o][DAM][i] );
-      interM[DAM][i] += weight * ( qIMinus[o][DAM][i] );
+      // interP[DAM][i] += weight * ( qIPlus[o][DAM][i] );
+      // interM[DAM][i] += weight * ( qIMinus[o][DAM][i] );
 
       /// TODO: Test if I can do this inside this loop
       // // Fill in nonlinear Flux term at the end time integratoon point.
