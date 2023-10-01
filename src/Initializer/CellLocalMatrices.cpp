@@ -600,6 +600,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           //TODO(SW): Make DR work with anisotropy
           break;
         }
+        case seissol::model::MaterialType::damaged: {
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
+          break;
+        }
         case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);

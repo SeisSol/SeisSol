@@ -52,7 +52,7 @@ class BaseFrictionLaw : public FrictionSolver {
       auto* qStressIMinus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedMinus));
 
       using namespace seissol::dr::misc::quantity_indices;
-      unsigned DAM = 9;
+      // unsigned DAM = 9;
 
       real epsInitxx = -0e-2; // eps_xx0
       real epsInityy = -0e-1; // eps_yy0
@@ -69,12 +69,12 @@ class BaseFrictionLaw : public FrictionSolver {
             i ++) {
 
           real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
-          real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
-            + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
-            + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
-            + 2*qIPlus[o][XY][i]*qIPlus[o][XY][i]
-            + 2*qIPlus[o][YZ][i]*qIPlus[o][YZ][i]
-            + 2*qIPlus[o][XZ][i]*qIPlus[o][XZ][i];
+          // real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
+          //   + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
+          //   + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
+          //   + 2*qIPlus[o][XY][i]*qIPlus[o][XY][i]
+          //   + 2*qIPlus[o][YZ][i]*qIPlus[o][YZ][i]
+          //   + 2*qIPlus[o][XZ][i]*qIPlus[o][XZ][i];
           // real alphap = qIPlus[o][DAM][i];
           // real xip;
           // if (EspIIp > 1e-30){
@@ -114,12 +114,12 @@ class BaseFrictionLaw : public FrictionSolver {
                   *qIPlus[o][XZ][i];
 
           real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
-          real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
-            + (qIMinus[o][YY][i]+epsInityy)*(qIMinus[o][YY][i]+epsInityy)
-            + (qIMinus[o][ZZ][i]+epsInitzz)*(qIMinus[o][ZZ][i]+epsInitzz)
-            + 2*qIMinus[o][XY][i]*qIMinus[o][XY][i]
-            + 2*qIMinus[o][YZ][i]*qIMinus[o][YZ][i]
-            + 2*qIMinus[o][XZ][i]*qIMinus[o][XZ][i];
+          // real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
+          //   + (qIMinus[o][YY][i]+epsInityy)*(qIMinus[o][YY][i]+epsInityy)
+          //   + (qIMinus[o][ZZ][i]+epsInitzz)*(qIMinus[o][ZZ][i]+epsInitzz)
+          //   + 2*qIMinus[o][XY][i]*qIMinus[o][XY][i]
+          //   + 2*qIMinus[o][YZ][i]*qIMinus[o][YZ][i]
+          //   + 2*qIMinus[o][XZ][i]*qIMinus[o][XZ][i];
           // real alpham = qIMinus[o][DAM][i];
           // real xim;
           // if (EspIIm > 1e-30){
