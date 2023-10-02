@@ -585,6 +585,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                         * impAndEta[ltsFace].zsNeig / impAndEta[ltsFace].zpNeig;
       #endif
 
+      #if defined USE_DAMAGEDELASTIC
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
+      #else
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
           logError() << "Dynamic Rupture does not work with an acoustic material.";
@@ -600,12 +604,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           //TODO(SW): Make DR work with anisotropy
           break;
         }
-        case seissol::model::MaterialType::damaged: {
-          std::cout << "reached" << std::endl;
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
-          break;
-        }
+        // case seissol::model::MaterialType::damaged: {
+        //   std::cout << "reached" << std::endl;
+        //   seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
+        //   seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
+        //   break;
+        // }
         case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
@@ -617,6 +621,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           break;
         }
       }
+      #endif
+
+
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix = init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix = init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
