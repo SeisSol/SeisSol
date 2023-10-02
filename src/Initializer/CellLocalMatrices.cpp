@@ -586,8 +586,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       #endif
 
       #if defined USE_DAMAGEDELASTIC
-      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
-      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusDamMaterial), 0, APlus);
+      seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusDamMaterial), 0, AMinus);
       #else
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
