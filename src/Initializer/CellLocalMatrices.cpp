@@ -601,6 +601,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           break;
         }
         case seissol::model::MaterialType::damaged: {
+          std::cout << "reached" << std::endl;
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::DamagedElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
