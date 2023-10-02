@@ -1,5 +1,6 @@
 #include "Unit.hpp"
 
+#include <ios>
 #include <string>
 #include <vector>
 #include <cmath>
@@ -103,25 +104,10 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
 }
 
 std::string SIUnit::formatScientific(double value, int digits) const {
-  const int exponential = [&]() {
-    if (value == 0) {
-      return 0.0;
-    } else {
-      const double log = std::log10(std::abs(value));
-      return std::floor(log);
-    }
-  }();
-  const double rest = value / std::pow(10, exponential);
   std::ostringstream stream;
   stream.precision(digits);
-  stream << std::fixed;
-  stream << rest << " * 10^";
-  if (exponential < 0) {
-    stream << "(" << exponential << ")";
-  } else {
-    stream << exponential;
-  }
-  stream << " " << unit;
+  stream << std::scientific;
+  stream << value;
   return stream.str();
 }
 
