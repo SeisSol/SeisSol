@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SEISSOL_MONITORING_UNIT_HPP_
+#define SEISSOL_MONITORING_UNIT_HPP_
 
 #include <cmath>
 #include <sstream>
@@ -26,3 +27,5 @@ const inline SIUnit UnitFlop = SIUnit("FLOP", false);
 const inline SIUnit UnitFlopPerS = SIUnit("FLOP/s", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
 } // namespace seissol
+
+#endif // SEISSOL_MONITORING_UNIT_HPP_
