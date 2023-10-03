@@ -10,11 +10,11 @@
 #include "SeisSol.h"
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
+#include "Geometry/CubeGenerator.h"
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "Geometry/CubeGenerator.h"
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.hpp"
 #include "Monitoring/Stopwatch.h"
@@ -134,18 +134,23 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 static void
     readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+#if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator.parameters;
 
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
   std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-  auto meshReader = new seissol::geometry::CubeGenerator::CubeGenerator(
+  auto meshReader = new seissol::geometry::CubeGenerator(
       commRank, commSize, realMeshFileName.c_str(), cubeParameters);
 
   // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
   seissol::SeisSol::main.setMeshReader(
       new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
+#else
+  logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
+                "not linked to Netcdf.";
+#endif
 }
 
 void seissol::initializer::initprocedure::initMesh() {
