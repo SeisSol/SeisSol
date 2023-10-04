@@ -33,9 +33,10 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx rome thunderx2t99 power9 a64fx)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64   32       16     16     256)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64       16     16     256     16     16     32     64     128     256      128      128)
+set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64       16     16      64     16     16     32     64     128     256       16       16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -117,28 +118,63 @@ check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIO
 
 # deduce GEMM_TOOLS_LIST based on the host arch
 if (GEMM_TOOLS_LIST STREQUAL "auto")
-    set(X86_ARCHS wsm snb hsw knc knl skx)
-    set(WITH_AVX512_SUPPORT knl skx)
+    message(STATUS "Inferring GEMM_TOOLS_LIST for ${HOST_ARCH}")
 
-    if (${HOST_ARCH} IN_LIST X86_ARCHS)
-        if (${HOST_ARCH} IN_LIST WITH_AVX512_SUPPORT)
-            set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM")
+    set(SUPPORT_PSPAMM hsw knl skx naples rome milan bergamo thunderx2t99 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1)
+    set(SUPPORT_LIBXSMM wsm snb hsw knc knl skx naples rome milan bergamo)
+    set(SUPPORT_LIBXSMM_JIT wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 apple-m1)
+
+    set(AUTO_GEMM_TOOLS_LIST)
+
+    if (${HOST_ARCH} IN_LIST SUPPORT_LIBXSMM_JIT)
+        find_package(LIBXSMM 1.17 QUIET)
+        if (LIBXSMM_FOUND)
+            message(STATUS "Found LIBXSMM_JIT, and it is supported")
+            list(APPEND AUTO_GEMM_TOOLS_LIST "LIBXSMM_JIT")
         else()
-            set(GEMM_TOOLS_LIST "LIBXSMM")
+            message(STATUS "LIBXSMM_JIT would be supported, but it was not found")
         endif()
-    else()
-        set(GEMM_TOOLS_LIST "Eigen")
     endif()
+    if (${HOST_ARCH} IN_LIST SUPPORT_LIBXSMM)
+        find_package(Libxsmm_executable QUIET)
+        if (Libxsmm_executable_FOUND)
+            message(STATUS "Found LIBXSMM, and it is supported")
+            list(APPEND AUTO_GEMM_TOOLS_LIST "LIBXSMM")
+        else()
+            message(STATUS "LIBXSMM would be supported, but it was not found")
+        endif()
+    endif()
+    if (${HOST_ARCH} IN_LIST SUPPORT_PSPAMM)
+        find_package(PSpaMM QUIET)
+        if (PSpaMM_FOUND)
+            message(STATUS "Found PSpaMM, and it is supported")
+            list(APPEND AUTO_GEMM_TOOLS_LIST "PSpaMM")
+        else()
+            message(STATUS "PSpaMM would be supported, but it was not found")
+        endif()
+    endif()
+
+    # Eigen will always be there
+    # But it won't give us much, if there's any of the above generators found
+    if (NOT AUTO_GEMM_TOOLS_LIST)
+        message(STATUS "Adding Eigen as last resort option")
+        list(APPEND AUTO_GEMM_TOOLS_LIST "Eigen")
+    endif()
+
+    list(JOIN AUTO_GEMM_TOOLS_LIST "," GEMM_TOOLS_LIST)
 endif()
 
 if (NOT ${DEVICE_BACKEND} STREQUAL "none")
+    message(STATUS "GPUs are enabled, adding GemmForge (and ChainForge, if available)")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
     set(WITH_GPU on)
+    # note: GPU builds currently don't support CPU-only execution (hence the following message)
+    message(STATUS "Compiling SeisSol for GPU")
 else()
     set(WITH_GPU off)
+    message(STATUS "Compiling SeisSol for CPU")
 endif()
-message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
-
+message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
 if (DEVICE_ARCH MATCHES "sm_*")
     set(DEVICE_VENDOR "nvidia")
@@ -156,6 +192,7 @@ if (WITH_GPU)
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
 endif()
 
+
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
     if (${DEVICE_BACKEND} STREQUAL "none")
@@ -164,17 +201,25 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
 
     if (${DEVICE_ARCH} MATCHES "sm_*")
         set(ALIGNMENT  64)
+        set(VECTORSIZE 32)
     elseif(${DEVICE_ARCH} MATCHES "gfx*")
         set(ALIGNMENT  128)
     else()
         set(ALIGNMENT 128)
-        message(STATUS "Assume ALIGNMENT = 32, for DEVICE_ARCH=${DEVICE_ARCH}")
+        message(STATUS "Assume device alignment = 128, for DEVICE_ARCH=${DEVICE_ARCH}")
     endif()
+
+    # for now
+    set(VECTORSIZE ${ALIGNMENT})
 else()
     list(FIND HOST_ARCH_OPTIONS ${HOST_ARCH} INDEX)
     list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+    list(GET HOST_ARCH_VECTORSIZE ${INDEX} VECTORSIZE)
     set(DEVICE_BACKEND "none")
 endif()
+
+message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")
+message(STATUS "Vector size has been set to ${VECTORSIZE} B.")
 
 # check NUMBER_OF_MECHANISMS
 if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
@@ -200,7 +245,7 @@ math(EXPR IS_ALIGNED_MULT_SIMULATIONS
 
 if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
     math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(FATAL_ERROR "a number of fused must be multiple of ${FACTOR}")
+    message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
 endif()
 
 #-------------------------------------------------------------------------------

@@ -244,23 +244,23 @@ static void check_err(const int stat, const int line, const char* file) {
 }
 
 template <typename T>
-struct type2nc {};
-template <>
-struct type2nc<int32_t> {
-  static constexpr auto type = NC_INT;
-};
-template <>
-struct type2nc<uint32_t> {
-  static constexpr auto type = NC_UINT;
-};
-template <>
-struct type2nc<int64_t> {
-  static constexpr auto type = NC_INT64;
-};
-template <>
-struct type2nc<uint64_t> {
-  static constexpr auto type = NC_UINT64;
-};
+static nc_type type2nc() {
+  if constexpr (std::is_signed_v<T>) {
+    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
+        "type2nc supports 32 or 64 bit integral types only");
+    if constexpr (sizeof(T) == 4) {
+      return NC_INT;
+    } else {
+      return NC_INT64;
+    }
+  } else {
+    if constexpr (sizeof(T) == 4) {
+      return NC_UINT;
+    } else {
+      return NC_UINT64;
+    }
+  }
+}
 #endif
 
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
@@ -303,13 +303,13 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   timespectyp,
                                   "sec",
                                   NC_COMPOUND_OFFSET(timespec, tv_sec),
-                                  type2nc<decltype(timespec::tv_sec)>::type);
+                                  type2nc<decltype(timespec::tv_sec)>());
         check_err(stat, __LINE__, __FILE__);
         stat = nc_insert_compound(ncid,
                                   timespectyp,
                                   "nsec",
                                   NC_COMPOUND_OFFSET(timespec, tv_nsec),
-                                  type2nc<decltype(timespec::tv_nsec)>::type);
+                       type2nc<decltype(timespec::tv_nsec)>());
         check_err(stat, __LINE__, __FILE__);
       }
 

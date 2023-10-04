@@ -11,6 +11,10 @@ endif()
 
 project(SeisSol LANGUAGES C CXX)
 
+# TODO: Move one dir up.
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
+                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
+                      "${CMAKE_ROOT}/Modules")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
@@ -33,17 +37,13 @@ endif()
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
+                         "VECTORSIZE=${VECTORSIZE}"
                          "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
-# TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
-                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
-                      "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -287,7 +287,7 @@ if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_STATIC_LDFLAGS})
+  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_LDFLAGS})
   target_include_directories(SeisSol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
   target_compile_options(SeisSol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
