@@ -27,6 +27,7 @@ struct DRParameters {
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
   bool isThermalPressureOn{false};
+  real healingThreshold{-1.0};
   real t0{0.0};
   real rsF0{0.0};
   real rsA{0.0};
@@ -73,6 +74,7 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     }
     drParameters->backgroundType = getWithDefault(yamlDrParams, "backgroundtype", 0);
     drParameters->isThermalPressureOn = getWithDefault(yamlDrParams, "thermalpress", false);
+    drParameters->healingThreshold = getWithDefault(yamlDrParams, "lsw_healingthreshold", -1.0);
     drParameters->t0 = getWithDefault(yamlDrParams, "t_0", 0.0);
     drParameters->rsF0 = getWithDefault(yamlDrParams, "rs_f0", 0.0);
     drParameters->rsA = getWithDefault(yamlDrParams, "rs_a", 0.0);
