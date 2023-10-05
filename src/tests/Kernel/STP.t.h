@@ -6,14 +6,13 @@
 #include <type_traits>
 #include <random>
 
-#include "Initializer/preProcessorMacros.fpp"
-
 #include "generated_code/kernel.h"
 #include "generated_code/init.h"
 #include <Numerical_aux/Transformation.h>
 #include <Model/common.hpp>
 #include <Model/PoroelasticSetup.h>
 
+#include "Kernels/common.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
 #include "generated_code/tensor.h"
 
@@ -234,7 +233,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
   alignas(PAGESIZE_STACK) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PAGESIZE_STACK) real rhs[seissol::tensor::testLhs::size()];
   alignas(PAGESIZE_STACK) real lhs[seissol::tensor::testRhs::size()];
-  real QData[NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS];
+  alignas(PAGESIZE_STACK) real QData[NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS];
   std::fill(std::begin(stp), std::end(stp), 0);
   std::fill(std::begin(rhs), std::end(rhs), 0);
   std::fill(std::begin(lhs), std::end(lhs), 0);

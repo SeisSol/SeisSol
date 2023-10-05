@@ -86,7 +86,9 @@
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include <Kernels/Filter.h>
 #include <Kernels/Plasticity.h>
+#include <Kernels/PointSourceCluster.h>
 #include <Kernels/TimeCommon.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
@@ -139,6 +141,9 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
+
+    //! Filter
+    kernels::ExponentialFilter filter;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -164,14 +169,7 @@ private:
     dr::friction_law::FrictionSolver* frictionSolver;
     dr::output::OutputManager* faultOutputManager;
 
-    //! Mapping of cells to point sources
-    sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
-
-    //! Number of mapping of cells to point sources
-    unsigned m_numberOfCellToPointSourcesMappings;
-
-    //! Point sources
-    sourceterm::PointSources const* m_pointSources;
+    std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -256,6 +254,7 @@ private:
     template<bool usePlasticity>
     std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializers::Layer& i_layerData,
                                                                       double subTimeStart) {
+      if (i_layerData.getNumberOfCells() == 0) return {0,0};
       SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
@@ -291,7 +290,6 @@ private:
 #endif
                                                        l_timeIntegrated);
 
-#ifdef ENABLE_MATRIX_PREFETCH
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;
@@ -310,15 +308,10 @@ private:
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
-#endif
 
         m_neighborKernel.computeNeighborsIntegral( data,
                                                    drMapping[l_cell],
-#ifdef ENABLE_MATRIX_PREFETCH
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
-#else
-            l_timeIntegrated
-#endif
         );
 
         if constexpr (usePlasticity) {
@@ -337,6 +330,9 @@ private:
                                                               l_cell,
                                                               dofs[l_cell] );
 #endif // INTEGRATE_QUANTITIES
+
+
+        kernels::applyFilter(data, filter);
       }
 
       const long long nonZeroFlopsPlasticity =
@@ -346,7 +342,7 @@ private:
           i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
           numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
 
-      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
@@ -382,6 +378,9 @@ private:
   //! global cluster cluster id
   const unsigned int m_globalClusterId;
 
+  //! id used to identify this cluster (including layer type) when profiling
+  const unsigned int m_profilingId;
+
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
@@ -396,7 +395,7 @@ public:
    * @param i_globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
    **/
-  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
+  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, unsigned int profilingId, bool usePlasticity,
               LayerType layerType, double maxTimeStepSize,
               long timeStepRate, bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
@@ -414,15 +413,12 @@ public:
   ~TimeCluster() override;
 
   /**
-   * Sets the pointer to the cluster's point sources
+   * Sets the the cluster's point sources
    *
-   * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
-   * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
-   * @param i_pointSources pointer to all point sources used on this cluster
+   * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                        unsigned i_numberOfCellToPointSourcesMappings,
-                        sourceterm::PointSources const* i_pointSources );
+  void setPointSources(std::unique_ptr<kernels::PointSourceCluster> sourceCluster);
+  void freePointSources() { m_sourceCluster.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;

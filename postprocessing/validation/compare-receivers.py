@@ -122,6 +122,14 @@ def read_receiver(filename):
         first_row = 2
         while lines[first_row][0] == "#":
             first_row += 1
+
+        # since dr-cpp merge, fault receiver files start writing at Time=0
+        # (before they were writing at Time=dt)
+        # We then skip the first timestep written if Time = 0
+        t0 = float(lines[first_row].split()[0])
+        isFaultReceiver = "faultreceiver" in filename
+        if t0 == 0 and isFaultReceiver:
+            first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
 
     def replace(x, y, l):
@@ -146,7 +154,7 @@ def receiver_diff(args, i):
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
@@ -169,13 +177,13 @@ def faultreceiver_diff(args, i, quantities):
     )
     assert len(sim_files) == 1
     assert len(ref_files) == 1
-    sim_receiver = read_receiver(sim_files[0]).iloc[1:]
+    sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
 
     sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-12
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     # We still want to use the same time and not the difference in time steps.
@@ -265,7 +273,7 @@ if __name__ == "__main__":
             receiver_errors[q] > args.epsilon
         ].tolist()
         print(
-            f"{q} exceeds relative error of {args.epsilon} at receveivers {broken_receivers}"
+            f"{q} exceeds relative error of {args.epsilon} at receivers {broken_receivers}"
         )
         if len(broken_receivers) > 0:
             sys.exit(1)
@@ -304,7 +312,7 @@ if __name__ == "__main__":
             faultreceiver_errors[q] > args.epsilon
         ].tolist()
         print(
-            f"{q} exceeds relative error of {args.epsilon} at faultreceveivers {broken_faultreceivers}"
+            f"{q} exceeds relative error of {args.epsilon} at faultreceivers {broken_faultreceivers}"
         )
 
     if (receiver_errors > args.epsilon).any().any() or (

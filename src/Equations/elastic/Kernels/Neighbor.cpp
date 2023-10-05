@@ -110,9 +110,13 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
 
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+#else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
   deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+#endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
 }
@@ -176,12 +180,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
-  device.api->fastStreamsSync(); // finish all previous work in the default stream
   for(size_t face = 0; face < 4; face++) {
+    this->device.api->forkCircularStreamsFromDefault();
     size_t streamCounter{0};
 
     // regular and periodic

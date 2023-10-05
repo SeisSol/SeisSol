@@ -1,11 +1,10 @@
+#include "Common/filesystem.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
 #include "OutputAux.hpp"
 #include <Eigen/Dense>
-#include <ctime>
-#include <filesystem>
 #include <iomanip>
 #include <limits>
 #include <unordered_map>
@@ -239,29 +238,3 @@ real computeTriangleArea(ExtTriangle& triangle) {
   return 0.5 * normal.norm();
 }
 } // namespace seissol::dr
-
-namespace seissol::dr::filesystem_aux {
-std::string getTimeStamp() {
-  std::time_t time = std::time(nullptr);
-  std::tm tm = *std::localtime(&time);
-
-  std::stringstream timeStamp;
-  timeStamp << std::put_time(&tm, "%F_%T");
-  return timeStamp.str();
-}
-
-void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension) {
-  std::stringstream fullName;
-  fullName << fileName << '.' << fileExtension;
-  std::filesystem::path path(fullName.str());
-  std::filesystem::directory_entry entry(path);
-
-  if (entry.exists()) {
-    auto stamp = getTimeStamp();
-    std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << stamp << '.' << fileExtension;
-    std::filesystem::path copyPath(backupFileName.str());
-    std::filesystem::rename(path, copyPath);
-  }
-}
-} // namespace seissol::dr::filesystem_aux

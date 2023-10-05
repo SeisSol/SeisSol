@@ -5,9 +5,9 @@ stages:
 
 variables:
   cpu_image_name: "cpu-ci-image"
-  cpu_image_version: "v0.0.3"
+  cpu_image_version: "v0.0.5"
   gpu_image_name: "gpu-ci-image"
-  gpu_image_version: "v0.0.2"
+  gpu_image_version: "v0.0.4"
 
 Building_Docker_Images:
   stage: build
@@ -33,7 +33,8 @@ Testing_SeisSol_GPU:
 pages:
     stage: post-test
     tags:
-        - 10core-docker-runner
+        - sccs
+        - build
     allow_failure: false
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version

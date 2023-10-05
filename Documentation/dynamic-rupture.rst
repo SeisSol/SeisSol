@@ -154,7 +154,7 @@ The fault strength is determined by
 
 .. math::
   
-  \tau = \sigma_n \left[C - \left( \mu_s - \frac{\mu_s - \mu_d}{d_c}\right) \min\left(S, d_c\right)\right],
+  \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_s - \frac{\mu_s - \mu_d}{d_c} \min\left(S, d_c\right)\right),
 
 where :math:`S(t) = \int_0^t |V(s)| ds` is the accumulated fault slip, and the other variables are parameters of the friction, detailed below.
 
@@ -282,7 +282,9 @@ with
   \end{aligned}.
 
 
-
+Note that from the merge of pull request `#306 <https://github.com/SeisSol/SeisSol/pull/306>`__ of March 17th, 2021 to the merge of pull request `#752 <https://github.com/SeisSol/SeisSol/pull/752>`__ of December 22nd, 2022, the state variable was enforced positive in this friction law. 
+This enforcement aimed at avoiding the state variable getting negative because of Gibbs effects when projecting the state increment onto the modal basis functions (resampling matrix). 
+Since then, we realized that the state variable can get negative due to other factors, and, therefore, reverted this change.
 
 Thermal Pressurization
 ~~~~~~~~~~~~~~~~~~~~~~

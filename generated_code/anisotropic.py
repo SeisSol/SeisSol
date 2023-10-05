@@ -56,6 +56,8 @@ class AnisotropicADERDG(ADERDGBase):
     self.db.update( parseXMLMatrixFile('{}/star_anisotropic.xml'.format(matricesDir), clones) )
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+    self.kwargs = kwargs
+
   def addInit(self, generator):
       super().addInit(generator)
 

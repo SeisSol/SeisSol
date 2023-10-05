@@ -48,14 +48,15 @@
 #endif
 
 #include "BasicTypedefs.hpp"
-#include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/equations.hpp>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Kernels/common.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 #include <DynamicRupture/Typedefs.hpp>
 #include <DynamicRupture/Misc.h>
 
 #include <cstddef>
+#include <vector>
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -305,6 +306,10 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+#if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
+  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
+  seissol::tensor::minusFluxMatrices::Container<real const*> minusFluxMatrices;
+#endif //ACL_DEVICE
  
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
@@ -390,33 +395,6 @@ struct CellMaterialData {
 #endif
 };
 
-/** A piecewise linear function.
- * 
- *  Say t \in I_j, then
- *    f(t) = m_j * t + n_j,
- *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
- *  j runs through 0,...,n-1.
- **/
-struct PiecewiseLinearFunction1D {
-   /** slopes[i] = m_i */
-  real* slopes;
-
-  /** intercepts[i] = n_i */
-  real* intercepts;
-  
-  /** numberOfPieces = n */
-  unsigned numberOfPieces;
-  
-  /** onsetTime = t_o */
-  real onsetTime;
-  
-  /** samplingInterval = dt */
-  real samplingInterval;
-  
-  PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
-  ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
-};
-
 struct DRFaceInformation {
   unsigned meshFace;
   unsigned plusSide;
@@ -488,6 +466,12 @@ struct TravellingWaveParameters {
   std::array<double, 3> kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
+};
+
+struct PressureInjectionParameters {
+  std::array<double, 3> origin;
+  double magnitude;
+  double width;
 };
 
 #endif

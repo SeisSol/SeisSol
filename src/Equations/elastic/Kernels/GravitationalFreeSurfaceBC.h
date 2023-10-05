@@ -37,7 +37,6 @@ public:
                 real* integratedDisplacementNodalData,
                 TimeKrnl& timeKernel,
                 real* derivatives,
-                double startTime,
                 double timeStepWidth,
                 CellMaterialData& materialData,
                 FaceType faceType) {
@@ -175,7 +174,6 @@ public:
                         TimeKrnl& timeKernel,
                         ConditionalPointersToRealsTable &dataTable,
                         ConditionalMaterialTable &materialTable,
-                        double startTime,
                         double timeStepWidth,
                         device::DeviceInstance& device) {
 

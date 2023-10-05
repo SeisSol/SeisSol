@@ -18,7 +18,7 @@ class ReceiverOutput {
                   seissol::initializers::LTSTree* userDrTree,
                   seissol::initializers::DynamicRupture* userDrDescr);
 
-  void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
+  void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(OutputType type,
                        std::shared_ptr<ReceiverOutputData> state,
@@ -31,7 +31,7 @@ class ReceiverOutput {
   seissol::initializers::Lut* wpLut{nullptr};
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
-  MeshReader* meshReader{nullptr};
+  seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
 
   struct LocalInfo {
