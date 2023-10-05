@@ -55,7 +55,6 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 #endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
-  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
 #ifndef __APPLE__
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
 #ifdef USE_COMM_THREAD
@@ -95,5 +94,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
 
     fileStream.close();
   }
+#else
+  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
 #endif // __APPLE__
 }
