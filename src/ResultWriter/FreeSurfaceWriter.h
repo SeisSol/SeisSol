@@ -76,7 +76,7 @@ private:
   /** free surface integration module. */
   seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
 
-  void constructSurfaceMesh(  MeshReader const& meshReader,
+  void constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                               unsigned*&        cells,
                               double*&          vertices,
                               unsigned&         nCells,
@@ -92,11 +92,12 @@ public:
 
 	void enable();
 
-	void init(  MeshReader const&                       meshReader,
+	void init(  seissol::geometry::MeshReader const&                       meshReader,
               seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
               char const*                             outputPrefix,
               double                                  interval,
-              xdmfwriter::BackendType                 backend );
+              xdmfwriter::BackendType                 backend,
+              const std::string& backupTimeStamp);
 
 	void write(double time);
 

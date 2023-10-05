@@ -9,10 +9,7 @@
 #include <utility>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Solver/Interoperability.h>
 #include <Numerical_aux/Eigenvalues.h>
-
-extern seissol::Interoperability e_interoperability;
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
@@ -172,6 +169,51 @@ void seissol::physics::TravellingWave::evaluate(double time,
   }
 }
 
+seissol::physics::PressureInjection::PressureInjection(const seissol::initializer::parameters::InitializationParameters initializationParameters)
+    : m_parameters(std::move(initializationParameters)) {
+  const auto o_1 = m_parameters.origin[0];
+  const auto o_2 = m_parameters.origin[1];
+  const auto o_3 = m_parameters.origin[2];
+  const auto magnitude = m_parameters.magnitude;
+  const auto width = m_parameters.width;
+  logInfo(0) << "Prepare gaussian pressure perturbation with center at (" << o_1 <<
+              ", " << o_2 << ", " << o_3 << "), magnitude = " << magnitude <<
+              ", width = " << width << ".";
+}
+
+void seissol::physics::PressureInjection::evaluate(double time,
+					           std::vector<std::array<double, 3>> const& points,
+					           const CellMaterialData& materialData,
+					           yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+  const auto o_1 = m_parameters.origin[0];
+  const auto o_2 = m_parameters.origin[1];
+  const auto o_3 = m_parameters.origin[2];
+  const auto magnitude = m_parameters.magnitude;
+  const auto width = m_parameters.width;
+
+  for (size_t i = 0; i < points.size(); ++i) {
+    const auto& x = points[i];
+    const auto x_1 = x[0];
+    const auto x_2 = x[1];
+    const auto x_3 = x[2];
+    const auto r_squared = std::pow(x_1 - o_1, 2) + std::pow(x_2 - o_2, 2) + std::pow(x_3 - o_3, 2);
+    const auto t = time;
+    dofsQp(i,0) = 0.0; // sigma_xx
+    dofsQp(i,1) = 0.0; // sigma_yy
+    dofsQp(i,2) = 0.0; // sigma_yy
+    dofsQp(i,3) = 0.0; // sigma_xy
+    dofsQp(i,4) = 0.0; // sigma_yz
+    dofsQp(i,5) = 0.0; // sigma_xz
+    dofsQp(i,6) = 0.0; // u
+    dofsQp(i,7) = 0.0; // v
+    dofsQp(i,8) = 0.0; // w
+    dofsQp(i,9) = magnitude * std::exp(-width * r_squared); // p
+    dofsQp(i,10) = 0.0; // u_f
+    dofsQp(i,11) = 0.0; // v_f
+    dofsQp(i,12) = 0.0; // w_f
+  }
+}
+
 void seissol::physics::ScholteWave::evaluate(double time,
 					     std::vector<std::array<double, 3>> const& points,
 					     const CellMaterialData& materialData,
@@ -287,14 +329,14 @@ void seissol::physics::Ocean::evaluate(double time,
     const double k_y = pi / Ly; // 1/km
 
     constexpr auto k_stars = std::array<double, 3>{
-      0.4452003497054692,
+      0.4433813748841239,
       1.5733628061766445,
       4.713305873881573
     };
 
     // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
     constexpr auto omegas = std::array<double, 3>{
-      0.0427240277969087,
+      0.0425599572628432,
       2.4523337594491745,
       7.1012991617572165
     };

@@ -101,7 +101,7 @@ namespace seissol {
       void addReceiver( unsigned          meshId,
                         unsigned          pointId,
                         Eigen::Vector3d   const& point,
-                        MeshReader const& mesh,
+                        seissol::geometry::MeshReader const& mesh,
                         seissol::initializers::Lut const& ltsLut,
                         seissol::initializers::LTS const& lts );
 

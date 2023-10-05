@@ -114,11 +114,16 @@ where ddddd is an arbitrary port number with 5 digits.
 
     ~/.local/bin/proxy --port 8899
 
-4. Login to the HPC cluster (e.g. `ssh supermucNG`). Pip can be used with
+4. Login to the HPC cluster (e.g. `ssh supermucNG`). 
+Check that you do not get: `Warning: remote port forwarding failed for listen port ddddd`.
+In this case you would need to change ddddd to a different port.
+Note that the problem might also be you have already an opened connection to the HPC cluster.
+
+Once connected to the HPC cluster, pip can be used with
 
 ::
 
-    pip install <package name> --user --proxy localhost:ddddd
+    pip install <package name> --user --proxy http://localhost:ddddd/
 
 where ddddd is your arbitrary port number.
 

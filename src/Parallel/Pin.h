@@ -41,23 +41,28 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
+#include "async/as/Pin.h"
+#include "Common/IntegerMaskParser.h"
 #include <sched.h>
 #include <string>
 
 namespace seissol {
   namespace parallel {
+
 class Pinning {
 private:
-  cpu_set_t openmpMask{};
+  async::as::CpuMask openmpMask{};
+  IntegerMaskParser::MaskType parsedFreeCPUsMask{};
 public:
   Pinning();
 
-  cpu_set_t getWorkerUnionMask() const;
-  cpu_set_t getFreeCPUsMask() const;
-  static bool freeCPUsMaskEmpty(cpu_set_t const& set);
+  async::as::CpuMask getWorkerUnionMask() const;
+  void checkEnvVariables();
+  async::as::CpuMask getFreeCPUsMask() const;
+  static bool freeCPUsMaskEmpty(const async::as::CpuMask& mask);
   void pinToFreeCPUs() const;
-  static std::string maskToString(cpu_set_t const& set);
-  cpu_set_t getNodeMask() const;
+  static std::string maskToString(const async::as::CpuMask& mask);
+  async::as::CpuMask getNodeMask() const;
 };
 
 }

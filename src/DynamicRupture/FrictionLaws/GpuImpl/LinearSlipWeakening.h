@@ -1,7 +1,7 @@
 #ifndef SEISSOL_GPU_LINEARSLIPWEAKENING_H
 #define SEISSOL_GPU_LINEARSLIPWEAKENING_H
 
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuFrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -10,12 +10,12 @@ namespace seissol::dr::friction_law::gpu {
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
 template <typename Derived>
-class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase<Derived>> {
+class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
   LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
-      : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
-  void allocateAuxiliaryMemory() override { GpuBaseFrictionLaw::allocateAuxiliaryMemory(); }
+  void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
   void updateFrictionAndSlip(unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.

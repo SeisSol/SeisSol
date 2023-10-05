@@ -1,3 +1,5 @@
+.. _Compiling_and_running_seissol:
+
 Compiling and running SeisSol
 -----------------------------
 

@@ -7,7 +7,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
 /**
@@ -41,6 +41,7 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
+                                                impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
@@ -68,6 +69,8 @@ class BaseFrictionLaw : public FrictionSolver {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS2[ltsFace],
+                                    initialPressure[ltsFace],
+                                    nucleationPressure[ltsFace],
                                     this->mFullUpdateTime,
                                     this->drParameters->t0,
                                     this->deltaT[timeIndex]);
@@ -105,6 +108,7 @@ class BaseFrictionLaw : public FrictionSolver {
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
+                                                   impedanceMatrices[ltsFace],
                                                    imposedStatePlus[ltsFace],
                                                    imposedStateMinus[ltsFace],
                                                    qInterpolatedPlus[ltsFace],
@@ -113,13 +117,15 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
 
-      common::computeFrictionEnergy(energyData[ltsFace],
-                                    qInterpolatedPlus[ltsFace],
-                                    qInterpolatedMinus[ltsFace],
-                                    impAndEta[ltsFace],
-                                    timeWeights,
-                                    spaceWeights,
-                                    godunovData[ltsFace]);
+      if (this->drParameters->isFrictionEnergyRequired) {
+        common::computeFrictionEnergy(energyData[ltsFace],
+                                      qInterpolatedPlus[ltsFace],
+                                      qInterpolatedMinus[ltsFace],
+                                      impAndEta[ltsFace],
+                                      timeWeights,
+                                      spaceWeights,
+                                      godunovData[ltsFace]);
+      }
     }
   }
 };

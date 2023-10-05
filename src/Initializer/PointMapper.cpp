@@ -75,7 +75,7 @@
 #include <Parallel/MPI.h>
 
 void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
-                                        MeshReader const& mesh,
+                                        seissol::geometry::MeshReader const& mesh,
                                         unsigned numPoints,
                                         short* contained,
                                         unsigned* meshIds) {

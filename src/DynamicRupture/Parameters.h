@@ -6,6 +6,7 @@
 #include "DynamicRupture/Typedefs.hpp"
 #include "Initializer/InputAux.hpp"
 #include "Kernels/precision.hpp"
+#include "Parallel/MPI.h"
 #include "Typedefs.hpp"
 
 #include <Eigen/Dense>
@@ -42,6 +43,7 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName{""};
+  bool isFrictionEnergyRequired{false};
 };
 
 inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
@@ -61,6 +63,14 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     drParameters->slipRateOutputType = getWithDefault(yamlDrParams, "sliprateoutputtype", 1);
     drParameters->frictionLawType =
         static_cast<FrictionLawType>(getWithDefault(yamlDrParams, "fl", 0));
+    if (((drParameters->frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
+         (drParameters->frictionLawType == FrictionLawType::ImposedSlipRatesGaussian)) and
+        (drParameters->slipRateOutputType == 1)) {
+      logWarning(seissol::MPI::mpi.rank())
+          << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
+             "switching to SlipRateOutputType=0";
+      drParameters->slipRateOutputType = 0;
+    }
     drParameters->backgroundType = getWithDefault(yamlDrParams, "backgroundtype", 0);
     drParameters->isThermalPressureOn = getWithDefault(yamlDrParams, "thermalpress", false);
     drParameters->t0 = getWithDefault(yamlDrParams, "t_0", 0.0);
@@ -105,6 +115,12 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
   // if there is no filename given for the fault, assume that we do not use dynamic rupture
   if (drParameters->faultFileName == "") {
     drParameters->isDynamicRuptureEnabled = false;
+  }
+
+  const YAML::Node& yamlOutputParams = (*params)["output"];
+  if ((*params)["output"]) {
+    drParameters->isFrictionEnergyRequired =
+        getWithDefault(yamlOutputParams, "energyoutput", false);
   }
 
   return drParameters;

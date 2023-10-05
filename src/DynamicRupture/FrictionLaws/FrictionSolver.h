@@ -50,6 +50,7 @@ class FrictionSolver {
 
   dr::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
+  ImpedanceMatrices* impedanceMatrices;
   real mFullUpdateTime;
   // CS = coordinate system
   real (*initialStressInFaultCS)[misc::numPaddedPoints][6];
@@ -73,6 +74,8 @@ class FrictionSolver {
   real spaceWeights[misc::numPaddedPoints];
   DREnergyOutput* energyData{};
   DRGodunovData* godunovData{};
+  real (*initialPressure)[misc::numPaddedPoints];
+  real (*nucleationPressure)[misc::numPaddedPoints];
 
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];

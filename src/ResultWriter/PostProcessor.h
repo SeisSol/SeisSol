@@ -41,10 +41,11 @@
 #define POST_PROCESSOR_H
 
 #include <vector>
+#include <array>
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/Layer.hpp>
 #include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/preProcessorMacros.fpp>
+#include <Initializer/preProcessorMacros.hpp>
 
 namespace seissol
 {
@@ -68,7 +69,7 @@ public:
     void integrateQuantities(const double i_timestep,
     	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
     	const double * const i_dofs);
-    void setIntegrationMask(const int * const i_integrationMask);
+    void setIntegrationMask(const std::array<bool, 9>& i_integrationMask);
     int getNumberOfVariables();
     void getIntegrationMask(bool* transferTo);
     void allocateMemory(seissol::initializers::LTSTree* ltsTree);

@@ -9,17 +9,29 @@ In order to run SeisSol, you need to first install:
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
 -  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
--  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (>= 3.20) for the compilation of SeisSol
+
+For run-time partitioning you need to choose one of the following libraries:
+
+-  ParMETIS (with IDXTYPEWIDTH=64)
+-  SCOTCH
+-  ParHIP
+
+The partitioning of SeisSol meshes with ParMETIS was tested in large simulations and is
+generally recommended for academic users.
+SCOTCH and ParHIP are free and open-source alternatives to ParMETIS and should be used by
+users from industry or for-profit institutions (cf. `ParMETIS license <https://github.com/KarypisLab/ParMETIS/blob/main/LICENSE>`_).
+A study comparing partition quality for SeisSol meshes can be found `here <https://home.in.tum.de/~schnelle/publications/bachelorsthesis-informatics-final.pdf>`_.
+
 
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
 - CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
 - SYCL: either hipSYCL >= 0.9.3 or DPC++
 - gemmforge (>= 0.0.207)
-- chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
+- chainforge (>= 0.0.3, for Nvidia and AMD GPUs)
 
 
 These dependencies can be installed automatically with spack or can be installed manually one by one.
@@ -193,8 +205,8 @@ Installing GemmForge, ChainForge (for GPUs)
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
+   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
+   pip3 install --user git+https://github.com/SeisSol/chainforge.git
 
 Installing SYCL (for GPUs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -34,7 +34,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       currentTime += this->deltaT[i];
     }
 
-    #pragma omp simd
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 

@@ -61,8 +61,14 @@ const char* seissol::Modules::strHook(Hook hook)
 		return "PRE_MPI";
 	case POST_MPI_INIT:
 		return "POST_MPI_INIT";
+	case PRE_MESH:
+		return "PRE_MESH";
 	case POST_MESH:
 		return "POST_MESH";
+	case PRE_LTSINIT:
+		return "PRE_LTSINIT";
+	case POST_LTSINIT:
+		return "POST_LTSINIT";
 	case PRE_MODEL:
 		return "PRE_MODEL";
 	case POST_MODEL:

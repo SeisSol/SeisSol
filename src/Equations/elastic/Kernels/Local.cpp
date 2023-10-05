@@ -91,10 +91,13 @@ void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
   checkGlobalData(global.onDevice, deviceAlignment);
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+#else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+#endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 #endif
 }
@@ -269,7 +272,6 @@ void seissol::kernels::Local::computeBatchedIntegral(
   ConditionalIndicesTable& indicesTable,
   kernels::LocalData::Loader& loader,
   LocalTmp& tmp,
-  double time,
   double timeStepWidth) {
 #ifdef ACL_DEVICE
   // Volume integral
@@ -360,8 +362,19 @@ void seissol::kernels::Local::computeBatchedIntegral(
   if (tmpMem != nullptr) {
     device.api->popStackMemory();
   }
+#else
+  assert(false && "no implementation provided");
+#endif
+}
 
-  device.api->synchDevice();
+void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    kernels::LocalData::Loader& loader,
+    double time,
+    double timeStepWidth) {
+
+#ifdef ACL_DEVICE
   for (unsigned face = 0; face < 4; ++face) {
     ConditionalKey analyticalKey(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if(indicesTable.find(analyticalKey) != indicesTable.end()) {
@@ -397,10 +410,9 @@ void seissol::kernels::Local::computeBatchedIntegral(
       }
     }
   }
-
 #else
   assert(false && "no implementation provided");
-#endif
+#endif // ACL_DEVICE
 }
 
 void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],

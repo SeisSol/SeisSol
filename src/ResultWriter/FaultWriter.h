@@ -49,7 +49,7 @@
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 #include "Monitoring/Stopwatch.h"
 
 namespace seissol::dr::output {
@@ -107,7 +107,8 @@ public:
 		int* outputMask, const real** dataBuffer,
 		const char* outputPrefix,
 		double interval,
-    xdmfwriter::BackendType backend);
+		xdmfwriter::BackendType backend,
+		const std::string& backupTimeStamp);
 
 	/**
 	 * @return The current time step of the fault output

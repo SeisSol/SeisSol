@@ -47,18 +47,20 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
-  const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType == "Zero" || initialConditionType == "Travelling") {
+  const auto initialConditionType =  seissol::SeisSol::main.getSeisSolParameters().initialization.type;
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
+     initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
+     initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
     return;
   }
   logInfo(mpi.rank())
-    << "Print analysis for initial conditions" << initialConditionType
+    << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
     << " at time " << simulationTime;
   
-  auto& iniFields = e_interoperability.getInitialConditions();
+  auto& iniFields = seissol::SeisSol::main.getMemoryManager().getInitialConditions();
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = e_interoperability.getLtsLut();
+  auto* ltsLut = seissol::SeisSol::main.getMemoryManager().getLtsLut();
   auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();

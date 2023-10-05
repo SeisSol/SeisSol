@@ -87,11 +87,15 @@ public:
   Variable<DREnergyOutput>                                          drEnergyOutput;
 
   Variable<seissol::dr::ImpedancesAndEta>                           impAndEta;
+  Variable<seissol::dr::ImpedanceMatrices>                          impedanceMatrices;
   //size padded for vectorization
   //CS = coordinate system
   Variable<real[dr::misc::numPaddedPoints][6]> initialStressInFaultCS;
   Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS;
   Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS2;
+  // will be always zero, if not using poroelasticity
+  Variable<real[dr::misc::numPaddedPoints]> initialPressure;
+  Variable<real[dr::misc::numPaddedPoints]> nucleationPressure;
   Variable<real[dr::misc::numPaddedPoints]> mu;
   Variable<real[dr::misc::numPaddedPoints]> accumulatedSlipMagnitude;
   Variable<real[dr::misc::numPaddedPoints]> slip1; // slip at given fault node along local direction 1
@@ -128,9 +132,12 @@ public:
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
     tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      nucleationStressInFaultCS2,     mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      initialPressure,                mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationPressure,             mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      ruptureTime,                    mask,                 1,      MEMKIND_STANDARD );
 
     tree.addVar(ruptureTimePending, mask, 1, MEMKIND_STANDARD);
