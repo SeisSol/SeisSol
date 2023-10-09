@@ -372,6 +372,13 @@ if (PREMULTIPLY_FLUX)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
 
+# adjust prefix name of executables
+if ("${DEVICE_ARCH_STR}" STREQUAL "none")
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+else()
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+endif()
+
 if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
@@ -436,10 +443,13 @@ if (WITH_GPU)
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)
 
+  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
+  set_target_properties(SeisSol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
+
   # set up GPU install targets
-  install(TARGETS general-sycl-offloading DESTINATION ${CMAKE_INSTALL_PREFIX})
-  install(TARGETS SeisSol-device-lib DESTINATION ${CMAKE_INSTALL_PREFIX})
-  install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
+  install(TARGETS general-sycl-offloading LIBRARY)
+  install(TARGETS SeisSol-device-lib LIBRARY)
+  install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
@@ -485,14 +495,6 @@ if (HAS_REDZONE)
   )
 endif()
 
-# adjust prefix name of executables
-if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
-else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
-endif()
-
-
 add_executable(SeisSol-bin src/main.cpp)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
@@ -523,7 +525,7 @@ endif()
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-install(TARGETS SeisSol-proxy DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS SeisSol-proxy RUNTIME)
 
 if (LIKWID)
   find_package(likwid REQUIRED)
@@ -626,7 +628,7 @@ endif()
   target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
-install(TARGETS SeisSol-bin DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS SeisSol-bin RUNTIME)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
@@ -635,7 +637,7 @@ if (WITH_GPU)
                  ${PROJECT_BINARY_DIR}/launch
                  @ONLY)
   file(CHMOD ${PROJECT_BINARY_DIR}/launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
-  install(FILES ${PROJECT_BINARY_DIR}/launch DESTINATION ${CMAKE_INSTALL_PREFIX}
+  install(FILES ${PROJECT_BINARY_DIR}/launch DESTINATION ${CMAKE_INSTALL_PREFIX}/share
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
 
