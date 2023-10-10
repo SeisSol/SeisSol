@@ -74,8 +74,8 @@ if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
   set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
 else()
   get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-  string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 endif()
+string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
 configure_file("src/version_template.h"
