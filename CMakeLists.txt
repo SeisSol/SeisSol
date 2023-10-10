@@ -445,6 +445,7 @@ if (WITH_GPU)
 
   set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
   set_target_properties(SeisSol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
+  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
 
   # set up GPU install targets
   install(TARGETS general-sycl-offloading LIBRARY)
