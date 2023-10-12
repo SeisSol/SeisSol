@@ -245,7 +245,6 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 
-  target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
   target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 
   if ("${EQUATIONS}" STREQUAL "elastic")

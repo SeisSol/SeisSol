@@ -6,7 +6,7 @@ set(DEVICE_SRC ${DEVICE_SRC}
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/cuda/KernelsAux.cu)
 
-add_library(SeisSol-device-lib SHARED ${DEVICE_SRC})
+add_library(SeisSol-device-lib STATIC ${DEVICE_SRC})
 
 set_target_properties(SeisSol-device-lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_source_files_properties(${DEVICE_SRC} PROPERTIES LANGUAGE CUDA)

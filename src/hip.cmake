@@ -54,7 +54,7 @@ set(DEVICE_SRC ${DEVICE_SRC}
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
 hip_reset_flags()
-hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
+hip_add_library(SeisSol-device-lib STATIC ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
         HCC_OPTIONS ${SEISSOL_HCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
