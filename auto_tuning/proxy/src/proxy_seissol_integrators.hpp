@@ -54,7 +54,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("ader");
+  #endif
     kernels::LocalTmp tmp;
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -83,7 +85,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("localwoader");
+  #endif
     kernels::LocalTmp tmp;
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -115,7 +119,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
+  #endif
     kernels::LocalTmp tmp;
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -169,7 +175,7 @@ namespace proxy::cpu {
   #ifdef _OPENMP
                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
   #else
-                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData.integrationBufferLTS),
+                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalDataOnHost.integrationBufferLTS),
   #endif
                                                       l_timeIntegrated );
 
