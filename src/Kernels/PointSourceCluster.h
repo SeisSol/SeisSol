@@ -9,6 +9,13 @@
 
 #include <cstdint>
 
+#ifdef ACL_DEVICE
+#include <sycl/sycl.hpp>
+#define ACL_EXTERNAL SYCL_EXTERNAL
+#else
+#define ACL_EXTERNAL
+#endif
+
 namespace seissol::kernels {
 class PointSourceCluster {
   public:
@@ -27,12 +34,12 @@ class PointSourceCluster {
  * @param sample Pointer to sample
  * @param sampleSize Size of the sample
  */
-real computeSampleTimeIntegral(double from,
-                               double to,
-                               double const onsetTime,
-                               double const samplingInterval,
-                               real* sample,
-                               std::size_t sampleSize);
+ACL_EXTERNAL real computeSampleTimeIntegral(double from,
+                                            double to,
+                                            double const onsetTime,
+                                            double const samplingInterval,
+                                            real* sample,
+                                            std::size_t sampleSize);
 
 } // namespace seissol::kernels
 
