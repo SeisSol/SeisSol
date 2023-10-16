@@ -11,6 +11,7 @@ class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
   virtual void addTimeIntegratedPointSources(double from, double to) = 0;
+  virtual unsigned size() const = 0;
 };
 } // namespace seissol::kernels
 

@@ -15,6 +15,8 @@ PointSourceClusterOnDevice::PointSourceClusterOnDevice(sourceterm::ClusterMappin
                                                        sourceterm::PointSources sources)
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
+unsigned PointSourceClusterOnDevuce::size() const { return sources_.numberOfSources; }
+
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, double to) {
   auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   auto& mapping = clusterMapping_.cellToSources;

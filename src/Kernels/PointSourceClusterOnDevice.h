@@ -12,6 +12,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   public:
   PointSourceClusterOnDevice(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
   void addTimeIntegratedPointSources(double from, double to) override;
+  unsigned size() const override;
 
   private:
   static void addTimeIntegratedPointSourceNRF(

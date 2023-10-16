@@ -38,6 +38,8 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double
   }
 }
 
+unsigned PointSourceClusterOnHost::size() const { return sources_.numberOfSources; }
+
 void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
                                                                double from,
                                                                double to,
