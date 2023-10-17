@@ -391,7 +391,7 @@ if (WITH_GPU)
   # add SeisSol GPU part
   target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
 
-  add_library(general-sycl-offloading SHARED
+  add_library(general-sycl-offloading STATIC
       ${SYCL_DEPENDENT_SRC_FILES}
       ${SYCL_ONLY_SRC_FILES})
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
@@ -437,20 +437,11 @@ if (WITH_GPU)
   else()
     find_package(DpcppFlags REQUIRED)
     message(STATUS "Using DPC++ for general SYCL offloading")
-    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
+    target_link_libraries(general-sycl-offloading PUBLIC dpcpp::device_flags)
     target_link_libraries(SeisSol-common-properties INTERFACE dpcpp::interface)
   endif()
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)
-
-  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
-  set_target_properties(SeisSol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
-  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
-
-  # set up GPU install targets
-  install(TARGETS general-sycl-offloading LIBRARY)
-  install(TARGETS SeisSol-device-lib LIBRARY)
-  install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
