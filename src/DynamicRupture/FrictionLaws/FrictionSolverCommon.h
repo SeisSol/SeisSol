@@ -110,10 +110,12 @@ inline void precomputeStressFromQInterpolated(
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
+  auto xi0P = impAndEta.xi0P;
   auto rhoP = impAndEta.rho0P;
   auto la0M = impAndEta.lambda0M;
   auto mu0M = impAndEta.mu0M;
   auto gaRM = impAndEta.gammaRM;
+  auto xi0M = impAndEta.xi0M;
   auto rhoM = impAndEta.rho0M;
 
   using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
@@ -165,14 +167,17 @@ inline void precomputeStressFromQInterpolated(
   real epsInitxx = -0e-2; // eps_xx0
   real epsInityy = -0e-1; // eps_yy0
   real epsInitzz = -0e-1; // eps_zz0
+  real epsInitxy = -0e-2; // eps_xx0
+  real epsInityz = -0e-1; // eps_yy0
+  real epsInitzx = -0e-1; // eps_zz0
 
   real EspIp = (exxP+epsInitxx) + (eyyP+epsInityy) + (ezzP+epsInitzz);
   real EspIIp = (exxP+epsInitxx)*(exxP+epsInitxx)
     + (eyyP+epsInityy)*(eyyP+epsInityy)
     + (ezzP+epsInitzz)*(ezzP+epsInitzz)
-    + 2*exyP*exyP
-    + 2*eyzP*eyzP
-    + 2*ezxP*ezxP;
+    + 2*(exyP+epsInitxy)*(exyP+epsInitxy)
+    + 2*(eyzP+epsInityz)*(eyzP+epsInityz)
+    + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
   real alphap = damP;
   real xip, xiInvp;
   if (EspIIp > 1e-30){
@@ -190,9 +195,9 @@ inline void precomputeStressFromQInterpolated(
   real EspIIm = (exxM+epsInitxx)*(exxM+epsInitxx)
     + (eyyM+epsInityy)*(eyyM+epsInityy)
     + (ezzM+epsInitzz)*(ezzM+epsInitzz)
-    + 2*exyM*exyM
-    + 2*eyzM*eyzM
-    + 2*ezxM*ezxM;
+    + 2*(exyM+epsInitxy)*(exyM+epsInitxy)
+    + 2*(eyzM+epsInityz)*(eyzM+epsInityz)
+    + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
   real alpham = damM;
   real xim, xiInvm;
   if (EspIIm > 1e-30){
@@ -209,8 +214,8 @@ inline void precomputeStressFromQInterpolated(
   // compute laP, muP, laM and muM
   auto laP = la0P - alphap*gaRP*xiInvp;
   auto laM = la0M - alpham*gaRM*xiInvm;
-  auto muP = mu0P - 0.5*alphap*gaRP*xip;
-  auto muM = mu0M - 0.5*alpham*gaRM*xim;
+  auto muP = mu0P - alphap*gaRP*xi0P - 0.5*alphap*gaRP*xip;
+  auto muM = mu0M - alpham*gaRM*xi0M - 0.5*alpham*gaRM*xim;
 
   invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
   invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );

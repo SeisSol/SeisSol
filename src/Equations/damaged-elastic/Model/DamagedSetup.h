@@ -291,59 +291,59 @@ namespace seissol {
 
 
          if (faceType == FaceType::freeSurface) {
-            #if USE_DAMAGEDELASTIC
-            // R(9,9) = 1.0;
-            // eigenvector corresponding to the additional damage variable
-            real epsInit = -0e-3; // eps_xx0
-            real I1 = (local.epsxx_alpha-epsInit) + (local.epsyy_alpha-epsInit) + (local.epszz_alpha-epsInit);
-            real I2 = (local.epsxx_alpha-epsInit)*(local.epsxx_alpha-epsInit)
-              + (local.epsyy_alpha-epsInit)*(local.epsyy_alpha-epsInit)
-              + (local.epszz_alpha-epsInit)*(local.epszz_alpha-epsInit)
-              + 2*local.epsxy_alpha*local.epsxy_alpha
-              + 2*local.epsyz_alpha*local.epsyz_alpha
-              + 2*local.epszx_alpha*local.epszx_alpha;
+          //   #if USE_DAMAGEDELASTIC
+          //   // R(9,9) = 1.0;
+          //   // eigenvector corresponding to the additional damage variable
+          //   real epsInit = -0e-3; // eps_xx0
+          //   real I1 = (local.epsxx_alpha-epsInit) + (local.epsyy_alpha-epsInit) + (local.epszz_alpha-epsInit);
+          //   real I2 = (local.epsxx_alpha-epsInit)*(local.epsxx_alpha-epsInit)
+          //     + (local.epsyy_alpha-epsInit)*(local.epsyy_alpha-epsInit)
+          //     + (local.epszz_alpha-epsInit)*(local.epszz_alpha-epsInit)
+          //     + 2*local.epsxy_alpha*local.epsxy_alpha
+          //     + 2*local.epsyz_alpha*local.epsyz_alpha
+          //     + 2*local.epszx_alpha*local.epszx_alpha;
 
-            real xi;
-            if (I2 > 1e-30){
-              xi = I1 / std::sqrt(I2);
-            } else{
-              xi = 0.0;
-            }
+          //   real xi;
+          //   if (I2 > 1e-30){
+          //     xi = I1 / std::sqrt(I2);
+          //   } else{
+          //     xi = 0.0;
+          //   }
 
-            real xiInv;
-            if ( std::abs(xi) > 1e-1){
-              xiInv = 1 / xi;
-            } else{
-              xiInv = 0.0;
-            }
+          //   real xiInv;
+          //   if ( std::abs(xi) > 1e-1){
+          //     xiInv = 1 / xi;
+          //   } else{
+          //     xiInv = 0.0;
+          //   }
 
-            R(0,9) = (local.gamma*std::sqrt(I2)
-                  + local.gamma*(xi+local.xi0)*(local.epsxx_alpha-epsInit) )
-                    / ((local.lambda+2*local.mu)/local.rho);
-            R(3,9) = (0
-              + local.gamma*(xi+local.xi0)*local.epsxy_alpha )
-                / (2*local.mu/local.rho);
-            R(5,9) = (0
-              + local.gamma*(xi+local.xi0)*local.epszx_alpha )
-                / (2*local.mu/local.rho);
-            R(9,9) = local.rho;
-          #endif
+          //   R(0,9) = (local.gamma*std::sqrt(I2)
+          //         + local.gamma*(xi+local.xi0)*(local.epsxx_alpha-epsInit) )
+          //           / ((local.lambda+2*local.mu)/local.rho);
+          //   R(3,9) = (0
+          //     + local.gamma*(xi+local.xi0)*local.epsxy_alpha )
+          //       / (2*local.mu/local.rho);
+          //   R(5,9) = (0
+          //     + local.gamma*(xi+local.xi0)*local.epszx_alpha )
+          //       / (2*local.mu/local.rho);
+          //   R(9,9) = local.rho;
+          // #endif
 
-          //===============Added for free surface BC of the strain-vel case=====================
-          //The input of getTransposedFreeSurfaceGodunovState() is changed from R to R_sig
-          Matrix1010 C = Matrix1010::Zero();
+          // //===============Added for free surface BC of the strain-vel case=====================
+          // //The input of getTransposedFreeSurfaceGodunovState() is changed from R to R_sig
+          // Matrix1010 C = Matrix1010::Zero();
 
-          C(0,0) = local.lambda + 2.0*local.mu; C(0,1) = local.lambda; C(0,2) = local.lambda;
-          C(1,0) = local.lambda; C(1,1) = local.lambda + 2.0*local.mu; C(1,2) = local.lambda;
-          C(2,0) = local.lambda; C(2,1) = local.lambda; C(2,2) = local.lambda + 2.0*local.mu;
-          C(3,3) = 2.0*local.mu; C(4,4) = 2.0*local.mu; C(5,5) = 2.0*local.mu;
-          C(6,6) = 1; C(7,7) = 1; C(8,8) = 1;
+          // C(0,0) = local.lambda + 2.0*local.mu; C(0,1) = local.lambda; C(0,2) = local.lambda;
+          // C(1,0) = local.lambda; C(1,1) = local.lambda + 2.0*local.mu; C(1,2) = local.lambda;
+          // C(2,0) = local.lambda; C(2,1) = local.lambda; C(2,2) = local.lambda + 2.0*local.mu;
+          // C(3,3) = 2.0*local.mu; C(4,4) = 2.0*local.mu; C(5,5) = 2.0*local.mu;
+          // C(6,6) = 1; C(7,7) = 1; C(8,8) = 1;
 
-          #if USE_DAMAGEDELASTIC
-            C(9,9) = 1.0;
-          #endif
+          // #if USE_DAMAGEDELASTIC
+          //   C(9,9) = 1.0;
+          // #endif
 
-          Matrix1010 R_sig = (C*R).eval();
+          // Matrix1010 R_sig = (C*R).eval();
 
           MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::acoustic : MaterialType::elastic;
           getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R_sig);
