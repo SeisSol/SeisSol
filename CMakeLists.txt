@@ -126,8 +126,8 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm" ${Libxsmm_executable_PROGRAM}
-     "--executable_pspamm" ${PSpaMM_PROGRAM}
+     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
+     "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
