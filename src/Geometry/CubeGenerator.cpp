@@ -1492,7 +1492,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                               xx) *
                                  20 +
                              15] = nextMPIIndex++;
-              }
+            }
           }
 
           size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
