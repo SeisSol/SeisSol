@@ -190,34 +190,33 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
 
 static void readCubeGenerator(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("cubegenerator");
+  seissolParams.cubeGenerator.cubeMinX = reader.readWithDefault("cubeminx", 6);
+  seissolParams.cubeGenerator.cubeMaxX = reader.readWithDefault("cubemaxx", 6);
+  seissolParams.cubeGenerator.cubeMinY = reader.readWithDefault("cubeminy", 6);
+  seissolParams.cubeGenerator.cubeMaxY = reader.readWithDefault("cubemaxy", 6);
+  seissolParams.cubeGenerator.cubeMinZ = reader.readWithDefault("cubeminz", 6);
+  seissolParams.cubeGenerator.cubeMaxZ = reader.readWithDefault("cubemaxz", 6);
 
-  seissolParams.cubeGenerator.parameters.cubeMinX = reader.readWithDefault("cubeminx", 6);
-  seissolParams.cubeGenerator.parameters.cubeMaxX = reader.readWithDefault("cubemaxx", 6);
-  seissolParams.cubeGenerator.parameters.cubeMinY = reader.readWithDefault("cubeminy", 6);
-  seissolParams.cubeGenerator.parameters.cubeMaxY = reader.readWithDefault("cubemaxy", 6);
-  seissolParams.cubeGenerator.parameters.cubeMinZ = reader.readWithDefault("cubeminz", 6);
-  seissolParams.cubeGenerator.parameters.cubeMaxZ = reader.readWithDefault("cubemaxz", 6);
-
-  seissolParams.cubeGenerator.parameters.cubeX = reader.readWithDefault("cubex", 2);
-  seissolParams.cubeGenerator.parameters.cubeY = reader.readWithDefault("cubey", 2);
-  seissolParams.cubeGenerator.parameters.cubeZ = reader.readWithDefault("cubez", 2);
+  seissolParams.cubeGenerator.cubeX = reader.readWithDefault("cubex", 2);
+  seissolParams.cubeGenerator.cubeY = reader.readWithDefault("cubey", 2);
+  seissolParams.cubeGenerator.cubeZ = reader.readWithDefault("cubez", 2);
 
   // only x dimension has its number of partitions set to number of MPI processes
-  seissolParams.cubeGenerator.parameters.cubePx = seissol::MPI::mpi.size();
-  seissolParams.cubeGenerator.parameters.cubePy = 1;
-  seissolParams.cubeGenerator.parameters.cubePz = 1;
+  seissolParams.cubeGenerator.cubePx = seissol::MPI::mpi.size();
+  seissolParams.cubeGenerator.cubePy = 1;
+  seissolParams.cubeGenerator.cubePz = 1;
 
-  seissolParams.cubeGenerator.parameters.cubeS = reader.readWithDefault("cubes", 100);
-  seissolParams.cubeGenerator.parameters.cubeSx =
-      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.parameters.cubeS);
-  seissolParams.cubeGenerator.parameters.cubeSy =
-      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.parameters.cubeS);
-  seissolParams.cubeGenerator.parameters.cubeSz =
-      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.parameters.cubeS);
+  seissolParams.cubeGenerator.cubeS = reader.readWithDefault("cubes", 100);
+  seissolParams.cubeGenerator.cubeSx =
+      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.cubeS);
+  seissolParams.cubeGenerator.cubeSy =
+      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.cubeS);
+  seissolParams.cubeGenerator.cubeSz =
+      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.cubeS);
 
-  seissolParams.cubeGenerator.parameters.cubeTx = reader.readWithDefault("cubetx", 0.0);
-  seissolParams.cubeGenerator.parameters.cubeTy = reader.readWithDefault("cubety", 0.0);
-  seissolParams.cubeGenerator.parameters.cubeTz = reader.readWithDefault("cubetz", 0.0);
+  seissolParams.cubeGenerator.cubeTx = reader.readWithDefault("cubetx", 0.0);
+  seissolParams.cubeGenerator.cubeTy = reader.readWithDefault("cubety", 0.0);
+  seissolParams.cubeGenerator.cubeTz = reader.readWithDefault("cubetz", 0.0);
 }
 
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {

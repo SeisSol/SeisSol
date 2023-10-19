@@ -105,11 +105,6 @@ struct MeshParameters {
   bool showEdgeCutStatistics;
 };
 
-struct CubeGeneratorParameters {
-  seissol::geometry::CubeGeneratorParameters
-      parameters; // parameters struct from Geometry/CubeGenerator.h
-};
-
 struct OutputInterval {
   double lower;
   double upper;
@@ -205,7 +200,7 @@ struct EndParameters {
 struct SeisSolParameters {
   ModelParameters model;
   MeshParameters mesh;
-  CubeGeneratorParameters cubeGenerator;
+  seissol::geometry::CubeGeneratorParameters cubeGenerator;
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;

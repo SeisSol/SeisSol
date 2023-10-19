@@ -136,7 +136,7 @@ static void
     readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
 #if USE_NETCDF
   // unpack seissolParams
-  const auto cubeParameters = seissolParams.cubeGenerator.parameters;
+  const auto cubeParameters = seissolParams.cubeGenerator;
 
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
