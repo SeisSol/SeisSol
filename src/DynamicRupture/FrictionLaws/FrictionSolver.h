@@ -5,6 +5,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
+#include "Kernels/Filter.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -20,6 +21,9 @@ class FrictionSolver {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
               &init::quadweights::Values[init::quadweights::Stop[0]],
               &spaceWeights[0]);
+
+    auto exponentialFilter = kernels::ExponentialFilter(userDrParameters->filter, 2);
+    filter = kernels::computeDRFilterMatrix(exponentialFilter);
   }
   virtual ~FrictionSolver() = default;
 
@@ -79,6 +83,8 @@ class FrictionSolver {
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
+
+  std::array<real, tensor::filter::size()> filter;
 
   real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];

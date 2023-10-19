@@ -155,7 +155,10 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   // TODO(Lukas) Move to better place
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
-  filter = kernels::ExponentialFilter(seissolParams.filter);
+  filter = kernels::ExponentialFilter(seissolParams.filter, 3);
+  auto filterNearDRConfig = seissolParams.filter;
+  //filterNearDRConfig.order = 8;
+  filterNearDR = kernels::ExponentialFilter(filterNearDRConfig, 3);
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {

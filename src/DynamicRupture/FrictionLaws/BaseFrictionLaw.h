@@ -81,6 +81,19 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            ltsFace,
                                                            timeIndex);
       }
+
+      /*
+      // TODO Right place to filter?
+       alignas(ALIGNMENT) real filteredAccumulatedSlipMagnitude[misc::numPaddedPoints]{};
+       auto filterKrnl = dynamicRupture::kernel::filterParameter{};
+       filterKrnl.filter = this->filter.data();
+       filterKrnl.originalQ = this->accumulatedSlipMagnitude[ltsFace];
+       filterKrnl.filteredQ = filteredAccumulatedSlipMagnitude;
+       filterKrnl.execute();
+       std::copy_n(
+           filteredAccumulatedSlipMagnitude, misc::numPaddedPoints, this->accumulatedSlipMagnitude[ltsFace]);
+           */
+
       LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
       SCOREP_USER_REGION_END(myRegionHandle)
 

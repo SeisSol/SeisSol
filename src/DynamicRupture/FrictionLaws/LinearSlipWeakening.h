@@ -163,7 +163,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
     alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
-    specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
+    specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace], this->filter);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
 #pragma omp simd
@@ -218,7 +218,8 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        real const (&slipRate)[dr::misc::numPaddedPoints]);
+                        real const (&slipRate)[dr::misc::numPaddedPoints],
+                        const std::array<real, tensor::filter::Size>& filter);
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
@@ -245,7 +246,8 @@ class BiMaterialFault {
    * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
+                        real const (&slipRate)[dr::misc::numPaddedPoints],
+                        const std::array<real, tensor::filter::Size>& filter) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 #pragma omp declare simd

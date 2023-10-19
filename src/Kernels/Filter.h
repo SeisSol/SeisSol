@@ -11,37 +11,39 @@ namespace seissol::kernels {
 
 class ExponentialFilter {
   public:
-      /*
-      // TODO(Lukas) Remove
-  struct Configuration {
-    real alpha = -std::log(std::numeric_limits<real>::epsilon());
-    unsigned int filterOrder = 32;
-    unsigned int filterCutoff = 0;
-  };
-       */
-
   ExponentialFilter() : conf() {};
-  ExponentialFilter(initializer::parameters::FilterParameters conf) : conf(conf) {
-    if (conf.type != initializer::parameters::FilterTypes::Exponential) {
-      std::fill(filterMatrix.begin(), filterMatrix.end(), 1.0);
-      return;
-    }
-
+  ExponentialFilter(initializer::parameters::FilterParameters conf, unsigned int dimensions)
+      : conf(conf), dimensions(dimensions) {
+    // TODO Better error handling
     assert((conf.order % 2) == 0);
-    unsigned int i = 0;
-    for (unsigned int ord = 0; ord < CONVERGENCE_ORDER; ord++) {
-      for (unsigned int k = 0; k <= ord; k++) {
-        for (unsigned int j = 0; j <= ord - k; j++) {
-          assert(i < filterMatrix.size());
-          filterMatrix[i++] = evaluateFilter(ord - j - k, j, k);
+    assert((dimensions == 2) || (dimensions == 3));
+    if (dimensions == 2) {
+      for (unsigned int ord = 0; ord <= CONVERGENCE_ORDER; ++ord) {
+        for (unsigned int j = 0; j <= ord; ++j) {
+          filterMatrix.emplace_back(evaluateFilter(ord - j, j, 0));
         }
       }
-    }
+    } else {
+        for (unsigned int ord = 0; ord < CONVERGENCE_ORDER; ord++) {
+          for (unsigned int k = 0; k <= ord; k++) {
+            for (unsigned int j = 0; j <= ord - k; j++) {
+              filterMatrix.emplace_back(evaluateFilter(ord - j - k, j, k));
+            }
+          }
+        }
+      }
   }
 
   real inline getFilterCoeff(unsigned idx) const {
-    assert(idx < filterMatrix.size());
-    return filterMatrix[idx];
+    // TODO Depending on the implementation, it might be faster to resize filterMatrix to
+    // include an alignment
+    if (conf.type != initializer::parameters::FilterTypes::Exponential) return 1;
+
+    if(idx < filterMatrix.size()) {
+      return filterMatrix[idx];
+    } else {
+      return 1.0; // Don't touch other modes
+    }
   }
 
   private:
@@ -60,17 +62,36 @@ class ExponentialFilter {
                     std::pow(((eta - etaCutoff) / (1 - etaCutoff)), conf.order));
   }
 
-  std::array<real, getNumberOfAlignedBasisFunctions()> filterMatrix{ 0.0 };
+  std::vector<real> filterMatrix{};
   initializer::parameters::FilterParameters conf{};
+  unsigned int dimensions = 3;
 };
 
 void inline applyFilter(NeighborData& data, const ExponentialFilter& filter) {
   auto qView = init::Q::view::create(data.dofs);
-  for (unsigned basisIdx = 0; basisIdx < tensor::Q::Shape[0]; ++basisIdx) {
-    for (unsigned dofIdx = 0; dofIdx < tensor::Q::Shape[1]; ++dofIdx) {
+  for (unsigned dofIdx = 0; dofIdx < tensor::Q::Shape[1]; ++dofIdx) {
+    for (unsigned basisIdx = 0; basisIdx < tensor::Q::Shape[0]; ++basisIdx) {
       qView(basisIdx, dofIdx) *= filter.getFilterCoeff(basisIdx);
     }
   }
+}
+
+auto inline computeDRFilterMatrix(const ExponentialFilter& filter) {
+  auto filterMatrixData = std::array<real, tensor::filter::Size>{0.0};
+  auto filterWeightsData = std::array<real, tensor::filter::Size>{0.0};
+  auto filterWeights = init::filterWeights::view::create(filterWeightsData.data());
+  for (unsigned i = 0; i < filterWeights.shape(0); ++i) {
+    filterWeights(i,i)  = filter.getFilterCoeff(i);
+  }
+
+  auto compFilterKrnl = dynamicRupture::kernel::computeFilterMatrix{};
+  compFilterKrnl.filter = filterMatrixData.data();
+  compFilterKrnl.filterWeights = filterWeightsData.data();
+  compFilterKrnl.V2QuadTo2m = init::V2QuadTo2m::Values;
+  compFilterKrnl.V2mTo2Quad = init::V2mTo2Quad::Values;
+  compFilterKrnl.execute();
+
+  return filterMatrixData;
 }
 
 } // namespace seissol::kernels

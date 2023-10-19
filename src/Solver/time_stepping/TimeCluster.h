@@ -144,7 +144,8 @@ private:
 
     //! Filter
     kernels::ExponentialFilter filter;
-    
+    kernels::ExponentialFilter filterNearDR;
+
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
   /*
@@ -277,62 +278,81 @@ private:
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
-        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.cellInformation.ltsSetup,
-                                                       data.cellInformation.faceTypes,
-                                                       subTimeStart,
-                                                       timeStepSize(),
-                                                       faceNeighbors[l_cell],
+        seissol::kernels::TimeCommon::computeIntegrals(
+            m_timeKernel,
+            data.cellInformation.ltsSetup,
+            data.cellInformation.faceTypes,
+            subTimeStart,
+            timeStepSize(),
+            faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+            *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+                &(m_globalDataOnHost
+                      ->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
 #else
-            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
+            *reinterpret_cast<real(*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif
-                                                       l_timeIntegrated);
+            l_timeIntegrated);
 
-        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][1] :
-                                      drMapping[l_cell][1].godunov;
-        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][2] :
-                                      drMapping[l_cell][2].godunov;
-        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][3] :
-                                      drMapping[l_cell][3].godunov;
+        l_faceNeighbors_prefetch[0] =
+            (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
+                ? faceNeighbors[l_cell][1]
+                : drMapping[l_cell][1].godunov;
+        l_faceNeighbors_prefetch[1] =
+            (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
+                ? faceNeighbors[l_cell][2]
+                : drMapping[l_cell][2].godunov;
+        l_faceNeighbors_prefetch[2] =
+            (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
+                ? faceNeighbors[l_cell][3]
+                : drMapping[l_cell][3].godunov;
 
         // fourth face's prefetches
-        if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-                                        faceNeighbors[l_cell+1][0] :
-                                        drMapping[l_cell+1][0].godunov;
+        if (l_cell < (i_layerData.getNumberOfCells() - 1)) {
+          l_faceNeighbors_prefetch[3] =
+              (cellInformation[l_cell + 1].faceTypes[0] != FaceType::dynamicRupture)
+                  ? faceNeighbors[l_cell + 1][0]
+                  : drMapping[l_cell + 1][0].godunov;
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
 
-        m_neighborKernel.computeNeighborsIntegral( data,
-                                                   drMapping[l_cell],
-                                                   l_timeIntegrated, l_faceNeighbors_prefetch
-        );
+        m_neighborKernel.computeNeighborsIntegral(
+            data, drMapping[l_cell], l_timeIntegrated, l_faceNeighbors_prefetch);
 
         if constexpr (usePlasticity) {
           updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
-                                                                                             timeStepSize(),
-                                                                                             m_tv,
-                                                                                             m_globalDataOnHost,
-                                                                                             &plasticity[l_cell],
-                                                                                             data.dofs,
-                                                                                             pstrain[l_cell] );
+          numberOTetsWithPlasticYielding +=
+              seissol::kernels::Plasticity::computePlasticity(m_oneMinusIntegratingFactor,
+                                                              timeStepSize(),
+                                                              m_tv,
+                                                              m_globalDataOnHost,
+                                                              &plasticity[l_cell],
+                                                              data.dofs,
+                                                              pstrain[l_cell]);
         }
 #ifdef INTEGRATE_QUANTITIES
-        seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
-                                                              i_layerData,
-                                                              l_cell,
-                                                              dofs[l_cell] );
+        seissol::SeisSol::main.postProcessor().integrateQuantities(
+            m_timeStepWidth, i_layerData, l_cell, dofs[l_cell]);
 #endif // INTEGRATE_QUANTITIES
 
+        // https://github.com/SeisSol/SeisSol/compare/master...dr/symmetric-flux
+        auto hasDRFace = [](const CellLocalInformation& ci) {
+          bool hasAtLeastOneDRFace = false;
+          for (size_t i = 0; i < 4; ++i) {
+            if (ci.faceTypes[i] == FaceType::dynamicRupture) {
+              hasAtLeastOneDRFace = true;
+            }
+          }
+          return hasAtLeastOneDRFace;
+        };
+        const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[l_cell]);
 
-        kernels::applyFilter(data, filter);
+        if (false && thisCellHasAtLeastOneDRFace) {
+          kernels::applyFilter(data, filterNearDR);
+        } else {
+          kernels::applyFilter(data, filter);
+        }
       }
 
       const long long nonZeroFlopsPlasticity =

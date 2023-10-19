@@ -289,22 +289,20 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
 
 
 static void readFilter(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
+  // TODO Remove duplication
+  // Note: Filter parsing is currently duplicated in DR initialization.
+  // If you adjust this code, also adjust in DynamicRupture/Parameters.h
   auto reader = baseReader.readSubNode("discretization");
 
   auto& filter = seissolParams.filter;
 
-  const auto validFilters = std::unordered_map<std::string, FilterTypes>{
-      {"none", FilterTypes::None},
-      {"exponential", FilterTypes::Exponential},
-  };
   filter.type = reader.readWithDefaultStringEnum("filtertype", "none", validFilters);
 
   // Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to epsilon
-  filter.alpha = reader.readWithDefault("filteralpha",
-                                        -std::log(std::numeric_limits<real>::epsilon()));
+  filter.alpha = reader.readWithDefault("filteralpha", defaultFilterAlpha);
 
-  filter.order = reader.readWithDefault("filterorder", 32);
-  filter.cutoff = reader.readWithDefault("filtercutoff", 0);
+  filter.order = reader.readWithDefault("filterorder", defaultFilterOrder);
+  filter.cutoff = reader.readWithDefault("filtercutoff", defaultFilterCutoff);
 
   // TODO(Lukas) Move the following to filter init
   if (filter.type == FilterTypes::Exponential) {

@@ -5,6 +5,7 @@
 
 #include "DynamicRupture/Typedefs.hpp"
 #include "Initializer/InputAux.hpp"
+#include "Initializer/InputParameters.hpp"
 #include "Kernels/precision.hpp"
 #include "Parallel/MPI.h"
 #include "Typedefs.hpp"
@@ -44,6 +45,7 @@ struct DRParameters {
   real prakashLength{0.0};
   std::string faultFileName{""};
   bool isFrictionEnergyRequired{false};
+  seissol::initializer::parameters::FilterParameters filter;
 };
 
 inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
@@ -95,6 +97,34 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
 
     // filename of the yaml file describing the fault parameters
     drParameters->faultFileName = getWithDefault(yamlDrParams, "modelfilename", std::string(""));
+
+    // Parse filter
+    // TODO Remove duplication
+    // Note: Filter parsing is currently duplicated in parameter initialization.
+    // If you adjust this code, also adjust in InputParameters.cpp
+    auto& filter = drParameters->filter;
+
+    const auto filterTypeString =
+        getWithDefault(yamlDrParams, "filtertype", std::string("none"));
+    using namespace initializer::parameters;
+    auto filterIt = validFilters.find(filterTypeString);
+    if (filterIt != validFilters.end()) {
+      filter.type = filterIt->second;
+    } else {
+      logError() << "Incorrect dynamic rupture filter type" << filterTypeString;
+    }
+
+    filter.alpha = getWithDefault(yamlDrParams, "filteralpha", defaultFilterAlpha);
+    filter.order = getWithDefault(yamlDrParams, "filterorder", defaultFilterOrder);
+    filter.cutoff = getWithDefault(yamlDrParams, "filtercutoff", defaultFilterCutoff);
+
+    if (filter.type == FilterTypes::Exponential) {
+      logInfo()
+          << "Using a dynamic rupture filter with order" << filter.order
+          << "cutoff" << filter.cutoff
+          << "and alpha" << filter.alpha;
+    }
+
   }
 
   const YAML::Node& yamlElementwiseParams = (*params)["elementwise"];

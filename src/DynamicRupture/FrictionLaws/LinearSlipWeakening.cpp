@@ -3,8 +3,13 @@ namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
-  std::copy(std::begin(slipRateMagnitude), std::end(slipRateMagnitude), std::begin(resampledSlipRate));
+    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+    const std::array<real, tensor::filter::Size>& filter) {
+  auto filterKrnl = dynamicRupture::kernel::filterParameter{};
+  filterKrnl.filter = filter.data();
+  filterKrnl.originalQ = slipRateMagnitude;
+  filterKrnl.filteredQ = resampledSlipRate;
+  filterKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                          seissol::initializers::DynamicRupture const* const dynRup,

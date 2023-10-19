@@ -199,6 +199,16 @@ struct FilterParameters {
   unsigned int cutoff = 0;
 };
 
+const static auto validFilters = std::unordered_map<std::string, FilterTypes>{
+    {"none", FilterTypes::None},
+    {"exponential", FilterTypes::Exponential},
+};
+
+// Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to epsilon
+const static real defaultFilterAlpha = -std::log(std::numeric_limits<real>::epsilon());
+const static unsigned int defaultFilterOrder = 32;
+const static unsigned int defaultFilterCutoff = 0;
+
 struct SourceParameters {
   seissol::sourceterm::SourceType type;
   std::string fileName;
