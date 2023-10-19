@@ -54,39 +54,6 @@
 
 #include <iostream>
 
-typedef int t_vertex[3];
-
-// changed Vertex to CubeVertex due to same struct naming here and in another part of SeisSol
-struct CubeVertex {
-  t_vertex v;
-
-  bool operator<(const CubeVertex& other) const {
-    return (v[0] < other.v[0]) || ((v[0] == other.v[0]) && (v[1] < other.v[1])) ||
-           ((v[0] == other.v[0]) && (v[1] == other.v[1]) && (v[2] < other.v[2]));
-  }
-};
-
-// Index of the vertices of a tetraedra in a cube
-// even/odd, index of the tetrahedra, index of vertex, offset of the vertices in x/y/z
-static const t_vertex TET_VERTICES[2][5][4] = {{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
-                                                {{1, 0, 0}, {0, 1, 0}, {1, 1, 1}, {1, 1, 0}},
-                                                {{1, 0, 0}, {1, 1, 1}, {0, 0, 1}, {1, 0, 1}},
-                                                {{0, 1, 0}, {0, 1, 1}, {0, 0, 1}, {1, 1, 1}},
-                                                {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 1, 1}}},
-                                               {{{0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {1, 1, 0}},
-                                                {{0, 0, 0}, {1, 1, 0}, {1, 0, 1}, {1, 0, 0}},
-                                                {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {0, 0, 1}},
-                                                {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
-                                                {{0, 0, 0}, {1, 1, 0}, {0, 1, 1}, {1, 0, 1}}}};
-
-static const int TET_SIDE_NEIGHBORS[2][5 * 4] = {
-    {3, 3, 3, 0, 1, 3, 0, 2, 2, 2, 2, 1, 0, 1, 3, 1, 3, 0, 0, 2},
-    {2, 3, 0, 1, 1, 3, 3, 2, 2, 1, 1, 0, 0, 3, 2, 1, 2, 0, 0, 1}};
-
-static const int TET_SIDE_ORIENTATIONS[2][5 * 4] = {
-    {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
-    {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
-
 namespace seissol::geometry {
 
 struct CubeGeneratorParameters {
@@ -115,15 +82,16 @@ class CubeGenerator : public seissol::geometry::MeshReader {
   public:
   CubeGenerator(int rank,
                 int nProcs,
-                const char* meshFile,
+                const std::string& meshFile,
                 const seissol::geometry::CubeGeneratorParameters& cubeParams);
 
-  inline void loadBar(int x, int n, int r = 100, int w = 50);
-  const char* dim2str(unsigned int dim);
-  template <typename A, typename B>
-  std::pair<B, A> flip_pair(const std::pair<A, B>& p);
-  void checkNcError(int error);
-
+  /*
+    inline void loadBar(int x, int n, int r = 100, int w = 50);
+    const char* dim2str(unsigned int dim);
+    template <typename A, typename B>
+    std::pair<B, A> flip_pair(const std::pair<A, B>& p);
+    void checkNcError(int error);
+  */
   void cubeGenerator(unsigned int numCubes[4],
                      unsigned int numPartitions[4],
                      unsigned int boundaryMinx,

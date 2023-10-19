@@ -15,11 +15,99 @@
 #include <vector>
 
 #include <iostream>
+#include <sstream>
+#include <string>
+
+namespace {
+typedef int t_vertex[3];
+
+struct CubeVertex {
+  t_vertex v;
+
+  bool operator<(const CubeVertex& other) const {
+    return (v[0] < other.v[0]) || ((v[0] == other.v[0]) && (v[1] < other.v[1])) ||
+           ((v[0] == other.v[0]) && (v[1] == other.v[1]) && (v[2] < other.v[2]));
+  }
+};
+
+// Index of the vertices of a tetraedra in a cube
+// even/odd, index of the tetrahedra, index of vertex, offset of the vertices in x/y/z
+static const t_vertex TET_VERTICES[2][5][4] = {{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
+                                                {{1, 0, 0}, {0, 1, 0}, {1, 1, 1}, {1, 1, 0}},
+                                                {{1, 0, 0}, {1, 1, 1}, {0, 0, 1}, {1, 0, 1}},
+                                                {{0, 1, 0}, {0, 1, 1}, {0, 0, 1}, {1, 1, 1}},
+                                                {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 1, 1}}},
+                                               {{{0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {1, 1, 0}},
+                                                {{0, 0, 0}, {1, 1, 0}, {1, 0, 1}, {1, 0, 0}},
+                                                {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {0, 0, 1}},
+                                                {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
+                                                {{0, 0, 0}, {1, 1, 0}, {0, 1, 1}, {1, 0, 1}}}};
+
+static const int TET_SIDE_NEIGHBORS[2][5 * 4] = {
+    {3, 3, 3, 0, 1, 3, 0, 2, 2, 2, 2, 1, 0, 1, 3, 1, 3, 0, 0, 2},
+    {2, 3, 0, 1, 1, 3, 3, 2, 2, 1, 1, 0, 0, 3, 2, 1, 2, 0, 0, 1}};
+
+static const int TET_SIDE_ORIENTATIONS[2][5 * 4] = {
+    {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
+    {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
+} // anonymous namespace
+
+static inline void loadBar(int x, int n, int r = 100, int w = 50, int rank = 0) {
+  std::ostringstream bar;
+  r = std::min(r, n);
+
+  // Only update r times.
+  if (x % (n / r) != 0)
+    return;
+
+  // Calculuate the ratio of complete-to-incomplete.
+  float ratio = x / (float)n;
+  int c = ratio * w;
+
+  // Show the percentage complete.
+  bar << std::setw(3) << (int)(ratio * 100) << "% [";
+
+  // Show the load bar.
+  for (int x = 0; x < c; x++)
+    bar << '=';
+
+  for (int x = c; x < w; x++)
+    bar << ' ';
+
+  bar << ']';
+
+  logInfo(rank) << bar.str();
+}
+
+static const char* dim2str(unsigned int dim) {
+  switch (dim) {
+  case 0:
+    return "x";
+  case 1:
+    return "y";
+  case 2:
+    return "z";
+  default:;
+  }
+
+  logError() << "Invalid dimension";
+  return "invalid"; // Never reached
+}
+
+template <typename A, typename B>
+static std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
+  return std::pair<B, A>(p.second, p.first);
+}
+
+static void checkNcError(int error) {
+  if (error != NC_NOERR)
+    logError() << "Error while writing netCDF file:" << nc_strerror(error);
+}
 
 seissol::geometry::CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
-    const char* meshFile,
+    const std::string& meshFile,
     const seissol::geometry::CubeGeneratorParameters& cubeParams)
     : seissol::geometry::MeshReader(rank) {
   // get cubeGenerator parameters
@@ -58,18 +146,16 @@ seissol::geometry::CubeGenerator::CubeGenerator(
 
   for (int i = 0; i < 3; i++) {
     if (numCubes[i] < 2)
-      logError() << "Number of cubes in" << seissol::geometry::CubeGenerator::dim2str(i)
-                 << "dimension must be at least 2";
+      logError() << "Number of cubes in" << dim2str(i) << "dimension must be at least 2";
     if (numCubes[i] % numPartitions[i] != 0)
-      logError() << "Number of cubes in" << seissol::geometry::CubeGenerator::dim2str(i)
-                 << "dimension can not be distribute to" << numPartitions[i] << "partitions";
+      logError() << "Number of cubes in" << dim2str(i) << "dimension can not be distribute to"
+                 << numPartitions[i] << "partitions";
     if ((numCubes[i] / numPartitions[i]) % 2 != 0)
-      logError() << "Number of cubes per partition in"
-                 << seissol::geometry::CubeGenerator::dim2str(i)
+      logError() << "Number of cubes per partition in" << dim2str(i)
                  << "dimension must be a multiple of 2";
     // check if numCubes is multiple of numPartitions, can only fail in numPartitions[0]
     if (numCubes[i] % numPartitions[i] != 0)
-      logError() << "Number of cubes in" << seissol::geometry::CubeGenerator::dim2str(i)
+      logError() << "Number of cubes in" << dim2str(i)
                  << "dimenstion must be a multiple of number of threads/processes ="
                  << numPartitions[i];
   }
@@ -98,7 +184,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   // output file name
   std::string fileName = meshFile;
 
-  logInfo() << "Start generating a mesh using the CubeGenerator";
+  logInfo(rank) << "Start generating a mesh using the CubeGenerator";
   seissol::geometry::CubeGenerator::cubeGenerator(numCubes,
                                                   numPartitions,
                                                   cubeMinX,
@@ -1388,8 +1474,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
           int nextMPIIndex = 0;
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
             for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              //                                                      int odd = (yy+xx+1) % 2;
-              //                                                      if (odd) {
               bndLocalIds[nextMPIIndex] =
                   (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
                       5 +
@@ -1408,23 +1492,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                               xx) *
                                  20 +
                              15] = nextMPIIndex++;
-              //                                                      } else {
-              //                                                              bndLocalIds[nextMPIIndex]
-              //                                                              =
-              //                                                              (((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-              //                                                              * 5 + 2;
-              //                                                              elemMPIIndices[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-              //                                                              * 20 + 11] =
-              //                                                              nextMPIIndex++;
-              //                                                              bndLocalIds[nextMPIIndex]
-              //                                                              =
-              //                                                              (((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-              //                                                              * 5 + 3;
-              //                                                              elemMPIIndices[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-              //                                                              * 20 + 15] =
-              //                                                              nextMPIIndex++;
-              //                                                      }
-            }
+              }
           }
 
           size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
@@ -1466,9 +1534,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   transform(vertexMap.begin(),
             vertexMap.end(),
             inserter(uniqueVertices, uniqueVertices.begin()),
-            [](const auto& pair) { return std::make_pair(pair.second, pair.first); });
-  //&seissol::geometry::CubeGenerator::flip_pair<CubeVertex, int>);  //
-  //&<namespace>::<class>::<member_function> to pass pointer to member
+            flip_pair<CubeVertex, int>);
 
   int* vrtxSize = new int[numPartitions[3]];
   std::fill(vrtxSize, vrtxSize + numPartitions[3], uniqueVertices.size());
@@ -1517,66 +1583,5 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   checkNcError(nc_close(ncFile));
 
   logInfo() << "Finished";
-}
-
-// Process had done i out of n rounds,
-// and we want a bar of width w and resolution r.
-// TODO put this i an library
-// default args from header file: r = 100, w = 50
-inline void seissol::geometry::CubeGenerator::loadBar(int x, int n, int r, int w) {
-  r = std::min(r, n);
-
-  // Only update r times.
-  if (x % (n / r) != 0)
-    return;
-
-  // Calculuate the ratio of complete-to-incomplete.
-  float ratio = x / (float)n;
-  int c = ratio * w;
-
-  // Show the percentage complete.
-  std::cout << std::setw(3) << (int)(ratio * 100) << "% [";
-
-  // Show the load bar.
-  for (int x = 0; x < c; x++)
-    std::cout << '=';
-
-  for (int x = c; x < w; x++)
-    std::cout << ' ';
-
-  std::cout << ']';
-
-  if (x != n)
-    // go to the beginning of the line
-    std::cout << '\r';
-  else
-    std::cout << '\n';
-
-  std::cout << std::flush;
-}
-
-const char* seissol::geometry::CubeGenerator::dim2str(unsigned int dim) {
-  switch (dim) {
-  case 0:
-    return "x";
-  case 1:
-    return "y";
-  case 2:
-    return "z";
-  default:;
-  }
-
-  logError() << "Invalid dimension";
-  return "invalid"; // Never reached
-}
-
-template <typename A, typename B>
-std::pair<B, A> seissol::geometry::CubeGenerator::flip_pair(const std::pair<A, B>& p) {
-  return std::pair<B, A>(p.second, p.first);
-}
-
-void seissol::geometry::CubeGenerator::checkNcError(int error) {
-  if (error != NC_NOERR)
-    logError() << "Error while writing netCDF file:" << nc_strerror(error);
 }
 #endif // USE_NETCDF
