@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import argparse
 import sys
 import os
+import glob
 
 description = '''Plot SeisSol energy output(s). 
 You can run the script with the default (Moment rate [MR]) or select multiple energy outputs available from a SeisSol simulation.
@@ -31,8 +32,13 @@ parser.add_argument("--dpi", default=300, type=int, help="Dots per Inch")
 parser.add_argument("-o", "--Output", help='Name of the output file', default='energy_output.png')
 args = parser.parse_args()
 
-for i in range(0,len(args.Input)):
+
+### search through wildcards
+files = [] 
+for f in args.Input:
+    files.extend(glob.glob(f))
     
+for i in range(0,len(files)):
     if os.path.isfile(os.path.expanduser(args.Input[i])):
         print("File selected: {}".format(os.path.expanduser(args.Input[i])))
     else:
@@ -44,7 +50,7 @@ for i in range(0,len(args.Input)):
     # see https://github.com/SeisSol/SeisSol/blob/829f5e258c12046ae3626837bab6d19d13d6c006/src/ResultWriter/EnergyOutput.cpp#L436C45-L436C45
 
     print("M0 = {:.2e} and Mw = {:.2f}".format(M0, Mw))
-    
+        
     for j in range(0,len(args.Data)):
         if (args.Data[j].upper() == "MR"):
             energy_output = "moment_rate"
@@ -70,18 +76,31 @@ for i in range(0,len(args.Input)):
         else:
             sys.exit("Are you sure? Please select minimum one of the following: MR, GE, AE, AKE, EKE, EE, TFW, SFW, SM, PM")
 
-        print("Energy output selected is {}: {}".format(args.Data[j], energy_output))
+        print("Energy output selected is {}: {}".format(args.Data[j].upper(), energy_output))
         
         plt.plot(df["time"], df[energy_output], label="Mw {:.2f}, {}".format(Mw,args.Data[j].upper()))
-        #plt.plot(df["time"], df[energy_output], label="Mw {:.2f}".format(Mw))
+    
+        if (args.ylabel != ""):
+            ylabel = args.ylabel
+        elif (args.Data[j].upper() == "MR") and (int(len(args.Data)) == 1):
+            ylabel = "Moment release [Nm s$^{-1}$]"
+        elif (args.Data[j].upper() == "PM") and (int(len(args.Data)) == 1):
+            ylabel = "Plastic moment [Nm]"
+        elif (args.Data[j].upper() == "SM") and (int(len(args.Data)) == 1):
+            ylabel = "Seismic moment [Nm]"
+        elif ("energy" in energy_output or "work" in energy_output):
+            ylabel = "Energy [J]"
+        else:
+            ylabel = args.ylabel
+        
+    plt.xlabel(args.xlabel)
+    plt.ylabel(ylabel)  
 
     plt.legend()
-    plt.xlabel(args.xlabel)
-    plt.ylabel(args.ylabel)
+        
     if (args.xlim != None):
         plt.xlim(args.xlim[0], args.xlim[1])
     if (args.ylim != None):
         plt.ylim(args.ylim[0], args.ylim[1])
         
 plt.savefig("{}".format(args.Output), dpi=args.dpi)
-
