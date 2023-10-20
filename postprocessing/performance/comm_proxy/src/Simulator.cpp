@@ -176,9 +176,8 @@ void Simulator::simulate(double synchronizationTime) {
     cluster->act();
   }
 
-  int maxsteps = 10;
   bool finished = false;
-  while (!finished /* && maxsteps--*/) {
+  while (!finished) {
     finished = true;
 
     for (auto& cluster : clusters_) {
