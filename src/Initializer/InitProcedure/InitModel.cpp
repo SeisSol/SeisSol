@@ -1,9 +1,11 @@
 
 #include <vector>
+#include "Common/filesystem.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
+#include "Initializer/MeshStructure.hpp"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/time_stepping/common.hpp"
 #include "Physics/Attenuation.hpp"
@@ -20,6 +22,8 @@
 
 #include <cmath>
 #include <type_traits>
+#include <fstream>
+#include <sstream>
 
 using namespace seissol::initializer;
 
@@ -37,6 +41,72 @@ static std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
   parameterDB.setMaterialVector(&vectorDB);
   parameterDB.evaluateModel(fileName, queryGen);
   return vectorDB;
+}
+
+static void dumpLocalTimeSteppingStructure(TimeStepping const& timeStepping,
+                                           MeshStructure const* meshStructure,
+                                           seissol::initializers::MemoryManager& memMan,
+                                           seissol::filesystem::path prefix) {
+  auto const timeStepRate = [&](unsigned globalId) {
+    long rate = 1;
+    for (unsigned g = 0; g < globalId; ++g) {
+      rate *= timeStepping.globalTimeStepRates[g];
+    }
+    return rate;
+  };
+  auto rank = seissol::MPI::mpi.rank();
+  auto oss = std::ostringstream{};
+  oss << "." << rank << ".json";
+  prefix += seissol::filesystem::path(oss.str());
+  auto out = std::ofstream(prefix);
+  if (!out.is_open()) {
+    logWarning(rank) << "dumpLocalTimeSteppingStructure: Could not open" << prefix << "for writing";
+    return;
+  }
+
+  out << "[";
+  for (unsigned tc = 0; tc < timeStepping.numberOfLocalClusters; ++tc) {
+    auto interiorLayerSize = memMan.getLtsTree()->child(tc).child<Interior>().getBucketSize(
+                                 memMan.getLts()->buffersDerivatives) /
+                             sizeof(real);
+    auto& mc = meshStructure[tc];
+    auto globalId = timeStepping.clusterIds[tc];
+    out << "{";
+    out << "\"time_cluster_id\":" << globalId << ",";
+    out << "\"time_step_rate\":" << timeStepRate(globalId) << ",";
+    out << "\"cfl_time_step_width\":" << timeStepping.globalCflTimeStepWidths[globalId] << ",";
+    out << "\"number_of_interior_cells\":" << mc.numberOfInteriorCells << ",";
+    out << "\"interior_layer_size\":" << interiorLayerSize << ",";
+    out << "\"regions\":[";
+    for (unsigned r = 0; r < mc.numberOfRegions; ++r) {
+      auto otherGlobalId = mc.neighboringClusters[r][1];
+      out << "{";
+      out << "\"neighbor_rank\":" << mc.neighboringClusters[r][0] << ",";
+      out << "\"neighbor_time_cluster_id\":" << otherGlobalId << ",";
+      out << "\"neighbor_time_step_rate\":" << timeStepRate(otherGlobalId) << ",";
+      out << "\"neighbor_cfl_time_step_width\":"
+          << timeStepping.globalCflTimeStepWidths[otherGlobalId] << ",";
+      out << "\"number_of_ghost_region_cells\":" << mc.numberOfGhostRegionCells[r] << ",";
+      out << "\"number_of_ghost_region_derivatives\":" << mc.numberOfGhostRegionDerivatives[r]
+          << ",";
+      out << "\"ghost_region_size\":" << mc.ghostRegionSizes[r] << ",";
+      out << "\"number_of_copy_region_cells\":" << mc.numberOfCopyRegionCells[r] << ",";
+      out << "\"number_of_communicated_copy_region_derivatives\":"
+          << mc.numberOfCommunicatedCopyRegionDerivatives[r] << ",";
+      out << "\"copy_region_size\":" << mc.copyRegionSizes[r] << ",";
+      out << "\"send_identifier\":" << mc.sendIdentifiers[r] << ",";
+      out << "\"receive_identifier\":" << mc.receiveIdentifiers[r];
+      out << "}";
+      if (r != mc.numberOfRegions - 1) {
+        out << ",";
+      }
+    }
+    out << "]}";
+    if (tc != timeStepping.numberOfLocalClusters - 1) {
+      out << ",";
+    }
+  }
+  out << "]";
 }
 
 void initializeCellMaterial() {
@@ -314,6 +384,15 @@ static void initializeMemoryLayout(LtsInfo& ltsInfo) {
   }
 
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
+
+  if (seissolParams.output.dumpLocalTimeSteppingStructure) {
+    auto prefix = seissol::filesystem::path(seissolParams.output.prefix);
+    prefix += seissol::filesystem::path("-ltsStructure");
+    dumpLocalTimeSteppingStructure(ltsInfo.timeStepping,
+                                   ltsInfo.meshStructure,
+                                   seissol::SeisSol::main.getMemoryManager(),
+                                   prefix);
+  }
 }
 
 } // namespace

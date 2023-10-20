@@ -174,6 +174,8 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
                       << "(sample size:" << N << ", standard error:" << se << ")";
       }
       totalTime += y;
+
+      logInfo(rank) << "Total time spent in " << m_regions[region] << ": " << y << std::endl;
     }
 
     logInfo(rank) << "Total time spent in compute kernels:" << totalTime;

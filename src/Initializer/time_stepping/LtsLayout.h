@@ -42,6 +42,7 @@
 #ifndef LTSLAYOUT_H_
 #define LTSLAYOUT_H_
 
+#include <Initializer/MeshStructure.hpp>
 #include <Initializer/typedefs.hpp>
 
 #include <Geometry/MeshDefinition.h>

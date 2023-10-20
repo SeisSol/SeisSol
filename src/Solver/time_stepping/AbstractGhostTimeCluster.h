@@ -1,7 +1,7 @@
 #pragma once
 
 #include <list>
-#include "Initializer/typedefs.hpp"
+#include "Initializer/MeshStructure.hpp"
 #include "AbstractTimeCluster.h"
 
 

@@ -143,6 +143,7 @@ EnergyOutputInterval = 0.05
 ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
 
 LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
+DumpLocalTimeSteppingStructure = 0 ! Writes local time stepping structure
 /
            
 &AbortCriteria
