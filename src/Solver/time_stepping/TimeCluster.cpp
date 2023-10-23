@@ -487,13 +487,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           if (alphaNodal[q] < 0.4 ){
             FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
               1.0/(damage_para1*damage_para2)
-                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
+                *(W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]));
           } else {
             FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
           }
         } else if (alphaNodal[q] > 5e-1 ) {
           1.0/(damage_para1*damage_para2)
-                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
+                *(W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]));
         }
         else {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
