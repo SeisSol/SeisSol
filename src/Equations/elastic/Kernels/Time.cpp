@@ -239,7 +239,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       if (alphaNodal[q] < 0.4){
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
           1.0/(damage_para1*damage_para2)
-                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
+                *(W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]));
       }
       else{
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -247,7 +247,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     } else if (alphaNodal[q] > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         1.0/(damage_para1*damage_para2)
-                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
+                *(W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]));
     }
     else {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
