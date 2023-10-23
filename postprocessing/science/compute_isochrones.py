@@ -39,16 +39,15 @@ parser.add_argument('--medianFilterRadius', nargs=1, required=True, metavar=('ra
 parser.add_argument('--threads', nargs=1, metavar=('threads'), default=([4]),
                     help='use multiprocessing to speed up the median filtering' ,type=int)
 
-parser.add_argument('--timeStepRange', nargs=2, default=([0,-1]), 
+parser.add_argument('--timeStepRange', nargs=2, default=([0,-1]), metavar=("minIndex", "maxIndex"),
                     help='parse the fault output time step index range that includes the desired part of the rupture; e.g., \
-                    if the output contains more than one event; first time step has index 0' ,type=int) 
+                    if the output contains more than one event; first time step has index 0', type=int) 
 
 args = parser.parse_args()
 
 
 def ComputeTriangleMidpoints(geom, connect):
     """Generates an array with coordinates of triangle midpoints (same dimension as connect)"""
-    xyz = np.zeros_like(connect, dtype=float)
     xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])   
     return xyz
 
@@ -56,15 +55,15 @@ def ComputeTriangleMidpoints(geom, connect):
 def LoadSliprates(sliprateParameters):
     sliprates = []
     if "SRs" in sliprateParameters:
-        sliprates.append(faultXdmf.ReadData("SRs")[timeIndicesFault[0]:timeIndicesFault[1]].T)
+        sliprates.append(faultXdmf.ReadData("SRs")[indexBoundsFault[0]:indexBoundsFault[1]].T)
     if "SRd" in sliprateParameters:
-        sliprates.append(faultXdmf.ReadData("SRd")[timeIndicesFault[0]:timeIndicesFault[1]].T)
+        sliprates.append(faultXdmf.ReadData("SRd")[indexBoundsFault[0]:indexBoundsFault[1]].T)
     if "ASR" in sliprateParameters:
         if "SRs" in sliprateParameters and "SRd" in sliprateParameters:
             sliprates.append(np.sqrt(sliprates[0]**2 + sliprates[1]**2))
         else:
-            sliprates.append(np.sqrt(faultXdmf.ReadData("SRs")[timeIndicesFault[0]:timeIndicesFault[1]].T**2 +
-                                     faultXdmf.ReadData("SRd")[timeIndicesFault[0]:timeIndicesFault[1]].T**2))
+            sliprates.append(np.sqrt(faultXdmf.ReadData("SRs")[indexBoundsFault[0]:indexBoundsFault[1]].T**2 +
+                                     faultXdmf.ReadData("SRd")[indexBoundsFault[0]:indexBoundsFault[1]].T**2))
     return np.array(sliprates)
 
 
@@ -76,14 +75,15 @@ def ClosestReceiverIndex(coords, receiver_array):
 def PTraveltime(receiverIndex, trigger=0.01):
     """Picks the P-wave arrival. This function is only suited for synthetic data with negligible noise"""
     
-    timeIndices = np.int_(timeIndicesFault * (dtFault / dtSurface))
+    indexBoundsSurface = np.int_(indexBoundsFault * (dtFault / dtSurface))
     absWaveform = np.sqrt(surfaceXdmf.ReadDataChunk(surfaceVariables[0], receiverIndex, 1)**2 +
                       surfaceXdmf.ReadDataChunk(surfaceVariables[1], receiverIndex, 1)**2 +
-                      surfaceXdmf.ReadDataChunk(surfaceVariables[2], receiverIndex, 1)**2)[timeIndices[0]:timeIndices[1]]
+                      surfaceXdmf.ReadDataChunk(surfaceVariables[2],
+                                                receiverIndex, 1)**2)[indexBoundsSurface [0]:indexBoundsSurface [1]]
     
     threshold = np.amax(absWaveform)*trigger           # trigger dictates the portion of the maximum ground velocity,
-    t = np.argmax(absWaveform>threshold)*dtSurface     # which needs to be reached to pick the p-phase
-    return t                                           # p-phase arrival time (equal to traveltime if nucleation at t=0)
+                                                       # which needs to be reached to pick the p-phase
+    return np.argmax(absWaveform>threshold)*dtSurface  # p-phase arrival time (equal to traveltime if nucleation at t=0)
 
 
 def ApproximateHypocenter(ruptureTimes, faultMidPoints):
@@ -107,36 +107,34 @@ def GetTraveltimesToAllFaultCells(receiverCoords, faultMidPoints, swaveVelocity)
 
 
 def MedianSmoothing(input_tuple):
-    # input_tuple: (parameter, xyz, indices, radius)
-    parameter = input_tuple[0]
-    xyz = input_tuple[1]
-    indices = input_tuple[2]
-    radius = input_tuple[3]
-    parameter_new = np.zeros(indices.shape[0])
+    # input_tuple: (peakSliprateTimesLocal, xyz, indices, radius)
+    peakSliprateTimesLocal, xyz, indices, radius = input_tuple
+    peakSliprateTimesSmooth = np.zeros(indices.shape[0])
     for i, j in enumerate(indices):
-        parameter_new[i] = np.median(parameter[(xyz[:,0] < xyz[j,0]+radius) & (xyz[:,0] > xyz[j,0]-radius) & 
-                            (xyz[:,1] < xyz[j,1]+radius) & (xyz[:,1] > xyz[j,1]-radius) &                    
-                            (xyz[:,2] < xyz[j,2]+radius) & (xyz[:,2] > xyz[j,2]-radius)])
-    return parameter_new
+        xyz0=  xyz[j,:]
+        distances = np.linalg.norm(xyz - xyz0, axis=1)
+        indices_within_sphere = np.argwhere(distances <= radius)
+        peakSliprateTimesSmooth[i] =np.median(peakSliprateTimesLocal[indices_within_sphere])
+    return peakSliprateTimesSmooth
 
 
-def MedianSmoothingParallel(parameter, xyz, radius=250., nprocs=4):
+def MedianSmoothingParallel(peakSliprateTimesLocal, xyz, radius=250., nprocs=4):
     
-    chunks = [tuple((parameter, xyz, i, radius)) for i in np.array_split(np.arange(parameter.shape[0]), nprocs)]
+    chunks = [(peakSliprateTimesLocal, xyz, i, radius) for i in np.array_split(np.arange(peakSliprateTimesLocal.shape[0]),
+                                                                               nprocs)]
         
     p = Pool(nprocs)
     result = p.map(MedianSmoothing, chunks)
     p.close()
     p.join()
-    parameter_new = np.concatenate(result)
-    return parameter_new
+    return np.concatenate(result)
 
 
 start = timeit.default_timer()
 
 print("Loading data...")
 surfaceXdmf = seissolxdmf.seissolxdmf(args.filename)
-surfaceCells = ComputeTriangleMidpoints(surfaceXdmf.ReadGeometry(), surfaceXdmf.ReadConnect())
+surfaceCellBarycenters = ComputeTriangleMidpoints(surfaceXdmf.ReadGeometry(), surfaceXdmf.ReadConnect())
 dtSurface = surfaceXdmf.ReadTimeStep()
 
 if not args.faultXdmf:
@@ -147,13 +145,13 @@ faultGeom = faultXdmf.ReadGeometry()
 faultConnect = faultXdmf.ReadConnect()
 faultMidPoints = ComputeTriangleMidpoints(faultGeom, faultConnect)
 dtFault = faultXdmf.ReadTimeStep()
-timeIndicesFault = np.array(args.timeStepRange)
-timeIndicesFault[1] = faultXdmf.ReadNdt()-1 if timeIndicesFault[1] == -1 else timeIndicesFault[1]
+indexBoundsFault = np.array(args.timeStepRange)
+indexBoundsFault[1] = faultXdmf.ReadNdt()-1 if indexBoundsFault[1] == -1 else indexBoundsFault[1]
 
-# set rupture times before timeIndicesFault[0] to 0:
-ruptureTimes = faultXdmf.ReadData("RT", timeIndicesFault[1]) - faultXdmf.ReadData("RT", timeIndicesFault[0])
-# shift rupture times so that timeIndicesFault[0] corresponds to 0:
-ruptureTimes = np.where(ruptureTimes > 0., ruptureTimes - dtFault * timeIndicesFault[0], 0.)
+# set rupture times before indexBoundsFault[0] to 0:
+ruptureTimes = faultXdmf.ReadData("RT", indexBoundsFault[1]) - faultXdmf.ReadData("RT", indexBoundsFault[0])
+# shift rupture times so that indexBoundsFault[0] corresponds to 0:
+ruptureTimes = np.where(ruptureTimes > 0., ruptureTimes - dtFault * indexBoundsFault[0], 0.)
 
 
 if args.slipRateParameters == "absolute":
@@ -166,7 +164,7 @@ else:
 sliprates = LoadSliprates(sliprateParameters)
 sliprates = np.abs(sliprates)
 
-print(f"surfaceCells.shape: {surfaceCells.shape}")
+print(f"surfaceCellBarycenters.shape: {surfaceCellBarycenters.shape}")
 print(f"sliprates.shape: {sliprates.shape}")
 
 stop1 = timeit.default_timer()
@@ -174,8 +172,8 @@ print(f"Time to load data: {stop1 - start:.2f}")
 
 print("Computing travel times and peak slip rate times...")
 
-receiverIndex = ClosestReceiverIndex(np.array([args.x[0], args.y[0], args.z[0]]), surfaceCells)
-receiverCoords = surfaceCells[receiverIndex]
+receiverIndex = ClosestReceiverIndex(np.array([args.x[0], args.y[0], args.z[0]]), surfaceCellBarycenters)
+receiverCoords = surfaceCellBarycenters[receiverIndex]
 
 print(f"Closest receiver: {np.int_(receiverCoords)}")
 
@@ -201,7 +199,7 @@ peakSliprateTimes = np.argmax(sliprates, axis=2) * dtFault
 stop2 = timeit.default_timer()
 print(f"Time to compute values: {stop2 - stop1:.2f}")
 
-if args.medianFilterRadius[0] > 0.:
+if args.medianFilterRadius[0]:
     
     print(f"Median filter radius: {args.medianFilterRadius[0]}")
     assert(args.threads[0] >= 1 and args.threads[0] <= cpu_count())
@@ -222,7 +220,7 @@ print("Saving output...")
 
 prefix = f"isochrones_{receiverCoords[0]:.0f}_{receiverCoords[1]:.0f}_{receiverCoords[2]:.0f}"
 if args.medianFilterRadius[0] > 0.:
-    prefix += f"_r{np.int(args.medianFilterRadius[0])}"
+    prefix += f"_r{int(args.medianFilterRadius[0])}"
 sliprateParameters.insert(0, "RT")
 
 if args.output == "xdmf" or args.output == "both":
