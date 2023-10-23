@@ -7,7 +7,10 @@
 #include "Initializer/InputParameters.hpp"
 #include "Parallel/MPI.h"
 #include <Numerical_aux/Statistics.h>
+#include "ResultWriter/ThreadsPinningWriter.h"
 #include <sstream>
+
+namespace {
 
 static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -52,9 +55,14 @@ static void initSeisSol() {
   auto& sim = seissol::SeisSol::main.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
   sim.setFinalTime(seissolParams.end.endTime);
+}
 
-  // report status (TODO(David): move somewhere better)
+static void reportHardwareRelatedStatus() {
   reportDeviceMemoryStatus();
+
+  const auto& seissolParams = SeisSol::main.getSeisSolParameters();
+  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
+  pinningWriter.write(SeisSol::main.getPinning());
 }
 
 static void closeSeisSol() {
@@ -69,8 +77,11 @@ static void closeSeisSol() {
   seissol::SeisSol::main.deleteMemoryManager();
 }
 
+} // namespace
+
 void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();
+  reportHardwareRelatedStatus();
 
   // just put a barrier here to make sure everyone is synched
   logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";

@@ -381,7 +381,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
                               fsrm.rakes[fsrmIndex],
                               sources.tensor[clusterSource]);
 
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+        for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
 #ifndef USE_POROELASTIC

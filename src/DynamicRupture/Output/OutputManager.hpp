@@ -11,15 +11,14 @@ class OutputManager {
   public:
   ~OutputManager();
   OutputManager() = delete;
-  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
-      : ewOutputData(std::make_shared<ReceiverOutputData>()),
-        ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)){};
+  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl);
   void setInputParam(const YAML::Node& inputData, seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
                   seissol::initializers::Lut* userWpLut,
                   seissol::initializers::LTSTree* userDrTree,
                   seissol::initializers::DynamicRupture* userDrDescr);
+  void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
   void initFaceToLtsMap();
@@ -53,6 +52,7 @@ class OutputManager {
 
   size_t iterationStep{0};
   static constexpr double timeMargin{1.005};
+  std::string backupTimeStamp{};
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
 };

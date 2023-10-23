@@ -57,8 +57,6 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
 src/SeisSol.cpp
 src/Parallel/Pin.cpp
-src/Parallel/mpiC.cpp
-src/Parallel/FaultMPI.cpp
 
 src/Geometry/MeshTools.cpp
 src/Geometry/MeshReader.cpp
@@ -153,11 +151,11 @@ if (HDF5 AND MPI)
     )
 endif()
 
-
 if (NETCDF)
   list(APPEND SYCL_DEPENDENT_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
     )
 endif()
 
