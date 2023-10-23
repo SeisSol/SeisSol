@@ -189,10 +189,17 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           real* eyzNodal = (QInitialNodal + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           real* ezxNodal = (QInitialNodal + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-            exxNodal[q] = 3.7385e-4;
-            eyyNodal[q] = -1.4963e-3;
-            ezzNodal[q] = 3.7385e-4;
-            exyNodal[q] = 1.0909e-3;
+            // exxNodal[q] = 3.7385e-4;
+            // eyyNodal[q] = -1.4963e-3;
+            // ezzNodal[q] = 3.7385e-4;
+            // exyNodal[q] = 1.0909e-3;
+            // eyzNodal[q] = -0e-3;
+            // ezxNodal[q] = -0e-3;
+
+            exxNodal[q] = 0.0e-4;
+            eyyNodal[q] = 0.0e-3;
+            ezzNodal[q] = 0.0e-4;
+            exyNodal[q] = 0.0e-3;
             eyzNodal[q] = -0e-3;
             ezxNodal[q] = -0e-3;
           }

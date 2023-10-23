@@ -185,13 +185,21 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real epsInitxx = 3.7385e-4; // eps_xx0
-  real epsInityy = -1.4963e-3; // eps_yy0
-  real epsInitzz = 3.7385e-4; // eps_zz0
-  real epsInitxy = 1.0909e-3; // eps_xx0
+  // real epsInitxx = 3.7385e-4; // eps_xx0
+  // real epsInityy = -1.4963e-3; // eps_yy0
+  // real epsInitzz = 3.7385e-4; // eps_zz0
+  // real epsInitxy = 1.0909e-3; // eps_xx0
+  // real epsInityz = -0e-1; // eps_yy0
+  // real epsInitzx = -0e-1; // eps_zz0
+
+  real epsInitxx = 0.0e-4; // eps_xx0
+  real epsInityy = 0.0e-3; // eps_yy0
+  real epsInitzz = 0.0e-4; // eps_zz0
+  real epsInitxy = 0.0e-3; // eps_xx0
   real epsInityz = -0e-1; // eps_yy0
   real epsInitzx = -0e-1; // eps_zz0
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
+  real const damage_para2 = 1e8;
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
   // real const mu0 = 8.27e10; // data.material.local.mu0
@@ -223,26 +231,23 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       + 2*(exyNodal[q]+epsInitxy)*(exyNodal[q]+epsInitxy)
       + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
       + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
-    real xi;
-    if (EspII > 1e-30){
-      xi = EspI / std::sqrt(EspII);
-    } else{
-      xi = 0.0;
-    }
 
-    if (xi + data.material.local.xi0 > 0) {
+    real W_energy = 0.5*data.material.local.lambda0*EspI*EspI
+        + data.material.local.mu0*EspII;
+
+    if (W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]) > 0) {
       if (alphaNodal[q] < 0.4){
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          damage_para1
-            *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+          1.0/(damage_para1*damage_para2)
+                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
       }
       else{
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       }
     } else if (alphaNodal[q] > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        damage_para1
-          *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+        1.0/(damage_para1*damage_para2)
+                *W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]);
     }
     else {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;

@@ -25,75 +25,6 @@ namespace seissol {
         real muInvRho = i_material.mu / i_material.rho;
 
         real I1 = i_material.epsxx_alpha + i_material.epsyy_alpha + i_material.epszz_alpha;
-        real I2 = i_material.epsxx_alpha*i_material.epsxx_alpha
-          + i_material.epsyy_alpha*i_material.epsyy_alpha
-          + i_material.epszz_alpha*i_material.epszz_alpha
-          + 2*i_material.epsxy_alpha*i_material.epsxy_alpha
-          + 2*i_material.epsyz_alpha*i_material.epsyz_alpha
-          + 2*i_material.epszx_alpha*i_material.epszx_alpha;
-
-        // real xi = I1 / std::sqrt(I2 + 1e-20);
-        // real xiInv = 1 / (xi+1e-2);
-
-        real xi;
-          if (I2 > 1e-30){
-            xi = I1 / std::sqrt(I2);
-          } else{
-            xi = 0.0;
-          }
-
-          real xiInv;
-          if ( std::abs(xi) > 1e-1){
-            xiInv = 1 / xi;
-          } else{
-            xiInv = 0.0;
-          }
-
-        /* For stress-vel formula */
-        // switch (i_dim)
-        //   {
-        //     case 0:
-        //       o_M(6,0) = -lambda2mu;
-        //       o_M(6,1) = -i_material.lambda;
-        //       o_M(6,2) = -i_material.lambda;
-        //       o_M(7,3) = -i_material.mu;
-        //       o_M(8,5) = -i_material.mu;
-        //       o_M(0,6) = -rhoInv;
-        //       if (!testIfAcoustic(i_material.mu)) {
-        //         o_M(3,7) = -rhoInv;
-        //         o_M(5,8) = -rhoInv;
-        //       }
-        //       break;
-
-        //     case 1:
-        //       o_M(7,0) = -i_material.lambda;
-        //       o_M(7,1) = -lambda2mu;
-        //       o_M(7,2) = -i_material.lambda;
-        //       o_M(6,3) = -i_material.mu;
-        //       o_M(8,4) = -i_material.mu;
-        //       o_M(1,7) = -rhoInv;
-        //       if (!testIfAcoustic(i_material.mu)) {
-        //         o_M(3,6) = -rhoInv;
-        //         o_M(4,8) = -rhoInv;
-        //       }
-        //       break;
-
-        //     case 2:
-        //       o_M(8,0) = -i_material.lambda;
-        //       o_M(8,1) = -i_material.lambda;
-        //       o_M(8,2) = -lambda2mu;
-        //       o_M(7,4) = -i_material.mu;
-        //       o_M(6,5) = -i_material.mu;
-        //       o_M(2,8) = -rhoInv;
-        //       if (!testIfAcoustic(i_material.mu)) {
-        //         o_M(5,6) = -rhoInv;
-        //         o_M(4,7) = -rhoInv;
-        //       }
-        //       break;
-
-        //     default:
-        //       break;
-        //   }
 
         /*
         For strain-vel + damage formula
@@ -112,14 +43,14 @@ namespace seissol {
                 o_M(3,7) = -2.0*muInvRho;
                 o_M(5,8) = -2.0*muInvRho;
               }
-              o_M(9,6) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
+              o_M(9,6) = (i_material.lambda*I1
+                + i_material.mu*i_material.epsxx_alpha )
                   / i_material.rho;
               o_M(9,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+                + i_material.mu*i_material.epsxy_alpha )
                   / i_material.rho;
               o_M(9,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+                + i_material.mu*i_material.epszx_alpha )
                   / i_material.rho;
               break;
 
@@ -135,13 +66,13 @@ namespace seissol {
                 o_M(4,8) = -2.0*muInvRho;
               }
               o_M(9,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+                + i_material.mu*i_material.epsxy_alpha )
                   / i_material.rho;
-              o_M(9,7) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
+              o_M(9,7) = (i_material.lambda*I1
+                + i_material.mu*i_material.epsyy_alpha )
                   / i_material.rho;
               o_M(9,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+                + i_material.mu*i_material.epsyz_alpha )
                   / i_material.rho;
               break;
 
@@ -157,13 +88,13 @@ namespace seissol {
                 o_M(4,7) = -2.0*muInvRho;
               }
               o_M(9,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+                + i_material.mu*i_material.epszx_alpha )
                   / i_material.rho;
               o_M(9,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+                + i_material.mu*i_material.epsyz_alpha )
                   / i_material.rho;
-              o_M(9,8) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
+              o_M(9,8) = (i_material.lambda*I1
+                + i_material.mu*i_material.epszz_alpha )
                   / i_material.rho;
               break;
 
@@ -240,35 +171,15 @@ namespace seissol {
           // R(9,9) = 1.0;
           // eigenvector corresponding to the additional damage variable
           real I1 = local.epsxx_alpha + local.epsyy_alpha + local.epszz_alpha;
-          real I2 = local.epsxx_alpha*local.epsxx_alpha
-            + local.epsyy_alpha*local.epsyy_alpha
-            + local.epszz_alpha*local.epszz_alpha
-            + 2*local.epsxy_alpha*local.epsxy_alpha
-            + 2*local.epsyz_alpha*local.epsyz_alpha
-            + 2*local.epszx_alpha*local.epszx_alpha;
 
-          real xi;
-          if (I2 > 1e-30){
-            xi = I1 / std::sqrt(I2);
-          } else{
-            xi = 0.0;
-          }
-
-          real xiInv;
-          if ( std::abs(xi) > 1e-1){
-            xiInv = 1 / xi;
-          } else{
-            xiInv = 0.0;
-          }
-
-          R(0,9) = (local.gamma*std::sqrt(I2)
-                + local.gamma*(xi+local.xi0)*local.epsxx_alpha )
+          R(0,9) = (local.lambda*I1
+                + local.mu*local.epsxx_alpha )
                   / ((local.lambda+2*local.mu)/local.rho);
           R(3,9) = (0
-            + local.gamma*(xi+local.xi0)*local.epsxy_alpha )
+            + local.mu*local.epsxy_alpha )
               / (2*local.mu/local.rho);
           R(5,9) = (0
-            + local.gamma*(xi+local.xi0)*local.epszx_alpha )
+            + local.mu*local.epszx_alpha )
               / (2*local.mu/local.rho);
           R(9,9) = local.rho;
          #endif
