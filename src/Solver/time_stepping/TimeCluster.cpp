@@ -1085,7 +1085,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         lambda0 = materialData[l_cell].neighbor[side].lambda0;
         mu0 = materialData[l_cell].neighbor[side].mu0;
 
-        if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow ||
+        if (// cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
         cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
           m_cellAverageKernel.phiAve = init::phiAve::Values;
           m_cellAverageKernel.Q = derivatives_neighbor[side];
