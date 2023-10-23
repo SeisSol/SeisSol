@@ -42,11 +42,13 @@
 
 #include <Kernels/Time.h>
 #include <Kernels/Local.h>
+#include <Kernels/Touch.h>
 #include <Monitoring/Stopwatch.h>
 #include "utils/env.h"
 
 #ifdef ACL_DEVICE
 #include <Initializer/BatchRecorders/Recorders.h>
+#include <Parallel/AcceleratorDevice.h>
 #include "device.h"
 #endif
 
@@ -124,17 +126,6 @@ void seissol::localIntegration(GlobalData* globalData,
   }
 }
 
-void seissol::fillWithStuff(  real* buffer,
-                              unsigned nValues) {
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned n = 0; n < nValues; ++n) {
-    // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
-    buffer[n] = static_cast<real>((214013*n + 2531011) / 65536);
-  }
-}
-
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        initializers::LTS& lts,
                                        initializers::Layer& layer) {
@@ -205,10 +196,10 @@ void seissol::fakeData(initializers::LTS& lts,
     }
   }
   
-  fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells());
-  fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
-  fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
-  fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), true);
+  kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), true);
+  kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP

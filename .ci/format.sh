@@ -31,6 +31,14 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
+        src/Kernels/PointSourceCluster.h
+        src/Kernels/PointSourceCluster.cpp
+        src/Kernels/PointSourceClusterOnHost.h
+        src/Kernels/PointSourceClusterOnHost.cpp
+        src/Kernels/PointSourceClusterOnDevice.h
+        src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Touch.h
+        src/Kernels/Touch.cpp
         src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
