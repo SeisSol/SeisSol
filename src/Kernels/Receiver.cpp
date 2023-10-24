@@ -140,9 +140,9 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
            if (!std::isfinite(qAtPoint(sim, quantity))) {
              logError()
                  << "Detected Inf/NaN in receiver output at"
-                 << receiver.coordinates[0] << ","
-                 << receiver.coordinates[1] << ","
-                 << receiver.coordinates[2] << "."
+                 << receiver.position[0] << ","
+                 << receiver.position[1] << ","
+                 << receiver.position[2] << "."
                  << "Aborting.";
           }
             receiver.output.push_back(qAtPoint(sim, quantity));

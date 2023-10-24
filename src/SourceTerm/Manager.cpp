@@ -362,11 +362,13 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
+      sources.originalIndex.resize(numberOfSources);
       sources.slipRates[0].resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned fsrmIndex = originalIndex[sourceIndex];
+        sources.originalIndex[clusterSource] = sourceIndex;
 
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
@@ -485,6 +487,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
+      sources.originalIndex.resize(numberOfSources);
       for (auto& sr : sources.slipRates) {
         sr.resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
       }
@@ -492,6 +495,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned nrfIndex = originalIndex[sourceIndex];
+        sources.originalIndex[clusterSource] = sourceIndex;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

@@ -53,6 +53,10 @@ def addKernels(generator, aderdg, include_tensors, targets):
   numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
 
+  selectVelocitySpp = np.zeros((numberOfQuantities, 3))
+  selectVelocitySpp[6:9,0:3] = np.eye(3)
+  selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
+
   faceDisplacement = OptionalDimTensor('faceDisplacement',
                                        aderdg.Q.optName(),
                                        aderdg.Q.optSize(),
@@ -95,7 +99,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
                   target=target)
 
   addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
-                          + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * aderdg.selectVelocity['qp']
+                          + aderdg.db.V3mTo2nFace[f][aderdg.t('kl')] * aderdg.I['lq'] * aderdg.selectVelocity['qp']
   generator.addFamily('addVelocity', simpleParameterSpace(4), addVelocity)
 
   numberOfQuadratureNodes = (aderdg.order+1)**2
@@ -122,7 +126,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
                                               alignStride=True)
 
     addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
-                            + aderdg.db.V3mTo2nFace[f]['kl'] * integratedVelocities['lp']
+                            + aderdg.db.V3mTo2nFace[f][aderdg.t('kl')] * integratedVelocities['lp']
 
     generator.addFamily(f'{name_prefix}addVelocity',
                         simpleParameterSpace(4),

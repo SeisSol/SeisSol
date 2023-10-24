@@ -84,11 +84,20 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
+  auto getWeights = [&weightsView](size_t index) {
+#ifdef MULTIPLE_SIMULATIONS
+    return weightsView(index, 0);
+#else
+    return weightsView(index);
+#endif
+  };
+
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
   for (size_t i = 0; i < data.size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
-    data.weights[i] = weightsView(i);
+    data.weights[i] = getWeights(i);
   }
 
   return data;

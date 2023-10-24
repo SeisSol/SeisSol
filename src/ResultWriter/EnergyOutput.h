@@ -12,6 +12,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
+#include <Solver/MultipleSimulations.h>
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
@@ -20,25 +21,25 @@
 namespace seissol::writer {
 
 struct EnergiesStorage {
-  std::array<double, 9> energies{};
+  std::array<double, multipleSimulations::numberOfSimulations * 9> energies{};
 
-  double& gravitationalEnergy();
+  double& gravitationalEnergy(size_t sim);
 
-  double& acousticEnergy();
+  double& acousticEnergy(size_t sim);
 
-  double& acousticKineticEnergy();
+  double& acousticKineticEnergy(size_t sim);
 
-  double& elasticEnergy();
+  double& elasticEnergy(size_t sim);
 
-  double& elasticKineticEnergy();
+  double& elasticKineticEnergy(size_t sim);
 
-  double& totalFrictionalWork();
+  double& totalFrictionalWork(size_t sim);
 
-  double& staticFrictionalWork();
+  double& staticFrictionalWork(size_t sim);
 
-  double& plasticMoment();
+  double& plasticMoment(size_t sim);
 
-  double& seismicMoment();
+  double& seismicMoment(size_t sim);
 };
 
 class EnergyOutput : public Module {
@@ -59,11 +60,12 @@ class EnergyOutput : public Module {
   void simulationStart() override;
 
   private:
-  real computeStaticWork(const real* degreesOfFreedomPlus,
-                         const real* degreesOfFreedomMinus,
-                         DRFaceInformation const& faceInfo,
-                         DRGodunovData const& godunovData,
-                         const real slip[seissol::tensor::slipRateInterpolated::size()]);
+  std::array<real, multipleSimulations::numberOfSimulations>
+      computeStaticWork(const real* degreesOfFreedomPlus,
+                        const real* degreesOfFreedomMinus,
+                        DRFaceInformation const& faceInfo,
+                        DRGodunovData const& godunovData,
+                        const real slip[seissol::tensor::slipRateInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 

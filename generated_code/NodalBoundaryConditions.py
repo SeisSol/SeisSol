@@ -9,10 +9,18 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
     easi_ident_map = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
     assert(easi_ident_map.shape ==
            (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()))
-    easi_ident_map = Tensor('easiIdentMap',
-                            easi_ident_map.shape,
-                            easi_ident_map,
-                            alignStride=False)
+    if aderdg.multipleSimulations > 1:
+        easi_ident_map_spp = np.stack([easi_ident_map] * aderdg.multipleSimulations, axis=0)
+    else:
+        easi_ident_map_spp = easi_ident_map
+
+    easi_ident_map = OptionalDimTensor('easiIdentMap', 
+            aderdg.Q.optName(), 
+            aderdg.multipleSimulations, 
+            0, 
+            easi_ident_map.shape, 
+            spp=easi_ident_map_spp,
+            alignStride=False)
     easi_boundary_constant = Tensor('easiBoundaryConstant',
                                     (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
                                     alignStride=False)
@@ -24,7 +32,7 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
     )
     generator.add('createEasiBoundaryGhostCells', create_easi_boundary_ghost_cells)
 
-    projectToNodalBoundary = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['km'] * aderdg.I['mp']
+    projectToNodalBoundary = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('km')] * aderdg.I['mp']
 
     generator.addFamily('projectToNodalBoundary',
                         simpleParameterSpace(4),
@@ -32,7 +40,7 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
 
     for target in targets:
       name_prefix = generate_kernel_name_prefix(target)
-      projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
+      projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
                                                   * aderdg.I['lm'] \
                                                   * aderdg.Tinv['pm']
 
@@ -41,7 +49,7 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                           projectToNodalBoundaryRotated,
                           target=target)
 
-      projectDerivativeToNodalBoundaryRotated = lambda i, j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
+      projectDerivativeToNodalBoundaryRotated = lambda i, j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
                                                 * aderdg.dQs[i]['lm'] \
                                                 * aderdg.Tinv['pm']
 

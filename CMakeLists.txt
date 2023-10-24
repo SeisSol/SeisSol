@@ -131,6 +131,7 @@ add_custom_command(
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
+        ${CMAKE_SOURCE_DIR}/auto_tuning/config
         build-time-make-directory
         generated_code/arch.py
         generated_code/memlayout.py
@@ -192,6 +193,9 @@ target_compile_definitions(SeisSol-common-properties INTERFACE LOGLEVEL=${LOG_LE
 target_compile_definitions(SeisSol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
 
+if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+  target_compile_definitions(SeisSol-lib PUBLIC MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
+endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_PLASTICITY_IP)

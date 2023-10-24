@@ -120,16 +120,16 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
-  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
-  frictionalEnergy = Tensor('frictionalEnergy', ())
+  slipRateInterpolated = OptionalDimTensor('slipRateInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  tractionInterpolated = OptionalDimTensor('tractionInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  frictionalEnergy = OptionalDimTensor('frictionalEnergy', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
   timeWeight = Scalar('timeWeight')
-  spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints, 1), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
+  accumulateFrictionalEnergy = frictionalEnergy['l'] <= frictionalEnergy['l'] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['kl']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
 
   ## Dynamic Rupture Precompute
@@ -145,7 +145,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   eta = Tensor('eta', (N,N))
   zPlus = Tensor('Zplus', (N,N))
   zMinus = Tensor('Zminus', (N,N))
-  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (numberOfPoints, N), alignStride=True)
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints, N), alignStride=True)
 
   velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
   tractionsPlus = extractTractions['mn'] * qPlus['in']

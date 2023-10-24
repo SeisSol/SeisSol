@@ -99,6 +99,10 @@ struct PointSources {
    *  of the point source in the reference tetrahedron. */
   VectorT<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
 
+  /** Original Index, i.e. the order in which the sources appear in the
+   * input files */
+  std::vector<unsigned> originalIndex;
+
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
    * 3-5: Tan2X-Z   = second fault tangent
