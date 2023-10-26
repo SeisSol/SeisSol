@@ -199,7 +199,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInityz = -0e-1; // eps_yy0
   real epsInitzx = -0e-1; // eps_zz0
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-  real const damage_para2 = 1e7;
+  real const damage_para2 = 2e6;
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
   // real const mu0 = 8.27e10; // data.material.local.mu0
