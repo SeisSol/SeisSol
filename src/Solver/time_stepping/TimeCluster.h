@@ -638,7 +638,7 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][DAM][i]) - 0.5*lambda_max*(qIMinus[o][DAM][i])
+                  + 0.0*lambda_max*(qIPlus[o][DAM][i]) - 0.0*lambda_max*(qIMinus[o][DAM][i])
                 );
               }
             } // time integration loop
