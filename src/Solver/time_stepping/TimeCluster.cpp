@@ -351,8 +351,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // needed by some other time cluster.
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
-    const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
-    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
+    const bool buffersProvided = (data.cellInformation().ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation().ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
     if (resetMyBuffers) {
       // assert presence of the buffer
@@ -383,15 +383,15 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     );
 
     for (unsigned face = 0; face < 4; ++face) {
-      auto& curFaceDisplacements = data.faceDisplacements[face];
+      auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
         addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
-        addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements()[face];
         addVelocityKrnl.I = l_bufferPointer;
         addVelocityKrnl.execute(face);
       }

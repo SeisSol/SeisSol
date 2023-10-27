@@ -50,11 +50,11 @@ namespace seissol::kernels {
         GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
 #else
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
 #endif
   }
 

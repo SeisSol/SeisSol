@@ -47,6 +47,10 @@
 #include <Monitoring/FlopCounter.hpp>
 #include <generated_code/kernel.h>
 
+#ifdef ACL_DEVICE
+#include <Parallel/AcceleratorDevice.h>
+#endif
+
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
                                                       Eigen::Vector3d const&            point,
@@ -73,9 +77,16 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
+  
   alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+#ifdef ACL_DEVICE
+  constexpr size_t dofsHostCopySize = tensor::Q::size();
+  alignas(ALIGNMENT) real dofsHostCopy[ dofsHostCopySize ];
+#endif
+
+
 #ifdef USE_STP
   alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
@@ -106,11 +117,20 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
+      // Copy DOFs from device to host.
+      LocalData tmpReceiverData { receiver.data };
+#ifdef ACL_DEVICE
+      tmpReceiverData.dofs_ptr = &dofsHostCopy;
+      auto& q = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
+      q.memcpy( dofsHostCopy, receiver.data.dofs(), sizeof(real)*dofsHostCopySize ).wait();
+#endif
+      
+
 #ifdef USE_STP
-      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
+      m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
 #else
       m_timeKernel.computeAder( timeStepWidth,
-                                receiver.data,
+                                tmpReceiverData,
                                 tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
