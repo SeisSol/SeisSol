@@ -11,7 +11,7 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
 
-  auto* pstrain = currentLayer->var(currentHandler->pstrain);
+  auto* pstrains = currentLayer->var(currentHandler->pstrain);
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =
       static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
