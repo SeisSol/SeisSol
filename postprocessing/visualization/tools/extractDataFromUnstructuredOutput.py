@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(description="resample output file and write as 
 parser.add_argument("xdmfFilename", help="xdmf output file")
 parser.add_argument("--add2prefix", help="string to append to prefix for new file", type=str, default="_resampled")
 parser.add_argument("--Data", nargs="+", metavar=("variable"), help="Data to resample (example SRs, or all)", required=True)
-parser.add_argument("--downsample", help="write one out of n output", type=int, default=1)
+parser.add_argument("--downsample", help="write one out of n output", type=int)
 parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
 parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
 parser.add_argument("--last", dest="last", default=False, action="store_true", help="output last time step")
@@ -96,10 +96,12 @@ else:
     if args.idt and args.downsample:
         print("idt and downsample options cannot be used together")
         exit()
-    elif not args.downsample:
+    elif args.idt:
         indices = args.idt
-    else:
+    elif args.downsample:
         indices = range(0, ndt, args.downsample)
+    else:
+        indices = range(0, ndt, 1)
 
 # Check if input is in hdf5 format or not
 first_data_field = list(sx.ReadAvailableDataFields())[0]
