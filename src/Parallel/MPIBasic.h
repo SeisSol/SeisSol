@@ -98,6 +98,16 @@ public:
 	{
 		return m_sharedMemMpiSize;
 	}
+
+	bool isSingleProcess() const
+	{
+		return size() == 1;
+	}
+
+	bool isSingleNode() const
+	{
+		return size() == sharedMemMpiSize();
+	}
 };
 } // namespace seissol
 

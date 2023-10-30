@@ -29,7 +29,7 @@ endif()
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
-#                     MEMORY_LAYOUT, COMMTHREAD,
+#                     MEMORY_LAYOUT,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
@@ -221,14 +221,6 @@ if (MPI)
   target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
-
-  if (MINI_SEISSOL)
-    target_compile_definitions(SeisSol-common-properties INTERFACE USE_MINI_SEISSOL)
-  endif()
-endif()
-
-if (COMMTHREAD)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_COMM_THREAD)
 endif()
 
 if (NUMA_AWARE_PINNING)

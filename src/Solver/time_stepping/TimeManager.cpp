@@ -47,6 +47,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 #include <ResultWriter/ClusteringWriter.h>
+#include "Parallel/Helper.hpp"
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -220,17 +221,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-#ifdef USE_COMM_THREAD
-  bool useCommthread = true;
-#else
-  bool useCommthread = false;
-#endif
-  if (useCommthread && MPI::mpi.size() == 1)  {
-    logInfo(MPI::mpi.rank()) << "Only using one mpi rank. Not using communication thread.";
-    useCommthread = false;
-  }
-
-  if (useCommthread) {
+  if (seissol::useCommThread(MPI::mpi)) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
                                                                           &seissol::SeisSol::main.getPinning()
                                                                           );

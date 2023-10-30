@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "utils/logger.h"
+#include "utils/env.h"
 
 #include "SeisSol.h"
 #ifdef USE_NETCDF
@@ -58,24 +59,26 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
 
-#ifdef USE_MINI_SEISSOL
-  if (seissol::MPI::mpi.size() > 1) {
-    logInfo(rank) << "Running mini SeisSol to determine node weight";
-    auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
-                                            seissolParams.model.plasticity);
-    nodeWeight = 1.0 / elapsedTime;
+  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true) && seissolParams.mesh.miniseissol) {
+    if (seissol::MPI::mpi.size() > 1) {
+      logInfo(rank) << "Running mini SeisSol to determine node weights.";
+      auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                              seissolParams.model.plasticity);
+      nodeWeight = 1.0 / elapsedTime;
 
-    const auto summary = seissol::statistics::parallelSummary(nodeWeight);
-    logInfo(rank) << "Node weights: mean =" << summary.mean << " std =" << summary.std
-                  << " min =" << summary.min << " median =" << summary.median
-                  << " max =" << summary.max;
+      const auto summary = seissol::statistics::parallelSummary(nodeWeight);
+      logInfo(rank) << "Node weights: mean =" << summary.mean << " std =" << summary.std
+                    << " min =" << summary.min << " median =" << summary.median
+                    << " max =" << summary.max;
 
-    writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
-    writer.write(elapsedTime, nodeWeight);
+      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
+      writer.write(elapsedTime, nodeWeight);
+    } else {
+      logInfo(rank) << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
+    }
+  } else {
+    logInfo(rank) << "Skipping mini SeisSol (disabled).";
   }
-#else
-  logInfo(rank) << "Skipping mini SeisSol";
-#endif
 
   logInfo(rank) << "Reading PUML mesh";
 
