@@ -914,7 +914,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       real alphaAve = Q_aveData[9];
       real lambda0 = materialData[l_cell].local.lambda0;// 9.71e10;
       real mu0 = materialData[l_cell].local.mu0;// 8.27e10;
-      real beta_m = materialData[l_cell].local.beta;// 0e2;
+      // real beta_m = materialData[l_cell].local.beta;// 0e2;
+      real beta_m = 0e2;
 
       // std::cout << lambda0 << mu0 << ", " << beta_m << std::endl;
 
