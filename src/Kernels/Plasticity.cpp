@@ -170,7 +170,7 @@ namespace seissol::kernels {
       adjKrnl.yieldFactor = yieldFactor;
       adjKrnl.execute();
 
-      // calculate plastic strain with first dof only (for now)
+      // calculate plastic strain
       for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
         /**
          * Equation (10) from Wollherr et al.:
