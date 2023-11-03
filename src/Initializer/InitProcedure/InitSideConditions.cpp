@@ -110,6 +110,14 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(2, g));
+  } else if (initConditionParams.type ==
+             seissol::initializer::parameters::InitializationType::PressureInjection) {
+    initialConditionDescription = "Pressure Injection";
+#ifndef USE_POROELASTIC
+    logError()
+        << "The initial condition 'Pressure Injection' only works with poroelastic materials.";
+#endif
+    initConditions.emplace_back(new physics::PressureInjection(initConditionParams));
   }
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   else {

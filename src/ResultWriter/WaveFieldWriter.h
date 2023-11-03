@@ -101,6 +101,7 @@ class WaveFieldWriter
   std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsamplerPStrain;
 
   /** Number of variables */
+
   unsigned int m_numVariables;
 
   /** Number of integrated variables */
@@ -197,7 +198,8 @@ class WaveFieldWriter
             const real* integrals,
             unsigned int* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
-            xdmfwriter::BackendType backend);
+            xdmfwriter::BackendType backend,
+            const std::string& backupTimeStamp);
 
   /**
    * Write a time step

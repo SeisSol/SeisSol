@@ -10,6 +10,7 @@
 #include "SeisSol.h"
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
+#include "Geometry/CubeGenerator.h"
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
@@ -131,6 +132,27 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 } // namespace
 
+static void
+    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+#if USE_NETCDF
+  // unpack seissolParams
+  const auto cubeParameters = seissolParams.cubeGenerator;
+
+  const auto commRank = seissol::MPI::mpi.rank();
+  const auto commSize = seissol::MPI::mpi.size();
+  std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+  auto meshReader = new seissol::geometry::CubeGenerator(
+      commRank, commSize, realMeshFileName.c_str(), cubeParameters);
+
+  // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
+  seissol::SeisSol::main.setMeshReader(
+      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
+#else
+  logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
+                "not linked to Netcdf.";
+#endif
+}
+
 void seissol::initializer::initprocedure::initMesh() {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -167,6 +189,9 @@ void seissol::initializer::initprocedure::initMesh() {
     break;
   case seissol::geometry::MeshFormat::PUML:
     readMeshPUML(seissolParams);
+    break;
+  case seissol::geometry::MeshFormat::CubeGenerator:
+    readCubeGenerator(seissolParams);
     break;
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);

@@ -1,4 +1,6 @@
 #include "FrictionSolver.h"
+#include "generated_code/kernel.h"
+#include <yateto/TensorView.h>
 
 namespace seissol::dr::friction_law {
 
@@ -15,6 +17,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                         seissol::initializers::DynamicRupture const* const dynRup,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
+  impedanceMatrices = layerData.var(dynRup->impedanceMatrices);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
   nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS);
   mu = layerData.var(dynRup->mu);
@@ -38,5 +41,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
+  initialPressure = layerData.var(dynRup->initialPressure);
+  nucleationPressure = layerData.var(dynRup->nucleationPressure);
 }
 } // namespace seissol::dr::friction_law

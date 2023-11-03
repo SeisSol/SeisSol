@@ -11,6 +11,7 @@
 #include <xdmfwriter/XdmfWriter.h>
 
 #include "Geometry/MeshReader.h"
+#include "Geometry/CubeGenerator.h"
 #include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
@@ -209,6 +210,7 @@ struct EndParameters {
 struct SeisSolParameters {
   ModelParameters model;
   MeshParameters mesh;
+  seissol::geometry::CubeGeneratorParameters cubeGenerator;
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;

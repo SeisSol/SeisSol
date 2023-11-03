@@ -199,6 +199,16 @@ class SeisSol {
 
   GravitationSetup& getGravitationSetup() { return gravitationSetup; }
 
+  /*
+   * sets a time stamp for backuping
+   * */
+  void setBackupTimeStamp(const std::string& stamp);
+
+  /*
+   * returns the backup time stamp
+   * */
+  const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
+
   double wiggleFactorLts = 1.0;
   int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
 
@@ -276,6 +286,9 @@ class SeisSol {
   std::pair<seissol::ITM::InstantaneousTimeMirrorManager, seissol::ITM::InstantaneousTimeMirrorManager> timeMirrorManagers;
 
   seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
+
+  //! time stamp which can be used for backuping files of previous runs
+  std::string m_backupTimeStamp{};
 
   /**
    * Only one instance of this class should exist (private constructor).

@@ -306,6 +306,10 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+#if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
+  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
+  seissol::tensor::minusFluxMatrices::Container<real const*> minusFluxMatrices;
+#endif //ACL_DEVICE
  
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
@@ -465,7 +469,13 @@ struct TravellingWaveParameters {
 };
 
 struct AcousticTravellingWaveParametersITM {
-    double k;
+  double k;
+};
+
+struct PressureInjectionParameters {
+  std::array<double, 3> origin;
+  double magnitude;
+  double width;
 };
 
 #endif
