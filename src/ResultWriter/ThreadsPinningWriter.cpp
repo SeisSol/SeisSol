@@ -56,6 +56,7 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 #endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+#ifndef __APPLE__
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
 
   seissol::writer::pinning::details::PinningInfo commThreadInfo;
