@@ -68,6 +68,7 @@ struct ITMParameters{
   double ITMVelocityScalingFactor;
   double ITMStartingTime;
   bool ITMToggle;
+  int reflectionType;
 };
 
 enum class InitializationType : int {

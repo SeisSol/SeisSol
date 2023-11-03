@@ -169,6 +169,7 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.itmParameters.ITMTime = reader.readWithDefault("itmtime", 0.0);
   seissolParams.itmParameters.ITMToggle = reader.readWithDefault("itmtoggle", bool(0));
   seissolParams.itmParameters.ITMVelocityScalingFactor = reader.readWithDefault("itmvelocityscalingfactor", 1.0);
+  seissolParams.itmParameters.reflectionType = reader.readWithDefault("itmreflectiontype", 1);
 
   if (seissolParams.itmParameters.ITMTime < 0.0) {
     logError() << "ITM Time is less than zero. It should be positive!\n";
