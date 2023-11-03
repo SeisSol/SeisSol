@@ -40,6 +40,8 @@ format() {
         src/Geometry/PUMLReader.cpp
         src/Geometry/PartitioningLib.h
         src/Geometry/PartitioningLib.cpp
+        src/Geometry/CubeGenerator.h
+        src/Geometry/CubeGenerator.cpp
         src/Parallel/Helper.hpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
