@@ -109,8 +109,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
              "you want to run SeisSol without a communication thread (and instead use polling), "
-             "then try running with the environment variable \"SEISSOL_COMMTHREAD=false\". "
-             "However, for more balanced performance, we recommend using the communication thread.";
+             "then try running with the environment variable \"SEISSOL_COMMTHREAD=false\". ";
     }
   }
 #endif // _OPENMP
