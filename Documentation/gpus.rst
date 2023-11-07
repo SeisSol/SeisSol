@@ -95,7 +95,7 @@ Compile SeisSol with (e.g.)
 
     mkdir -p seissol-gpu/build && cd seissol-gpu/build 
     cmake -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_70 -DHOST_ARCH=skx \
-    -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
+    -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
 
 The following two CMake options can be useful to improve performance:

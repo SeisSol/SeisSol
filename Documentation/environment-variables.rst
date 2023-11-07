@@ -1,7 +1,25 @@
 Environment Variables
 =====================
 
-SeisSol can be tuned with several environment variables:
+SeisSol can be tuned with several environment variables.
+
+Communication Thread
+--------------------
+
+By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
+For that, you will need to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
+
+If you do not want to use a communication thread, you may set `SEISSOL_COMMTHREAD=0`; then SeisSol polls on the progress from time to time.
+
+Load Balancing
+--------------
+
+When running with multiple ranks, SeisSol will estimate the performance of a node, to enable better load balancing for it.
+For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints at—it simulates a small test workload on each node;
+thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
+
+As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer; especially when running only on a single node with multiple ranks.
+To disable it, set `SEISSOL_MINISEISSOL=0`.
 
 Output
 ------
@@ -32,7 +50,6 @@ Optimal environment variables on SuperMUC-NG
 --------------------------------------------
 
 On SuperMUC-NG, we recommend using SeisSol with async output in thread mode.
-That is SeisSol should be compiled with :code:`-DCOMMTHREAD=ON`, and then run with the environment variables proposed below.
 Also, we recommend using hyperthreading capabilities (that is using 96 CPUs instead of 48. 2 threads out of 96 are used as communication threads).
 Here are some proposed environment variables, to be added prior to invoking SeisSol in your batch file:
 
@@ -53,3 +70,6 @@ Here are some proposed environment variables, to be added prior to invoking Seis
    export ASYNC_BUFFER_ALIGNMENT=8388608
 
 A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
+
+In previous versions of SeisSol, you had to explicitly compile the software with `-DCOMMTHREAD=ON`. That is not necessary anymore, as
+any configuration with more than one MPI rank uses the communication thread by default.

@@ -50,8 +50,6 @@ To compile the GPU version of SeisSol on heisenbug, use the following cmake opti
     -DDEVICE_ARCH=sm_86 -DHOST_ARCH=hsw -DDEVICE_BACKEND=cuda -DPRECISION=single -DHIPSYCL_CUDA_PATH=$CUDA_HOME
 
 
-Use ``-DCOMMTHREAD=ON`` for multiple GPUs, and ``-DCOMMTHREAD=OFF`` for one GPU.
-
 As there is no queuing system on heisenbug, you need to make sure that nobody is running anything on the GPUs.
 You can check that by running ``nvidia-smi`` (it should return ``No running processes found``).
 
