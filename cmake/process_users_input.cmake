@@ -6,11 +6,9 @@ set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
 option(MPI "Use MPI parallelization" ON)
-option(MINI_SEISSOL "Use MiniSeisSol to compute node weights for load balancing" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
-option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
 option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
@@ -70,8 +68,6 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
-
-option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
