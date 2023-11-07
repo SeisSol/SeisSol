@@ -74,25 +74,33 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     drParameters->backgroundType = getWithDefault(yamlDrParams, "backgroundtype", 0);
     drParameters->isThermalPressureOn = getWithDefault(yamlDrParams, "thermalpress", false);
     drParameters->t0 = getWithDefault(yamlDrParams, "t_0", 0.0);
-    drParameters->rsF0 = getWithDefault(yamlDrParams, "rs_f0", 0.0);
-    drParameters->rsA = getWithDefault(yamlDrParams, "rs_a", 0.0);
-    drParameters->rsB = getWithDefault(yamlDrParams, "rs_b", 0.0);
-    drParameters->rsSr0 = getWithDefault(yamlDrParams, "rs_sr0", 0.0);
-    drParameters->rsInitialSlipRate1 = getWithDefault(yamlDrParams, "rs_inisliprate1", 0.0);
-    drParameters->rsInitialSlipRate2 = getWithDefault(yamlDrParams, "rs_inisliprate2", 0.0);
-    drParameters->muW = getWithDefault(yamlDrParams, "rs_muw", 0.0);
 
-    // Thermal Pressurization parameters
-    drParameters->thermalDiffusivity = getWithDefault(yamlDrParams, "tp_thermaldiffusivity", 0.0);
-    drParameters->heatCapacity = getWithDefault(yamlDrParams, "tp_heatcapacity", 0.0);
-    drParameters->undrainedTPResponse = getWithDefault(yamlDrParams, "tp_undrainedtpresponse", 0.0);
-    drParameters->initialTemperature = getWithDefault(yamlDrParams, "tp_initemp", 0.0);
-    drParameters->initialPressure = getWithDefault(yamlDrParams, "tp_inipressure", 0.0);
-
+    if ((drParameters->frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
+        (drParameters->frictionLawType == FrictionLawType::RateAndStateSlipLaw) or
+        (drParameters->frictionLawType == FrictionLawType::RateAndStateVelocityWeakening) or
+        (drParameters->frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening)) {
+      drParameters->rsF0 = getOrFail<double>(yamlDrParams, "rs_f0");
+      drParameters->rsB = getOrFail<double>(yamlDrParams, "rs_b");
+      drParameters->rsSr0 = getOrFail<double>(yamlDrParams, "rs_sr0");
+      drParameters->rsInitialSlipRate1 = getOrFail<double>(yamlDrParams, "rs_inisliprate1");
+      drParameters->rsInitialSlipRate2 = getOrFail<double>(yamlDrParams, "rs_inisliprate2");
+    }
+    if (drParameters->frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening) {
+      drParameters->muW = getOrFail<double>(yamlDrParams, "rs_muw");
+    }
+    if (drParameters->isThermalPressureOn) {
+      // Thermal Pressurization parameters
+      drParameters->thermalDiffusivity = getOrFail<double>(yamlDrParams, "tp_thermaldiffusivity");
+      drParameters->heatCapacity = getOrFail<double>(yamlDrParams, "tp_heatcapacity");
+      drParameters->undrainedTPResponse = getOrFail<double>(yamlDrParams, "tp_undrainedtpresponse");
+      drParameters->initialTemperature = getOrFail<double>(yamlDrParams, "tp_initemp");
+      drParameters->initialPressure = getOrFail<double>(yamlDrParams, "tp_inipressure");
+    }
     // Prakash-Clifton regularization parameters
-    drParameters->vStar = getWithDefault(yamlDrParams, "pc_vstar", 0.0);
-    drParameters->prakashLength = getWithDefault(yamlDrParams, "pc_prakashlength", 0.0);
-
+    if (drParameters->frictionLawType == FrictionLawType::LinearSlipWeakeningBimaterial) {
+      drParameters->vStar = getOrFail<double>(yamlDrParams, "pc_vstar");
+      drParameters->prakashLength = getOrFail<double>(yamlDrParams, "pc_prakashlength");
+    }
     // filename of the yaml file describing the fault parameters
     drParameters->faultFileName = getWithDefault(yamlDrParams, "modelfilename", std::string(""));
   }
