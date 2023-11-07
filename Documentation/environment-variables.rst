@@ -15,7 +15,7 @@ Load Balancing
 --------------
 
 When running with multiple ranks, SeisSol will estimate the performance of a node, to enable better load balancing for it.
-For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints at—it simulates a small test workload on each node;
+For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints at, it simulates a small test workload on each node;
 thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer; especially when running only on a single node with multiple ranks.
