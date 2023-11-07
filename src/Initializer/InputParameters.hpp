@@ -103,7 +103,6 @@ struct MeshParameters {
   std::array<double, 3> displacement;
   std::array<std::array<double, 3>, 3> scaling;
   bool showEdgeCutStatistics;
-  bool miniseissol;
 };
 
 struct OutputInterval {

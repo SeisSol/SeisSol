@@ -60,7 +60,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
 
-  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true) && seissolParams.mesh.miniseissol) {
+  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weights.";
       auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),

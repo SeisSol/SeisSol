@@ -273,7 +273,6 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
       reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
   seissolParams.mesh.showEdgeCutStatistics = reader.readWithDefault("showedgecutstatistics", false);
-  seissolParams.mesh.miniseissol = reader.readWithDefault("miniseissol", true);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
