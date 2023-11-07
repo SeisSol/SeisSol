@@ -54,6 +54,7 @@ seissol::time_stepping::TimeManager::TimeManager():
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");
   m_loopStatistics.addRegion("computeDynamicRupture");
+  m_loopStatistics.addRegion("computePointSources");
 
   actorStateStatisticsManager = ActorStateStatisticsManager();
 }

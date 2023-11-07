@@ -193,6 +193,7 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+    unsigned        m_regionComputePointSources;
 
     kernels::ReceiverCluster* m_receiverCluster;
 
