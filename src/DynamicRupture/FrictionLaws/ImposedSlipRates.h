@@ -28,8 +28,6 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
                              unsigned ltsFace,
                              unsigned timeIndex) {
-    std::cout << "entered: " << std::endl;
-
     const real timeIncrement = this->deltaT[timeIndex];
     real currentTime = this->mFullUpdateTime;
     for (unsigned i = 0; i <= timeIndex; i++) {
