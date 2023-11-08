@@ -76,7 +76,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const auto* devNucleationPressure{this->nucleationPressure};
 
         // #pragma omp distribute
-        #pragma omp target teams distribute map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize], in: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
+        #pragma omp target teams distribute map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize]) map(to: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -102,7 +102,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devRuptureTime{this->ruptureTime};
 
       // #pragma omp distribute
-      #pragma omp target teams distribute map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize], in: devSlipRateMagnitude[0:layerSize]) nowait
+      #pragma omp target teams distribute map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize]) map(to: devSlipRateMagnitude[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
