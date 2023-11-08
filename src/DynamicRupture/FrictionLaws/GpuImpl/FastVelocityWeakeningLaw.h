@@ -122,7 +122,7 @@ class FastVelocityWeakeningLaw
           deltaStateVar(misc::numPaddedPoints, cgh);*/
     // #pragma omp distribute
     real deltaStateVar[misc::numPaddedPoints];
-    #pragma omp target distribute map(in: devStateVariableBuffer[0:layerSize], resampleMatrix, inout: devStateVariable[0:layerSize], omp_pteam_mem_alloc:deltaStateVar) nowait
+    #pragma omp target distribute map(in: devStateVariableBuffer[0:layerSize], resampleMatrix, inout: devStateVariable[0:layerSize]) allocate(omp_pteam_mem_alloc:deltaStateVar) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
