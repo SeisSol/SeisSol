@@ -4,12 +4,12 @@
 
 #include <omp.h>
 
-void targetDartTextPointer() {}
+void targetDartTextPointer2() {}
 
 int main(int argc, char* argv[]) {
   // the proxy does not have MPI
 #ifdef USE_TARGETDART
-  initTargetDART(reinterpret_cast<void*>(&targetDartTextPointer));
+  initTargetDART(reinterpret_cast<void*>(&targetDartTextPointer2));
 #endif
 
   // argument reading
