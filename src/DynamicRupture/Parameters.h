@@ -29,7 +29,6 @@ struct DRParameters {
   bool isThermalPressureOn{false};
   real t0{0.0};
   real rsF0{0.0};
-  real rsA{0.0};
   real rsB{0.0};
   real rsSr0{0.0};
   real rsInitialSlipRate1{0.0};
