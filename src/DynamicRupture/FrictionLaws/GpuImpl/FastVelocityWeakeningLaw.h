@@ -121,8 +121,9 @@ class FastVelocityWeakeningLaw
      /* std::accessor<real, 1, std::access::mode::read_write, std::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);*/
     // #pragma omp distribute
-    real deltaStateVar[misc::numPaddedPoints];
-    #pragma omp target teams distribute map(to: devStateVariableBuffer[0:layerSize], resampleMatrix) map(tofrom: devStateVariable[0:layerSize]) allocate(omp_pteam_mem_alloc:deltaStateVar) nowait
+    #pragma omp target teams distribute map(to: devStateVariableBuffer[0:layerSize], resampleMatrix) map(tofrom: devStateVariable[0:layerSize]) nowait
+    // allocate(omp_pteam_mem_alloc:deltaStateVar)
+      real deltaStateVar[misc::numPaddedPoints];
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
