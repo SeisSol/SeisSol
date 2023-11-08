@@ -48,14 +48,16 @@ class FastVelocityWeakeningLaw
   }
 
   void updateStateVariable(double timeIncrement) {
+    const auto layerSize{this->currLayerSize};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: details, devStateVarReference[0:layerSize], devLocalSlipRate[0:layerSize], out: devStateVariableBuffer[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -110,6 +112,7 @@ class FastVelocityWeakeningLaw
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
+    const auto layerSize{this->currLayerSize};
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
     static_assert(dim0 == misc::numPaddedPoints);
@@ -117,9 +120,10 @@ class FastVelocityWeakeningLaw
 
      /* std::accessor<real, 1, std::access::mode::read_write, std::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);*/
-    #pragma omp distribute // map(alloc:deltaStateVar[0:misc::numPaddedPoints])
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-        real deltaStateVar[misc::numPaddedPoints];
+    // #pragma omp distribute
+    real deltaStateVar[misc::numPaddedPoints];
+    #pragma omp target distribute map(in: devStateVariableBuffer[0:layerSize], resampleMatrix, inout: devStateVariable[0:layerSize], omp_pteam_mem_alloc:deltaStateVar) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           deltaStateVar[pointIndex] =

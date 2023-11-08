@@ -13,13 +13,15 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
 
   #pragma omp declare target
   void updateStateVariable(double timeIncrement) {
+    const auto layerSize{this->currLayerSize};
     auto* devSl0{this->sl0};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devSl0[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize], out: devStateVariableBuffer[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 

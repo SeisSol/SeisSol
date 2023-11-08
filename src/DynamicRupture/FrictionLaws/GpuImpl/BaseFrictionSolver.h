@@ -34,9 +34,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       this->devTimeWeights[i] = timeWeights[i];
     }
 
+#ifdef TARGETDART
+    omp_set_default_device(TD_ANY);
+#endif
+
      // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
 
-    #pragma omp target teams
+    // #pragma omp target teams
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
@@ -45,9 +49,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedPlus{this->qInterpolatedPlus};
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
+      auto layerSize{this->currLayerSize};
 
-      #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+      // #pragma omp distribute
+      #pragma omp target distribute map(in: devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize], out: devFaultStresses[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
@@ -69,8 +75,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         auto* devInitialPressure{this->initialPressure};
         const auto* devNucleationPressure{this->nucleationPressure};
 
-        #pragma omp distribute
-        for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+        // #pragma omp distribute
+        #pragma omp target distribute map(inout: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize], in: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
+        for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
@@ -94,8 +101,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSlipRateMagnitude{this->slipRateMagnitude};
       auto* devRuptureTime{this->ruptureTime};
 
-      #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+      // #pragma omp distribute
+      #pragma omp target distribute map(inout: devRuptureTimePending[0:layerSize], out: devRuptureTime[0:layerSize], in: devSlipRateMagnitude[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
@@ -118,8 +126,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devGodunovData{this->godunovData};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
-      #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+      // #pragma omp distribute
+      #pragma omp target distribute map(in: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus, inout: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -149,6 +158,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         }
       }
+
+      #pragma omp taskwait
     }
   }
 };

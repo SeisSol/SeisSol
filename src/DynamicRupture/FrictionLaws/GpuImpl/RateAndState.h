@@ -91,10 +91,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
     // copy state variable from last time step
+    const auto layerSize{this->currLayerSize};
 
     auto* devLocalStateVariable{this->stateVariable};
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devLocalStateVariable[0:layerSize], out: stateVariableBuffer[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         stateVariableBuffer[ltsFace][pointIndex] = devLocalStateVariable[ltsFace][pointIndex];
@@ -121,6 +123,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * variable. Also sets slipRateMagnitude member to reference value.
    */
   void calcInitialVariables(unsigned int timeIndex) {
+    const auto layerSize{this->currLayerSize};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
     auto* devFaultStresses{this->faultStresses};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -134,8 +137,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     updateNormalStress(timeIndex);
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devFaultStresses[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devInitialStressInFaultCS[0:layerSize], out: devSlipRateMagnitude[0:layerSize], devAbsoluteShearTraction[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];
@@ -161,6 +165,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   void updateStateVariableIterative(unsigned timeIndex) {
+    const auto layerSize{this->currLayerSize};
     auto* devHasConverged{this->hasConverged};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
@@ -180,8 +185,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       this->tpMethod.calcFluidPressure(devNormalStress, devMu, devLocalSlipRate, dt, false);
       updateNormalStress(timeIndex);
 
-      #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+      // #pragma omp distribute
+      #pragma omp target distribute map(in: devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize], inout: devSlipRateMagnitude[0:layerSize], out: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         bool hasConvergedAllPoints = true;
         #pragma omp parallel for schedule(static, 1) reduction(&&:hasConvergedAllPoints)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -218,6 +224,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   void calcSlipRateAndTraction(unsigned timeIndex) {
+    const auto layerSize{this->currLayerSize};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer}; // localStateVariable
@@ -243,8 +250,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize], inout: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize], out: devTraction1[0:layerSize], devTraction2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -306,6 +314,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   void saveDynamicStressOutput() {
+    const auto layerSize{this->currLayerSize};
     auto fullUpdateTime{this->mFullUpdateTime};
     auto muW{this->drParameters->muW};
     auto rsF0{this->drParameters->rsF0};
@@ -315,8 +324,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devRuptureTime{this->ruptureTime};
     auto* devMu{this->mu};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devMu[0:layerSize], devRuptureTime[0:layerSize], inout: devDynStressTimePending[0:layerSize], out: devDynStressTime[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -366,14 +376,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   void updateNormalStress(size_t timeIndex) {
+    const auto layerSize{this->currLayerSize};
     auto* devFaultStresses{this->faultStresses};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devNormalStress{this->initialVariables.normalStress};
 
     auto tpCurrentLayerDetails = tpMethod.getCurrentLayerDetails();
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], tpCurrentLayerDetails, out: devNormalStress[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];

@@ -72,8 +72,9 @@ class SlowVelocityWeakeningLaw
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: stateVariableBuffer[0:layerSize], out: stateVariable[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 

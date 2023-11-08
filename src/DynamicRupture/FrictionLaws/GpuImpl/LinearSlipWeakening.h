@@ -39,6 +39,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
                                real (*devStrengthBuffer)[misc::numPaddedPoints],
                                unsigned int timeIndex) {
 
+    const auto layerSize{this->currLayerSize};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devImpAndEta{this->impAndEta};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -50,8 +51,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devSlip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize], inout: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], out: devTraction1[0:layerSize], devTraction2[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -96,12 +98,14 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
   void frictionFunctionHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+    const auto layerSize{this->currLayerSize};
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devMuS[0:layerSize], devMuD[0:layerSize], stateVariableBuffer[0:layerSize], out: devMu[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -118,14 +122,16 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * currently only for linear slip weakening
    */
   void saveDynamicStressOutput() {
+    const auto layerSize{this->currLayerSize};
     auto fullUpdateTime{this->mFullUpdateTime};
     auto* devDynStressTime{this->dynStressTime};
     auto* devDynStressTimePending{this->dynStressTimePending};
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* devDC{this->dC};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devAccumulatedSlipMagnitude[0:layerSize], devDC[0:layerSize], inout: devDynStressTimePending[0:layerSize], out: devDynStressTime[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -178,6 +184,7 @@ class LinearSlipWeakeningLaw
                         real (*devStrengthBuffer)[misc::numPaddedPoints],
                         unsigned int timeIndex) {
 
+                          const auto layerSize{this->currLayerSize};
     auto deltaT{this->deltaT[timeIndex]};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -188,8 +195,9 @@ class LinearSlipWeakeningLaw
     const auto prakashLength{this->drParameters->prakashLength};
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: currentLayerDetails, devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize], out: devStrengthBuffer[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -226,9 +234,11 @@ class LinearSlipWeakeningLaw
     auto deltaT{this->deltaT[timeIndex]};
     const real tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
+    const auto layerSize{this->currLayerSize};
 
-    #pragma omp distribute
-      for (int ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
+    // #pragma omp distribute
+    #pragma omp target distribute map(in: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:layerSize], inout: devAccumulatedSlipMagnitude[0:layerSize], out: devStateVariableBuffer[0:layerSize]) nowait
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
