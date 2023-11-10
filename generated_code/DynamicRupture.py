@@ -128,8 +128,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
-  # note that timeWeight is set to -0.5 * godunovData.doubledSurfaceArea in the Kernel (not a TimeWeight)
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
+
+  surfaceArea = Scalar('surfaceArea')
+  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + surfaceArea * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
 
   ## Dynamic Rupture Precompute
