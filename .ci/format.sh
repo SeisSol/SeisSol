@@ -31,6 +31,12 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
+        src/Kernels/PointSourceCluster.h
+        src/Kernels/PointSourceCluster.cpp
+        src/Kernels/PointSourceClusterOnHost.h
+        src/Kernels/PointSourceClusterOnHost.cpp
+        src/Kernels/PointSourceClusterOnDevice.h
+        src/Kernels/PointSourceClusterOnDevice.cpp
         src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
@@ -40,6 +46,9 @@ format() {
         src/Geometry/PUMLReader.cpp
         src/Geometry/PartitioningLib.h
         src/Geometry/PartitioningLib.cpp
+        src/Geometry/CubeGenerator.h
+        src/Geometry/CubeGenerator.cpp
+        src/Parallel/Helper.hpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h

@@ -62,7 +62,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
 
 {
   alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
-  assert( ((uintptr_t)stp) % ALIGNMENT  == 0);
+  assert( ((uintptr_t)stp) % ALIGNMENT == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
@@ -126,9 +126,26 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
-  alignas(PAGESIZE_STACK) real temporaryBuffer[tensor::spaceTimePredictor::size()];
+  alignas(ALIGNMENT) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
   executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
+}
+
+void seissol::kernels::Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
+                                            real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]) {
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = evaluatedTimeBasisFunctions->m_data.data();
+  krnl.execute();
+}
+
+void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
+  // reset flops
+  nonZeroFlops = 0; hardwareFlops = 0;
+
+  nonZeroFlops  += kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

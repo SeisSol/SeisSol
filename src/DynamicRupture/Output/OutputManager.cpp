@@ -71,6 +71,12 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
+OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
+    : ewOutputData(std::make_shared<ReceiverOutputData>()),
+      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
+  backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
+}
+
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
 void OutputManager::setInputParam(const YAML::Node& inputData,
@@ -155,7 +161,8 @@ void OutputManager::initElementwiseOutput() {
                                             const_cast<const real**>(dataPointers.data()),
                                             generalParams.outputFilePrefix.data(),
                                             printTime,
-                                            backendType);
+                                            backendType,
+                                            backupTimeStamp);
 
   seissol::SeisSol::main.faultWriter().setupCallbackObject(this);
 }
@@ -184,7 +191,7 @@ void OutputManager::initPickpointOutput() {
 
     auto fileName =
         buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "faultreceiver");
-    filesystem_aux::generateBackupFileIfNecessary(fileName, "dat");
+    seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
     fileName += ".dat";
 
     if (!seissol::filesystem::exists(fileName)) {

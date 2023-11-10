@@ -349,7 +349,7 @@ void EnergyOutput::computeVolumeEnergies() {
 #else
       real mu = material.local.mu;
 #endif
-      totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+      totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
     }
   }
 }

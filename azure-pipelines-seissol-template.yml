@@ -61,7 +61,7 @@ jobs:
                             mechanisms=0
                         fi
                         mkdir -p build && cd build
-                        CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=${{ build_type }} -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=${{ precision }} -DEQUATIONS=${{ equation }} -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCOVERAGE=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+                        CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=${{ build_type }} -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=${{ precision }} -DEQUATIONS=${{ equation }} -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCOVERAGE=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
                       displayName: cmake
                     - bash: |
                         cd build
@@ -69,6 +69,7 @@ jobs:
                         make -j $(nproc)
                       displayName: build
                     - bash: |
+                        set -eou pipefail
                         cd build
                         make test
 

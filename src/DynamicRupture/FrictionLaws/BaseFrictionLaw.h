@@ -41,6 +41,7 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
+                                                impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
@@ -67,6 +68,8 @@ class BaseFrictionLaw : public FrictionSolver {
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
+                                    initialPressure[ltsFace],
+                                    nucleationPressure[ltsFace],
                                     this->mFullUpdateTime,
                                     this->drParameters->t0,
                                     this->deltaT[timeIndex]);
@@ -104,6 +107,7 @@ class BaseFrictionLaw : public FrictionSolver {
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
+                                                   impedanceMatrices[ltsFace],
                                                    imposedStatePlus[ltsFace],
                                                    imposedStateMinus[ltsFace],
                                                    qInterpolatedPlus[ltsFace],

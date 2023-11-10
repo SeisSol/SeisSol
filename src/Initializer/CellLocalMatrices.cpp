@@ -350,6 +350,42 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
   }
 }
 
+/**
+ * Copies an eigen3 matrix to a 2D yateto tensor
+ */
+template <typename T, int dim1, int dim2>
+void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
+                       yateto::DenseTensorView<2, T>& tensorView) {
+  assert(tensorView.shape(0) == dim1);
+  assert(tensorView.shape(1) == dim2);
+
+  tensorView.setZero();
+  for (size_t row = 0; row < dim1; ++row) {
+    for (size_t col = 0; col < dim2; ++col) {
+      tensorView(row, col) = matrix(row, col);
+    }
+  }
+}
+
+constexpr int N = tensor::Zminus::Shape[0];
+Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {
+#ifdef USE_POROELASTIC
+  constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
+  constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
+  constexpr std::array<int, 4> columnIndices = {0,1,2,3};
+#else
+  constexpr std::array<int, 3> tractionIndices = {0,3,5};
+  constexpr std::array<int, 3> velocityIndices = {6,7,8};
+  constexpr std::array<int, 3> columnIndices = {0,1,2};
+#endif
+  auto matrix = eigenpair.getVectorsAsMatrix();
+  Eigen::Matrix<double, N, N> RT = matrix(tractionIndices, columnIndices).real();
+  Eigen::Matrix<double, N, N> RT_inv = RT.inverse();
+  Eigen::Matrix<double, N, N> RU = matrix(velocityIndices, columnIndices).real();
+  Eigen::Matrix<double, N, N> M = RU * RT_inv;
+  return M.cast<real>();
+};
+
 void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
@@ -387,6 +423,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
     seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
+    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = it->var(dynRup->impedanceMatrices);
 
 
 #ifdef _OPENMP
@@ -524,15 +561,34 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
           logError() << "Dynamic Rupture does not work with an acoustic material.";
           break;
         }
         case seissol::model::MaterialType::poroelastic: {
-          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
-          //TODO(SW): Make DR work with poroelasticity
+          // TODO (SW) Extract this into a function
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
+
+          auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
+          auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
+
+          // The impedance matrices are diagonal in the (visco)elastic case, so we only store
+          // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
+          // of the traction depend on each other, so we need a more complicated matrix structure.
+          Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
+          Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
+          Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
+
+          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
+          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
+          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
+
+          copyEigenToYateto(impedanceMatrix, impedanceView);
+          copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
+          copyEigenToYateto(etaMatrix, etaView);
+
           break;
         }
         case seissol::model::MaterialType::anisotropic: {

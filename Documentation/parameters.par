@@ -52,7 +52,7 @@ SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the 
 &Elementwise
 printIntervalCriterion = 2       ! 1=iteration, 2=time
 printtimeinterval_sec = 0.2      ! Time interval at which output will be written
-OutputMask = 1 1 1 1 1 1 1 1 1 1 1   ! turn on and off fault outputs
+OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 1
 /
@@ -60,7 +60,7 @@ refinement = 1
 ! parameterize ascii fault file outputs
 &Pickpoint
 printtimeinterval = 1       ! Index of printed info at timesteps
-OutputMask = 1 1 1 0        ! turn on and off fault outputs
+OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 nOutpoints = 28
 PPFileName = 'tpv33_faultreceivers.dat'
 /
