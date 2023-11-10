@@ -9,12 +9,21 @@ import argparse
 parser = argparse.ArgumentParser(description="resample output file and write as binary files")
 parser.add_argument("xdmfFilename", help="xdmf output file")
 parser.add_argument("--add2prefix", help="string to append to prefix for new file", type=str, default="_resampled")
-parser.add_argument("--Data", nargs="+", metavar=("variable"), help="Data to resample (example SRs, or all)", required=True)
-parser.add_argument("--downsample", help="write one out of n output", type=int)
+parser.add_argument("--Data", nargs="+", metavar=("variable"), help="Data to resample (example SRs, or all)", default=["all"])
 parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
 parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
-parser.add_argument("--last", dest="last", default=False, action="store_true", help="output last time step")
-parser.add_argument("--idt", nargs="+", help="list of time step to write (ex $(seq 7 3 28))", type=int)
+parser.add_argument(
+    "--time",
+    nargs=1,
+    default=["i:"],
+    help=(
+        "simulation time or steps to extract, separated by ','. prepend a i for a step,"
+        " or a python slice notation. E.g. 45.0,i2,i4:10:2,i-1 will extract a snapshot"
+        " at simulation time 45.0, the 2nd time step, and time steps 4,6, 8 and the"
+        " last time step"
+    ),
+)
+
 parser.add_argument(
     "--xfilter",
     nargs=2,
@@ -37,19 +46,48 @@ parser.add_argument(
     type=float,
 )
 args = parser.parse_args()
+class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
+    def OutputTimes(self):
+        """returns the list of output times written in the file"""
+        root = self.tree.getroot()
+        outputTimes = []
+        for Property in root.findall("Domain/Grid/Grid/Time"):
+            outputTimes.append(float(Property.get("Value")))
+        return outputTimes
 
+    def ComputeTimeIndices(self, at_time):
+        """retrive list of time index in file"""
+        outputTimes = np.array(sx.OutputTimes())
+        idsOutputTimes = list(range(0, len(outputTimes)))
+        lidt = []
+        for oTime in at_time:
+            if not oTime.startswith("i"):
+                idsClose = np.where(np.isclose(outputTimes, float(oTime), atol=0.0001))
+                if not len(idsClose[0]):
+                    print(f"t={oTime} not found in {sx.xdmfFilename}")
+                else:
+                    lidt.append(idsClose[0][0])
+            else:
+                sslice = oTime[1:]
+                if ":" in sslice or sslice=='-1':
+                    parts = sslice.split(":")
+                    startstopstep = [None for i in range(3)]
+                    for i, part in enumerate(parts):
+                        startstopstep[i] = int(part) if part else None
+                    lidt.extend(idsOutputTimes[startstopstep[0] : startstopstep[1] : startstopstep[2]])
+                else:
+                    lidt.append(int(sslice))
+        return sorted(list(set(lidt)))
 
-class seissolxdmfExtended(seissolxdmf.seissolxdmf):
     def ReadData(self, dataName, idt=-1):
-        if dataName == "SR":
+        if dataName == "SR" and "SR" not in sx.ReadAvailableDataFields():
             SRs = super().ReadData("SRs", idt)
             SRd = super().ReadData("SRd", idt)
-            return np.sqrt(SRs ** 2 + SRd ** 2)
+            return np.sqrt(SRs**2 + SRd**2)
         else:
             return super().ReadData(dataName, idt)
 
-
-sx = seissolxdmfExtended(args.xdmfFilename)
+sx = SeissolxdmfExtended(args.xdmfFilename)
 xyz = sx.ReadGeometry()
 connect = sx.ReadConnect()
 
@@ -85,21 +123,9 @@ if spatial_filtering:
             spatial_filtering = False
     else:
         raise ValueError("all elements are outside filter range")
-ndt = sx.ndt
 
-if args.last:
-    indices = [ndt - 1]
-    if args.idt or args.downsample:
-        print("last option cannot be used together with idt and downsample options")
-        exit()
-else:
-    if args.idt and args.downsample:
-        print("idt and downsample options cannot be used together")
-        exit()
-    elif not args.downsample:
-        indices = args.idt
-    else:
-        indices = range(0, ndt, args.downsample)
+ndt = sx.ndt
+indices = sx.ComputeTimeIndices(args.time[0].split(','))
 
 # Check if input is in hdf5 format or not
 first_data_field = list(sx.ReadAvailableDataFields())[0]
