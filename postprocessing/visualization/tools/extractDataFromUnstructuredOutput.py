@@ -221,6 +221,9 @@ for ida, sdata in enumerate(args.Data):
             myData = sx.ReadData(args.Data[ida], idt=i)[ids]
         else:
             myData = sx.ReadData(args.Data[ida], idt=i)
+        if kk == len(indices)-1 and myData.shape[0]==0:
+           print("last time step is corrupted, replacing with 0s")
+           myData = np.zeros((nElements))
         if write2Binary:
             myData.astype(myDtype).tofile(output_file)
         else:
