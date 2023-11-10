@@ -3,6 +3,7 @@
 #include "Common/filesystem.h"
 #include <sched.h>
 #include <fstream>
+#include "Parallel/Helper.hpp"
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -57,15 +58,17 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
 #ifndef __APPLE__
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
-#ifdef USE_COMM_THREAD
-  auto freeCpus = pinning.getFreeCPUsMask();
-  auto commThreadInfo = pinning::details::getPinningInfo(freeCpus.set);
-#else
-  cpu_set_t emptyUnion;
-  CPU_ZERO(&emptyUnion);
-  auto commThreadInfo = pinning::details::getPinningInfo(emptyUnion);
 
-#endif // USE_COMM_THREAD
+  seissol::writer::pinning::details::PinningInfo commThreadInfo;
+  if (seissol::useCommThread(seissol::MPI::mpi)) {
+    auto freeCpus = pinning.getFreeCPUsMask();
+    commThreadInfo = pinning::details::getPinningInfo(freeCpus.set);
+  }
+  else {
+    cpu_set_t emptyUnion;
+    CPU_ZERO(&emptyUnion);
+    commThreadInfo = pinning::details::getPinningInfo(emptyUnion);
+  }
 
   auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);
   auto workerNumas = seissol::MPI::mpi.collectContainer(workerInfo.numaIds);
