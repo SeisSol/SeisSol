@@ -122,16 +122,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
   tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
-  frictionalEnergy = Tensor('frictionalEnergy', ())
-  timeWeight = Scalar('timeWeight')
+  staticFrictionalWork = Tensor('staticFrictionalWork', ())
   spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
   surfaceArea = Scalar('surfaceArea')
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + surfaceArea * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
-  generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
+  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + 0.5 * surfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
+  generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
   ## Dynamic Rupture Precompute
   qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
