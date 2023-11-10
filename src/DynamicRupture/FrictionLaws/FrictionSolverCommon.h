@@ -179,17 +179,6 @@ inline void precomputeStressFromQInterpolated(
     + 2*(eyzP+epsInityz)*(eyzP+epsInityz)
     + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
   real alphap = damP;
-  real xip, xiInvp;
-  if (EspIIp > 1e-30){
-    xip = EspIp / std::sqrt(EspIIp);
-  } else{
-    xip = 0.0;
-  }
-  if ( std::abs(xip) > 1e-1){
-    xiInvp = 1 / xip;
-  } else{
-    xiInvp = 0.0;
-  }
 
   real EspIm = (exxM+epsInitxx) + (eyyM+epsInityy) + (ezzM+epsInitzz);
   real EspIIm = (exxM+epsInitxx)*(exxM+epsInitxx)
@@ -199,23 +188,12 @@ inline void precomputeStressFromQInterpolated(
     + 2*(eyzM+epsInityz)*(eyzM+epsInityz)
     + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
   real alpham = damM;
-  real xim, xiInvm;
-  if (EspIIm > 1e-30){
-    xim = EspIm / std::sqrt(EspIIm);
-  } else{
-    xim = 0.0;
-  }
-  if ( std::abs(xim) > 1e-1){
-    xiInvm = 1 / xim;
-  } else{
-    xiInvm = 0.0;
-  }
 
   // compute laP, muP, laM and muM
-  auto laP = la0P - alphap*gaRP*xiInvp;
-  auto laM = la0M - alpham*gaRM*xiInvm;
-  auto muP = mu0P - alphap*gaRP*xi0P - 0.5*alphap*gaRP*xip;
-  auto muM = mu0M - alpham*gaRM*xi0M - 0.5*alpham*gaRM*xim;
+  auto laP = la0P - alphap*la0P;
+  auto laM = la0M - alpham*la0M;
+  auto muP = mu0P - alphap*mu0P;
+  auto muM = mu0M - alpham*mu0M;
 
   invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
   invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );

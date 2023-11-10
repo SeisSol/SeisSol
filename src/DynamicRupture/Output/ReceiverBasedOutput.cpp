@@ -120,41 +120,35 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
         + 2*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)
         + 2*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx)*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
       real alphap = dofsNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      real xip;
-      if (EspIIp > 1e-30){
-        xip = EspIp / std::sqrt(EspIIp);
-      } else{
-        xip = 0.0;
-      }
 
-      dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+      dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
 
-      dofsStressNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+      dofsStressNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
 
-      dofsStressNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*impAndEtaGet->gammaRP*std::sqrt(EspIIp))
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+      dofsStressNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
       dofsStressNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
 
       dofsStressNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
 
       dofsStressNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
-                - alphap*impAndEtaGet->gammaRP*xip)
+            + (2*(mu0P - alphap*mu0P)
+              )
               *(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       real EspIm = (dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
@@ -167,41 +161,35 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
         + 2*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)
         + 2*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
       real alpham = dofsNMinus[9];
-      real xim;
-      if (EspIIm > 1e-30){
-        xim = EspIIm / std::sqrt(EspIIm);
-      } else{
-        xim = 0.0;
-      }
 
-      dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+      dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
 
-      dofsStressNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+      dofsStressNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
 
-      dofsStressNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*impAndEtaGet->gammaRM*std::sqrt(EspIIm))
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+      dofsStressNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
       dofsStressNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
 
       dofsStressNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
 
       dofsStressNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
-            + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
-                - alpham*impAndEtaGet->gammaRM*xim)
+            + (2*(mu0M - alpham*mu0M)
+              )
               *(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];

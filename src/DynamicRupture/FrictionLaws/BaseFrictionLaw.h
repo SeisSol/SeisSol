@@ -79,41 +79,35 @@ class BaseFrictionLaw : public FrictionSolver {
             + 2*(qIPlus[o][YZ][i]+epsInityz)*(qIPlus[o][YZ][i]+epsInityz)
             + 2*(qIPlus[o][XZ][i]+epsInitzx)*(qIPlus[o][XZ][i]+epsInitzx);
           real alphap = qIPlus[o][DAM][i];
-          real xip;
-          if (EspIIp > 1e-30){
-            xip = EspIp / std::sqrt(EspIIp);
-          } else{
-            xip = 0.0;
-          }
 
-          qStressIPlus[o][XX][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+          qStressIPlus[o][XX][i] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][XX][i]+epsInitxx);
 
-          qStressIPlus[o][YY][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+          qStressIPlus[o][YY][i] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][YY][i]+epsInityy);
 
-          qStressIPlus[o][ZZ][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+          qStressIPlus[o][ZZ][i] = (lambda0P*EspIp - alphap*lambda0P*EspIp)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][ZZ][i]+epsInitzz);
 
           qStressIPlus[o][XY][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][XY][i]+epsInitxy);
 
           qStressIPlus[o][YZ][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][YZ][i]+epsInityz);
 
           qStressIPlus[o][XZ][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
+                + (2*(mu0P - alphap*mu0P)
+                  )
                   *(qIPlus[o][XZ][i]+epsInitzx);
 
           real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
@@ -124,41 +118,35 @@ class BaseFrictionLaw : public FrictionSolver {
             + 2*(qIMinus[o][YZ][i]+epsInityz)*(qIMinus[o][YZ][i]+epsInityz)
             + 2*(qIMinus[o][XZ][i]+epsInitzx)*(qIMinus[o][XZ][i]+epsInitzx);
           real alpham = qIMinus[o][DAM][i];
-          real xim;
-          if (EspIIm > 1e-30){
-            xim = EspIm / std::sqrt(EspIIm);
-          } else{
-            xim = 0.0;
-          }
 
-          qStressIMinus[o][XX][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+          qStressIMinus[o][XX][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][XX][i]+epsInitxx);
 
-          qStressIMinus[o][YY][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+          qStressIMinus[o][YY][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][YY][i]+epsInityy);
 
-          qStressIMinus[o][ZZ][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+          qStressIMinus[o][ZZ][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][ZZ][i]+epsInitzz);
 
           qStressIMinus[o][XY][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][XY][i]+epsInitxy);
 
           qStressIMinus[o][YZ][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][YZ][i]+epsInityz);
 
           qStressIMinus[o][XZ][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
+                + (2*(mu0M - alpham*mu0M)
+                  )
                   *(qIMinus[o][XZ][i]+epsInitzx);
 
           qStressIPlus[o][U][i] = qIPlus[o][U][i];
