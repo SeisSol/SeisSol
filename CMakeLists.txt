@@ -59,7 +59,7 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   # Note: hip 4.x has a bug during setting rpath while compiling
   #       device code for nvidia gpus. This scenario is used in
   #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX})
+  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
 # Generate version.h
@@ -110,6 +110,8 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+find_package(GemmTools REQUIRED)
+
 add_custom_command(
   COMMAND
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
@@ -156,7 +158,6 @@ add_custom_command(
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(SeisSol-common-properties INTERFACE IMPORTED)
 
-find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
 # enforce code generation to run before any other target
