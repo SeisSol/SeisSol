@@ -129,7 +129,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
   surfaceArea = Scalar('surfaceArea')
-  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + 0.5 * surfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
+  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] - 0.5 * surfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
   ## Dynamic Rupture Precompute
