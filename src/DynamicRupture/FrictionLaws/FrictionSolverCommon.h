@@ -501,14 +501,12 @@ inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -0.5 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                       interpolatedTraction12 * interpolatedSlipRate2 +
+      frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                        interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
