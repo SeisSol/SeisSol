@@ -94,7 +94,7 @@ real EnergyOutput::computeStaticWork(
     const real* degreesOfFreedomMinus,
     const DRFaceInformation& faceInfo,
     const DRGodunovData& godunovData,
-    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
+    const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -132,7 +132,7 @@ real EnergyOutput::computeStaticWork(
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
   feKrnl.staticFrictionalWork = &staticFrictionalWork;
-  feKrnl.surfaceArea = 0.5 * godunovData.doubledSurfaceArea;
+  feKrnl.minusHalfSurfaceArea = -0.25 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
   return staticFrictionalWork;
