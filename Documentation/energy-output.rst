@@ -27,8 +27,6 @@ The energy output computes the energy of the simulation. It is divided into mult
         :math:`W_\mathrm{static} = -\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}` (see eq. 4 in Ma and Archuleta, 2006).
     - Radiated energy can then be computed with:
         :math:`E_\mathrm{r} = W_\mathrm{total} - W_\mathrm{static}` (see eq. 5 in Ma and Archuleta, 2006).
-    - Frature energy can then be computed with:
-        :math:`G = (2 W_\mathrm{static} -  W_\mathrm{total})/A_\mathrm{s}` with :math:`A_\mathrm{s}` the fault area associated with fault slip.
 
 - Seismic moment
         :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
