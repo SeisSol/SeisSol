@@ -102,7 +102,7 @@ extern "C" {
   {
     e_interoperability.setInitialConditionType(type);
   }
-  
+
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -165,7 +165,7 @@ extern "C" {
                                         iniStress,
                                         waveSpeeds );
   }
-  
+
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -584,7 +584,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   };
   seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
 
-  if (anisotropy) { 
+  if (anisotropy) {
     if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
@@ -663,7 +663,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[2*nElements + i] = materials[i].lambda;
         calcWaveSpeeds(&materials[i], i);
       }
-    } 
+    }
 
     //now initialize the plasticity data
     if (plasticity) {
@@ -681,7 +681,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         iniStress[i*6+4] = materials[i].s_yz;
         iniStress[i*6+5] = materials[i].s_xz;
       }
-    } 
+    }
   }
   delete queryGen;
 }
@@ -885,7 +885,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         double energySyncInterval, bool receiverComputeRotation)
 {
   auto type = writer::backendType(xdmfWriterBackend);
-  
+
 	// Initialize checkpointing
 	int faultTimeStep;
 
