@@ -470,10 +470,7 @@ inline void computeFrictionEnergy(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-
-  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
