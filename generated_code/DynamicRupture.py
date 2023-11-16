@@ -120,16 +120,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
   slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3), alignStride=True)
   tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
   staticFrictionalWork = Tensor('staticFrictionalWork', ())
+  minusSurfaceArea = Scalar('minusSurfaceArea')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  minusSurfaceArea = Scalar('minusSurfaceArea')
   accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
