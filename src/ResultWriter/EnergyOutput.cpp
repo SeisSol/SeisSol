@@ -131,7 +131,7 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
   feKrnl.staticFrictionalWork = &staticFrictionalWork;
-  feKrnl.minusHalfSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
+  feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
   return staticFrictionalWork;
