@@ -6,6 +6,8 @@ from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
 from scipy import ndimage
 from GaussianSTF import GaussianSTF
+from scipy.interpolate import RegularGridInterpolator
+import xarray as xr
 
 
 def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
@@ -50,6 +52,7 @@ def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
 
             # this transform the nD array into an array of tuples
             arr = np.stack([lData[i] for i in range(len(lName))], axis=len(dims))
+            arr = np.ascontiguousarray(arr)
             newarr = arr.view(dtype=mattype8)
             newarr = newarr.reshape(newarr.shape[:-1])
             mat = rootgrp.createVariable("data", mat_t, dims)
@@ -167,17 +170,8 @@ def interpolate_nan_from_neighbors(array):
 
 
 def compute_block_mean(ar, fact):
-    """
-    dowsample array ar by factor fact
-    https://stackoverflow.com/questions/18666014/downsample-array-in-python
-    """
-    assert isinstance(fact, int), type(fact)
-    sx, sy = ar.shape
-    X, Y = np.ogrid[0:sx, 0:sy]
-    regions = sy // fact * (X // fact) + Y // fact
-    res = ndimage.mean(ar, labels=regions, index=np.arange(regions.max() + 1))
-    res.shape = (sx // fact, sy // fact)
-    return res
+    a = xr.DataArray(ar, dims=["x", "y"])
+    return a.coarsen(x=fact, y=fact).mean().to_numpy()
 
 
 def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", extra_padding_layer=False, minimize_block_average_variations=False):
@@ -231,6 +225,8 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
             my_array = best
         if ncrop > 0:
             allarr0[k, :, :] = my_array[ncrop:-ncrop, ncrop:-ncrop]
+        else:
+            allarr0[k, :, :] = my_array
 
     return allarr0
 
@@ -453,7 +449,7 @@ class FaultPlane:
         allarr = np.array([self.slip1])
         (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", minimize_block_average_variations=True)
         pf.compute_latlon_from_xy(proj)
-        pf.PSarea_cm2 = self.PSarea_cm2 / spatial_zoom ** 2
+        pf.PSarea_cm2 = self.PSarea_cm2 / spatial_zoom**2
         ratio_potency = np.sum(pf.slip1) * pf.PSarea_cm2 / (np.sum(self.slip1) * self.PSarea_cm2)
         print(f"seismic potency ratio (upscaled over initial): {ratio_potency}")
 
@@ -537,7 +533,81 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         )
         return slip1
 
-    def generate_netcdf_fl33(self, prefix, spatial_order, spatial_zoom, proj, write_paraview):
+    def compute_1d_dimension_arrays(self, spatial_zoom):
+        self.spatial_zoom = spatial_zoom
+        # Compute dimension arrays
+        km2m = 1e3
+        coords = np.array([self.x, self.y, -km2m * self.depth])
+        ny, nx = coords.shape[1:3]
+        center_row = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
+        dx1 = np.linalg.norm(center_row, axis=0)
+        # with this convention the first data point is in local coordinate (0,0)
+        xb = np.cumsum(dx1) - dx1[0]
+
+        center_col = coords[:, :, (nx - 1) // 2] - coords[:, :, (nx - 1) // 2 - 1]
+        dy1 = np.linalg.norm(center_col, axis=0)
+        yb = np.cumsum(dy1) - dy1[0]
+
+        self.xb = np.pad(xb, ((1), (1)), "reflect", reflect_type="odd")
+        self.yb = np.pad(yb, ((1), (1)), "reflect", reflect_type="odd")
+
+        # we want to cover all the fault, that is up to -dx/2.
+        # With this strategy We will cover a bit more than that, but it is probably not a big deal
+
+        ncrop = spatial_zoom - 1
+        self.x_up = scipy.ndimage.zoom(self.xb, spatial_zoom, order=1, mode="grid-constant", grid_mode=True)[ncrop:-ncrop]
+        self.y_up = scipy.ndimage.zoom(self.yb, spatial_zoom, order=1, mode="grid-constant", grid_mode=True)[ncrop:-ncrop]
+
+        # used for the interpolation
+        yg, xg = np.meshgrid(self.y_up, self.x_up)
+        self.yx = np.array([yg.ravel(), xg.ravel()]).T
+
+    def upsample_quantity_RGInterpolator_core(self, arr, method, is_slip=False):
+        if is_slip:
+            # tapper to 0 slip except at the top
+            print("tapper slip to 0, except at the top (hardcoded)")
+            padded_arr = np.pad(arr, ((1, 0), (1, 1)), "constant")
+            padded_arr = np.pad(padded_arr, ((0, 1), (0, 0)), "edge")
+        else:
+            padded_arr = np.pad(arr, ((1, 1), (1, 1)), "edge")
+        interp = RegularGridInterpolator([self.yb, self.xb], padded_arr)
+        return interp(self.yx, method=method).reshape(self.x_up.shape[0], self.y_up.shape[0]).T
+
+    def upsample_quantity_RGInterpolator(self, arr, method, is_slip=False):
+        my_array = self.upsample_quantity_RGInterpolator_core(arr, method, is_slip)
+        minimize_block_average_variations = is_slip
+        if minimize_block_average_variations:
+            # inspired by Tinti et al. (2005) (Appendix A)
+            # This is for the specific case of fault slip.
+            # We want to preserve the seismic moment of each subfault after interpolation
+            # the rock rigidity is not know by this script (would require some python binding of easi).
+            # the subfault area is typically constant over the kinematic model
+            # So we just want to perserve subfault average.
+            print("trying to perserve subfault average...")
+            my_array = np.maximum(0, my_array)
+            best_misfit = float("inf")
+            # The algorithm does not seem to converge, but produces better model
+            # (given the misfit) that inital after 2-3 iterations
+            niter = 3
+            for i in range(niter):
+                block_average = compute_block_mean(my_array[1:-1, 1:-1], self.spatial_zoom)
+                print(arr.shape, block_average.shape)
+                correction = arr / block_average
+                # having a misfit as misfit = np.linalg.norm(correction) does not makes sense as for almost 0 slip, correction can be large
+                misfit = np.linalg.norm(arr - block_average) / len(arr)
+                if best_misfit > misfit:
+                    if i == 0:
+                        print(f"misfit at iter {i}: {misfit}")
+                    else:
+                        print(f"misfit improved at iter {i}: {misfit}")
+                    best_misfit = misfit
+                    best = np.copy(my_array)
+                my_array = self.upsample_quantity_RGInterpolator_core(correction * arr, method, is_slip)
+                my_array = np.maximum(0, my_array)
+            my_array = best
+        return my_array
+
+    def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview):
         "generate netcdf files to be used with SeisSol friction law 33"
 
         cm2m = 0.01
@@ -546,9 +616,16 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
         cslip = self.compute_corrected_slip_for_differing_area(proj)
-        (slip,) = upsample_quantities(np.array([cslip]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True, minimize_block_average_variations=True)
-        allarr = np.array([self.t0, self.rake, self.rise_time, self.tacc])
-        rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge", extra_padding_layer=True)
+        self.compute_1d_dimension_arrays(spatial_zoom)
+
+        upsampled_arrays = []
+
+        slip = self.upsample_quantity_RGInterpolator(cslip, method, is_slip=True)
+        for arr in [cslip, self.t0, self.rake, self.rise_time, self.tacc]:
+            upsampled_arrays.append(self.upsample_quantity_RGInterpolator(arr, method))
+
+        slip, rupttime, rake, rise_time, tacc = upsampled_arrays
+
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
         # at least rise_time could lead to a non-causal kinematic model
         rupttime = np.maximum(rupttime, np.amin(self.t0))
@@ -559,34 +636,25 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         strike_slip = slip * np.cos(rake_rad) * cm2m
         dip_slip = slip * np.sin(rake_rad) * cm2m
 
-        ny, nx = slip.shape
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
         lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
-        # we could do directly
-        # di = 1.0 / (2 * spatial_zoom)
-        # xb = np.linspace(-di, self.nx + di, nx) * dx
-        # yb = np.linspace(-di, self.ny + di, ny) * dx
-        # But we compute xb and yb based on the upsampled coordinates, to account for possible warping due to the projection
-        allarr = np.array([self.x, self.y, -km2m * self.depth])
-        coords = upsample_quantities(allarr, spatial_order=1, spatial_zoom=spatial_zoom, padding="extrapolate", extra_padding_layer=True)
 
-        p0 = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
-        dx1 = np.linalg.norm(p0, axis=0)
-        xb = np.cumsum(dx1) - 1.5 * dx1[0]
-
-        p0 = coords[:, :, (nx - 1) // 2] - coords[:, :, (nx - 1) // 2 - 1]
-        dy1 = np.linalg.norm(p0, axis=0)
-        yb = np.cumsum(dy1) - 1.5 * dy1[0]
-
-        prefix2 = f"{prefix}_{spatial_zoom}_o{spatial_order}"
+        prefix2 = f"{prefix}_{spatial_zoom}_{method}"
         if write_paraview:
             # see comment above
             for i, sdata in enumerate(ldataName):
-                writeNetcdf(prefix2 + sdata, [xb, yb], [sdata], [lgridded_myData[i]], paraview_readable=True)
-        writeNetcdf(prefix2, [xb, yb], ldataName, lgridded_myData)
+                writeNetcdf(
+                    f"{prefix2}_{sdata}",
+                    [self.x_up, self.y_up],
+                    [sdata],
+                    [lgridded_myData[i]],
+                    paraview_readable=True,
+                )
+            writeNetcdf(f"{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
+        writeNetcdf(prefix2, [self.x_up, self.y_up], ldataName, lgridded_myData)
 
-    def generate_fault_ts_yaml_fl33(self, prefix, spatial_order, spatial_zoom, proj):
+    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
         """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
         # Generate yaml file loading ASAGI file
         cm2m = 0.01
@@ -610,8 +678,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # therefore the dx/2
         # the term dxi/np.sqrt(dx1*dx2) allows accounting for non-square patches
         non_square_factor = dx / np.sqrt(dx1 * dx2)
-        t1 = -np.dot(p0, hh) + 0.5 * dx1 * non_square_factor
-        t2 = -np.dot(p0, hw) + 0.5 * dx2 * non_square_factor
+        t1 = -np.dot(p0, hh)
+        t2 = -np.dot(p0, hw)
 
         template_yaml = f"""!Switch
 [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
@@ -626,7 +694,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 ub: {t2}
               components: !Any
                 - !ASAGI
-                    file: {prefix}_{spatial_zoom}_o{spatial_order}.nc
+                    file: {prefix}_{spatial_zoom}_{method}.nc
                     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
                     var: data
                     interpolation: linear
