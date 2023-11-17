@@ -67,3 +67,6 @@ config.log
 # Doxygen
 Documentation/doxygen/html
 Documentation/doxygen/latex
+
+# clang-tidy
+.cache/

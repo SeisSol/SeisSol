@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cassert>
+#include "utils/logger.h"
 
 #include "Parallel/MPI.h"
 #include "AbstractTimeCluster.h"

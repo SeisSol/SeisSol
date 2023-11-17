@@ -151,6 +151,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
+  m_regionComputePointSources = m_loopStatistics->getRegion("computePointSources");
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
@@ -182,7 +183,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   // Return when point sources not initialised. This might happen if there
   // are no point sources on this rank.
   if (m_sourceCluster) {
+    m_loopStatistics->begin(m_regionComputePointSources);
     m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSize());
+    m_loopStatistics->end(m_regionComputePointSources, m_sourceCluster->size(), m_profilingId);
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
@@ -590,6 +593,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   }
 
   if (usePlasticity) {
+    updateRelaxTime();
     PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
     unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                       timeStepWidth,

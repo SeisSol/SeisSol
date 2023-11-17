@@ -44,7 +44,7 @@ def getArchitectures():
   # knc = Knights Corner (Xeon Phi)
   # hsw = Haswell
   # knl = Knight Landing (Xeon Phi)
-  cpus = ['noarch', 'wsm', 'snb', 'knc', 'hsw', 'knl', 'skx', 'thunderx2t99']
+  cpus = ['noarch', 'wsm', 'snb', 'knc', 'hsw', 'knl', 'skx', 'thunderx2t99', 'a64fx']
   precisions = ['s', 'd']
   return [p + c for c in cpus for p in precisions]
 

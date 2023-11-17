@@ -55,7 +55,6 @@
 #include <vector>
 
 namespace seissol::sourceterm {
-enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
 void computeMInvJInvPhisAtSources(
     Eigen::Vector3d const& centre,

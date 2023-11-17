@@ -8,7 +8,7 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist_dir="
+    local allowlist_dir="
         src/DynamicRupture
         src/tests/DynamicRupture
         src/tests/Model
@@ -18,9 +18,10 @@ format() {
         src/SourceTerm
         "
     
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
-    local whitelist_file="
+    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
+    local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
+        src/Initializer/InputAux.hpp
         src/Initializer/InputParameters.hpp
         src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
@@ -30,6 +31,12 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
+        src/Kernels/PointSourceCluster.h
+        src/Kernels/PointSourceCluster.cpp
+        src/Kernels/PointSourceClusterOnHost.h
+        src/Kernels/PointSourceClusterOnHost.cpp
+        src/Kernels/PointSourceClusterOnDevice.h
+        src/Kernels/PointSourceClusterOnDevice.cpp
         src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
@@ -39,6 +46,9 @@ format() {
         src/Geometry/PUMLReader.cpp
         src/Geometry/PartitioningLib.h
         src/Geometry/PartitioningLib.cpp
+        src/Geometry/CubeGenerator.h
+        src/Geometry/CubeGenerator.cpp
+        src/Parallel/Helper.hpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
@@ -63,7 +73,7 @@ format() {
         exit 166
     fi
 
-    for dir in ${whitelist_dir}; do
+    for dir in ${allowlist_dir}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
         files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
         for file in ${files}; do
@@ -71,7 +81,7 @@ format() {
         done
     done
 
-    for file in ${whitelist_file}; do
+    for file in ${allowlist_file}; do
         ${formatter} -i -style=file ${SEISSOL_SOURCE_DIR}/$file
     done
 }

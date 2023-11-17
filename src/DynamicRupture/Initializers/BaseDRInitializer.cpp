@@ -54,6 +54,20 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
         parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
         parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
+#ifdef USE_POROELASTIC
+      if (isFaultParameterizedByTraction) {
+        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+      } else {
+        parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+      }
+#else
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
+          initialStress.p[ltsFace][pointIndex] = 0.0;
+        }
+      }
+#endif
+
       return isFaultParameterizedByTraction;
     };
 
@@ -88,6 +102,14 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
         it->var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(dynRup, it, nucleationStressInFaultCS, nucleationStress);
 
+    auto* initialPressure = it->var(dynRup->initialPressure);
+    auto* nucleationPressure = it->var(dynRup->nucleationPressure);
+    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+        initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
+        nucleationPressure[ltsFace][pointIndex] = nucleationStress.p[ltsFace][pointIndex];
+      }
+    }
     initializeOtherVariables(dynRup, it);
   }
 }
@@ -264,6 +286,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
+#ifdef USE_POROELASTIC
+  if (readNucleation) {
+    tractionNames.push_back("nuc_p");
+    cartesianNames.push_back("nuc_p");
+  } else {
+    tractionNames.push_back("p");
+    cartesianNames.push_back("p");
+  }
+#endif
 
   bool allTractionParametersSupplied = true;
   bool allCartesianParametersSupplied = true;

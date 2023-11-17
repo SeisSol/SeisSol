@@ -44,6 +44,7 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
+#include <Numerical_aux/Eigenvalues.h>
 
 namespace seissol {
   namespace model {

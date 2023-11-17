@@ -60,17 +60,17 @@ Execution
 *  Link the SeisSol binary to your working directory (``Examples/tpv33``).
 
 *  Now run: ``export OMP_NUM_THREADS=<threads>``, where ``<threads>`` is the
-   number of threads. If you are on a single node machine, you should 
-   compile SeisSol with ``-DCOMMTHREAD=OFF`` and use the maximum number of threads
-   available. If you run SeisSol on a cluster, you should compile it with ``-DCOMMTHREAD=ON``.
-   Then you should set the number of OMP threads to the number of available threads
-   minus 1.
+   number of threads.
+   If you are on a cluster or want to run with multiple MPI ranks, then you should set the number of OMP threads to the number of available threads
+   minus 1 (the last thread is used for communication).
 
 *  Now run: ``mpiexec -np <n> ./SeisSol_<configuration> parameters.par``, where:
 
    *  ``<n>`` is the number of MPI ranks / the number of compute nodes used.
 
    *  ``<configuration>`` depends on your compilation setting (e.g. SeisSol_Release_dhsw_4_elastic for a Haswell architecture and order 4 accuracy in space and time).
+
+   * When running on your local desktop computer, you may also run with only one MPI rank, i.e. leave away the ``mpiexec``, i.e. only type ``./SeisSol_<configuration> parameters.par``. Then, you can use all available threads.
 
 **Hint:** Depending on the system you are using, the MPI launcher might
 be different from ``mpiexec`` (e.g. ``mpiexec.hydra``, ``mpirun``, ``srun``).

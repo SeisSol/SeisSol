@@ -47,6 +47,7 @@
 #include <generated_code/kernel.h>
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Quadrature.h>
+#include <Numerical_aux/BasisFunction.h>
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -106,6 +107,10 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
   // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+#ifdef USE_STP
+    double tau = timePoints[point];
+    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER, tau);
+#endif
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
@@ -138,8 +143,13 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+#ifdef USE_STP
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
+#else
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;

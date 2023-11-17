@@ -52,7 +52,8 @@ namespace writer
 struct FreeSurfaceInitParam
 {
 	int timestep;
-  xdmfwriter::BackendType backend;
+	xdmfwriter::BackendType backend;
+	std::string backupTimeStamp;
 };
 
 struct FreeSurfaceParam

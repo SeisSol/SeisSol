@@ -83,6 +83,8 @@ class ViscoelasticADERDG(LinearADERDG):
 
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+    self.kwargs = kwargs
+
   def numberOfQuantities(self):
     return 9 + 6*self.numberOfMechanisms
 

@@ -88,7 +88,7 @@ To access the module at start up, add to your ``~/.bashrc``:
 
     module use $SPACK_ROOT/share/spack/modules/cray-cnl7-ivybridge/
 
-Finally, install SeisSol with cmake, as usual, with ``-DHOST_ARCH=hsw`` and ``-DCOMMTHREAD=ON``.
+Finally, install SeisSol with cmake, as usual, with ``-DHOST_ARCH=hsw``.
 
 Here is an example job submission script for SeisSol on Shaheen (to be launched from the ``/scratch/`` folder):
 

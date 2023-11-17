@@ -7,7 +7,7 @@ TPV13 is similar to TPV12 except for the **non-associative Drucker-Prager visco-
 
 The Drucker-Prager yield function is given by:
 
-  :math:`F(\sigma)=\sqrt{J_2(\sigma)-Y(\sigma)}`
+  :math:`F(\sigma)=\sqrt{J_2(\sigma)}-Y(\sigma)`
 
 :math:`Y(\sigma)` is the  Drucker-Prager yield stress, given as:
   

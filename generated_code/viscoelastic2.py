@@ -87,6 +87,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
                           namespace='nodal')
     )
 
+    self.kwargs = kwargs
+
   def numberOfQuantities(self):
     return 9
 

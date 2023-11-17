@@ -45,6 +45,11 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <Kernels/Time.h>
+#ifdef USE_STP
+#include <array>
+#include <memory>
+#include <Numerical_aux/BasisFunction.h>
+#endif
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))
 
@@ -66,6 +71,10 @@ class seissol::kernels::DynamicRupture {
   public:
     double timePoints[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
+    real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+#ifdef USE_STP
+    std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
+#endif
 
   DynamicRupture() {}
 

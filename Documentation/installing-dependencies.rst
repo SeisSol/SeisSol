@@ -148,20 +148,11 @@ Installing Libxsmm
 Installing PSpaMM
 ~~~~~~~~~~~~~~~~~
 
-
-
-.. code-block:: bash
-
-   git clone https://github.com/SeisSol/PSpaMM.git
-   # make sure $HOME/bin exists or create it with "mkdir ~/bin"
-   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin/pspamm.py
-   
-Instead of linking, you could also add the following line to your .bashrc:
+You may install PSpaMM as a Python package.
 
 .. code-block:: bash
 
-   export PATH=<Your_Path_to_PSpaMM>:$PATH
-
+   pip3 install --user git+https://github.com/SeisSol/PSpaMM.git
 
 .. _installing_parmetis:
 
@@ -205,8 +196,8 @@ Installing GemmForge, ChainForge (for GPUs)
 
 .. code-block:: bash
 
-   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
+   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
+   pip3 install --user git+https://github.com/SeisSol/chainforge.git
 
 Installing SYCL (for GPUs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

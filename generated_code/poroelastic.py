@@ -26,6 +26,8 @@ class PoroelasticADERDG(LinearADERDG):
 
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+    self.kwargs = kwargs
+
   def numberOfQuantities(self):
     return 13 
 
@@ -37,6 +39,22 @@ class PoroelasticADERDG(LinearADERDG):
 
   def sourceMatrix(self):
     return self.db.ET
+
+  def extractVelocities(self):
+    extractVelocitiesSPP = np.zeros((4, self.numberOfQuantities()))
+    extractVelocitiesSPP[0, 6] = 1
+    extractVelocitiesSPP[1, 7] = 1
+    extractVelocitiesSPP[2, 8] = 1
+    extractVelocitiesSPP[3, 10] = 1
+    return extractVelocitiesSPP
+
+  def extractTractions(self):
+    extractTractionsSPP = np.zeros((4, self.numberOfQuantities()))
+    extractTractionsSPP[0, 0] = 1
+    extractTractionsSPP[1, 3] = 1
+    extractTractionsSPP[2, 5] = 1
+    extractTractionsSPP[3, 9] = 1
+    return extractTractionsSPP
 
   def transformationSpp(self):
     spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
@@ -167,6 +185,11 @@ class PoroelasticADERDG(LinearADERDG):
     for d in range(3):
       rhs += minus * self.starMatrix(d)['qo'] * self.db.kDivMT[d]['lm'] * spaceTimePredictor['mqu']
     generator.add('stpTestRhs', testRhs['lou'] <= rhs)
+
+    QAtTimeSTP = OptionalDimTensor('QAtTimeSTP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self.Q.shape(), alignStride=True)
+    timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (self.order,))
+    evaluateDOFSAtTimeSTP = QAtTimeSTP['kp'] <= spaceTimePredictor['kpt'] * timeBasisFunctionsAtPoint['t']
+    generator.add('evaluateDOFSAtTimeSTP', evaluateDOFSAtTimeSTP)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

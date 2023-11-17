@@ -5,8 +5,11 @@
 #include <cstring>
 #include <vector>
 #include "DynamicRupture/Misc.h"
+#include "Common/filesystem.h"
 
 #include "Parallel/MPI.h"
+
+namespace {
 
 static void setupCheckpointing() {
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
@@ -73,6 +76,7 @@ static void setupOutput() {
   auto* dynRup = memoryManager.getDynamicRupture();
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
+  const auto& backupTimeStamp = seissol::SeisSol::main.getBackupTimeStamp();
 
   constexpr auto numberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
@@ -100,7 +104,8 @@ static void setupOutput() {
         seissol::SeisSol::main.postProcessor().getIntegrals(ltsTree),
         ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
         seissolParams.output.waveFieldParameters,
-        seissolParams.output.xdmfWriterBackend);
+        seissolParams.output.xdmfWriterBackend,
+        backupTimeStamp);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -110,7 +115,8 @@ static void setupOutput() {
         &seissol::SeisSol::main.freeSurfaceIntegrator(),
         seissolParams.output.prefix.c_str(),
         seissolParams.output.freeSurfaceParameters.interval,
-        seissolParams.output.xdmfWriterBackend);
+        seissolParams.output.xdmfWriterBackend,
+        backupTimeStamp);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {
@@ -157,8 +163,8 @@ static void enableCheckpointing() {
 }
 
 static void initFaultOutputManager() {
-  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
-
+  const auto& backupTimeStamp = seissol::SeisSol::main.getBackupTimeStamp();
+  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
 
@@ -196,8 +202,23 @@ static void setIntegralMask() {
       seissolParams.output.waveFieldParameters.integrationMask);
 }
 
+} // namespace
+
 void seissol::initializer::initprocedure::initIO() {
-  logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
+  const auto rank = MPI::mpi.rank();
+  logInfo(rank) << "Begin init output.";
+
+  const auto& seissolParams = SeisSol::main.getSeisSolParameters();
+  const filesystem::path outputPath(seissolParams.output.prefix);
+  const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
+  if (!filesystem::exists(outputDir)) {
+    logWarning(rank) << "Output directory does not exist yet. We therefore create it now.";
+    if (rank == 0) {
+      filesystem::create_directory(outputDir);
+    }
+    MPI::mpi.barrier(MPI::mpi.comm());
+  }
+
   // always enable checkpointing first
   enableCheckpointing();
   enableWaveFieldOutput();
@@ -206,5 +227,5 @@ void seissol::initializer::initprocedure::initIO() {
   initFaultOutputManager();
   setupCheckpointing();
   setupOutput();
-  logInfo(seissol::MPI::mpi.rank()) << "End init output.";
+  logInfo(rank) << "End init output.";
 }

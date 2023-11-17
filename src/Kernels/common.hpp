@@ -111,60 +111,62 @@ namespace kernels {
 /**
  * Gets the number of basis functions for the given convergence order.
  *
- * @param i_convergenceOrder convergence order.
+ * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
 constexpr unsigned int
-    getNumberOfBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER) {
-  return i_convergenceOrder * (i_convergenceOrder + 1) * (i_convergenceOrder + 2) / 6;
+    getNumberOfBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER) {
+  return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
 /**
  * Gets the number of aligned reals, i.e. the number padded to the size of the alignment.
  *
- * @param i_alignment alignment in bytes.
+ * @param alignment alignment in bytes.
  * @return aligned number of reals.
  **/
-constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
-                                               unsigned int i_alignment = ALIGNMENT) {
-  // in principle, we could simplify this formula by substituting alignment = i_alignment /
-  // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
-  // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
+template <typename RealT = real>
+constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
+                                               unsigned int alignment = VECTORSIZE) {
+  // in principle, we could simplify this formula by substituting alignment = alignment /
+  // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
+  // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
   // there is ever such a use case, and if the alignment then still makes much sense).
-  return (i_numberOfReals * sizeof(real) +
-          (i_alignment - (i_numberOfReals * sizeof(real)) % i_alignment) % i_alignment) /
-         sizeof(real);
+  return (numberOfReals * sizeof(RealT) +
+          (alignment - (numberOfReals * sizeof(RealT)) % alignment) % alignment) /
+         sizeof(RealT);
 }
 
 /**
  * Get the # of basis functions aligned to the given boundaries.
  *
- * @param i_convergenceOrder convergence order.
- * @param i_alignment alignment in bytes.
+ * @param convergenceOrder convergence order.
+ * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
+template <typename RealT = real>
 constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                     unsigned int i_alignment = ALIGNMENT) {
+    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
+                                     unsigned int alignment = VECTORSIZE) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-  unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions(i_convergenceOrder);
-  return getNumberOfAlignedReals(l_numberOfBasisFunctions);
+  unsigned int numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
+  return getNumberOfAlignedReals<RealT>(numberOfBasisFunctions);
 }
 
 /**
  * Get the # of derivatives of basis functions aligned to the given boundaries.
  *
- * @param i_convergenceOrder convergence order.
- * @param i_alignment alignment in bytes.
+ * @param convergenceOrder convergence order.
+ * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
 constexpr unsigned
-    getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                               unsigned int i_alignment = ALIGNMENT) {
-  return (i_convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
+    getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
+                                               unsigned int alignment = VECTORSIZE) {
+  return (convergenceOrder > 0)
+             ? getNumberOfAlignedBasisFunctions(convergenceOrder) +
+                   getNumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
              : 0;
 }
 
@@ -172,14 +174,14 @@ constexpr unsigned
  * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
  *zero padding) storage.
  *
- * @param i_alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
+ * @param alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
  * @param o_unalignedDofs unaligned degrees of freedom.
  **/
 template <typename real_from, typename real_to>
-void convertAlignedDofs(const real_from i_alignedDofs[tensor::Q::size()],
+void convertAlignedDofs(const real_from alignedDofs[tensor::Q::size()],
                         real_to o_unalignedDofs[tensor::QFortran::size()]) {
   kernel::copyQToQFortran krnl;
-  krnl.Q = i_alignedDofs;
+  krnl.Q = alignedDofs;
 #ifdef MULTIPLE_SIMULATIONS
   krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
 #endif

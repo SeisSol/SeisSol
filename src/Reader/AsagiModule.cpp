@@ -47,6 +47,7 @@
 #include "utils/env.h"
 
 #include "AsagiModule.h"
+#include "Parallel/Helper.hpp"
 
 seissol::asagi::AsagiModule::AsagiModule()
 	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
@@ -88,9 +89,9 @@ int seissol::asagi::AsagiModule::getTotalThreads()
 
 #ifdef _OPENMP
 	totalThreads = omp_get_max_threads();
-#ifdef USE_COMM_THREAD
-	totalThreads++;
-#endif // USE_COMM_THREAD
+	if (seissol::useCommThread(seissol::MPI::mpi)) {
+		totalThreads++;
+	}
 #endif // _OPENMP
 
 	return totalThreads;

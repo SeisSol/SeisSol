@@ -162,9 +162,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   // Sub triangles
   triRefiner.refine(maxRefinementDepth);
 
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles = seissol::kernels::getNumberOfAlignedReals(numberOfSubTriangles);
+  const auto projectionMatrixNCols = tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)][1];
 
+  numberOfSubTriangles = triRefiner.subTris.size();
+  numberOfAlignedSubTriangles = tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
+
+  assert(numberOfAlignedSubTriangles * projectionMatrixNCols == tensor::subTriangleProjection::size(maxRefinementDepth));
   assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals = 4 * tensor::subTriangleProjection::size(maxRefinementDepth);

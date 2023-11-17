@@ -168,12 +168,13 @@ void seissol::sourceterm::transformNRFSourceToInternalSource(
     em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
     break;
   }
-
-  for (unsigned sr = 0; sr < pointSources.slipRates.size(); ++sr) {
-    unsigned numSamples = nextOffsets[sr] - offsets[sr];
-    double const* samples = (numSamples > 0) ? &sliprates[sr][offsets[sr]] : NULL;
-    pointSources.slipRates[sr][index] =
-        PiecewiseLinearFunction1D(samples, numSamples, subfault.tinit, subfault.timestep, alloc);
+  pointSources.onsetTime[index] = subfault.tinit;
+  pointSources.samplingInterval[index] = subfault.timestep;
+  for (unsigned sr = 0; sr < Offsets().size(); ++sr) {
+    pointSources.sample[sr].insert(std::end(pointSources.sample[sr]),
+                                   sliprates[sr].begin() + offsets[sr],
+                                   sliprates[sr].begin() + nextOffsets[sr]);
+    pointSources.sampleOffsets[sr][index + 1] = pointSources.sample[sr].size();
   }
 }
 
@@ -362,7 +363,10 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.slipRates[0].resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
+      sources.onsetTime.resize(numberOfSources);
+      sources.samplingInterval.resize(numberOfSources);
+      sources.sampleOffsets[0].resize(numberOfSources + 1, 0);
+      sources.sample[0].reserve(fsrm.numberOfSamples * numberOfSources);
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
@@ -381,7 +385,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
                               fsrm.rakes[fsrmIndex],
                               sources.tensor[clusterSource]);
 
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+        for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
 #ifndef USE_POROELASTIC
@@ -396,12 +400,12 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
                         "to the documentation of SeisSol.";
 #endif
 
-        sources.slipRates[0][clusterSource] =
-            PiecewiseLinearFunction1D(fsrm.timeHistories[fsrmIndex].data(),
-                                      fsrm.numberOfSamples,
-                                      fsrm.onsets[fsrmIndex],
-                                      fsrm.timestep,
-                                      alloc);
+        sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
+        sources.samplingInterval[clusterSource] = fsrm.timestep;
+        sources.sample[0].insert(std::end(sources.sample[0]),
+                                 std::begin(fsrm.timeHistories[fsrmIndex]),
+                                 std::end(fsrm.timeHistories[fsrmIndex]));
+        sources.sampleOffsets[0][clusterSource + 1] = sources.sample[0].size();
       }
 
       sourceCluster[cluster] =
@@ -485,8 +489,20 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      for (auto& sr : sources.slipRates) {
-        sr.resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
+      sources.onsetTime.resize(numberOfSources);
+      sources.samplingInterval.resize(numberOfSources);
+      for (auto& so : sources.sampleOffsets) {
+        so.resize(numberOfSources + 1, 0);
+      }
+
+      for (std::size_t i = 0; i < Offsets().size(); ++i) {
+        std::size_t sampleSize = 0;
+        for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
+          unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+          unsigned nrfIndex = originalIndex[sourceIndex];
+          sampleSize += nrf.sroffsets[nrfIndex + 1][i] - nrf.sroffsets[nrfIndex][i];
+        }
+        sources.sample[i].reserve(sampleSize);
       }
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {

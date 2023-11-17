@@ -155,7 +155,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
                                             const real* integrals,
                                             unsigned int* map,
                                             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
-                                            xdmfwriter::BackendType backend) {
+                                            xdmfwriter::BackendType backend,
+                                            const std::string& backupTimeStamp) {
   if (!m_enabled)
     return;
 
@@ -179,6 +180,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
       addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size() + 1, true);
 
   param.backend = backend;
+  param.backupTimeStamp = backupTimeStamp;
 
   //
   // High order I/O

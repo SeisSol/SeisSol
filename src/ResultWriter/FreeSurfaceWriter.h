@@ -96,7 +96,8 @@ public:
               seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
               char const*                             outputPrefix,
               double                                  interval,
-              xdmfwriter::BackendType                 backend );
+              xdmfwriter::BackendType                 backend,
+              const std::string& backupTimeStamp);
 
 	void write(double time);
 

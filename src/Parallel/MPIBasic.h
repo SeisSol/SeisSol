@@ -40,8 +40,6 @@
 #ifndef MPI_BASIC_H
 #define MPI_BASIC_H
 
-#include "FaultMPI.h"
-
 namespace seissol {
 
 /**
@@ -67,9 +65,6 @@ protected:
 	MPIBasic() : m_rank(0), m_size(1) {}
 
 public:
-	/** The fault MPI wrapper */
-	FaultMPI fault;
-
 	virtual ~MPIBasic() = default;
 
 	/**
@@ -102,6 +97,16 @@ public:
 	int sharedMemMpiSize() const
 	{
 		return m_sharedMemMpiSize;
+	}
+
+	bool isSingleProcess() const
+	{
+		return size() == 1;
+	}
+
+	bool isSingleNode() const
+	{
+		return size() == sharedMemMpiSize();
 	}
 };
 } // namespace seissol
