@@ -62,6 +62,20 @@ T getWithDefault(const YAML::Node& param, const std::string& field, T defaultVal
   }
   return value;
 }
+/*
+ * returns field value if field found in YAML node else fail
+ * @param param: YAML Node, which we want to read from.
+ * @param field: Name of the field, we would like to read
+ */
+template <typename T>
+T getOrFail(const YAML::Node& param, const std::string& field) {
+  if (param[field]) {
+    return getUnsafe<T>(param, field);
+  } else {
+    logError() << "The field" << field << "was not found, but it is required.";
+    return T(); // unreachable. TODO(David): use compiler hint instead
+  }
+}
 
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)
