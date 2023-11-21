@@ -59,19 +59,20 @@ std::string SIUnit::formatTime(double value, bool exact, int digits) const {
 }
 
 std::string SIUnit::formatPrefix(double value, int digits) const {
-  double adjValue = std::abs(value);
+  double mantissa = std::abs(value);
   int position = 0;
   const double skip = binary ? 1024 : 1000;
   const double sign = value < 0 ? -1 : 1;
   // only one of the following two while loops should be triggered at any time
-  if (adjValue != 0) {
-    while (adjValue < 1) {
-      adjValue *= skip;
+  // the 100 is rather arbitrary to prevent a loop forever
+  if (mantissa != 0) {
+    while (mantissa < 1 && position > -100) {
+      mantissa *= skip;
       --position;
     }
   }
-  while (adjValue >= skip) {
-    adjValue /= skip;
+  while (mantissa >= skip && position < 100) {
+    mantissa /= skip;
     ++position;
   }
 
@@ -80,27 +81,27 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
     return formatScientific(value, digits);
-  }
-
-  const std::string prefix = [&]() {
-    if (position < 0) {
-      return NegativePrefixes[-position - 1];
-    } else if (position > 0) {
-      if (binary) {
-        return PositiveBytePrefixes[position - 1];
+  } else {
+    const std::string prefix = [&]() {
+      if (position < 0) {
+        return NegativePrefixes[-position - 1];
+      } else if (position > 0) {
+        if (binary) {
+          return PositiveBytePrefixes[position - 1];
+        } else {
+          return PositivePrefixes[position - 1];
+        }
       } else {
-        return PositivePrefixes[position - 1];
+        return std::string("");
       }
-    } else {
-      return std::string("");
-    }
-  }();
+    }();
 
-  std::ostringstream stream;
-  stream.precision(digits);
-  stream << std::fixed;
-  stream << sign * adjValue << " " << prefix << unit;
-  return stream.str();
+    std::ostringstream stream;
+    stream.precision(digits);
+    stream << std::fixed;
+    stream << sign * mantissa << " " << prefix << unit;
+    return stream.str();
+  }
 }
 
 std::string SIUnit::formatScientific(double value, int digits) const {

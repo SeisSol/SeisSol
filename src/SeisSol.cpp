@@ -116,9 +116,9 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
     // Softlimit (rlim_cur) is enforced by the kernel.
-    // This limit is pretty arbitrarily set at 2GB.
-    constexpr auto reasonableStackLimitInKb = 0x200'000ULL;                    // [kiB]
-    constexpr auto reasonableStackLimit = reasonableStackLimitInKb * 0x400ULL; // [B]
+    // This limit is pretty arbitrarily set to 2GiB.
+    constexpr auto reasonableStackLimitInKb = 0x200'000ULL;                    // [kiB] (2 GiB)
+    constexpr auto reasonableStackLimit = reasonableStackLimitInKb * 0x400ULL; // [B] (2 GiB)
     if (rlim.rlim_cur == RLIM_INFINITY) {
       logInfo(rank) << "The stack size ulimit is unlimited.";
     } else {
