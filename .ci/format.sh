@@ -51,6 +51,12 @@ format() {
         src/Parallel/Helper.hpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
+        src/Physics/InstantaneousTimeMirrorManager.h
+        src/Physics/InstantaneousTimeMirrorManager.cpp
+        src/Physics/InstantaneousTimeMirrorParameters.h
+        src/Physics/InstantaneousTimeMirrorParameters.cpp
+        src/Physics/InitialField.h
+        src/Physics/InitialField.cpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
