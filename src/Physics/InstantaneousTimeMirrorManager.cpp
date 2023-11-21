@@ -55,6 +55,9 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 }
 
 void InstantaneousTimeMirrorManager::updateVelocities() {
+#ifdef USE_ANISOTROPIC
+  logError() << "This feature has not been implemented for anisotropic yet";
+#elif 
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
   int reflectionType = itmParameters.reflectionType;
   for (auto it = ltsTree->beginLeaf(initializers::LayerMask(Ghost)); it != ltsTree->endLeaf();
@@ -126,6 +129,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 //        material.neighbor[i].rho /= velocityScalingFactor;
 //      }
   }
+#endif
 }
 
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
