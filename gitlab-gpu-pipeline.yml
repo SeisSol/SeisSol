@@ -159,7 +159,7 @@ gpu_run_tpv:
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout b60e02c
+        - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
         - cd ..
         - cd ./build_${backend}_${precision} ;
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
