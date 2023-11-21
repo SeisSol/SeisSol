@@ -146,6 +146,9 @@ seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materia
 }
 
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm) {
+#ifdef USE_ANISOTROPIC
+  logError() << "This has not been yet implemented for anisotropic material";
+#else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
   rho0 = materialData.local.rho;
   c0 = sqrt(materialData.local.lambda/materialData.local.rho);
@@ -160,16 +163,22 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(const Cel
   n = itmParameters.ITMVelocityScalingFactor;
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
+#endif
 }
 
 void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {
-
+#ifdef USE_ANISOTROPIC
+  logError() << "This has not been yet implemented for anisotropic material";
+#endif
 }
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(double time,
                                                            std::vector<std::array<double, 3>> const& points,
                                                            const CellMaterialData& materialData,
                                                            yateto::DenseTensorView<2,real,unsigned>& dofsQP) const {
+#ifdef USE_ANISOTROPIC
+  logError() << "This has not been yet implemented for anisotropic material";
+#else
 dofsQP.setZero();
 double pressure = 0.0;
 for (size_t i = 0; i < points.size(); ++i) {
@@ -213,6 +222,7 @@ for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,8) = 0.0; //w
   }
 }
+#endif
 }
 
 void seissol::physics::TravellingWave::evaluate(double time,
