@@ -26,12 +26,12 @@ static TravellingWaveParameters getTravellingWaveInformation() {
   return travellingWaveParameters;
 }
 
-static AcousticTravellingWaveParametersITM getAcousticTravellingWaveITMInformation(){
+static AcousticTravellingWaveParametersITM getAcousticTravellingWaveITMInformation() {
   const auto& initConditionParams = seissol::SeisSol::main.getSeisSolParameters().initialization;
-        AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM;
-        acousticTravellingWaveParametersITM.k = initConditionParams.k;
+  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM;
+  acousticTravellingWaveParametersITM.k = initConditionParams.k;
 
-        return acousticTravellingWaveParametersITM;
+  return acousticTravellingWaveParametersITM;
 }
 
 static std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList() {
@@ -78,12 +78,13 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
     initConditions.emplace_back(new physics::TravellingWave(
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         travellingWaveParameters));
-  } else if (initConditionParams.type == seissol::initializer::parameters::InitializationType::AcousticTravellingwithITM){
-        initialConditionDescription = "Acoustic Travelling Wave with ITM";
-        auto acousticTravellingWaveParametersITM = getAcousticTravellingWaveITMInformation();
-        initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
-                memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-                acousticTravellingWaveParametersITM));
+  } else if (initConditionParams.type ==
+             seissol::initializer::parameters::InitializationType::AcousticTravellingwithITM) {
+    initialConditionDescription = "Acoustic Travelling Wave with ITM";
+    auto acousticTravellingWaveParametersITM = getAcousticTravellingWaveITMInformation();
+    initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
+        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
+        acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::Scholte) {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";

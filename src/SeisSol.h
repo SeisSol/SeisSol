@@ -147,7 +147,9 @@ class SeisSol {
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager, seissol::ITM::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>&
+      getTimeMirrorManagers() {
     return timeMirrorManagers;
   }
 
@@ -283,7 +285,9 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager, seissol::ITM::InstantaneousTimeMirrorManager> timeMirrorManagers;
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>
+      timeMirrorManagers;
 
   seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
 

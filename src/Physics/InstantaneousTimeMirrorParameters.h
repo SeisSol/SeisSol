@@ -19,7 +19,11 @@ class ITMParameters {
   [[nodiscard]] double getITMStartingTime() const;
   [[nodiscard]] bool getITMToggle() const;
   [[nodiscard]] int getReflectionType() const;
-  ITMParameters(double ITMTime, double ITMVelocityScalingFactor, double ITMStartingTime, bool ITMToggle, int reflectionType);
+  ITMParameters(double ITMTime,
+                double ITMVelocityScalingFactor,
+                double ITMStartingTime,
+                bool ITMToggle,
+                int reflectionType);
 };
 
 ITMParameters readITMParametersFromYaml(std::shared_ptr<YAML::Node>& params);

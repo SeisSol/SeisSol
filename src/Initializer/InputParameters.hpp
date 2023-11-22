@@ -64,7 +64,7 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
-struct ITMParameters{
+struct ITMParameters {
   double ITMTime;
   double ITMVelocityScalingFactor;
   double ITMStartingTime;

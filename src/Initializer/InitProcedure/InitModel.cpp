@@ -245,12 +245,12 @@ static void initializeCellMatrices(LtsInfo& ltsInfo) {
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
 
-//  const bool ITMToggle = memoryManager.getITMParameters()->getITMToggle();
+  //  const bool ITMToggle = memoryManager.getITMParameters()->getITMToggle();
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
 
   bool ITMToggle = itmParameters.ITMToggle;
 
-  if(ITMToggle){
+  if (ITMToggle) {
     auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
     double scalingFactor = itmParameters.ITMVelocityScalingFactor;
     double startingTime = itmParameters.ITMStartingTime;
@@ -260,8 +260,14 @@ static void initializeCellMatrices(LtsInfo& ltsInfo) {
     auto m_ltsLut = memoryManager.getLtsLut();
     auto m_timeStepping = seissol::SeisSol::main.timeManager().getTimeStepping();
 
-    initializeTimeMirrorManagers(scalingFactor, startingTime, &meshReader, m_ltsTree, m_lts,
-                                 m_ltsLut, timeMirrorManagers.first, timeMirrorManagers.second,
+    initializeTimeMirrorManagers(scalingFactor,
+                                 startingTime,
+                                 &meshReader,
+                                 m_ltsTree,
+                                 m_lts,
+                                 m_ltsLut,
+                                 timeMirrorManagers.first,
+                                 timeMirrorManagers.second,
                                  m_timeStepping);
   }
 }

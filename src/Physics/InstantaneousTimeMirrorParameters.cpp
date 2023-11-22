@@ -13,12 +13,15 @@ ITMParameters readITMParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   const double ITMStartingTime = getWithDefault(equationsParams, "itmstartingtime", 5.5);
   const bool ITMToggle = getWithDefault(equationsParams, "itmtoggle", 1);
   const int reflectionType = getWithDefault(equationsParams, "itmreflectiontype", 1);
-  return ITMParameters(ITMTime, ITMVelocityScalingFactor, ITMStartingTime, ITMToggle, reflectionType);
+  return ITMParameters(
+      ITMTime, ITMVelocityScalingFactor, ITMStartingTime, ITMToggle, reflectionType);
 }
 
 ITMParameters::ITMParameters(double ITMTime,
                              double ITMVelocityScalingFactor,
-                             double ITMStartingTime, bool ITMToggle, int reflectionType)
+                             double ITMStartingTime,
+                             bool ITMToggle,
+                             int reflectionType)
     : ITMTime(ITMTime), ITMVelocityScalingFactor(ITMVelocityScalingFactor),
       ITMStartingTime(ITMStartingTime), ITMToggle(ITMToggle) {
   if (ITMTime < 0.0) {
@@ -31,20 +34,19 @@ ITMParameters::ITMParameters(double ITMTime,
     logError() << "ITM Starting Time can not be less than zero\n";
   }
 
-  if(reflectionType < 1 || reflectionType > 4){
+  if (reflectionType < 1 || reflectionType > 4) {
     logError() << "Reflection Type can only be 1, 2, 3 or 4\n";
   }
-
 }
 
 double ITMParameters::getITMTime() const { return ITMTime; }
 
 double ITMParameters::getITMVelocityScalingFactor() const { return ITMVelocityScalingFactor; }
 
-double ITMParameters::getITMStartingTime() const {return ITMStartingTime;}
+double ITMParameters::getITMStartingTime() const { return ITMStartingTime; }
 
-bool ITMParameters::getITMToggle() const {return ITMToggle;}
+bool ITMParameters::getITMToggle() const { return ITMToggle; }
 
-int ITMParameters::getReflectionType() const {return reflectionType;}
+int ITMParameters::getReflectionType() const { return reflectionType; }
 
 } // namespace seissol::initializers::ITM

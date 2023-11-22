@@ -47,8 +47,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
       *meshReader, ltsTree, lts, ltsLut, *timestepping); // An empty timestepping is added. Need to
                                                          // discuss what exactly is to be sent here
 
-   logInfo(rank) << "Updating TimeSteps by a factor of " << 1/velocityScalingFactor;
-   updateTimeSteps();
+  logInfo(rank) << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
+  updateTimeSteps();
 
   logInfo(rank) << "Finished flipping.";
   isEnabled = false;
@@ -64,27 +64,27 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
        ++it) {
     CellMaterialData* materials = it->var(lts->material);
 
-    if(reflectionType == 1){
-      for(unsigned cell = 0; cell < it->getNumberOfCells(); ++cell){
+    if (reflectionType == 1) {
+      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves
-        material.local.mu *= velocityScalingFactor*velocityScalingFactor;
-        material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
-        for(int i = 0; i < 4 ; i++){
-          material.neighbor[i].mu *= velocityScalingFactor*velocityScalingFactor;
-          material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
+        material.local.mu *= velocityScalingFactor * velocityScalingFactor;
+        material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
+        for (int i = 0; i < 4; i++) {
+          material.neighbor[i].mu *= velocityScalingFactor * velocityScalingFactor;
+          material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
         }
       }
     }
 
-    if (reflectionType == 2){
-      for(unsigned cell = 0; cell < it->getNumberOfCells(); ++cell){
+    if (reflectionType == 2) {
+      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
         material.local.mu *= velocityScalingFactor;
         material.local.rho *= velocityScalingFactor;
-        for(int i = 0; i < 4 ; i++){
+        for (int i = 0; i < 4; i++) {
           material.neighbor[i].lambda *= velocityScalingFactor;
           material.neighbor[i].mu *= velocityScalingFactor;
           material.neighbor[i].rho *= velocityScalingFactor;
@@ -92,42 +92,46 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if(reflectionType==3){
-      for(unsigned  cell=0; cell < it->getNumberOfCells(); ++cell){
+    if (reflectionType == 3) {
+      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
-        material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
-        for(int i = 0; i < 4 ; i++){
-          material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
+        material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
+        for (int i = 0; i < 4; i++) {
+          material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
         }
       }
     }
 
-    if(reflectionType==4){
-      for(unsigned cell=0; cell < it->getNumberOfCells(); ++cell){
+    if (reflectionType == 4) {
+      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
-        //Refocusing only S-waves
-              material.local.lambda = -2.0*velocityScalingFactor*material.local.mu + (material.local.lambda + 2.0*material.local.mu)/velocityScalingFactor ;
-              material.local.mu *= velocityScalingFactor;
-              material.local.rho *= velocityScalingFactor;
+        // Refocusing only S-waves
+        material.local.lambda =
+            -2.0 * velocityScalingFactor * material.local.mu +
+            (material.local.lambda + 2.0 * material.local.mu) / velocityScalingFactor;
+        material.local.mu *= velocityScalingFactor;
+        material.local.rho *= velocityScalingFactor;
 
-              for(int i=0; i<4; i++){
-                material.neighbor[i].lambda = -2.0*velocityScalingFactor*material.neighbor[i].mu + (material.neighbor[i].lambda + 2.0*material.neighbor[i].mu)/velocityScalingFactor;
-                material.neighbor[i].mu *= velocityScalingFactor;
-                material.neighbor[i].rho *= velocityScalingFactor;
-              }
+        for (int i = 0; i < 4; i++) {
+          material.neighbor[i].lambda =
+              -2.0 * velocityScalingFactor * material.neighbor[i].mu +
+              (material.neighbor[i].lambda + 2.0 * material.neighbor[i].mu) / velocityScalingFactor;
+          material.neighbor[i].mu *= velocityScalingFactor;
+          material.neighbor[i].rho *= velocityScalingFactor;
+        }
       }
     }
 
-      // Scaling with impedance remaining constant to show no reflections
-//      material.local.mu *= velocityScalingFactor;
-//      material.local.lambda *= velocityScalingFactor;
-//      material.local.rho /= velocityScalingFactor;
-//      for(int i=0; i<4; i++){
-//        material.neighbor[i].mu *= velocityScalingFactor;
-//        material.neighbor[i].lambda *= velocityScalingFactor;
-//        material.neighbor[i].rho /= velocityScalingFactor;
-//      }
+    // Scaling with impedance remaining constant to show no reflections
+    //      material.local.mu *= velocityScalingFactor;
+    //      material.local.lambda *= velocityScalingFactor;
+    //      material.local.rho /= velocityScalingFactor;
+    //      for(int i=0; i<4; i++){
+    //        material.neighbor[i].mu *= velocityScalingFactor;
+    //        material.neighbor[i].lambda *= velocityScalingFactor;
+    //        material.neighbor[i].rho /= velocityScalingFactor;
+    //      }
   }
 #endif
 }
@@ -137,8 +141,9 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
   int reflectionType = itmParameters.reflectionType;
 
-  if(reflectionType == 1 || reflectionType == 3)
-  // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant impedance case
+  if (reflectionType == 1 || reflectionType == 3)
+  // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
+  // impedance case
   {
     for (auto& cluster : *timeClusters) {
       cluster->getClusterTimes().getTimeStepSize() =
@@ -146,8 +151,8 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-              neighborCluster.ct.getTimeStepSize() =
-                  neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
+        neighborCluster.ct.getTimeStepSize() =
+            neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
       }
     }
 
@@ -156,36 +161,35 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
           cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
-              neighborcluster.ct.getTimeStepSize() =
-                  neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
+        neighborcluster.ct.getTimeStepSize() =
+            neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
       }
     }
   }
 
-  if(reflectionType == 4) { // refocusing only S-waves
+  if (reflectionType == 4) { // refocusing only S-waves
 
     for (auto& cluster : *timeClusters) {
       cluster->getClusterTimes().getTimeStepSize() =
-          cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
+          cluster->getClusterTimes().getTimeStepSize() * velocityScalingFactor;
 
-       auto neighborClusters = cluster->getNeighborClusters();
-       for (auto& neighborCluster : *neighborClusters) {
-         neighborCluster.ct.getTimeStepSize() =
-             neighborCluster.ct.getTimeStepSize()*velocityScalingFactor;
-       }
-     }
+      auto neighborClusters = cluster->getNeighborClusters();
+      for (auto& neighborCluster : *neighborClusters) {
+        neighborCluster.ct.getTimeStepSize() =
+            neighborCluster.ct.getTimeStepSize() * velocityScalingFactor;
+      }
+    }
 
-     for (auto& cluster : *ghostTimeClusters) {
-       cluster->getClusterTimes().getTimeStepSize() =
-           cluster->getClusterTimes().getTimeStepSize()*velocityScalingFactor;
-       auto ghostNeighborClusters = cluster->getNeighborClusters();
-       for (auto& neighborcluster : *ghostNeighborClusters) {
-         neighborcluster.ct.getTimeStepSize() =
-             neighborcluster.ct.getTimeStepSize()*velocityScalingFactor;
-       }
-     }
- }
-
+    for (auto& cluster : *ghostTimeClusters) {
+      cluster->getClusterTimes().getTimeStepSize() =
+          cluster->getClusterTimes().getTimeStepSize() * velocityScalingFactor;
+      auto ghostNeighborClusters = cluster->getNeighborClusters();
+      for (auto& neighborcluster : *ghostNeighborClusters) {
+        neighborcluster.ct.getTimeStepSize() =
+            neighborcluster.ct.getTimeStepSize() * velocityScalingFactor;
+      }
+    }
+  }
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
