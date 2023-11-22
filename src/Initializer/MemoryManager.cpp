@@ -67,10 +67,13 @@
  * @section DESCRIPTION
  * Memory management of SeisSol.
  **/
+#include "MemoryAllocator.h"
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "GlobalData.h"
+#include "tree/Layer.hpp"
+#include <cstddef>
 #include <yateto.h>
 
 #include <Kernels/common.hpp>
@@ -93,7 +96,7 @@
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
+  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
   if constexpr (seissol::isDeviceOn()) {
     // the serial order for initialization is needed for some (older) driver versions on some GPUs
     bool serialize = false;
@@ -260,7 +263,7 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
    */
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives));
+    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device));
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // set pointer to ghost region
       m_meshStructure[tc].ghostRegions[l_region] = ghostStart;
@@ -415,6 +418,45 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                           static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives)),
                                           cluster.child<Interior>().var(m_lts.buffers),
                                           cluster.child<Interior>().var(m_lts.derivatives)  );
+
+#ifdef ACL_DEVICE
+    #ifdef USE_MPI
+    /*
+     * ghost layer
+     */
+    InternalState::setUpLayerPointers( m_meshStructure[tc].numberOfRegions,
+                                       m_meshStructure[tc].numberOfGhostRegionCells,
+                                       cluster.child<Ghost>().var(m_lts.cellInformation),
+                                       m_numberOfGhostRegionBuffers[tc],
+                                       m_numberOfGhostRegionDerivatives[tc],
+                                       static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device)),
+                                       cluster.child<Ghost>().var(m_lts.buffersDevice),
+                                       cluster.child<Ghost>().var(m_lts.derivativesDevice) );
+
+    /*
+     * Copy layer
+     */
+    InternalState::setUpLayerPointers( m_meshStructure[tc].numberOfRegions,
+                                       m_meshStructure[tc].numberOfCopyRegionCells,
+                                       cluster.child<Copy>().var(m_lts.cellInformation),
+                                       m_numberOfCopyRegionBuffers[tc],
+                                       m_numberOfCopyRegionDerivatives[tc],
+                                       static_cast<real*>(cluster.child<Copy>().bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device)),
+                                       cluster.child<Copy>().var(m_lts.buffersDevice),
+                                       cluster.child<Copy>().var(m_lts.derivativesDevice) );
+#endif
+
+    /*
+     * Interior
+     */
+    InternalState::setUpInteriorPointers( m_meshStructure[tc].numberOfInteriorCells,
+                                          cluster.child<Interior>().var(m_lts.cellInformation),
+                                          m_numberOfInteriorBuffers[tc],
+                                          m_numberOfInteriorDerivatives[tc],
+                                          static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device)),
+                                          cluster.child<Interior>().var(m_lts.buffersDevice),
+                                          cluster.child<Interior>().var(m_lts.derivativesDevice)  );
+#endif
   }
 }
 
@@ -677,8 +719,13 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
     real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
     real* bucket = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer));
 
+#ifdef ACL_DEVICE
+    real* (*displacementsDevice)[4] = layer->var(m_lts.faceDisplacementsDevice);
+    real* bucketDevice = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer, seissol::initializers::AllocationPlace::Device));
+#endif
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket)
+#pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
@@ -687,7 +734,11 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
           // We then have the pointer offset that needs to be added to the bucket.
           // The final value of this pointer then points to a valid memory address
           // somewhere in the bucket.
-          displacements[cell][face] = bucket + ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          auto offset = ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          displacements[cell][face] = bucket + offset;
+#ifdef ACL_DEVICE
+          displacementsDevice[cell][face] = bucketDevice + offset;
+#endif
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
             // zero displacements
             displacements[cell][face][dof] = static_cast<real>(0.0);
@@ -899,3 +950,16 @@ void seissol::initializers::MemoryManager::initFrictionData() {
   }
 }
 
+void seissol::initializers::MemoryManager::synchronizeTo(seissol::initializers::AllocationPlace place) {
+  if (place == seissol::initializers::AllocationPlace::Device) {
+    logInfo(MPI::mpi.rank()) << "Synchronizing data... (host->device)";
+  }
+  else {
+    logInfo(MPI::mpi.rank()) << "Synchronizing data... (device->host)";
+  }
+  const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  m_ltsTree.synchronizeTo(place, defaultStream);
+  m_dynRupTree.synchronizeTo(place, defaultStream);
+  m_boundaryTree.synchronizeTo(place, defaultStream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+}

@@ -93,7 +93,7 @@ namespace tensor = seissol::tensor;
 void initGlobalData() {
   seissol::initializers::GlobalDataInitializerOnHost::init(m_globalDataOnHost,
                                                            *m_allocator,
-                                                           MEMKIND_GLOBAL);
+                                                           seissol::memory::Standard);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &m_globalDataOnHost;
@@ -141,8 +141,10 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
+
+    constexpr seissol::memory::Memkind timedofsMemkind = seissol::isDeviceOn() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
     
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
+    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, timedofsMemkind);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -200,6 +202,10 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 
 #ifdef ACL_DEVICE
 void initDataStructuresOnDevice(bool enableDynamicRupture) {
+  const auto& device = ::device::DeviceInstance::getInstance();
+  m_ltsTree->synchronizeTo(seissol::initializers::AllocationPlace::Device, device.api->getDefaultStream());
+  device.api->syncDefaultStreamWithHost();
+
   seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
   seissol::initializers::Layer& layer = cluster.child<Interior>();
 

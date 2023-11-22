@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "tree/Layer.hpp"
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -406,6 +407,7 @@ class seissol::initializers::MemoryManager {
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
+  void synchronizeTo(seissol::initializers::AllocationPlace place);
 };
 
 

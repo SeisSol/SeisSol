@@ -679,11 +679,11 @@ void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
 
-  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice, seissol::initializers::AllocationPlace::Device),
                      ltsTree->var(lts->localIntegration),
                      variableSizes[lts->localIntegration.index]);
 
-  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice, seissol::initializers::AllocationPlace::Device),
                      ltsTree->var(lts->neighboringIntegration),
                      variableSizes[lts->neighboringIntegration.index]);
 #endif // ACL_DEVICE

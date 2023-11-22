@@ -13,12 +13,14 @@ void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
 }
 
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
-  real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
-  real* idofsPlus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+  real** timeDerivativePlus =
+      currentLayer->var(currentHandler->timeDerivativePlus, AllocationPlace::Device);
+  real** timeDerivativeMinus =
+      currentLayer->var(currentHandler->timeDerivativeMinus, AllocationPlace::Device);
+  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
@@ -46,16 +48,20 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
 }
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
-  auto* qInterpolatedPlus = currentLayer->var(currentHandler->qInterpolatedPlus);
-  auto* qInterpolatedMinus = currentLayer->var(currentHandler->qInterpolatedMinus);
+  auto* qInterpolatedPlus =
+      currentLayer->var(currentHandler->qInterpolatedPlus, AllocationPlace::Device);
+  auto* qInterpolatedMinus =
+      currentLayer->var(currentHandler->qInterpolatedMinus, AllocationPlace::Device);
 
-  real* idofsPlus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
-  DRGodunovData* godunovData = currentLayer->var(currentHandler->godunovData);
-  DRFaceInformation* faceInfo = currentLayer->var(currentHandler->faceInformation);
+  DRGodunovData* godunovData =
+      currentLayer->var(currentHandler->godunovData, AllocationPlace::Device);
+  DRFaceInformation* faceInfo =
+      currentLayer->var(currentHandler->faceInformation, AllocationPlace::Device);
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {

@@ -169,6 +169,9 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (m_receiverCluster != nullptr) {
+    const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    m_clusterData->synchronizeTo(seissol::initializers::AllocationPlace::Host, defaultStream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
   }
 

@@ -6,9 +6,9 @@
 
 
 #ifndef ACL_DEVICE
-# define MEMKIND_BOUNDARY  seissol::memory::Standard
+# define MEMKIND_BOUNDARY  initializers::AllocationMode::HostOnly
 #else
-# define MEMKIND_BOUNDARY  seissol::memory::DeviceUnifiedMemory
+# define MEMKIND_BOUNDARY  initializers::AllocationMode::HostDeviceSplit // initializers::AllocationMode::HostDeviceUnified
 #endif // ACL_DEVICE
 
 namespace seissol {
