@@ -20,7 +20,7 @@ class FastVelocityWeakeningLaw
                                       real fullUpdateTime) override {
     using SelfInitializerType = seissol::initializers::LTSRateAndStateFastVelocityWeakening;
     auto* concreteLts = dynamic_cast<SelfInitializerType const* const>(dynRup);
-    this->srW = layerData.var(concreteLts->rsSrW);
+    this->srW = layerData.var(concreteLts->rsSrW, seissol::initializers::AllocationPlace::Device);
 
     using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
     ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
