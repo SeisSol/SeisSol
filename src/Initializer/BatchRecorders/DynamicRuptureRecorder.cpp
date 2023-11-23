@@ -14,9 +14,9 @@ void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
 
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
   real** timeDerivativePlus =
-      currentLayer->var(currentHandler->timeDerivativePlus, AllocationPlace::Device);
+      currentLayer->var(currentHandler->timeDerivativePlus);
   real** timeDerivativeMinus =
-      currentLayer->var(currentHandler->timeDerivativeMinus, AllocationPlace::Device);
+      currentLayer->var(currentHandler->timeDerivativeMinus);
   real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
