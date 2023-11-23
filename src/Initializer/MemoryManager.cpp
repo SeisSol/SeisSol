@@ -722,6 +722,10 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
 #ifdef ACL_DEVICE
     real* (*displacementsDevice)[4] = layer->var(m_lts.faceDisplacementsDevice);
     real* bucketDevice = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer, seissol::initializers::AllocationPlace::Device));
+#else
+    // to make the OpenMP directive happy
+    real* (*displacementsDevice)[4];
+    real* bucketDevice;
 #endif
 
 #ifdef _OPENMP
@@ -951,6 +955,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
 }
 
 void seissol::initializers::MemoryManager::synchronizeTo(seissol::initializers::AllocationPlace place) {
+#ifdef ACL_DEVICE
   if (place == seissol::initializers::AllocationPlace::Device) {
     logInfo(MPI::mpi.rank()) << "Synchronizing data... (host->device)";
   }
@@ -962,4 +967,5 @@ void seissol::initializers::MemoryManager::synchronizeTo(seissol::initializers::
   m_dynRupTree.synchronizeTo(place, defaultStream);
   m_boundaryTree.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
 }
