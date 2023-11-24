@@ -481,7 +481,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
           + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
 
-        real W_energy = 0.5*data.material.local.lambda0*EspI*EspI
+        real W_energy = 0.0*0.5*data.material.local.lambda0*EspI*EspI
         + data.material.local.mu0*EspII;
 
         if (W_energy - damage_para2*alphaNodal[q]/(1-alphaNodal[q]*alphaNodal[q]) > 0) {

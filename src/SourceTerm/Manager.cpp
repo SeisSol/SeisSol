@@ -149,7 +149,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
   faultBasis[6] = subfault.normal(0);
   faultBasis[7] = subfault.normal(1);
   faultBasis[8] = subfault.normal(2);
-  
+
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
@@ -160,13 +160,16 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
       }
       material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
+    case seissol::model::MaterialType::damaged:
+      std::cout << "entered" << std::endl;
+      break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
       em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
       em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
   }
- 
+
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
     double const* samples = (numSamples > 0) ? &sliprates[sr][ offsets[sr] ] : NULL;
@@ -276,7 +279,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                                                         time_stepping::TimeManager&     timeManager )
 {
   int rank = seissol::MPI::mpi.rank();
-  
+
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "<                      Point sources                      >";
   logInfo(rank) << "<--------------------------------------------------------->";
@@ -388,7 +391,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   delete[] centres3;
 
   timeManager.setPointSourcesForClusters(layeredClusterMapping, layeredSources);
-  
+
   logInfo(rank) << ".. finished point source initialization.";
 }
 
@@ -488,7 +491,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   delete[] meshIds;
 
   timeManager.setPointSourcesForClusters(layeredClusterMapping, layeredSources);
-  
+
   logInfo(rank) << ".. finished point source initialization.";
 }
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
