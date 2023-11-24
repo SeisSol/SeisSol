@@ -161,7 +161,8 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
       material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     case seissol::model::MaterialType::damaged:
-      std::cout << "entered" << std::endl;
+      // std::cout << "entered" << std::endl;
+      material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
