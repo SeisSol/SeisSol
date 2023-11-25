@@ -123,8 +123,8 @@ class ADERDGBase(ABC):
     self.db.update(project2nFaceTo3m)
 
     selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    # selectVelocitySpp[6:9,0:3] = np.eye(3)
-    selectVelocitySpp[7:10,0:3] = np.eye(3)
+    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    # selectVelocitySpp[7:10,0:3] = np.eye(3)
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
     self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
