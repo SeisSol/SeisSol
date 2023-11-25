@@ -127,6 +127,8 @@ inline void precomputeStressFromQInterpolated(
   using namespace dr::misc::quantity_indices;
   unsigned DAM = 9;
 
+  std::cout << "entered" << std::endl;
+
 #ifndef ACL_DEVICE
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
