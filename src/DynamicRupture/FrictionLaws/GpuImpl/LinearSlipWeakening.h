@@ -5,6 +5,8 @@
 
 namespace seissol::dr::friction_law::gpu {
 
+class NoSpecialization;
+
 /**
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
@@ -196,29 +198,50 @@ class LinearSlipWeakeningLaw
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:currentLayerDetails.regularisedStrength[0:layerSize]) nowait
-      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp parallel for schedule(static, 1)
-        for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
+      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
+        for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+          #pragma omp parallel for schedule(static, 1)
+          for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
-        auto& faultStresses = devFaultStresses[ltsFace];
-        auto& strength = devStrengthBuffer[ltsFace];
+          auto& faultStresses = devFaultStresses[ltsFace];
+          auto& strength = devStrengthBuffer[ltsFace];
 
-        const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
-                                       faultStresses.normalStress[timeIndex][pointIndex];
-        auto localStrength =
-            -devCohesion[ltsFace][pointIndex] -
-            devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+          const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
+                                        faultStresses.normalStress[timeIndex][pointIndex];
+          auto localStrength =
+              -devCohesion[ltsFace][pointIndex] -
+              devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
 
-        strength[pointIndex] =
-            SpecializationT::strengthHook(currentLayerDetails,
-                                          localStrength,
-                                          devSlipRateMagnitude[ltsFace][pointIndex],
-                                          deltaT,
-                                          vStar,
-                                          prakashLength,
-                                          ltsFace,
-                                          pointIndex);
+          strength[pointIndex] = localStrength;
+        }
+      }
+    }
+    else {
+        #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:currentLayerDetails.regularisedStrength[0:layerSize]) nowait
+        for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+          #pragma omp parallel for schedule(static, 1)
+          for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+
+          auto& faultStresses = devFaultStresses[ltsFace];
+          auto& strength = devStrengthBuffer[ltsFace];
+
+          const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
+                                        faultStresses.normalStress[timeIndex][pointIndex];
+          auto localStrength =
+              -devCohesion[ltsFace][pointIndex] -
+              devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+
+          strength[pointIndex] =
+              SpecializationT::strengthHook(currentLayerDetails,
+                                            localStrength,
+                                            devSlipRateMagnitude[ltsFace][pointIndex],
+                                            deltaT,
+                                            vStar,
+                                            prakashLength,
+                                            ltsFace,
+                                            pointIndex);
+        }
       }
     }
   }
