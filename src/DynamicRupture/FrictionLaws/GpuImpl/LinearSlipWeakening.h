@@ -304,6 +304,8 @@ class NoSpecialization {
 
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
+  #pragma omp declare mapper(Details det)
+
   static real strengthHook(Details details,
                            real strength,
                            real localSlipRate,
