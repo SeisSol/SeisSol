@@ -98,10 +98,16 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     seissol::dr::ImpedancesAndEta* impAndEtaGet = &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
-    real epsInitxx = 3.7385e-4; // eps_xx0
-    real epsInityy = -1.4963e-3; // eps_yy0
-    real epsInitzz = 3.7385e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xx0
+    // real epsInitxx = 3.7385e-4; // eps_xx0
+    // real epsInityy = -1.4963e-3; // eps_yy0
+    // real epsInitzz = 3.7385e-4; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+    real epsInitxx = 0.0; // eps_xx0
+    real epsInityy = 0.0; // eps_yy0
+    real epsInitzz = 0.0; // eps_zz0
+    real epsInitxy = 0.0; // eps_xx0
     real epsInityz = -0e-1; // eps_yy0
     real epsInitzx = -0e-1; // eps_zz0
     real lambda0P = impAndEtaGet->lambda0P;

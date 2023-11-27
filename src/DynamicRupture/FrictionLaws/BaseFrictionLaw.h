@@ -119,17 +119,17 @@ class BaseFrictionLaw : public FrictionSolver {
             + 2*(qIMinus[o][XZ][i]+epsInitzx)*(qIMinus[o][XZ][i]+epsInitzx);
           real alpham = qIMinus[o][DAM][i];
 
-          qStressIMinus[o][XX][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+          qStressIMinus[o][XX][i] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
                 + (2*(mu0M - alpham*mu0M)
                   )
                   *(qIMinus[o][XX][i]+epsInitxx);
 
-          qStressIMinus[o][YY][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+          qStressIMinus[o][YY][i] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
                 + (2*(mu0M - alpham*mu0M)
                   )
                   *(qIMinus[o][YY][i]+epsInityy);
 
-          qStressIMinus[o][ZZ][i] = (lambda0M*EspIm - alpham*lambda0P*EspIp)
+          qStressIMinus[o][ZZ][i] = (lambda0M*EspIm - alpham*lambda0M*EspIm)
                 + (2*(mu0M - alpham*mu0M)
                   )
                   *(qIMinus[o][ZZ][i]+epsInitzz);
