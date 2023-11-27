@@ -35,7 +35,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     }
 
 #ifdef TARGETDART
-    omp_set_default_device(TD_ANY);
+    omp_set_default_device(TARGETDART_ANY); // TARGETDART_DEVICE(N) => runs on device N
 #endif
 
      // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
