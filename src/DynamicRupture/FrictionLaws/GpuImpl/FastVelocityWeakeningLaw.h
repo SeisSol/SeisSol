@@ -115,13 +115,14 @@ class FastVelocityWeakeningLaw
     const auto layerSize{this->currLayerSize};
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
+    constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
     static_assert(dim0 == misc::numPaddedPoints);
     static_assert(dim0 >= dim1);
 
      /* std::accessor<real, 1, std::access::mode::read_write, std::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);*/
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devStateVariableBuffer[0:layerSize], resampleMatrix) map(tofrom: devStateVariable[0:layerSize]) nowait
+    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devStateVariableBuffer[0:layerSize], resampleMatrix[0:resampleSize]) map(tofrom: devStateVariable[0:layerSize]) nowait
     // allocate(omp_pteam_mem_alloc:deltaStateVar)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         real deltaStateVar[misc::numPaddedPoints];

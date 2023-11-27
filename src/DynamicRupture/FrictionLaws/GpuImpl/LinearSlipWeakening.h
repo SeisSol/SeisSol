@@ -199,7 +199,7 @@ class LinearSlipWeakeningLaw
 
     // #pragma omp distribute
     if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
-      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
+      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -259,8 +259,12 @@ class LinearSlipWeakeningLaw
     const auto t0{this->drParameters->t0};
     const auto layerSize{this->currLayerSize};
 
+    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
+    constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
+
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:layerSize]) map(tofrom: devAccumulatedSlipMagnitude[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
+    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:resampleSize]) map(tofrom: devAccumulatedSlipMagnitude[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {

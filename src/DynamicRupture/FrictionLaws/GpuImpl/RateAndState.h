@@ -142,7 +142,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        auto& faultStresses = devFaultStresses[ltsFace];
+        const auto& faultStresses = devFaultStresses[ltsFace];
 
         devStateVarReference[ltsFace][pointIndex] = devStateVariableBuffer[ltsFace][pointIndex];
 
