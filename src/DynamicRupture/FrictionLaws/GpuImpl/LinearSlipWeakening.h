@@ -345,7 +345,7 @@ class BiMaterialFault {
   #pragma omp declare mapper(Details det) map(det.regularisedStrength[0:det.layerSize])
 
   Details getCurrentLayerDetails() {
-    Details details{this->regularisedStrength};
+    Details details{this->layerSize, this->regularisedStrength};
     return details;
   }
 
