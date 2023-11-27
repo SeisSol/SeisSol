@@ -970,8 +970,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       }
 
       real alphaAve = Q_aveData[9];
-      real lambda0 = 9.71e10; //materialData[l_cell].local.lambda0
-      real mu0 = 8.27e10; //materialData[l_cell].local.mu0
+      real lambda0 = materialData[l_cell].local.lambda0;
+      real mu0 = materialData[l_cell].local.mu0;
       real beta_m = 0e2;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
@@ -1069,6 +1069,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         //   // auto solutions = init::Q::view::create(derivatives_neighbor[side]);
         //   std::cout << derivatives_neighbor[side][0] << ' '  << std::endl;
         // }
+
+        lambda0 = materialData[l_cell].neighbor[side].lambda0;
+        mu0 = materialData[l_cell].neighbor[side].mu0;
 
         if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
         cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
