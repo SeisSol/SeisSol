@@ -55,6 +55,8 @@ class FastVelocityWeakeningLaw
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
+    auto* queue{this->queue};
+
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details, details.sl0[0:layerSize], details.a[0:layerSize], details.srW[0:layerSize], devStateVarReference[0:layerSize], devLocalSlipRate[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -118,6 +120,8 @@ class FastVelocityWeakeningLaw
     constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
     static_assert(dim0 == misc::numPaddedPoints);
     static_assert(dim0 >= dim1);
+
+    auto* queue{this->queue};
 
      /* std::accessor<real, 1, std::access::mode::read_write, std::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);*/

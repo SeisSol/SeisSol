@@ -25,6 +25,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
+    auto* queue{this->queue};
+
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
     // auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
     double timeWeightsCopy[CONVERGENCE_ORDER];

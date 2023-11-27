@@ -52,6 +52,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devSlip1{this->slip1};
     auto* devSlip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devStrengthBuffer[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devTractionResults[0:layerSize]) nowait
@@ -104,6 +105,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMuS[0:layerSize], devMuD[0:layerSize], stateVariableBuffer[0:layerSize]) map(from: devMu[0:layerSize]) nowait
@@ -130,6 +132,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devDynStressTimePending{this->dynStressTimePending};
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* devDC{this->dC};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devAccumulatedSlipMagnitude[0:layerSize], devDC[0:layerSize]) map(tofrom: devDynStressTimePending[0:layerSize]) map(from: devDynStressTime[0:layerSize]) nowait
@@ -192,6 +195,7 @@ class LinearSlipWeakeningLaw
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
     auto* devCohesion{this->cohesion};
     auto* devMu{this->mu};
+    auto* queue{this->queue};
 
     const auto vStar{this->drParameters->vStar};
     const auto prakashLength{this->drParameters->prakashLength};
@@ -262,6 +266,7 @@ class LinearSlipWeakeningLaw
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
     constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:resampleSize]) map(tofrom: devAccumulatedSlipMagnitude[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait

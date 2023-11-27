@@ -92,6 +92,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
     // copy state variable from last time step
     const auto layerSize{this->currLayerSize};
+    auto* queue{this->queue};
 
     auto* devLocalStateVariable{this->stateVariable};
     // #pragma omp distribute
@@ -136,6 +137,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devStateVarReference{this->initialVariables.stateVarReference};
 
     updateNormalStress(timeIndex);
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devInitialStressInFaultCS[0:layerSize]) map(from: devSlipRateMagnitude[0:layerSize], devAbsoluteShearTraction[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize]) nowait
@@ -184,6 +186,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       static_cast<Derived*>(this)->updateStateVariable(dt);
       this->tpMethod.calcFluidPressure(devNormalStress, devMu, devLocalSlipRate, dt, false);
       updateNormalStress(timeIndex);
+      auto* queue{this->queue};
 
       // #pragma omp distribute
       #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details.a[0:layerSize], details.sl0[0:layerSize], devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize]) map(from: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
@@ -249,6 +252,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
 
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details.a[0:layerSize], details.sl0[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
@@ -323,6 +327,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devDynStressTimePending{this->dynStressTimePending};
     auto* devRuptureTime{this->ruptureTime};
     auto* devMu{this->mu};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMu[0:layerSize], devRuptureTime[0:layerSize]) map(tofrom: devDynStressTimePending[0:layerSize]) map(from: devDynStressTime[0:layerSize]) nowait
@@ -382,6 +387,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devNormalStress{this->initialVariables.normalStress};
 
     auto tpCurrentLayerDetails = tpMethod.getCurrentLayerDetails();
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], tpCurrentLayerDetails) map(from: devNormalStress[0:layerSize]) nowait

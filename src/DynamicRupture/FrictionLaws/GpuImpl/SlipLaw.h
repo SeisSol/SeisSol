@@ -17,6 +17,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
     auto layerSize{this->currLayerSize};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devSl0[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait

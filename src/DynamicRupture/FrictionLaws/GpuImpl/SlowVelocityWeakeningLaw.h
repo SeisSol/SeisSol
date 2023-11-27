@@ -71,6 +71,7 @@ class SlowVelocityWeakeningLaw
   void resampleStateVar(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
+    auto* queue{this->queue};
 
     // #pragma omp distribute
     #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: stateVariableBuffer[0:layerSize]) map(from: stateVariable[0:layerSize]) nowait
