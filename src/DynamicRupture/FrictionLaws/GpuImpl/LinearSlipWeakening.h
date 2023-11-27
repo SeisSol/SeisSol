@@ -196,7 +196,7 @@ class LinearSlipWeakeningLaw
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: currentLayerDetails.regularisedStrength[0:layerSize], devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
+    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: currentLayerDetails, devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -327,6 +327,7 @@ class BiMaterialFault {
     auto* concreteLts =
         dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+    this->layerSize = layerData.getNumberOfCells();
   }
 
   #pragma omp declare target
@@ -337,8 +338,11 @@ class BiMaterialFault {
   };
 
   struct Details {
+    std::size_t layerSize;
     real (*regularisedStrength)[misc::numPaddedPoints];
   };
+
+  #pragma omp declare mapper(Details det) map(det.regularisedStrength[0:det.layerSize])
 
   Details getCurrentLayerDetails() {
     Details details{this->regularisedStrength};
@@ -369,6 +373,7 @@ class BiMaterialFault {
 
   private:
   real (*regularisedStrength)[misc::numPaddedPoints];
+  std::size_t layerSize;
   #pragma omp end declare target
 };
 } // namespace seissol::dr::friction_law::gpu
