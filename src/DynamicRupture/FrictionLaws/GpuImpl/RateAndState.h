@@ -186,7 +186,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       updateNormalStress(timeIndex);
 
       // #pragma omp distribute
-      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize]) map(from: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
+      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: details.a[0:layerSize], details.sl0[0:layerSize], devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize]) map(from: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         bool hasConvergedAllPoints = true;
         #pragma omp parallel for schedule(static, 1) reduction(&&:hasConvergedAllPoints)
