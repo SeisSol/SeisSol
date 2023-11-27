@@ -29,7 +29,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
     auto* stiffnessTensor = sources_.stiffnessTensor.data();
 
     if (sources_.mode == sourceterm::PointSources::NRF) {
-      #pragma omp target teams distribute parallel for schedule(static, 1)
+      #pragma omp target teams distribute device(TARGETDART_ANY) parallel for schedule(static, 1)
       for (int i = 0; i < mapping.size(); ++i) {
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
@@ -47,7 +47,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
           }
       }
     } else {
-      #pragma omp target teams distribute parallel for schedule(static, 1)
+      #pragma omp target teams distribute device(TARGETDART_ANY) parallel for schedule(static, 1)
       for (int i = 0; i < mapping.size(); ++i) {
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
