@@ -54,7 +54,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto deltaT{this->deltaT[timeIndex]};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devStrengthBuffer[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devTractionResults[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devStrengthBuffer[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devTractionResults[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -106,7 +106,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMuD{this->muD};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMuS[0:layerSize], devMuD[0:layerSize], stateVariableBuffer[0:layerSize]) map(from: devMu[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMuS[0:layerSize], devMuD[0:layerSize], stateVariableBuffer[0:layerSize]) map(from: devMu[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -132,7 +132,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devDC{this->dC};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devAccumulatedSlipMagnitude[0:layerSize], devDC[0:layerSize]) map(tofrom: devDynStressTimePending[0:layerSize]) map(from: devDynStressTime[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devAccumulatedSlipMagnitude[0:layerSize], devDC[0:layerSize]) map(tofrom: devDynStressTimePending[0:layerSize]) map(from: devDynStressTime[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -199,7 +199,7 @@ class LinearSlipWeakeningLaw
 
     // #pragma omp distribute
     if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
-      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -218,7 +218,7 @@ class LinearSlipWeakeningLaw
       }
     }
     else {
-        #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:currentLayerDetails.regularisedStrength[0:layerSize]) nowait
+        #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:currentLayerDetails.regularisedStrength[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -264,7 +264,7 @@ class LinearSlipWeakeningLaw
     constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:resampleSize]) map(tofrom: devAccumulatedSlipMagnitude[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devSlipRateMagnitude[0:layerSize], devForcedRuptureTime[0:layerSize], devDC[0:layerSize], devResample[0:resampleSize]) map(tofrom: devAccumulatedSlipMagnitude[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
