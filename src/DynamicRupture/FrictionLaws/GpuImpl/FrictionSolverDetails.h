@@ -30,6 +30,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
+  int* queue{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

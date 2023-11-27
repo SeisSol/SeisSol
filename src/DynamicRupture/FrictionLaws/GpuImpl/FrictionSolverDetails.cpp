@@ -10,6 +10,7 @@ FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {
+  delete queue;
   if (maxClusterSize == 0)
     return;
 
@@ -23,7 +24,7 @@ FrictionSolverDetails::~FrictionSolverDetails() {
 }
 
 void FrictionSolverDetails::initSyclQueue() {
-  
+  queue = new int;
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
