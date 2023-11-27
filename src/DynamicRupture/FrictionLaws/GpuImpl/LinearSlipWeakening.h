@@ -52,7 +52,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto deltaT{this->deltaT[timeIndex]};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize]) nowait
+    #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devStrengthBuffer[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devTractionResults[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {

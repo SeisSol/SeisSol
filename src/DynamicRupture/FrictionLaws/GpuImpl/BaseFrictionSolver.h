@@ -125,11 +125,18 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
 
+      /*
+      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
+      #pragma omp metadirective when( device={arch(nvptx)}: teams distribute) default(parallel for)
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+        #pragma omp metadirective when( device={arch(nvptx)}: parallel for ) default(simd)
+      */
+
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       // #pragma omp distribute
-      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
+      #pragma omp target teams distribute device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
           common::savePeakSlipRateOutput<gpuRangeType>(
