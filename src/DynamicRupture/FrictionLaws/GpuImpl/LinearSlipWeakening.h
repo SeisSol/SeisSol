@@ -222,10 +222,12 @@ class LinearSlipWeakeningLaw
       }
     }
     else {
-        #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:currentLayerDetails.regularisedStrength[0:layerSize]) nowait
+      auto* regStrength = currentLayerDetails.regularisedStrength;
+        #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devMu[0:layerSize], devCohesion[0:layerSize], devSlipRateMagnitude[0:layerSize], devInitialStressInFaultCS[0:layerSize], devFaultStresses[0:layerSize]) map(from: devStrengthBuffer[0:layerSize]) map(tofrom:regStrength[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+            currentLayerDetails.regularisedStrength = regStrength;
 
           auto& faultStresses = devFaultStresses[ltsFace];
           auto& strength = devStrengthBuffer[ltsFace];
