@@ -71,6 +71,15 @@ std::array<real, tensor::drFilter::Size> computeDRFilterMatrix(const Filter& fil
   return filterMatrixData;
 }
 
+std::array<real, tensor::volumeFilter::Size> computeFilterMatrix(const Filter& filter) {
+  auto filterMatrixData = std::array<real, tensor::volumeFilter::Size>{0.0};
+  auto filterMatrix = init::volumeFilter::view::create(filterMatrixData.data());
+  for (unsigned i = 0; i < filterMatrix.shape(0); ++i) {
+    filterMatrix(i, i) = filter.getFilterCoeff(i);
+  }
+  return filterMatrixData;
+}
+
 std::unique_ptr<Filter> makeFilter(const initializer::parameters::FilterParameters& conf,
                                    unsigned int dimensions) {
   using namespace initializer::parameters;
@@ -85,5 +94,6 @@ std::unique_ptr<Filter> makeFilter(const initializer::parameters::FilterParamete
     return nullptr;
   }
 }
+
 
 } // namespace seissol::kernels

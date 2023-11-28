@@ -59,7 +59,7 @@ def addKernels(generator, aderdg):
   JInv = Scalar('JInv')
 
   generator.add('computeMInvJInvPhisAtSources',
-    mInvJInvPhisAtSources['k'] <= JInv * aderdg.db.M3inv['kl'] * basisFunctionsAtPoint['l'])
+                mInvJInvPhisAtSources['k'] <= JInv * aderdg.volumeFilter['kl'] * aderdg.db.M3inv['lm'] * basisFunctionsAtPoint['m'])
 
   #extract the moment tensors entries in SeisSol ordering (xx, yy, zz, xy, yz, xz)
   assert(numberOfQuantities >= 6)

@@ -43,6 +43,8 @@ class ExponentialFilter : public Filter {
 
 std::array<real, tensor::drFilter::Size> computeDRFilterMatrix(const Filter& filter);
 
+std::array<real, tensor::volumeFilter::Size> computeFilterMatrix(const Filter& filter);
+
 std::unique_ptr<Filter> makeFilter(const initializer::parameters::FilterParameters& conf,
                                    unsigned int dimensions);
 
