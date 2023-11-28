@@ -34,7 +34,10 @@ class FastVelocityWeakeningLaw
     decltype(dr::DRParameters::rsSr0) rsSr0;
     decltype(dr::DRParameters::rsF0) rsF0;
     decltype(dr::DRParameters::rsB) rsB;
+    std::size_t layerSize;
   };
+
+  #pragma omp declare mapper(Details det) map(det, det.a[0:det.layerSize], det.srW[0:det.layerSize], det.sl0[0:det.layerSize])
 
   Details getCurrentLtsLayerDetails() {
     Details details{};
@@ -44,6 +47,7 @@ class FastVelocityWeakeningLaw
     details.rsSr0 = this->drParameters->rsSr0;
     details.rsF0 = this->drParameters->rsF0;
     details.rsB = this->drParameters->rsB;
+    details.layerSize = this->currLayerSize;
     return details;
   }
 
