@@ -45,6 +45,7 @@
 
 #include <Initializer/ParameterDB.h>
 #include "Initializer/MemoryManager.h"
+#include "tree/Layer.hpp"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -414,11 +415,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Device);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Device);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Device);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Device);
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
@@ -653,12 +654,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;
 
-      krnl.fluxSolver = fluxSolverPlus[ltsFace];
+      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
+      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+
+      krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = APlusData;
       krnl.execute();
 
-      krnl.fluxSolver = fluxSolverMinus[ltsFace];
+      krnl.fluxSolver = fluxSolverMinusHost[ltsFace];
       krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();

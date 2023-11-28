@@ -102,7 +102,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
   CellDRMapping(*drMapping)[4] =
-      currentLayer->var(currentHandler->drMapping, AllocationPlace::Device);
+      currentLayer->var(currentHandler->drMapping);
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {

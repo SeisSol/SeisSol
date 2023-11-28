@@ -61,7 +61,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
   DRGodunovData* godunovData =
       currentLayer->var(currentHandler->godunovData, AllocationPlace::Device);
   DRFaceInformation* faceInfo =
-      currentLayer->var(currentHandler->faceInformation, AllocationPlace::Device);
+      currentLayer->var(currentHandler->faceInformation);
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
