@@ -151,7 +151,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
-      maxCells = std::max(it->getNumberOfCells(), maxCells);
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
   auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   constexpr auto qSize = tensor::Q::size();
@@ -164,14 +164,23 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
-    queue.parallel_for({it->getNumberOfCells()}, [=](sycl::id<1> idx) {
-      for (unsigned dof = 0; dof < qSize; ++dof) {
-        timeDerivativePlusHost[dof + qSize * idx[0]] = timeDerivativePlusDevice[idx[0]][dof];
-        timeDerivativeMinusHost[dof + qSize * idx[0]] = timeDerivativeMinusDevice[idx[0]][dof];
-      }
-    }).wait();
-    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlusHost + qSize * i; };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinusHost + qSize * i; };
+    queue
+        .parallel_for({it->getNumberOfCells()},
+                      [=](sycl::id<1> idx) {
+                        for (unsigned dof = 0; dof < qSize; ++dof) {
+                          timeDerivativePlusHost[dof + qSize * idx[0]] =
+                              timeDerivativePlusDevice[idx[0]][dof];
+                          timeDerivativeMinusHost[dof + qSize * idx[0]] =
+                              timeDerivativeMinusDevice[idx[0]][dof];
+                        }
+                      })
+        .wait();
+    auto const timeDerivativePlusPtr = [&](unsigned i) {
+      return timeDerivativePlusHost + qSize * i;
+    };
+    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+      return timeDerivativeMinusHost + qSize * i;
+    };
 #else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
