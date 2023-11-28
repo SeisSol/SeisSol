@@ -227,6 +227,7 @@ class LinearSlipWeakeningLaw
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+            typename SpecializationT::Details currentLayerDetails;
             currentLayerDetails.regularisedStrength = regStrength;
 
           auto& faultStresses = devFaultStresses[ltsFace];

@@ -205,6 +205,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         const auto absoluteShearStress = devAbsoluteShearStress[ltsFace][pointIndex];
         const auto localSlipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];
         const auto localImpAndEta = devImpAndEta[ltsFace];
+        typename Derived::Details details;
         details.a = detA;
           details.sl0 = detSl0;
           details.rsF0 = detRsF0;
@@ -276,6 +277,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+          typename Derived::Details details;
           details.a = detA;
           details.sl0 = detSl0;
           details.rsF0 = detRsF0;
@@ -412,17 +414,18 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], tpCurrentLayerDetails) map(from: devNormalStress[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize]) map(from: devNormalStress[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];
+        
 
         devNormalStress[ltsFace][pointIndex] =
             std::min(static_cast<real>(0.0),
                      faultStresses.normalStress[timeIndex][pointIndex] +
-                         devInitialStressInFaultCS[ltsFace][pointIndex][0] -
-                         TPMethod::getFluidPressure(tpCurrentLayerDetails, ltsFace, pointIndex));
+                         devInitialStressInFaultCS[ltsFace][pointIndex][0]); // no TP for now
+                         //TPMethod::getFluidPressure(tpCurrentLayerDetails, ltsFace, pointIndex));
       }
     }
   }
