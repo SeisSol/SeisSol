@@ -188,9 +188,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       updateNormalStress(timeIndex);
       auto* queue{this->queue};
 
+      auto* detA = details.a;
+    auto* detSl0 = details.sl0;
+    auto detRsF0 = details.rsF0;
+    auto detRsB = details.rsB;
+    auto detRsSr0 = details.rsSr0;
+
       // #pragma omp distribute
-      // details.a[0:layerSize], details.sl0[0:layerSize]
-      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details, devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize]) map(from: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: detA[0:layerSize], detSl0[0:layerSize], devStateVariableBuffer[0:layerSize], devNormalStress[0:layerSize], devAbsoluteShearStress[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devSlipRateMagnitude[0:layerSize]) map(from: devHasConverged[0:layerSize], devLocalSlipRate[0:layerSize], devMu[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         bool hasConvergedAllPoints = true;
         #pragma omp parallel for schedule(static, 1) reduction(&&:hasConvergedAllPoints)
@@ -200,6 +205,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         const auto absoluteShearStress = devAbsoluteShearStress[ltsFace][pointIndex];
         const auto localSlipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];
         const auto localImpAndEta = devImpAndEta[ltsFace];
+        details.a = detA;
+          details.sl0 = detSl0;
+          details.rsF0 = detRsF0;
+          details.rsB = detRsB;
+          details.rsSr0 = detRsSr0;
 
         real slipRateTest{};
         bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(slipRateTest,
@@ -252,14 +262,25 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
 
+    auto* detA = details.a;
+    auto* detSl0 = details.sl0;
+    auto detRsF0 = details.rsF0;
+    auto detRsB = details.rsB;
+    auto detRsSr0 = details.rsSr0;
+
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
     auto* queue{this->queue};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details, details.a[0:layerSize], details.sl0[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: detA[0:layerSize], detSl0[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+          details.a = detA;
+          details.sl0 = detSl0;
+          details.rsF0 = detRsF0;
+          details.rsB = detRsB;
+          details.rsSr0 = detRsSr0;
 
         const auto localStateVariable = devStateVariableBuffer[ltsFace][pointIndex];
         const auto slipRateMagnitude = devSlipRateMagnitude[ltsFace][pointIndex];

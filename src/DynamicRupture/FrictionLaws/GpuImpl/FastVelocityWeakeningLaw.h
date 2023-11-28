@@ -61,26 +61,34 @@ class FastVelocityWeakeningLaw
 
     auto* queue{this->queue};
 
+    auto* detSl0 = details.sl0;
+    auto* detA = details.a;
+    auto* detSrW = details.srW;
+
+    auto detRsF0 = details.rsF0;
+    auto detRsB = details.rsB;
+    auto detRsSr0 = details.rsSr0;
+
     // #pragma omp distribute
-    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: details, details.sl0[0:layerSize], details.a[0:layerSize], details.srW[0:layerSize], devStateVarReference[0:layerSize], devLocalSlipRate[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: detSl0[0:layerSize], detA[0:layerSize], detSrW[0:layerSize], devStateVarReference[0:layerSize], devLocalSlipRate[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
-        const double localSl0 = details.sl0[ltsFace][pointIndex];
-        const double localA = details.a[ltsFace][pointIndex];
-        const double localSrW = details.srW[ltsFace][pointIndex];
+        const double localSl0 = detSl0[ltsFace][pointIndex];
+        const double localA = detA[ltsFace][pointIndex];
+        const double localSrW = detSrW[ltsFace][pointIndex];
         const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
 
         const double lowVelocityFriction =
-            details.rsF0 - (details.rsB - localA) * std::log(localSlipRate / details.rsSr0);
+            detRsF0 - (detRsB - localA) * std::log(localSlipRate / detRsSr0);
 
         const double steadyStateFrictionCoefficient =
             muW + (lowVelocityFriction - muW) /
                       std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
         const double steadyStateStateVariable =
-            localA * std::log(details.rsSr0 / localSlipRate *
+            localA * std::log(detRsSr0 / localSlipRate *
                                (std::exp(steadyStateFrictionCoefficient / localA) -
                                 std::exp(-steadyStateFrictionCoefficient / localA)));
 
