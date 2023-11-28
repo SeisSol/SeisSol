@@ -266,8 +266,7 @@ compilation of many versions of UCX and OpenMPI. Please, disable it during SeisS
   -DDEVICE_BACKEND=cuda \
   -DDEVICE_ARCH=sm_70 \
   -DHOST_ARCH=power9 \
-  -DPRECISION=single \
-  -DCOMMTHREAD=ON
+  -DPRECISION=single
 
   $ make -j
 
