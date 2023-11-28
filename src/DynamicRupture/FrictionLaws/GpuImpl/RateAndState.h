@@ -272,7 +272,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: detA[0:layerSize], detSl0[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
+    #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: detA[0:layerSize], detSl0[0:layerSize], devStateVariableBuffer[0:layerSize], devSlipRateMagnitude[0:layerSize], devNormalStress[0:layerSize], devAbsoluteTraction[0:layerSize], devFaultStresses[0:layerSize], devInitialStressInFaultCS[0:layerSize], devImpAndEta[0:layerSize]) map(tofrom: devMu[0:layerSize], devAccumulatedSlipMagnitude[0:layerSize], devSlip1[0:layerSize], devSlip2[0:layerSize]) map(from: devTraction1[0:layerSize], devTraction2[0:layerSize], devTractionResults[0:layerSize], devSlipRate1[0:layerSize], devSlipRate2[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
