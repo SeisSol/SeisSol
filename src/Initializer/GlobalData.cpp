@@ -41,9 +41,12 @@
 #include <generated_code/init.h>
 #include <yateto.h>
 #include <type_traits>
+#include "SeisSol.h"
 
 #ifdef _OPENMP
 #  include <omp.h>
+#include <Kernels/Filter.h>
+#include <memory>
 #endif
 
 namespace init = seissol::init;
@@ -97,7 +100,61 @@ namespace seissol::initializers {
       globalData.integrationBufferLTS = integrationBufferLTS;
     }
 
-    MemoryProperties OnDevice::getProperties() {
+
+     void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
+      //TODO(Lukas) Implement
+        // TODO Add all matrices? What about DR? Point source? Viscoelastic? Poroelasticity source? Initial field?
+        // localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+
+       //localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+       // neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+
+       //globalData.project2nFaceTo3m
+       //m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+
+      auto changeOfBasisMatricesView = std::array<yateto::DenseTensorView<2, real>, 4>({
+        init::rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))),
+        init::rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))),
+        init::rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))),
+        init::rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))),
+      });
+      for (int face = 0; face < 4; ++face) {
+        auto& view = changeOfBasisMatricesView[face] ;
+        for (int i = 0; i < view.shape(0); ++i) {
+          for (int j = 0; j < view.shape(1); ++j) {
+            view.shape(0);
+            if (view.isInRange(i, j)) {
+              // std::cout << "i,j = " << i << "\t" << j <<  "\t" << view.isInRange(i,j) << std::endl;
+              view(i, j) *= filter->getFilterCoeff(j); // or i?!
+            }
+          }
+        }
+      }
+
+      // volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
+      // Ignored: volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
+
+      auto stiffnessMatricesView = std::array<yateto::DenseTensorView<2, real>, 3>{
+          init::kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))),
+          init::kDivM::view<1>::create(const_cast<real*>(globalData.stiffnessMatrices(1))),
+          init::kDivM::view<2>::create(const_cast<real*>(globalData.stiffnessMatrices(2))),
+      };
+      for (int d = 0; d < 3; ++d) {
+        auto& view = stiffnessMatricesView[d] ;
+        for (int i = 0; i < view.shape(0); ++i) {
+          for (int j = 0; j < view.shape(1); ++j) {
+            view.shape(0);
+            if (view.isInRange(i, j)) {
+              // std::cout << "i,j = " << i << "\t" << j <<  "\t" << view.isInRange(i,j) << std::endl;
+              view(i, j) *= filter->getFilterCoeff(j); // or i?!
+            }
+          }
+        }
+      }
+     }
+
+
+      MemoryProperties OnDevice::getProperties() {
       MemoryProperties prop{};
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -151,6 +208,12 @@ namespace seissol::initializers {
 #endif
     }
 
+    void OnDevice::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
+#ifdef ACL_DEVICE
+      //TODO Implement on GPU
+      // Be careful, need to consider pre-multiplied matrices, e.g. plusFluxMatrixAccessor!
+#endif // ACL_DEVICE
+    }
   } // namespace matrixmanip
 
 
@@ -244,6 +307,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                              copyManager,
                                              prop.pagesizeStack,
                                              memkind);
+
+
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  auto filter = kernels::makeFilter(seissolParams.filter, 3);
+
+  // TODO Implement for device
+  MatrixManipPolicyT::applyFilterMatrixToGlobalData(globalData, filter.get());
 }
 
 template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
@@ -253,5 +323,6 @@ template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globa
 template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
                                                                  memory::ManagedAllocator& memoryAllocator,
                                                                  enum memory::Memkind memkind);
+
 
 } // namespace seissol::initializers

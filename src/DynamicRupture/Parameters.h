@@ -105,7 +105,7 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     auto& filter = drParameters->filter;
 
     const auto filterTypeString =
-        getWithDefault(yamlDrParams, "filtertype", std::string("none"));
+        getWithDefault(yamlDrParams, "filtertype", std::string("identity"));
     using namespace initializer::parameters;
     auto filterIt = validFilters.find(filterTypeString);
     if (filterIt != validFilters.end()) {
@@ -119,12 +119,9 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     filter.cutoff = getWithDefault(yamlDrParams, "filtercutoff", defaultFilterCutoff);
 
     if (filter.type == FilterTypes::Exponential) {
-      logInfo()
-          << "Using a dynamic rupture filter with order" << filter.order
-          << "cutoff" << filter.cutoff
-          << "and alpha" << filter.alpha;
+      logInfo() << "Using a dynamic rupture filter with order" << filter.order << "cutoff"
+                << filter.cutoff << "and alpha" << filter.alpha;
     }
-
   }
 
   const YAML::Node& yamlElementwiseParams = (*params)["elementwise"];

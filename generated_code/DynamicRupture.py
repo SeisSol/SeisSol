@@ -82,13 +82,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # DR filter
   numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   # Filter matrix
-  filter = Tensor("filter", (numberOfPoints, numberOfPoints))
+  drFilter = Tensor("drFilter", (numberOfPoints, numberOfPoints))
   # Filter weights matrix
   filterWeights = Tensor("filterWeights", (numberOf2DBasisFunctions, numberOf2DBasisFunctions))
   # Compute filter matrix kernel
-  generator.add('computeFilterMatrix', filter['qp'] <= db.V2mTo2Quad['ql'] * filterWeights['lk'] * db.V2QuadTo2m['kp'])
+  generator.add('computeFilterMatrix', drFilter['qp'] <= db.V2mTo2Quad['ql'] * filterWeights['lk'] * db.V2QuadTo2m['kp'])
   filteredQ = Tensor('filteredQ', (numberOfPoints,))
-  generator.add('filterParameter', filteredQ['i'] <= filter['ij'] * originalQ['j'])
+  generator.add('filterParameter', filteredQ['i'] <= drFilter['ij'] * originalQ['j'])
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 

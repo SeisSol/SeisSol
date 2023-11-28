@@ -287,7 +287,6 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
   reader.warnUnknown();
 }
 
-
 static void readFilter(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   // TODO Remove duplication
   // Note: Filter parsing is currently duplicated in DR initialization.
@@ -296,17 +295,18 @@ static void readFilter(ParameterReader& baseReader, SeisSolParameters& seissolPa
 
   auto& filter = seissolParams.filter;
 
-  filter.type = reader.readWithDefaultStringEnum("filtertype", "none", validFilters);
+  filter.type = reader.readWithDefaultStringEnum("filtertype", "identity", validFilters);
 
-  // Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to epsilon
+  // Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to
+  // epsilon
   filter.alpha = reader.readWithDefault("filteralpha", defaultFilterAlpha);
 
   filter.order = reader.readWithDefault("filterorder", defaultFilterOrder);
   filter.cutoff = reader.readWithDefault("filtercutoff", defaultFilterCutoff);
 
-  // TODO(Lukas) Move the following to filter init
   if (filter.type == FilterTypes::Exponential) {
-    logInfo() << "Using a filter with order" << filter.order << "cutoff" << filter.cutoff << "and alpha" << filter.alpha;
+    logInfo() << "Using a filter with order" << filter.order << "cutoff" << filter.cutoff
+              << "and alpha" << filter.alpha;
   }
 }
 

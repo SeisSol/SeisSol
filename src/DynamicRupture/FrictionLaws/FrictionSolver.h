@@ -84,7 +84,7 @@ class FrictionSolver {
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
 
-  std::array<real, tensor::filter::size()> filter;
+  std::array<real, tensor::drFilter::size()> filter;
 
   real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];

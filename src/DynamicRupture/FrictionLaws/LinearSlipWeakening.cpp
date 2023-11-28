@@ -1,12 +1,11 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
 
-void NoSpecialization::resampleSlipRate(
-    real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-    const std::array<real, tensor::filter::Size>& filter) {
+void NoSpecialization::resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+                                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                                        const std::array<real, tensor::drFilter::Size>& filter) {
   auto filterKrnl = dynamicRupture::kernel::filterParameter{};
-  filterKrnl.filter = filter.data();
+  filterKrnl.drFilter = filter.data();
   filterKrnl.originalQ = slipRateMagnitude;
   filterKrnl.filteredQ = resampledSlipRate;
   filterKrnl.execute();

@@ -157,12 +157,13 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
     return false;
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
-  m_memoryManager->initialize();
   // read parameter file input
   readInputParams();
 
   m_seissolparameters.readParameters(*m_inputParams);
   m_memoryManager->setInputParams(m_inputParams);
+
+  m_memoryManager->initialize();
 
   return true;
 }

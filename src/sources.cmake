@@ -55,6 +55,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
+src/Kernels/Filter.cpp
 src/SeisSol.cpp
 src/Parallel/Pin.cpp
 

@@ -142,10 +142,6 @@ private:
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
 
-    //! Filter
-    kernels::ExponentialFilter filter;
-    kernels::ExponentialFilter filterNearDR;
-
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
   /*
@@ -335,24 +331,6 @@ private:
         seissol::SeisSol::main.postProcessor().integrateQuantities(
             m_timeStepWidth, i_layerData, l_cell, dofs[l_cell]);
 #endif // INTEGRATE_QUANTITIES
-
-        // https://github.com/SeisSol/SeisSol/compare/master...dr/symmetric-flux
-        auto hasDRFace = [](const CellLocalInformation& ci) {
-          bool hasAtLeastOneDRFace = false;
-          for (size_t i = 0; i < 4; ++i) {
-            if (ci.faceTypes[i] == FaceType::dynamicRupture) {
-              hasAtLeastOneDRFace = true;
-            }
-          }
-          return hasAtLeastOneDRFace;
-        };
-        const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[l_cell]);
-
-        if (false && thisCellHasAtLeastOneDRFace) {
-          kernels::applyFilter(data, filterNearDR);
-        } else {
-          kernels::applyFilter(data, filter);
-        }
       }
 
       const long long nonZeroFlopsPlasticity =

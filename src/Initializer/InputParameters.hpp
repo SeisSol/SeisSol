@@ -187,10 +187,7 @@ struct TimeSteppingParameters {
   VertexWeightParameters vertexWeight;
 };
 
-enum class FilterTypes {
-  None,
-  Exponential
-};
+enum class FilterTypes { Identity, Exponential };
 
 struct FilterParameters {
   FilterTypes type;
@@ -200,11 +197,12 @@ struct FilterParameters {
 };
 
 const static auto validFilters = std::unordered_map<std::string, FilterTypes>{
-    {"none", FilterTypes::None},
+    {"identity", FilterTypes::Identity},
     {"exponential", FilterTypes::Exponential},
 };
 
-// Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to epsilon
+// Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to
+// epsilon
 const static real defaultFilterAlpha = -std::log(std::numeric_limits<real>::epsilon());
 const static unsigned int defaultFilterOrder = 32;
 const static unsigned int defaultFilterCutoff = 0;
