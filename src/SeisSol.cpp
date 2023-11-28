@@ -91,6 +91,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   MPI::mpi.setDataTransferModeFromEnv();
+
+  printPersistentMpiInfo(MPI::mpi);
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
