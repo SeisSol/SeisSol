@@ -17,7 +17,11 @@ public:
                            int timeStepRate,
                            int globalTimeClusterId,
                            int otherGlobalTimeClusterId,
-                           const MeshStructure* meshStructure);
+                           const MeshStructure* meshStructure,
+                           bool persistent);
+    ~DirectGhostTimeCluster();
+private:
+  bool persistent;
 };
 } // namespace seissol::time_stepping
 

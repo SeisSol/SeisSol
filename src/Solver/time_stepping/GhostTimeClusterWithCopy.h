@@ -12,7 +12,8 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
                            int timeStepRate,
                            int globalTimeClusterId,
                            int otherGlobalTimeClusterId,
-                           const MeshStructure* meshStructure);
+                           const MeshStructure* meshStructure,
+                           bool persistent);
   ~GhostTimeClusterWithCopy();
 
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&) = delete;
@@ -41,5 +42,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   std::vector<ReceiveState> receiveRegionsStates{};
 
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
+
+  bool persistent;
 };
 } // namespace seissol::time_stepping
