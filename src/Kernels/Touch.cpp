@@ -19,7 +19,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
   constexpr auto dQSize = yateto::computeFamilySize<tensor::dQ>();
   auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   queue
-      .parallel_for({numberOfCells},
+      .parallel_for(sycl::range<1>{numberOfCells},
                     [=](sycl::id<1> idx) {
                       if (real* buffer = buffers[idx[0]]; buffer != NULL) {
                         for (unsigned dof = 0; dof < qSize; ++dof) {
@@ -65,7 +65,10 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
 #ifdef ACL_DEVICE
   if (onDevice) {
     auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
-    queue.parallel_for({nValues}, [=](sycl::id<1> idx) { buffer[idx[0]] = stuff(idx[0]); }).wait();
+    queue
+        .parallel_for(sycl::range<1>{nValues},
+                      [=](sycl::id<1> idx) { buffer[idx[0]] = stuff(idx[0]); })
+        .wait();
     return;
   }
 #endif

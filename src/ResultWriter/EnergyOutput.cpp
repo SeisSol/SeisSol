@@ -165,7 +165,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
     queue
-        .parallel_for({it->getNumberOfCells()},
+        .parallel_for(sycl::range<1>{it->getNumberOfCells()},
                       [=](sycl::id<1> idx) {
                         for (unsigned dof = 0; dof < qSize; ++dof) {
                           timeDerivativePlusHost[dof + qSize * idx[0]] =
