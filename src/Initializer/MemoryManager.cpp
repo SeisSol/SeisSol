@@ -721,11 +721,13 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
-    void* data = it->bucket(m_lts.buffersDerivatives);
-    device::DeviceInstance::getInstance().algorithms.touchMemory(
-      reinterpret_cast<real*>(data),
-      it->getBucketSize(m_lts.buffersDerivatives) / sizeof(real),
-      true, stream);
+    if (it->getBucketSize(m_lts.buffersDerivatives) > 0) {
+      void* data = it->bucket(m_lts.buffersDerivatives);
+      device::DeviceInstance::getInstance().algorithms.touchMemory(
+        reinterpret_cast<real*>(data),
+        it->getBucketSize(m_lts.buffersDerivatives) / sizeof(real),
+        true, stream);
+    }
   }
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #else
