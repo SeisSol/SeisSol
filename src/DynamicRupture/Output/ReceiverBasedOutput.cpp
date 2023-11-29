@@ -26,14 +26,22 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(&dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif
 }
 
 void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(&dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif
 }
 
 void ReceiverOutput::calcFaultOutput(const OutputType type,
@@ -44,8 +52,24 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
+  real* dofsPlus;
+  real* dofsMinus;
+
+#ifdef ACL_DEVICE
+  dofsPlus = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(sizeof(real) * tensor::Q::size()));
+  dofsMinus = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(sizeof(real) * tensor::Q::size()));
+#endif
+
 #pragma omp parallel for
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+
+#ifndef ACL_DEVICE
+    alignas(ALIGNMENT) real dofsPlusData[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinusData[tensor::Q::size()]{};
+
+    dofsPlus = dofsPlusData;
+    dofsMinus = dofsMinusData;
+#endif
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -66,10 +90,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
     getDofs(dofsPlus, faultInfo.element);
-
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
@@ -257,6 +278,11 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->freePinnedMem(dofsPlus);
+  device::DeviceInstance::getInstance().api->freePinnedMem(dofsMinus);
+#endif
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
