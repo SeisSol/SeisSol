@@ -17,13 +17,17 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 #ifdef ACL_DEVICE
   constexpr auto qSize = tensor::Q::size();
   constexpr auto dQSize = yateto::computeFamilySize<tensor::dQ>();
+
+  if (numberOfCells > 0) {
   
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
-  device::DeviceInstance::getInstance().algorithms.setToValue(buffers, 0, qSize, numberOfCells, stream);
-  device::DeviceInstance::getInstance().algorithms.setToValue(derivatives, 0, dQSize, numberOfCells, stream);
+    device::DeviceInstance::getInstance().algorithms.setToValue(buffers, 0, qSize, numberOfCells, stream);
+    device::DeviceInstance::getInstance().algorithms.setToValue(derivatives, 0, dQSize, numberOfCells, stream);
 
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+
+  }
 #else
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)

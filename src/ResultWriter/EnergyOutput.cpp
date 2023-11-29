@@ -166,9 +166,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
-    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativePlusDevice, timeDerivativePlusHost, qSize, qSize, it->getNumberOfCells(), stream);
-    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativeMinusDevice, timeDerivativeMinusHost, qSize, qSize, it->getNumberOfCells(), stream);
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    if (it->getNumberOfCells() > 0) {
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativePlusDevice, timeDerivativePlusHost, qSize, qSize, it->getNumberOfCells(), stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativeMinusDevice, timeDerivativeMinusHost, qSize, qSize, it->getNumberOfCells(), stream);
+      device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    }
     auto const timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
