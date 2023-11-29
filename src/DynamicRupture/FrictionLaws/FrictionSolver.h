@@ -22,8 +22,8 @@ class FrictionSolver {
               &init::quadweights::Values[init::quadweights::Stop[0]],
               &spaceWeights[0]);
 
-    auto exponentialFilter = kernels::ExponentialFilter(userDrParameters->filter, 2);
-    filter = kernels::computeDRFilterMatrix(exponentialFilter);
+    auto filter = kernels::makeFilter(userDrParameters->filter, 2);
+    filterMatrix = kernels::computeDRFilterMatrix(*filter);
   }
   virtual ~FrictionSolver() = default;
 
@@ -84,7 +84,7 @@ class FrictionSolver {
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
 
-  std::array<real, tensor::drFilter::size()> filter;
+  std::array<real, tensor::drFilter::size()> filterMatrix;
 
   real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];

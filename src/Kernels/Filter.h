@@ -31,7 +31,6 @@ class IdentityFilter : public Filter {
 class ExponentialFilter : public Filter {
   public:
   ExponentialFilter();
-  ;
   ExponentialFilter(initializer::parameters::FilterParameters conf, unsigned int dimensions);
 
   real getFilterCoeff(unsigned idx) const;

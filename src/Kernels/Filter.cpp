@@ -3,12 +3,13 @@
 namespace seissol::kernels {
 using namespace initializer::parameters;
 
-Filter::Filter(FilterParameters conf, unsigned int dimensions) {}
+Filter::Filter(FilterParameters conf, unsigned int dimensions) : conf(conf), dimensions(dimensions) {}
 
 IdentityFilter::IdentityFilter(FilterParameters conf, unsigned int dimensions)
     : Filter(conf, dimensions){};
 
 real IdentityFilter::getFilterCoeff(unsigned) const { return 1.0; }
+
 ExponentialFilter::ExponentialFilter(FilterParameters conf, unsigned int dimensions)
     : Filter(conf, dimensions) {
   assert((conf.order % 2) == 0);

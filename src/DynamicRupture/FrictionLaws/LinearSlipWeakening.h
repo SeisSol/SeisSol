@@ -164,7 +164,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              unsigned int ltsFace) {
     alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
     specialization.resampleSlipRate(
-        resampledSlipRate, this->slipRateMagnitude[ltsFace], this->filter);
+        resampledSlipRate, this->slipRateMagnitude[ltsFace], this->filterMatrix);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
 #pragma omp simd
