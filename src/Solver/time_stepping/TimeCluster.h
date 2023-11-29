@@ -450,7 +450,7 @@ private:
 
               for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
                   i ++) {
-                lambda_max = std::max(
+                lambda_max = std::min(
                   std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0P+2*mu0P)/rho0P ),
                   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0M+2*mu0M)/rho0M )
                 );
