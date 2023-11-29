@@ -145,21 +145,21 @@ inline void precomputeStressFromQInterpolated(
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto i{startLoopIndex + index};
 
-    exxP += qStrainIPlus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyyP += qStrainIPlus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezzP += qStrainIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    exyP += qStrainIPlus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exxP += qStrainIPlus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyP += qStrainIPlus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzP += qStrainIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyP += qStrainIPlus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
 
-    exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezzM += qStrainIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    exyM += qStrainIMinus[0][XY][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numPaddedPoints;
-    damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numPaddedPoints;
+    exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzM += qStrainIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyM += qStrainIMinus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
   real epsInitxx = -0e-2; // eps_xx0

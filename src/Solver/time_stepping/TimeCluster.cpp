@@ -492,7 +492,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
 
         // Compute nonlinear flux term
-        real mu_eff = data.material.local.mu0
+        real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
             - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
         sxxNodal[q] = data.material.local.lambda0*EspI
                       - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
