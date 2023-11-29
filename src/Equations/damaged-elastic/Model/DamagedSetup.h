@@ -172,15 +172,15 @@ namespace seissol {
           // eigenvector corresponding to the additional damage variable
           real I1 = local.epsxx_alpha + local.epsyy_alpha + local.epszz_alpha;
 
-          R(0,9) = (local.lambda*I1
-                + local.mu*local.epsxx_alpha )
-                  / ((local.lambda+2*local.mu)/local.rho);
-          R(3,9) = (0
-            + local.mu*local.epsxy_alpha )
-              / (2*local.mu/local.rho);
-          R(5,9) = (0
-            + local.mu*local.epszx_alpha )
-              / (2*local.mu/local.rho);
+          // R(0,9) = (local.lambda*I1
+          //       + local.mu*local.epsxx_alpha )
+          //         / ((local.lambda+2*local.mu)/local.rho);
+          // R(3,9) = (0
+          //   + local.mu*local.epsxy_alpha )
+          //     / (2*local.mu/local.rho);
+          // R(5,9) = (0
+          //   + local.mu*local.epszx_alpha )
+          //     / (2*local.mu/local.rho);
           R(9,9) = local.rho;
          #endif
 
