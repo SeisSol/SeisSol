@@ -47,6 +47,7 @@ public:
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
+  virtual void finalize();
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.

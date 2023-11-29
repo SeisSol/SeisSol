@@ -85,7 +85,7 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
     }
   }
 
-  DirectGhostTimeCluster::~DirectGhostTimeCluster() {
+  void DirectGhostTimeCluster::finalize() {
     if (persistent) {
       for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
         MPI_Request_free(meshStructure->sendRequests + region);

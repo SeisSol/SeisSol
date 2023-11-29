@@ -86,6 +86,16 @@ GhostTimeClusterWithCopy<CommType>::~GhostTimeClusterWithCopy() {
 }
 
 template <MPI::DataTransferMode CommType>
+void GhostTimeClusterWithCopy<CommType>::finalize() {
+  if (persistent) {
+    for (size_t region = 0; region < numberOfRegions; ++region) {
+      MPI_Request_free(meshStructure->sendRequests + region);
+      MPI_Request_free(meshStructure->receiveRequests + region);
+    }
+  }
+}
+
+template <MPI::DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(ct.correctionTime > lastSendTime);

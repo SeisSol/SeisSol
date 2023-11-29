@@ -19,7 +19,7 @@ public:
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure,
                            bool persistent);
-    ~DirectGhostTimeCluster();
+    void finalize() override;
 private:
   bool persistent;
 };
