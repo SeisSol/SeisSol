@@ -14,21 +14,6 @@
 namespace seissol::kernels {
 
 void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells) {
-#ifdef ACL_DEVICE
-  constexpr auto qSize = tensor::Q::size();
-  constexpr auto dQSize = yateto::computeFamilySize<tensor::dQ>();
-
-  if (numberOfCells > 0) {
-  
-    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
-    device::DeviceInstance::getInstance().algorithms.setToValue(buffers, 0, qSize, numberOfCells, stream);
-    device::DeviceInstance::getInstance().algorithms.setToValue(derivatives, 0, dQSize, numberOfCells, stream);
-
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-
-  }
-#else
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -50,7 +35,6 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
       }
     }
   }
-#endif
 }
 
 void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
@@ -60,7 +44,7 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
   if (onDevice) {
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
-    device::DeviceInstance::getInstance().algorithms.fillArray(buffer, 2531011.0 / 65536, nValues, stream);
+    device::DeviceInstance::getInstance().algorithms.fillArray<real>(buffer, static_cast<real>(2531011.0 / 65536), nValues, stream);
 
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     return;
