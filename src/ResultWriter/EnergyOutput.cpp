@@ -153,10 +153,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
-  auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
+
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
   constexpr auto qSize = tensor::Q::size();
-  auto timeDerivativePlusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
-  auto timeDerivativeMinusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
+  real* timeDerivativePlusHost = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativeMinusHost = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
 #endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
@@ -164,17 +166,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
-    queue
-        .parallel_for(sycl::range<1>{it->getNumberOfCells()},
-                      [=](sycl::id<1> idx) {
-                        for (unsigned dof = 0; dof < qSize; ++dof) {
-                          timeDerivativePlusHost[dof + qSize * idx[0]] =
-                              timeDerivativePlusDevice[idx[0]][dof];
-                          timeDerivativeMinusHost[dof + qSize * idx[0]] =
-                              timeDerivativeMinusDevice[idx[0]][dof];
-                        }
-                      })
-        .wait();
+    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativePlusDevice, timeDerivativePlusHost, qSize, qSize, it->getNumberOfCells(), stream);
+    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativeMinusDevice, timeDerivativeMinusHost, qSize, qSize, it->getNumberOfCells(), stream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     auto const timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
@@ -232,8 +226,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
   }
 #ifdef ACL_DEVICE
-  sycl::free(timeDerivativePlusHost, queue);
-  sycl::free(timeDerivativeMinusHost, queue);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
 #endif
 }
 
