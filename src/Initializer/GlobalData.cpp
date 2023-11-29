@@ -102,22 +102,21 @@ namespace seissol::initializers {
 
 
      void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
-      //TODO(Lukas) Implement
-        // TODO Add all matrices? What about DR? Point source? Viscoelastic? Poroelasticity source? Initial field?
-        // localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
-
+       //TODO(Lukas) Implement
+       // TODO Add all matrices? What about DR? Point source? Viscoelastic? Poroelasticity source? Initial field?
+       // localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
        //localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
        // neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
 
        //globalData.project2nFaceTo3m
        //m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
 
-      auto changeOfBasisMatricesView = std::array<yateto::DenseTensorView<2, real>, 4>({
+      auto changeOfBasisMatricesView = std::array<yateto::DenseTensorView<2, real>, 4>{
         init::rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))),
         init::rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))),
         init::rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))),
         init::rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))),
-      });
+      };
       for (int face = 0; face < 4; ++face) {
         auto& view = changeOfBasisMatricesView[face] ;
         for (int i = 0; i < view.shape(0); ++i) {
