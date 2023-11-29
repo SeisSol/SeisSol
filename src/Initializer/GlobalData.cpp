@@ -102,7 +102,6 @@ namespace seissol::initializers {
 
 
      void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
-       //TODO(Lukas) Implement
        // TODO Add all matrices? What about DR? Point source? Viscoelastic? Poroelasticity source? Initial field?
        // localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
        //localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
@@ -110,6 +109,7 @@ namespace seissol::initializers {
 
        //globalData.project2nFaceTo3m
        //m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+      for (int i = 0; i < 56; ++i) logInfo() << "applyFilterMatrixToGlobalData" << filter->getFilterCoeff(i);
 
       auto changeOfBasisMatricesView = std::array<yateto::DenseTensorView<2, real>, 4>{
         init::rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))),
@@ -118,20 +118,15 @@ namespace seissol::initializers {
         init::rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))),
       };
       for (int face = 0; face < 4; ++face) {
-        auto& view = changeOfBasisMatricesView[face] ;
+        auto& view = changeOfBasisMatricesView[face];
         for (int i = 0; i < view.shape(0); ++i) {
           for (int j = 0; j < view.shape(1); ++j) {
-            view.shape(0);
             if (view.isInRange(i, j)) {
-              // std::cout << "i,j = " << i << "\t" << j <<  "\t" << view.isInRange(i,j) << std::endl;
-              view(i, j) *= filter->getFilterCoeff(j); // or i?!
+              view(i, j) *= filter->getFilterCoeff(i);
             }
           }
         }
       }
-
-      // volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
-      // Ignored: volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
 
       auto stiffnessMatricesView = std::array<yateto::DenseTensorView<2, real>, 3>{
           init::kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))),
@@ -144,14 +139,12 @@ namespace seissol::initializers {
           for (int j = 0; j < view.shape(1); ++j) {
             view.shape(0);
             if (view.isInRange(i, j)) {
-              // std::cout << "i,j = " << i << "\t" << j <<  "\t" << view.isInRange(i,j) << std::endl;
-              view(i, j) *= filter->getFilterCoeff(j); // or i?!
+              view(i, j) *= filter->getFilterCoeff(i);
             }
           }
         }
       }
      }
-
 
       MemoryProperties OnDevice::getProperties() {
       MemoryProperties prop{};
@@ -310,6 +303,8 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
   auto filter = kernels::makeFilter(seissolParams.filter, 3);
+  logInfo() << seissolParams.filter.order;
+  logInfo() << static_cast<int>(seissolParams.filter.type);
 
   // TODO Implement for device
   MatrixManipPolicyT::applyFilterMatrixToGlobalData(globalData, filter.get());
