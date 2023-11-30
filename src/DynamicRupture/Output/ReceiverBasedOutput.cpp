@@ -27,7 +27,8 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->copyFrom(&dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 #endif
@@ -38,7 +39,8 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
   assert(derivatives != nullptr);
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->copyFrom(&dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 #endif
@@ -56,16 +58,26 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   real* dofsMinus;
 
 #ifdef ACL_DEVICE
-  dofsPlus = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(sizeof(real) * tensor::Q::size()));
-  dofsMinus = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(sizeof(real) * tensor::Q::size()));
+  real* dofsCopied =
+      reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(real) * tensor::Q::size() * outputData->cellCount));
+
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
+                                                                        dofsCopied,
+                                                                        tensor::Q::size(),
+                                                                        tensor::Q::size(),
+                                                                        outputData->cellCount,
+                                                                        stream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
 #pragma omp parallel for
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
 #ifndef ACL_DEVICE
-    alignas(ALIGNMENT) real dofsPlusData[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinusData[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
 
     dofsPlus = dofsPlusData;
     dofsMinus = dofsMinusData;
@@ -90,12 +102,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
+#ifdef ACL_DEVICE
+    dofsPlus = dofsCopied + tensor::Q::size() * outputData->deviceDataPlus[i];
+    dofsMinus = dofsCopied + tensor::Q::size() * outputData->deviceDataMinus[i];
+#else
     getDofs(dofsPlus, faultInfo.element);
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
+#endif
 
     const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
@@ -280,8 +297,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   }
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(dofsPlus);
-  device::DeviceInstance::getInstance().api->freePinnedMem(dofsMinus);
+  device::DeviceInstance::getInstance().api->freePinnedMem(dofsCopied);
 #endif
 }
 
