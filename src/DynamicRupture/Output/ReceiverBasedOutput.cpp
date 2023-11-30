@@ -76,8 +76,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
 #ifndef ACL_DEVICE
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsPlusData[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinusData[tensor::Q::size()]{};
 
     dofsPlus = dofsPlusData;
     dofsMinus = dofsMinusData;
