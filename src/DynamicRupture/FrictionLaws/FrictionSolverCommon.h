@@ -209,8 +209,8 @@ inline void precomputeStressFromQInterpolated(
   // compute laP, muP, laM and muM
   auto laP = la0P - alphap*gaRP*xiInvp;
   auto laM = la0M - alpham*gaRM*xiInvm;
-  auto muP = mu0P - 0.5*alphap*gaRP*xip;
-  auto muM = mu0M - 0.5*alpham*gaRM*xim;
+  auto muP = mu0P - alphap*gaRP*xi0P - 0.5*alphap*gaRP*xip;
+  auto muM = mu0M - alpham*gaRM*xi0M - 0.5*alpham*gaRM*xim;
 
   invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
   invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );
