@@ -157,8 +157,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
   constexpr auto qSize = tensor::Q::size();
-  real* timeDerivativePlusHost = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
-  real* timeDerivativeMinusHost = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativePlusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
 #endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
@@ -167,8 +169,20 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
     if (it->getNumberOfCells() > 0) {
-      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativePlusDevice, timeDerivativePlusHost, qSize, qSize, it->getNumberOfCells(), stream);
-      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(timeDerivativeMinusDevice, timeDerivativeMinusHost, qSize, qSize, it->getNumberOfCells(), stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativePlusDevice,
+          timeDerivativePlusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativeMinusDevice,
+          timeDerivativeMinusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
       device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     }
     auto const timeDerivativePlusPtr = [&](unsigned i) {

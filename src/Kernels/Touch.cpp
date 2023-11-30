@@ -44,7 +44,8 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
   if (onDevice) {
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
-    device::DeviceInstance::getInstance().algorithms.fillArray<real>(buffer, static_cast<real>(2531011.0 / 65536), nValues, stream);
+    device::DeviceInstance::getInstance().algorithms.fillArray<real>(
+        buffer, static_cast<real>(2531011.0 / 65536), nValues, stream);
 
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     return;
