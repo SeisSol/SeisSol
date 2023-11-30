@@ -2,8 +2,8 @@
 #define SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
 
 #include "Geometry.hpp"
-#include "Initializer/tree/Layer.hpp"
 #include "Initializer/InputParameters.hpp"
+#include "Initializer/tree/Layer.hpp"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <array>
