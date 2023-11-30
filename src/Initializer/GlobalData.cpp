@@ -40,6 +40,7 @@
 #include "GlobalData.h"
 #include <generated_code/init.h>
 #include <yateto.h>
+
 #include <type_traits>
 #include "SeisSol.h"
 
@@ -100,25 +101,10 @@ namespace seissol::initializers {
       globalData.integrationBufferLTS = integrationBufferLTS;
     }
 
-
-     void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
-       // TODO Add all matrices? What about DR? Point source? Viscoelastic? Poroelasticity source? Initial field?
-       // localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
-       //localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-       // neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-
-       //globalData.project2nFaceTo3m
-       //m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
-      for (int i = 0; i < 56; ++i) logInfo() << "applyFilterMatrixToGlobalData" << filter->getFilterCoeff(i);
-
-      auto changeOfBasisMatricesView = std::array<yateto::DenseTensorView<2, real>, 4>{
-        init::rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))),
-        init::rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))),
-        init::rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))),
-        init::rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))),
-      };
-      for (int face = 0; face < 4; ++face) {
-        auto& view = changeOfBasisMatricesView[face];
+    void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData,
+                                               const seissol::kernels::Filter* filter) {
+      using namespace init;
+      auto scaleDenseMatrixByFilter = [&filter](auto&& view) {
         for (int i = 0; i < view.shape(0); ++i) {
           for (int j = 0; j < view.shape(1); ++j) {
             if (view.isInRange(i, j)) {
@@ -126,35 +112,33 @@ namespace seissol::initializers {
             }
           }
         }
-      }
-
-      auto stiffnessMatricesView = std::array<yateto::DenseTensorView<2, real>, 3>{
-          init::kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))),
-          init::kDivM::view<1>::create(const_cast<real*>(globalData.stiffnessMatrices(1))),
-          init::kDivM::view<2>::create(const_cast<real*>(globalData.stiffnessMatrices(2))),
       };
-      for (int d = 0; d < 3; ++d) {
-        auto& view = stiffnessMatricesView[d] ;
-        for (int i = 0; i < view.shape(0); ++i) {
-          for (int j = 0; j < view.shape(1); ++j) {
-            view.shape(0);
-            if (view.isInRange(i, j)) {
-              view(i, j) *= filter->getFilterCoeff(i);
-            }
-          }
-        }
-      }
 
-      auto projectQpView = init::projectQP::view::create(const_cast<real*>(globalData.projectQPMatrix));
-      for (int i = 0; i < projectQpView.shape(0); ++i) {
-        for (int j = 0; j < projectQpView.shape(1); ++j) {
-          projectQpView(i,j) *= filter->getFilterCoeff(i);
-          }
-        }
-     }
+      // Filter local + neighboring flux
+      scaleDenseMatrixByFilter(
+          rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))));
+      scaleDenseMatrixByFilter(
+          rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))));
+      scaleDenseMatrixByFilter(
+          rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))));
+      scaleDenseMatrixByFilter(
+          rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))));
 
+      // TODO Filter nodal flux for local flux nodal
+      // TODO Filter dynamic rupture update
 
-      MemoryProperties OnDevice::getProperties() {
+      scaleDenseMatrixByFilter(
+          kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))));
+      scaleDenseMatrixByFilter(
+          kDivM::view<1>::create(const_cast<real*>(globalData.stiffnessMatrices(1))));
+      scaleDenseMatrixByFilter(
+          kDivM::view<2>::create(const_cast<real*>(globalData.stiffnessMatrices(2))));
+
+      scaleDenseMatrixByFilter(
+          init::projectQP::view::create(const_cast<real*>(globalData.projectQPMatrix)));
+    }
+
+    MemoryProperties OnDevice::getProperties() {
       MemoryProperties prop{};
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
