@@ -3,7 +3,8 @@
 namespace seissol::kernels {
 using namespace initializer::parameters;
 
-Filter::Filter(FilterParameters conf, unsigned int dimensions) : conf(conf), dimensions(dimensions) {}
+Filter::Filter(FilterParameters conf, unsigned int dimensions)
+    : conf(conf), dimensions(dimensions) {}
 
 IdentityFilter::IdentityFilter(FilterParameters conf, unsigned int dimensions)
     : Filter(conf, dimensions){};
@@ -96,6 +97,5 @@ std::unique_ptr<Filter> makeFilter(const initializer::parameters::FilterParamete
     return nullptr;
   }
 }
-
 
 } // namespace seissol::kernels
