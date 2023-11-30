@@ -104,7 +104,7 @@ namespace seissol::initializers {
     void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData,
                                                const seissol::kernels::Filter* filter) {
       using namespace init;
-      auto scaleDenseMatrixByFilter = [&filter](auto&& view) {
+      auto scaleMatrixByFilter = [&filter](auto&& view) {
         for (int i = 0; i < view.shape(0); ++i) {
           for (int j = 0; j < view.shape(1); ++j) {
             if (view.isInRange(i, j)) {
@@ -114,27 +114,30 @@ namespace seissol::initializers {
         }
       };
 
+      // scaleMatrixByFilter(
+      // rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))));
+
       // Filter local + neighboring flux
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))));
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))));
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))));
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))));
 
       // TODO Filter nodal flux for local flux nodal
       // TODO Filter dynamic rupture update
 
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))));
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           kDivM::view<1>::create(const_cast<real*>(globalData.stiffnessMatrices(1))));
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           kDivM::view<2>::create(const_cast<real*>(globalData.stiffnessMatrices(2))));
 
-      scaleDenseMatrixByFilter(
+      scaleMatrixByFilter(
           init::projectQP::view::create(const_cast<real*>(globalData.projectQPMatrix)));
     }
 
