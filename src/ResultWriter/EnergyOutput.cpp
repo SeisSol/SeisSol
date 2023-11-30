@@ -166,9 +166,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
-    real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
-    real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
-    if (it->getNumberOfCells() > 0) {
+    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    auto& table = it->getConditionalTable<inner_keys::Dr>();
+    if (table.find(timeIntegrationKey) != table.end()) {
+      auto& entry = table[timeIntegrationKey];
+      real** timeDerivativePlusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      real** timeDerivativeMinusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativePlusDevice,
           timeDerivativePlusHost,
