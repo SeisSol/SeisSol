@@ -102,28 +102,30 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   outputData->deviceDataPlus.resize(foundPoints);
   outputData->deviceDataMinus.resize(foundPoints);
+  std::size_t pointCounter = 0;
   for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
     const auto& point = outputData->receiverPoints[i];
     if (point.isInside) {
-      ++foundPoints;
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
-      outputData->deviceDataPlus[i] =
+      outputData->deviceDataPlus[pointCounter] =
           std::distance(elementIndices.begin(), elementIndices.find(elementIndex));
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
       if (neighborElementIndex >= 0) {
-        outputData->deviceDataMinus[i] =
+        outputData->deviceDataMinus[pointCounter] =
             std::distance(elementIndices.begin(), elementIndices.find(neighborElementIndex));
       } else {
         const auto faultSide = faultInfo[point.faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];
         const auto neighborIndex = element.mpiIndices[faultSide];
-        outputData->deviceDataMinus[i] =
+        outputData->deviceDataMinus[pointCounter] =
             elementIndices.size() + std::distance(elementIndicesGhost.begin(),
                                                   elementIndicesGhost.find(std::pair<int, int>(
                                                       neighborRank, neighborIndex)));
       }
+
+      ++pointCounter;
     }
   }
 }
