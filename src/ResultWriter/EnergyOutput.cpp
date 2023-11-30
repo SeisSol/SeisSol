@@ -158,9 +158,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
   constexpr auto qSize = tensor::Q::size();
   real* timeDerivativePlusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
   real* timeDerivativeMinusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocUnifiedMem(maxCells * qSize * sizeof(real)));
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
 #endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
@@ -247,8 +247,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
   }
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freeMem(timeDerivativePlusHost);
-  device::DeviceInstance::getInstance().api->freeMem(timeDerivativeMinusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
 #endif
 }
 
