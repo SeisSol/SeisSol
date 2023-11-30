@@ -144,7 +144,15 @@ namespace seissol::initializers {
           }
         }
       }
+
+      auto projectQpView = init::projectQP::view::create(const_cast<real*>(globalData.projectQPMatrix));
+      for (int i = 0; i < projectQpView.shape(0); ++i) {
+        for (int j = 0; j < projectQpView.shape(1); ++j) {
+          projectQpView(i,j) *= filter->getFilterCoeff(i);
+          }
+        }
      }
+
 
       MemoryProperties OnDevice::getProperties() {
       MemoryProperties prop{};

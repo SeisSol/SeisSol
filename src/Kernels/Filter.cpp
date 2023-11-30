@@ -86,6 +86,7 @@ std::unique_ptr<Filter> makeFilter(const initializer::parameters::FilterParamete
   using namespace initializer::parameters;
   switch (conf.type) {
   case FilterTypes::Identity:
+    logInfo() << "Creating identity filter";
     return std::make_unique<IdentityFilter>(conf, dimensions);
   case FilterTypes::Exponential:
     logInfo() << "Creating exponential filter with order " << conf.order;
