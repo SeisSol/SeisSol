@@ -46,21 +46,23 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
           static_cast<real*>(device.api->allocPinnedMem(ghostRegionSize));
     }
 
-    if (persistent) {
-      MPI_Send_init(duplicatedCopyRegions[region],
+    if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
+      if (persistent) {
+        MPI_Send_init(duplicatedCopyRegions[region],
                   static_cast<int>(meshStructure->copyRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
                   timeData + meshStructure->sendIdentifiers[region],
                   seissol::MPI::mpi.comm(),
                   meshStructure->sendRequests + region);
-      MPI_Recv_init(duplicatedGhostRegions[region],
-                static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                MPI_C_REAL,
-                meshStructure->neighboringClusters[region][0],
-                timeData + meshStructure->receiveIdentifiers[region],
-                seissol::MPI::mpi.comm(),
-                meshStructure->receiveRequests + region);
+        MPI_Recv_init(duplicatedGhostRegions[region],
+                  static_cast<int>(meshStructure->ghostRegionSizes[region]),
+                  MPI_C_REAL,
+                  meshStructure->neighboringClusters[region][0],
+                  timeData + meshStructure->receiveIdentifiers[region],
+                  seissol::MPI::mpi.comm(),
+                  meshStructure->receiveRequests + region);
+      }
     }
   }
 }
@@ -77,11 +79,6 @@ GhostTimeClusterWithCopy<CommType>::~GhostTimeClusterWithCopy() {
       device.api->freePinnedMem(duplicatedCopyRegions[region]);
       device.api->freePinnedMem(duplicatedGhostRegions[region]);
     }
-
-    if (persistent) {
-      MPI_Request_free(meshStructure->sendRequests + region);
-      MPI_Request_free(meshStructure->receiveRequests + region);
-    }
   }
 }
 
@@ -89,8 +86,10 @@ template <MPI::DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::finalize() {
   if (persistent) {
     for (size_t region = 0; region < numberOfRegions; ++region) {
-      MPI_Request_free(meshStructure->sendRequests + region);
-      MPI_Request_free(meshStructure->receiveRequests + region);
+      if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
+        MPI_Request_free(meshStructure->sendRequests + region);
+        MPI_Request_free(meshStructure->receiveRequests + region);
+      }
     }
   }
 }

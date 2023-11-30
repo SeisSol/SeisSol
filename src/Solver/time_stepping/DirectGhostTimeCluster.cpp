@@ -67,20 +67,22 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
                                meshStructure), persistent(persistent) {
     if (persistent) {
       for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-        MPI_Send_init(meshStructure->copyRegions[region],
-                  static_cast<int>(meshStructure->copyRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->sendIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->sendRequests + region);
-        MPI_Recv_init(meshStructure->ghostRegions[region],
-                  static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->receiveRequests + region);
+        if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId) ) {
+          MPI_Send_init(meshStructure->copyRegions[region],
+                    static_cast<int>(meshStructure->copyRegionSizes[region]),
+                    MPI_C_REAL,
+                    meshStructure->neighboringClusters[region][0],
+                    timeData + meshStructure->sendIdentifiers[region],
+                    seissol::MPI::mpi.comm(),
+                    meshStructure->sendRequests + region);
+          MPI_Recv_init(meshStructure->ghostRegions[region],
+                    static_cast<int>(meshStructure->ghostRegionSizes[region]),
+                    MPI_C_REAL,
+                    meshStructure->neighboringClusters[region][0],
+                    timeData + meshStructure->receiveIdentifiers[region],
+                    seissol::MPI::mpi.comm(),
+                    meshStructure->receiveRequests + region);
+        }
       }
     }
   }
@@ -88,8 +90,10 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
   void DirectGhostTimeCluster::finalize() {
     if (persistent) {
       for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-        MPI_Request_free(meshStructure->sendRequests + region);
-        MPI_Request_free(meshStructure->receiveRequests + region);
+        if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
+          MPI_Request_free(meshStructure->sendRequests + region);
+          MPI_Request_free(meshStructure->receiveRequests + region);
+        }
       }
     }
   }
