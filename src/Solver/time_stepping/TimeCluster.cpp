@@ -402,6 +402,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real epsInitxx = -0e-2; // eps_xx0
     real epsInityy = -0e-1; // eps_yy0
     real epsInitzz = -0e-1; // eps_zz0
+    real epsInitxy = -0e-1; // eps_xx0
+    real epsInityz = -0e-1; // eps_yy0
+    real epsInitzx = -0e-1; // eps_zz0
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -466,9 +469,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
           + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
           + (ezzNodal[q]+epsInitzz)*(ezzNodal[q]+epsInitzz)
-          + 2*exyNodal[q]*exyNodal[q]
-          + 2*eyzNodal[q]*eyzNodal[q]
-          + 2*ezxNodal[q]*ezxNodal[q];
+          + 2*(exyNodal[q]+epsInitxy)*(exyNodal[q]+epsInitxy)
+          + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
+          + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
         real xi;
         if (EspII > 1e-30){
           xi = EspI / std::sqrt(EspII);
@@ -507,9 +510,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         szzNodal[q] = data.material.local.lambda0*EspI
                       - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
                       + 2*mu_eff*(ezzNodal[q]+epsInitzz);
-        sxyNodal[q] = 2*mu_eff*exyNodal[q];
-        syzNodal[q] = 2*mu_eff*eyzNodal[q];
-        szxNodal[q] = 2*mu_eff*ezxNodal[q];
+        sxyNodal[q] = 2*mu_eff*(exyNodal[q]+epsInitxy);
+        syzNodal[q] = 2*mu_eff*(eyzNodal[q]+epsInityz);
+        szxNodal[q] = 2*mu_eff*(ezxNodal[q]+epsInitzx);
         // //--- x-dir
         FluxInterpolatedBodyX[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];
         FluxInterpolatedBodyX[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
@@ -944,20 +947,22 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-
       // std::cout << data.dofs[0+0] << std::endl;
       real epsInitxx = -0e-2; // eps_xx0
       real epsInityy = -0e-1; // eps_yy0
       real epsInitzz = -0e-1; // eps_zz0
+      real epsInitxy = -0e-1; // eps_xx0
+      real epsInityz = -0e-1; // eps_yy0
+      real epsInitzx = -0e-1; // eps_zz0
 
       // END TODO
       real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
       real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
         +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
         +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
-        +  2*Q_aveData[3]*Q_aveData[3]
-        +  2*Q_aveData[4]*Q_aveData[4]
-        +  2*Q_aveData[5]*Q_aveData[5];
+        +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+        +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+        +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
 
       real xi;
       real xiInv;
@@ -999,9 +1004,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
        materialData[l_cell].local.epsxx_alpha = (Q_aveData[0]+epsInitxx);
        materialData[l_cell].local.epsyy_alpha = (Q_aveData[1]+epsInityy);
        materialData[l_cell].local.epszz_alpha = (Q_aveData[2]+epsInitzz);
-       materialData[l_cell].local.epsxy_alpha = Q_aveData[3];
-       materialData[l_cell].local.epsyz_alpha = Q_aveData[4];
-       materialData[l_cell].local.epszx_alpha = Q_aveData[5];
+       materialData[l_cell].local.epsxy_alpha = (Q_aveData[3]+epsInitxy);
+       materialData[l_cell].local.epsyz_alpha = (Q_aveData[4]+epsInityz);
+       materialData[l_cell].local.epszx_alpha = (Q_aveData[5]+epsInitzx);
 
       //  for (unsigned side = 0; side < 4; ++side){
       //   materialData[l_cell].neighbor[side].mu = 8.27e10*(1-1e7*EspI);
@@ -1051,6 +1056,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 
       double volume = MeshTools::volume(elements[meshId], vertices);
 
+      auto ATtildeBC = init::star::view<0>::create(data.localIntegration.ATtildeBC);
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
+
       // for (int i_out = 0; i_out<50; ++i_out){
       //   std::cout
       //             // << faceNeighbors[l_cell][0][20*i_out+0] << " "
@@ -1091,9 +1099,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
             +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
             +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
-            +  2*Q_aveData[3]*Q_aveData[3]
-            +  2*Q_aveData[4]*Q_aveData[4]
-            +  2*Q_aveData[5]*Q_aveData[5];
+            +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+            +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+            +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
           real alphaAveNeigh = Q_aveData[9];
           real xi;
           real xiInv;
@@ -1124,9 +1132,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           materialData[l_cell].neighbor[side].epsxx_alpha = (Q_aveData[0]+epsInitxx);
           materialData[l_cell].neighbor[side].epsyy_alpha = (Q_aveData[1]+epsInityy);
           materialData[l_cell].neighbor[side].epszz_alpha = (Q_aveData[2]+epsInitzz);
-          materialData[l_cell].neighbor[side].epsxy_alpha = Q_aveData[3];
-          materialData[l_cell].neighbor[side].epsyz_alpha = Q_aveData[4];
-          materialData[l_cell].neighbor[side].epszx_alpha = Q_aveData[5];
+          materialData[l_cell].neighbor[side].epsxy_alpha = (Q_aveData[3]+epsInitxy);
+          materialData[l_cell].neighbor[side].epsyz_alpha = (Q_aveData[4]+epsInityz);
+          materialData[l_cell].neighbor[side].epszx_alpha = (Q_aveData[5]+epsInitzx);
         }
 
 
@@ -1196,8 +1204,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         neighKrnl.execute();
 
 
-        auto ATtildeBC = init::star::view<0>::create(data.localIntegration.ATtildeBC);
-        seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
+        // auto ATtildeBC = init::star::view<0>::create(data.localIntegration.ATtildeBC);
+        // seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
       }
 
 

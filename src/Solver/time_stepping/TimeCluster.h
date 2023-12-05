@@ -421,6 +421,10 @@ private:
             real epsInitxx = -0e-2; // eps_xx0
             real epsInityy = -0e-1; // eps_yy0
             real epsInitzz = -0e-1; // eps_zz0
+            real epsInitxy = -0e-1; // eps_xx0
+            real epsInityz = -0e-1; // eps_yy0
+            real epsInitzx = -0e-1; // eps_zz0
+
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
             real rho0P = materialData[l_cell].local.rho;
@@ -448,9 +452,9 @@ private:
                 real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
                   + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
                   + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
-                  + 2*qIPlus[o][XY][i]*qIPlus[o][XY][i]
-                  + 2*qIPlus[o][YZ][i]*qIPlus[o][YZ][i]
-                  + 2*qIPlus[o][XZ][i]*qIPlus[o][XZ][i];
+                  + 2*(qIPlus[o][XY][i]+epsInitxy)*(qIPlus[o][XY][i]+epsInitxy)
+                  + 2*(qIPlus[o][YZ][i]+epsInityz)*(qIPlus[o][YZ][i]+epsInityz)
+                  + 2*(qIPlus[o][XZ][i]+epsInitzx)*(qIPlus[o][XZ][i]+epsInitzx);
                 real alphap = qIPlus[o][DAM][i];
                 real xip;
                 if (EspIIp > 1e-30){
@@ -477,25 +481,25 @@ private:
                 sxyP = 0
                       + (2*(mu0P - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
                           - alphap*materialData[l_cell].local.gammaR*xip)
-                        *qIPlus[o][XY][i];
+                        *(qIPlus[o][XY][i]+epsInitxy);
 
                 syzP = 0
                       + (2*(mu0P - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
                           - alphap*materialData[l_cell].local.gammaR*xip)
-                        *qIPlus[o][YZ][i];
+                        *(qIPlus[o][YZ][i]+epsInityz);
 
                 szxP = 0
                       + (2*(mu0P - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0)
                           - alphap*materialData[l_cell].local.gammaR*xip)
-                        *qIPlus[o][XZ][i];
+                        *(qIPlus[o][XZ][i]+epsInitzx);
 
                 real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
                 real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
                   + (qIMinus[o][YY][i]+epsInityy)*(qIMinus[o][YY][i]+epsInityy)
                   + (qIMinus[o][ZZ][i]+epsInitzz)*(qIMinus[o][ZZ][i]+epsInitzz)
-                  + 2*qIMinus[o][XY][i]*qIMinus[o][XY][i]
-                  + 2*qIMinus[o][YZ][i]*qIMinus[o][YZ][i]
-                  + 2*qIMinus[o][XZ][i]*qIMinus[o][XZ][i];
+                  + 2*(qIMinus[o][XY][i]+epsInitxy)*(qIMinus[o][XY][i]+epsInitxy)
+                  + 2*(qIMinus[o][YZ][i]+epsInityz)*(qIMinus[o][YZ][i]+epsInityz)
+                  + 2*(qIMinus[o][XZ][i]+epsInitzx)*(qIMinus[o][XZ][i]+epsInitzx);
                 real alpham = qIMinus[o][DAM][i];
                 real xim;
                 if (EspIIm > 1e-30){
@@ -522,17 +526,17 @@ private:
                 sxyM = 0
                       + (2*(mu0M - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
                           - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
-                        *qIMinus[o][XY][i];
+                        *(qIMinus[o][XY][i]+epsInitxy);
 
                 syzM = 0
                       + (2*(mu0M - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
                           - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
-                        *qIMinus[o][YZ][i];
+                        *(qIMinus[o][YZ][i]+epsInityz);
 
                 szxM = 0
                       + (2*(mu0M - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0)
                           - alpham*materialData[l_cell].neighbor[side].gammaR*xim)
-                        *qIMinus[o][XZ][i];
+                        *(qIMinus[o][XZ][i]+epsInitzx);
 
                 rusanovFluxP[XX][i] += weight * (
                   (
@@ -583,7 +587,7 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][XY][i]) - 0.5*lambda_max*(qIMinus[o][XY][i])
+                  + 0.5*lambda_max*(qIPlus[o][XY][i]+epsInitxy) - 0.5*lambda_max*(qIMinus[o][XY][i]+epsInitxy)
                 );
 
                 rusanovFluxP[YZ][i] += weight * (
@@ -596,7 +600,7 @@ private:
                   + (
                     0.5*(-0.5*qIPlus[o][V][i]) + 0.5*(-0.5*qIMinus[o][V][i])
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][YZ][i]) - 0.5*lambda_max*(qIMinus[o][YZ][i])
+                  + 0.5*lambda_max*(qIPlus[o][YZ][i]+epsInityz) - 0.5*lambda_max*(qIMinus[o][YZ][i]+epsInityz)
                 );
 
                 rusanovFluxP[XZ][i] += weight * (
@@ -609,7 +613,7 @@ private:
                   + (
                     0.5*(-0.5*qIPlus[o][U][i]) + 0.5*(-0.5*qIMinus[o][U][i])
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][XZ][i]) - 0.5*lambda_max*(qIMinus[o][XZ][i])
+                  + 0.5*lambda_max*(qIPlus[o][XZ][i]+epsInitzx) - 0.5*lambda_max*(qIMinus[o][XZ][i]+epsInitzx)
                 );
 
                 rusanovFluxP[U][i] += weight * (

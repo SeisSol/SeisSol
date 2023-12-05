@@ -145,17 +145,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       dofsStressNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
                 - alphap*impAndEtaGet->gammaRP*xip)
-              *dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
 
       dofsStressNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
                 - alphap*impAndEtaGet->gammaRP*xip)
-              *dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
 
       dofsStressNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0P - alphap*impAndEtaGet->gammaRP*impAndEtaGet->xi0P)
                 - alphap*impAndEtaGet->gammaRP*xip)
-              *dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       real EspIm = (dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
       + (dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy)
@@ -192,17 +192,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       dofsStressNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
                 - alpham*impAndEtaGet->gammaRM*xim)
-              *dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
 
       dofsStressNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
                 - alpham*impAndEtaGet->gammaRM*xim)
-              *dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
 
       dofsStressNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = 0
             + (2*(mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M)
                 - alpham*impAndEtaGet->gammaRM*xim)
-              *dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+              *(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
