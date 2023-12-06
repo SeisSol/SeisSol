@@ -164,10 +164,10 @@ inline void precomputeStressFromQInterpolated(
     damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
-  real epsInitxx = -0e-2; // eps_xx0
-  real epsInityy = -0e-1; // eps_yy0
-  real epsInitzz = -0e-1; // eps_zz0
-  real epsInitxy = -0e-2; // eps_xx0
+  real epsInitxx = 4.63e-4; // eps_xx0
+  real epsInityy = -1.85e-3; // eps_yy0
+  real epsInitzz = 4.63e-4; // eps_zz0
+  real epsInitxy = 1.11e-3; // eps_xx0
   real epsInityz = -0e-1; // eps_yy0
   real epsInitzx = -0e-1; // eps_zz0
 
