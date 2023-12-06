@@ -258,6 +258,9 @@ static void initializeClusteredLts(LtsInfo& ltsInfo) {
                                                        seissolParams.timeStepping.lts.rate);
   }
 
+  // TODO: remove debug statement
+  logInfo(0) << "Got out of getLtsLayout().deriveLayout()";
+
   seissol::SeisSol::main.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping(ltsInfo.timeStepping);
 

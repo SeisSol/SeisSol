@@ -247,7 +247,15 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_commit(&ghostElementType);
 
   size_t counter = 0;
+
+  //TODO: delete!
+  std::cout << "---------- About to enter MeshReader.cpp loop exchangeGhostLayerMetadata()" << std::endl;
+
   for (auto it = m_MPINeighbors.begin(); it != m_MPINeighbors.end(); ++it, counter += 2) {
+
+    //TODO: delete!
+    std::cout << "Start of loop" << std::endl;
+
     const auto targetRank = it->first;
     const auto count = it->second.elements.size();
 
@@ -258,6 +266,9 @@ void MeshReader::exchangeGhostlayerMetadata() {
       const auto elementIdx = it->second.elements[j].localElement;
       const auto& element = m_elements.at(elementIdx);
       auto& ghost = sendData[targetRank][j];
+
+      //TODO: delete!
+      logInfo(0) << "---------- MeshReader element.vertices:\n" << element.vertices;
 
       for (size_t v = 0; v < 4; ++v) {
         const auto& vertex = m_vertices[element.vertices[v]];
@@ -284,6 +295,9 @@ void MeshReader::exchangeGhostlayerMetadata() {
               comm,
               &requests[counter + 1]);
   }
+
+  //TODO: delete!
+  std::cout << "---------- Exited exchangeGhostLasterMetadata() loop" << std::endl;
 
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE);
 

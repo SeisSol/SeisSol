@@ -93,6 +93,9 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::ge
   // compute timesteps
   auto timesteps = seissol::initializer::computeTimesteps(seissolParams.timeStepping.cfl, seissolParams.timeStepping.maxTimestepWidth, seissolParams.model.materialFileName,
         seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
+
+  //TODO: delete!
+    logInfo(0) << "----------timesteps.cellTimeStepWidths =" << timesteps.cellTimeStepWidths;
   
   m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }

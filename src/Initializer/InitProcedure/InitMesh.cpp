@@ -52,6 +52,9 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
+
+  //TODO: delete!
+  std::cout << "From " << __FILE__ << ": Exited getLtsLayout().setMesh(meshReader)" << std::endl;
 }
 
 static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
@@ -141,12 +144,14 @@ static void
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
   std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-  auto meshReader = new seissol::geometry::CubeGenerator(
+  /*auto meshReader = new seissol::geometry::CubeGenerator(
       commRank, commSize, realMeshFileName.c_str(), cubeParameters);
 
   // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
   seissol::SeisSol::main.setMeshReader(
-      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
+      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));*/
+  seissol::SeisSol::main.setMeshReader(new seissol::geometry::CubeGenerator(
+      commRank, commSize, realMeshFileName.c_str(), cubeParameters));
 #else
   logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
                 "not linked to Netcdf.";
