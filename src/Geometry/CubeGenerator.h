@@ -79,19 +79,15 @@ struct CubeGeneratorParameters {
 };
 
 class CubeGenerator : public seissol::geometry::MeshReader {
+  int rank;
+  int nProcs;
+
   public:
   CubeGenerator(int rank,
                 int nProcs,
                 const std::string& meshFile,
                 const seissol::geometry::CubeGeneratorParameters& cubeParams);
 
-  /*
-    inline void loadBar(int x, int n, int r = 100, int w = 50);
-    const char* dim2str(unsigned int dim);
-    template <typename A, typename B>
-    std::pair<B, A> flip_pair(const std::pair<A, B>& p);
-    void checkNcError(int error);
-  */
   void cubeGenerator(unsigned int numCubes[4],
                      unsigned int numPartitions[4],
                      unsigned int boundaryMinx,
@@ -111,7 +107,18 @@ class CubeGenerator : public seissol::geometry::MeshReader {
                      double tx,
                      double ty,
                      double tz,
-                     const std::string& output);
+                     const std::string& meshFile);
+
+  private:
+  void findElementsPerVertex();
+  /**
+   * Switch to collective access for a netCDf variable
+   */
+  static void collectiveAccess(int ncFile, int ncVar);
+  void addMPINeighbor(int localID,
+                    int bndRank,
+                    int elemSize,
+                    const int* bndElemLocalIds);
 };
 } // namespace seissol::geometry
 #endif // CUBEGENERATOR_H
