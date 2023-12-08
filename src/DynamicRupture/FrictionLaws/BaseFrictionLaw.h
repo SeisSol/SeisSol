@@ -54,10 +54,16 @@ class BaseFrictionLaw : public FrictionSolver {
       using namespace seissol::dr::misc::quantity_indices;
       unsigned DAM = 9;
 
-      real epsInitxx = 4.63e-4; // eps_xx0
-      real epsInityy = -1.85e-3; // eps_yy0
-      real epsInitzz = 4.63e-4; // eps_zz0
-      real epsInitxy = 1.11e-3; // eps_xy0
+      // real epsInitxx = 4.63e-4; // eps_xx0
+      // real epsInityy = -1.85e-3; // eps_yy0
+      // real epsInitzz = 4.63e-4; // eps_zz0
+      // real epsInitxy = 1.11e-3; // eps_xy0
+      // real epsInityz = -0e-1; // eps_yz0
+      // real epsInitzx = -0e-1; // eps_zx0
+      real epsInitxx = 0.0e-4; // eps_xx0
+      real epsInityy = 0.0e-3; // eps_yy0
+      real epsInitzz = 0.0e-4; // eps_zz0
+      real epsInitxy = 0.0e-3; // eps_xy0
       real epsInityz = -0e-1; // eps_yz0
       real epsInitzx = -0e-1; // eps_zx0
       real lambda0P = impAndEta[ltsFace].lambda0P;
