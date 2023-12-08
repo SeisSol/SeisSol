@@ -400,9 +400,16 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     #ifdef USE_DAMAGEDELASTIC
 
-    real epsInitxx = 4.63e-4; // eps_xx0
-    real epsInityy = -1.85e-3; // eps_yy0
-    real epsInitzz = 4.63e-4; // eps_zz0
+    // real epsInitxx = 4.63e-4; // eps_xx0
+    // real epsInityy = -1.85e-3; // eps_yy0
+    // real epsInitzz = 4.63e-4; // eps_zz0
+    // real epsInitxy = 1.11e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+
+    real epsInitxx = -9.26e-4; // eps_xx0
+    real epsInityy = -9.26e-4; // eps_yy0
+    real epsInitzz = -9.26e-4; // eps_zz0
     real epsInitxy = 1.11e-3; // eps_xx0
     real epsInityz = -0e-1; // eps_yy0
     real epsInitzx = -0e-1; // eps_zz0
@@ -956,9 +963,16 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yy0
       // real epsInitzx = -0e-1; // eps_zz0
 
-      real epsInitxx = 4.63e-4; // eps_xx0
-      real epsInityy = -1.85e-3; // eps_yy0
-      real epsInitzz = 4.63e-4; // eps_zz0
+      // real epsInitxx = 4.63e-4; // eps_xx0
+      // real epsInityy = -1.85e-3; // eps_yy0
+      // real epsInitzz = 4.63e-4; // eps_zz0
+      // real epsInitxy = 1.11e-3; // eps_xx0
+      // real epsInityz = -0e-1; // eps_yy0
+      // real epsInitzx = -0e-1; // eps_zz0
+
+      real epsInitxx = -9.26e-4; // eps_xx0
+      real epsInityy = -9.26e-4; // eps_yy0
+      real epsInitzz = -9.26e-4; // eps_zz0
       real epsInitxy = 1.11e-3; // eps_xx0
       real epsInityz = -0e-1; // eps_yy0
       real epsInitzx = -0e-1; // eps_zz0
