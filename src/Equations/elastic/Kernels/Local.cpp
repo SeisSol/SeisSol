@@ -197,7 +197,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             ezxNodal[q] = -0e-3;
           }
 
-          std::cout << "reached: " << eyyNodal << std::endl;
+          std::cout << "reached: " << eyyNodal[0] << std::endl;
 
           kernel::damageAssignFToDQ d_convertInitialToModal;
           d_convertInitialToModal.dQModal = QInitialModal;
