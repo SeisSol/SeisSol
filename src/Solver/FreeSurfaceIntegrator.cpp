@@ -113,7 +113,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
