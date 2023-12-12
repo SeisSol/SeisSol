@@ -5,6 +5,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <unordered_map>
+#include "Initializer/preProcessorMacros.hpp"
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -44,7 +45,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for
+#endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
     assert(outputData->receiverPoints[i].isInside == true &&
