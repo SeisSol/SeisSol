@@ -18,7 +18,7 @@ import glob
 
 description = '''Plot SeisSol energy output(s). 
 You can run the script with the default (Moment rate [MR]) or select multiple energy outputs available from a SeisSol simulation.
-You can also compare the energy outputs of different simulations.)'''
+You can also compare the energy outputs of different simulations.'''
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument("Input", nargs="+", metavar=("file"),
                     help="energy.csv file(s) from your SeisSol simulation. Multiple input files possible.")
@@ -29,9 +29,12 @@ parser.add_argument("--ylim", nargs="+", type=float, help="ymin ymax")
 parser.add_argument("--xlabel", default="Time [s]", type=str, help="Choose xlabel")
 parser.add_argument("--ylabel", default="", type=str, help="Choose ylabel")
 parser.add_argument("--dpi", default=300, type=int, help="Dots per Inch")
-parser.add_argument("-o", "--Output", help='Name of the output file', default='energy_output.png')
-args = parser.parse_args()
+parser.add_argument("-o", "--Output", type=str, required=False, metavar=("variable"), default="energy_output.png",
+                    help='Name of the output file')
 
+parser.add_argument("--legacy", action="store_true", 
+                    help="Allows to use energy output format for SeisSol older than Jan 31, 2023 (i.e., versions preceding commits c951a40 and 1150540)") 
+args = parser.parse_args()
 
 ### search through wildcards
 files = [] 
@@ -43,13 +46,20 @@ for i in range(0,len(files)):
         print("File selected: {}".format(os.path.expanduser(args.Input[i])))
     else:
         sys.exit("File '{}' does not exist.".format(os.path.expanduser(args.Input[i])))
-        
+     
     df = pd.read_csv(args.Input[i])
+    
+    if args.legacy:
+        print("Using energy output format for SeisSol older than Jan 31, 2023 (i.e., versions preceding commits c951a40 and 1150540)")
+    else:
+        df = df.pivot_table(index="time", columns="variable", values="measurement")
+        # see https://stackoverflow.com/questions/43756052/transform-pandas-pivot-table-to-regular-dataframe
+        df = pd.DataFrame(df.to_records())
+        
     M0 = df['seismic_moment'][len(df)-1]
     Mw = 2.0/3.0 * np.log10(M0) - 6.07;
     # see https://github.com/SeisSol/SeisSol/blob/829f5e258c12046ae3626837bab6d19d13d6c006/src/ResultWriter/EnergyOutput.cpp#L436C45-L436C45
-
-    print("M0 = {:.2e} and Mw = {:.2f}".format(M0, Mw))
+    print("M0 = {:.2e} and Mw = {:.2f}".format(M0, Mw))    
         
     for j in range(0,len(args.Data)):
         if (args.Data[j].upper() == "MR"):
@@ -102,5 +112,6 @@ for i in range(0,len(files)):
         plt.xlim(args.xlim[0], args.xlim[1])
     if (args.ylim != None):
         plt.ylim(args.ylim[0], args.ylim[1])
-        
+
+print("Saving {}".format(args.Output))
 plt.savefig("{}".format(args.Output), dpi=args.dpi)
