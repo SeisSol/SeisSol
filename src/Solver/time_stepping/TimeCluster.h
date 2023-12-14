@@ -450,7 +450,7 @@ private:
 
               for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
                   i ++) {
-                lambda_max = 0.5*std::min(
+                lambda_max = std::min(
                   std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0P+2*mu0P)/rho0P ),
                   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0M+2*mu0M)/rho0M )
                 );
@@ -640,7 +640,7 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.0*lambda_max*(qIPlus[o][DAM][i]) - 0.0*lambda_max*(qIMinus[o][DAM][i])
+                  + 1.0*lambda_max*(qIPlus[o][DAM][i]) - 1.0*lambda_max*(qIMinus[o][DAM][i])
                 );
               }
             } // time integration loop
