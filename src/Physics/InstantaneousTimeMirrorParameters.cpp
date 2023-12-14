@@ -11,7 +11,7 @@ ITMParameters readITMParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   const double ITMVelocityScalingFactor =
       getWithDefault(equationsParams, "itmvelocityscalingfactor", 1000.0);
   const double ITMStartingTime = getWithDefault(equationsParams, "itmstartingtime", 5.5);
-  const bool ITMToggle = getWithDefault(equationsParams, "itmtoggle", 1);
+  const bool ITMToggle = getWithDefault(equationsParams, "itmenable", 1);
   const int reflectionType = getWithDefault(equationsParams, "itmreflectiontype", 1);
   return ITMParameters(
       ITMTime, ITMVelocityScalingFactor, ITMStartingTime, ITMToggle, reflectionType);

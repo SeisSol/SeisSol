@@ -168,21 +168,25 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.model.tv = reader.readWithDefault("tv", 0.1);
   seissolParams.model.useCellHomogenizedMaterial =
       reader.readWithDefault("usecellhomogenizedmaterial", true);
-  seissolParams.itmParameters.ITMStartingTime = reader.readWithDefault("itmstartingtime", 0.0);
-  seissolParams.itmParameters.ITMTime = reader.readWithDefault("itmtime", 0.0);
-  seissolParams.itmParameters.ITMToggle = reader.readWithDefault("itmtoggle", bool(0));
-  seissolParams.itmParameters.ITMVelocityScalingFactor =
-      reader.readWithDefault("itmvelocityscalingfactor", 1.0);
-  seissolParams.itmParameters.reflectionType = reader.readWithDefault("itmreflectiontype", 1);
-
-  if (seissolParams.itmParameters.ITMTime < 0.0) {
-    logError() << "ITM Time is less than zero. It should be positive!\n";
+  seissolParams.itmParameters.ITMToggle = reader.readWithDefault("itmenable", bool(0));
+  if(seissolParams.itmParameters.ITMToggle) {
+    seissolParams.itmParameters.ITMStartingTime = reader.readWithDefault("itmstartingtime", 0.0);
+    seissolParams.itmParameters.ITMTime = reader.readWithDefault("itmtime", 0.0);
+    seissolParams.itmParameters.ITMVelocityScalingFactor =
+        reader.readWithDefault("itmvelocityscalingfactor", 1.0);
+    seissolParams.itmParameters.reflectionType = reader.readWithDefault("itmreflectiontype", 1);
+    if (seissolParams.itmParameters.ITMTime <= 0.0) {
+      logError() << "ITM Time is not positive. It should be positive!\n";
+    }
+    if (seissolParams.itmParameters.ITMVelocityScalingFactor < 0.0) {
+      logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!\n";
+    }
+    if (seissolParams.itmParameters.ITMStartingTime < 0.0) {
+      logError() << "ITM Starting Time can not be less than zero\n";
+    }
   }
-  if (seissolParams.itmParameters.ITMVelocityScalingFactor < 0.0) {
-    logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!\n";
-  }
-  if (seissolParams.itmParameters.ITMStartingTime < 0.0) {
-    logError() << "ITM Starting Time can not be less than zero\n";
+  else {
+    reader.markUnused("itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype");
   }
 
   if (isModelViscoelastic()) {

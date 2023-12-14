@@ -11,7 +11,7 @@ FreqCentral=0.5
 FreqRatio=100
 GravitationalAcceleration = 9.81 ! value of gravitational acceleration
 !ITM Parameters
-ITMToggle = 1 ! 1 is on, 0 is off
+ITMEnable = 1 ! 1 is on, 0 is off
 ITMStartingtime = 2.0 ! Time when ITM is turned on
 ITMTime = 0.01 !Time duration for which ITM is on
 ITMVelocityscalingfactor = 2 ! Scaling factor

@@ -245,7 +245,6 @@ static void initializeCellMatrices(LtsInfo& ltsInfo) {
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
 
-  //  const bool ITMToggle = memoryManager.getITMParameters()->getITMToggle();
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
 
   bool ITMToggle = itmParameters.ITMToggle;
