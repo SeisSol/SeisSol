@@ -450,12 +450,12 @@ private:
 
               for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
                   i ++) {
-                // lambda_max = std::min(
-                //   std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0P+2*mu0P)/rho0P ),
-                //   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0M+2*mu0M)/rho0M )
-                // );
-                lambda_max = std::sqrt((1- (qIPlus[o][DAM][i] + qIMinus[o][DAM][i]) * 0.5 )
-                  * (0.5*(lambda0P+lambda0M)+2*0.5*(mu0P+mu0M))/(rho0P+rho0M)/2.0);
+                lambda_max = 0.5*std::min(
+                  std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0P+2*mu0P)/rho0P ),
+                  std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0M+2*mu0M)/rho0M )
+                );
+                // lambda_max = std::sqrt((1- (qIPlus[o][DAM][i] + qIMinus[o][DAM][i]) * 0.5 )
+                //   * (0.5*(lambda0P+lambda0M)+2*0.5*(mu0P+mu0M))/(rho0P+rho0M)/2.0);
 
                 real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
 
