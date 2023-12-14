@@ -77,6 +77,7 @@
 
 #include <utils/logger.h>
 
+#include <Initializer/MeshStructure.hpp>
 #include <Initializer/typedefs.hpp>
 #include "MemoryAllocator.h"
 

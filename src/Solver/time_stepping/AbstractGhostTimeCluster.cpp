@@ -1,12 +1,13 @@
 #include <Parallel/MPI.h>
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include <Monitoring/instrumentation.hpp>
 
+#include <cassert>
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
-                                         std::list<unsigned int>& regions) {
+bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
   for (auto region = regions.begin(); region != regions.end();) {
-    MPI_Request *request = &requests[*region];
+    MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
@@ -19,7 +20,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
 }
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
-  SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
   return testQueue(meshStructure->sendRequests, sendQueue);
 }
 
@@ -60,7 +61,8 @@ void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(const Neighbo
   sendCopyLayer();
 }
 
-void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
+void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
+    const NeighborCluster& neighborCluster) {
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
@@ -70,24 +72,21 @@ void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const Neighbo
 
   const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
 
-  // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
-  // request!
-  // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
-  // hanging request.
+  // If we are already at a sync point, we must not post an additional receive, as otherwise start()
+  // posts an additional request! This is also true for the last sync point (i.e. end of
+  // simulation), as in this case we do not want to have any hanging request.
   if (!ignoreMessage) {
     receiveGhostLayer();
   }
 }
 
 AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
-                                                 int timeStepRate,
-                                                 int globalTimeClusterId,
-                                                 int otherGlobalTimeClusterId,
-                                                 const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
-      globalClusterId(globalTimeClusterId),
-      otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure) {}
+                                                   int timeStepRate,
+                                                   int globalTimeClusterId,
+                                                   int otherGlobalTimeClusterId,
+                                                   const MeshStructure* meshStructure)
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate), globalClusterId(globalTimeClusterId),
+      otherGlobalClusterId(otherGlobalTimeClusterId), meshStructure(meshStructure) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
@@ -96,24 +95,20 @@ void AbstractGhostTimeCluster::reset() {
 }
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
-  logError()
-      << "Ghost: No update since " << timeSinceLastUpdate.count()
-      << "[s] for global cluster " << globalClusterId
-      << " with other cluster id " << otherGlobalClusterId
-      << " at state " << actorStateToString(state)
-      << " mayPredict = " << mayPredict()
-      << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
-      << " mayCorrect = " << mayCorrect()
-      << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-      << " maySync = " << maySync();
+  logError() << "Ghost: No update since " << timeSinceLastUpdate.count()
+             << "[s] for global cluster " << globalClusterId << " with other cluster id "
+             << otherGlobalClusterId << " at state " << actorStateToString(state)
+             << " mayPredict = " << mayPredict()
+             << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
+             << " mayCorrect = " << mayCorrect()
+             << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
+             << " maySync = " << maySync();
   for (auto& neighbor : neighbors) {
-    logError()
-        << "Neighbor with rate = " << neighbor.ct.timeStepRate
-        << "PredTime = " << neighbor.ct.predictionTime
-        << "CorrTime = " << neighbor.ct.correctionTime
-        << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-        << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+    logError() << "Neighbor with rate = " << neighbor.ct.timeStepRate
+               << "PredTime = " << neighbor.ct.predictionTime
+               << "CorrTime = " << neighbor.ct.correctionTime
+               << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+               << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
 } // namespace seissol::time_stepping

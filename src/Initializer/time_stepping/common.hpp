@@ -46,6 +46,7 @@
 #include <set>
 
 #include "Parallel/MPI.h"
+#include "Initializer/MeshStructure.hpp"
 #include "Initializer/typedefs.hpp"
 
 namespace seissol {

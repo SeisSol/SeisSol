@@ -1,9 +1,13 @@
-#include "Initializer/typedefs.hpp"
+#include "Initializer/MeshStructure.hpp"
 #ifdef ACL_DEVICE
 
+#include <Initializer/BasicTypedefs.hpp>
+#include <Monitoring/instrumentation.hpp>
 #include <Parallel/MPI.h>
 #include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
 #include "device.h"
+
+#include <cassert>
 
 namespace seissol::time_stepping {
 template <MPI::DataTransferMode CommType>

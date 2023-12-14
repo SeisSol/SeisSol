@@ -174,6 +174,7 @@ struct OutputParameters {
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
   bool loopStatisticsNetcdfOutput;
+  bool dumpLocalTimeSteppingStructure;
 };
 
 struct LtsParameters {

@@ -11,8 +11,8 @@ double AbstractTimeCluster::timeStepSize() const {
 }
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
-    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-      timeOfLastStageChange(std::chrono::steady_clock::now()) {
+    : timeOfLastStageChange(std::chrono::steady_clock::now()),
+      timeStepRate(timeStepRate), numberOfTimeSteps(0) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -210,9 +210,11 @@ void AbstractTimeCluster::reset() {
 
   // There can be pending messages from before the sync point
   processMessages();
+#ifndef NDEBUG
   for (auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
+#endif
   ct.stepsSinceLastSync = 0;
   ct.predictionsSinceLastSync = 0;
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);

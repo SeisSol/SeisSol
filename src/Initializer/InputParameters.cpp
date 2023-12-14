@@ -554,6 +554,10 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
   seissolParams.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
 
+  // output: local time-stepping structure
+  seissolParams.output.dumpLocalTimeSteppingStructure =
+      reader.readWithDefault("dumplocaltimesteppingstructure", false);
+
   reader.warnDeprecated({"rotation",
                          "interval",
                          "nrecordpoints",

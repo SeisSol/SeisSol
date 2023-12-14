@@ -51,6 +51,7 @@
 #include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
+#include <Initializer/MeshStructure.hpp>
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Solver/FreeSurfaceIntegrator.h>
