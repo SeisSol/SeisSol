@@ -64,7 +64,7 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
-enum class ReflectionType : int { bothwaves = 1, bothwaves_velocity = 2, pwave = 3, swave = 4};
+enum class ReflectionType : int { bothwaves = 1, bothwaves_velocity = 2, pwave = 3, swave = 4 };
 
 struct ITMParameters {
   double ITMTime;

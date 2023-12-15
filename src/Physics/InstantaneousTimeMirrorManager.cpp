@@ -131,54 +131,55 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
   auto reflectionType = itmParameters.reflectionType;
 
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves || reflectionType == seissol::initializer::parameters::ReflectionType::pwave)
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves ||
+      reflectionType == seissol::initializer::parameters::ReflectionType::pwave)
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
     for (auto& cluster : *timeClusters) {
-//      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+      //      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
 
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(
-            neighborCluster.ct.getTimeStepSize() / velocityScalingFactor);
-
+        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
+                                           velocityScalingFactor);
       }
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-//        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+      //        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
 
-        cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
+      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(
-            neighborcluster.ct.getTimeStepSize() / velocityScalingFactor);
+        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
+                                           velocityScalingFactor);
       }
     }
   }
 
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
+  if (reflectionType ==
+      seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
     for (auto& cluster : *timeClusters) {
-//        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
-          cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
+      //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+      cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.setTimeStepSize(
-            neighborCluster.ct.getTimeStepSize() * velocityScalingFactor);
+        neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
+                                           velocityScalingFactor);
       }
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-//        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
-          cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
+      //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+      cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(
-            neighborcluster.ct.getTimeStepSize() * velocityScalingFactor);
+        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
+                                           velocityScalingFactor);
       }
     }
   }
