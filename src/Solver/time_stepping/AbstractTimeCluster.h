@@ -65,6 +65,10 @@ public:
 
   long getTimeStepRate();
 
+  double& getClusterTimes();
+
+  std::vector<NeighborCluster>* getNeighborClusters();
+
 };
 
 }

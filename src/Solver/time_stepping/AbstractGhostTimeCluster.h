@@ -41,8 +41,5 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   void reset() override;
   ActResult act() override;
-
-  double& getClusterTimes();
-  std::vector<seissol::time_stepping::NeighborCluster>* getNeighborClusters();
 };
 } // namespace seissol::time_stepping
