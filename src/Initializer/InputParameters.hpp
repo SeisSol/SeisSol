@@ -64,12 +64,14 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
+enum class ReflectionType : int { bothwaves = 1, bothwaves_velocity = 2, pwave = 3, swave = 4};
+
 struct ITMParameters {
   double ITMTime;
   double ITMVelocityScalingFactor;
   double ITMStartingTime;
   bool ITMToggle;
-  int reflectionType;
+  ReflectionType reflectionType;
 };
 
 enum class InitializationType : int {

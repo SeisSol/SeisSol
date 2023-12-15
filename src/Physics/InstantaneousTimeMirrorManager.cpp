@@ -59,12 +59,12 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   logError() << "This feature has not been implemented for anisotropic yet";
 #else
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
-  int reflectionType = itmParameters.reflectionType;
+  auto reflectionType = itmParameters.reflectionType;
   for (auto it = ltsTree->beginLeaf(initializers::LayerMask(Ghost)); it != ltsTree->endLeaf();
        ++it) {
     CellMaterialData* materials = it->var(lts->material);
 
-    if (reflectionType == 1) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves
@@ -77,7 +77,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == 2) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves_velocity) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
@@ -92,7 +92,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == 3) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::pwave) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
@@ -103,7 +103,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == 4) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
@@ -122,16 +122,6 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         }
       }
     }
-
-    // Scaling with impedance remaining constant to show no reflections
-    //      material.local.mu *= velocityScalingFactor;
-    //      material.local.lambda *= velocityScalingFactor;
-    //      material.local.rho /= velocityScalingFactor;
-    //      for(int i=0; i<4; i++){
-    //        material.neighbor[i].mu *= velocityScalingFactor;
-    //        material.neighbor[i].lambda *= velocityScalingFactor;
-    //        material.neighbor[i].rho /= velocityScalingFactor;
-    //      }
   }
 #endif
 }
@@ -139,9 +129,9 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
   auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
-  int reflectionType = itmParameters.reflectionType;
+  auto reflectionType = itmParameters.reflectionType;
 
-  if (reflectionType == 1 || reflectionType == 3)
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves || reflectionType == seissol::initializer::parameters::ReflectionType::pwave)
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
@@ -167,7 +157,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     }
   }
 
-  if (reflectionType == 4) { // refocusing only S-waves
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
 
     for (auto& cluster : *timeClusters) {
       cluster->getClusterTimes().getTimeStepSize() =
