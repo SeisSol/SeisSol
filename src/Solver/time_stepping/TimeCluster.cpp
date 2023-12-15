@@ -647,14 +647,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   }
 }
 
-//seissol::time_stepping::ClusterTimes& seissol::time_stepping::TimeCluster::getClusterTimes() {
-//  return ct;
-//}
-
-double& seissol::time_stepping::TimeCluster::getClusterTimes() {
-  return ct.getTimeStepSize();
-}
-
 void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
     seissol::initializers::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];

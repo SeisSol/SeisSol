@@ -72,10 +72,6 @@ long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncT
   return static_cast<long>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
 }
 
-double& ClusterTimes::getTimeStepSize(){
-  return maxTimeStepSize;
-}
-
 NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;

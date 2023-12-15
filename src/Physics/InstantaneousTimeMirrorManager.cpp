@@ -136,44 +136,49 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // impedance case
   {
     for (auto& cluster : *timeClusters) {
-      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+//      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+
+      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.getTimeStepSize() =
-            neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
+        neighborCluster.ct.setTimeStepSize(
+            neighborCluster.ct.getTimeStepSize() / velocityScalingFactor);
 
       }
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+//        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
+
+        cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.getTimeStepSize() =
-            neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
+        neighborcluster.ct.setTimeStepSize(
+            neighborcluster.ct.getTimeStepSize() / velocityScalingFactor);
       }
     }
   }
 
   if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
-
     for (auto& cluster : *timeClusters) {
-        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+//        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+          cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
-        neighborCluster.ct.getTimeStepSize() =
-            neighborCluster.ct.getTimeStepSize() * velocityScalingFactor;
+        neighborCluster.ct.setTimeStepSize(
+            neighborCluster.ct.getTimeStepSize() * velocityScalingFactor);
       }
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+//        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
+          cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.getTimeStepSize() =
-            neighborcluster.ct.getTimeStepSize() * velocityScalingFactor;
+        neighborcluster.ct.setTimeStepSize(
+            neighborcluster.ct.getTimeStepSize() * velocityScalingFactor);
       }
     }
   }
