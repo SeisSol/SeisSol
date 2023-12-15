@@ -88,7 +88,6 @@
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/LtsParameters.h>
-#include "Physics/InstantaneousTimeMirrorParameters.h"
 
 #include <Physics/InitialField.h>
 
@@ -178,7 +177,6 @@ class seissol::initializers::MemoryManager {
     std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
     std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
-    std::shared_ptr<ITM::ITMParameters> ITMParameters = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -377,15 +375,10 @@ class seissol::initializers::MemoryManager {
         return ltsParameters.get();
     };
 
-    inline ITM::ITMParameters* getITMParameters(){
-      return ITMParameters.get();
-    };
-
     void setInputParams(std::shared_ptr<YAML::Node> params) {
       m_inputParams = params;
       m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
       ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
-      ITMParameters = std::make_shared<ITM::ITMParameters>(ITM::readITMParametersFromYaml(m_inputParams));
     }
 
     std::string getOutputPrefix() const {
