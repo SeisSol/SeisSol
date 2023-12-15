@@ -647,8 +647,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   }
 }
 
-seissol::time_stepping::ClusterTimes& seissol::time_stepping::TimeCluster::getClusterTimes() {
-  return ct;
+//seissol::time_stepping::ClusterTimes& seissol::time_stepping::TimeCluster::getClusterTimes() {
+//  return ct;
+//}
+
+double& seissol::time_stepping::TimeCluster::getClusterTimes() {
+  return ct.getTimeStepSize();
 }
 
 void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(

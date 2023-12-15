@@ -136,19 +136,18 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // impedance case
   {
     for (auto& cluster : *timeClusters) {
-      cluster->getClusterTimes().getTimeStepSize() =
-          cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
+      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.getTimeStepSize() =
             neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
+
       }
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-      cluster->getClusterTimes().getTimeStepSize() =
-          cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
+        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.getTimeStepSize() =
@@ -160,8 +159,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
 
     for (auto& cluster : *timeClusters) {
-      cluster->getClusterTimes().getTimeStepSize() =
-          cluster->getClusterTimes().getTimeStepSize() * velocityScalingFactor;
+        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
 
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
@@ -171,8 +169,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-      cluster->getClusterTimes().getTimeStepSize() =
-          cluster->getClusterTimes().getTimeStepSize() * velocityScalingFactor;
+        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.getTimeStepSize() =

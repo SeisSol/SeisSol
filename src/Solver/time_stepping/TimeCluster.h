@@ -388,7 +388,7 @@ public:
   /**
    * Returns a reference of ClusterTimes
   */
-  ClusterTimes& getClusterTimes();
+  double& getClusterTimes();
 
   /**
    * Constructs a new LTS cluster.
