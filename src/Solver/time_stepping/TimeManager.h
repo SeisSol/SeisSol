@@ -187,7 +187,7 @@ class seissol::time_stepping::TimeManager {
 
     void freeDynamicResources();
 
-    inline TimeStepping* getTimeStepping() {
+    inline const TimeStepping* getTimeStepping() {
       return &m_timeStepping;
     }
 };

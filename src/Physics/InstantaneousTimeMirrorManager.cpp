@@ -11,7 +11,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           initializers::LTSTree* ltsTree,
                                           initializers::LTS* lts,
                                           initializers::Lut* ltsLut,
-                                          TimeStepping* timestepping) {
+                                          const TimeStepping* timestepping) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
   this->velocityScalingFactor = velocityScalingFactor;
@@ -203,7 +203,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   initializers::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  TimeStepping* timestepping) {
+                                  const TimeStepping* timestepping) {
   increaseManager.init(scalingFactor,
                        triggerTime,
                        meshReader,

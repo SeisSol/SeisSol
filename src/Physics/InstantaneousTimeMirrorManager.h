@@ -21,7 +21,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializers::LTSTree* ltsTree{};
   initializers::LTS* lts{};
   initializers::Lut* ltsLut{};
-  TimeStepping* timestepping{};
+  const TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
   std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
@@ -35,7 +35,7 @@ class InstantaneousTimeMirrorManager : Module {
             initializers::LTSTree* ltsTree,
             initializers::LTS* lts,
             initializers::Lut* ltsLut,
-            TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what
+            const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what
                                          // exactly is to be sent here
 
   void setTimeClusterVector(
@@ -60,7 +60,7 @@ void initializeTimeMirrorManagers(
     initializers::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
-    TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what exactly is
+    const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what exactly is
                                  // to be sent here
 } // namespace seissol::ITM
 
