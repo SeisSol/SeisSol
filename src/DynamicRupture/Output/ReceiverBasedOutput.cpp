@@ -1,11 +1,9 @@
-#include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <unordered_map>
-#include "Initializer/preProcessorMacros.hpp"
 
 using namespace seissol::dr::misc::quantity_indices;
 
