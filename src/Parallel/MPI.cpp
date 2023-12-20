@@ -85,12 +85,19 @@ void seissol::MPI::setComm(MPI_Comm comm) {
   MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
 }
 
-#ifdef ACL_DEVICE
 void seissol::MPI::bindAcceleratorDevice() {
+#ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.bindAcceleratorDevice(0);
-}
 #endif
+}
+
+void seissol::MPI::printAcceleratorDeviceInfo() {
+#ifdef ACL_DEVICE
+  auto& instance = seissol::AcceleratorDevice::getInstance();
+  instance.printInfo();
+#endif
+}
 
 void seissol::MPI::setDataTransferModeFromEnv() {
   // TODO (Ravil, David): switch to reading this option from the parameter-file.

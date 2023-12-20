@@ -11,6 +11,8 @@
 
 #include <device.h>
 #include <CL/sycl.hpp>
+#include <string>
+#include <vector>
 
 #ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
@@ -33,12 +35,17 @@ class AcceleratorDevice {
 
   sycl::queue& getSyclDefaultQueue() { return syclDefaultQueue; }
 
+  void printInfo();
+
   private:
   void bindNativeDevice(int deviceId);
   void bindSyclDevice(int deviceId);
 
   sycl::device syclDevice;
   sycl::queue syclDefaultQueue;
+
+  std::vector<std::string> infoMessages;
+  std::vector<std::string> warnMessages;
 };
 } // namespace seissol
 

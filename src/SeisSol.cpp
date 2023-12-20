@@ -63,6 +63,10 @@
 #include "Reader/AsagiModule.h"
 #endif
 
+#ifdef ACL_DEVICE
+// #include "Parallel/AcceleratorDevice.h"
+#endif
+
 bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
@@ -92,6 +96,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
   logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:" << MPI::mpi.sharedMemMpiSize();
+  MPI::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   MPI::mpi.setDataTransferModeFromEnv();
 #endif
