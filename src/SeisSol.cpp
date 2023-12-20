@@ -208,7 +208,8 @@ bool seissol::SeisSol::readInputParams() {
   try {
     m_inputParams = std::make_shared<YAML::Node>(loader.load(m_parameterFile));
   } catch (const std::exception& error) {
-    logError() << "Error while reading the parameter file:" << std::string(error.what()) << std::endl;
+    logError() << "Error while reading the parameter file:" << std::string(error.what())
+               << std::endl;
     return false;
   }
   return true;

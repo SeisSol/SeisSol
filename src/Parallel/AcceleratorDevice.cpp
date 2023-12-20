@@ -30,7 +30,8 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
   }
 
   std::ostringstream info;
-  info << "DR/Point Source SYCL device (GPU: " << std::boolalpha << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
+  info << "DR/Point Source SYCL device (GPU: " << std::boolalpha << syclDevice.is_gpu()
+       << "): " << syclDevice.get_info<sycl::info::device::name>();
   infoMessages.push_back(info.str());
 
   sycl::property_list property{sycl::property::queue::in_order()};
