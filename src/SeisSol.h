@@ -175,7 +175,7 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  void readInputParams();
+  bool readInputParams();
 
   const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
 

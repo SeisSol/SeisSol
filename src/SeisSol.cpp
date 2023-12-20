@@ -87,6 +87,11 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef COMMIT_HASH
   logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 #endif
+  logInfo(rank) << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
+#ifdef ACL_DEVICE
+  logInfo(rank) << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
+  logInfo(rank) << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
+#endif
 
   if (MPI::mpi.rank() == 0) {
     const auto& hostNames = MPI::mpi.getHostNames();
@@ -166,13 +171,17 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   }
 
   // Initialize the ASYNC I/O library
-  if (!m_asyncIO.init())
+  if (!m_asyncIO.init()) {
     return false;
+  }
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  logInfo(rank) << "Using the parameter file" << m_parameterFile;
   m_memoryManager->initialize();
   // read parameter file input
-  readInputParams();
+  if (!readInputParams()) {
+    return false;
+  }
 
   m_seissolparameters.readParameters(*m_inputParams);
   m_memoryManager->setInputParams(m_inputParams);
@@ -193,15 +202,16 @@ void seissol::SeisSol::finalize() {
   logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
-void seissol::SeisSol::readInputParams() {
+bool seissol::SeisSol::readInputParams() {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
   try {
     m_inputParams = std::make_shared<YAML::Node>(loader.load(m_parameterFile));
   } catch (const std::exception& error) {
-    std::cerr << error.what() << std::endl;
-    finalize();
+    logError() << "Error while reading the parameter file:" << std::string(error.what()) << std::endl;
+    return false;
   }
+  return true;
 }
 
 void seissol::SeisSol::setBackupTimeStamp(const std::string& stamp) {
