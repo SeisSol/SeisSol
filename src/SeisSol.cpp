@@ -79,15 +79,18 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
+#ifdef COMMIT_HASH
   logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
+#endif
 
   if (MPI::mpi.rank() == 0) {
     const auto& hostNames = MPI::mpi.getHostNames();
-    logInfo() << "Running on:" << hostNames.front();
+    logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+  logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:" << MPI::mpi.sharedMemMpiSize();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   MPI::mpi.setDataTransferModeFromEnv();
 #endif

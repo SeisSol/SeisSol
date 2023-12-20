@@ -34,8 +34,8 @@ class AcceleratorDevice {
   sycl::queue& getSyclDefaultQueue() { return syclDefaultQueue; }
 
   private:
-  void bindNativeDevice(int mpiRank);
-  void bindSyclDevice(int mpiRank);
+  void bindNativeDevice(int deviceId);
+  void bindSyclDevice(int deviceId);
 
   sycl::device syclDevice;
   sycl::queue syclDefaultQueue;

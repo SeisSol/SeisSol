@@ -6,8 +6,6 @@
 
 namespace seissol {
 void AcceleratorDevice::bindSyclDevice(int deviceId) {
-  std::ostringstream info;
-
   try {
 #ifdef __DPCPP_COMPILER
     syclDevice = sycl::device(sycl::gpu_selector_v);
@@ -19,7 +17,7 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
     syclDevice = sycl::device(sycl::cpu_selector());
 #endif // __DPCPP_COMPILER
   } catch (sycl::exception const& err) {
-    info << "[SYCL] " << err.what() << "; ";
+    logWarning() << "SYCL error: " << err.what();
 #ifdef __DPCPP_COMPILER
     syclDevice = sycl::device(sycl::cpu_selector_v);
 #else
@@ -27,19 +25,21 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 #endif
   }
 
-#ifndef NDEBUG
-  info << "[SYCL] GPU device: " << std::boolalpha << syclDevice.is_gpu() << "; ";
-  info << "[SYCL] Using Device: " << syclDevice.get_info<sycl::info::device::name>();
+  std::ostringstream info;
+  info << "SYCL device (GPU: " << std::boolalpha << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
 
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << info.str();
-#endif // NDEBUG
 
   sycl::property_list property{sycl::property::queue::in_order()};
   syclDefaultQueue = sycl::queue(syclDevice, property);
 }
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
+  const auto rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Device API:" << device.api->getApiName().c_str();
+  logInfo(rank) << "Device (rank=0):" << device.api->getDeviceName(deviceId).c_str();
+
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->setDevice(deviceId);
 }

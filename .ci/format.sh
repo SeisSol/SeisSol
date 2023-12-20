@@ -40,6 +40,8 @@ format() {
         src/Geometry/PUMLReader.cpp
         src/Geometry/PartitioningLib.h
         src/Geometry/PartitioningLib.cpp
+        src/Parallel/AcceleratorDevice.h
+        src/Parallel/AcceleratorDevice.cpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
@@ -55,13 +57,13 @@ format() {
 
     if [ ! -f "${formatter}" ]; then
         echo "Could not find a clang-format. Please specify one as the first argument"
-        exit 166
+        exit 176
     fi
 
     # check for self
     if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/format.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the second argument"
-        exit 166
+        exit 176
     fi
 
     for dir in ${allowlist_dir}; do
