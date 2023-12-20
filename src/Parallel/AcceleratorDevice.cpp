@@ -36,11 +36,10 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 }
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Device API:" << device.api->getApiName().c_str();
   logInfo(rank) << "Device (rank=0):" << device.api->getDeviceName(deviceId).c_str();
-
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->setDevice(deviceId);
 }
 } // namespace seissol
