@@ -175,7 +175,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
     return false;
   }
 
-  m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  m_parameterFile = args.getAdditionalArgument("file", "parameters.par");
   logInfo(rank) << "Using the parameter file" << m_parameterFile;
   m_memoryManager->initialize();
   // read parameter file input
