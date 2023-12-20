@@ -5,6 +5,7 @@
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 
 namespace seissol::writer {
 
@@ -89,12 +90,11 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computeStaticWork(
-    const real* degreesOfFreedomPlus,
-    const real* degreesOfFreedomMinus,
-    const DRFaceInformation& faceInfo,
-    const DRGodunovData& godunovData,
-    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
+                                     const real* degreesOfFreedomMinus,
+                                     const DRFaceInformation& faceInfo,
+                                     const DRGodunovData& godunovData,
+                                     const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -127,12 +127,12 @@ real EnergyOutput::computeStaticWork(
   trKrnl.execute();
 
   real staticFrictionalWork = 0.0;
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
-  feKrnl.slipRateInterpolated = slip;
+  dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &staticFrictionalWork;
-  feKrnl.timeWeight = -0.5 * godunovData.doubledSurfaceArea;
+  feKrnl.staticFrictionalWork = &staticFrictionalWork;
+  feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
   return staticFrictionalWork;
@@ -153,7 +153,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
         + : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none)                \
     shared(it,                                                                                     \
@@ -180,13 +180,13 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                       waveSpeedsPlus[i].sWaveVelocity;
         real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
                        waveSpeedsMinus[i].sWaveVelocity;
-        real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+        real mu = muPlus * muMinus / (muPlus + muMinus);
         real seismicMomentIncrease = 0.0;
         for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
           seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
-        seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                 seissol::dr::misc::numberOfBoundaryGaussPoints;
+        seismicMomentIncrease *=
+            godunovData[i].doubledSurfaceArea * mu / seissol::dr::misc::numberOfBoundaryGaussPoints;
         seismicMoment += seismicMomentIncrease;
       }
     }
@@ -208,7 +208,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
                                                         totalAcousticKineticEnergyLocal,           \
@@ -364,7 +364,7 @@ void EnergyOutput::computeVolumeEnergies() {
 #else
       real mu = material.local.mu;
 #endif
-      totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+      totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
     }
   }
 }

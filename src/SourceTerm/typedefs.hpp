@@ -43,8 +43,6 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include "PiecewiseLinearFunction1D.h"
-
 #include <cstdlib>
 #include <array>
 #include <vector>
@@ -113,13 +111,22 @@ struct PointSources {
   /// elasticity tensor
   VectorT<std::array<real, 81>> stiffnessTensor;
 
+  /// onset time
+  VectorT<double> onsetTime;
+
+  /// sampling interval
+  VectorT<double> samplingInterval;
+
+  /// offset into slip rate vector
+  std::array<VectorT<std::size_t>, 3u> sampleOffsets;
+
   /** NRF: slip rate in
    * 0: Tan1 direction
    * 1: Tan2 direction
    * 2: Normal direction
    *
    * FSRM: 0: slip rate (all directions) */
-  std::array<VectorT<PiecewiseLinearFunction1D<AllocatorT>>, 3> slipRates;
+  std::array<VectorT<real>, 3u> sample;
 
   /** Number of point sources in this struct. */
   unsigned numberOfSources = 0;
@@ -128,9 +135,12 @@ struct PointSources {
       : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
         tensor(decltype(tensor)::allocator_type(alloc)), A(alloc),
         stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
-        slipRates{VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
-                  VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
-                  VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc)} {}
+        onsetTime(decltype(onsetTime)::allocator_type(alloc)),
+        samplingInterval(decltype(samplingInterval)::allocator_type(alloc)),
+        sampleOffsets{VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
+                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
+                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc))},
+        sample{VectorT<real>(alloc), VectorT<real>(alloc), VectorT<real>(alloc)} {}
   ~PointSources() { numberOfSources = 0; }
 };
 
