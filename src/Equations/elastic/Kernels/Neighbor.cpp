@@ -136,8 +136,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
-      assert(data.cellInformation.faceRelations[l_face][0] < 4
-             && data.cellInformation.faceRelations[l_face][1] < 3);
+      assert(data.cellInformation().faceRelations[l_face][0] < 4
+             && data.cellInformation().faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
       nfKrnl.Q = data.dofs();
       nfKrnl.I = i_timeIntegrated[l_face];
