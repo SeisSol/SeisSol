@@ -6,11 +6,9 @@ set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
 option(MPI "Use MPI parallelization" ON)
-option(MINI_SEISSOL "Use MiniSeisSol to compute node weights for load balancing" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
-option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
 option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
@@ -47,7 +45,7 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_90
-        gfx906 gfx908 gfx90a
+        gfx906 gfx908 gfx90a gfx942
         dg1 bdw skl Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
@@ -70,8 +68,6 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
-
-option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 

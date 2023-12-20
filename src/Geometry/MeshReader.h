@@ -54,7 +54,7 @@
 
 namespace seissol::geometry {
 
-enum class MeshFormat : int { Netcdf, PUML };
+enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
 
 struct GhostElementMetadata {
   double vertices[4][3];
