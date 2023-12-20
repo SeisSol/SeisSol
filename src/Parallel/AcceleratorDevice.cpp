@@ -26,10 +26,10 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
   }
 
   std::ostringstream info;
-  info << "SYCL device (GPU: " << std::boolalpha << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
+  info << "DR/Point Source SYCL device (GPU: " << std::boolalpha << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
 
   const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << info.str();
+  logInfo(rank) << info.str().c_str();
 
   sycl::property_list property{sycl::property::queue::in_order()};
   syclDefaultQueue = sycl::queue(syclDevice, property);
