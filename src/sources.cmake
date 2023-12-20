@@ -113,7 +113,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputAux.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
+  # ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Receiver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
