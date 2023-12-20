@@ -43,6 +43,7 @@
 #include "MemoryAllocator.h"
 #include "typedefs.hpp"
 #include <yateto.h>
+#include <Kernels/Filter.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -60,6 +61,9 @@ namespace seissol {
                                            CopyManagerT& copyManager,
                                            size_t alignment,
                                            seissol::memory::Memkind memkind);
+        static void applyFilterMatrixToGlobalData(GlobalData& globalData,
+                                                  const seissol::kernels::Filter* filter);
+
       };
 
       struct OnDevice {
@@ -74,6 +78,8 @@ namespace seissol {
                                            CopyManagerT& copyManager,
                                            size_t alignment,
                                            seissol::memory::Memkind memkind);
+        static void applyFilterMatrixToGlobalData(GlobalData& globalData,
+                                                  const seissol::kernels::Filter* filter);
       };
     }  // namespace matrixmanip
 

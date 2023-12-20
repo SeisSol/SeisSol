@@ -87,6 +87,7 @@
 #include <utils/logger.h>
 #include <string>
 #include <cstring>
+#include "SeisSol.h"
 
 #ifdef ACL_DEVICE
 #include <Kernels/PointSourceClusterOnDevice.h>
@@ -118,7 +119,12 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(
   double volume = MeshTools::volume(elements[meshId], vertices);
   double JInv = 1.0 / (6.0 * volume);
 
+  const auto& filterParams = seissol::SeisSol::main.getSeisSolParameters().filter;
+  auto filter = kernels::makeFilter(filterParams, 3);
+  auto volumeFilterMatrix = kernels::computeFilterMatrix(*filter);
+
   kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.volumeFilter = volumeFilterMatrix.data();
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();

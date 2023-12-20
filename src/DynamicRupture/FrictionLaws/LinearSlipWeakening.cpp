@@ -1,14 +1,14 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
 
-void NoSpecialization::resampleSlipRate(
-    real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
-  dynamicRupture::kernel::resampleParameter resampleKrnl;
-  resampleKrnl.resample = init::resample::Values;
-  resampleKrnl.originalQ = slipRateMagnitude;
-  resampleKrnl.resampledQ = resampledSlipRate;
-  resampleKrnl.execute();
+void NoSpecialization::resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+                                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                                        const std::array<real, tensor::drFilter::Size>& filter) {
+  auto filterKrnl = dynamicRupture::kernel::filterParameter{};
+  filterKrnl.drFilter = filter.data();
+  filterKrnl.originalQ = slipRateMagnitude;
+  filterKrnl.filteredQ = resampledSlipRate;
+  filterKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                          seissol::initializers::DynamicRupture const* const dynRup,

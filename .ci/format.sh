@@ -31,6 +31,8 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
+        src/Kernels/Filter.h
+        src/Kernels/Filter.cpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceCluster.cpp
         src/Kernels/PointSourceClusterOnHost.h

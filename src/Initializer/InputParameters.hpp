@@ -188,6 +188,26 @@ struct TimeSteppingParameters {
   VertexWeightParameters vertexWeight;
 };
 
+enum class FilterTypes { Identity, Exponential };
+
+struct FilterParameters {
+  FilterTypes type;
+  real alpha;
+  unsigned int order = 32;
+  unsigned int cutoff = 0;
+};
+
+const static auto validFilters = std::unordered_map<std::string, FilterTypes>{
+    {"identity", FilterTypes::Identity},
+    {"exponential", FilterTypes::Exponential},
+};
+
+// Compare this with Hesthaven Nodal DG: Alpha is set such that it reduces the highest mode to
+// epsilon
+const static real defaultFilterAlpha = -std::log(std::numeric_limits<real>::epsilon());
+const static unsigned int defaultFilterOrder = 32;
+const static unsigned int defaultFilterCutoff = 0;
+
 struct SourceParameters {
   seissol::sourceterm::SourceType type;
   std::string fileName;
@@ -204,6 +224,7 @@ struct SeisSolParameters {
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;
+  FilterParameters filter;
   SourceParameters source;
   EndParameters end;
 

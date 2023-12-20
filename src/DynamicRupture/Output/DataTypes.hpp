@@ -2,6 +2,7 @@
 #define SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
 
 #include "Geometry.hpp"
+#include "Initializer/InputParameters.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
@@ -119,6 +120,7 @@ struct GeneralParams {
   std::string checkPointBackend{"none"};
   double endTime{15.0};
   size_t maxIteration{1000000000};
+  initializer::parameters::FilterParameters filter;
 };
 
 struct PickpointParams {
