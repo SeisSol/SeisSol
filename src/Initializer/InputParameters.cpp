@@ -282,14 +282,14 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
 
   seissolParams.timeStepping.cfl = reader.readWithDefault("cfl", 0.5);
   seissolParams.timeStepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
-  seissolParams.timeStepping.lts.weighttype = reader.readWithDefaultEnum(
-      "ltsweighttypeid",
-      LtsWeightsTypes::ExponentialWeights,
-      {
-          LtsWeightsTypes::ExponentialWeights,
-          LtsWeightsTypes::ExponentialBalancedWeights,
-          LtsWeightsTypes::EncodedBalancedWeights,
-      });
+  seissolParams.timeStepping.lts.weighttype =
+      reader.readWithDefaultEnum("ltsweighttypeid",
+                                 LtsWeightsTypes::ExponentialWeights,
+                                 {
+                                     LtsWeightsTypes::ExponentialWeights,
+                                     LtsWeightsTypes::ExponentialBalancedWeights,
+                                     LtsWeightsTypes::EncodedBalancedWeights,
+                                 });
 
   if (isModelViscoelastic()) {
     // NOTE: we are using a half-initialized struct here... (i.e. be careful)

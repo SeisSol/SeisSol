@@ -13,11 +13,12 @@ struct GlobalTimestep {
   double globalMaxTimeStep;
 };
 
-GlobalTimestep computeTimesteps(double cfl,
-                                double maximumAllowedTimeStep,
-                                const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& cellToVertex,
-                                const seissol::initializers::parameters::SeisSolParameters& seissolParams);
+GlobalTimestep
+    computeTimesteps(double cfl,
+                     double maximumAllowedTimeStep,
+                     const std::string& velocityModel,
+                     const seissol::initializers::CellToVertexArray& cellToVertex,
+                     const seissol::initializers::parameters::SeisSolParameters& seissolParams);
 } // namespace seissol::initializers
 
 #endif

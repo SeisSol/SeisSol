@@ -252,7 +252,7 @@ class SeisSol {
   //! Free surface writer module
   writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
-  //! Analysis writer module 
+  //! Analysis writer module
   writer::AnalysisWriter m_analysisWriter;
 
   //! Wavefield output module
@@ -279,20 +279,13 @@ class SeisSol {
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};
 
-  public: 
-  SeisSol(const initializers::parameters::SeisSolParameters& parameters) : 
-    pinning(),
-    m_meshReader(nullptr),
-    m_ltsLayout(parameters),
-    m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)),
-    m_timeManager(*this),
-    m_checkPointManager(*this),
-    m_freeSurfaceWriter(*this),
-    m_analysisWriter(*this),
-    m_waveFieldWriter(*this),
-    m_faultWriter(*this),
-    m_receiverWriter(*this),
-    m_energyOutput(*this) {}
+  public:
+  SeisSol(const initializers::parameters::SeisSolParameters& parameters)
+      : pinning(), m_meshReader(nullptr), m_ltsLayout(parameters),
+        m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)), m_timeManager(*this),
+        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
+        m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
+        m_energyOutput(*this) {}
 };
 
 } // namespace seissol

@@ -4,10 +4,10 @@
 #include "Initializer/InitProcedure/Init.hpp"
 
 namespace seissol {
-  class SeisSol;
-  namespace initializers::initprocedure {
+class SeisSol;
+namespace initializers::initprocedure {
 void initMesh(seissol::SeisSol& seissolInstance);
 }
-}
+} // namespace seissol
 
 #endif

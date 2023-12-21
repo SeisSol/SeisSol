@@ -10,8 +10,8 @@
 #include "Lut.hpp"
 
 namespace seissol {
-  class SeisSol;
-  namespace initializers {
+class SeisSol;
+namespace initializers {
 
 /*
 Assigns the given value to the target object, initializing the memory in the process.
@@ -50,7 +50,7 @@ void initAssign(T& target, const T& value) {
 }
 
 template <typename T>
-void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle, 
+void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle,
                                   seissol::initializers::MemoryManager& memoryManager) {
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
   unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
@@ -74,7 +74,7 @@ void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& hand
   }
 }
 
-}
-} // namespace seissol::initializer
+} // namespace initializers
+} // namespace seissol
 
 #endif

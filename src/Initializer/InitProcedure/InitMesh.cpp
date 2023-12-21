@@ -56,7 +56,8 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   seissolInstance.getLtsLayout().setMesh(meshReader);
 }
 
-static void readMeshPUML(const seissol::initializers::parameters::SeisSolParameters& seissolParams, seissol::SeisSol& seissolInstance) {
+static void readMeshPUML(const seissol::initializers::parameters::SeisSolParameters& seissolParams,
+                         seissol::SeisSol& seissolInstance) {
 #if defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
@@ -64,9 +65,8 @@ static void readMeshPUML(const seissol::initializers::parameters::SeisSolParamet
   if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::miniSeisSol(seissolInstance.getMemoryManager(),
-                                              seissolParams.model.plasticity,
-                                              seissolInstance);
+      auto elapsedTime = seissol::miniSeisSol(
+          seissolInstance.getMemoryManager(), seissolParams.model.plasticity, seissolInstance);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -97,8 +97,8 @@ static void readMeshPUML(const seissol::initializers::parameters::SeisSolParamet
                           seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
                           seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
-  auto ltsWeights =
-      getLtsWeightsImplementation(seissolParams.timeStepping.lts.weighttype, config, seissolInstance);
+  auto ltsWeights = getLtsWeightsImplementation(
+      seissolParams.timeStepping.lts.weighttype, config, seissolInstance);
   auto meshReader =
       new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                         seissolParams.mesh.partitioningLib.c_str(),
@@ -136,9 +136,9 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 } // namespace
 
-static void readCubeGenerator(
-    const seissol::initializers::parameters::SeisSolParameters& seissolParams,
-    seissol::SeisSol& seissolInstance) {
+static void
+    readCubeGenerator(const seissol::initializers::parameters::SeisSolParameters& seissolParams,
+                      seissol::SeisSol& seissolInstance) {
 #if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
@@ -203,7 +203,8 @@ void seissol::initializers::initprocedure::initMesh(seissol::SeisSol& seissolIns
   }
 
   auto& meshReader = seissolInstance.meshReader();
-  postMeshread(meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
+  postMeshread(
+      meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
   watch.pause();
   watch.printTime("Mesh initialized in:");

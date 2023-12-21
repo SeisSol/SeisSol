@@ -254,8 +254,7 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
   if (seissolParams.timeStepping.lts.rate == 1) {
     seissolInstance.getLtsLayout().deriveLayout(single, 1);
   } else {
-    seissolInstance.getLtsLayout().deriveLayout(multiRate,
-                                                       seissolParams.timeStepping.lts.rate);
+    seissolInstance.getLtsLayout().deriveLayout(multiRate, seissolParams.timeStepping.lts.rate);
   }
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
@@ -270,10 +269,10 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
       ltsInfo.ltsMeshToFace, numberOfDRCopyFaces, numberOfDRInteriorFaces);
 
   seissolInstance.getMemoryManager().fixateLtsTree(ltsInfo.timeStepping,
-                                                          ltsInfo.meshStructure,
-                                                          numberOfDRCopyFaces,
-                                                          numberOfDRInteriorFaces,
-                                                          seissolParams.model.plasticity);
+                                                   ltsInfo.meshStructure,
+                                                   numberOfDRCopyFaces,
+                                                   numberOfDRInteriorFaces,
+                                                   seissolParams.model.plasticity);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
@@ -304,9 +303,9 @@ static void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,
-                                                   ltsInfo.meshStructure,
-                                                   seissolInstance.getMemoryManager(),
-                                                   seissolParams.model.plasticity);
+                                            ltsInfo.meshStructure,
+                                            seissolInstance.getMemoryManager(),
+                                            seissolParams.model.plasticity);
 
   // set tv for all time clusters (this needs to be done, after the time clusters start existing)
   if (seissolParams.model.plasticity) {

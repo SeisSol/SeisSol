@@ -26,7 +26,8 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   return travellingWaveParameters;
 }
 
-static std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(seissol::SeisSol& seissolInstance) {
+static std::vector<std::unique_ptr<physics::InitialField>>
+    buildInitialConditionList(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
   std::vector<std::unique_ptr<physics::InitialField>> initConditions;
@@ -136,12 +137,12 @@ static void initSource(seissol::SeisSol& seissolInstance) {
   const auto& srcparams = seissolInstance.getSeisSolParameters().source;
   auto& memoryManager = seissolInstance.getMemoryManager();
   seissolInstance.sourceTermManager().loadSources(srcparams.type,
-                                                srcparams.fileName.c_str(),
-                                                seissolInstance.meshReader(),
-                                                memoryManager.getLtsTree(),
-                                                memoryManager.getLts(),
-                                                memoryManager.getLtsLut(),
-                                                seissolInstance.timeManager());
+                                                  srcparams.fileName.c_str(),
+                                                  seissolInstance.meshReader(),
+                                                  memoryManager.getLtsTree(),
+                                                  memoryManager.getLts(),
+                                                  memoryManager.getLtsLut(),
+                                                  seissolInstance.timeManager());
 }
 
 static void initBoundary(seissol::SeisSol& seissolInstance) {

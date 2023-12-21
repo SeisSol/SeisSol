@@ -71,10 +71,10 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
-OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance)
+OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
+                             seissol::SeisSol& seissolInstance)
     : ewOutputData(std::make_shared<ReceiverOutputData>()),
-      ppOutputData(std::make_shared<ReceiverOutputData>()), 
-      impl(std::move(concreteImpl)),
+      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)),
       seissolInstance(seissolInstance) {
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
@@ -156,15 +156,15 @@ void OutputManager::initElementwiseOutput() {
   misc::forEach(ewOutputData->vars, recordPointers);
 
   seissolInstance.faultWriter().init(cellConnectivity.data(),
-                                            vertices.data(),
-                                            static_cast<unsigned int>(receiverPoints.size()),
-                                            static_cast<unsigned int>(3 * receiverPoints.size()),
-                                            &intMask[0],
-                                            const_cast<const real**>(dataPointers.data()),
-                                            generalParams.outputFilePrefix.data(),
-                                            printTime,
-                                            backendType,
-                                            backupTimeStamp);
+                                     vertices.data(),
+                                     static_cast<unsigned int>(receiverPoints.size()),
+                                     static_cast<unsigned int>(3 * receiverPoints.size()),
+                                     &intMask[0],
+                                     const_cast<const real**>(dataPointers.data()),
+                                     generalParams.outputFilePrefix.data(),
+                                     printTime,
+                                     backendType,
+                                     backupTimeStamp);
 
   seissolInstance.faultWriter().setupCallbackObject(this);
 }

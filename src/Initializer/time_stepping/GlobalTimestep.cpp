@@ -12,11 +12,12 @@
 #include "SeisSol.h"
 
 namespace seissol::initializers {
-static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
-                                  double pWaveVel,
-                                  double cfl,
-                                  double maximumAllowedTimeStep,
-                                  const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
+static double
+    computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
+                        double pWaveVel,
+                        double cfl,
+                        double maximumAllowedTimeStep,
+                        const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d A;
@@ -35,11 +36,12 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
                    cfl * 2.0 * insphere / (pWaveVel * (2 * CONVERGENCE_ORDER - 1)));
 }
 
-GlobalTimestep computeTimesteps(double cfl,
-                                double maximumAllowedTimeStep,
-                                const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& cellToVertex,
-                                const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
+GlobalTimestep
+    computeTimesteps(double cfl,
+                     double maximumAllowedTimeStep,
+                     const std::string& velocityModel,
+                     const seissol::initializers::CellToVertexArray& cellToVertex,
+                     const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::Material_t;
 
   auto* queryGen = seissol::initializers::getBestQueryGenerator(
@@ -89,4 +91,4 @@ GlobalTimestep computeTimesteps(double cfl,
 #endif
   return timestep;
 }
-} // namespace seissol::initializer
+} // namespace seissol::initializers

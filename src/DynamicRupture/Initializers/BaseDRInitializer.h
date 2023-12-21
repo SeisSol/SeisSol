@@ -9,8 +9,8 @@
 #include "Initializer/ParameterDB.h"
 
 namespace seissol {
-  class SeisSol;
-  namespace dr::initializers {
+class SeisSol;
+namespace dr::initializers {
 /**
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
@@ -64,7 +64,7 @@ class BaseDRInitializer {
    * DynamicRupture namelist in the parameters.par file
    */
   BaseDRInitializer(std::shared_ptr<DRParameters> drParameters, seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance), 
+      : drParameters(drParameters), seissolInstance(seissolInstance),
         faultParameterNames(
             seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
 

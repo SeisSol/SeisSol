@@ -18,9 +18,8 @@
 #include "Initializer/InputParameters.hpp"
 
 namespace seissol {
-  class SeisSol;
-  namespace writer {
-
+class SeisSol;
+namespace writer {
 
 struct EnergiesStorage {
   std::array<double, 9> energies{};
@@ -109,7 +108,7 @@ class EnergyOutput : public Module {
   EnergiesStorage energiesStorage{};
 };
 
-}
-} // namespace seissol::writer
+} // namespace writer
+} // namespace seissol
 
 #endif // ENERGYOUTPUT_H

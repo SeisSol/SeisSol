@@ -7,9 +7,9 @@
 #include <memory>
 
 namespace seissol {
-  class SeisSol;
+class SeisSol;
 
-  namespace dr::output {
+namespace dr::output {
 
 class OutputManager {
   public:
@@ -29,7 +29,7 @@ class OutputManager {
   void writePickpointOutput(double time, double dt);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
-  
+
   private:
   seissol::SeisSol& seissolInstance;
 
@@ -63,7 +63,7 @@ class OutputManager {
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
 };
-}
-} // namespace seissol::dr::output
+} // namespace dr::output
+} // namespace seissol
 
 #endif // SEISSOL_DR_OUTPUT_MANAGER_HPP

@@ -61,8 +61,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       numBndGP,
       faultTimeStep);
   if (hasCheckpoint) {
-    seissolInstance.simulator().setCurrentTime(
-        seissolInstance.checkPointManager().header().time());
+    seissolInstance.simulator().setCurrentTime(seissolInstance.checkPointManager().header().time());
     seissolInstance.faultWriter().setTimestep(faultTimeStep);
   }
 }
@@ -110,13 +109,12 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
     // Initialize free surface output
-    seissolInstance.freeSurfaceWriter().init(
-        seissolInstance.meshReader(),
-        &seissolInstance.freeSurfaceIntegrator(),
-        seissolParams.output.prefix.c_str(),
-        seissolParams.output.freeSurfaceParameters.interval,
-        seissolParams.output.xdmfWriterBackend,
-        backupTimeStamp);
+    seissolInstance.freeSurfaceWriter().init(seissolInstance.meshReader(),
+                                             &seissolInstance.freeSurfaceIntegrator(),
+                                             seissolParams.output.prefix.c_str(),
+                                             seissolParams.output.freeSurfaceParameters.interval,
+                                             seissolParams.output.xdmfWriterBackend,
+                                             backupTimeStamp);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {
@@ -147,7 +145,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   seissolInstance.flopCounter().init(seissolParams.output.prefix.c_str());
 
   seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
-                                               seissolParams.output.prefix.c_str());
+                                        seissolParams.output.prefix.c_str());
 }
 
 static void enableCheckpointing(seissol::SeisSol& seissolInstance) {

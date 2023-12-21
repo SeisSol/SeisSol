@@ -174,7 +174,7 @@ struct OutputParameters {
   bool loopStatisticsNetcdfOutput;
 };
 
-enum class LtsWeightsTypes: int {
+enum class LtsWeightsTypes : int {
   ExponentialWeights = 0,
   ExponentialBalancedWeights,
   EncodedBalancedWeights,
