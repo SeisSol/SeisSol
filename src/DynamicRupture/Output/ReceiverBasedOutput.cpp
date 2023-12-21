@@ -4,6 +4,7 @@
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <cstring>
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -53,9 +54,6 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
-  real* dofsPlus;
-  real* dofsMinus;
-
 #ifdef ACL_DEVICE
   real* dofsCopied =
       reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
@@ -75,14 +73,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-
-#ifndef ACL_DEVICE
-    alignas(ALIGNMENT) real dofsPlusData[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinusData[tensor::Q::size()]{};
-
-    dofsPlus = dofsPlusData;
-    dofsMinus = dofsMinusData;
-#endif
+    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -104,8 +96,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     const auto faultInfo = faultInfos[faceIndex];
 
 #ifdef ACL_DEVICE
-    dofsPlus = dofsCopied + tensor::Q::size() * outputData->deviceDataPlus[i];
-    dofsMinus = dofsCopied + tensor::Q::size() * outputData->deviceDataMinus[i];
+    {
+      real* dofsPlusData = dofsCopied + tensor::Q::size() * outputData->deviceDataPlus[i];
+      real* dofsMinusData = dofsCopied + tensor::Q::size() * outputData->deviceDataMinus[i];
+
+      std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
+      std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+    }
 #else
     getDofs(dofsPlus, faultInfo.element);
     if (faultInfo.neighborElement >= 0) {
