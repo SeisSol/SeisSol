@@ -189,6 +189,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real const damage_para2 = 5e-2;
   real const lambda0 = 9.71e10;
   real const mu0 = 8.27e10;
+  real const beta_m = 1.0e2;
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions
@@ -208,7 +209,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
     fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-    1.0e0/(damage_para2*damage_para1)
+    0.0e0/(damage_para2*damage_para1)
       *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
     // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
   }

@@ -403,6 +403,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real const damage_para2 = 5e-3;
     real const lambda0 = 9.71e10;
     real const mu0 = 8.27e10;
+    real const beta_m = 1.0e2;
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
     double timePoints[CONVERGENCE_ORDER];
@@ -459,7 +460,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
         FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        1.0e0/(damage_para2*damage_para1)
+        0.0e0/(damage_para2*damage_para1)
           *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
         // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
 
@@ -470,7 +471,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                       + 2*(1-alphaNodal[q])*mu0*eyyNodal[q];
         szzNodal[q] = (1-alphaNodal[q])*lambda0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])
                       + 2*(1-alphaNodal[q])*mu0*ezzNodal[q];
-        sxyNodal[q] = 2*(1-alphaNodal[q])*mu0*exyNodal[q];
+        sxyNodal[q] = 2*(1-alphaNodal[q])*mu0*exyNodal[q]*
+                  (1 - beta_m * exyNodal[q]);
         syzNodal[q] = 2*(1-alphaNodal[q])*mu0*eyzNodal[q];
         szxNodal[q] = 2*(1-alphaNodal[q])*mu0*ezxNodal[q];
         // //--- x-dir
@@ -914,7 +916,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       real alphaAve = Q_aveData[9];
       real lambda0 = 9.71e10;
       real mu0 = 8.27e10;
-      real beta_m = 0e2;
+      real beta_m = 1.0e2;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 
@@ -928,18 +930,18 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       //   = materialData[l_cell].neighbor[side].lambda*0.9;
       // }
 
-       materialData[l_cell].local.mu = (1-alphaAve)*mu0*(1-beta_m*EspI);
-       materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-beta_m*EspI);
+       materialData[l_cell].local.mu = (1-alphaAve)*mu0*(1-2.0*beta_m*Q_aveData[3]);
+       materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-0.0*EspI);
 
-       materialData[l_cell].local.sigmaxx_alpha = lambda0*EspI + 2*mu0*Q_aveData[0];
-       materialData[l_cell].local.sigmaxy_alpha = 2*mu0*Q_aveData[3];
-       materialData[l_cell].local.sigmaxz_alpha = 2*mu0*Q_aveData[5];
-       materialData[l_cell].local.sigmayx_alpha = 2*mu0*Q_aveData[3];
-       materialData[l_cell].local.sigmayy_alpha = lambda0*EspI + 2*mu0*Q_aveData[1];
-       materialData[l_cell].local.sigmayz_alpha = 2*mu0*Q_aveData[4];
-       materialData[l_cell].local.sigmazx_alpha = 2*mu0*Q_aveData[5];
-       materialData[l_cell].local.sigmazy_alpha = 2*mu0*Q_aveData[4];
-       materialData[l_cell].local.sigmazz_alpha = lambda0*EspI + 2*mu0*Q_aveData[2];
+       materialData[l_cell].local.sigmaxx_alpha = 0.0;
+       materialData[l_cell].local.sigmaxy_alpha = 0.0;
+       materialData[l_cell].local.sigmaxz_alpha = 0.0;
+       materialData[l_cell].local.sigmayx_alpha = 0.0;
+       materialData[l_cell].local.sigmayy_alpha = 0.0;
+       materialData[l_cell].local.sigmayz_alpha = 0.0;
+       materialData[l_cell].local.sigmazx_alpha = 0.0;
+       materialData[l_cell].local.sigmazy_alpha = 0.0;
+       materialData[l_cell].local.sigmazz_alpha = 0.0;
 
       //  for (unsigned side = 0; side < 4; ++side){
       //   materialData[l_cell].neighbor[side].mu = 8.27e10*(1-1e7*EspI);
@@ -1038,8 +1040,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           // std::cout << faceNeighbors[l_cell][side][20*6+0]/faceNeighbors[l_cell][side][20*0+0]
           //           << " " << data.dofs[20*6+0]/data.dofs[20*0+0] << std::endl;
 
-          materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-beta_m*EspINeigh);
-          materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-beta_m*EspINeigh);
+          materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-2.0*beta_m*Q_aveData[3]);
+          materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-0.0*EspINeigh);
 
           // materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0]/timeStepSize();
           // materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
@@ -1051,15 +1053,15 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           // materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
           // materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2]/timeStepSize();
 
-          materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0];
-          materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3];
-          materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5];
-          materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3];
-          materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1];
-          materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4];
-          materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5];
-          materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4];
-          materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2];
+          materialData[l_cell].neighbor[side].sigmaxx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmaxy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmaxz_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayz_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazz_alpha = 0.0;
         }
 
 
