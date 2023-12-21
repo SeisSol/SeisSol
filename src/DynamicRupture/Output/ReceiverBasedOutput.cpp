@@ -1,10 +1,9 @@
-#include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <unordered_map>
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -72,7 +71,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for
+#endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
 #ifndef ACL_DEVICE

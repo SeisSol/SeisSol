@@ -173,7 +173,7 @@ to the amount of nodes you want to run on. A rule of thumb for optimal performan
   export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
   #Prevents errors such as experience in Issue #691
-  export I_MPI_SHM_HEAP_VSIZE=8192
+  export I_MPI_SHM_HEAP_VSIZE=32768
 
   export XDMFWRITER_ALIGNMENT=8388608
   export XDMFWRITER_BLOCK_SIZE=8388608

@@ -5,13 +5,15 @@
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
+#include "Initializer/preProcessorMacros.hpp"
+#include <algorithm>
+#include <vector>
+
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
 #include <generated_code/tensor.h>
 #endif
 
-#include <algorithm>
-#include <vector>
 
 namespace seissol::writer {
 
@@ -208,7 +210,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
         + : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none)                \
     shared(it,                                                                                     \
@@ -267,7 +269,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
                                                         totalAcousticKineticEnergyLocal,           \
