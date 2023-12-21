@@ -6,7 +6,10 @@
 
 #include <generated_code/tensor.h>
 #include <yateto.h>
+
+#ifdef ACL_DEVICE
 #include "device.h"
+#endif
 
 namespace seissol::kernels {
 
