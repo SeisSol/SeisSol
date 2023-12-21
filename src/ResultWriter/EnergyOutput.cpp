@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <vector>
 
-
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy() { return energies[0]; }
