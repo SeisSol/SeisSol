@@ -86,11 +86,11 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
 
     // cos^2 can be greater than 1 because of rounding errors
-    real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
+    const real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
     VrtxCoords crossProduct{};
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
-    real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
-    real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
+    const real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
+    const real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
       imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];

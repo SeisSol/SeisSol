@@ -33,10 +33,10 @@ void FaultRefiner::repeatRefinement(Data data,
                                     PointsPair& point1,
                                     PointsPair& point2,
                                     PointsPair& point3) {
-  ExtTriangle subGlobalFace(
+  const ExtTriangle subGlobalFace(
       std::get<global>(point1), std::get<global>(point2), std::get<global>(point3));
 
-  ExtTriangle subReferenceFace(
+  const ExtTriangle subReferenceFace(
       std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
 
   auto updatedData = data;

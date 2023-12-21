@@ -32,7 +32,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
       std::vector<std::string> identifiers;
       Parametrization parametrization;
       std::tie(identifiers, parametrization) = this->stressIdentifiers(readNucleation);
-      bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
+      const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
       if (isFaultParameterizedByTraction) {
         // only read traction in normal, strike and dip direction
         parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});

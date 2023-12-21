@@ -377,8 +377,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = local.layer->var(drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
-      real chi = chiTau2dPoints(jBndGP, 0);
-      real tau = chiTau2dPoints(jBndGP, 1);
+      const real chi = chiTau2dPoints(jBndGP, 0);
+      const real tau = chiTau2dPoints(jBndGP, 1);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {
