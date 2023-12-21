@@ -191,7 +191,7 @@ check_faultoutput:
     parallel:
         matrix:
             - precision: [single]
-              tpv: [5, 5-nuc, 6, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
               backend: [cuda]
     before_script:
         - pip3 install numpy>=1.12.0 lxml setuptools seissolxdmf pandas
@@ -213,7 +213,7 @@ check_receivers:
     parallel:
         matrix:
             - precision: [single]
-              tpv: [5, 5-nuc, 6, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 6, 13, 101, 101-slip, 104]
               backend: [cuda]
     before_script:
         - pip3 install pandas
@@ -236,7 +236,7 @@ gpu_check_energies:
     parallel:
         matrix:
             - precision: [single]
-              tpv: [5, 5-nuc, 6, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
               backend: [cuda]
     before_script:
         - pip3 install pandas
