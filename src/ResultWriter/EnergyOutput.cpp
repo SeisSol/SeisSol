@@ -10,7 +10,6 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Parallel/AcceleratorDevice.h"
 #include <generated_code/tensor.h>
 #endif
 

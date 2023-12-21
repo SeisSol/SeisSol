@@ -6,10 +6,7 @@
 
 #include <generated_code/tensor.h>
 #include <yateto.h>
-
-#ifdef ACL_DEVICE
-#include "Parallel/AcceleratorDevice.h"
-#endif
+#include "device.h"
 
 namespace seissol::kernels {
 
