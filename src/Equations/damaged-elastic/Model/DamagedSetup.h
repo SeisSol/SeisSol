@@ -43,15 +43,15 @@ namespace seissol {
                 o_M(3,7) = -2.0*muInvRho;
                 o_M(5,8) = -2.0*muInvRho;
               }
-              // o_M(9,6) = (i_material.lambda*I1
-              //   + i_material.mu*i_material.epsxx_alpha )
-              //     / i_material.rho;
-              // o_M(9,7) = (0
-              //   + i_material.mu*i_material.epsxy_alpha )
-              //     / i_material.rho;
-              // o_M(9,8) = (0
-              //   + i_material.mu*i_material.epszx_alpha )
-              //     / i_material.rho;
+              o_M(9,6) = (i_material.lambda*I1
+                + i_material.mu*i_material.epsxx_alpha )
+                  / i_material.rho;
+              o_M(9,7) = (0
+                + i_material.mu*i_material.epsxy_alpha )
+                  / i_material.rho;
+              o_M(9,8) = (0
+                + i_material.mu*i_material.epszx_alpha )
+                  / i_material.rho;
               break;
 
             case 1:
@@ -65,15 +65,15 @@ namespace seissol {
                 o_M(3,6) = -2.0*muInvRho;
                 o_M(4,8) = -2.0*muInvRho;
               }
-              // o_M(9,6) = (0
-              //   + i_material.mu*i_material.epsxy_alpha )
-              //     / i_material.rho;
-              // o_M(9,7) = (i_material.lambda*I1
-              //   + i_material.mu*i_material.epsyy_alpha )
-              //     / i_material.rho;
-              // o_M(9,8) = (0
-              //   + i_material.mu*i_material.epsyz_alpha )
-              //     / i_material.rho;
+              o_M(9,6) = (0
+                + i_material.mu*i_material.epsxy_alpha )
+                  / i_material.rho;
+              o_M(9,7) = (i_material.lambda*I1
+                + i_material.mu*i_material.epsyy_alpha )
+                  / i_material.rho;
+              o_M(9,8) = (0
+                + i_material.mu*i_material.epsyz_alpha )
+                  / i_material.rho;
               break;
 
             case 2:
@@ -87,15 +87,15 @@ namespace seissol {
                 o_M(5,6) = -2.0*muInvRho;
                 o_M(4,7) = -2.0*muInvRho;
               }
-              // o_M(9,6) = (0
-              //   + i_material.mu*i_material.epszx_alpha )
-              //     / i_material.rho;
-              // o_M(9,7) = (0
-              //   + i_material.mu*i_material.epsyz_alpha )
-              //     / i_material.rho;
-              // o_M(9,8) = (i_material.lambda*I1
-              //   + i_material.mu*i_material.epszz_alpha )
-              //     / i_material.rho;
+              o_M(9,6) = (0
+                + i_material.mu*i_material.epszx_alpha )
+                  / i_material.rho;
+              o_M(9,7) = (0
+                + i_material.mu*i_material.epsyz_alpha )
+                  / i_material.rho;
+              o_M(9,8) = (i_material.lambda*I1
+                + i_material.mu*i_material.epszz_alpha )
+                  / i_material.rho;
               break;
 
             default:
