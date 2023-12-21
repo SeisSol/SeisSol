@@ -13,7 +13,6 @@
 #include <generated_code/tensor.h>
 #endif
 
-
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy() { return energies[0]; }
