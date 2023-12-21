@@ -11,11 +11,12 @@
 
 #include "SeisSol.h"
 
-namespace seissol::initializer {
+namespace seissol::initializers {
 static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                                   double pWaveVel,
                                   double cfl,
-                                  double maximumAllowedTimeStep) {
+                                  double maximumAllowedTimeStep,
+                                  const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d A;
@@ -37,16 +38,15 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
 GlobalTimestep computeTimesteps(double cfl,
                                 double maximumAllowedTimeStep,
                                 const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& cellToVertex) {
+                                const seissol::initializers::CellToVertexArray& cellToVertex,
+                                const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::Material_t;
 
-  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
-
   auto* queryGen = seissol::initializers::getBestQueryGenerator(
-      seissol::initializer::parameters::isModelAnelastic(),
+      seissol::initializers::parameters::isModelAnelastic(),
       seissolParams.model.plasticity,
-      seissol::initializer::parameters::isModelAnisotropic(),
-      seissol::initializer::parameters::isModelPoroelastic(),
+      seissol::initializers::parameters::isModelAnisotropic(),
+      seissol::initializers::parameters::isModelPoroelastic(),
       seissolParams.model.useCellHomogenizedMaterial,
       cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
@@ -61,7 +61,7 @@ GlobalTimestep computeTimesteps(double cfl,
     double pWaveVel = materials[cell].getMaxWaveSpeed();
     std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep);
+        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep, seissolParams);
   }
 
   const auto minmaxCellPosition =

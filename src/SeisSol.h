@@ -64,7 +64,6 @@
 #include "Solver/Simulator.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
-
 namespace seissol {
 
 namespace geometry {
@@ -179,7 +178,7 @@ class SeisSol {
 
   const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
 
-  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+  const seissol::initializers::parameters::SeisSolParameters& getSeisSolParameters() {
     return m_seissolparameters;
   }
 
@@ -204,9 +203,6 @@ class SeisSol {
 
   double wiggleFactorLts = 1.0;
   int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
-
-  /** The only instance of this class; the main C++ functionality */
-  static SeisSol main;
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
@@ -276,16 +272,26 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
-  seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
+  seissol::initializers::parameters::SeisSolParameters m_seissolparameters;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};
 
-  /**
-   * Only one instance of this class should exist (private constructor).
-   */
-  SeisSol() : pinning(), m_meshReader(nullptr) {
-    m_memoryManager = std::make_unique<initializers::MemoryManager>();
+  public: 
+  SeisSol(const initializers::parameters::SeisSolParameters& parameters) : 
+    pinning(),
+    m_analysisWriter(*this),
+    m_checkPointManager(*this),
+    m_ltsLayout(parameters),
+    m_energyOutput(*this),
+    m_faultWriter(*this),
+    m_freeSurfaceWriter(*this),
+    m_meshReader(nullptr),
+    m_receiverWriter(*this),
+    m_timeManager(*this),
+    m_waveFieldWriter(*this)
+  {
+    m_memoryManager = std::make_unique<initializers::MemoryManager>(*this);
   }
 };
 

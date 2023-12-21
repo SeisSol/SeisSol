@@ -49,7 +49,8 @@
 #include <ResultWriter/ClusteringWriter.h>
 #include "Parallel/Helper.hpp"
 
-seissol::time_stepping::TimeManager::TimeManager():
+seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
+  seissolInstance(seissolInstance),
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
   m_loopStatistics.addRegion("computeLocalIntegration");
@@ -132,6 +133,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
           memoryManager.getFaultOutputManager(),
+          seissolInstance,
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId))
       );
@@ -224,7 +226,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   if (seissol::useCommThread(MPI::mpi)) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
-                                                                          &seissol::SeisSol::main.getPinning()
+                                                                          &seissolInstance.getPinning()
                                                                           );
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));

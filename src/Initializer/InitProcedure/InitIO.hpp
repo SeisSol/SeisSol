@@ -3,8 +3,11 @@
 
 #include "Initializer/InitProcedure/Init.hpp"
 
-namespace seissol::initializer::initprocedure {
-void initIO();
-} // namespace seissol::initializer::initprocedure
+namespace seissol {
+  class SeisSol;
+  namespace initializers::initprocedure {
+void initIO(seissol::SeisSol& seissolInstance);
+  }
+} // namespace seissol::initializers::initprocedure
 
 #endif

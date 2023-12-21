@@ -1,5 +1,5 @@
-#ifndef SEISSOL_PARAMETERS_H
-#define SEISSOL_PARAMETERS_H
+#ifndef SEISSOL_DR_PARAMETERS_H
+#define SEISSOL_DR_PARAMETERS_H
 
 #include <yaml-cpp/yaml.h>
 

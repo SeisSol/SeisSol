@@ -98,6 +98,7 @@
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
+  class SeisSol;
   namespace initializers {
     class MemoryManager;
   }
@@ -108,6 +109,8 @@ namespace seissol {
  **/
 class seissol::initializers::MemoryManager {
   private: // explicit private for unit tests
+    seissol::SeisSol& seissolInstance;
+
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
 
@@ -242,7 +245,7 @@ class seissol::initializers::MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager() {}
+    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {};
 
     /**
      * Destructor, memory is freed by managed allocator

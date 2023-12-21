@@ -8,7 +8,9 @@
 #include "Initializer/InputAux.hpp"
 #include "Initializer/ParameterDB.h"
 
-namespace seissol::dr::initializers {
+namespace seissol {
+  class SeisSol;
+  namespace dr::initializers {
 /**
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
@@ -17,6 +19,7 @@ namespace seissol::dr::initializers {
  */
 class BaseDRInitializer {
   protected:
+  seissol::SeisSol& seissolInstance;
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
@@ -60,8 +63,8 @@ class BaseDRInitializer {
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters)
-      : drParameters(drParameters),
+  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters, seissol::SeisSol& seissolInstance)
+      : drParameters(drParameters), seissolInstance(seissolInstance), 
         faultParameterNames(
             seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
 
@@ -174,5 +177,6 @@ class BaseDRInitializer {
   std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(bool readNucleation);
 };
 
-} // namespace seissol::dr::initializers
+} // namespace dr::initializers
+} // namespace seissol
 #endif // SEISSOL_BASEDRINITIALIZER_H

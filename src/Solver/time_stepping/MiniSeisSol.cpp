@@ -44,6 +44,7 @@
 #include <Kernels/Local.h>
 #include <Monitoring/Stopwatch.h>
 #include "utils/env.h"
+#include "SeisSol.h"
 
 #ifdef ACL_DEVICE
 #include <Initializer/BatchRecorders/Recorders.h>
@@ -92,7 +93,8 @@ Config getConfig() {
 
 void seissol::localIntegration(GlobalData* globalData,
                                initializers::LTS& lts,
-                               initializers::Layer& layer) {
+                               initializers::Layer& layer,
+                               seissol::SeisSol& seissolInstance) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
@@ -102,10 +104,10 @@ void seissol::localIntegration(GlobalData* globalData,
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(tmp) schedule(static)
+  #pragma omp parallel for firstprivate(tmp) schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
@@ -220,7 +222,7 @@ void seissol::fakeData(initializers::LTS& lts,
 #endif
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
+double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity, seissol::SeisSol& seissolInstance) {
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
 
@@ -270,8 +272,8 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   };
 #else
   auto* globalData = memoryManager.getGlobalDataOnHost();
-  auto runBenchmark = [globalData, &lts, &layer]() {
-    localIntegration(globalData, lts, layer);
+  auto runBenchmark = [globalData, &lts, &layer, &seissolInstance]() {
+    localIntegration(globalData, lts, layer, seissolInstance);
   };
   auto syncBenchmark = []() {};
 #endif

@@ -7,7 +7,6 @@
 #include "Geometry/MeshReader.h"
 #include "SourceTerm/Manager.h"
 #include "Checkpoint/Backend.h"
-#include "time_stepping/LtsWeights/WeightsFactory.h"
 #include "Parallel/MPI.h"
 
 #include <yaml-cpp/yaml.h>
@@ -16,7 +15,7 @@
 #include <string>
 #include <vector>
 
-using namespace seissol::initializer::parameters;
+using namespace seissol::initializers::parameters;
 
 namespace {
 
@@ -285,11 +284,11 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
   seissolParams.timeStepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
   seissolParams.timeStepping.lts.weighttype = reader.readWithDefaultEnum(
       "ltsweighttypeid",
-      seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights,
+      LtsWeightsTypes::ExponentialWeights,
       {
-          seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights,
-          seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialBalancedWeights,
-          seissol::initializers::time_stepping::LtsWeightsTypes::EncodedBalancedWeights,
+          LtsWeightsTypes::ExponentialWeights,
+          LtsWeightsTypes::ExponentialBalancedWeights,
+          LtsWeightsTypes::EncodedBalancedWeights,
       });
 
   if (isModelViscoelastic()) {

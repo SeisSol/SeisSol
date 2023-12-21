@@ -47,6 +47,8 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 
+#include <Initializer/InputParameters.hpp>
+
 #include <array>
 #include <limits>
 #include <cassert>
@@ -186,6 +188,8 @@ class seissol::initializers::time_stepping::LtsLayout {
      * [ ][ ].second[*]: cell id in the neighboring domain
      **/
     std::vector< std::vector< std::pair< unsigned int, std::vector< unsigned int > > > > m_clusteredGhost;
+
+    const seissol::initializers::parameters::SeisSolParameters& seissolParams;
 
     /**
      * Gets the associated plain local region of the given mpi rank.
@@ -458,7 +462,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     /**
      * Constructor which initializes all pointers to NULL.
      **/
-    LtsLayout();
+    LtsLayout(const seissol::initializers::parameters::SeisSolParameters& parameters);
 
     /**
      * Destructor which frees all dynamically allocated memory of the class members.

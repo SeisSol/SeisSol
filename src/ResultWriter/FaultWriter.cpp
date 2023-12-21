@@ -54,7 +54,7 @@ void seissol::writer::FaultWriter::setUp()
   setExecutor(m_executor);
 
   if (isAffinityNecessary()) {
-    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:"
       << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -90,7 +90,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
 	assert(bufferId == FaultWriterExecutor::OUTPUT_PREFIX); NDBG_UNUSED(bufferId);
 
-	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
 
 	// Create mesh buffers
 	bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));

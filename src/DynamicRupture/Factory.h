@@ -9,7 +9,9 @@
 #include "Initializer/DynamicRupture.h"
 #include "Output/Output.hpp"
 
-namespace seissol::dr::factory {
+namespace seissol {
+  class SeisSol;
+  namespace dr::factory {
 /**
  * This struct stores all ingredients, needed for Dynamic Rupture:
  * ltsTree: holds all the data, like parameters (e.g. friction coefficients) or results (e.g.
@@ -27,9 +29,12 @@ struct DynamicRuptureTuple {
 class AbstractFactory {
   protected:
   std::shared_ptr<dr::DRParameters> drParameters;
+  seissol::SeisSol& seissolInstance;
 
   public:
-  AbstractFactory(std::shared_ptr<dr::DRParameters> drParameters) : drParameters(drParameters){};
+  AbstractFactory(std::shared_ptr<dr::DRParameters> drParameters, seissol::SeisSol& seissolInstance) :
+    drParameters(drParameters),
+    seissolInstance(seissolInstance) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
@@ -83,7 +88,8 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(std::shared_ptr<dr::DRParameters> dynRupParameter);
+    getFactory(std::shared_ptr<dr::DRParameters> dynRupParameter, seissol::SeisSol& seissolInstance);
 
+}
 } // namespace seissol::dr::factory
 #endif // SEISSOL_FACTORY_H

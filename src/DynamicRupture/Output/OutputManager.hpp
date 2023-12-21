@@ -6,12 +6,16 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include <memory>
 
-namespace seissol::dr::output {
+namespace seissol {
+  class SeisSol;
+
+  namespace dr::output {
+
 class OutputManager {
   public:
   ~OutputManager();
   OutputManager() = delete;
-  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl);
+  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(const YAML::Node& inputData, seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -25,6 +29,9 @@ class OutputManager {
   void writePickpointOutput(double time, double dt);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
+  
+  private:
+  seissol::SeisSol& seissolInstance;
 
   protected:
   bool isAtPickpoint(double time, double dt);
@@ -56,6 +63,7 @@ class OutputManager {
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
 };
+}
 } // namespace seissol::dr::output
 
 #endif // SEISSOL_DR_OUTPUT_MANAGER_HPP

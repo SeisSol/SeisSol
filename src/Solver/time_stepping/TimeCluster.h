@@ -129,6 +129,7 @@ private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
+    seissol::SeisSol& seissolInstance;
     /*
      * integrators
      */
@@ -322,7 +323,7 @@ private:
                                                                                              pstrain[l_cell] );
         }
 #ifdef INTEGRATE_QUANTITIES
-        seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
+        seissolInstance.postProcessor().integrateQuantities( m_timeStepWidth,
                                                               i_layerData,
                                                               l_cell,
                                                               dofs[l_cell] );
@@ -389,16 +390,26 @@ public:
    * @param i_globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
    **/
-  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, unsigned int profilingId, bool usePlasticity,
-              LayerType layerType, double maxTimeStepSize,
-              long timeStepRate, bool printProgress,
-              DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
-              seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
-              seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
-              seissol::initializers::DynamicRupture* i_dynRup,
-              seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-              dr::output::OutputManager* i_faultOutputManager, LoopStatistics* i_loopStatistics,
-              ActorStateStatistics* actorStateStatistics);
+  TimeCluster(unsigned int i_clusterId,
+      unsigned int i_globalClusterId,
+      unsigned int profilingId,
+      bool usePlasticity,
+      LayerType layerType,
+      double maxTimeStepSize,
+      long timeStepRate,
+      bool printProgress,
+      DynamicRuptureScheduler* dynamicRuptureScheduler,
+      CompoundGlobalData i_globalData,
+      seissol::initializers::Layer *i_clusterData,
+      seissol::initializers::Layer* dynRupInteriorData,
+      seissol::initializers::Layer* dynRupCopyData,
+      seissol::initializers::LTS* i_lts,
+      seissol::initializers::DynamicRupture* i_dynRup,
+      seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+      dr::output::OutputManager* i_faultOutputManager,
+      seissol::SeisSol& seissolInstance,
+      LoopStatistics* i_loopStatistics,
+      ActorStateStatistics* actorStateStatistics);
 
   /**
    * Destructor of a LTS cluster.

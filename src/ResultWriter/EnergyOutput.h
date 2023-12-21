@@ -17,7 +17,10 @@
 #include "Modules/Modules.h"
 #include "Initializer/InputParameters.hpp"
 
-namespace seissol::writer {
+namespace seissol {
+  class SeisSol;
+  namespace writer {
+
 
 struct EnergiesStorage {
   std::array<double, 9> energies{};
@@ -52,11 +55,13 @@ class EnergyOutput : public Module {
             seissol::initializers::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
-            const seissol::initializer::parameters::EnergyOutputParameters& parameters);
+            const seissol::initializers::parameters::EnergyOutputParameters& parameters);
 
   void syncPoint(double time) override;
 
   void simulationStart() override;
+
+  EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
@@ -78,6 +83,8 @@ class EnergyOutput : public Module {
   void writeHeader();
 
   void writeEnergies(double time);
+
+  seissol::SeisSol& seissolInstance;
 
   bool shouldComputeVolumeEnergies() const;
 
@@ -102,6 +109,7 @@ class EnergyOutput : public Module {
   EnergiesStorage energiesStorage{};
 };
 
+}
 } // namespace seissol::writer
 
 #endif // ENERGYOUTPUT_H

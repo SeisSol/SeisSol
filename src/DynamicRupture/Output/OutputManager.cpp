@@ -71,9 +71,11 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
-OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
+OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance)
     : ewOutputData(std::make_shared<ReceiverOutputData>()),
-      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
+      ppOutputData(std::make_shared<ReceiverOutputData>()), 
+      impl(std::move(concreteImpl)),
+      seissolInstance(seissolInstance) {
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
 
@@ -153,7 +155,7 @@ void OutputManager::initElementwiseOutput() {
   };
   misc::forEach(ewOutputData->vars, recordPointers);
 
-  seissol::SeisSol::main.faultWriter().init(cellConnectivity.data(),
+  seissolInstance.faultWriter().init(cellConnectivity.data(),
                                             vertices.data(),
                                             static_cast<unsigned int>(receiverPoints.size()),
                                             static_cast<unsigned int>(3 * receiverPoints.size()),
@@ -164,7 +166,7 @@ void OutputManager::initElementwiseOutput() {
                                             backendType,
                                             backupTimeStamp);
 
-  seissol::SeisSol::main.faultWriter().setupCallbackObject(this);
+  seissolInstance.faultWriter().setupCallbackObject(this);
 }
 
 void OutputManager::initPickpointOutput() {

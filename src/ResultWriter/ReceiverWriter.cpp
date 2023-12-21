@@ -174,7 +174,7 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
+void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializers::parameters::ReceiverOutputParameters& parameters)
 {
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
@@ -227,7 +227,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
       for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation);
+        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation, seissolInstance);
       }
 
       writeHeader(point, points[point]);

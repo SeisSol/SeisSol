@@ -15,7 +15,9 @@
 
 #include <Geometry/MeshReader.h>
 
-namespace seissol::writer {
+namespace seissol {
+  class SeisSol;
+namespace writer {
 class CsvAnalysisWriter {
 public:
   CsvAnalysisWriter(std::string fileName);
@@ -37,6 +39,8 @@ private:
 
 class AnalysisWriter {
 private:
+    seissol::SeisSol& seissolInstance;
+
     struct data {
       double val;
       int rank;
@@ -47,8 +51,9 @@ private:
 
     std::string fileName;
 public:
-  AnalysisWriter() :
-    isEnabled(false) { }
+  AnalysisWriter(seissol::SeisSol& seissolInstance) :
+    isEnabled(false),
+    seissolInstance(seissolInstance) { }
 
     void init(const seissol::geometry::MeshReader* meshReader,
               std::string_view fileNamePrefix) {
@@ -61,6 +66,6 @@ public:
     void printAnalysis(double simulationTime);
   }; // class AnalysisWriter
 
-
-} // namespace seissol::writer
+} // namespace writer
+} // namespace seissol
 #endif // ANALYSISWRITER_H

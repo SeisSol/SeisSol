@@ -38,50 +38,50 @@ static void reportDeviceMemoryStatus() {
 #endif
 }
 
-static void initSeisSol() {
-  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+static void initSeisSol(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
   // set g
-  seissol::SeisSol::main.getGravitationSetup().acceleration =
+  seissolInstance.getGravitationSetup().acceleration =
       seissolParams.model.gravitationalAcceleration;
 
   // initialization procedure
-  seissol::initializer::initprocedure::initMesh();
-  seissol::initializer::initprocedure::initModel();
-  seissol::initializer::initprocedure::initSideConditions();
-  seissol::initializer::initprocedure::initIO();
+  seissol::initializers::initprocedure::initMesh(seissolInstance);
+  seissol::initializers::initprocedure::initModel(seissolInstance);
+  seissol::initializers::initprocedure::initSideConditions(seissolInstance);
+  seissol::initializers::initprocedure::initIO(seissolInstance);
 
   // set up simulator
-  auto& sim = seissol::SeisSol::main.simulator();
+  auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
   sim.setFinalTime(seissolParams.end.endTime);
 }
 
-static void reportHardwareRelatedStatus() {
+static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
-  const auto& seissolParams = SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
   writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(SeisSol::main.getPinning());
+  pinningWriter.write(seissolInstance.getPinning());
 }
 
-static void closeSeisSol() {
+static void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
   // cleanup IO
-  seissol::SeisSol::main.waveFieldWriter().close();
-  seissol::SeisSol::main.checkPointManager().close();
-  seissol::SeisSol::main.faultWriter().close();
-  seissol::SeisSol::main.freeSurfaceWriter().close();
+  seissolInstance.waveFieldWriter().close();
+  seissolInstance.checkPointManager().close();
+  seissolInstance.faultWriter().close();
+  seissolInstance.freeSurfaceWriter().close();
 
   // deallocate memory manager
-  seissol::SeisSol::main.deleteMemoryManager();
+  seissolInstance.deleteMemoryManager();
 }
 
 } // namespace
 
-void seissol::initializer::initprocedure::seissolMain() {
-  initSeisSol();
-  reportHardwareRelatedStatus();
+void seissol::initializers::initprocedure::seissolMain(seissol::SeisSol& seissolInstance) {
+  initSeisSol(seissolInstance);
+  reportHardwareRelatedStatus(seissolInstance);
 
   // just put a barrier here to make sure everyone is synched
   logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";
@@ -90,7 +90,7 @@ void seissol::initializer::initprocedure::seissolMain() {
   seissol::Stopwatch watch;
   logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
   watch.start();
-  seissol::SeisSol::main.simulator().simulate();
+  seissolInstance.simulator().simulate(seissolInstance);
   watch.pause();
   watch.printTime("Time spent in simulation:");
 
@@ -98,5 +98,5 @@ void seissol::initializer::initprocedure::seissolMain() {
   logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
-  closeSeisSol();
+  closeSeisSol(seissolInstance);
 }

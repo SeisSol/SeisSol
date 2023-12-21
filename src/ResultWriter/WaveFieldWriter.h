@@ -66,6 +66,7 @@
 #include "Initializer/InputParameters.hpp"
 
 namespace seissol {
+  class SeisSol;
 namespace refinement {
 template <typename T>
 class MeshRefiner;
@@ -76,6 +77,8 @@ namespace writer {
 class WaveFieldWriter
     : private async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>,
       public seissol::Module {
+  seissol::SeisSol& seissolInstance;
+
   /** True if wave field output is enabled */
   bool m_enabled;
 
@@ -155,10 +158,19 @@ class WaveFieldWriter
                                     std::map<int, int>& newToOldCellMap);
 
   public:
-  WaveFieldWriter()
-      : m_enabled(false), isExtractRegionEnabled(false), m_numVariables(0), m_outputFlags(0L),
-        m_lowOutputFlags(0L), m_numCells(0), m_numLowCells(0), m_dofs(0L), m_pstrain(0L),
-        m_integrals(0L), m_map(0L) {}
+  WaveFieldWriter(seissol::SeisSol& seissolInstance) : 
+    seissolInstance(seissolInstance),
+    m_enabled(false),
+    isExtractRegionEnabled(false),
+    m_numVariables(0),
+    m_outputFlags(0L),
+    m_lowOutputFlags(0L),
+    m_numCells(0),
+    m_numLowCells(0),
+    m_dofs(0L),
+    m_pstrain(0L),
+    m_integrals(0L),
+    m_map(0L) {}
 
   /**
    * Activate the wave field output
@@ -197,7 +209,7 @@ class WaveFieldWriter
             const real* pstrain,
             const real* integrals,
             unsigned int* map,
-            const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
+            const seissol::initializers::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
 

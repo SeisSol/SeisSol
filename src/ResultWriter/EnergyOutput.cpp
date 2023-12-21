@@ -36,7 +36,7 @@ void EnergyOutput::init(
     seissol::initializers::Lut* newLtsLut,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
-    const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
+    const seissol::initializers::parameters::EnergyOutputParameters& parameters) {
   if (parameters.enabled && parameters.interval > 0) {
     isEnabled = true;
   } else {
@@ -203,7 +203,7 @@ void EnergyOutput::computeVolumeEnergies() {
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
 
-  const auto g = SeisSol::main.getGravitationSetup().acceleration;
+  const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it

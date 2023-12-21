@@ -96,9 +96,9 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		waveField->setFilename(m_filename.c_str());
 		fault->setFilename(m_filename.c_str());
 
-		int exists = waveField->init(m_header.size(), numDofs, seissol::SeisSol::main.asyncIO().groupSize());
+		int exists = waveField->init(m_header.size(), numDofs, seissolInstance.asyncIO().groupSize());
 		exists &= fault->init(numSides, numBndGP,
-			seissol::SeisSol::main.asyncIO().groupSize());
+			seissolInstance.asyncIO().groupSize());
 
 		// Make sure all ranks think the same about the existing checkpoint
 #ifdef USE_MPI
@@ -140,7 +140,7 @@ void seissol::checkpoint::Manager::setUp()
 {
   setExecutor(m_executor);
   if (isAffinityNecessary()) {
-    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo(seissol::MPI::mpi.rank()) << "Checkpoint thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";

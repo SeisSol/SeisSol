@@ -201,4 +201,4 @@ void seissol::SeisSol::setBackupTimeStamp(const std::string& stamp) {
   MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
 }
 
-seissol::SeisSol seissol::SeisSol::main;
+//seissol::SeisSol seissolInstance;

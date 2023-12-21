@@ -61,6 +61,7 @@
 
 namespace seissol
 {
+  class SeisSol;
 
 namespace checkpoint
 {
@@ -68,6 +69,8 @@ namespace checkpoint
 class Manager : private async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	ManagerExecutor m_executor;
 
 	/** The backend that should be used */
@@ -89,9 +92,10 @@ private:
 	Stopwatch m_stopwatch;
 
 public:
-	Manager()
+	Manager(seissol::SeisSol& seissolInstance)
 		: m_backend(DISABLED),
-		  m_numDofs(0), m_numDRDofs(0)
+		  m_numDofs(0), m_numDRDofs(0), 
+                  seissolInstance(seissolInstance)
 	{
 	}
 

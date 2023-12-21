@@ -1,4 +1,3 @@
-
 #ifndef INPUT_PARAMETERS_HPP_
 #define INPUT_PARAMETERS_HPP_
 
@@ -14,9 +13,8 @@
 #include "Geometry/CubeGenerator.h"
 #include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
-#include "time_stepping/LtsWeights/WeightsFactory.h"
 
-namespace seissol::initializer::parameters {
+namespace seissol::initializers::parameters {
 
 constexpr bool isModelAnelastic() { return NUMBER_OF_RELAXATION_MECHANISMS > 0; }
 
@@ -176,9 +174,18 @@ struct OutputParameters {
   bool loopStatisticsNetcdfOutput;
 };
 
+enum class LtsWeightsTypes: int {
+  ExponentialWeights = 0,
+  ExponentialBalancedWeights,
+  EncodedBalancedWeights,
+  Count
+};
+
 struct LtsParameters {
   unsigned rate;
-  seissol::initializers::time_stepping::LtsWeightsTypes weighttype;
+  double wiggleFactor;
+  unsigned maxNumberOfClusters;
+  LtsWeightsTypes weighttype;
 };
 
 struct TimeSteppingParameters {
@@ -209,6 +216,6 @@ struct SeisSolParameters {
 
   void readParameters(const YAML::Node& baseNode);
 };
-} // namespace seissol::initializer::parameters
+} // namespace seissol::initializers::parameters
 
 #endif

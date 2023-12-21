@@ -169,7 +169,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
   }
 }
 
-seissol::physics::PressureInjection::PressureInjection(const seissol::initializer::parameters::InitializationParameters initializationParameters)
+seissol::physics::PressureInjection::PressureInjection(const seissol::initializers::parameters::InitializationParameters initializationParameters)
     : m_parameters(std::move(initializationParameters)) {
   const auto o_1 = m_parameters.origin[0];
   const auto o_2 = m_parameters.origin[1];

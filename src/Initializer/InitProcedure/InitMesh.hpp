@@ -3,8 +3,11 @@
 
 #include "Initializer/InitProcedure/Init.hpp"
 
-namespace seissol::initializer::initprocedure {
-void initMesh();
+namespace seissol {
+  class SeisSol;
+  namespace initializers::initprocedure {
+void initMesh(seissol::SeisSol& seissolInstance);
+}
 }
 
 #endif

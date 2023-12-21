@@ -46,7 +46,8 @@
 namespace seissol {
   void localIntegration(GlobalData* globalData,
                         initializers::LTS& lts,
-                        initializers::Layer& layer);
+                        initializers::Layer& layer,
+                        seissol::SeisSol& seissolInstance);
 
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
                                 initializers::LTS& lts,
@@ -59,7 +60,9 @@ namespace seissol {
                 initializers::Layer& layer,
                 FaceType faceTp = FaceType::regular);
   
-  double miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity);
+  double miniSeisSol(initializers::MemoryManager& memoryManager,
+                     bool usePlasticity,
+                     seissol::SeisSol& seissolInstance);
   constexpr real miniSeisSolTimeStep = 1.0;
 } //namespace seissol
 

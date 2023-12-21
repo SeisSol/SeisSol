@@ -5,12 +5,13 @@
 #include <cstring>
 #include <type_traits>
 
-#include "SeisSol.h"
 #include "Initializer/MemoryManager.h"
 #include "LTSTree.hpp"
 #include "Lut.hpp"
 
-namespace seissol::initializer {
+namespace seissol {
+  class SeisSol;
+  namespace initializers {
 
 /*
 Assigns the given value to the target object, initializing the memory in the process.
@@ -49,8 +50,8 @@ void initAssign(T& target, const T& value) {
 }
 
 template <typename T>
-void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle) {
-  auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
+void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle, 
+                                  seissol::initializers::MemoryManager& memoryManager) {
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
   unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
   const unsigned numberOfDuplicatedMeshIds =
@@ -73,6 +74,7 @@ void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& hand
   }
 }
 
+}
 } // namespace seissol::initializer
 
 #endif

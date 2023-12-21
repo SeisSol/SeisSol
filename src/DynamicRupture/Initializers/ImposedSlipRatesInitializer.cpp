@@ -79,7 +79,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-    const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
+    const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     VrtxCoords strikeVector{};
     VrtxCoords dipVector{};

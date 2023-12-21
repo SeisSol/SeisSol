@@ -130,7 +130,7 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
 void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
                                    std::vector<unsigned> const& faceIDs) {
   // create a query and evaluate the model
-  seissol::initializers::FaultGPGenerator queryGen(seissol::SeisSol::main.meshReader(), faceIDs);
+  seissol::initializers::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
   faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
 }
 
@@ -149,7 +149,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-    const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
+    const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
     // in cartesian coordinates
@@ -201,7 +201,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
     constexpr unsigned int numberOfStressComponents = 6;
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-    const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
+    const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
     // now rotate the stress in cartesian coordinates to the element aligned coordinate system.
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(

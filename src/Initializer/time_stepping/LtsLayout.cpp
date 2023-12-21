@@ -53,7 +53,8 @@
 
 #include <iomanip>
 
-seissol::initializers::time_stepping::LtsLayout::LtsLayout():
+seissol::initializers::time_stepping::LtsLayout::LtsLayout(const seissol::initializers::parameters::SeisSolParameters& parameters):
+ seissolParams(parameters),
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
@@ -88,11 +89,13 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::ge
     m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
 
-  auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
-
   // compute timesteps
-  auto timesteps = seissol::initializer::computeTimesteps(seissolParams.timeStepping.cfl, seissolParams.timeStepping.maxTimestepWidth, seissolParams.model.materialFileName,
-        seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
+  auto timesteps = seissol::initializers::computeTimesteps(
+      seissolParams.timeStepping.cfl,
+      seissolParams.timeStepping.maxTimestepWidth,
+      seissolParams.model.materialFileName,
+      seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh),
+      seissolParams);
   
   m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }
@@ -1160,6 +1163,8 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   if( m_clusteringStrategy == single ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  std::numeric_limits<unsigned int>::max(),
+                                 seissolParams.timeStepping.lts.wiggleFactor,
+                                 seissolParams.timeStepping.lts.maxNumberOfClusters,
                                  m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
@@ -1169,6 +1174,8 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   else if ( m_clusteringStrategy == multiRate ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  i_clusterRate,
+                                 seissolParams.timeStepping.lts.wiggleFactor,
+                                 seissolParams.timeStepping.lts.maxNumberOfClusters,
                                  m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
@@ -1193,7 +1200,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   getTheoreticalSpeedup( l_perCellSpeedup, l_clusteringSpeedup );
 
   // The speedups above are computed without considering the wiggle factor
-  const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+  const auto wiggleFactor = seissolParams.timeStepping.lts.wiggleFactor;
   l_perCellSpeedup *= wiggleFactor;
   l_clusteringSpeedup *= wiggleFactor;
 

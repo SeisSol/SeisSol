@@ -143,12 +143,12 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
   return 0;
 }
 
-LtsWeights::LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters)
+LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
     : m_velocityModel(config.velocityModel), m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
-      ltsParameters(ltsParameters) { }
+      seissolInstance(seissolInstance) { }
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
@@ -159,6 +159,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
+  const auto* ltsParameters = seissolInstance.getMemoryManager().getLtsParameters();
   auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
   if (ltsParameters->isWiggleFactorUsed() || ltsParameters->isAutoMergeUsed()) {
     auto autoMergeBaseline = ltsParameters->getAutoMergeCostBaseline();
@@ -191,7 +192,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   } else {
     wiggleFactor = 1.0;
   }
-  SeisSol::main.wiggleFactorLts = wiggleFactor;
+  seissolInstance.wiggleFactorLts = wiggleFactor;
 
   m_clusterIds = computeClusterIds(wiggleFactor);
 
@@ -205,7 +206,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 #ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, &maxNumberOfClusters, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
 #endif
-  SeisSol::main.maxNumberOfClusters = maxNumberOfClusters;
+  seissolInstance.maxNumberOfClusters = maxNumberOfClusters;
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
@@ -225,6 +226,7 @@ LtsWeights::ComputeWiggleFactorResult
   auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
   auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
 
+  const auto* ltsParameters = seissolInstance.getMemoryManager().getLtsParameters();
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
 
@@ -405,8 +407,8 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh));
+seissol::initializers::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+  return seissol::initializers::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh), seissolInstance.getSeisSolParameters());
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -417,6 +419,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
     m_clusterIds = lb->second;
   } else {
     m_clusterIds = computeClusterIds(curWiggleFactor);
+    const auto* ltsParameters = seissolInstance.getMemoryManager().getLtsParameters();
     if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
       numberOfReductions = enforceMaximumDifference();
     }

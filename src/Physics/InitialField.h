@@ -33,14 +33,14 @@ namespace seissol {
     class PressureInjection : public InitialField {
     public:
 
-      PressureInjection(const seissol::initializer::parameters::InitializationParameters initializationParameters);
+      PressureInjection(const seissol::initializers::parameters::InitializationParameters initializationParameters);
 
       void evaluate(double,
                     std::vector<std::array<double, 3>> const&,
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     private:
-      seissol::initializer::parameters::InitializationParameters m_parameters;
+      seissol::initializers::parameters::InitializationParameters m_parameters;
     };
 
     //A planar wave travelling in direction kVec

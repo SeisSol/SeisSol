@@ -41,6 +41,7 @@
 #include "SeisSol.h"
 #include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
+#include "Initializer/InputParameters.hpp"
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -76,15 +77,18 @@ int main(int argc, char* argv[]) {
   EPIK_TRACER("SeisSol");
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
+  // TODO Read parameters here
+  seissol::initializers::parameters::SeisSolParameters parameters;
   // Initialize SeisSol
-  const bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
+  seissol::SeisSol seissolInstance(parameters);
+  const bool runSeisSol = seissolInstance.init(argc, argv);
 
   const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
-  seissol::SeisSol::main.setBackupTimeStamp(stamp);
+  seissolInstance.setBackupTimeStamp(stamp);
 
   // Run SeisSol
   if (runSeisSol) {
-    seissol::initializer::initprocedure::seissolMain();
+    seissol::initializers::initprocedure::seissolMain(seissolInstance);
   }
 
 #pragma omp parallel
@@ -92,7 +96,7 @@ int main(int argc, char* argv[]) {
 
   LIKWID_MARKER_CLOSE;
   // Finalize SeisSol
-  seissol::SeisSol::main.finalize();
+  seissolInstance.finalize();
 
 #ifdef ACL_DEVICE
   device.api->finalize();

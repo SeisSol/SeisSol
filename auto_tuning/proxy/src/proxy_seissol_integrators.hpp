@@ -54,7 +54,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("ader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -83,7 +83,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("localwoader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -115,7 +115,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
