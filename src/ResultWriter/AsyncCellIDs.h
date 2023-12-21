@@ -44,10 +44,10 @@
 #include <mpi.h>
 #endif // USE_MPI
 
+#include "SeisSol.h"
 
 namespace seissol
 {
-  class SeisSol;
 
 /**
  * This class can fix cells (vertex ids) in asynchronous mode.

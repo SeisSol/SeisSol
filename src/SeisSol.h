@@ -213,51 +213,52 @@ class SeisSol {
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
 
-  /** The name of the parameter file */
+  //! The name of the parameter file
   std::string m_parameterFile;
 
+  //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
 
-  /** Async I/O handler (needs to be initialize before other I/O modules) */
+  //! Async I/O handler (needs to be initialize before other I/O modules)
   io::AsyncIO m_asyncIO;
 
+  //! Mesh Reader
   seissol::geometry::MeshReader* m_meshReader;
 
-  /*
-   * initializers
-   */
+  //! Lts Layout
   initializers::time_stepping::LtsLayout m_ltsLayout;
 
+  //! Memory Manager
   std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
 
-  //! time manager
+  //! Time Manager
   time_stepping::TimeManager m_timeManager;
 
-  //! simulator
+  //! Simulator
   Simulator m_simulator;
 
-  /** Check pointing module */
+  //! Check pointing module
   checkpoint::Manager m_checkPointManager;
 
-  /** Source term module */
+  //! Source term module
   sourceterm::Manager m_sourceTermManager;
 
-  /** PostProcessor module **/
+  //! PostProcessor module
   writer::PostProcessor m_postProcessor;
 
-  /** Free surface integrator module **/
+  //! Free surface integrator module
   solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
 
-  /** Free surface writer module **/
+  //! Free surface writer module
   writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
-  /** Analysis writer module **/
+  //! Analysis writer module 
   writer::AnalysisWriter m_analysisWriter;
 
-  /** Wavefield output module */
+  //! Wavefield output module
   writer::WaveFieldWriter m_waveFieldWriter;
 
-  /** Fault output module */
+  //! Fault output module
   writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
@@ -272,6 +273,7 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
+  //! Collection of Parameters
   seissol::initializers::parameters::SeisSolParameters m_seissolparameters;
 
   //! time stamp which can be used for backuping files of previous runs
@@ -280,19 +282,17 @@ class SeisSol {
   public: 
   SeisSol(const initializers::parameters::SeisSolParameters& parameters) : 
     pinning(),
-    m_analysisWriter(*this),
-    m_checkPointManager(*this),
-    m_ltsLayout(parameters),
-    m_energyOutput(*this),
-    m_faultWriter(*this),
-    m_freeSurfaceWriter(*this),
     m_meshReader(nullptr),
-    m_receiverWriter(*this),
+    m_ltsLayout(parameters),
+    m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)),
     m_timeManager(*this),
-    m_waveFieldWriter(*this)
-  {
-    m_memoryManager = std::make_unique<initializers::MemoryManager>(*this);
-  }
+    m_checkPointManager(*this),
+    m_freeSurfaceWriter(*this),
+    m_analysisWriter(*this),
+    m_waveFieldWriter(*this),
+    m_faultWriter(*this),
+    m_receiverWriter(*this),
+    m_energyOutput(*this) {}
 };
 
 } // namespace seissol

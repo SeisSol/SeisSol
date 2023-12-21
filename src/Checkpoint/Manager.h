@@ -92,16 +92,13 @@ private:
 	Stopwatch m_stopwatch;
 
 public:
-	Manager(seissol::SeisSol& seissolInstance)
-		: m_backend(DISABLED),
-		  m_numDofs(0), m_numDRDofs(0), 
-                  seissolInstance(seissolInstance)
-	{
-	}
+	Manager(seissol::SeisSol& seissolInstance) :
+                  seissolInstance(seissolInstance),
+                  m_backend(DISABLED),
+                  m_numDofs(0),
+                  m_numDRDofs(0) {}
 
-	virtual ~Manager()
-	{ }
-
+	virtual ~Manager() {}
 	void setBackend(Backend backend)
 	{
 		m_backend = backend;

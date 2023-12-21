@@ -52,8 +52,8 @@ private:
     std::string fileName;
 public:
   AnalysisWriter(seissol::SeisSol& seissolInstance) :
-    isEnabled(false),
-    seissolInstance(seissolInstance) { }
+    seissolInstance(seissolInstance),
+    isEnabled(false) {}
 
     void init(const seissol::geometry::MeshReader* meshReader,
               std::string_view fileNamePrefix) {
