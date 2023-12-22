@@ -6,6 +6,13 @@
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/preProcessorMacros.hpp"
+#ifdef ACL_DEVICE
+#include "Parallel/AcceleratorDevice.h"
+#include <generated_code/tensor.h>
+#endif
+
+#include <algorithm>
+#include <vector>
 
 namespace seissol::writer {
 
@@ -142,11 +149,45 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+  auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
+  constexpr auto qSize = tensor::Q::size();
+  auto timeDerivativePlusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
+  auto timeDerivativeMinusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
+#endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
+#ifdef ACL_DEVICE
+    real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
+    real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
+    queue
+        .parallel_for(sycl::range<1>{it->getNumberOfCells()},
+                      [=](sycl::id<1> idx) {
+                        for (unsigned dof = 0; dof < qSize; ++dof) {
+                          timeDerivativePlusHost[dof + qSize * idx[0]] =
+                              timeDerivativePlusDevice[idx[0]][dof];
+                          timeDerivativeMinusHost[dof + qSize * idx[0]] =
+                              timeDerivativeMinusDevice[idx[0]][dof];
+                        }
+                      })
+        .wait();
+    auto const timeDerivativePlusPtr = [&](unsigned i) {
+      return timeDerivativePlusHost + qSize * i;
+    };
+    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+      return timeDerivativeMinusHost + qSize * i;
+    };
+#else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
+    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+#endif
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
     DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
@@ -159,8 +200,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     shared(it,                                                                                     \
                drEnergyOutput,                                                                     \
                faceInformation,                                                                    \
-               timeDerivativeMinus,                                                                \
-               timeDerivativePlus,                                                                 \
+               timeDerivativeMinusPtr,                                                             \
+               timeDerivativePlusPtr,                                                              \
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus)
@@ -170,8 +211,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
           totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
         }
-        staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
-                                                  timeDerivativeMinus[i],
+        staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
+                                                  timeDerivativeMinusPtr(i),
                                                   faceInformation[i],
                                                   godunovData[i],
                                                   drEnergyOutput[i].slip);
@@ -191,6 +232,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       }
     }
   }
+#ifdef ACL_DEVICE
+  sycl::free(timeDerivativePlusHost, queue);
+  sycl::free(timeDerivativeMinusHost, queue);
+#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {

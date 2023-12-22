@@ -129,15 +129,14 @@ The following device-specific environment variables are supported right now:
 * SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE
 * SEISSOL_SERIAL_NODE_DEVICE_INIT
 
-Currently, SeisSol allocates MPI user-buffers using the unified/managed memory
-type. Some MPI implementations perform poorly during non-blocking
-point-to-point communication. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
-environment variable which can be used to select the memory type for the user-buffers.
+Currently, SeisSol allocates MPI buffers using the global memory type.
+Some MPI implementations are not GPU-aware and do not support direct point-to-point
+communication on device buffers. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+environment variable that can be used to select the memory type for the buffers.
 The *host* value means that the data will be copied to/from the host memory
-before/after each *MPI_Isend* / *MPI_Irecv*. Setting the variable to *device*
-will result in utilizing the regular device memory for non-blocking
-communication. The default value is *direct* which means that the communication
-goes over the unified/managed memory and thus does not involve explicit data
+before/after each *MPI_Isend* / *MPI_Irecv*.
+The default value is *direct* which means that the communication
+goes over the global memory and thus does not involve explicit data
 copies.
 
 .. figure:: LatexFigures/gpu-comm-layer-data-flow.png

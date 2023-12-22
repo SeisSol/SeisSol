@@ -28,16 +28,6 @@ struct GhostTimeClusterFactory {
                                               meshStructure,
                                               persistent);
     }
-    case MPI::DataTransferMode::CopyInCopyOutDevice: {
-      using ghostCluster_t =
-          GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutDevice>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure,
-                                              persistent);
-    }
 #endif // ACL_DEVICE
     case MPI::DataTransferMode::Direct: {
       return std::make_unique<DirectGhostTimeCluster>(maxTimeStepSize,

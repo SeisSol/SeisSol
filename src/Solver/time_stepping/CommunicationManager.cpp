@@ -1,4 +1,5 @@
 #include "CommunicationManager.h"
+
 #include "Parallel/Pin.h"
 
 #ifdef ACL_DEVICE
@@ -14,6 +15,11 @@ void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncT
     ghostCluster->setSyncTime(newSyncTime);
     ghostCluster->reset();
   }
+}
+
+std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
+    seissol::time_stepping::AbstractCommunicationManager::getGhostClusters() {
+  return &ghostClusters;
 }
 
 bool seissol::time_stepping::AbstractCommunicationManager::poll() {
