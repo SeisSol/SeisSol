@@ -91,6 +91,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   MPI::mpi.setDataTransferModeFromEnv();
+
+  printPersistentMpiInfo(MPI::mpi);
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
@@ -109,7 +111,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
              "you want to run SeisSol without a communication thread (and instead use polling), "
-             "then try running with the environment variable \"SEISSOL_COMMTHREAD=false\". ";
+             "then try running with the environment variable \"SEISSOL_COMMTHREAD=0\". ";
     }
   }
 #endif // _OPENMP

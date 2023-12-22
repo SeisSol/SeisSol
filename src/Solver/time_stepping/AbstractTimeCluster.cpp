@@ -249,6 +249,8 @@ long AbstractTimeCluster::getTimeStepRate() {
   return timeStepRate;
 }
 
+void AbstractTimeCluster::finalize() {}
+
 double AbstractTimeCluster::getClusterTimes(){
   return ct.getTimeStepSize();
 }
