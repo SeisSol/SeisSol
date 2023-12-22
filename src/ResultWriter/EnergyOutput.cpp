@@ -6,12 +6,8 @@
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/preProcessorMacros.hpp"
-#include <algorithm>
-#include <vector>
-
-#ifdef ACL_DEVICE
+#include <cstring>
 #include <generated_code/tensor.h>
-#endif
 
 namespace seissol::writer {
 
@@ -111,15 +107,21 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
   alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
+  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+
+  // needed to counter potential mis-alignment
+  std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
+  std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  krnl.Q = degreesOfFreedomPlus;
+  krnl.Q = QPlus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  krnl.Q = degreesOfFreedomMinus;
+  krnl.Q = QMinus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
