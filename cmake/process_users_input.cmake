@@ -45,7 +45,7 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_90
-        gfx906 gfx908 gfx90a
+        gfx906 gfx908 gfx90a gfx942
         dg1 bdw skl Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
