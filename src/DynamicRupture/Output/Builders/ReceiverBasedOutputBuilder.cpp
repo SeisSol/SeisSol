@@ -23,7 +23,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& mpiGhostMetadata = meshReader->getGhostlayerMetadata();
 
   std::set<std::size_t> elementIndices;
-  std::map<std::pair<int, int>, std::pair<int, int>> elementIndicesGhost;
+  std::map<std::pair<int, std::size_t>, std::pair<std::size_t, int>> elementIndicesGhost;
   std::size_t foundPoints = 0;
 
   constexpr size_t numVertices{4};
@@ -58,8 +58,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
         const auto neighborIndex = element.mpiIndices[faultSide];
 
-        elementIndicesGhost[std::pair<int, int>(neighborRank, neighborIndex)] =
-            std::pair<int, int>(elementIndex, faultSide);
+        elementIndicesGhost[std::pair<int, std::size_t>(neighborRank, neighborIndex)] =
+            std::pair<std::size_t, int>(elementIndex, faultSide);
 
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
@@ -120,9 +120,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         const auto neighborRank = element.neighborRanks[faultSide];
         const auto neighborIndex = element.mpiIndices[faultSide];
         outputData->deviceDataMinus[pointCounter] =
-            elementIndices.size() + std::distance(elementIndicesGhost.begin(),
-                                                  elementIndicesGhost.find(std::pair<int, int>(
-                                                      neighborRank, neighborIndex)));
+            elementIndices.size() +
+            std::distance(
+                elementIndicesGhost.begin(),
+                elementIndicesGhost.find(std::pair<int, std::size_t>(neighborRank, neighborIndex)));
       }
 
       ++pointCounter;
