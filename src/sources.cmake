@@ -55,6 +55,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
+src/Kernels/Touch.cpp
 src/SeisSol.cpp
 src/Parallel/Pin.cpp
 
@@ -72,6 +73,7 @@ src/Checkpoint/posix/Fault.cpp
 src/ResultWriter/AnalysisWriter.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/PostProcessor.cpp
@@ -92,8 +94,6 @@ src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 src/Common/IntegerMaskParser.cpp
 
-src/Kernels/Touch.cpp
-src/ResultWriter/EnergyOutput.cpp
 
 )
 
@@ -117,8 +117,6 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputAux.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp)
