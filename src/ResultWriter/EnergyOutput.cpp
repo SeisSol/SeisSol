@@ -6,13 +6,8 @@
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/preProcessorMacros.hpp"
-#ifdef ACL_DEVICE
-#include "Parallel/AcceleratorDevice.h"
+#include <cstring>
 #include <generated_code/tensor.h>
-#endif
-
-#include <algorithm>
-#include <vector>
 
 namespace seissol::writer {
 
@@ -103,7 +98,7 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const DRGodunovData& godunovData,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -112,15 +107,21 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
   alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
+  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+
+  // needed to counter potential mis-alignment
+  std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
+  std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  krnl.Q = degreesOfFreedomPlus;
+  krnl.Q = QPlus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  krnl.Q = degreesOfFreedomMinus;
+  krnl.Q = QMinus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
@@ -154,28 +155,43 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
-  auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
+
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
   constexpr auto qSize = tensor::Q::size();
-  auto timeDerivativePlusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
-  auto timeDerivativeMinusHost = sycl::malloc_host<real>(maxCells * qSize, queue);
+  real* timeDerivativePlusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
 #endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
-    real** timeDerivativePlusDevice = it->var(dynRup->timeDerivativePlus);
-    real** timeDerivativeMinusDevice = it->var(dynRup->timeDerivativeMinus);
-    queue
-        .parallel_for(sycl::range<1>{it->getNumberOfCells()},
-                      [=](sycl::id<1> idx) {
-                        for (unsigned dof = 0; dof < qSize; ++dof) {
-                          timeDerivativePlusHost[dof + qSize * idx[0]] =
-                              timeDerivativePlusDevice[idx[0]][dof];
-                          timeDerivativeMinusHost[dof + qSize * idx[0]] =
-                              timeDerivativeMinusDevice[idx[0]][dof];
-                        }
-                      })
-        .wait();
+    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    auto& table = it->getConditionalTable<inner_keys::Dr>();
+    if (table.find(timeIntegrationKey) != table.end()) {
+      auto& entry = table[timeIntegrationKey];
+      real** timeDerivativePlusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      real** timeDerivativeMinusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativePlusDevice,
+          timeDerivativePlusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativeMinusDevice,
+          timeDerivativeMinusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    }
     auto const timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
@@ -233,8 +249,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
   }
 #ifdef ACL_DEVICE
-  sycl::free(timeDerivativePlusHost, queue);
-  sycl::free(timeDerivativeMinusHost, queue);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
 #endif
 }
 
