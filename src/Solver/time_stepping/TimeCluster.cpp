@@ -486,7 +486,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
         // For IWAN
         if (W_energy - damage_para2*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])) > 0) {
-          if (alphaNodal[q] < 0.9 ){
+          if (alphaNodal[q] < 0.8 ){
             FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
               1.0/(damage_para1*damage_para2)
                 *(W_energy - damage_para2*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])));
