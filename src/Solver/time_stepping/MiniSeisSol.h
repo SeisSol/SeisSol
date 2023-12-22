@@ -51,9 +51,6 @@ namespace seissol {
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
                                 initializers::LTS& lts,
                                 initializers::Layer& layer);
-  
-  void fillWithStuff(real* buffer,
-                     unsigned nValues);
 
   void fakeData(initializers::LTS& lts,
                 initializers::Layer& layer,

@@ -224,13 +224,6 @@ class seissol::initializers::MemoryManager {
      */
   void initializeFaceDisplacements();
 
-    /**
-     * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-     *
-     * @param layer which is touched.
-     **/
-    void touchBuffersDerivatives( Layer& layer );
-
 #ifdef USE_MPI
     /**
      * Initializes the communication structure.

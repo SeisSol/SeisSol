@@ -71,10 +71,9 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "GlobalData.h"
-#include <yateto.h>
 
 #include <Kernels/common.hpp>
-#include <generated_code/tensor.h>
+#include <Kernels/Touch.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
@@ -418,32 +417,6 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
   }
 }
 
-void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer ) {
-  real** buffers = layer.var(m_lts.buffers);
-  real** derivatives = layer.var(m_lts.derivatives);
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    // touch buffers
-    real* buffer = buffers[cell];
-    if (buffer != NULL) {
-      for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
-          // zero time integration buffers
-          buffer[dof] = (real) 0;
-      }
-    }
-
-    // touch derivatives
-    real* derivative = derivatives[cell];
-    if (derivative != NULL) {
-      for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof ) {
-        derivative[dof] = (real) 0;
-      }
-    }
-  }
-}
-
 void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
                                                          struct MeshStructure*i_meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
@@ -746,7 +719,9 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
   }
 
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
-    touchBuffersDerivatives(*it);
+    real** buffers = it->var(m_lts.buffers);
+    real** derivatives = it->var(m_lts.derivatives);
+    kernels::touchBuffersDerivatives(buffers, derivatives, it->getNumberOfCells());
   }
 
 #ifdef USE_MPI

@@ -80,7 +80,6 @@ src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/EnergyOutput.cpp
 
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
@@ -115,6 +114,8 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputAux.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp)

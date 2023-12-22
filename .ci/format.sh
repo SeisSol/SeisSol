@@ -38,6 +38,8 @@ format() {
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Touch.h
+        src/Kernels/Touch.cpp
         src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
