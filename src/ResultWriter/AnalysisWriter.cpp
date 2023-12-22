@@ -54,10 +54,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     return;
   }
 
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::AcousticTravellingwithITM) {
-    logInfo(mpi.rank()) << "Running analysis for Acoustic Travelling with ITM";
-  }
-
   logInfo(mpi.rank())
     << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
     << " at time " << simulationTime;

@@ -137,10 +137,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // impedance case
   {
     for (auto& cluster : *timeClusters) {
-      //      cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
-
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
@@ -149,8 +146,6 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     }
 
     for (auto& cluster : *ghostTimeClusters) {
-      //        cluster->getClusterTimes() = cluster->getClusterTimes() / velocityScalingFactor;
-
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
@@ -165,7 +160,6 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     for (auto& cluster : *timeClusters) {
       //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
       cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
-
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
@@ -225,5 +219,4 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        timestepping); // An empty timestepping is added. Need to discuss what
                                       // exactly is to be sent here
 };
-
 } // namespace seissol::ITM

@@ -182,13 +182,13 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
                                     ReflectionType::pwave,
                                     ReflectionType::swave});
     if (seissolParams.itmParameters.ITMTime <= 0.0) {
-      logError() << "ITM Time is not positive. It should be positive!\n";
+      logError() << "ITM Time is not positive. It should be positive!";
     }
     if (seissolParams.itmParameters.ITMVelocityScalingFactor < 0.0) {
-      logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!\n";
+      logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!";
     }
     if (seissolParams.itmParameters.ITMStartingTime < 0.0) {
-      logError() << "ITM Starting Time can not be less than zero\n";
+      logError() << "ITM Starting Time can not be less than zero";
     }
   } else {
     reader.markUnused(
