@@ -86,6 +86,7 @@ src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
 src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
+src/Physics/InstantaneousTimeMirrorManager.cpp
 
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp

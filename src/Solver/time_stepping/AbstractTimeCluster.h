@@ -65,6 +65,23 @@ public:
 
   long getTimeStepRate();
 
+  /**
+   * @brief Returns the time step size of the cluster.
+   * @return the time step size of the cluster.
+   */
+  double getClusterTimes();
+  /**
+   * @brief Sets the time step size of the cluster.
+   * @param newTimeStepSize
+   */
+  void setClusterTimes(double newTimeStepSize);
+
+  /**
+   * @brief Returns the neighbor clusters of the cluster.
+   * @return the pointer to the vector of neighbor clusters.
+   */
+  std::vector<NeighborCluster>* getNeighborClusters();
+
 };
 
 }

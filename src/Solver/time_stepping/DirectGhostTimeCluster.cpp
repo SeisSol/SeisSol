@@ -54,4 +54,5 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
                                globalTimeClusterId,
                                otherGlobalTimeClusterId,
                                meshStructure) {}
+
 } // namespace seissol::time_stepping

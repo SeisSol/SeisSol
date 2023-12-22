@@ -249,4 +249,16 @@ long AbstractTimeCluster::getTimeStepRate() {
   return timeStepRate;
 }
 
+double AbstractTimeCluster::getClusterTimes(){
+  return ct.getTimeStepSize();
+}
+
+void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
+  ct.setTimeStepSize(newTimeStepSize);
+}
+
+std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters(){
+  return &neighbors;
+}
+
 }
