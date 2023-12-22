@@ -168,7 +168,11 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       }
     }
 
+    auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
+    increaseManager.setTimeClusterVector(&clusters);
+    decreaseManager.setTimeClusterVector(&clusters);
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
@@ -229,6 +233,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
+  auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+  auto ghostClusterPointer = communicationManager->getGhostClusters();
+
+  increaseManager.setGhostClusterVector(ghostClusterPointer);
+  decreaseManager.setGhostClusterVector(ghostClusterPointer);
 
 }
 
@@ -376,4 +388,3 @@ void seissol::time_stepping::TimeManager::freeDynamicResources() {
   }
   communicationManager.reset(nullptr);
 }
-

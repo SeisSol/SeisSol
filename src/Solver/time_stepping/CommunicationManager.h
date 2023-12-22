@@ -19,6 +19,8 @@ public:
 
   virtual ~AbstractCommunicationManager() = default;
 
+  ghostClusters_t* getGhostClusters();
+
 protected:
   explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
   bool poll();

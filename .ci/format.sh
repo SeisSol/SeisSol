@@ -16,6 +16,7 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/SourceTerm
+        src/Physics
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
@@ -51,8 +52,6 @@ format() {
         src/Geometry/CubeGenerator.h
         src/Geometry/CubeGenerator.cpp
         src/Parallel/Helper.hpp
-        src/Physics/Attenuation.hpp
-        src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

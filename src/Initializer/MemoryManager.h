@@ -168,7 +168,7 @@ class seissol::initializers::MemoryManager {
     Lut                   m_ltsLut;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
-    
+
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;

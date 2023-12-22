@@ -54,6 +54,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
      initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
     return;
   }
+
   logInfo(mpi.rank())
     << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
     << " at time " << simulationTime;

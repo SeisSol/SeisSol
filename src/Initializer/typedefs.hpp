@@ -477,6 +477,10 @@ struct TravellingWaveParameters {
   std::vector<std::complex<double>> ampField;
 };
 
+struct AcousticTravellingWaveParametersITM {
+  double k;
+};
+
 struct PressureInjectionParameters {
   std::array<double, 3> origin;
   double magnitude;
