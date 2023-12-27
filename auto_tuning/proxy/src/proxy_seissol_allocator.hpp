@@ -80,6 +80,7 @@ GlobalData m_globalDataOnHost;
 GlobalData m_globalDataOnDevice;
 
 real* m_fakeDerivatives = nullptr;
+real* m_fakeDerivativesHost = nullptr;
 
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
@@ -141,18 +142,24 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
-
-    constexpr seissol::memory::Memkind timedofsMemkind = seissol::isDeviceOn() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
     
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, timedofsMemkind);
+    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, seissol::memory::Standard);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
       for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-        m_fakeDerivatives[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
+        m_fakeDerivativesHost[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
       }
     }
+
+#ifdef ACL_DEVICE
+    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, seissol::memory::DeviceGlobalMemory);
+    const auto& device = ::device::DeviceInstance::getInstance();
+    device.api->copyTo(m_fakeDerivatives, m_fakeDerivativesHost, i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
+#else
+    m_fakeDerivatives = m_fakeDerivativesHost;
+#endif
   }
 
   /* cell information and integration data*/
