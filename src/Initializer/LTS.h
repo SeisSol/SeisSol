@@ -55,6 +55,7 @@
 #   define MEMKIND_TIMEDOFS AllocationMode::HostOnly
 #   define MEMKIND_TIMEDOFS_CONSTANT AllocationMode::HostOnly
 #endif
+#define MEMKIND_TIMEBUCKET MEMKIND_TIMEDOFS
 #if CONVERGENCE_ORDER <= 4
 #   define MEMKIND_CONSTANT AllocationMode::HostOnlyHBM
 #else
@@ -72,6 +73,7 @@
 # define MEMKIND_TIMEDOFS_CONSTANT AllocationMode::HostOnly
 #	define MEMKIND_DOFS     AllocationMode::HostDeviceSplit // HostDeviceUnified
 #	define MEMKIND_TIMEDOFS AllocationMode::HostDeviceSplit // HostDeviceUnified
+#	define MEMKIND_TIMEBUCKET AllocationMode::DeviceOnly
 # define MEMKIND_UNIFIED  AllocationMode::HostDeviceSplit // HostDeviceUnified
 #endif // ACL_DEVICE
 
@@ -140,7 +142,7 @@ struct seissol::initializers::LTS {
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
     tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      AllocationMode::HostOnly );
 
-    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEBUCKET );
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE

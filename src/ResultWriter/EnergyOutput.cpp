@@ -5,6 +5,9 @@
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
+#include "Initializer/preProcessorMacros.hpp"
+#include <cstring>
+#include <generated_code/tensor.h>
 
 namespace seissol::writer {
 
@@ -89,14 +92,13 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computeStaticWork(
-    const real* degreesOfFreedomPlus,
-    const real* degreesOfFreedomMinus,
-    const DRFaceInformation& faceInfo,
-    const DRGodunovData& godunovData,
-    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
+                                     const real* degreesOfFreedomMinus,
+                                     const DRFaceInformation& faceInfo,
+                                     const DRGodunovData& godunovData,
+                                     const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -105,15 +107,21 @@ real EnergyOutput::computeStaticWork(
   alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
+  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+
+  // needed to counter potential mis-alignment
+  std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
+  std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  krnl.Q = degreesOfFreedomPlus;
+  krnl.Q = QPlus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  krnl.Q = degreesOfFreedomMinus;
+  krnl.Q = QMinus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
@@ -127,12 +135,12 @@ real EnergyOutput::computeStaticWork(
   trKrnl.execute();
 
   real staticFrictionalWork = 0.0;
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
-  feKrnl.slipRateInterpolated = slip;
+  dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &staticFrictionalWork;
-  feKrnl.timeWeight = -0.5 * godunovData.doubledSurfaceArea;
+  feKrnl.staticFrictionalWork = &staticFrictionalWork;
+  feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
   return staticFrictionalWork;
@@ -142,27 +150,85 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
+  constexpr auto qSize = tensor::Q::size();
+  real* timeDerivativePlusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+#endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
+#ifdef ACL_DEVICE
+    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    auto& table = it->getConditionalTable<inner_keys::Dr>();
+    if (table.find(timeIntegrationKey) != table.end()) {
+      auto& entry = table[timeIntegrationKey];
+      real** timeDerivativePlusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      real** timeDerivativeMinusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativePlusDevice,
+          timeDerivativePlusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativeMinusDevice,
+          timeDerivativeMinusHost,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    }
+    auto const timeDerivativePlusPtr = [&](unsigned i) {
+      return timeDerivativePlusHost + qSize * i;
+    };
+    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+      return timeDerivativeMinusHost + qSize * i;
+    };
+#else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
+    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+#endif
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
     DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drEnergyOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for reduction(                                                                \
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none)                \
+    shared(it,                                                                                     \
+               drEnergyOutput,                                                                     \
+               faceInformation,                                                                    \
+               timeDerivativeMinusPtr,                                                             \
+               timeDerivativePlusPtr,                                                              \
+               godunovData,                                                                        \
+               waveSpeedsPlus,                                                                     \
+               waveSpeedsMinus)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
           totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
         }
-        staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
-                                                  timeDerivativeMinus[i],
+        staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
+                                                  timeDerivativeMinusPtr(i),
                                                   faceInformation[i],
                                                   godunovData[i],
                                                   drEnergyOutput[i].slip);
@@ -171,17 +237,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                       waveSpeedsPlus[i].sWaveVelocity;
         real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
                        waveSpeedsMinus[i].sWaveVelocity;
-        real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+        real mu = muPlus * muMinus / (muPlus + muMinus);
         real seismicMomentIncrease = 0.0;
         for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
           seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
-        seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                 seissol::dr::misc::numberOfBoundaryGaussPoints;
+        seismicMomentIncrease *=
+            godunovData[i].doubledSurfaceArea * mu / seissol::dr::misc::numberOfBoundaryGaussPoints;
         seismicMoment += seismicMomentIncrease;
       }
     }
   }
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {
@@ -199,8 +269,14 @@ void EnergyOutput::computeVolumeEnergies() {
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
+                                                        totalAcousticEnergyLocal,                  \
+                                                        totalAcousticKineticEnergyLocal,           \
+                                                        totalElasticEnergyLocal,                   \
+                                                        totalElasticKineticEnergyLocal,            \
+                                                        totalPlasticMoment)                        \
+    shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real volume = MeshTools::volume(elements[elementId], vertices);

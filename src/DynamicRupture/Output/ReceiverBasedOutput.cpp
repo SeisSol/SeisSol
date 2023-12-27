@@ -1,10 +1,10 @@
-#include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <unordered_map>
+#include <cstring>
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -26,14 +26,24 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif
 }
 
 void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif
 }
 
 void ReceiverOutput::calcFaultOutput(const OutputType type,
@@ -44,8 +54,27 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
+#ifdef ACL_DEVICE
+  real* dofsCopied =
+      reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(real) * tensor::Q::size() * outputData->cellCount));
+
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
+                                                                        dofsCopied,
+                                                                        tensor::Q::size(),
+                                                                        tensor::Q::size(),
+                                                                        outputData->cellCount,
+                                                                        stream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
+
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for
+#endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -66,15 +95,22 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    getDofs(dofsPlus, faultInfo.element);
+#ifdef ACL_DEVICE
+    {
+      real* dofsPlusData = dofsCopied + tensor::Q::size() * outputData->deviceDataPlus[i];
+      real* dofsMinusData = dofsCopied + tensor::Q::size() * outputData->deviceDataMinus[i];
 
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+      std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
+      std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+    }
+#else
+    getDofs(dofsPlus, faultInfo.element);
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
+#endif
 
     const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
@@ -257,6 +293,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->freePinnedMem(dofsCopied);
+#endif
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {

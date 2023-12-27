@@ -6,6 +6,9 @@
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.hpp"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "Parallel/MPI.h"
@@ -17,6 +20,9 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
+  void setLtsData(seissol::initializers::LTSTree* userWpTree,
+                  seissol::initializers::LTS* userWpDescr,
+                  seissol::initializers::Lut* userWpLut);
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -30,6 +36,9 @@ class ReceiverBasedOutputBuilder {
 
   protected:
   const seissol::geometry::MeshReader* meshReader{};
+  seissol::initializers::LTSTree* wpTree;
+  seissol::initializers::LTS* wpDescr;
+  seissol::initializers::Lut* wpLut;
   std::shared_ptr<ReceiverOutputData> outputData;
   int localRank{-1};
 };
