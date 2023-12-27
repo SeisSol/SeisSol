@@ -30,9 +30,9 @@ class FastVelocityWeakeningLaw
     decltype(FastVelocityWeakeningLaw::a) a;
     decltype(FastVelocityWeakeningLaw::sl0) sl0;
     decltype(FastVelocityWeakeningLaw::srW) srW;
-    decltype(dr::DRParameters::rsSr0) rsSr0;
-    decltype(dr::DRParameters::rsF0) rsF0;
-    decltype(dr::DRParameters::rsB) rsB;
+    decltype(seissol::initializers::parameters::DRParameters::rsSr0) rsSr0;
+    decltype(seissol::initializers::parameters::DRParameters::rsF0) rsF0;
+    decltype(seissol::initializers::parameters::DRParameters::rsB) rsB;
   };
 
   Details getCurrentLtsLayerDetails() {

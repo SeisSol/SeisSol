@@ -42,30 +42,15 @@
 
 #include "Wavefield.h"
 #include "Fault.h"
+#include "Initializer/parameters/OutputParameters.h"
 
-namespace seissol
-{
-
-namespace checkpoint
-{
-
-/** Checkpoint backend types */
-enum Backend {
-	POSIX,
-	HDF5,
-	MPIO,
-	MPIO_ASYNC,
-	SIONLIB,
-	DISABLED
-};
+namespace seissol::checkpoint {
 
 /**
  * Create the backend instances depending on the selected backend
  */
-void createBackend(Backend backend, Wavefield* &waveField, Fault* &fault);
+void createBackend(seissol::initializers::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault);
 
-}
-
-}
+} // namespace seissol::checkpoint
 
 #endif // CHECKPOINT_BACKEND_H

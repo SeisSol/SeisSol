@@ -38,14 +38,31 @@
  * @section DESCRIPTION
  */
 
-#include "SeisSol.h"
+#include <Initializer/parameters/OutputParameters.h>
+#include <Initializer/parameters/ParameterReader.h>
+#include <fty/fty.hpp>
+
 #include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
+#include "SeisSol.h"
+#include "utils/args.h"
 
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
+
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
+  // Read parameter file input from file
+  fty::Loader<fty::AsLowercase> loader{};
+  std::shared_ptr<YAML::Node> inputParams = nullptr;
+  try {
+    inputParams = std::make_shared<YAML::Node>(loader.load(parameterFile));
+  } catch (const std::exception& error) {
+    logError() << error.what() << std::endl;
+  }
+  return inputParams;
+}
 
 int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
@@ -78,7 +95,28 @@ int main(int argc, char* argv[]) {
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   // TODO Read parameters here
-  seissol::initializers::parameters::SeisSolParameters parameters;
+  // Parse command line arguments
+  utils::Args args;
+  args.addAdditionalOption("file", "The parameter file", false);
+  switch (args.parse(argc, argv)) {
+  case utils::Args::Help: {
+    [[fallthrough]];
+  }
+  case utils::Args::Error: {
+    MPI::mpi.finalize();
+    exit(1);
+    break;
+  }
+  case utils::Args::Success: {
+    break;
+  }
+  }
+  const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  // read parameter file input
+  const auto yamlParams = readYamlParams(parameterFile);
+  seissol::initializers::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
+  const auto parameters = seissol::initializers::parameters::readSeisSolParameters(parameterReader);
+
   // Initialize SeisSol
   seissol::SeisSol seissolInstance(parameters);
   const bool runSeisSol = seissolInstance.init(argc, argv);

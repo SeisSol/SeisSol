@@ -1,14 +1,16 @@
 #include "Init.hpp"
-#include "InitModel.hpp"
+
+#include <sstream>
+
 #include "InitIO.hpp"
 #include "InitMesh.hpp"
+#include "InitModel.hpp"
 #include "InitSideConditions.hpp"
-#include "SeisSol.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
+#include "Numerical_aux/Statistics.h"
 #include "Parallel/MPI.h"
-#include <Numerical_aux/Statistics.h>
 #include "ResultWriter/ThreadsPinningWriter.h"
-#include <sstream>
+#include "SeisSol.h"
 
 namespace {
 
@@ -54,7 +56,7 @@ static void initSeisSol(seissol::SeisSol& seissolInstance) {
   // set up simulator
   auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
-  sim.setFinalTime(seissolParams.end.endTime);
+  sim.setFinalTime(seissolParams.timeStepping.endTime);
 }
 
 static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {

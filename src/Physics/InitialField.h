@@ -1,13 +1,16 @@
 #ifndef PHYSICS_INITIALFIELD_H
 #define PHYSICS_INITIALFIELD_H
 
-#include <vector>
 #include <array>
 #include <complex>
+#include <vector>
+
+#include <Eigen/Dense>
+
+#include "Initializer/parameters/SeisSolParameters.h"
 #include "Initializer/typedefs.hpp"
-#include <Kernels/precision.hpp>
-#include <generated_code/init.h>
-#include <Initializer/InputParameters.hpp>
+#include "Kernels/precision.hpp"
+#include "generated_code/init.h"
 
 namespace seissol {
   namespace physics {
@@ -49,13 +52,13 @@ namespace seissol {
       //! Choose phase in [0, 2*pi]
     Planarwave(const CellMaterialData& materialData, 
                double phase,
-               std::array<double, 3> kVec,
+               Eigen::Vector3d kVec,
                std::vector<int> varField,
                std::vector<std::complex<double>> ampField
                );
     explicit Planarwave(const CellMaterialData& materialData,
                         double phase = 0.0,
-                        std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
+                        Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,
@@ -65,7 +68,7 @@ namespace seissol {
       std::vector<int> m_varField;
       std::vector<std::complex<double>> m_ampField;
       const double m_phase;
-      const std::array<double, 3> m_kVec;
+      const Eigen::Vector3d m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
   private:
@@ -83,7 +86,7 @@ namespace seissol {
                      const CellMaterialData& materialData,
                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
     private:
-      const std::array<std::array<double, 3>, 3>  m_kVec;
+      const std::array<Eigen::Vector3d, 3>  m_kVec;
       const double                                m_phase;
       std::array<Planarwave, 3>                   m_pw;
     };
@@ -98,7 +101,7 @@ namespace seissol {
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
       private:
-      std::array<double, 3> m_origin;
+      Eigen::Vector3d m_origin;
     };
 
     class ScholteWave : public InitialField {

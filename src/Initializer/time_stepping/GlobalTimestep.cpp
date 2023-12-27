@@ -7,7 +7,7 @@
 
 #include "Equations/datastructures.hpp"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters//SeisSolParameters.h"
 
 #include "SeisSol.h"
 

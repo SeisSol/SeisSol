@@ -28,11 +28,12 @@ struct DynamicRuptureTuple {
 
 class AbstractFactory {
   protected:
-  std::shared_ptr<dr::DRParameters> drParameters;
+  std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters;
   seissol::SeisSol& seissolInstance;
 
   public:
-  AbstractFactory(std::shared_ptr<dr::DRParameters> drParameters, seissol::SeisSol& seissolInstance)
+  AbstractFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
+                  seissol::SeisSol& seissolInstance)
       : drParameters(drParameters), seissolInstance(seissolInstance){};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
@@ -87,7 +88,7 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(std::shared_ptr<dr::DRParameters> dynRupParameter,
+    getFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> dynRupParameter,
                seissol::SeisSol& seissolInstance);
 
 } // namespace dr::factory

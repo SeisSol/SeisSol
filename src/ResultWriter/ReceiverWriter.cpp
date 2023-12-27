@@ -40,19 +40,17 @@
 #include "ReceiverWriter.h"
 
 #include <cctype>
-#include <iterator>
-#include <sstream>
-#include <iomanip>
 #include <fstream>
-#include <sys/stat.h>
-#include <Parallel/MPI.h>
-#include <Modules/Modules.h>
-
+#include <iomanip>
+#include <iterator>
+#include <regex>
 #include <sstream>
 #include <string>
-#include <fstream>
-#include <regex>
-#include "Initializer/InputParameters.hpp"
+#include <sys/stat.h>
+
+#include "Parallel/MPI.h"
+#include "Modules/Modules.h"
+#include "Initializer/parameters/SeisSolParameters.h"
 
 Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");

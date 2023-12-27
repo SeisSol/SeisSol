@@ -1,7 +1,7 @@
 
 #include <vector>
 #include "Initializer/ParameterDB.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
@@ -249,12 +249,12 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
 static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  assert(seissolParams.timeStepping.lts.rate > 0);
+  assert(seissolParams.timeStepping.lts.getRate() > 0);
 
-  if (seissolParams.timeStepping.lts.rate == 1) {
+  if (seissolParams.timeStepping.lts.getRate() == 1) {
     seissolInstance.getLtsLayout().deriveLayout(single, 1);
   } else {
-    seissolInstance.getLtsLayout().deriveLayout(multiRate, seissolParams.timeStepping.lts.rate);
+    seissolInstance.getLtsLayout().deriveLayout(multiRate, seissolParams.timeStepping.lts.getRate());
   }
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);

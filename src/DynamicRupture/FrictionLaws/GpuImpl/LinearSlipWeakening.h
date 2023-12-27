@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningBase<Derived>(seissol::initializers::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
@@ -157,7 +157,7 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningLaw<SpecializationT>(seissol::initializers::parameters::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 

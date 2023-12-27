@@ -13,7 +13,7 @@
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
-               std::array<double, 3> kVec,
+               Eigen::Vector3d kVec,
                std::vector<int> varField, 
                std::vector<std::complex<double>> ampField)
   : m_varField(std::move(varField)),
@@ -26,7 +26,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
-                                         std::array<double, 3> kVec)
+                                         Eigen::Vector3d kVec)
     : m_phase(phase), m_kVec(kVec) {
 
 #ifndef USE_POROELASTIC

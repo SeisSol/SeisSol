@@ -4,6 +4,7 @@
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 #include <memory>
 
 namespace seissol {
@@ -16,7 +17,7 @@ class OutputManager {
   ~OutputManager();
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
-  void setInputParam(const YAML::Node& inputData, seissol::geometry::MeshReader& userMesher);
+  void setInputParam(seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
                   seissol::initializers::Lut* userWpLut,
@@ -43,10 +44,6 @@ class OutputManager {
 
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
   std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
-
-  GeneralParams generalParams;
-  ElementwiseFaultParams elementwiseParams{};
-  PickpointParams pickpointParams{};
 
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};

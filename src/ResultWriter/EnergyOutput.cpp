@@ -1,10 +1,11 @@
 #include "EnergyOutput.h"
-#include <Kernels/DynamicRupture.h>
-#include <Numerical_aux/Quadrature.h>
+
 #include "DynamicRupture/Misc.h"
-#include <Parallel/MPI.h>
+#include "Initializer/parameters/SeisSolParameters.h"
+#include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "Initializer/InputParameters.hpp"
 
 namespace seissol::writer {
 

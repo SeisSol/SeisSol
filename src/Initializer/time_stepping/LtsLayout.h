@@ -47,7 +47,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 
-#include <Initializer/InputParameters.hpp>
+#include <Initializer/parameters/SeisSolParameters.h>
 
 #include <array>
 #include <limits>

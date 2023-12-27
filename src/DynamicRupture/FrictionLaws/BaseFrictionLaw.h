@@ -4,9 +4,9 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
+#include "Initializer/parameters/DRParameters.h"
 #include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
@@ -17,7 +17,7 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(seissol::initializers::parameters::DRParameters* drParameters) : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model

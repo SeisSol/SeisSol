@@ -44,12 +44,9 @@
 
 #include "Backend.h"
 #include "Monitoring/Stopwatch.h"
+#include "Initializer/parameters/OutputParameters.h"
 
-namespace seissol
-{
-
-namespace checkpoint
-{
+namespace seissol::checkpoint {
 
 /** Buffer ids for asynchronous IO */
 enum BufferTags {
@@ -64,7 +61,7 @@ enum BufferTags {
  */
 struct CheckpointInitParam
 {
-	Backend backend;
+        seissol::initializers::parameters::CheckpointingBackend backend;
 	unsigned int numBndGP;
 	bool loaded;
 };
@@ -166,8 +163,6 @@ public:
 	}
 };
 
-}
-
-}
+} // namespace seissol::checkpoint
 
 #endif // CHECKPOINT_MANAGER_EXECUTOR_H

@@ -48,7 +48,7 @@
 #include "utils/logger.h"
 
 #include "Checkpoint/Manager.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
@@ -91,8 +91,6 @@ class SeisSol {
    * Finalize SeisSol
    */
   void finalize();
-
-  const char* parameterFile() const { return m_parameterFile.c_str(); }
 
   initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
@@ -174,12 +172,8 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  void readInputParams();
-
-  const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
-
   const seissol::initializers::parameters::SeisSolParameters& getSeisSolParameters() {
-    return m_seissolparameters;
+    return m_seissolParameters;
   }
 
   /**
@@ -212,9 +206,6 @@ class SeisSol {
   // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
-
-  //! The name of the parameter file
-  std::string m_parameterFile;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
@@ -267,14 +258,11 @@ class SeisSol {
   //! Energy writer module
   writer::EnergyOutput m_energyOutput;
 
-  //! Input parameters
-  std::shared_ptr<YAML::Node> m_inputParams;
-
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
   //! Collection of Parameters
-  seissol::initializers::parameters::SeisSolParameters m_seissolparameters;
+  seissol::initializers::parameters::SeisSolParameters m_seissolParameters;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};

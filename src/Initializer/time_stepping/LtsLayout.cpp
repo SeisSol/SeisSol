@@ -1163,8 +1163,8 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   if( m_clusteringStrategy == single ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  std::numeric_limits<unsigned int>::max(),
-                                 seissolParams.timeStepping.lts.wiggleFactor,
-                                 seissolParams.timeStepping.lts.maxNumberOfClusters,
+                                 seissolParams.timeStepping.lts.getWiggleFactor(),
+                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
                                  m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
@@ -1174,8 +1174,8 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   else if ( m_clusteringStrategy == multiRate ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  i_clusterRate,
-                                 seissolParams.timeStepping.lts.wiggleFactor,
-                                 seissolParams.timeStepping.lts.maxNumberOfClusters,
+                                 seissolParams.timeStepping.lts.getWiggleFactor(),
+                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
                                  m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
@@ -1200,7 +1200,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   getTheoreticalSpeedup( l_perCellSpeedup, l_clusteringSpeedup );
 
   // The speedups above are computed without considering the wiggle factor
-  const auto wiggleFactor = seissolParams.timeStepping.lts.wiggleFactor;
+  const auto wiggleFactor = seissolParams.timeStepping.lts.getWiggleFactor();
   l_perCellSpeedup *= wiggleFactor;
   l_clusteringSpeedup *= wiggleFactor;
 

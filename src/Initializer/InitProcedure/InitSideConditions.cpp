@@ -4,7 +4,7 @@
 #include "InitSideConditions.hpp"
 
 #include "Initializer/InitialFieldProjection.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 
 #include "Parallel/MPI.h"
 

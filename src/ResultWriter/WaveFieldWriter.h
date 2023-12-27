@@ -63,7 +63,7 @@
 #include <Modules/Module.h>
 
 // for OutputBounds
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;

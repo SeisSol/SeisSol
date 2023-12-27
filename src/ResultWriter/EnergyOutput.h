@@ -15,7 +15,7 @@
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;

@@ -36,12 +36,11 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::calcFaultOutput(const OutputType type,
+void ReceiverOutput::calcFaultOutput(const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
                                      std::shared_ptr<ReceiverOutputData> outputData,
-                                     const GeneralParams& generalParams,
                                      double time) {
 
-  const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
+  const size_t level = (seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
 #pragma omp parallel for
@@ -145,12 +144,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    switch (generalParams.slipRateOutputType) {
-    case SlipRateOutputType::TractionsAndFailure: {
+    switch (seissolParameters.drParameters.slipRateOutputType) {
+    case seissol::initializers::parameters::SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
-    case SlipRateOutputType::VelocityDifference: {
+    case seissol::initializers::parameters::SlipRateOutputType::VelocityDifference: {
       this->computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
@@ -253,7 +252,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (type == OutputType::AtPickpoint) {
+  if (seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }

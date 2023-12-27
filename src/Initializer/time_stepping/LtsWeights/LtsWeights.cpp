@@ -166,11 +166,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     if (!(ltsParameters->isWiggleFactorUsed() && ltsParameters->isAutoMergeUsed())) {
       // Cost models only change things if both wiggle factor and auto merge are on.
       // In all other cases, choose the cheapest cost model.
-      autoMergeBaseline = AutoMergeCostBaseline::MaxWiggleFactor;
+      autoMergeBaseline = seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor;
     }
 
     ComputeWiggleFactorResult wiggleFactorResult{};
-    if (autoMergeBaseline == AutoMergeCostBaseline::BestWiggleFactor) {
+    if (autoMergeBaseline == seissol::initializers::parameters::AutoMergeCostBaseline::BestWiggleFactor) {
       // First compute wiggle factor without merging as baseline cost
       logInfo(rank) << "Using best wiggle factor as baseline cost for auto merging.";
       logInfo(rank) << "1. Compute best wiggle factor without merging clusters";

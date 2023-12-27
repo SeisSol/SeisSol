@@ -4,7 +4,6 @@
 #include <string>
 
 #include "Initializer/ParameterDB.h"
-#include "Initializer/InputParameters.hpp"
 
 namespace seissol::initializers {
 struct GlobalTimestep {
@@ -12,6 +11,10 @@ struct GlobalTimestep {
   double globalMinTimeStep;
   double globalMaxTimeStep;
 };
+
+namespace parameters {
+struct SeisSolParameters;
+}
 
 GlobalTimestep
     computeTimesteps(double cfl,

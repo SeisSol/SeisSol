@@ -2,7 +2,7 @@
 #define SEISSOL_FRICTIONSOLVER_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
+#include "Initializer/parameters/SeisSolParameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
 
@@ -16,7 +16,8 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
+  explicit FrictionSolver(seissol::initializers::parameters::DRParameters* userDRParameters)
+      : drParameters(userDRParameters) {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
               &init::quadweights::Values[init::quadweights::Stop[0]],
               &spaceWeights[0]);
@@ -48,7 +49,7 @@ class FrictionSolver {
    */
   real deltaT[CONVERGENCE_ORDER] = {};
 
-  dr::DRParameters* drParameters;
+  seissol::initializers::parameters::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
   ImpedanceMatrices* impedanceMatrices;
   real mFullUpdateTime;

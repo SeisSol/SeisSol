@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "Initializer/parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -87,7 +88,6 @@
 #include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
-#include <Initializer/time_stepping/LtsParameters.h>
 
 #include <Physics/InitialField.h>
 
@@ -100,14 +100,11 @@
 namespace seissol {
   class SeisSol;
   namespace initializers {
-    class MemoryManager;
-  }
-}
 
 /**
  * Memory manager of SeisSol.
  **/
-class seissol::initializers::MemoryManager {
+class MemoryManager {
   private: // explicit private for unit tests
     seissol::SeisSol& seissolInstance;
 
@@ -177,9 +174,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
-    std::shared_ptr<YAML::Node> m_inputParams = nullptr;
-    std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
+    std::shared_ptr<seissol::initializers::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -370,26 +365,24 @@ class seissol::initializers::MemoryManager {
     inline seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
     }
-    inline seissol::dr::DRParameters* getDRParameters() {
-        return m_dynRupParameters.get();
+    inline seissol::initializers::parameters::DRParameters* getDRParameters() {
+        return &(m_seissolParams->drParameters);
     }
 
-    inline time_stepping::LtsParameters* getLtsParameters() {
-        return ltsParameters.get();
+    inline seissol::initializers::parameters::LtsParameters* getLtsParameters() {
+        return &(m_seissolParams->timeStepping.lts);
     };
 
-    void setInputParams(std::shared_ptr<YAML::Node> params) {
-      m_inputParams = params;
-      m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
-      ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
+    void setInputParams(std::shared_ptr<seissol::initializers::parameters::SeisSolParameters> params) {
+      m_seissolParams = params;
     }
 
     std::string getOutputPrefix() const {
-      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
+      return m_seissolParams->output.prefix;
     }
 
     bool isLoopStatisticsNetcdfOutputOn() const {
-      return getWithDefault((*m_inputParams)["output"], "loopstatisticsnetcdfoutput", false);
+      return m_seissolParams->output.loopStatisticsNetcdfOutput;
     }
 
 #ifdef ACL_DEVICE
@@ -412,8 +405,6 @@ class seissol::initializers::MemoryManager {
 };
 
 
-namespace seissol {
-    namespace initializers {
     bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                                   unsigned int face);
     bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,

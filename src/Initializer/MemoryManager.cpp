@@ -67,14 +67,8 @@
  * @section DESCRIPTION
  * Memory management of SeisSol.
  **/
-#include "SeisSol.h"
 #include "MemoryManager.h"
-#include "InternalState.h"
-#include "GlobalData.h"
-#include <yateto.h>
 
-#include <Kernels/common.hpp>
-#include <generated_code/tensor.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
@@ -83,12 +77,20 @@
 #include <omp.h>
 #endif
 
+#include <yateto.h>
+
+#include "GlobalData.h"
+#include "Initializer/parameters/SeisSolParameters.h"
+#include "InternalState.h"
+#include "Kernels/common.hpp"
+#include "SeisSol.h"
+#include "generated_code/tensor.h"
+
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include "device.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #endif // ACL_DEVICE
-
 
 void seissol::initializers::MemoryManager::initialize()
 {
@@ -855,7 +857,8 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initialize Friction Model";
 
-  const auto factory = seissol::dr::factory::getFactory(m_dynRupParameters, seissolInstance);
+  auto drParameters = std::make_shared<seissol::initializers::parameters::DRParameters>(m_seissolParams->drParameters);
+  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
   m_DRInitializer = std::move(product.initializer);
@@ -865,8 +868,8 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
 
 void seissol::initializers::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
   // TODO: switch m_dynRup to shared or weak pointer
-  if (m_dynRupParameters->isDynamicRuptureEnabled) {
-    m_faultOutputManager->setInputParam(*m_inputParams, seissolInstance.meshReader());
+  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
+    m_faultOutputManager->setInputParam(seissolInstance.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_lts,
                                      &m_ltsLut,
@@ -880,7 +883,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager(const std::str
 
 
 void seissol::initializers::MemoryManager::initFrictionData() {
-  if (m_dynRupParameters->isDynamicRuptureEnabled) {
+  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 

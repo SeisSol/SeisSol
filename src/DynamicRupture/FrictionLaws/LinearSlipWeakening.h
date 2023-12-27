@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(seissol::initializers::parameters::DRParameters* drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
@@ -206,7 +206,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(DRParameters* parameters){};
+  explicit NoSpecialization(seissol::initializers::parameters::DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
@@ -234,7 +234,7 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
+  explicit BiMaterialFault(seissol::initializers::parameters::DRParameters* parameters) : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
@@ -256,7 +256,7 @@ class BiMaterialFault {
                     unsigned int pointIndex);
 
   protected:
-  DRParameters* drParameters;
+  seissol::initializers::parameters::DRParameters* drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
 

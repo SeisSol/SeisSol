@@ -47,8 +47,9 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <Initializer/time_stepping/LtsParameters.h>
-#include <Initializer/time_stepping/GlobalTimestep.hpp>
+
+#include "Initializer/parameters/LtsParameters.h"
+#include "Initializer/time_stepping/GlobalTimestep.hpp"
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }

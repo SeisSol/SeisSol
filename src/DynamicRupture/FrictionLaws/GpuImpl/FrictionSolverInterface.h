@@ -1,7 +1,7 @@
 #ifndef SEISSOL_FRICTION_SOLVER_INTERFACE_H
 #define SEISSOL_FRICTION_SOLVER_INTERFACE_H
 
-#include "DynamicRupture/Parameters.h"
+#include "Initializer/parameters/DRParameters.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
@@ -9,7 +9,7 @@
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
   public:
-  explicit FrictionSolverInterface(dr::DRParameters* drParameters)
+  explicit FrictionSolverInterface(seissol::initializers::parameters::DRParameters* drParameters)
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override{};
 

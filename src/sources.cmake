@@ -17,13 +17,13 @@ src/Initializer/InternalState.cpp
 src/Initializer/MemoryAllocator.cpp
 src/Initializer/CellLocalMatrices.cpp
 
-src/Initializer/time_stepping/LtsLayout.cpp
-src/Initializer/time_stepping/LtsParameters.cpp
-src/Initializer/time_stepping/GlobalTimestep.cpp
-src/Initializer/tree/Lut.cpp
-src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
-src/Initializer/InputParameters.cpp
+src/Initializer/MemoryManager.cpp
+src/Initializer/parameters/LtsParameters.cpp
+src/Initializer/parameters/SeisSolParameters.cpp
+src/Initializer/time_stepping/GlobalTimestep.cpp
+src/Initializer/time_stepping/LtsLayout.cpp
+src/Initializer/tree/Lut.cpp
 
 src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp

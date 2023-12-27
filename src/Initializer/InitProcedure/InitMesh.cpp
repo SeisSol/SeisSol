@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "Eigen/Dense"
 #include "utils/logger.h"
 #include "utils/env.h"
 
@@ -29,8 +30,8 @@
 namespace {
 
 static void postMeshread(seissol::geometry::MeshReader& meshReader,
-                         const std::array<double, 3>& displacement,
-                         const std::array<std::array<double, 3>, 3>& scalingMatrix,
+                         const Eigen::Vector3d& displacement,
+                         const Eigen::Matrix3d& scalingMatrix,
                          seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
@@ -92,13 +93,13 @@ static void readMeshPUML(const seissol::initializers::parameters::SeisSolParamet
 
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{seissolParams.model.materialFileName,
-                          static_cast<unsigned int>(seissolParams.timeStepping.lts.rate),
+                          static_cast<unsigned int>(seissolParams.timeStepping.lts.getRate()),
                           seissolParams.timeStepping.vertexWeight.weightElement,
                           seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
                           seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
   auto ltsWeights = getLtsWeightsImplementation(
-      seissolParams.timeStepping.lts.weighttype, config, seissolInstance);
+      seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto meshReader =
       new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                         seissolParams.mesh.partitioningLib.c_str(),
@@ -179,7 +180,7 @@ void seissol::initializers::initprocedure::initMesh(seissol::SeisSol& seissolIns
 
   std::string realMeshFileName = seissolParams.mesh.meshFileName;
   switch (meshFormat) {
-  case seissol::geometry::MeshFormat::Netcdf:
+    case seissol::initializers::parameters::MeshFormat::Netcdf:
 #if USE_NETCDF
     realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
     logInfo(commRank)
@@ -192,10 +193,10 @@ void seissol::initializers::initprocedure::initMesh(seissol::SeisSol& seissolIns
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
 #endif
     break;
-  case seissol::geometry::MeshFormat::PUML:
+    case seissol::initializers::parameters::MeshFormat::PUML:
     readMeshPUML(seissolParams, seissolInstance);
     break;
-  case seissol::geometry::MeshFormat::CubeGenerator:
+    case seissol::initializers::parameters::MeshFormat::CubeGenerator:
     readCubeGenerator(seissolParams, seissolInstance);
     break;
   default:

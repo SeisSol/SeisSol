@@ -39,16 +39,14 @@
  * Main C++ SeisSol file
  */
 
+#include <Initializer/parameters/SeisSolParameters.h>
 #include <climits>
 #include <unistd.h>
 #include <sys/resource.h>
-#include <fty/fty.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
-
-#include "utils/args.h"
 
 #include "SeisSol.h"
 #include "Modules/Modules.h"
@@ -140,34 +138,13 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   // Call post MPI initialization hooks
   seissol::Modules::callHook<seissol::POST_MPI_INIT>();
 
-  // Parse command line arguments
-  utils::Args args;
-  args.addAdditionalOption("file", "The parameter file", false);
-  switch (args.parse(argc, argv)) {
-  case utils::Args::Help: {
-    [[fallthrough]];
-  }
-  case utils::Args::Error: {
-    MPI::mpi.finalize();
-    exit(1);
-    break;
-  }
-  case utils::Args::Success: {
-    break;
-  }
-  }
-
   // Initialize the ASYNC I/O library
   if (!m_asyncIO.init())
     return false;
 
-  m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   m_memoryManager->initialize();
-  // read parameter file input
-  readInputParams();
 
-  m_seissolparameters.readParameters(*m_inputParams);
-  m_memoryManager->setInputParams(m_inputParams);
+  m_memoryManager->setInputParams(std::make_shared<seissol::initializers::parameters::SeisSolParameters>(m_seissolParameters));
 
   return true;
 }
@@ -183,17 +160,6 @@ void seissol::SeisSol::finalize() {
   MPI::mpi.finalize();
 
   logInfo(rank) << "SeisSol done. Goodbye.";
-}
-
-void seissol::SeisSol::readInputParams() {
-  // Read parameter file input from file
-  fty::Loader<fty::AsLowercase> loader{};
-  try {
-    m_inputParams = std::make_shared<YAML::Node>(loader.load(m_parameterFile));
-  } catch (const std::exception& error) {
-    std::cerr << error.what() << std::endl;
-    finalize();
-  }
 }
 
 void seissol::SeisSol::setBackupTimeStamp(const std::string& stamp) {

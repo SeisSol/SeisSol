@@ -4,7 +4,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Parameters.h"
+#include "Initializer/parameters/SeisSolParameters.h"
 #include "Initializer/InputAux.hpp"
 #include "Initializer/ParameterDB.h"
 
@@ -23,7 +23,7 @@ class BaseDRInitializer {
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
-  std::shared_ptr<DRParameters> drParameters;
+  std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters;
 
   /**
    * Set which contains all parameteres, which are provided by easi for the fault
@@ -63,7 +63,8 @@ class BaseDRInitializer {
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters, seissol::SeisSol& seissolInstance)
+  BaseDRInitializer(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
+                    seissol::SeisSol& seissolInstance)
       : drParameters(drParameters), seissolInstance(seissolInstance),
         faultParameterNames(
             seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};

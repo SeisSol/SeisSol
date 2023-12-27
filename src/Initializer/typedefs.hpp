@@ -471,8 +471,8 @@ struct GravitationSetup {
 } // namespace seissol
 
 struct TravellingWaveParameters {
-  std::array<double, 3> origin;
-  std::array<double, 3> kVec;
+  Eigen::Vector3d origin;
+  Eigen::Vector3d kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
 };

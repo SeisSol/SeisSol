@@ -44,6 +44,7 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
+#include <Initializer/parameters/OutputParameters.h>
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -74,7 +75,7 @@ private:
 	ManagerExecutor m_executor;
 
 	/** The backend that should be used */
-	Backend m_backend;
+        seissol::initializers::parameters::CheckpointingBackend m_backend;
 
 	/** The filename for the checkpoints */
 	std::string m_filename;
@@ -94,12 +95,12 @@ private:
 public:
 	Manager(seissol::SeisSol& seissolInstance) :
                   seissolInstance(seissolInstance),
-                  m_backend(DISABLED),
+                  m_backend(initializers::parameters::DISABLED),
                   m_numDofs(0),
                   m_numDRDofs(0) {}
 
 	virtual ~Manager() {}
-	void setBackend(Backend backend)
+	void setBackend(seissol::initializers::parameters::CheckpointingBackend backend)
 	{
 		m_backend = backend;
 	}
@@ -148,8 +149,9 @@ public:
 	{
 		SCOREP_USER_REGION("CheckpointManager_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-		if (m_backend == DISABLED)
+		if (m_backend == initializers::parameters::DISABLED) {
 			return;
+                }
 
 		m_stopwatch.start();
 
@@ -191,7 +193,7 @@ public:
 	 */
 	void close()
 	{
-		if (m_backend == DISABLED)
+		if (m_backend == initializers::parameters::DISABLED)
 			return;
 
 		// Terminate the executor

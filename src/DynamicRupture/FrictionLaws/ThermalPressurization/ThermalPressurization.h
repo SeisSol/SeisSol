@@ -4,7 +4,7 @@
 #include <array>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
+#include "Initializer/parameters/DRParameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/precision.hpp"
 
@@ -100,7 +100,7 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(seissol::initializers::parameters::DRParameters* drParameters) : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -137,7 +137,7 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters* drParameters;
+  seissol::initializers::parameters::DRParameters* drParameters;
 
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.

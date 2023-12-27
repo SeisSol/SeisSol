@@ -263,7 +263,7 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
   return layeredClusterMapping;
 }
 
-void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
+void seissol::sourceterm::Manager::loadSources(seissol::initializers::parameters::PointSourceType sourceType,
                                                char const* fileName,
                                                seissol::geometry::MeshReader const& mesh,
                                                seissol::initializers::LTSTree* ltsTree,
@@ -278,7 +278,7 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
 #endif
   auto sourceClusters =
       std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>{};
-  if (sourceType == SourceType::NrfSource) {
+  if (sourceType == seissol::initializers::parameters::PointSourceType::NrfSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, alloc);
@@ -286,10 +286,10 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
-  } else if (sourceType == SourceType::FsrmSource) {
+  } else if (sourceType == seissol::initializers::parameters::PointSourceType::FsrmSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
     sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, alloc);
-  } else if (sourceType == SourceType::None) {
+  } else if (sourceType == seissol::initializers::parameters::PointSourceType::None) {
     logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
   } else {
     logError() << "The source type" << static_cast<int>(sourceType)

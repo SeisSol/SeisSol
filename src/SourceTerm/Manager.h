@@ -80,7 +80,7 @@ class seissol::sourceterm::Manager {
   Manager() = default;
   ~Manager() = default;
 
-  void loadSources(SourceType sourceType,
+  void loadSources(seissol::initializers::parameters::PointSourceType sourceType,
                    char const* fileName,
                    seissol::geometry::MeshReader const& mesh,
                    seissol::initializers::LTSTree* ltsTree,

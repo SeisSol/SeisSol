@@ -3,12 +3,15 @@
 
 #include "ReceiverBasedOutputBuilder.hpp"
 #include <Initializer/PointMapper.h>
+#include <Initializer/parameters/OutputParameters.h>
 
 namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
-  void setParams(PickpointParams params) { pickpointParams = std::move(params); }
+  void setParams(seissol::initializers::parameters::PickpointParameters params) {
+    pickpointParams = std::move(params);
+  }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
     readCoordsFromFile();
@@ -27,7 +30,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   protected:
   void readCoordsFromFile() {
     using namespace seissol::initializers;
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
+    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName);
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints
@@ -237,7 +240,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   private:
-  PickpointParams pickpointParams;
+  seissol::initializers::parameters::PickpointParameters pickpointParams;
   std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output

@@ -6,6 +6,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
+#include <Initializer/parameters/SeisSolParameters.h>
 
 namespace seissol::dr::output {
 class ReceiverOutput {
@@ -20,9 +21,8 @@ class ReceiverOutput {
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(OutputType type,
+  void calcFaultOutput(const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
                        std::shared_ptr<ReceiverOutputData> state,
-                       const GeneralParams& generalParams,
                        double time = 0.0);
 
   protected:

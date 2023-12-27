@@ -11,7 +11,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  explicit BaseFrictionSolver<Derived>(seissol::initializers::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 

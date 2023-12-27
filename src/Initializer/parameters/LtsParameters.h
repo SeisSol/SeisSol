@@ -1,10 +1,22 @@
-#ifndef SEISSOL_LTSCONFIGURATION_H
-#define SEISSOL_LTSCONFIGURATION_H
+#ifndef SEISSOL_LTS_PARAMETERS_H
+#define SEISSOL_LTS_PARAMETERS_H
 
-#include <memory>
-#include <yaml-cpp/yaml.h>
+#include "ParameterReader.h"
 
-namespace seissol::initializers::time_stepping {
+namespace seissol::initializers::parameters {
+
+enum class LtsWeightsTypes : int {
+  ExponentialWeights = 0,
+  ExponentialBalancedWeights,
+  EncodedBalancedWeights,
+  Count
+};
+
+struct VertexWeightParameters {
+  int weightElement;
+  int weightDynamicRupture;
+  int weightFreeSurfaceWithGravity;
+};
 
 enum class AutoMergeCostBaseline {
   // Use cost without wiggle and cluster merge as baseline
@@ -25,6 +37,8 @@ class LtsParameters {
   bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
   AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
+  double wiggleFactor;
+  LtsWeightsTypes ltsWeightsType;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -36,6 +50,10 @@ class LtsParameters {
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
   [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
+  [[nodiscard]] double getWiggleFactor() const;
+  [[nodiscard]] LtsWeightsTypes getLtsWeightsType() const;
+
+  LtsParameters() = default;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
@@ -47,8 +65,25 @@ class LtsParameters {
                 AutoMergeCostBaseline autoMergeCostBaseline);
 };
 
-LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params);
+struct TimeSteppingParameters {
+  VertexWeightParameters vertexWeight;
+  double cfl;
+  double maxTimestepWidth;
+  double endTime;
+  LtsParameters lts;
 
-} // namespace seissol::initializers::time_stepping
+  TimeSteppingParameters() = default;
+
+  TimeSteppingParameters(VertexWeightParameters vertexWeight,
+                         double cfl,
+                         double maxTimestepWidth,
+                         double endTime,
+                         LtsParameters lts);
+};
+
+LtsParameters readLtsParameters(ParameterReader& baseReader);
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader& baseReader);
+
+} // namespace seissol::initializers::parameters
 
 #endif // SEISSOL_LTSCONFIGURATION_H

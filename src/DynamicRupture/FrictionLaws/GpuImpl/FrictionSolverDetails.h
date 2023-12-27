@@ -13,7 +13,7 @@ namespace sycl = cl::sycl;
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(dr::DRParameters* drParameters);
+  explicit FrictionSolverDetails(seissol::initializers::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
   void initSyclQueue() override;
