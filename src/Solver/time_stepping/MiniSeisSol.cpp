@@ -49,7 +49,6 @@
 
 #ifdef ACL_DEVICE
 #include <Initializer/BatchRecorders/Recorders.h>
-#include <Parallel/AcceleratorDevice.h>
 #include "device.h"
 #endif
 
