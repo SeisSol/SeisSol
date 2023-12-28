@@ -3,7 +3,7 @@
 namespace seissol::initializers::parameters {
 
 CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("cubegenerator");
+  auto& reader = baseReader.readSubNode("cubegenerator");
   const unsigned int cubeMinX = reader.readWithDefault("cubeminx", 6);
   const unsigned int cubeMaxX = reader.readWithDefault("cubemaxx", 6);
   const unsigned int cubeMinY = reader.readWithDefault("cubeminy", 6);
@@ -50,7 +50,7 @@ CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader& baseReader)
 }
 
 void discardCubeGeneratorParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("cubegenerator");
+  auto& reader = baseReader.readSubNode("cubegenerator");
   reader.markUnused("cubegenerator",
                     "cubeminx",
                     "cubemaxx",

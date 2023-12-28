@@ -3,11 +3,11 @@
 namespace seissol::initializers::parameters {
 
 ModelParameters readModelParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("equations");
+  auto& reader = baseReader.readSubNode("equations");
 
   const std::string boundaryFileName = reader.readWithDefault("boundaryfileName", std::string(""));
   const std::string materialFileName =
-      reader.readOrFail<std::string>("materialfileName", "No material file given.");
+      reader.readOrFail<std::string>("materialfilename", "No material file given.");
   const bool hasBoundaryFile = boundaryFileName != "";
 
   const bool plasticity = reader.readWithDefault("plasticity", false);
@@ -47,8 +47,8 @@ ModelParameters readModelParameters(ParameterReader& baseReader) {
   const double freqCentral = readFreqCentral();
   const double freqRatio = readFreqRatio();
 
-  reader.warnDeprecated({"adjoint", "adjfileName", "anisotropy"});
-  reader.warnUnknown();
+  reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          useCellHomogenizedMaterial,

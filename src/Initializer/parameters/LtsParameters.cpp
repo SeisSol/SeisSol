@@ -1,4 +1,7 @@
 #include "LtsParameters.h"
+
+#include <cassert>
+
 #include <utils/logger.h>
 
 namespace seissol::initializers::parameters {
@@ -16,7 +19,7 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
 }
 
 LtsParameters readLtsParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("discretization");
+  auto& reader = baseReader.readSubNode("discretization");
   const unsigned int rate = reader.readWithDefault("clusteredlts", 1);
   const double wiggleFactorMinimum = reader.readWithDefault("ltswigglefactormin", 1.0);
   const double wiggleFactorStepsize = reader.readWithDefault("ltswigglefactorstepsize", 0.01);
@@ -87,7 +90,7 @@ double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimu
 
 double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize; }
 
-double LtsParameters::getWiggleFactor() const { return wiggleFactor; }
+double LtsParameters::getWiggleFactor() const { return finalWiggleFactor; }
 
 bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
   return wiggleFactorEnforceMaximumDifference;
@@ -104,6 +107,17 @@ AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
   return autoMergeCostBaseline;
 }
 
+void LtsParameters::setWiggleFactor(double factor) {
+  assert(factor >= 1.0 / static_cast<double>(rate));
+  assert(factor <= 1.0);
+  finalWiggleFactor = factor;
+}
+
+void LtsParameters::setMaxNumberOfClusters(int numClusters) {
+  assert(numClusters > 0);
+  maxNumberOfClusters = numClusters;
+}
+
 TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeight,
                                                double cfl,
                                                double maxTimestepWidth,
@@ -113,7 +127,7 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
       lts(lts) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("discretization");
+  auto& reader = baseReader.readSubNode("discretization");
   const auto weightElement = reader.readWithDefault("vertexweightelement", 100);
   const auto weightDynamicRupture = reader.readWithDefault("vertexweightdynamicrupture", 100);
   const auto weightFreeSurfaceWithGravity =
@@ -122,7 +136,9 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader& baseReader) {
   const double maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
 
   auto abortReader = baseReader.readSubNode("abortcriteria");
-  const double endTime = reader.readWithDefault("endtime", 15.0);
+
+  auto& timeReader = baseReader.readSubNode("abortcriteria");
+  const double endTime = timeReader.readWithDefault("endtime", 15.0);
 
   const LtsParameters ltsParameters = readLtsParameters(baseReader);
 
@@ -136,7 +152,6 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader& baseReader) {
                          "order",
                          "material",
                          "npolymap"});
-  reader.warnUnknown();
 
   return TimeSteppingParameters({weightElement, weightDynamicRupture, weightFreeSurfaceWithGravity},
                                 cfl,

@@ -3,7 +3,7 @@
 namespace seissol::initializers::parameters {
 
 MeshParameters readMeshParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("meshnml");
+  auto& reader = baseReader.readSubNode("meshnml");
 
   const MeshFormat meshFormat =
       reader.readWithDefaultStringEnum<MeshFormat>("meshgenerator",
@@ -32,7 +32,6 @@ MeshParameters readMeshParameters(ParameterReader& baseReader) {
   const bool showEdgeCutStatistics = reader.readWithDefault("showedgecutstatistics", false);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
-  reader.warnUnknown();
 
   return MeshParameters{
       showEdgeCutStatistics, meshFormat, meshFileName, partitioningLib, displacement, scaling};

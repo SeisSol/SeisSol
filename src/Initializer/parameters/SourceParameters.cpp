@@ -3,7 +3,7 @@
 namespace seissol::initializers::parameters {
 
 SourceParameters readSourceParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("sourcetype");
+  auto& reader = baseReader.readSubNode("sourcetype");
 
   const auto type = reader.readWithDefaultEnum(
       "type",
@@ -21,7 +21,6 @@ SourceParameters readSourceParameters(ParameterReader& baseReader) {
   };
   const auto fileName = readFilename(type != PointSourceType::None);
   reader.warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
-  reader.warnUnknown();
 
   return SourceParameters{type, fileName};
 }

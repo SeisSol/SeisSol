@@ -172,7 +172,7 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  const seissol::initializers::parameters::SeisSolParameters& getSeisSolParameters() {
+  seissol::initializers::parameters::SeisSolParameters& getSeisSolParameters() {
     return m_seissolParameters;
   }
 
@@ -194,9 +194,6 @@ class SeisSol {
    * returns the backup time stamp
    * */
   const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
-
-  double wiggleFactorLts = 1.0;
-  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!

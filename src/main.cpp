@@ -116,6 +116,7 @@ int main(int argc, char* argv[]) {
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializers::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
   const auto parameters = seissol::initializers::parameters::readSeisSolParameters(parameterReader);
+  parameterReader.warnUnknown();
 
   // Initialize SeisSol
   seissol::SeisSol seissolInstance(parameters);

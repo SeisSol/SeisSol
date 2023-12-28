@@ -4,7 +4,7 @@
 namespace seissol::initializers::parameters {
 
 DRParameters readDRParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("dynamicrupture");
+  auto& reader = baseReader.readSubNode("dynamicrupture");
 
   const double xref = reader.readWithDefault("xref", 0.0);
   const double yref = reader.readWithDefault("yref", 0.0);
@@ -86,7 +86,7 @@ DRParameters readDRParameters(ParameterReader& baseReader) {
   const auto vStar = readIfRequired("pc_vstar", isBiMaterial);
   const auto prakashLength = readIfRequired("pc_prakashlength", isBiMaterial);
 
-  const std::string faultFileName = reader.readWithDefault("modelfileName", std::string(""));
+  const std::string faultFileName = reader.readWithDefault("modelfilename", std::string(""));
 
   // TODO: isDsOn, isRfOn, isFrictionEnergyOn
 

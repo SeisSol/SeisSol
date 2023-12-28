@@ -33,11 +33,11 @@ class LtsParameters {
   double wiggleFactorMinimum;
   double wiggleFactorStepsize;
   bool wiggleFactorEnforceMaximumDifference;
-  unsigned int maxNumberOfClusters;
   bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
   AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
-  double wiggleFactor;
+  double finalWiggleFactor = 1.0;
+  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
   LtsWeightsTypes ltsWeightsType;
 
   public:
@@ -52,6 +52,8 @@ class LtsParameters {
   [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
   [[nodiscard]] double getWiggleFactor() const;
   [[nodiscard]] LtsWeightsTypes getLtsWeightsType() const;
+  void setWiggleFactor(double factor);
+  void setMaxNumberOfClusters(int numClusters);
 
   LtsParameters() = default;
 

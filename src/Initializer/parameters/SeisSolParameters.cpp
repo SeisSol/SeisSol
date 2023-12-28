@@ -65,7 +65,6 @@ SeisSolParameters readSeisSolParameters(ParameterReader& parameterReader) {
                                   "analysis",
                                   "analysisfields",
                                   "debugging"});
-  parameterReader.warnUnknown();
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 

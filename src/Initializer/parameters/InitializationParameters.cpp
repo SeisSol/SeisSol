@@ -3,7 +3,7 @@
 namespace seissol::initializers::parameters {
 
 InitializationParameters readInitializationParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("inicondition");
+  auto& reader = baseReader.readSubNode("inicondition");
 
   const auto type = reader.readWithDefaultStringEnum<InitializationType>(
       "cictype",
@@ -37,8 +37,6 @@ InitializationParameters readInitializationParameters(ParameterReader& baseReade
 
   const auto magnitude = reader.readWithDefault("magnitude", 0.0);
   const auto width = reader.readWithDefault("width", std::numeric_limits<double>::infinity());
-
-  reader.warnUnknown();
 
   return InitializationParameters{type, origin, kVec, ampField, magnitude, width};
 }

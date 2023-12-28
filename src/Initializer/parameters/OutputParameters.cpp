@@ -20,7 +20,7 @@ void warnIntervalAndDisable(bool& enabled,
 }
 
 CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   auto enabled = reader.readWithDefault("checkpoint", true);
   auto readBackend = [&reader](bool enabled) {
@@ -60,7 +60,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
 }
 
 ElementwiseFaultParameters readElementwiseParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("elementwise");
 
   const auto printTimeIntervalSec = reader.readWithDefault("printtimeinterval_sec", 1.0);
   const auto outputMaskString =
@@ -77,7 +77,7 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader& baseReader
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   bool enabled = reader.readWithDefault("energyoutput", false);
   const auto interval = reader.readWithDefault("energyoutputinterval", veryLongTime);
@@ -92,7 +92,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader& baseReader) {
 }
 
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   auto enabled = reader.readWithDefault("surfaceoutput", false);
   const auto interval = reader.readWithDefault("surfaceoutputinterval", veryLongTime);
@@ -104,7 +104,7 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader& baseReade
 }
 
 PickpointParameters readPickpointParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("pickpoint");
 
   const auto printTimeInterval = reader.readWithDefault("printtimeinterval", 1);
   const auto maxPickStore = 50;
@@ -113,13 +113,15 @@ PickpointParameters readPickpointParameters(ParameterReader& baseReader) {
       reader.readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
   const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString);
 
-  const auto pickpointFileName = reader.readWithDefault("ppfileName", std::string(""));
+  const auto pickpointFileName = reader.readWithDefault("ppfilename", std::string(""));
+
+  reader.warnDeprecated({"noutpoints"});
 
   return PickpointParameters{printTimeInterval, maxPickStore, outputMask, pickpointFileName};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   const auto interval = reader.readWithDefault("receiveroutputinterval", veryLongTime);
   auto enabled = reader.readWithDefault("receiveroutput", true);
@@ -127,13 +129,13 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader& baseReader) {
 
   const auto computeRotation = reader.readWithDefault("receivercomputerotation", false);
   const auto samplingInterval = reader.readWithDefault("pickdt", 0.0);
-  const auto fileName = reader.readWithDefault("rfileName", std::string(""));
+  const auto fileName = reader.readWithDefault("rfilename", std::string(""));
 
   return ReceiverOutputParameters{enabled, computeRotation, interval, samplingInterval, fileName};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   auto enabled = reader.readWithDefault("wavefieldoutput", true);
   const auto interval = reader.readWithDefault("timeinterval", veryLongTime);
@@ -178,7 +180,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
   const std::array<bool, 7> plasticityMask = convertStringToArray<bool, 7>(plasticityMaskString);
 
   const auto integrationMaskString =
-      reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 1"));
+      reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
   const std::array<bool, 9> integrationMask = convertStringToArray<bool, 9>(integrationMaskString);
 
   const auto groupsRaw = reader.readWithDefault("outputgroups", std::vector<int>());
@@ -189,7 +191,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
 }
 
 OutputParameters readOutputParameters(ParameterReader& baseReader) {
-  auto reader = baseReader.readSubNode("output");
+  auto& reader = baseReader.readSubNode("output");
 
   const auto loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
@@ -222,7 +224,6 @@ OutputParameters readOutputParameters(ParameterReader& baseReader) {
                          "pickdttype",
                          "ioutputmaskmaterial",
                          "faultoutputflag"});
-  reader.warnUnknown();
 
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,

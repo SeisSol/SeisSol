@@ -38,21 +38,20 @@
  * @section DESCRIPTION
  *
  **/
+#include "LtsWeights.h"
+
 #include <Eigen/Eigenvalues>
-#include <Kernels/precision.hpp>
-#include <Initializer/typedefs.hpp>
 
 #include <PUML/PUML.h>
 #include <PUML/Downward.h>
 #include <PUML/Upward.h>
-#include "LtsWeights.h"
 
-#include <Initializer/time_stepping/GlobalTimestep.hpp>
-#include <Parallel/MPI.h>
-
-#include <generated_code/init.h>
-
+#include "Initializer/time_stepping/GlobalTimestep.hpp"
+#include "Initializer/typedefs.hpp"
+#include "Kernels/precision.hpp"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "generated_code/init.h"
 
 namespace seissol::initializers::time_stepping {
 
@@ -159,7 +158,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
+  auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
   if (ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) {
     auto autoMergeBaseline = ltsParameters.getAutoMergeCostBaseline();
@@ -192,7 +191,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   } else {
     wiggleFactor = 1.0;
   }
-  seissolInstance.wiggleFactorLts = wiggleFactor;
+  ltsParameters.setWiggleFactor(wiggleFactor);
 
   m_clusterIds = computeClusterIds(wiggleFactor);
 
@@ -206,7 +205,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 #ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, &maxNumberOfClusters, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
 #endif
-  seissolInstance.maxNumberOfClusters = maxNumberOfClusters;
+  ltsParameters.setMaxNumberOfClusters(maxNumberOfClusters);
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
