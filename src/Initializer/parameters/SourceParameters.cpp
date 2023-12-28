@@ -14,7 +14,7 @@ SourceParameters readSourceParameters(ParameterReader& baseReader) {
     if (enabled) {
       fileName = reader.readOrFail<std::string>("fileName", "No source file specified.");
     } else {
-      reader.markUnused("fileName");
+      reader.markUnused({"fileName"});
     }
 
     return fileName;

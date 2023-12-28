@@ -56,7 +56,7 @@ DRParameters readDRParameters(ParameterReader& baseReader) {
       std::string failString = "Did not find parameter " + name;
       value = reader.readOrFail<double>(name, failString);
     } else {
-      reader.markUnused(name);
+      reader.markUnused({name});
     }
     return value;
   };

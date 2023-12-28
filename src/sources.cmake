@@ -45,6 +45,7 @@ src/Initializer/parameters/LtsParameters.cpp
 src/Initializer/parameters/MeshParameters.cpp
 src/Initializer/parameters/ModelParameters.cpp
 src/Initializer/parameters/OutputParameters.cpp
+src/Initializer/parameters/ParameterReader.cpp
 src/Initializer/parameters/SeisSolParameters.cpp
 src/Initializer/parameters/SourceParameters.cpp
 

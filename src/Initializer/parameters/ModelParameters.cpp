@@ -24,7 +24,7 @@ ModelParameters readModelParameters(ParameterReader& baseReader) {
       freqCentral = reader.readOrFail<double>(
           "freqcentral", "equations.freqcentral is needed for the attenuation fitting.");
     } else {
-      reader.markUnused("freqcentral");
+      reader.markUnused({"freqcentral"});
     }
     return freqCentral;
   };
@@ -39,7 +39,7 @@ ModelParameters readModelParameters(ParameterReader& baseReader) {
             << "The freqratio parameter must be positive---but that is currently not the case.";
       }
     } else {
-      reader.markUnused("freqratio");
+      reader.markUnused({"freqratio"});
     }
     return freqRatio;
   };

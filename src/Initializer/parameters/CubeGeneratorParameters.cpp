@@ -51,7 +51,7 @@ CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader& baseReader)
 
 void discardCubeGeneratorParameters(ParameterReader& baseReader) {
   auto& reader = baseReader.readSubNode("cubegenerator");
-  reader.markUnused("cubegenerator",
+  reader.markUnused({"cubegenerator",
                     "cubeminx",
                     "cubemaxx",
                     "cubeminy",
@@ -67,6 +67,6 @@ void discardCubeGeneratorParameters(ParameterReader& baseReader) {
                     "cubesz",
                     "cubetx",
                     "cubety",
-                    "cubetz");
+                    "cubetz"});
 }
 } // namespace seissol::initializers::parameters

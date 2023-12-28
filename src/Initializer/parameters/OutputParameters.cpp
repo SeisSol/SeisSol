@@ -36,7 +36,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
            {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
            {"sionlib", CheckpointingBackend::SIONLIB}});
     } else {
-      reader.markUnused("CheckpointingBackend");
+      reader.markUnused({"CheckpointingBackend"});
     }
     return backend;
   };
@@ -50,7 +50,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
     if (enabled) {
       fileName = reader.readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
     } else {
-      reader.markUnused("chekpointfileName");
+      reader.markUnused({"chekpointfileName"});
     }
     return fileName;
   };
