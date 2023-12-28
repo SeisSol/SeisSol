@@ -2,7 +2,7 @@
 
 namespace seissol::initializers::parameters {
 
-SeisSolParameters readSeisSolParameters(ParameterReader& parameterReader) {
+SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   // ParameterReader baseReader(baseNode, false);
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
@@ -20,9 +20,9 @@ SeisSolParameters readSeisSolParameters(ParameterReader& parameterReader) {
   // if (isModelViscoelastic()) {
   //   double maxTimestepWidthDefault =
   //       0.25 / (seissolParams.model.freqCentral * std::sqrt(seissolParams.model.freqRatio));
-  //   if (reader.hasField("fixtimestep")) {
+  //   if (reader->hasField("fixtimestep")) {
   //     seissolParams.timeStepping.maxTimestepWidth =
-  //         reader.readWithDefault("fixtimestep", maxTimestepWidthDefault);
+  //         reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
   //     if (seissolParams.timeStepping.maxTimestepWidth > maxTimestepWidthDefault) {
   //       logWarning(seissol::MPI::mpi.rank())
   //           << "The given maximum timestep width (fixtimestep) is set to"
@@ -46,25 +46,25 @@ SeisSolParameters readSeisSolParameters(ParameterReader& parameterReader) {
   //         << " for visco-elastic material (as specified in the documentation).";
   //   }
   // } else {
-  //   seissolParams.timeStepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
+  //   seissolParams.timeStepping.maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
   // }
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
-  parameterReader.warnDeprecated({"boundaries",
-                                  "rffile",
-                                  "inflowbound",
-                                  "inflowboundpwfile",
-                                  "inflowbounduin",
-                                  "source110",
-                                  "source15",
-                                  "source1618",
-                                  "source17",
-                                  "source19",
-                                  "spongelayer",
-                                  "sponges",
-                                  "analysis",
-                                  "analysisfields",
-                                  "debugging"});
+  parameterReader->warnDeprecated({"boundaries",
+                                   "rffile",
+                                   "inflowbound",
+                                   "inflowboundpwfile",
+                                   "inflowbounduin",
+                                   "source110",
+                                   "source15",
+                                   "source1618",
+                                   "source17",
+                                   "source19",
+                                   "spongelayer",
+                                   "sponges",
+                                   "analysis",
+                                   "analysisfields",
+                                   "debugging"});
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 

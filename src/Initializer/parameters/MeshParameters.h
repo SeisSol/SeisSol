@@ -20,7 +20,7 @@ struct MeshParameters {
   Eigen::Matrix3d scaling;
 };
 
-MeshParameters readMeshParameters(ParameterReader& baseReader);
+MeshParameters readMeshParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif

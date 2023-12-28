@@ -14,7 +14,7 @@ struct SourceParameters {
   std::string fileName;
 };
 
-SourceParameters readSourceParameters(ParameterReader& baseReader);
+SourceParameters readSourceParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif

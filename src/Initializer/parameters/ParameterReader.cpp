@@ -27,7 +27,7 @@ void ParameterReader::warnUnknown(const std::string& prefix) const {
     }
   }
   for (const auto& pair : subreaders) {
-    pair.second.warnUnknown(pair.first);
+    pair.second->warnUnknown(pair.first);
   }
 }
 
@@ -38,20 +38,24 @@ void ParameterReader::markUnused(const std::vector<std::string>& fields) {
   }
 }
 
-ParameterReader& ParameterReader::readSubNode(const std::string& subnodeName) {
+ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited.emplace(subnodeName);
   logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
   if (subreaders.find(subnodeName) == subreaders.end()) {
+    bool empty;
     if (hasField(subnodeName)) {
-      subreaders.emplace(subnodeName, ParameterReader(node[subnodeName], false));
+      empty = false;
+
     } else {
       logDebug(seissol::MPI::mpi.rank())
           << "Section" << subnodeName
-          << "not found in the given parameter file. Using an empty reader.";
-      subreaders.emplace(subnodeName, ParameterReader(node[subnodeName], true));
+          << "not found in the given parameter file. Using an empty reader->";
+      empty = true;
     }
+    subreaders.emplace(
+        subnodeName, std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], empty)));
   }
-  return subreaders.at(subnodeName);
+  return subreaders.at(subnodeName).get();
 }
 
 bool ParameterReader::hasField(const std::string& field) { return !empty && node[field]; }

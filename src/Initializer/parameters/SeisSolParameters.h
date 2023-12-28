@@ -25,7 +25,7 @@ struct SeisSolParameters {
   TimeSteppingParameters timeStepping;
 };
 
-SeisSolParameters readSeisSolParameters(ParameterReader& parameterReader);
+SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader);
 } // namespace seissol::initializers::parameters
 
 #endif

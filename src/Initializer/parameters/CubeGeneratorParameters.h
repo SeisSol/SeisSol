@@ -27,8 +27,8 @@ struct CubeGeneratorParameters {
   double cubeTz;
 };
 
-CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader& baseReader);
-void discardCubeGeneratorParameters(ParameterReader& baseReader);
+CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader);
+void discardCubeGeneratorParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif

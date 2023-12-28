@@ -69,7 +69,7 @@ struct DRParameters {
   Eigen::Vector3d referencePoint;
 };
 
-DRParameters readDRParameters(ParameterReader& baseReader);
+DRParameters readDRParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializers::parameters
 #endif // SEISSOL_PARAMETERS_H

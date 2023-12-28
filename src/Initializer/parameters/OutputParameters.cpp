@@ -19,14 +19,14 @@ void warnIntervalAndDisable(bool& enabled,
   }
 }
 
-CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
-  auto enabled = reader.readWithDefault("checkpoint", true);
+  auto enabled = reader->readWithDefault("checkpoint", true);
   auto readBackend = [&reader](bool enabled) {
     CheckpointingBackend backend = CheckpointingBackend::DISABLED;
     if (enabled) {
-      backend = reader.readWithDefaultStringEnum<CheckpointingBackend>(
+      backend = reader->readWithDefaultStringEnum<CheckpointingBackend>(
           "checkpointbackend",
           "none",
           {{"none", CheckpointingBackend::DISABLED},
@@ -36,21 +36,21 @@ CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
            {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
            {"sionlib", CheckpointingBackend::SIONLIB}});
     } else {
-      reader.markUnused({"CheckpointingBackend"});
+      reader->markUnused({"CheckpointingBackend"});
     }
     return backend;
   };
   const auto backend = readBackend(enabled);
-  const auto interval = reader.readWithDefault("checkpointinterval", 0.0);
+  const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
 
   warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
 
   auto readFilename = [&reader](bool enabled) {
     std::string fileName = "";
     if (enabled) {
-      fileName = reader.readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
+      fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
     } else {
-      reader.markUnused({"chekpointfileName"});
+      reader->markUnused({"chekpointfileName"});
     }
     return fileName;
   };
@@ -59,97 +59,97 @@ CheckpointParameters readCheckpointParameters(ParameterReader& baseReader) {
   return CheckpointParameters{enabled, interval, backend, fileName};
 }
 
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("elementwise");
+ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("elementwise");
 
-  const auto printTimeIntervalSec = reader.readWithDefault("printtimeinterval_sec", 1.0);
+  const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
   const auto outputMaskString =
-      reader.readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
+      reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
   const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString);
-  const auto refinementStrategy = reader.readWithDefaultEnum<FaultRefinement>(
+  const auto refinementStrategy = reader->readWithDefaultEnum<FaultRefinement>(
       "refinement_strategy",
       FaultRefinement::None,
       {FaultRefinement::Triple, FaultRefinement::Quad, FaultRefinement::None});
-  int refinement = reader.readWithDefault("refinement", 2);
+  int refinement = reader->readWithDefault("refinement", 2);
 
   return ElementwiseFaultParameters{
       printTimeIntervalSec, outputMask, refinementStrategy, refinement};
 }
 
-EnergyOutputParameters readEnergyParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
-  bool enabled = reader.readWithDefault("energyoutput", false);
-  const auto interval = reader.readWithDefault("energyoutputinterval", veryLongTime);
+  bool enabled = reader->readWithDefault("energyoutput", false);
+  const auto interval = reader->readWithDefault("energyoutputinterval", veryLongTime);
   warnIntervalAndDisable(enabled, interval, "energyoutput", "energyoutputinterval");
 
   const auto computeVolumeEnergiesEveryOutput =
-      reader.readWithDefault("computevolumeenergieseveryoutput", 1);
-  const auto terminalOutput = reader.readWithDefault("energyterminaloutput", false);
+      reader->readWithDefault("computevolumeenergieseveryoutput", 1);
+  const auto terminalOutput = reader->readWithDefault("energyterminaloutput", false);
 
   return EnergyOutputParameters{
       enabled, computeVolumeEnergiesEveryOutput, interval, terminalOutput};
 }
 
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
-  auto enabled = reader.readWithDefault("surfaceoutput", false);
-  const auto interval = reader.readWithDefault("surfaceoutputinterval", veryLongTime);
+  auto enabled = reader->readWithDefault("surfaceoutput", false);
+  const auto interval = reader->readWithDefault("surfaceoutputinterval", veryLongTime);
   warnIntervalAndDisable(enabled, interval, "surfaceoutput", "surfaceoutputinterval");
 
-  const auto refinement = reader.readWithDefault("surfaceoutputrefinement", 0u);
+  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
 
   return FreeSurfaceOutputParameters{enabled, refinement, interval};
 }
 
-PickpointParameters readPickpointParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("pickpoint");
+PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("pickpoint");
 
-  const auto printTimeInterval = reader.readWithDefault("printtimeinterval", 1);
+  const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
   const auto maxPickStore = 50;
 
   const auto outputMaskString =
-      reader.readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
+      reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
   const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString);
 
-  const auto pickpointFileName = reader.readWithDefault("ppfilename", std::string(""));
+  const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
 
-  reader.warnDeprecated({"noutpoints"});
+  reader->warnDeprecated({"noutpoints"});
 
   return PickpointParameters{printTimeInterval, maxPickStore, outputMask, pickpointFileName};
 }
 
-ReceiverOutputParameters readReceiverParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
-  const auto interval = reader.readWithDefault("receiveroutputinterval", veryLongTime);
-  auto enabled = reader.readWithDefault("receiveroutput", true);
+  const auto interval = reader->readWithDefault("receiveroutputinterval", veryLongTime);
+  auto enabled = reader->readWithDefault("receiveroutput", true);
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
-  const auto computeRotation = reader.readWithDefault("receivercomputerotation", false);
-  const auto samplingInterval = reader.readWithDefault("pickdt", 0.0);
-  const auto fileName = reader.readWithDefault("rfilename", std::string(""));
+  const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
+  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
   return ReceiverOutputParameters{enabled, computeRotation, interval, samplingInterval, fileName};
 }
 
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
-  auto enabled = reader.readWithDefault("wavefieldoutput", true);
-  const auto interval = reader.readWithDefault("timeinterval", veryLongTime);
+  auto enabled = reader->readWithDefault("wavefieldoutput", true);
+  const auto interval = reader->readWithDefault("timeinterval", veryLongTime);
   warnIntervalAndDisable(enabled, interval, "wavefieldoutput", "timeinterval");
   const auto refinement =
-      reader.readWithDefaultEnum<VolumeRefinement>("refinement",
-                                                   VolumeRefinement::NoRefine,
-                                                   {VolumeRefinement::NoRefine,
-                                                    VolumeRefinement::Refine4,
-                                                    VolumeRefinement::Refine8,
-                                                    VolumeRefinement::Refine32});
+      reader->readWithDefaultEnum<VolumeRefinement>("refinement",
+                                                    VolumeRefinement::NoRefine,
+                                                    {VolumeRefinement::NoRefine,
+                                                     VolumeRefinement::Refine4,
+                                                     VolumeRefinement::Refine8,
+                                                     VolumeRefinement::Refine32});
 
   const auto boundsString =
-      reader.readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0"));
+      reader->readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0"));
   const auto boundsRaw = convertStringToArray<double, 6>(boundsString);
   const auto boundsEnabled =
       std::none_of(boundsRaw.begin(), boundsRaw.end(), [](double d) { return d == 0; });
@@ -158,7 +158,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
   const OutputInterval intervalZ = {boundsRaw[4], boundsRaw[5]};
   const OutputBounds bounds(boundsEnabled, intervalX, intervalY, intervalZ);
 
-  const auto format = reader.readWithDefaultEnum<OutputFormat>(
+  const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   if (enabled && format == OutputFormat::None) {
     logInfo(seissol::MPI::mpi.rank())
@@ -171,33 +171,33 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader) {
   }
 
   const auto outputMaskString =
-      reader.readOrFail<std::string>("ioutputmask", "No output mask given.");
+      reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
   const std::array<bool, NUMBER_OF_QUANTITIES> outputMask =
       convertStringToArray<bool, NUMBER_OF_QUANTITIES>(outputMaskString);
 
   const auto plasticityMaskString =
-      reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
+      reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
   const std::array<bool, 7> plasticityMask = convertStringToArray<bool, 7>(plasticityMaskString);
 
   const auto integrationMaskString =
-      reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
+      reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
   const std::array<bool, 9> integrationMask = convertStringToArray<bool, 9>(integrationMaskString);
 
-  const auto groupsRaw = reader.readWithDefault("outputgroups", std::vector<int>());
+  const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
 
   return WaveFieldOutputParameters{
       enabled, interval, refinement, bounds, outputMask, plasticityMask, integrationMask, groups};
 }
 
-OutputParameters readOutputParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("output");
+OutputParameters readOutputParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("output");
 
   const auto loopStatisticsNetcdfOutput =
-      reader.readWithDefault("loopstatisticsnetcdfoutput", false);
-  const auto format = reader.readWithDefaultEnum<OutputFormat>(
+      reader->readWithDefault("loopstatisticsnetcdfoutput", false);
+  const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  const auto xdmfWriterBackend = reader.readWithDefaultStringEnum<xdmfwriter::BackendType>(
+  const auto xdmfWriterBackend = reader->readWithDefaultStringEnum<xdmfwriter::BackendType>(
       "xdmfwriterbackend",
       "posix",
       {
@@ -207,7 +207,7 @@ OutputParameters readOutputParameters(ParameterReader& baseReader) {
 #endif
       });
   const std::string prefix =
-      reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+      reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader);
@@ -217,13 +217,13 @@ OutputParameters readOutputParameters(ParameterReader& baseReader) {
   const auto receiverParameters = readReceiverParameters(baseReader);
   const auto waveFieldParameters = readWaveFieldParameters(baseReader);
 
-  reader.warnDeprecated({"rotation",
-                         "interval",
-                         "nrecordpoints",
-                         "printintervalcriterion",
-                         "pickdttype",
-                         "ioutputmaskmaterial",
-                         "faultoutputflag"});
+  reader->warnDeprecated({"rotation",
+                          "interval",
+                          "nrecordpoints",
+                          "printintervalcriterion",
+                          "pickdttype",
+                          "ioutputmaskmaterial",
+                          "faultoutputflag"});
 
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,

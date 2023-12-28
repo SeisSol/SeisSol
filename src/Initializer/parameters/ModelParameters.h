@@ -53,7 +53,7 @@ struct ModelParameters {
   std::string materialFileName;
 };
 
-ModelParameters readModelParameters(ParameterReader& baseReader);
+ModelParameters readModelParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif

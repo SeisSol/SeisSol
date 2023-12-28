@@ -78,7 +78,7 @@ class ParameterReader {
   void warnDeprecated(const std::vector<std::string>& fields);
   void warnUnknown(const std::string& prefix = "") const;
   void markUnused(const std::vector<std::string>& fields);
-  ParameterReader& readSubNode(const std::string& subnodeName);
+  ParameterReader* readSubNode(const std::string& subnodeName);
   bool hasField(const std::string& field);
 
   private:
@@ -102,7 +102,7 @@ class ParameterReader {
   bool empty;
   YAML::Node node; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
   std::unordered_set<std::string> visited;
-  std::unordered_map<std::string, ParameterReader> subreaders;
+  std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders;
 };
 } // namespace seissol::initializers::parameters
 

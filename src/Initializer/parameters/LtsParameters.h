@@ -83,8 +83,8 @@ struct TimeSteppingParameters {
                          LtsParameters lts);
 };
 
-LtsParameters readLtsParameters(ParameterReader& baseReader);
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader& baseReader);
+LtsParameters readLtsParameters(ParameterReader* baseReader);
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializers::parameters
 

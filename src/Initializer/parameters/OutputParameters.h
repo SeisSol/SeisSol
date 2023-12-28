@@ -139,13 +139,13 @@ void warnIntervalAndDisable(bool& enabled,
                             double interval,
                             const std::string& valName,
                             const std::string& intName);
-CheckpointParameters readCheckpointParameters(ParameterReader& baseReader);
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader& baseReader);
-EnergyOutputParameters readEnergyParameters(ParameterReader& baseReader);
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader& baseReader);
-PickpointParameters readPickpointParameters(ParameterReader& baseReader);
-ReceiverOutputParameters readReceiverParameters(ParameterReader& baseReader);
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader& baseReader);
-OutputParameters readOutputParameters(ParameterReader& baseReader);
+CheckpointParameters readCheckpointParameters(ParameterReader* baseReader);
+ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader);
+EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
+FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader);
+PickpointParameters readPickpointParameters(ParameterReader* baseReader);
+ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
+WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader);
+OutputParameters readOutputParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 #endif

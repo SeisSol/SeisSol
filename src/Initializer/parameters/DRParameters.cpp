@@ -3,25 +3,25 @@
 
 namespace seissol::initializers::parameters {
 
-DRParameters readDRParameters(ParameterReader& baseReader) {
-  auto& reader = baseReader.readSubNode("dynamicrupture");
+DRParameters readDRParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("dynamicrupture");
 
-  const double xref = reader.readWithDefault("xref", 0.0);
-  const double yref = reader.readWithDefault("yref", 0.0);
-  const double zref = reader.readWithDefault("zref", 0.0);
+  const double xref = reader->readWithDefault("xref", 0.0);
+  const double yref = reader->readWithDefault("yref", 0.0);
+  const double zref = reader->readWithDefault("zref", 0.0);
   const Eigen::Vector3d referencePoint = {xref, yref, zref};
 
-  const auto refPointMethod = reader.readWithDefaultEnum<RefPointMethod>(
+  const auto refPointMethod = reader->readWithDefaultEnum<RefPointMethod>(
       "refpointmethod", RefPointMethod::Point, {RefPointMethod::Point, RefPointMethod::Normal});
 
   const auto outputPointType =
-      reader.readWithDefaultEnum<OutputType>("outputpointtype",
-                                             OutputType::None,
-                                             {OutputType::None,
-                                              OutputType::AtPickpoint,
-                                              OutputType::Elementwise,
-                                              OutputType::AtPickpointAndElementwise});
-  const auto frictionLawType = reader.readWithDefaultEnum<FrictionLawType>(
+      reader->readWithDefaultEnum<OutputType>("outputpointtype",
+                                              OutputType::None,
+                                              {OutputType::None,
+                                               OutputType::AtPickpoint,
+                                               OutputType::Elementwise,
+                                               OutputType::AtPickpointAndElementwise});
+  const auto frictionLawType = reader->readWithDefaultEnum<FrictionLawType>(
       "fl",
       FrictionLawType::NoFault,
       {FrictionLawType::NoFault,
@@ -34,7 +34,7 @@ DRParameters readDRParameters(ParameterReader& baseReader) {
        FrictionLawType::ImposedSlipRatesGaussian,
        FrictionLawType::RateAndStateVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
-  auto slipRateOutputType = reader.readWithDefaultEnum<SlipRateOutputType>(
+  auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
       SlipRateOutputType::TractionsAndFailure,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
@@ -46,17 +46,17 @@ DRParameters readDRParameters(ParameterReader& baseReader) {
            "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
-  const auto backgroundType = reader.readWithDefault("backgroundtype", 0);
-  const auto isThermalPressureOn = reader.readWithDefault("thermalpress", false);
-  const auto t0 = static_cast<real>(reader.readWithDefault("t_0", 0.0));
+  const auto backgroundType = reader->readWithDefault("backgroundtype", 0);
+  const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
+  const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
 
   auto readIfRequired = [&reader](const std::string& name, bool required) {
     real value;
     if (required) {
       std::string failString = "Did not find parameter " + name;
-      value = reader.readOrFail<double>(name, failString);
+      value = reader->readOrFail<double>(name, failString);
     } else {
-      reader.markUnused({name});
+      reader->markUnused({name});
     }
     return value;
   };
@@ -86,7 +86,7 @@ DRParameters readDRParameters(ParameterReader& baseReader) {
   const auto vStar = readIfRequired("pc_vstar", isBiMaterial);
   const auto prakashLength = readIfRequired("pc_prakashlength", isBiMaterial);
 
-  const std::string faultFileName = reader.readWithDefault("modelfilename", std::string(""));
+  const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
 
   // TODO: isDsOn, isRfOn, isFrictionEnergyOn
 

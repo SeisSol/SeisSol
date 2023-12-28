@@ -30,7 +30,7 @@ struct InitializationParameters {
   double width;
 };
 
-InitializationParameters readInitializationParameters(ParameterReader& baseReader);
+InitializationParameters readInitializationParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif
