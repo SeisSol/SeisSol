@@ -27,12 +27,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
         faultStresses, stateVariableBuffer, timeIndex, ltsFace);
-    std::array<real, misc::numPaddedPoints> absoluteShearStress =
+    const std::array<real, misc::numPaddedPoints> absoluteShearStress =
         std::move(initialVariables.absoluteShearTraction);
     std::array<real, misc::numPaddedPoints> localSlipRate =
         std::move(initialVariables.localSlipRate);
     std::array<real, misc::numPaddedPoints> normalStress = std::move(initialVariables.normalStress);
-    std::array<real, misc::numPaddedPoints> stateVarReference =
+    const std::array<real, misc::numPaddedPoints> stateVarReference =
         std::move(initialVariables.stateVarReference);
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,

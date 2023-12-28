@@ -1,7 +1,11 @@
-#include "Geometry/PUMLReader.h"
-#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
 #include <memory>
 #include <numeric>
+
+#include "Geometry/PUMLReader.h"
+#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
+#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/typedefs.hpp"
+#include "SeisSol.h"
 
 namespace seissol::unit_test {
 
@@ -12,9 +16,13 @@ TEST_CASE("LTS Weights") {
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  auto ltsParameters = std::make_unique<LtsParameters>(
-      2, 1.0, 0.01, false, 100, false, 1.0, AutoMergeCostBaseline::MaxWiggleFactor);
-  auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
+  seissol::initializers::parameters::LtsParameters ltsParameters(
+      2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor);
+  seissol::initializers::parameters::SeisSolParameters seissolParameters;
+  seissolParameters.timeStepping.lts = ltsParameters;
+  seissol::SeisSol seissolInstance(seissolParameters);
+  
+  auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", ltsWeights.get());
   std::cout.clear();
 

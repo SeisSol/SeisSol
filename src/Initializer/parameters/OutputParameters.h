@@ -136,9 +136,9 @@ struct OutputParameters {
 };
 
 inline void warnIntervalAndDisable(bool& enabled,
-                            double interval,
-                            const std::string& valName,
-                            const std::string& intName) {
+                                   double interval,
+                                   const std::string& valName,
+                                   const std::string& intName) {
   if (enabled && interval <= 0) {
     auto intPhrase = valName + " = 0";
     logInfo(seissol::MPI::mpi.rank())

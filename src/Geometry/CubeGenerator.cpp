@@ -17,7 +17,6 @@
 #include "utils/args.h"
 #include "utils/logger.h"
 
-
 namespace {
 typedef int t_vertex[3];
 

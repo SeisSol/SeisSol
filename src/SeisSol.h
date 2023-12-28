@@ -273,7 +273,7 @@ class SeisSol {
         m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this) {}
+        m_energyOutput(*this), m_seissolParameters(parameters) {}
 };
 
 } // namespace seissol

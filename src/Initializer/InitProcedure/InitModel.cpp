@@ -254,7 +254,8 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
   if (seissolParams.timeStepping.lts.getRate() == 1) {
     seissolInstance.getLtsLayout().deriveLayout(single, 1);
   } else {
-    seissolInstance.getLtsLayout().deriveLayout(multiRate, seissolParams.timeStepping.lts.getRate());
+    seissolInstance.getLtsLayout().deriveLayout(multiRate,
+                                                seissolParams.timeStepping.lts.getRate());
   }
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);

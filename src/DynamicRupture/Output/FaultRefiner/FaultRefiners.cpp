@@ -8,7 +8,7 @@
 #include "Initializer/parameters/OutputParameters.h"
 
 namespace seissol::dr::output::refiner {
-  seissol::initializers::parameters::FaultRefinement castToRefinerType(int strategy) {
+seissol::initializers::parameters::FaultRefinement castToRefinerType(int strategy) {
   switch (strategy) {
   case 1:
     return seissol::initializers::parameters::FaultRefinement::Triple;

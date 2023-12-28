@@ -263,13 +263,14 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
   return layeredClusterMapping;
 }
 
-void seissol::sourceterm::Manager::loadSources(seissol::initializers::parameters::PointSourceType sourceType,
-                                               char const* fileName,
-                                               seissol::geometry::MeshReader const& mesh,
-                                               seissol::initializers::LTSTree* ltsTree,
-                                               seissol::initializers::LTS* lts,
-                                               seissol::initializers::Lut* ltsLut,
-                                               time_stepping::TimeManager& timeManager) {
+void seissol::sourceterm::Manager::loadSources(
+    seissol::initializers::parameters::PointSourceType sourceType,
+    char const* fileName,
+    seissol::geometry::MeshReader const& mesh,
+    seissol::initializers::LTSTree* ltsTree,
+    seissol::initializers::LTS* lts,
+    seissol::initializers::Lut* ltsLut,
+    time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
   auto& instance = device::DeviceInstance::getInstance();
   auto alloc = device::UsmAllocator<real>(instance);

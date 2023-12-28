@@ -3,7 +3,8 @@
 #include <device.h>
 
 namespace seissol::dr::friction_law::gpu {
-FrictionSolverDetails::FrictionSolverDetails(seissol::initializers::parameters::DRParameters* drParameters)
+FrictionSolverDetails::FrictionSolverDetails(
+    seissol::initializers::parameters::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {

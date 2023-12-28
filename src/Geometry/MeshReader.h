@@ -115,7 +115,8 @@ class MeshReader {
   /**
    * Reconstruct the fault information from the boundary conditions
    */
-  void extractFaultInformation(const VrtxCoords& refPoint, seissol::initializers::parameters::RefPointMethod refPointMethod);
+  void extractFaultInformation(const VrtxCoords& refPoint,
+                               seissol::initializers::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
 };

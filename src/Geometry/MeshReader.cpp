@@ -49,13 +49,14 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
   }
 }
 
-//TODO: Test proper scaling
-// scalingMatrix is stored column-major, i.e.
-// scalingMatrix_ij = scalingMatrix[j][i]
+// TODO: Test proper scaling
+//  scalingMatrix is stored column-major, i.e.
+//  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
   for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     Eigen::Vector3d point;
-    point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1], m_vertices[vertexNo].coords[2];
+    point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1],
+        m_vertices[vertexNo].coords[2];
     const auto result = scalingMatrix * point;
     for (unsigned i = 0; i < 3; ++i) {
       m_vertices[vertexNo].coords[i] = result[i];
@@ -66,7 +67,8 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
 /**
  * Reconstruct the fault information from the boundary conditions
  */
-void MeshReader::extractFaultInformation(const VrtxCoords& refPoint, seissol::initializers::parameters::RefPointMethod refPointMethod) {
+void MeshReader::extractFaultInformation(
+    const VrtxCoords& refPoint, seissol::initializers::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
     for (int j = 0; j < 4; j++) {

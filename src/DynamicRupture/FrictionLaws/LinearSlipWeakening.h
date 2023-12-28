@@ -234,7 +234,8 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(seissol::initializers::parameters::DRParameters* parameters) : drParameters(parameters){};
+  explicit BiMaterialFault(seissol::initializers::parameters::DRParameters* parameters)
+      : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,

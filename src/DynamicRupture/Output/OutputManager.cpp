@@ -89,17 +89,21 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 
   // adjust general output parameters
   // TODO: move this check to the reader
-  //generalParams.isRfTimeOn = generalParams.isRfOutputOn;
-  //if (generalParams.isDsOutputOn && !generalParams.isRfOutputOn) {
+  // generalParams.isRfTimeOn = generalParams.isRfOutputOn;
+  // if (generalParams.isDsOutputOn && !generalParams.isRfOutputOn) {
   //  generalParams.isRfOutputOn = true;
   //  generalParams.isRfTimeOn = true;
   //}
 
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const bool bothEnabled = seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpoint || bothEnabled;
-  const bool elementwiseEnabled =
-      seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::Elementwise || bothEnabled;
+  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
+                           seissol::initializers::parameters::OutputType::AtPickpointAndElementwise;
+  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
+                                seissol::initializers::parameters::OutputType::AtPickpoint ||
+                            bothEnabled;
+  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
+                                      seissol::initializers::parameters::OutputType::Elementwise ||
+                                  bothEnabled;
   const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
     logInfo(rank) << "Enabling on-fault receiver output";
@@ -267,7 +271,8 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissolParameters, ppOutputData, time);
 
       const bool isMaxCacheLevel =
-          outputData->currentCacheLevel >= static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);
+          outputData->currentCacheLevel >=
+          static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {

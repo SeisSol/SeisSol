@@ -21,9 +21,10 @@ class ReceiverOutput {
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
-                       std::shared_ptr<ReceiverOutputData> state,
-                       double time = 0.0);
+  void
+      calcFaultOutput(const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
+                      std::shared_ptr<ReceiverOutputData> state,
+                      double time = 0.0);
 
   protected:
   seissol::initializers::LTS* wpDescr{nullptr};

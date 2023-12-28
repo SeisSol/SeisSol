@@ -10,30 +10,31 @@ namespace friction_law_impl = seissol::dr::friction_law;
 #endif
 
 namespace seissol::dr::factory {
-std::unique_ptr<AbstractFactory> getFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
-                                            seissol::SeisSol& seissolInstance) {
+std::unique_ptr<AbstractFactory>
+    getFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
+               seissol::SeisSol& seissolInstance) {
   switch (drParameters->frictionLawType) {
-    case seissol::initializers::parameters::FrictionLawType::NoFault:
+  case seissol::initializers::parameters::FrictionLawType::NoFault:
     return std::make_unique<NoFaultFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::ImposedSlipRatesYoffe:
+  case seissol::initializers::parameters::FrictionLawType::ImposedSlipRatesYoffe:
     return std::make_unique<ImposedSlipRatesYoffeFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::ImposedSlipRatesGaussian:
+  case seissol::initializers::parameters::FrictionLawType::ImposedSlipRatesGaussian:
     return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::LinearSlipWeakening:
+  case seissol::initializers::parameters::FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::LinearSlipWeakeningBimaterial:
+  case seissol::initializers::parameters::FrictionLawType::LinearSlipWeakeningBimaterial:
     return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::RateAndStateAgingLaw:
+  case seissol::initializers::parameters::FrictionLawType::RateAndStateAgingLaw:
     return std::make_unique<RateAndStateAgingFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::RateAndStateSlipLaw:
+  case seissol::initializers::parameters::FrictionLawType::RateAndStateSlipLaw:
     return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance);
-    case seissol::initializers::parameters::FrictionLawType::RateAndStateVelocityWeakening:
+  case seissol::initializers::parameters::FrictionLawType::RateAndStateVelocityWeakening:
     logError() << "friction law 7 currently disabled";
     return std::unique_ptr<AbstractFactory>(nullptr);
-    case seissol::initializers::parameters::FrictionLawType::RateAndStateAgingNucleation:
+  case seissol::initializers::parameters::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
     return std::unique_ptr<AbstractFactory>(nullptr);
-    case seissol::initializers::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
+  case seissol::initializers::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters,
                                                                       seissolInstance);
   default:

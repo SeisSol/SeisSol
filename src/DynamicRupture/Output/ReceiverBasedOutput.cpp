@@ -36,11 +36,15 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::calcFaultOutput(const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
-                                     std::shared_ptr<ReceiverOutputData> outputData,
-                                     double time) {
+void ReceiverOutput::calcFaultOutput(
+    const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
+    std::shared_ptr<ReceiverOutputData> outputData,
+    double time) {
 
-  const size_t level = (seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
+  const size_t level = (seissolParameters.drParameters.outputPointType ==
+                        seissol::initializers::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
   const auto faultInfos = meshReader->getFault();
 
 #pragma omp parallel for
@@ -252,7 +256,8 @@ void ReceiverOutput::calcFaultOutput(const seissol::initializers::parameters::Se
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (seissolParameters.drParameters.outputPointType == seissol::initializers::parameters::OutputType::AtPickpoint) {
+  if (seissolParameters.drParameters.outputPointType ==
+      seissol::initializers::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }

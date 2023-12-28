@@ -4,8 +4,8 @@
 #include <array>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/parameters/DRParameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/parameters/DRParameters.h"
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
@@ -100,7 +100,8 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(seissol::initializers::parameters::DRParameters* drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(seissol::initializers::parameters::DRParameters* drParameters)
+      : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
