@@ -22,6 +22,18 @@ bool useCommThread(const T& mpiBasic) {
   bool useThread = utils::Env::get<bool>("SEISSOL_COMMTHREAD", true);
   return useThread && !mpiBasic.isSingleProcess();
 }
+
+inline bool usePersistentMpi() { return utils::Env::get<bool>("SEISSOL_MPI_PERSISTENT", false); }
+
+template <typename T>
+void printPersistentMpiInfo(const T& mpiBasic) {
+  if (usePersistentMpi()) {
+    logInfo(mpiBasic.rank()) << "Using persistent MPI routines.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Using asynchronous MPI routines.";
+  }
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_PARALLEL_HELPER_HPP_

@@ -168,10 +168,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       }
     }
 
+    auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
+    increaseManager.setTimeClusterVector(&clusters);
+    decreaseManager.setTimeClusterVector(&clusters);
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
+    const auto persistent = usePersistentMpi();
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
@@ -194,7 +199,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                          globalClusterId,
                                                          otherGlobalClusterId,
                                                          meshStructure,
-                                                         preferredDataTransferMode);
+                                                         preferredDataTransferMode,
+                                                         persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.
@@ -229,6 +235,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
+  auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+  auto ghostClusterPointer = communicationManager->getGhostClusters();
+
+  increaseManager.setGhostClusterVector(ghostClusterPointer);
+  decreaseManager.setGhostClusterVector(ghostClusterPointer);
 
 }
 
@@ -373,7 +387,7 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
 void seissol::time_stepping::TimeManager::freeDynamicResources() {
   for (auto& cluster : clusters) {
     cluster->freePointSources();
+    cluster->finalize();
   }
   communicationManager.reset(nullptr);
 }
-

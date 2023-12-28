@@ -64,6 +64,16 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
+enum class ReflectionType : int { bothwaves = 1, bothwaves_velocity = 2, pwave = 3, swave = 4 };
+
+struct ITMParameters {
+  double ITMTime;
+  double ITMVelocityScalingFactor;
+  double ITMStartingTime;
+  bool ITMToggle;
+  ReflectionType reflectionType;
+};
+
 enum class InitializationType : int {
   Zero,
   Planarwave,
@@ -74,7 +84,8 @@ enum class InitializationType : int {
   Ocean0,
   Ocean1,
   Ocean2,
-  PressureInjection
+  PressureInjection,
+  AcousticTravellingwithITM,
 };
 
 struct InitializationParameters {
@@ -84,6 +95,7 @@ struct InitializationParameters {
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
   double magnitude;
   double width;
+  double k;
 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
@@ -206,6 +218,7 @@ struct SeisSolParameters {
   TimeSteppingParameters timeStepping;
   SourceParameters source;
   EndParameters end;
+  ITMParameters itmParameters;
 
   void readParameters(const YAML::Node& baseNode);
 };
