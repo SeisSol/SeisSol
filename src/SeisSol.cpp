@@ -63,10 +63,6 @@
 #include "Reader/AsagiModule.h"
 #endif
 
-#ifdef ACL_DEVICE
-// #include "Parallel/AcceleratorDevice.h"
-#endif
-
 bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
