@@ -50,6 +50,7 @@ namespace seissol {
   namespace kernels {
     class LocalBase {
     protected:
+      double gravitationalAcceleration;
       kernel::volumeExt m_volumeKernelPrototype;
       kernel::localFluxExt m_localFluxKernelPrototype;
       kernel::local m_localKernelPrototype;
@@ -57,6 +58,10 @@ namespace seissol {
     public:
       virtual void setInitConds(decltype(initConds) initConds) {
         this->initConds = initConds;
+      }
+
+      void setGravitationalAcceleration(double g) {
+        gravitationalAcceleration = g;
       }
     };
   }

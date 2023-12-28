@@ -19,8 +19,15 @@ src/Initializer/CellLocalMatrices.cpp
 
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/MemoryManager.cpp
+src/Initializer/parameters/CubeGeneratorParameters.cpp
+src/Initializer/parameters/DRParameters.cpp
+src/Initializer/parameters/InitializationParameters.cpp
 src/Initializer/parameters/LtsParameters.cpp
+src/Initializer/parameters/MeshParameters.cpp
+src/Initializer/parameters/ModelParameters.cpp
+src/Initializer/parameters/OutputParameters.cpp
 src/Initializer/parameters/SeisSolParameters.cpp
+src/Initializer/parameters/SourceParameters.cpp
 src/Initializer/time_stepping/GlobalTimestep.cpp
 src/Initializer/time_stepping/LtsLayout.cpp
 src/Initializer/tree/Lut.cpp
