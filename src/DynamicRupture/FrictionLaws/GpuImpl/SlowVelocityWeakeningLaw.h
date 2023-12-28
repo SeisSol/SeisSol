@@ -60,7 +60,7 @@ class SlowVelocityWeakeningLaw
     const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
     const double c =
         (0.5 / details.rsSr0) * sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   /**
