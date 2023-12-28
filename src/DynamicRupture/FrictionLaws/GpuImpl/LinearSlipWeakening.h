@@ -273,7 +273,7 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters* parameters){};
+  NoSpecialization(seissol::initializers::parameters::DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
@@ -313,7 +313,7 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters* parameters){};
+  BiMaterialFault(seissol::initializers::parameters::DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,

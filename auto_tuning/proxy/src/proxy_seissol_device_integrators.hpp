@@ -43,7 +43,7 @@ namespace proxy::device {
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -78,7 +78,7 @@ namespace proxy::device {
     auto& layer = m_ltsTree->child(0).child<Interior>();
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -114,7 +114,7 @@ namespace proxy::device {
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();

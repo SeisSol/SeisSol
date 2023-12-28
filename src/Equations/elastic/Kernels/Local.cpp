@@ -185,7 +185,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(materialData != nullptr);
         auto* displ = tmp.nodalAvgDisplacements[face].data();
         auto displacement = init::averageNormalDisplacement::view::create(displ);
-        std::cout << gravitationalAcceleration;
         // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
         const auto localG = gravitationalAcceleration;
         auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
@@ -331,7 +330,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
       auto nodalAvgDisplacements = dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = getGravitationalAcceleration();
+      freeSurfaceGravityBc.g = gravitationalAcceleration;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
       dirichletBoundary.evaluateOnDevice(face,

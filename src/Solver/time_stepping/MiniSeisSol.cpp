@@ -139,7 +139,8 @@ void seissol::fillWithStuff(  real* buffer,
 
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        initializers::LTS& lts,
-                                       initializers::Layer& layer) {
+                                       initializers::Layer& layer,
+                                       seissol::SeisSol& seissolInstance) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
@@ -151,7 +152,7 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -262,8 +263,8 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   ltsTree.allocateScratchPads();
 
   auto globalData = memoryManager.getGlobalData();
-  auto runBenchmark = [&globalData, &lts, &layer]() {
-    localIntegrationOnDevice(globalData, lts, layer);
+  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance]() {
+    localIntegrationOnDevice(globalData, lts, layer, seissolInstance);
   };
 
   const auto &device = device::DeviceInstance::getInstance();

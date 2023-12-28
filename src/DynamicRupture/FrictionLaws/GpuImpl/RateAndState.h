@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(DRParameters* drParameters)
+  explicit RateAndStateBase(seissol::initializers::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
