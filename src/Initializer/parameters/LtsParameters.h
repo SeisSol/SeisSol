@@ -36,9 +36,9 @@ class LtsParameters {
   bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
   AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
+  LtsWeightsTypes ltsWeightsType;
   double finalWiggleFactor = 1.0;
   int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
-  LtsWeightsTypes ltsWeightsType;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -64,7 +64,8 @@ class LtsParameters {
                 int maxNumberOfClusters,
                 bool ltsAutoMergeClusters,
                 double allowedPerformanceLossRatioAutoMerge,
-                AutoMergeCostBaseline autoMergeCostBaseline);
+                AutoMergeCostBaseline autoMergeCostBaseline,
+                LtsWeightsTypes ltsWeightsType);
 };
 
 struct TimeSteppingParameters {

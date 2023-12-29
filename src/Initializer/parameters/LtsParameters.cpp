@@ -48,7 +48,8 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                        maxNumberOfClusters,
                        autoMergeClusters,
                        allowedPerformanceLossRatioAutoMerge,
-                       autoMergeCostBaseline);
+                       autoMergeCostBaseline,
+                       ltsWeightsType);
 }
 
 LtsParameters::LtsParameters(unsigned int rate,
@@ -58,13 +59,14 @@ LtsParameters::LtsParameters(unsigned int rate,
                              int maxNumberOfClusters,
                              bool ltsAutoMergeClusters,
                              double allowedPerformanceLossRatioAutoMerge,
-                             AutoMergeCostBaseline autoMergeCostBaseline)
+                             AutoMergeCostBaseline autoMergeCostBaseline,
+                LtsWeightsTypes ltsWeightsType)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
       maxNumberOfClusters(maxNumberOfClusters), autoMergeClusters(ltsAutoMergeClusters),
       allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge),
-      autoMergeCostBaseline(autoMergeCostBaseline) {
+      autoMergeCostBaseline(autoMergeCostBaseline), ltsWeightsType(ltsWeightsType) {
   const bool isWiggleFactorValid =
       (rate == 1 && wiggleFactorMinimum == 1.0) ||
       (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
