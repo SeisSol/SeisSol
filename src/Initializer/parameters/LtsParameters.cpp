@@ -60,7 +60,7 @@ LtsParameters::LtsParameters(unsigned int rate,
                              bool ltsAutoMergeClusters,
                              double allowedPerformanceLossRatioAutoMerge,
                              AutoMergeCostBaseline autoMergeCostBaseline,
-                LtsWeightsTypes ltsWeightsType)
+                             LtsWeightsTypes ltsWeightsType)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),

@@ -49,6 +49,24 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
+  if constexpr (isModelViscoelastic()) {
+    auto* discretizationReader = baseReader->readSubNode("discretization");
+    const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
+    const double maxTimestepWidth =
+        discretizationReader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
+    if (maxTimestepWidth > maxTimestepWidthDefault) {
+      logWarning(seissol::MPI::mpi.rank())
+          << "The given maximum timestep width (fixtimestep) is set to" << maxTimestepWidth
+          << "which is larger than the recommended value of" << maxTimestepWidthDefault
+          << "for visco-elastic material (as specified in the documentation). Please be aware"
+             "that a too large maximum timestep width may cause the solution to become unstable.";
+    } else {
+      logInfo(seissol::MPI::mpi.rank())
+          << "Maximum timestep width (fixtimestep) given as" << maxTimestepWidth
+          << "(less or equal to reference timestep" << maxTimestepWidthDefault << ")";
+    }
+  }
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          useCellHomogenizedMaterial,
