@@ -65,12 +65,13 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
   const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
-  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString);
+  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
   const auto refinementStrategy = reader->readWithDefaultEnum<FaultRefinement>(
       "refinement_strategy",
       FaultRefinement::None,
       {FaultRefinement::Triple, FaultRefinement::Quad, FaultRefinement::None});
   int refinement = reader->readWithDefault("refinement", 2);
+  reader->warnDeprecated({"printintervalcriterion"});
 
   return ElementwiseFaultParameters{
       printTimeIntervalSec, outputMask, refinementStrategy, refinement};
@@ -173,7 +174,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
   const std::array<bool, NUMBER_OF_QUANTITIES> outputMask =
-      convertStringToArray<bool, NUMBER_OF_QUANTITIES>(outputMaskString);
+      convertStringToArray<bool, NUMBER_OF_QUANTITIES>(outputMaskString, false);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));

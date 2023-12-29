@@ -50,41 +50,30 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
 
-  auto readIfRequired = [&reader](const std::string& name, bool required) {
-    real value;
-    if (required) {
-      std::string failString = "Did not find parameter " + name;
-      value = reader->readOrFail<double>(name, failString);
-    } else {
-      reader->markUnused({name});
-    }
-    return value;
-  };
-
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
       (frictionLawType == FrictionLawType::RateAndStateSlipLaw) or
       (frictionLawType == FrictionLawType::RateAndStateVelocityWeakening) or
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto rsF0 = readIfRequired("rs_f0", isRateAndState);
-  const auto rsB = readIfRequired("rs_b", isRateAndState);
-  const auto rsSr0 = readIfRequired("rs_sr0", isRateAndState);
-  const auto rsInitialSlipRate1 = readIfRequired("rs_inisliprate1", isRateAndState);
-  const auto rsInitialSlipRate2 = readIfRequired("rs_inisliprate2", isRateAndState);
+  const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
+  const auto rsB = reader->readIfRequired<real>("rs_b", isRateAndState);
+  const auto rsSr0 = reader->readIfRequired<real>("rs_sr0", isRateAndState);
+  const auto rsInitialSlipRate1 = reader->readIfRequired<real>("rs_inisliprate1", isRateAndState);
+  const auto rsInitialSlipRate2 = reader->readIfRequired<real>("rs_inisliprate2", isRateAndState);
 
-  const auto muW = readIfRequired(
+  const auto muW = reader->readIfRequired<real>(
       "rs_muw", frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto thermalDiffusivity = readIfRequired("tp_thermaldiffusivity", isThermalPressureOn);
-  const auto heatCapacity = readIfRequired("tp_heatcapacity", isThermalPressureOn);
-  const auto undrainedTPResponse = readIfRequired("tp_undrainedtpresponse", isThermalPressureOn);
-  const auto initialTemperature = readIfRequired("tp_initemp", isThermalPressureOn);
-  const auto initialPressure = readIfRequired("tp_inipressure", isThermalPressureOn);
+  const auto thermalDiffusivity = reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
+  const auto heatCapacity = reader->readIfRequired<real>("tp_heatcapacity", isThermalPressureOn);
+  const auto undrainedTPResponse = reader->readIfRequired<real>("tp_undrainedtpresponse", isThermalPressureOn);
+  const auto initialTemperature = reader->readIfRequired<real>("tp_initemp", isThermalPressureOn);
+  const auto initialPressure = reader->readIfRequired<real>("tp_inipressure", isThermalPressureOn);
 
   const bool isBiMaterial = frictionLawType == FrictionLawType::LinearSlipWeakeningBimaterial;
-  const auto vStar = readIfRequired("pc_vstar", isBiMaterial);
-  const auto prakashLength = readIfRequired("pc_prakashlength", isBiMaterial);
+  const auto vStar = reader->readIfRequired<real>("pc_vstar", isBiMaterial);
+  const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
 
   const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
 
