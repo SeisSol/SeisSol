@@ -65,7 +65,7 @@ class BaseDRInitializer {
    */
   BaseDRInitializer(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
                     seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance),
+      : seissolInstance(seissolInstance), drParameters(drParameters),
         faultParameterNames(
             seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
 

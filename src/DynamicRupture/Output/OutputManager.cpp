@@ -74,9 +74,8 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                              seissol::SeisSol& seissolInstance)
-    : ewOutputData(std::make_shared<ReceiverOutputData>()),
-      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)),
-      seissolInstance(seissolInstance) {
+    : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
+      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
 
