@@ -43,8 +43,6 @@ enum class SlipRateOutputType : int {
 
 struct DRParameters {
   bool isDynamicRuptureEnabled{true};
-  bool isRfOutputOn{false};
-  bool isDsOutputOn{false};
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
   OutputType outputPointType{3};

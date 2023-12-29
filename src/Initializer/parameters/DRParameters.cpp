@@ -88,14 +88,14 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
 
-  // TODO: isDsOn, isRfOn, isFrictionEnergyOn
+  // TODO: isFrictionEnergyOn
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
 
+  reader->warnDeprecated({"rf_output_on"});
+
   return DRParameters{isDynamicRuptureEnabled,
-                      true, // TODO
-                      true, // TODO
                       isThermalPressureOn,
                       true, // TODO
                       outputPointType,

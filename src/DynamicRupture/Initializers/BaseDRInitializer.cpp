@@ -239,7 +239,7 @@ void BaseDRInitializer::initializeOtherVariables(
   bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      ruptureTimePending[ltsFace][pointIndex] = drParameters->isRfOutputOn;
+      ruptureTimePending[ltsFace][pointIndex] = true;
     }
   }
 

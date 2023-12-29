@@ -31,7 +31,7 @@ void RateAndStateInitializer::initializeFault(
     using namespace dr::misc::quantity_indices;
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        dynStressTimePending[ltsFace][pointIndex] = drParameters->isDsOutputOn;
+        dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
         // compute initial friction and state
