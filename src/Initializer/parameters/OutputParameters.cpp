@@ -112,7 +112,7 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
-  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString);
+  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
 
   const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
 
@@ -178,11 +178,11 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, 7> plasticityMask = convertStringToArray<bool, 7>(plasticityMaskString);
+  const std::array<bool, 7> plasticityMask = convertStringToArray<bool, 7>(plasticityMaskString, false);
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, 9> integrationMask = convertStringToArray<bool, 9>(integrationMaskString);
+  const std::array<bool, 9> integrationMask = convertStringToArray<bool, 9>(integrationMaskString, false);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());

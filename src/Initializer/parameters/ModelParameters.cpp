@@ -1,7 +1,5 @@
 #include "ModelParameters.h"
 
-#include <cmath>
-
 namespace seissol::initializers::parameters {
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
@@ -22,8 +20,10 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   const double freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
   const double freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
-  if (freqRatio <= 0) {
-    logError() << "The freqratio parameter must be positive---but that is currently not the case.";
+  if constexpr (isModelViscoelastic()) {
+    if (freqRatio <= 0) {
+      logError() << "The freqratio parameter must be positive---but that is currently not the case.";
+    }
   }
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});

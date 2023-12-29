@@ -1,6 +1,7 @@
 #include "LtsParameters.h"
 
 #include <cassert>
+#include <cmath>
 
 #include <utils/logger.h>
 
