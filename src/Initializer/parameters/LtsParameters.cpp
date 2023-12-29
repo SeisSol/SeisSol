@@ -141,8 +141,10 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
 
   if constexpr (isModelViscoelastic()) {
     auto modelReader = baseReader->readSubNode("equations");
-    const double freqCentral = modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-    const double freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
+    const double freqCentral =
+        modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
+    const double freqRatio =
+        modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
     const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
     maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
     if (maxTimestepWidth > maxTimestepWidthDefault) {

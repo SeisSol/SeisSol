@@ -67,11 +67,12 @@ class ParameterReader {
   template <typename T>
   T readIfRequired(const std::string& field, bool required) {
     if (required) {
-      const std::string failMessage = "The field " + field + " is required, but not found in the parameters file.";
+      const std::string failMessage =
+          "The field " + field + " is required, but not found in the parameters file.";
       return readOrFail<T>(field, failMessage);
     } else {
       markUnused({field});
-      return T {};
+      return T{};
     }
   }
 

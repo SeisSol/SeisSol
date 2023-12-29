@@ -65,9 +65,11 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto muW = reader->readIfRequired<real>(
       "rs_muw", frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto thermalDiffusivity = reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
+  const auto thermalDiffusivity =
+      reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
   const auto heatCapacity = reader->readIfRequired<real>("tp_heatcapacity", isThermalPressureOn);
-  const auto undrainedTPResponse = reader->readIfRequired<real>("tp_undrainedtpresponse", isThermalPressureOn);
+  const auto undrainedTPResponse =
+      reader->readIfRequired<real>("tp_undrainedtpresponse", isThermalPressureOn);
   const auto initialTemperature = reader->readIfRequired<real>("tp_initemp", isThermalPressureOn);
   const auto initialPressure = reader->readIfRequired<real>("tp_inipressure", isThermalPressureOn);
 
