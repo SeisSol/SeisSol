@@ -1,5 +1,7 @@
 #include "ModelParameters.h"
 
+#include <cmath>
+
 namespace seissol::initializers::parameters {
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
