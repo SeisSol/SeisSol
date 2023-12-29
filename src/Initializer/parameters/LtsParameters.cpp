@@ -4,6 +4,8 @@
 
 #include <utils/logger.h>
 
+#include "ModelParameters.h"
+
 namespace seissol::initializers::parameters {
 
 AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
@@ -135,7 +137,28 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const auto weightFreeSurfaceWithGravity =
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
   const double cfl = reader->readWithDefault("cfl", 0.5);
-  const double maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
+  double maxTimestepWidth;
+
+  if constexpr (isModelViscoelastic()) {
+    auto modelReader = baseReader->readSubNode("equations");
+    const double freqCentral = modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
+    const double freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
+    const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
+    maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
+    if (maxTimestepWidth > maxTimestepWidthDefault) {
+      logWarning(seissol::MPI::mpi.rank())
+          << "The given maximum timestep width (fixtimestep) is set to" << maxTimestepWidth
+          << "which is larger than the recommended value of" << maxTimestepWidthDefault
+          << "for visco-elastic material (as specified in the documentation). Please be aware"
+             "that a too large maximum timestep width may cause the solution to become unstable.";
+    } else {
+      logInfo(seissol::MPI::mpi.rank())
+          << "Maximum timestep width (fixtimestep) given as" << maxTimestepWidth
+          << "(less or equal to reference timestep" << maxTimestepWidthDefault << ")";
+    }
+  } else {
+    maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
+  }
 
   auto abortReader = baseReader->readSubNode("abortcriteria");
 
