@@ -22,7 +22,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const double freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
   if constexpr (isModelViscoelastic()) {
     if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive---but that is currently not the case.";
+      logError()
+          << "The freqratio parameter must be positive---but that is currently not the case.";
     }
   }
 

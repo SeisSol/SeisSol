@@ -37,12 +37,12 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
 }
 
 void ReceiverOutput::calcFaultOutput(
-    const seissol::initializers::parameters::SeisSolParameters& seissolParameters,
+    seissol::initializers::parameters::OutputType outputType,
+    seissol::initializers::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
     double time) {
 
-  const size_t level = (seissolParameters.drParameters.outputPointType ==
-                        seissol::initializers::parameters::OutputType::AtPickpoint)
+  const size_t level = (outputType == seissol::initializers::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
   const auto faultInfos = meshReader->getFault();
@@ -148,7 +148,7 @@ void ReceiverOutput::calcFaultOutput(
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    switch (seissolParameters.drParameters.slipRateOutputType) {
+    switch (slipRateOutputType) {
     case seissol::initializers::parameters::SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
@@ -256,8 +256,7 @@ void ReceiverOutput::calcFaultOutput(
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (seissolParameters.drParameters.outputPointType ==
-      seissol::initializers::parameters::OutputType::AtPickpoint) {
+  if (outputType == seissol::initializers::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }

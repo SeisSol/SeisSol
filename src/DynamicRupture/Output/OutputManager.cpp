@@ -2,6 +2,7 @@
 #include "DynamicRupture/Output/OutputManager.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "SeisSol.h"
+#include <Initializer/parameters/OutputParameters.h>
 #include <Initializer/parameters/SeisSolParameters.h>
 #include <fstream>
 #include <type_traits>
@@ -86,14 +87,6 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   meshReader = &userMesher;
 
   impl->setMeshReader(&userMesher);
-
-  // adjust general output parameters
-  // TODO: move this check to the reader
-  // generalParams.isRfTimeOn = generalParams.isRfOutputOn;
-  // if (generalParams.isDsOutputOn && !generalParams.isRfOutputOn) {
-  //  generalParams.isRfOutputOn = true;
-  //  generalParams.isRfTimeOn = true;
-  //}
 
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
@@ -268,7 +261,10 @@ void OutputManager::writePickpointOutput(double time, double dt) {
     if (this->isAtPickpoint(time, dt)) {
 
       const auto& outputData = ppOutputData;
-      impl->calcFaultOutput(seissolParameters, ppOutputData, time);
+      impl->calcFaultOutput(seissol::initializers::parameters::OutputType::AtPickpoint,
+                            seissolParameters.drParameters.slipRateOutputType,
+                            ppOutputData,
+                            time);
 
       const bool isMaxCacheLevel =
           outputData->currentCacheLevel >=
@@ -320,7 +316,9 @@ void OutputManager::flushPickpointDataToFile() {
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-    impl->calcFaultOutput(seissolParameters, ewOutputData);
+    impl->calcFaultOutput(seissol::initializers::parameters::OutputType::Elementwise,
+                          seissolParameters.drParameters.slipRateOutputType,
+                          ewOutputData);
   }
 }
 } // namespace seissol::dr::output
