@@ -1,3 +1,4 @@
+#include <Initializer/parameters/LtsParameters.h>
 #include <memory>
 #include <numeric>
 
@@ -16,8 +17,7 @@ TEST_CASE("LTS Weights") {
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  seissol::initializers::parameters::LtsParameters ltsParameters(
-      2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor);
+  seissol::initializers::parameters::LtsParameters ltsParameters(2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor, seissol::initializers::parameters::LtsWeightsTypes::ExponentialWeights);
   seissol::initializers::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
   seissol::SeisSol seissolInstance(seissolParameters);
