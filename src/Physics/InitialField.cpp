@@ -11,16 +11,13 @@
 #include <utils/logger.h>
 #include <Numerical_aux/Eigenvalues.h>
 
-seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
-               double phase,
-               Eigen::Vector3d kVec,
-               std::vector<int> varField, 
-               std::vector<std::complex<double>> ampField)
-  : m_varField(std::move(varField)),
-    m_ampField(std::move(ampField)),
-    m_phase(phase),
-    m_kVec(kVec)
-{
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
+                                         double phase,
+                                         Eigen::Vector3d kVec,
+                                         std::vector<int> varField,
+                                         std::vector<std::complex<double>> ampField)
+    : m_varField(std::move(varField)), m_ampField(std::move(ampField)), m_phase(phase),
+      m_kVec(kVec) {
   init(materialData);
 }
 
@@ -253,7 +250,9 @@ void seissol::physics::TravellingWave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
-  auto R = yateto::DenseTensorView<2, std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2, std::complex<double>>(
+      const_cast<std::complex<double>*>(m_eigenvectors.data()),
+      {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
@@ -403,8 +402,9 @@ void seissol::physics::SnellsLaw::evaluate(
   const double omega = 2.0 * pi;
 
   for (size_t i = 0; i < points.size(); ++i) {
-    const auto &x = points[i];
-    const bool isAcousticPart = std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
+    const auto& x = points[i];
+    const bool isAcousticPart =
+        std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
 
     const auto x_1 = x[0];
     const auto x_3 = x[2];

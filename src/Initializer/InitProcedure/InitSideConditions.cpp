@@ -26,7 +26,8 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   return travellingWaveParameters;
 }
 
-static AcousticTravellingWaveParametersITM getAcousticTravellingWaveITMInformation(seissol::SeisSol& seissolInstance) {
+static AcousticTravellingWaveParametersITM
+    getAcousticTravellingWaveITMInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   const auto& itmParams = seissolInstance.getSeisSolParameters().model.itmParameters;
 
@@ -87,7 +88,8 @@ static std::vector<std::unique_ptr<physics::InitialField>>
   } else if (initConditionParams.type ==
              seissol::initializers::parameters::InitializationType::AcousticTravellingWithITM) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
-    auto acousticTravellingWaveParametersITM = getAcousticTravellingWaveITMInformation(seissolInstance);
+    auto acousticTravellingWaveParametersITM =
+        getAcousticTravellingWaveITMInformation(seissolInstance);
     initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         acousticTravellingWaveParametersITM));

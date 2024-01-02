@@ -268,8 +268,8 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
- //! TimeMirror Managers
- std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+  //! TimeMirror Managers
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
             seissol::ITM::InstantaneousTimeMirrorManager>
       timeMirrorManagers;
 

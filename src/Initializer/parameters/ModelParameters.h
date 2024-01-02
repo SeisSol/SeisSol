@@ -41,10 +41,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-enum class ReflectionType {BothWaves,
-                           BothWavesVelocity,
-                           Pwave,
-                           Swave};
+enum class ReflectionType { BothWaves, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
   bool itmEnabled;

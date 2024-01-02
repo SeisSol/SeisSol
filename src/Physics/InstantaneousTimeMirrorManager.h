@@ -11,8 +11,8 @@
 #include "Solver/time_stepping/TimeCluster.h"
 
 namespace seissol {
-  class SeisSol;
-  namespace ITM {
+class SeisSol;
+namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
@@ -30,7 +30,8 @@ class InstantaneousTimeMirrorManager : Module {
   std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
 
   public:
-  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance), isEnabled(false){};
+  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance), isEnabled(false){};
 
   void init(double velocityScalingFactor,
             double triggerTime,
