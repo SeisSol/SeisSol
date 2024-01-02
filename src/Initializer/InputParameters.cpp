@@ -393,7 +393,6 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
   seissolParams.initialization.origin =
       seissol::initializers::convertStringToArray<double, 3>(originString);
   const auto kVecString = reader.readWithDefault("kvec", std::string("0.0 0.0 0.0"));
-  seissolParams.initialization.k = reader.readWithDefault("k", 0.0);
   seissolParams.initialization.kVec =
       seissol::initializers::convertStringToArray<double, 3>(kVecString);
   std::string defaultAmpFieldString;
@@ -406,6 +405,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
   seissolParams.initialization.magnitude = reader.readWithDefault("magnitude", 0.0);
   seissolParams.initialization.width =
       reader.readWithDefault("width", std::numeric_limits<double>::infinity());
+  seissolParams.initialization.k = reader.readWithDefault("k", 0.0);
 
   reader.warnUnknown();
 }
