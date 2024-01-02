@@ -130,6 +130,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/ReceiverBasedOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Plasticity.cpp
@@ -139,6 +140,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Numerical_aux/Statistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Pin.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Physics/InstantaneousTimeMirrorManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/ClusteringWriter.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/FaultWriter.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/FaultWriterExecutor.cpp
