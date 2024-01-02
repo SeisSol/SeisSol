@@ -53,6 +53,7 @@
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
 #include "Parallel/Pin.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/EnergyOutput.h"
@@ -64,6 +65,7 @@
 #include "Solver/Simulator.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
+
 namespace seissol {
 
 namespace geometry {
@@ -140,6 +142,14 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+  /**
+   * Reference for timeMirrorManagers to be accessed externally when required
+   */
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>&
+      getTimeMirrorManagers() {
+    return timeMirrorManagers;
+  }
 
   /**
    * Set the mesh reader
@@ -258,6 +268,11 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
+ //! TimeMirror Managers
+ std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>
+      timeMirrorManagers;
+
   //! Collection of Parameters
   seissol::initializers::parameters::SeisSolParameters m_seissolParameters;
 
@@ -270,7 +285,7 @@ class SeisSol {
         m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this), m_seissolParameters(parameters) {}
+        m_energyOutput(*this), timeMirrorManagers(*this, *this), m_seissolParameters(parameters) {}
 };
 
 } // namespace seissol

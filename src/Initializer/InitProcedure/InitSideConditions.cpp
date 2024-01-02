@@ -26,6 +26,19 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   return travellingWaveParameters;
 }
 
+static AcousticTravellingWaveParametersITM getAcousticTravellingWaveITMInformation(seissol::SeisSol& seissolInstance) {
+  const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
+  const auto& itmParams = seissolInstance.getSeisSolParameters().model.itmParameters;
+
+  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM;
+  acousticTravellingWaveParametersITM.k = initConditionParams.k;
+  acousticTravellingWaveParametersITM.itmStartingTime = itmParams.itmStartingTime;
+  acousticTravellingWaveParametersITM.itmDuration = itmParams.itmDuration;
+  acousticTravellingWaveParametersITM.itmVelocityScalingFactor = itmParams.itmVelocityScalingFactor;
+
+  return acousticTravellingWaveParametersITM;
+}
+
 static std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
@@ -71,6 +84,13 @@ static std::vector<std::unique_ptr<physics::InitialField>>
     initConditions.emplace_back(new physics::TravellingWave(
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         travellingWaveParameters));
+  } else if (initConditionParams.type ==
+             seissol::initializers::parameters::InitializationType::AcousticTravellingWithITM) {
+    initialConditionDescription = "Acoustic Travelling Wave with ITM";
+    auto acousticTravellingWaveParametersITM = getAcousticTravellingWaveITMInformation(seissolInstance);
+    initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
+        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
+        acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
              seissol::initializers::parameters::InitializationType::Scholte) {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";

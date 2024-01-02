@@ -37,7 +37,8 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
 
   const auto magnitude = reader->readWithDefault("magnitude", 0.0);
   const auto width = reader->readWithDefault("width", std::numeric_limits<double>::infinity());
+  const auto k = reader->readWithDefault("k", 0.0);
 
-  return InitializationParameters{type, origin, kVec, ampField, magnitude, width};
+  return InitializationParameters{type, origin, kVec, ampField, magnitude, width, k};
 }
 } // namespace seissol::initializers::parameters

@@ -3,6 +3,7 @@
 
 #include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <Initializer/parameters/DRParameters.h>
@@ -126,6 +127,11 @@ struct ReceiverOutputData {
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
+
+  real** deviceDataPtr{nullptr};
+  std::vector<std::size_t> deviceDataPlus;
+  std::vector<std::size_t> deviceDataMinus;
+  std::size_t cellCount{0};
 };
 } // namespace seissol::dr
 

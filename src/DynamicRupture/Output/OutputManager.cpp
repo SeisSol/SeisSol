@@ -125,6 +125,21 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
+                           seissol::initializers::parameters::OutputType::AtPickpointAndElementwise;
+  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
+                                seissol::initializers::parameters::OutputType::AtPickpoint ||
+                            bothEnabled;
+  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
+                                      seissol::initializers::parameters::OutputType::Elementwise ||
+                                  bothEnabled;
+  if (pointEnabled) {
+    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+  }
+  if (elementwiseEnabled) {
+    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+  }
 }
 
 void OutputManager::initElementwiseOutput() {

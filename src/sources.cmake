@@ -30,6 +30,7 @@ src/Initializer/InitProcedure/Init.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
+src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InternalState.cpp
@@ -58,6 +59,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/Receiver.cpp
 src/Kernels/TimeCommon.cpp
+src/Kernels/Touch.cpp
 
 src/Model/common.cpp
 
@@ -75,6 +77,7 @@ src/Numerical_aux/Transformation.cpp
 src/Parallel/Pin.cpp
 
 src/Physics/Attenuation.cpp
+src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Physics/InitialField.cpp
 
 src/ResultWriter/AnalysisWriter.cpp

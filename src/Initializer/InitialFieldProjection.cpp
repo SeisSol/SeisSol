@@ -49,6 +49,8 @@
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 
+#include "Initializer/preProcessorMacros.hpp"
+
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
@@ -77,7 +79,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   #pragma omp parallel
   {
 #endif
@@ -93,7 +95,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
   kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   #pragma omp for schedule(static)
 #endif
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
@@ -121,7 +123,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
     }
     krnl.execute();
   }
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   }
 #endif
 

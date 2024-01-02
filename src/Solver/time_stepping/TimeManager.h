@@ -188,6 +188,10 @@ class seissol::time_stepping::TimeManager {
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
     void freeDynamicResources();
+
+    inline const TimeStepping* getTimeStepping() {
+      return &m_timeStepping;
+    }
 };
 
 #endif

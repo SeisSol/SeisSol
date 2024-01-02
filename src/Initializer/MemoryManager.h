@@ -168,7 +168,7 @@ class MemoryManager {
     Lut                   m_ltsLut;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
-    
+
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
@@ -221,13 +221,6 @@ class MemoryManager {
      * Initializes the displacement accumulation buffer.
      */
   void initializeFaceDisplacements();
-
-    /**
-     * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-     *
-     * @param layer which is touched.
-     **/
-    void touchBuffersDerivatives( Layer& layer );
 
 #ifdef USE_MPI
     /**

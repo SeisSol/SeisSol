@@ -2,6 +2,37 @@
 
 namespace seissol::initializers::parameters {
 
+ITMParameters readITMParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto itmEnabled = reader->readWithDefault<bool>("itmenable", false);
+  const auto itmStartingTime = reader->readWithDefault<double>("itmstartingtime", 0.0);
+  const auto itmDuration = reader->readWithDefault<double>("itmtime", 0.0);
+  const auto itmVelocityScalingFactor = reader->readWithDefault<double>("itmvelocityscalingfactor", 1.0);
+  const auto reflectionType = reader->readWithDefaultEnum<ReflectionType>("itmreflectiontype",
+                                   ReflectionType::BothWaves,
+                                   {ReflectionType::BothWaves,
+                                    ReflectionType::BothWavesVelocity,
+                                    ReflectionType::Pwave,
+                                    ReflectionType::Swave});
+  if (itmEnabled) {
+    if (itmDuration <= 0.0) {
+      logError() << "ITM Time is not positive. It should be positive!";
+    }
+    if (itmVelocityScalingFactor < 0.0) {
+      logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!";
+    }
+    if (itmStartingTime < 0.0) {
+      logError() << "ITM Starting Time can not be less than zero";
+    }
+  } else {
+    reader->markUnused({
+        "itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype"});
+  }
+  return ITMParameters{itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
+}
+
+
+
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
@@ -27,7 +58,10 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
     }
   }
 
+  const ITMParameters itmParameters = readITMParameters(baseReader);
+
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
+
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
@@ -37,6 +71,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          gravitationalAcceleration,
                          tv,
                          boundaryFileName,
-                         materialFileName};
+                         materialFileName,
+  itmParameters};
 }
 } // namespace seissol::initializers::parameters

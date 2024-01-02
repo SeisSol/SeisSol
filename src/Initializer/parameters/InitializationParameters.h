@@ -13,6 +13,7 @@ enum class InitializationType : int {
   Planarwave,
   SuperimposedPlanarwave,
   Travelling,
+  AcousticTravellingWithITM,
   Scholte,
   Snell,
   Ocean0,
@@ -28,6 +29,7 @@ struct InitializationParameters {
   Eigen::Vector<double, NUMBER_OF_QUANTITIES> ampField;
   double magnitude;
   double width;
+  double k;
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);

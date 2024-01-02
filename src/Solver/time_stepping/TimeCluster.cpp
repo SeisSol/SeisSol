@@ -174,7 +174,11 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   if (m_receiverCluster != nullptr) {
     m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
   }
+}
 
+std::vector<seissol::time_stepping::NeighborCluster>*
+    seissol::time_stepping::TimeCluster::getNeighborClusters() {
+  return &neighbors;
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {
@@ -647,7 +651,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   }
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seissol::initializers::Layer& layerData) {
+void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
+    seissol::initializers::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
   auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
   auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];

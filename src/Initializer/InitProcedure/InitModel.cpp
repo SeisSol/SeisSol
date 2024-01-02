@@ -244,6 +244,30 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
 
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
+
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+
+  if (itmParameters.itmEnabled) {
+    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
+    double scalingFactor = itmParameters.itmVelocityScalingFactor;
+    double startingTime = itmParameters.itmStartingTime;
+
+    auto m_ltsTree = memoryManager.getLtsTree();
+    auto m_lts = memoryManager.getLts();
+    auto m_ltsLut = memoryManager.getLtsLut();
+    auto m_timeStepping = seissolInstance.timeManager().getTimeStepping();
+
+    initializeTimeMirrorManagers(scalingFactor,
+                                 startingTime,
+                                 &meshReader,
+                                 m_ltsTree,
+                                 m_lts,
+                                 m_ltsLut,
+                                 timeMirrorManagers.first,
+                                 timeMirrorManagers.second,
+                                 seissolInstance,
+                                 m_timeStepping);
+  }
 }
 
 static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {

@@ -56,6 +56,7 @@
 #else
 #   define MEMKIND_TIMEDOFS seissol::memory::Standard
 #endif
+#define MEMKIND_TIMEBUCKET MEMKIND_TIMEDOFS
 #if CONVERGENCE_ORDER <= 4
 #   define MEMKIND_CONSTANT seissol::memory::HighBandwidth
 #else
@@ -68,10 +69,11 @@
 #endif
 # define MEMKIND_UNIFIED  seissol::memory::Standard
 #else // ACL_DEVICE
-#	define MEMKIND_GLOBAL   seissol::memory::Standard
-#	define MEMKIND_CONSTANT seissol::memory::Standard
-#	define MEMKIND_DOFS     seissol::memory::DeviceUnifiedMemory
-#	define MEMKIND_TIMEDOFS seissol::memory::DeviceUnifiedMemory
+#	define MEMKIND_GLOBAL     seissol::memory::Standard
+#	define MEMKIND_CONSTANT   seissol::memory::Standard
+#	define MEMKIND_DOFS       seissol::memory::DeviceUnifiedMemory
+#	define MEMKIND_TIMEDOFS   seissol::memory::DeviceUnifiedMemory
+#	define MEMKIND_TIMEBUCKET seissol::memory::DeviceGlobalMemory
 # define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
 #endif // ACL_DEVICE
 
@@ -137,7 +139,7 @@ struct seissol::initializers::LTS {
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
     tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
 
-    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEBUCKET );
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE

@@ -41,6 +41,19 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
+enum class ReflectionType {BothWaves,
+                           BothWavesVelocity,
+                           Pwave,
+                           Swave};
+
+struct ITMParameters {
+  bool itmEnabled;
+  double itmStartingTime;
+  double itmDuration;
+  double itmVelocityScalingFactor;
+  ReflectionType itmReflectionType;
+};
+
 struct ModelParameters {
   bool hasBoundaryFile;
   bool plasticity;
@@ -51,9 +64,11 @@ struct ModelParameters {
   double tv;
   std::string boundaryFileName;
   std::string materialFileName;
+  ITMParameters itmParameters;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
+ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializers::parameters
 
 #endif
