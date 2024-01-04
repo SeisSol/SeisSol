@@ -230,20 +230,15 @@ class LinearSlipWeakeningLaw
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          resampledSlipRate(misc::numPaddedPoints, cgh);
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        resampledSlipRate[pointIndex] = SpecializationT::resampleSlipRate(
+        real resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
-        item.barrier(sycl::access::fence_space::local_space);
-        auto& stateVariable = devStateVariableBuffer[ltsFace];
-
         // integrate slip rate to get slip = state variable
-        devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate[pointIndex] * deltaT;
+        devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate * deltaT;
 
         // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
         // Actually slip is already the stateVariable for this FL, but to simplify the next
@@ -261,7 +256,7 @@ class LinearSlipWeakeningLaw
                            static_cast<real>(0.0),
                            static_cast<real>(1.0));
         }
-        stateVariable[pointIndex] = sycl::max(localStateVariable, f2);
+        devStateVariableBuffer[ltsFace][pointIndex] = sycl::max(localStateVariable, f2);
       });
     });
   }
