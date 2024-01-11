@@ -50,18 +50,17 @@
 #include "Parallel/Helper.hpp"
 
 seissol::time_stepping::TimeManager::TimeManager():
-  m_logUpdates(std::numeric_limits<unsigned int>::max())
+  m_logUpdates(std::numeric_limits<unsigned int>::max()), actorStateStatisticsManager(m_loopStatistics)
 {
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");
   m_loopStatistics.addRegion("computeDynamicRupture");
   m_loopStatistics.addRegion("computePointSources");
 
-  actorStateStatisticsManager = ActorStateStatisticsManager();
+  m_loopStatistics.enableSampleOutput(seissol::SeisSol::main.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 }
 
-seissol::time_stepping::TimeManager::~TimeManager() {
-}
+seissol::time_stepping::TimeManager::~TimeManager() {}
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
@@ -338,11 +337,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
 void seissol::time_stepping::TimeManager::printComputationTime(
     const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn) {
-  actorStateStatisticsManager.addToLoopStatistics(m_loopStatistics);
-#ifdef USE_MPI
+  actorStateStatisticsManager.finish();
   m_loopStatistics.printSummary(MPI::mpi.comm());
-#endif
-
   m_loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 }
 
