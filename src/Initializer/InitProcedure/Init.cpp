@@ -9,22 +9,24 @@
 #include <Numerical_aux/Statistics.h>
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include <sstream>
+#include "Monitoring/Unit.hpp"
 
 namespace {
 
 static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  constexpr size_t GB = 1024 * 1024 * 1024;
   const auto rank = seissol::MPI::mpi.rank();
   if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
     std::stringstream stream;
 
-    stream << "Device(" << rank << ")  memory is overloaded."
-           << "\nTotally allocated device memory, GB: "
-           << device.api->getCurrentlyOccupiedMem() / GB << "\nAllocated unified memory, GB: "
-           << device.api->getCurrentlyOccupiedUnifiedMem() / GB
-           << "\nMemory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
+    stream << "Memory of device (" << rank << ") is overloaded." << std::endl
+           << "Totally allocated device memory: "
+           << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedMem()) << std::endl
+           << "Allocated unified memory: "
+           << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedUnifiedMem()) << std::endl
+           << "Memory capacity of device: "
+           << UnitByte.formatPrefix(device.api->getMaxAvailableMem());
 
     logError() << stream.str();
   } else {
