@@ -187,6 +187,7 @@ endif()
 
 if (WITH_GPU)
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
+    option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ON)
 endif()
 
 

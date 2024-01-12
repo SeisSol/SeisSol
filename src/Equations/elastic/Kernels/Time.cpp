@@ -297,22 +297,33 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
     intKrnl.power = i_timeStepWidth;
     intKrnl.linearAllocator.initialize(tmpMem);
     intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute0();
+#endif
 
     for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
       derivativesKrnl.linearAllocator.initialize(tmpMem);
       derivativesKrnl.streamPtr = device.api->getDefaultStream();
       derivativesKrnl.execute(Der);
 
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
       // update scalar for this derivative
       intKrnl.power *= i_timeStepWidth / real(Der + 1);
       intKrnl.linearAllocator.initialize(tmpMem);
       intKrnl.streamPtr = device.api->getDefaultStream();
       intKrnl.execute(Der);
+#endif
     }
+
+#ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+    seissol::kernels::time::aux::taylorSum(true, numElements,
+      (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+      const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+      0, i_timeStepWidth, device.api->getDefaultStream());
+#endif
     device.api->popStackMemory();
   }
 
@@ -426,12 +437,11 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
   assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
   assert( i_integrationEnd                   > i_integrationStart );
 
-  /*
-   * compute time integral.
-   */
-  // compute lengths of integration intervals
   real deltaTLower = i_integrationStart - i_expansionPoint;
   real deltaTUpper = i_integrationEnd - i_expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+  // compute lengths of integration intervals
 
   // initialization of scalars in the taylor series expansion (0th term)
   real firstTerm  = static_cast<real>(1.0);
@@ -464,6 +474,9 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
     intKrnl.execute(der);
   }
   device.api->popStackMemory();
+#else
+  seissol::kernels::time::aux::taylorSum(true, numElements, o_timeIntegratedDofs, i_timeDerivatives, deltaTLower, deltaTUpper, device.api->getDefaultStream());
+#endif
 #else
   assert(false && "no implementation provided");
 #endif
@@ -512,6 +525,9 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
+  const real deltaT = time - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
   intKrnl.I = timeEvaluated;
@@ -521,13 +537,15 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
   }
 
   // iterate over time derivatives
-  const real deltaT = time - expansionPoint;
   intKrnl.power = 1.0;
   for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
     intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
   }
+#else
+  seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, device.api->getDefaultStream());
+#endif
 #else
   assert(false && "no implementation provided");
 #endif

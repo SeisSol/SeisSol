@@ -1,10 +1,168 @@
 #include <Kernels/precision.hpp>
+#include <Kernels/common.hpp>
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>
 #include <cuda.h>
 #include <cstdio>
 
+#ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+namespace {
+  constexpr std::size_t Blocksize = 96;
+
+  template<typename SourceRealT>
+  constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrder) {
+    std::size_t total = 0;
+    for (std::size_t j = ThisOrder; j < SourceOrder; ++j) {
+      total += seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
+    }
+    return total;
+  }
+
+template <bool Integral,
+          std::size_t Quantities,
+          std::size_t ThisOrder,
+          typename SourceRealT,
+          typename TargetRealT,
+          std::size_t SourceOrder,
+          std::size_t TargetOrder,
+          std::size_t Offset,
+          std::size_t SharedOffset>
+static __device__ __forceinline__
+void taylorSumInner(TargetRealT* const __restrict__ target,
+                                  const SourceRealT* const __restrict__ source,
+                                  TargetRealT start,
+                                  TargetRealT end,
+                                  TargetRealT startCoeff,
+                                  TargetRealT endCoeff,
+                                  SourceRealT* const __restrict__ shmem,
+                                  TargetRealT reg[Quantities]) {
+  constexpr std::size_t MemorySize = seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
+  constexpr std::size_t SourceStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
+  constexpr std::size_t TargetStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+  constexpr std::size_t RestMemSize = SharedOffset > 0 ? 0 : RestFunctions<SourceRealT>(SourceOrder, ThisOrder) * Quantities;
+  constexpr std::size_t SourceMemSize = SourceStride * Quantities;
+  constexpr bool UseShared = MemorySize >= RestMemSize;
+  constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
+  constexpr TargetRealT DivisionCoefficient = Integral ? static_cast<TargetRealT>(ThisOrder + 2) : static_cast<TargetRealT>(ThisOrder + 1);
+
+  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize, "Tensor size mismatch in explicit kernel.");
+
+  if constexpr (LoadSize > 0) {
+    constexpr std::size_t Rounds = LoadSize / Blocksize;
+    constexpr std::size_t Rest = LoadSize % Blocksize;
+  #pragma unroll
+    for (std::size_t j = 0; j < Rounds; ++j) {
+      shmem[j * Blocksize + threadIdx.x] = source[Offset + j * Blocksize + threadIdx.x];
+    }
+    if constexpr (Rest > 0) {
+      if (threadIdx.x < Rest) {
+        shmem[Rounds * Blocksize + threadIdx.x] = source[Offset + Rounds * Blocksize + threadIdx.x];
+      }
+    }
+    __syncthreads();
+  }
+
+  const TargetRealT coeff = endCoeff - startCoeff;
+  constexpr std::size_t BasisFunctionsSize = std::min(SourceStride, TargetStride);
+  if (threadIdx.x < BasisFunctionsSize) {
+#pragma unroll
+    for (std::size_t j = 0; j < Quantities; ++j) {
+      // FIXME: non-optimal warp utilization (as before... But now it's in registers)
+        reg[j] += coeff * static_cast<TargetRealT>(shmem[SharedOffset + SourceStride * j + threadIdx.x]);
+    }
+  }
+  // TODO(David): are we sure about this? Or is ThisOrder + 1 < SourceOrder enough?
+  if constexpr (ThisOrder + 1 < std::min(SourceOrder, TargetOrder)) {
+    constexpr std::size_t SharedPosition = UseShared ? SharedOffset + SourceMemSize : 0;
+    const TargetRealT newStartCoeff = startCoeff * start / DivisionCoefficient;
+    const TargetRealT newEndCoeff = endCoeff * end / DivisionCoefficient;
+    taylorSumInner<Integral,
+                   Quantities,
+                   ThisOrder + 1,
+                   SourceRealT,
+                   TargetRealT,
+                   SourceOrder,
+                   TargetOrder,
+                   Offset + LoadSize,
+                   SharedPosition>(
+        target, source, start, end, newStartCoeff, newEndCoeff, shmem, reg);
+  }
+}
+
+template <bool Integral,
+          std::size_t Quantities,
+          typename SourceRealT,
+          typename TargetRealT,
+          std::size_t SourceOrder,
+          std::size_t TargetOrder>
+static __global__ __launch_bounds__(Blocksize) // seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder)
+void taylorSumKernel(TargetRealT** targetBatch,
+                                  const SourceRealT** sourceBatch,
+                                  TargetRealT start,
+                                  TargetRealT end) {
+    int batchId = blockIdx.x;
+
+    __shared__ SourceRealT shmem[seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities];
+    TargetRealT __restrict__ reg[Quantities] = {0};
+
+    const SourceRealT * const __restrict__ source = const_cast<const SourceRealT*>(sourceBatch[batchId]);
+    TargetRealT * const __restrict__ target = targetBatch[batchId];
+
+    const TargetRealT startCoeff = Integral ? start : 0;
+    const TargetRealT endCoeff = Integral ? end : 1;
+
+    taylorSumInner<Integral, Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
+      target, source, start, end, startCoeff, endCoeff, shmem, reg);
+
+    constexpr std::size_t TargetStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+
+    if (threadIdx.x < TargetStride) {
+  #pragma unroll
+      for (std::size_t j = 0; j < Quantities; ++j) {
+          target[TargetStride * j + threadIdx.x] = reg[j];
+      }
+    }
+}
+
+  template <
+          bool Integral,
+          std::size_t SourceQuantities,
+          std::size_t TargetQuantities,
+          typename SourceRealT,
+          typename TargetRealT,
+          std::size_t SourceOrder,
+          std::size_t TargetOrder>
+void
+  static taylorSumInternal(std::size_t count, TargetRealT** target, const SourceRealT** source, TargetRealT start, TargetRealT end, void* stream) {
+  constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
+  constexpr std::size_t TargetStride =
+      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+
+      dim3 threads(Blocksize);
+      dim3 blocks(count);
+
+      cudaStream_t castedStream = reinterpret_cast<cudaStream_t>(stream);
+
+  taylorSumKernel<Integral, Quantities, SourceRealT, TargetRealT, SourceOrder, TargetOrder><<<blocks, threads, 0, castedStream>>>(target, source, start, end);
+}
+} // namespace
+
+namespace seissol::kernels::time::aux {
+void
+    taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream) {
+      if (integral) {
+        taylorSumInternal<true, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, real, real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>(count, target, source, start, end, stream);
+      }
+      else {
+        taylorSumInternal<false, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, real, real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>(count, target, source, start, end, stream);
+      }
+    }
+} // namespace seissol::kernels::time::aux
+#endif
 
 namespace seissol::kernels::local_flux::aux::details {
 

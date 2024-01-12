@@ -3,6 +3,11 @@
 #include "Kernels/precision.hpp"
 #include "generated_code/init.h"
 
+namespace seissol::kernels::time::aux {
+void
+    taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream);
+} // namespace seissol::kernels::time::aux
+
 namespace seissol::kernels::local_flux::aux::details {
   void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                                 real** displacementDataPtrs,
