@@ -778,7 +778,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
     if (it->getBucketSize(m_lts.buffersDerivatives) > 0) {
-      void* data = it->bucket(m_lts.buffersDerivatives);
+      void* data = it->bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device);
       device::DeviceInstance::getInstance().algorithms.touchMemory(
         reinterpret_cast<real*>(data),
         it->getBucketSize(m_lts.buffersDerivatives) / sizeof(real),
