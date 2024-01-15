@@ -407,10 +407,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yy0
     // real epsInitzx = -0e-1; // eps_zz0
 
-    real epsInitxx = -9.26e-4; // eps_xx0
-    real epsInityy = -9.26e-4; // eps_yy0
-    real epsInitzz = -9.26e-4; // eps_zz0
-    real epsInitxy = 1.11e-3; // eps_xx0
+    // real epsInitxx = -9.26e-4; // eps_xx0
+    // real epsInityy = -9.26e-4; // eps_yy0
+    // real epsInitzz = -9.26e-4; // eps_zz0
+    // real epsInitxy = 1.11e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+
+    // tpv 5
+    real epsInitxx = 3.73854e-4; // eps_xx0
+    real epsInityy = -1.4963e-3; // eps_yy0
+    real epsInitzz = 3.73854e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xx0
     real epsInityz = -0e-1; // eps_yy0
     real epsInitzx = -0e-1; // eps_zz0
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
@@ -970,10 +978,18 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yy0
       // real epsInitzx = -0e-1; // eps_zz0
 
-      real epsInitxx = -9.26e-4; // eps_xx0
-      real epsInityy = -9.26e-4; // eps_yy0
-      real epsInitzz = -9.26e-4; // eps_zz0
-      real epsInitxy = 1.11e-3; // eps_xx0
+      // real epsInitxx = -9.26e-4; // eps_xx0
+      // real epsInityy = -9.26e-4; // eps_yy0
+      // real epsInitzz = -9.26e-4; // eps_zz0
+      // real epsInitxy = 1.11e-3; // eps_xx0
+      // real epsInityz = -0e-1; // eps_yy0
+      // real epsInitzx = -0e-1; // eps_zz0
+
+      // tpv 5
+      real epsInitxx = 3.73854e-4; // eps_xx0
+      real epsInityy = -1.4963e-3; // eps_yy0
+      real epsInitzz = 3.73854e-4; // eps_zz0
+      real epsInitxy = 1.0909e-3; // eps_xx0
       real epsInityz = -0e-1; // eps_yy0
       real epsInitzx = -0e-1; // eps_zz0
 
