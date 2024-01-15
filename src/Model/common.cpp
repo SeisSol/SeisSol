@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -37,7 +37,7 @@
  *
  * @section DESCRIPTION
  **/
- 
+
 #include <Model/common.hpp>
 #include <cmath>
 #include <iostream>
@@ -51,25 +51,25 @@ void seissol::model::getBondMatrix( VrtxCoords const i_normal,
                                     VrtxCoords const i_tangent2,
                                     real* o_N )
 {
-  o_N[0*6 + 0] =   i_normal[0]*i_normal[0]; 
+  o_N[0*6 + 0] =   i_normal[0]*i_normal[0];
   o_N[0*6 + 1] =   i_normal[1]*i_normal[1];
   o_N[0*6 + 2] =   i_normal[2]*i_normal[2];
   o_N[0*6 + 3] = 2*i_normal[2]*i_normal[1];
   o_N[0*6 + 4] = 2*i_normal[2]*i_normal[0];
   o_N[0*6 + 5] = 2*i_normal[1]*i_normal[0];
-  o_N[1*6 + 0] =   i_tangent1[0]*i_tangent1[0]; 
+  o_N[1*6 + 0] =   i_tangent1[0]*i_tangent1[0];
   o_N[1*6 + 1] =   i_tangent1[1]*i_tangent1[1];
   o_N[1*6 + 2] =   i_tangent1[2]*i_tangent1[2];
   o_N[1*6 + 3] = 2*i_tangent1[2]*i_tangent1[1];
   o_N[1*6 + 4] = 2*i_tangent1[2]*i_tangent1[0];
   o_N[1*6 + 5] = 2*i_tangent1[1]*i_tangent1[0];
-  o_N[2*6 + 0] =   i_tangent2[0]*i_tangent2[0]; 
+  o_N[2*6 + 0] =   i_tangent2[0]*i_tangent2[0];
   o_N[2*6 + 1] =   i_tangent2[1]*i_tangent2[1];
   o_N[2*6 + 2] =   i_tangent2[2]*i_tangent2[2];
   o_N[2*6 + 3] = 2*i_tangent2[2]*i_tangent2[1];
   o_N[2*6 + 4] = 2*i_tangent2[2]*i_tangent2[0];
   o_N[2*6 + 5] = 2*i_tangent2[1]*i_tangent2[0];
-  
+
   o_N[3*6 + 0] = i_tangent1[0]*i_tangent2[0];
   o_N[3*6 + 1] = i_tangent1[1]*i_tangent2[1];
   o_N[3*6 + 2] = i_tangent1[2]*i_tangent2[2];
@@ -110,10 +110,10 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
 {
   o_T.setZero();
   o_Tinv.setZero();
-  
+
   seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
   seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
-  
+
   seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
 
@@ -130,13 +130,15 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   o_T(9, 9) = 1;
   o_Tinv(9,9) = 1;
   //fluid velocities
-  unsigned origin = 10; 
+  unsigned origin = 10;
   seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
 #elif USE_DAMAGEDELASTIC
   //damage
   o_T(9, 9) = 1;
   o_Tinv(9,9) = 1;
-#endif 
+  o_T(10, 10) = 1;
+  o_Tinv(10,10) = 1;
+#endif
 }
 

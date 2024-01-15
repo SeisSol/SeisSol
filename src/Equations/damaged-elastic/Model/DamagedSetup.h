@@ -10,7 +10,7 @@
 
 namespace seissol {
   namespace model {
-    using Matrix1010 = Eigen::Matrix<double, 10, 10>;
+    using Matrix1010 = Eigen::Matrix<double, 11, 11>;
 
     template<typename T>
     inline void getTransposedCoefficientMatrix( DamagedElasticMaterial  const&  i_material,
@@ -121,6 +121,16 @@ namespace seissol {
               o_M(9,8) = (0
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
                   / i_material.rho;
+
+              o_M(10,6) = (i_material.gammaR*std::sqrt(I2)
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
+                  / i_material.rho;
+              o_M(10,7) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+                  / i_material.rho;
+              o_M(10,8) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+                  / i_material.rho;
               break;
 
             case 1:
@@ -143,6 +153,16 @@ namespace seissol {
               o_M(9,8) = (0
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
                   / i_material.rho;
+
+              o_M(10,6) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+                  / i_material.rho;
+              o_M(10,7) = (i_material.gammaR*std::sqrt(I2)
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
+                  / i_material.rho;
+              o_M(10,8) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+                  / i_material.rho;
               break;
 
             case 2:
@@ -163,6 +183,16 @@ namespace seissol {
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
                   / i_material.rho;
               o_M(9,8) = (i_material.gammaR*std::sqrt(I2)
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
+                  / i_material.rho;
+
+              o_M(10,6) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+                  / i_material.rho;
+              o_M(10,7) = (0
+                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+                  / i_material.rho;
+              o_M(10,8) = (i_material.gammaR*std::sqrt(I2)
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
                   / i_material.rho;
               break;
@@ -271,6 +301,7 @@ namespace seissol {
             + local.gamma*(xi+local.xi0)*local.epszx_alpha )
               / (2*local.mu/local.rho);
           R(9,9) = local.rho;
+          R(10,10) = local.rho;
          #endif
 
          //===============Added for free surface BC of the strain-vel case=====================
@@ -285,6 +316,7 @@ namespace seissol {
 
          #if USE_DAMAGEDELASTIC
           C(9,9) = 1.0;
+          C(10,10) = 1.0;
          #endif
 
          Matrix1010 R_sig = (C*R).eval();
@@ -385,7 +417,7 @@ namespace seissol {
                QgodNeighbor(i,j) = godunov(j,i);
              }
            }
-           for (unsigned idx = 0; idx < 10; ++idx) {
+           for (unsigned idx = 0; idx < 11; ++idx) {
              QgodLocal(idx,idx) += 1.0;
            }
          }

@@ -166,6 +166,7 @@ public:
 			"w_f",
 #elif USE_DAMAGEDELASTIC
 			"damage",
+			"breakage",
 #endif
 			"ep_xx",
 			"ep_yy",
@@ -182,7 +183,7 @@ public:
 #ifdef USE_POROELASTIC
 				assert(i < 20);
 #elif USE_DAMAGEDELASTIC
-				assert(i < 17);
+				assert(i < 18);
 #else
 				assert(i < 16);
 #endif
