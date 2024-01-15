@@ -563,19 +563,19 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   const double timeStepWidth = timeStepSize();
   auto& table = i_layerData.getConditionalTable<inner_keys::Wp>();
 
-  seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
-                                                        subTimeStart,
-                                                        timeStepWidth,
-                                                        table);
-  assert(device.api->isCircularStreamsJoinedWithDefault() &&
-         "circular streams must be joined with the default stream");
-
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-  auto computeGraphKey = initializers::GraphKey(graphType);
+  auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false, subTimeStart);
   auto computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
   if (!computeGraphHandle) {
     device.api->streamBeginCapture();
+
+    seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
+                                                        subTimeStart,
+                                                        timeStepWidth,
+                                                        table);
+    assert(device.api->isCircularStreamsJoinedWithDefault() &&
+          "circular streams must be joined with the default stream");
 
     m_neighborKernel.computeBatchedNeighborsIntegral(table);
     assert(device.api->isCircularStreamsJoinedWithDefault() &&
@@ -589,9 +589,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   }
 
   if (computeGraphHandle.isInitialized()) {
-    // Note: graph stream needs to wait the default stream
-    // (used in `computeBatchedIntegrals`)
-    device.api->syncDefaultStreamWithHost();
     device.api->launchGraph(computeGraphHandle);
     device.api->syncGraph(computeGraphHandle);
   }
