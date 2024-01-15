@@ -119,7 +119,7 @@ namespace seissol {
           device = host;
         }
         if (mode == AllocationMode::HostDeviceSplit) {
-          host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
+          host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Standard);
           device = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
         }
         allocationMode = mode;
@@ -135,7 +135,6 @@ namespace seissol {
           else {
             device::DeviceInstance::getInstance().api->copyToAsync(device, host, allocationSize, stream);
           }
-
         }
         if (allocationMode == AllocationMode::HostDeviceUnified) {
           if (place == AllocationPlace::Host) {

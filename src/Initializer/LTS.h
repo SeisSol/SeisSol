@@ -109,6 +109,7 @@ struct seissol::initializers::LTS {
   Variable<real*>                         buffersDevice;
   Variable<real*>                         derivativesDevice;
   Variable<real*[4]>                      faceDisplacementsDevice;
+  Variable<real*[4]>                      faceNeighborsDevice;
   Variable<LocalIntegrationData>          localIntegrationOnDevice;
   Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
   ScratchpadMemory                        integratedDofsScratch;
@@ -149,6 +150,7 @@ struct seissol::initializers::LTS {
     tree.addVar(   buffersDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
     tree.addVar(   derivativesDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
     tree.addVar(   faceDisplacementsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+    tree.addVar(   faceNeighborsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
     tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      AllocationMode::DeviceOnly);
     tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);

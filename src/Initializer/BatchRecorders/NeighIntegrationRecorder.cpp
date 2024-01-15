@@ -19,8 +19,8 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighbors)[4] =
-      currentLayer->var(currentHandler->faceNeighbors, AllocationPlace::Host);
+  real*(*faceNeighborsDevice)[4] =
+      currentLayer->var(currentHandler->faceNeighborsDevice);
   real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->integratedDofsScratch, AllocationPlace::Device));
 
@@ -35,7 +35,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        real* neighbourBuffer = faceNeighbors[cell][face];
+        real* neighbourBuffer = faceNeighborsDevice[cell][face];
 
         // check whether a neighbour element idofs has not been counted twice
         if ((idofsAddressRegistry.find(neighbourBuffer) == idofsAddressRegistry.end())) {
@@ -91,7 +91,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 }
 
 void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
-  real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
+  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
@@ -116,7 +116,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
       case FaceType::periodic: {
         // compute face type relation
 
-        real* neighbourBufferPtr = faceNeighbors[cell][face];
+        real* neighbourBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighbourBufferPtr != nullptr) {
           unsigned faceRelation = dataHost.cellInformation.faceRelations[face][1] +

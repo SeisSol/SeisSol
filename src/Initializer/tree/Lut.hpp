@@ -42,6 +42,7 @@
 #define INITIALIZER_TREE_LUT_HPP_
 
 #include "LTSTree.hpp"
+#include "Layer.hpp"
 
 namespace seissol {
   namespace initializers {
@@ -134,8 +135,8 @@ public:
   }
   
   template<typename T>
-  T& lookup(Variable<T> const& handle, unsigned meshId) const {
-    return m_ltsTree->var(handle)[ltsId(handle.mask, meshId)*handle.count];
+  T& lookup(Variable<T> const& handle, unsigned meshId, AllocationPlace place = AllocationPlace::Host) const {
+    return m_ltsTree->var(handle, place)[ltsId(handle.mask, meshId)*handle.count];
   }
 };
 

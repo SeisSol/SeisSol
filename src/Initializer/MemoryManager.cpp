@@ -334,7 +334,12 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 
   real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
   real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
+  real** buffersDevice = m_ltsTree.var(m_lts.buffersDevice);          // faceNeighborIds are ltsIds and not layer-local
+  real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+#ifdef ACL_DEVICE
+  real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
+#endif
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
@@ -345,10 +350,16 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
+#ifdef ACL_DEVICE
+          faceNeighborsDevice[cell][face] = derivativesDevice[ cellInformation[cell].faceNeighborIds[face] ];
+#endif
         }
         // neighboring cell provides a time buffer
         else {
           faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
+#ifdef ACL_DEVICE
+          faceNeighborsDevice[cell][face] = buffersDevice[ cellInformation[cell].faceNeighborIds[face] ];
+#endif
         }
         assert(faceNeighbors[cell][face] != nullptr);
       }
@@ -359,9 +370,15 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 	       cellInformation[cell].faceTypes[face] == FaceType::analytical) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
+#ifdef ACL_DEVICE
+          faceNeighborsDevice[cell][face] = layer.var(m_lts.buffersDevice)[cell];
+#endif
         }
         else { // free surface on derivatives
           faceNeighbors[cell][face] = layer.var(m_lts.derivatives)[cell];
+#ifdef ACL_DEVICE
+          faceNeighborsDevice[cell][face] = layer.var(m_lts.derivativesDevice)[cell];
+#endif
         }
         assert(faceNeighbors[cell][face] != nullptr);
       }
@@ -369,6 +386,9 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
       else if( cellInformation[cell].faceTypes[face] == FaceType::outflow ) {
         // NULL pointer; absorbing: data is not used
         faceNeighbors[cell][face] = nullptr;
+#ifdef ACL_DEVICE
+        faceNeighborsDevice[cell][face] = nullptr;
+#endif
       }
       else {
         // assert all cases are covered

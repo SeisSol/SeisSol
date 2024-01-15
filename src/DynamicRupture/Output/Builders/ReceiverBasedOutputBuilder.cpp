@@ -85,12 +85,12 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   std::size_t arrayIndex = 0;
   for (const auto& index : elementIndices) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
     assert(preDofPtr[arrayIndex] != nullptr);
     ++arrayIndex;
   }
   for (const auto& [_, neighbor] : elementIndicesGhost) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(preDofPtr[arrayIndex] != nullptr);
     ++arrayIndex;
   }

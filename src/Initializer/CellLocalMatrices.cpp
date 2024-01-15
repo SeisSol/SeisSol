@@ -406,8 +406,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
-  real** derivatives = io_ltsTree->var(i_lts->derivatives);
-  real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
+  real** derivatives = io_ltsTree->var(i_lts->derivativesDevice);
+  real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -465,7 +465,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
           timeDerivative1 = derivatives[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
         }
         if (timeDerivative2 == NULL && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
-          timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
+          timeDerivative2 = faceNeighborsDevice[ i_ltsLut->ltsId(i_lts->faceNeighborsDevice.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
         }
       }
 
