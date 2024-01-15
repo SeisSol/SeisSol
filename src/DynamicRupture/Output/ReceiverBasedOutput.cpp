@@ -62,12 +62,12 @@ void ReceiverOutput::allocateMemory(
 }
 
 ReceiverOutput::~ReceiverOutput() {
-#ifdef ACL_DEVICE
   if (deviceCopyMemory != nullptr) {
+#ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->freePinnedMem(deviceCopyMemory);
+#endif
     deviceCopyMemory = nullptr;
   }
-#endif
 }
 
 void ReceiverOutput::calcFaultOutput(const OutputType type,
