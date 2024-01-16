@@ -126,14 +126,15 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
   unsigned DAM = 9;
+  unsigned BRE = 10;
 
 #ifndef ACL_DEVICE
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
   // Derive averaged field and material properties at t0 of each time step
-  real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP;
-  real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM;
+  real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP, breP;
+  real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM, breM;
 
   exxP = 0; eyyP = 0; ezzP = 0; exyP = 0; eyzP = 0; ezxP = 0; damP = 0;
   exxM = 0; eyyM = 0; ezzM = 0; exyM = 0; eyzM = 0; ezxM = 0; damM = 0;
@@ -154,6 +155,7 @@ inline void precomputeStressFromQInterpolated(
     eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
     damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breP += qStrainIPlus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
 
     exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
     eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
@@ -162,6 +164,7 @@ inline void precomputeStressFromQInterpolated(
     eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
     damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breM += qStrainIMinus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
   // real epsInitxx = 4.63e-4; // eps_xx0
@@ -178,6 +181,11 @@ inline void precomputeStressFromQInterpolated(
   real epsInityz = -0e-1; // eps_yy0
   real epsInitzx = -0e-1; // eps_zz0
 
+  real aB0 = 5.45e9;
+  real aB1 = -18.89e9;
+  real aB2 = 23.96e9;
+  real aB3 = -10.112e9;
+
   real EspIp = (exxP+epsInitxx) + (eyyP+epsInityy) + (ezzP+epsInitzz);
   real EspIIp = (exxP+epsInitxx)*(exxP+epsInitxx)
     + (eyyP+epsInityy)*(eyyP+epsInityy)
@@ -186,16 +194,11 @@ inline void precomputeStressFromQInterpolated(
     + 2*(eyzP+epsInityz)*(eyzP+epsInityz)
     + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
   real alphap = damP;
-  real xip, xiInvp;
+  real xip;
   if (EspIIp > 1e-30){
     xip = EspIp / std::sqrt(EspIIp);
   } else{
     xip = 0.0;
-  }
-  if ( std::abs(xip) > 1e-1){
-    xiInvp = 1 / xip;
-  } else{
-    xiInvp = 0.0;
   }
 
   real EspIm = (exxM+epsInitxx) + (eyyM+epsInityy) + (ezzM+epsInitzz);
@@ -206,23 +209,37 @@ inline void precomputeStressFromQInterpolated(
     + 2*(eyzM+epsInityz)*(eyzM+epsInityz)
     + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
   real alpham = damM;
-  real xim, xiInvm;
+  real xim;
   if (EspIIm > 1e-30){
     xim = EspIm / std::sqrt(EspIIm);
   } else{
     xim = 0.0;
   }
-  if ( std::abs(xim) > 1e-1){
-    xiInvm = 1 / xim;
-  } else{
-    xiInvm = 0.0;
-  }
 
   // compute laP, muP, laM and muM
-  auto laP = la0P - alphap*gaRP*xiInvp;
-  auto laM = la0M - alpham*gaRM*xiInvm;
-  auto muP = mu0P - alphap*gaRP*xi0P - 0.5*alphap*gaRP*xip;
-  auto muM = mu0M - alpham*gaRM*xi0M - 0.5*alpham*gaRM*xim;
+  auto muP = (1-breP) * (mu0P
+    - alphap*xi0P*gaRP
+    - 0.5*alphap*gaRP*xip)
+    + breP * (
+      (aB0 + 0.5*aB1*xip - 0.5*aB3*xip*xip*xip)
+    );
+  auto laP = (1-breP) * (la0P
+  - alphap*gaRP*(eyyP+epsInityy)/std::sqrt(EspIIp))
+  + breP * (
+    (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
+  );
+
+  auto muM = (1-breM) * (mu0M
+    - alpham*xi0M*gaRM
+    - 0.5*alpham*gaRM*xim)
+    + breM * (
+      (aB0 + 0.5*aB1*xim - 0.5*aB3*xim*xim*xim)
+    );
+  auto laM = (1-breM) * (la0M
+  - alpham*gaRM*(eyyM+epsInityy)/std::sqrt(EspIIm))
+  + breM * (
+    (2.0*aB2 + 3.0*aB3*xim) + aB1*(eyyM+epsInityy)/std::sqrt(EspIIm)
+  );
 
   invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
   invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );

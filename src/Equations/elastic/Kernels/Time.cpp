@@ -200,14 +200,25 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // real epsInitzx = -0e-1; // eps_zz0
 
   // tpv 5
-  real epsInitxx = 3.73854e-4; // eps_xx0
-  real epsInityy = -1.4963e-3; // eps_yy0
-  real epsInitzz = 3.73854e-4; // eps_zz0
-  real epsInitxy = 1.0909e-3; // eps_xx0
-  real epsInityz = -0e-1; // eps_yy0
-  real epsInitzx = -0e-1; // eps_zz0
+  // real epsInitxx = 3.73854e-4; // eps_xx0
+  // real epsInityy = -1.4963e-3; // eps_yy0
+  // real epsInitzz = 3.73854e-4; // eps_zz0
+  // real epsInitxy = 1.0909e-3; // eps_xx0
+  // real epsInityz = -0e-1; // eps_yy0
+  // real epsInitzx = -0e-1; // eps_zz0
+
+  real epsInitxx = -1.8738e-4; // eps_xx0
+  real epsInityy = -1.1225e-3; // eps_yy0
+  real epsInitzz = -1.8738e-4; // eps_zz0
+  real epsInitxy = 1.0909e-3; // eps_xy0
+  real epsInityz = -0e-1; // eps_yz0
+  real epsInitzx = -0e-1; // eps_zx0
 
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
+
+  real const break_coeff = 1e2*damage_para1;
+  real const beta_alpha = 0.03;
+
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
   // real const mu0 = 8.27e10; // data.material.local.mu0
@@ -230,6 +241,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* eyzNodal = (solNData + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* ezxNodal = (solNData + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
     real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
@@ -246,22 +259,49 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       xi = 0.0;
     }
 
+    // Compute alpha_{cr}
+    real aCR = (3.0*xi*xi - 3.0)*data.material.local.gammaR*data.material.local.gammaR
+    + 6.0*xi*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR
+    + 4.0*data.material.local.xi0*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR;
+
+    real bCR = - (8.0*data.material.local.mu0 + 6.0*data.material.local.lambda0) * data.material.local.xi0*data.material.local.gammaR
+      - xi * (xi*xi* data.material.local.lambda0 + 6.0*data.material.local.mu0) * data.material.local.gammaR;
+
+    real cCR = 4.0 * data.material.local.mu0 * data.material.local.mu0
+      + 6.0 * data.material.local.mu0 * data.material.local.lambda0;
+
+    real alphaCR1q = ( -bCR - std::sqrt(bCR*bCR - 4.0*aCR*cCR) )/(2.0*aCR);
+    real alphaCR2q = 2.0*data.material.local.mu0
+      /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
+
+    real alphaCRq = std::min(1.0,
+      std::min(alphaCR1q,alphaCR2q)
+    );
+
     if (xi + data.material.local.xi0 > 0) {
-      if (alphaNodal[q] < 0.4){
+      // if (alphaNodal[q] < 0.4){
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          damage_para1
+          (1 - breakNodal[q]) * damage_para1
             *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-      }
-      else{
-        fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-      }
+
+        fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+            *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+      // }
+      // else{
+      //   fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+      // }
     } else if (alphaNodal[q] > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        damage_para1
+        0.0 * damage_para1
+          *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+      fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        0.0 * damage_para1
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
     }
     else {
-      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
+      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+      fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
     }
 
     // std::cout << fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] << std::endl;

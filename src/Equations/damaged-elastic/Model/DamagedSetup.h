@@ -122,15 +122,15 @@ namespace seissol {
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
                   / i_material.rho;
 
-              o_M(10,6) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
-                  / i_material.rho;
-              o_M(10,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-                  / i_material.rho;
-              o_M(10,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-                  / i_material.rho;
+              // o_M(10,6) = (i_material.gammaR*std::sqrt(I2)
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
+              //     / i_material.rho;
+              // o_M(10,7) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+              //     / i_material.rho;
+              // o_M(10,8) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+              //     / i_material.rho;
               break;
 
             case 1:
@@ -154,15 +154,15 @@ namespace seissol {
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
                   / i_material.rho;
 
-              o_M(10,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-                  / i_material.rho;
-              o_M(10,7) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
-                  / i_material.rho;
-              o_M(10,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-                  / i_material.rho;
+              // o_M(10,6) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
+              //     / i_material.rho;
+              // o_M(10,7) = (i_material.gammaR*std::sqrt(I2)
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
+              //     / i_material.rho;
+              // o_M(10,8) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+              //     / i_material.rho;
               break;
 
             case 2:
@@ -186,15 +186,15 @@ namespace seissol {
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
                   / i_material.rho;
 
-              o_M(10,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-                  / i_material.rho;
-              o_M(10,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-                  / i_material.rho;
-              o_M(10,8) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
-                  / i_material.rho;
+              // o_M(10,6) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
+              //     / i_material.rho;
+              // o_M(10,7) = (0
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
+              //     / i_material.rho;
+              // o_M(10,8) = (i_material.gammaR*std::sqrt(I2)
+              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
+              //     / i_material.rho;
               break;
 
             default:
