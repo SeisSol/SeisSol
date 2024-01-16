@@ -79,14 +79,16 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const auto faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
-                                                                        deviceCopyMemory,
-                                                                        tensor::Q::size(),
-                                                                        tensor::Q::size(),
-                                                                        outputData->cellCount,
-                                                                        stream);
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  if (outputData->cellCount > 0) {
+    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
+                                                                          deviceCopyMemory,
+                                                                          tensor::Q::size(),
+                                                                          tensor::Q::size(),
+                                                                          outputData->cellCount,
+                                                                          stream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  }
 #endif
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
