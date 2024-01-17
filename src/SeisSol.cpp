@@ -76,6 +76,9 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
 
+  Extrae_init();
+  Extrae_shutdown();
+
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
   logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";

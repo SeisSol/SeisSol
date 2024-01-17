@@ -91,6 +91,9 @@ int main(int argc, char* argv[]) {
   { LIKWID_MARKER_STOP("SeisSol"); }
 
   LIKWID_MARKER_CLOSE;
+
+  Extrae_fini();
+
   // Finalize SeisSol
   seissol::SeisSol::main.finalize();
 

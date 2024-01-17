@@ -85,6 +85,8 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 void seissol::Simulator::simulate() {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  Extrae_restart();
+
   auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
 
@@ -138,6 +140,8 @@ void seissol::Simulator::simulate() {
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
     seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
+
+    Extrae_shutdown();
   }
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);

@@ -102,4 +102,16 @@
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
+// extrae
+#ifdef USE_EXTRAE
+#include "extrae.h"
+#include "extrae_user_events.h"
+#else
+#define Extrae_event(...)
+#define Extrae_shutdown(...)
+#define Extrae_restart(...)
+#define Extrae_init(...)
+#define Extrae_fini(...)
+#endif
+
 #endif

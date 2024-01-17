@@ -260,6 +260,8 @@ seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaul
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  Extrae_event(1, 1);
+
   // We should always move forward in time
   assert(m_timeStepping.synchronizationTime <= synchronizationTime);
 
@@ -333,6 +335,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
 #endif
+
+  Extrae_event(1, 0);
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime(
