@@ -530,6 +530,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           std::min(alphaCR1q,alphaCR2q)
         );
 
+        std::cout << alphaCRq << std::endl;
+
         if (xi + data.material.local.xi0 > 0) {
           // if (alphaNodal[q] < 0.4 ){
             FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
