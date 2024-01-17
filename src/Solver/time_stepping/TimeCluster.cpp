@@ -536,7 +536,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
               (1 - breakNodal[q]) * damage_para1
                 *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
 
-            std::cout << 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) << std::endl;
+            std::cout << (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff << std::endl;
 
             FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
               (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
