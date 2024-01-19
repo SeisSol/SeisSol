@@ -47,6 +47,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/Unit.hpp"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 
@@ -142,7 +143,7 @@ void seissol::Simulator::simulate() {
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
   double wallTime = stopwatch.split();
-  logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
+  logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds ( =" << UnitTime.formatTime(wallTime).c_str() << ").";
 
   const auto& memoryManager = SeisSol::main.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
