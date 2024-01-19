@@ -406,8 +406,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
+#ifdef ACL_DEVICE
+  AllocationPlace allocationPlace = AllocationPlace::Device;
   real** derivatives = io_ltsTree->var(i_lts->derivativesDevice);
-  real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
+  real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
+#else
+  AllocationPlace allocationPlace = AllocationPlace::Host;
+  real** derivatives = io_ltsTree->var(i_lts->derivatives);
+  real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
+#endif
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -415,11 +422,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Device);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Device);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, allocationPlace);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, allocationPlace);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Device);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Device);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, allocationPlace);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, allocationPlace);
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
@@ -465,7 +472,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
           timeDerivative1 = derivatives[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
         }
         if (timeDerivative2 == NULL && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
-          timeDerivative2 = faceNeighborsDevice[ i_ltsLut->ltsId(i_lts->faceNeighborsDevice.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
+          timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
         }
       }
 

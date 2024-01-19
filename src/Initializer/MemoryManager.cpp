@@ -334,10 +334,10 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 
   real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
   real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
-  real** buffersDevice = m_ltsTree.var(m_lts.buffersDevice);          // faceNeighborIds are ltsIds and not layer-local
-  real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
 #ifdef ACL_DEVICE
+  real** buffersDevice = m_ltsTree.var(m_lts.buffersDevice);          // faceNeighborIds are ltsIds and not layer-local
+  real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
 #endif
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
