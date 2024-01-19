@@ -258,12 +258,18 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
     }
   }
 
+#ifdef ACL_DEVICE
+  const auto allocationPlace = seissol::initializers::AllocationPlace::Device;
+#else
+  const auto allocationPlace = seissol::initializers::AllocationPlace::Host;
+#endif
+
   /*
    * ghost layer
    */
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives, seissol::initializers::AllocationPlace::Device));
+    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives, allocationPlace));
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // set pointer to ghost region
       m_meshStructure[tc].ghostRegions[l_region] = ghostStart;
@@ -286,8 +292,13 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
    */
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     Layer& copy = m_ltsTree.child(tc).child<Copy>();
+#ifdef ACL_DEVICE
+    real** buffers = copy.var(m_lts.buffersDevice);
+    real** derivatives = copy.var(m_lts.derivativesDevice);
+#else
     real** buffers = copy.var(m_lts.buffers);
     real** derivatives = copy.var(m_lts.derivatives);
+#endif
     // copy region offset
     unsigned int l_offset = 0;
 
@@ -402,6 +413,8 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
   // initialize the pointers of the internal state
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
+
+    if constexpr (!seissol::isDeviceOn()) {
 #ifdef USE_MPI
     /*
      * ghost layer
@@ -438,6 +451,7 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                           static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives)),
                                           cluster.child<Interior>().var(m_lts.buffers),
                                           cluster.child<Interior>().var(m_lts.derivatives)  );
+    }
 
 #ifdef ACL_DEVICE
     #ifdef USE_MPI
