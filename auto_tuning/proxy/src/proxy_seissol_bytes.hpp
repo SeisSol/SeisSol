@@ -49,7 +49,7 @@ double bytes_all(unsigned int i_timesteps) {
   return bytes_local(i_timesteps) + bytes_neigh(i_timesteps);
 }
 
-double noestimate(unsigned) {
+double bytes_noestimate(unsigned) {
   return 0.0;
 }
 
