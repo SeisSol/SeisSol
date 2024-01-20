@@ -129,7 +129,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighbourBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighborIntegration.nAmNm1[face]));
+              static_cast<real*>(data.neighboringIntegration.nAmNm1[face]));
         }
         break;
       }

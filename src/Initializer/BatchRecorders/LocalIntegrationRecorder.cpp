@@ -217,7 +217,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          aminusTPtrs[face].push_back(data.neighborIntegration.nAmNm1[face]);
+          aminusTPtrs[face].push_back(data.neighboringIntegration.nAmNm1[face]);
           displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice[face]);
           T[face].push_back(data.boundaryMapping[face].TData);
           Tinv[face].push_back(data.boundaryMapping[face].TinvData);
@@ -280,7 +280,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
           Tinv[face].push_back(data.boundaryMapping[face].TinvData);
-          aminusTPtrs[face].push_back(data.neighborIntegration.nAmNm1[face]);
+          aminusTPtrs[face].push_back(data.neighboringIntegration.nAmNm1[face]);
 
           easiBoundaryMapPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryMap);
           easiBoundaryConstantPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryConstant);
