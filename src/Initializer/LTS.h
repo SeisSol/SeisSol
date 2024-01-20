@@ -67,9 +67,13 @@
 #   define MEMKIND_DOFS     AllocationMode::HostOnly
 #endif
 # define MEMKIND_UNIFIED  AllocationMode::HostOnly
+
+#   define MEMKIND_TIMEDOFS_CONSTANT MEMKIND_TIMEDOFS
+#   define MEMKIND_CONSTANT_SHARED MEMKIND_CONSTANT
 #else // ACL_DEVICE
 #	define MEMKIND_GLOBAL   AllocationMode::HostOnly
 #	define MEMKIND_CONSTANT AllocationMode::HostOnly
+#	define MEMKIND_CONSTANT_SHARED AllocationMode::HostDeviceSplit // HostDeviceUnified
 # define MEMKIND_TIMEDOFS_CONSTANT AllocationMode::HostOnly
 #	define MEMKIND_DOFS     AllocationMode::HostDeviceSplit // HostDeviceUnified
 #	define MEMKIND_TIMEDOFS AllocationMode::HostDeviceSplit // HostDeviceUnified
@@ -110,8 +114,6 @@ struct seissol::initializers::LTS {
   Variable<real*>                         derivativesDevice;
   Variable<real*[4]>                      faceDisplacementsDevice;
   Variable<real*[4]>                      faceNeighborsDevice;
-  Variable<LocalIntegrationData>          localIntegrationOnDevice;
-  Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
@@ -147,12 +149,10 @@ struct seissol::initializers::LTS {
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
-    tree.addVar(   buffersDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
-    tree.addVar(   derivativesDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+    tree.addVar(   buffersDevice, LayerMask(),     1,      AllocationMode::HostOnly );
+    tree.addVar(   derivativesDevice, LayerMask(),     1,      AllocationMode::HostOnly );
     tree.addVar(   faceDisplacementsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
     tree.addVar(   faceNeighborsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      AllocationMode::DeviceOnly);
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch,                  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      AllocationMode::DeviceOnly);

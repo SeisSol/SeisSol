@@ -657,7 +657,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(L
 
     CellLocalInformation *cellInformation = layer->var(lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*faceNeighbors)[4] = layer->var(lts.faceNeighbors);
+    real *(*faceNeighbors)[4] = layer->var(lts.faceNeighborsDevice);
 
     unsigned derivativesCounter{0};
     unsigned integratedDofsCounter{0};
@@ -672,13 +672,13 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(L
 
       // include data provided by ghost layers
       for (unsigned face = 0; face < 4; ++face) {
-        real *neighbourBuffer = faceNeighbors[cell][face];
+        real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbour element idofs has not been counted twice
-        if ((registry.find(neighbourBuffer) == registry.end())) {
+        if ((registry.find(neighborBuffer) == registry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighbourBuffer != nullptr) {
+          if (neighborBuffer != nullptr) {
             if (cellInformation[cell].faceTypes[face] != FaceType::outflow &&
                 cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
 
@@ -686,7 +686,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(L
               if (isNeighbProvidesDerivatives) {
                 ++integratedDofsCounter;
               }
-              registry.insert(neighbourBuffer);
+              registry.insert(neighborBuffer);
             }
           }
         }

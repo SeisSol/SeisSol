@@ -80,7 +80,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       }
 
       // stars
-      starPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.starMatrices[0]);
+      starPtrs[cell] = static_cast<real*>(data.localIntegration.starMatrices[0]);
 
       // derivatives
       bool isDerivativesProvided = ((dataHost.cellInformation.ltsSetup >> 9) % 2) == 1;
@@ -131,7 +131,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       if (dataHost.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.dofs));
-        aplusTPtrs.push_back(static_cast<real*>(data.localIntegrationOnDevice.nApNm1[face]));
+        aplusTPtrs.push_back(static_cast<real*>(data.localIntegration.nApNm1[face]));
       }
     }
 
@@ -217,8 +217,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          aminusTPtrs[face].push_back(data.neighIntegrationOnDevice.nAmNm1[face]);
-          displacementsPtrs[face].push_back(data.faceDisplacements[face]);
+          aminusTPtrs[face].push_back(data.neighborIntegration.nAmNm1[face]);
+          displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice[face]);
           T[face].push_back(data.boundaryMapping[face].TData);
           Tinv[face].push_back(data.boundaryMapping[face].TinvData);
 
@@ -280,7 +280,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
           Tinv[face].push_back(data.boundaryMapping[face].TinvData);
-          aminusTPtrs[face].push_back(data.neighIntegrationOnDevice.nAmNm1[face]);
+          aminusTPtrs[face].push_back(data.neighborIntegration.nAmNm1[face]);
 
           easiBoundaryMapPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryMap);
           easiBoundaryConstantPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryConstant);
