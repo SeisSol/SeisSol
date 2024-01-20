@@ -136,8 +136,8 @@ struct seissol::initializers::LTS {
     tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS_CONSTANT );
     tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
     tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS_CONSTANT );
-    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED );
+    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED );
     tree.addVar(                material, LayerMask(Ghost),                 1,      AllocationMode::HostOnly );
     tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
     tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
