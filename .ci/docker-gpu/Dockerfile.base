@@ -144,32 +144,6 @@ mkdir eigen-${VERSION}/build && cd eigen-${VERSION}/build && \
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr && make -j $(nproc) install && \
 cd ../.. && rm -rf ./eigen-${VERSION}*
 
-ARG SEISSOL_SHA_COMMIT=master
-
-RUN git clone https://github.com/SeisSol/SeisSol.git seissol && cd ./seissol && \
-git reset $SEISSOL_SHA_COMMIT --hard && \
-git submodule update --init --recursive && \
-DIR=./preprocessing/meshing/cube_c/build && \
-mkdir -p $DIR && cd $DIR && \
-CC=mpicc CXX=mpicxx cmake .. && make -j $(nproc) && \
-cp ./cubeGenerator /usr/bin && \
-cd .. && rm -rf ./build
-
-
-RUN DIR=./seissol/preprocessing/meshing/gmsh2gambit && \
-mkdir -p $DIR && cd $DIR && \
-CC=gcc CXX=g++ scons && \
-cp ./build/bin/gmsh2gambit /usr/bin && \ 
-rm -rf ./build
-
-
-RUN DIR=./seissol/preprocessing/science/rconv/build && \
-mkdir -p $DIR && cd $DIR && \
-CC=mpicc CXX=mpicxx cmake .. && make -j $(nproc) && \
-cp ./rconv /usr/bin && \
-cd /tmp && rm -rf ./seissol
-
-
 # Clean-up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && rm -rf /tmp/*
 
