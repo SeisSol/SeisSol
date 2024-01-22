@@ -42,6 +42,7 @@ def asymmetric_cosine(trise, tfall=None, dt=0.1):
 def from_usgs_param_file(file, dt, trise_min=0):
     import re
     import pandas as pd
+    from io import StringIO
     """
     Reading USGS param file
     Args:
@@ -90,7 +91,6 @@ def from_usgs_param_file(file, dt, trise_min=0):
         line2 = line1 + nx*ny
         istart = line1 + nx*ny
 
-        from io import StringIO
         text_file = StringIO("\n".join([header, *lines[line1:line2]]))   
         df = pd.read_csv(text_file, sep='\s+')
         
@@ -113,32 +113,44 @@ def write_to_srf_file(seg_info, sources, stf_all, dt, split_seg=True, srf_file='
         df = sources[iseg]
         no_subfaults = len(df)
 
-        srf = open(f"{srf_file}_seg{iseg+1}.srf",'w')
-        srf.write('2.0\n')
-        srf.write(f"# {model_description}\n")
-        srf.write(f"# nx={seg_info[iseg][0]:.0f} ny={seg_info[iseg][1]:.0f} dx={seg_info[iseg][2]:.2f} dy={seg_info[iseg][3]:.2f}\n")
-        srf.write(f'POINTS {no_subfaults}\n')
-        
-        
-        for i in range(no_subfaults):
-            LAT, LON, DEP = df.lat.iloc[i], df.lon.iloc[i], df["depth"][i]
-            rake = df.rake.iloc[i]
-            rake_rad = np.deg2rad(rake)
-            DIP, STRIKE = df.dip.iloc[i], df.strike.iloc[i]
-            AREA = seg_info[iseg][2] * seg_info[iseg][2] * 1000*1000*100*100            # in cm^2
-            TINIT = df.t_rup.iloc[i]
-            DT = dt
-            
-            Vs = 0.0
-            DEN = 0.0
-            subfault_info1 = [LON,LAT,DEP,STRIKE,DIP,AREA,TINIT,DT,Vs,DEN]
-            subfault_info2 = [rake, df.slip.iloc[i], len(stf_all[iseg]), 0, 0, 0, 0]
-            srf.write('%.3f %.3f %.3f %.1f %.1f %.3e %.3f %.1f %.3e %.3f\n' % tuple(subfault_info1) )
-            srf.write('%i %.2f %i  %.2f %i %.2f %i\n' % tuple(subfault_info2))
-            _srf = " ".join(f"{x:.2f}" for x in stf_all[iseg][i]) ### normalized srf
-            srf.write(_srf+"\n")
+        top_center_lon, top_center_lat = df.lon.iloc[0], df.lat.iloc[0]
+        nx, ny, dx, dy = seg_info[iseg]
+        lx = nx * dx
+        ly = ny * dy
+        strike = df.strike.iloc[0] 
+        dip = df.dip.iloc[0]
+        index_hypo = df['t_rup'].idxmin()
+        j_hypo, i_hypo = divmod(index_hypo, nx)
+        along_strike_location_hypo = i_hypo * dx
+        along_dip_location_hypo = j_hypo * dy
 
-        srf.close()
+        with open(f"{srf_file}_seg{iseg+1}.srf",'w') as srf:
+            srf.write('2.0\n')
+            srf.write("PLANE 1\n")
+            srf.write(f"{top_center_lon} {top_center_lat} {nx} {ny} {lx} {ly} ")
+            srf.write(f"{strike} {dip} {along_strike_location_hypo} {along_dip_location_hypo}\n")
+            srf.write(f'POINTS {no_subfaults}\n')
+            
+            for i in range(no_subfaults):
+                LAT, LON, DEP = df.lat.iloc[i], df.lon.iloc[i], df["depth"][i]
+                rake = df.rake.iloc[i]
+                rake_rad = np.deg2rad(rake)
+                DIP, STRIKE = df.dip.iloc[i], df.strike.iloc[i]
+                AREA = seg_info[iseg][2] * seg_info[iseg][2] * 1000*1000*100*100            # in cm^2
+                TINIT = df.t_rup.iloc[i]
+                DT = dt
+                
+                Vs = 0.0
+                DEN = 0.0
+                subfault_info1 = [LON,LAT,DEP,STRIKE,DIP,AREA,TINIT,DT,Vs,DEN]
+                subfault_info2 = [rake, df.slip.iloc[i], len(stf_all[iseg][i]), 0, 0, 0, 0]
+                srf.write('%.3f %.3f %.3f %.1f %.1f %.3e %.3f %.1f %.3e %.3f\n' % tuple(subfault_info1) )
+                srf.write('%i %.2f %i  %.2f %i %.2f %i\n' % tuple(subfault_info2))
+                stf = stf_all[iseg][i]
+                #format string into groups of 10 values for readability
+                _srf = "\n".join(" ".join(f"{x:.5f}" for x in stf[i:i+10]) for i in range(0, len(stf), 10))
+                srf.write(_srf+"\n")
+
         print('Done')
         
         
