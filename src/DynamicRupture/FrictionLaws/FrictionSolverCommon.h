@@ -564,6 +564,7 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateP[7][i] = - trac_y / impAndEta.rho0P;
     imposedStateP[8][i] = - trac_z / impAndEta.rho0P;
     imposedStateP[9][i] = 0.0;
+    imposedStateP[10][i] = 0.0;
 
     vx = (impAndEta.faultN[0]*interM[U][i] +
     impAndEta.faultT1[0]*interM[V][i] + impAndEta.faultT2[0]*interM[W][i]);
@@ -594,6 +595,7 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateM[7][i] = - trac_y / impAndEta.rho0M;
     imposedStateM[8][i] = - trac_z / impAndEta.rho0M;
     imposedStateM[9][i] = 0.0;
+    imposedStateM[10][i] = 0.0;
 
     // imposedStateM[6][i] = -1.0*(interM[N][i] / impAndEta.rho0M);
     // imposedStateM[7][i] = -1.0*(interM[T1][i] / impAndEta.rho0M);

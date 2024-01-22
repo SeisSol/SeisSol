@@ -749,7 +749,20 @@ private:
                   + (
                     0.5*(-0) + 0.5*(-0)
                   ) * localIntegration[l_cell].surfaceNormal[side][2]
-                  + 0.5*lambda_max*(qIPlus[o][DAM][i]) - 0.5*lambda_max*(qIMinus[o][DAM][i])
+                  + 0.0*0.5*lambda_max*(qIPlus[o][DAM][i]) - 0.0*0.5*lambda_max*(qIMinus[o][DAM][i])
+                );
+
+                rusanovFluxP[BRE][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.0*0.5*lambda_max*(qIPlus[o][BRE][i]) - 0.0*0.5*lambda_max*(qIMinus[o][BRE][i])
                 );
               }
             } // time integration loop

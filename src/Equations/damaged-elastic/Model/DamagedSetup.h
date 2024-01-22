@@ -291,15 +291,15 @@ namespace seissol {
             xiInv = 0.0;
           }
 
-          R(0,9) = (local.gamma*std::sqrt(I2)
-                + local.gamma*(xi+local.xi0)*local.epsxx_alpha )
-                  / ((local.lambda+2*local.mu)/local.rho);
-          R(3,9) = (0
-            + local.gamma*(xi+local.xi0)*local.epsxy_alpha )
-              / (2*local.mu/local.rho);
-          R(5,9) = (0
-            + local.gamma*(xi+local.xi0)*local.epszx_alpha )
-              / (2*local.mu/local.rho);
+          // R(0,9) = (local.gamma*std::sqrt(I2)
+          //       + local.gamma*(xi+local.xi0)*local.epsxx_alpha )
+          //         / ((local.lambda+2*local.mu)/local.rho);
+          // R(3,9) = (0
+          //   + local.gamma*(xi+local.xi0)*local.epsxy_alpha )
+          //     / (2*local.mu/local.rho);
+          // R(5,9) = (0
+          //   + local.gamma*(xi+local.xi0)*local.epszx_alpha )
+          //     / (2*local.mu/local.rho);
           R(9,9) = local.rho;
           R(10,10) = local.rho;
          #endif

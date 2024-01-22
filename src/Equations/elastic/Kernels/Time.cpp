@@ -279,18 +279,24 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     );
 
     if (xi + data.material.local.xi0 > 0) {
-      // if (alphaNodal[q] < 0.4){
-        fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - breakNodal[q]) * damage_para1
-            *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-
-        fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
-            *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-      // }
-      // else{
-      //   fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-      // }
+      if (alphaNodal[q] < 0.9){
+        if (breakNodal[q] < 0.9){
+          fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+            (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+          fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+            (1 - breakNodal[q]) * damage_para1
+              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+        }
+        else{
+          fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+          fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        }
+      }
+      else{
+        fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+      }
     } else if (alphaNodal[q] > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         0.0 * damage_para1

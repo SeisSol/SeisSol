@@ -229,8 +229,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       }
 
       // damage stress minus
-      mu_eff = mu0M - alphap*impAndEtaGet->gammaRM*impAndEtaGet->xi0M
-          - 0.5*alphap*impAndEtaGet->gammaRM*xim;
+      mu_eff = mu0M - alpham*impAndEtaGet->gammaRM*impAndEtaGet->xi0M
+          - 0.5*alpham*impAndEtaGet->gammaRM*xim;
       real sxx_sm = lambda0M*EspIm
                     - alpham*impAndEtaGet->gammaRM * std::sqrt(EspIIm)
                     + 2*mu_eff*(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
@@ -288,11 +288,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
 
       dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
     real dofsStressPlus[tensor::Q::size()]{};

@@ -53,6 +53,7 @@ class BaseFrictionLaw : public FrictionSolver {
 
       using namespace seissol::dr::misc::quantity_indices;
       unsigned DAM = 9;
+      unsigned BRE = 10;
 
       // real epsInitxx = 4.63e-4; // eps_xx0
       // real epsInityy = -1.85e-3; // eps_yy0
@@ -73,6 +74,11 @@ class BaseFrictionLaw : public FrictionSolver {
       real mu0M = impAndEta[ltsFace].mu0M;
       real rho0M = impAndEta[ltsFace].rho0M;
 
+      real aB0 = 5.45e9;
+      real aB1 = -18.89e9;
+      real aB2 = 23.96e9;
+      real aB3 = -10.112e9;
+
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
             i ++) {
@@ -92,35 +98,61 @@ class BaseFrictionLaw : public FrictionSolver {
             xip = 0.0;
           }
 
-          qStressIPlus[o][XX][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][XX][i]+epsInitxx);
+          // damage stress impAndEtaGet->gammaRP, mu0P
+          real mu_eff = mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P
+              - 0.5*alphap*impAndEta[ltsFace].gammaRP*xip;
+          real sxx_sp = lambda0P*EspIp
+                        - alphap*impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp)
+                        + 2*mu_eff*(qIPlus[o][XX][i]+epsInitxx);
+          real syy_sp = lambda0P*EspIp
+                        - alphap*impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp)
+                        + 2*mu_eff*(qIPlus[o][YY][i]+epsInityy);
+          real szz_sp = lambda0P*EspIp
+                        - alphap*impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp)
+                        + 2*mu_eff*(qIPlus[o][ZZ][i]+epsInitzz);
 
-          qStressIPlus[o][YY][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][YY][i]+epsInityy);
+          real sxy_sp = 2*mu_eff*(qIPlus[o][XY][i]+epsInitxy);
+          real syz_sp = 2*mu_eff*(qIPlus[o][YZ][i]+epsInityz);
+          real szx_sp = 2*mu_eff*(qIPlus[o][XZ][i]+epsInitzx);
 
-          qStressIPlus[o][ZZ][i] = (lambda0P*EspIp - alphap*impAndEta[ltsFace].gammaRP*std::sqrt(EspIIp))
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][ZZ][i]+epsInitzz);
+          // breakage stress
+          real sxx_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                        + aB1 * std::sqrt(EspIIp)
+                        + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XX][i]+epsInitxx);
+          real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                        + aB1 * std::sqrt(EspIIp)
+                        + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][YY][i]+epsInityy);
+          real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                        + aB1 * std::sqrt(EspIIp)
+                        + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][ZZ][i]+epsInitzz);
 
-          qStressIPlus[o][XY][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][XY][i]+epsInitxy);
+          real sxy_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XY][i]+epsInitxy);
+          real syz_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][YZ][i]+epsInityz);
+          real szx_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XZ][i]+epsInitzx);
 
-          qStressIPlus[o][YZ][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][YZ][i]+epsInityz);
+          qStressIPlus[o][XX][i] =
+            (1-qIPlus[o][BRE][i]) * sxx_sp
+            + qIPlus[o][BRE][i] * sxx_bp;
 
-          qStressIPlus[o][XZ][i] = 0
-                + (2*(mu0P - alphap*impAndEta[ltsFace].gammaRP*impAndEta[ltsFace].xi0P)
-                    - alphap*impAndEta[ltsFace].gammaRP*xip)
-                  *(qIPlus[o][XZ][i]+epsInitzx);
+          qStressIPlus[o][YY][i] = 
+            (1-qIPlus[o][BRE][i]) * syy_sp
+            + qIPlus[o][BRE][i] * syy_bp;
+
+          qStressIPlus[o][ZZ][i] = 
+            (1-qIPlus[o][BRE][i]) * szz_sp
+            + qIPlus[o][BRE][i] * szz_bp;
+
+          qStressIPlus[o][XY][i] =
+            (1-qIPlus[o][BRE][i]) * sxy_sp
+            + qIPlus[o][BRE][i] * sxy_bp;
+
+          qStressIPlus[o][YZ][i] =
+            (1-qIPlus[o][BRE][i]) * syz_sp
+            + qIPlus[o][BRE][i] * syz_bp;
+
+          qStressIPlus[o][XZ][i] =
+            (1-qIPlus[o][BRE][i]) * szx_sp
+            + qIPlus[o][BRE][i] * szx_bp;
 
           real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
           real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
@@ -137,45 +169,74 @@ class BaseFrictionLaw : public FrictionSolver {
             xim = 0.0;
           }
 
-          qStressIMinus[o][XX][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][XX][i]+epsInitxx);
+          // damage stress minus
+          mu_eff = mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M
+              - 0.5*alpham*impAndEta[ltsFace].gammaRM*xim;
+          real sxx_sm = lambda0M*EspIm
+                        - alpham*impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm)
+                        + 2*mu_eff*(qIMinus[o][XX][i]+epsInitxx);
+          real syy_sm = lambda0M*EspIm
+                        - alpham*impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm)
+                        + 2*mu_eff*(qIMinus[o][YY][i]+epsInityy);
+          real szz_sm = lambda0M*EspIm
+                        - alpham*impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm)
+                        + 2*mu_eff*(qIMinus[o][ZZ][i]+epsInitzz);
 
-          qStressIMinus[o][YY][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][YY][i]+epsInityy);
+          real sxy_sm = 2*mu_eff*(qIMinus[o][XY][i]+epsInitxy);
+          real syz_sm = 2*mu_eff*(qIMinus[o][YZ][i]+epsInityz);
+          real szx_sm = 2*mu_eff*(qIMinus[o][XZ][i]+epsInitzx);
 
-          qStressIMinus[o][ZZ][i] = (lambda0M*EspIm - alpham*impAndEta[ltsFace].gammaRM*std::sqrt(EspIIm))
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][ZZ][i]+epsInitzz);
+          // breakage stress
+          real sxx_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                        + aB1 * std::sqrt(EspIIm)
+                        + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XX][i]+epsInitxx);
+          real syy_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                        + aB1 * std::sqrt(EspIIm)
+                        + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][YY][i]+epsInityy);
+          real szz_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                        + aB1 * std::sqrt(EspIIm)
+                        + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][ZZ][i]+epsInitzz);
 
-          qStressIMinus[o][XY][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][XY][i]+epsInitxy);
+          real sxy_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XY][i]+epsInitxy);
+          real syz_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][YZ][i]+epsInityz);
+          real szx_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XZ][i]+epsInitzx);
 
-          qStressIMinus[o][YZ][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][YZ][i]+epsInityz);
 
-          qStressIMinus[o][XZ][i] = 0
-                + (2*(mu0M - alpham*impAndEta[ltsFace].gammaRM*impAndEta[ltsFace].xi0M)
-                    - alpham*impAndEta[ltsFace].gammaRM*xim)
-                  *(qIMinus[o][XZ][i]+epsInitzx);
+          qStressIMinus[o][XX][i] = 
+            (1-qIMinus[o][BRE][i]) * sxx_sm
+            + qIMinus[o][BRE][i] * sxx_bm;
+
+          qStressIMinus[o][YY][i] =
+            (1-qIMinus[o][BRE][i]) * syy_sm
+            + qIMinus[o][BRE][i] * syy_bm;
+
+          qStressIMinus[o][ZZ][i] =
+            (1-qIMinus[o][BRE][i]) * szz_sm
+            + qIMinus[o][BRE][i] * szz_bm;
+
+          qStressIMinus[o][XY][i] = 
+            (1-qIMinus[o][BRE][i]) * sxy_sm
+            + qIMinus[o][BRE][i] * sxy_bm;
+
+          qStressIMinus[o][YZ][i] =
+            (1-qIMinus[o][BRE][i]) * syz_sm
+            + qIMinus[o][BRE][i] * syz_bm;
+
+          qStressIMinus[o][XZ][i] = 
+            (1-qIMinus[o][BRE][i]) * szx_sm
+            + qIMinus[o][BRE][i] * szx_bm;
 
           qStressIPlus[o][U][i] = qIPlus[o][U][i];
           qStressIPlus[o][V][i] = qIPlus[o][V][i];
           qStressIPlus[o][W][i] = qIPlus[o][W][i];
           qStressIPlus[o][DAM][i] = qIPlus[o][DAM][i];
+          qStressIPlus[o][BRE][i] = qIPlus[o][BRE][i];
 
           qStressIMinus[o][U][i] = qIMinus[o][U][i];
           qStressIMinus[o][V][i] = qIMinus[o][V][i];
           qStressIMinus[o][W][i] = qIMinus[o][W][i];
           qStressIMinus[o][DAM][i] = qIMinus[o][DAM][i];
+          qStressIMinus[o][BRE][i] = qIMinus[o][BRE][i];
         }
         // std::cout << qInterpolatedPlus[ltsFace][o][3*seissol::dr::misc::numPaddedPoints+0]
         // << ", " << qStressInterpolatedPlus[o][3*seissol::dr::misc::numPaddedPoints+0]
