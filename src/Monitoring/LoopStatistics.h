@@ -41,7 +41,6 @@
 #ifndef MONITORING_LOOPSTATISTICS_H_
 #define MONITORING_LOOPSTATISTICS_H_
 
-#include <bits/types/struct_timespec.h>
 #include <cassert>
 #include <algorithm>
 #include <unordered_map>
