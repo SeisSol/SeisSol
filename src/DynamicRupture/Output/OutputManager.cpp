@@ -234,6 +234,7 @@ void OutputManager::init() {
   if (ppOutputBuilder) {
     initPickpointOutput();
   }
+  impl->allocateMemory({ppOutputData, ewOutputData});
 }
 
 void OutputManager::initFaceToLtsMap() {

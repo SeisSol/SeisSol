@@ -3,8 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Heinecke (Alexander.Heinecke@mytum.de)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -50,142 +52,75 @@
 namespace seissol {
 
 /** Returns the time difference in nanoseconds. */
-inline long long difftime(timespec const& start, timespec const& end)
-{
+inline long long difftime(timespec const& start, timespec const& end) {
   return 1000000000L * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
 }
 
-inline double seconds(long long time)
-{
-  return 1.0e-9 * time;
-}
+inline double seconds(long long time) { return 1.0e-9 * time; }
 
 /**
  * Stopwatch
  *
- * Part of SeisSol, so you can easily calculate the needed time of SeisSol computations with a high precision
+ * Part of SeisSol, so you can easily calculate the needed time of SeisSol computations with a high
+ * precision
  */
-class Stopwatch
-{
-private:
-	struct timespec m_start;
+class Stopwatch {
+  private:
+  struct timespec startTime;
 
-	/** Time already spent */
-	long long m_time;
+  /** Time already spent */
+  long long time;
 
-public:
-	/**
-	 * Constructor
-	 *
-	 * resets the Stopwatch
-	 */
-	Stopwatch() : m_time(0)
-  {}
+  public:
+  /**
+   * Constructor
+   *
+   * resets the Stopwatch
+   */
+  Stopwatch();
 
-	/**
-	 * Destructor
-	 */
-	~Stopwatch()
-	{}
+  /**
+   * Destructor
+   */
+  ~Stopwatch() = default;
 
-	/**
-	 * Reset the stopwatch to zero
-	 */
-	void reset()
-	{
-		m_time = 0;
-	}
+  /**
+   * Reset the stopwatch to zero
+   */
+  void reset();
 
-	/**
-	 * starts the time measuring
-	 */
-	void start()
-	{
-		clock_gettime(CLOCK_MONOTONIC, &m_start);
-	}
+  /**
+   * starts the time measuring
+   */
+  void start();
 
-	/**
-	 * get time measuring
-	 *
-	 * @return measured time (until now) in seconds
-	 */
-	double split()
-	{
-		struct timespec end;
-		clock_gettime(CLOCK_MONOTONIC, &end);
-    
-    return seconds(difftime(m_start, end));
-	}
+  /**
+   * get time measuring
+   *
+   * @return measured time (until now) in seconds
+   */
+  double split();
 
-	/**
-	 * pauses the measuring
-	 *
-	 * @return measured time (until now) in seconds
-	 */
-	double pause()
-	{
-		struct timespec end;
-		clock_gettime(CLOCK_MONOTONIC, &end);
+  /**
+   * pauses the measuring
+   *
+   * @return measured time (until now) in seconds
+   */
+  double pause();
 
-		m_time += difftime(m_start, end);
-		return seconds(m_time);
-	}
+  /**
+   * stops time measuring
+   *
+   * @return measured time in seconds
+   */
+  double stop();
 
-	/**
-	 * stops time measuring
-	 *
-	 * @return measured time in seconds
-	 */
-	double stop()
-	{
-		double time = pause();
-		reset();
-		return time;
-	}
-
-	/**
-	 * Collective operation, printing avg, min and max time
-	 */
-	void printTime(const char* text
-#ifdef USE_MPI
-			, MPI_Comm comm = MPI_COMM_NULL
-#endif // USE_MPI
-	 ) {
-		int rank = 0;
-		double avg = seconds(m_time);
-
-#ifdef USE_MPI
-		double min = seconds(m_time);
-		double max = seconds(m_time);
-
-		if (comm == MPI_COMM_NULL)
-			comm = seissol::MPI::mpi.comm();
-
-		MPI_Comm_rank(comm, &rank);
-
-		if (rank == 0) {
-			MPI_Reduce(MPI_IN_PLACE, &avg, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-			MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-			MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
-
-			int size;
-			MPI_Comm_size(comm, &size);
-			avg /= size;
-		} else {
-			MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-			MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-			MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
-		}
-#endif // USE_MPI
-
-		logInfo(rank) << text << avg
-#ifdef USE_MPI
-			<< "(min:" << utils::nospace << min << ", max: " << max << ')'
-#endif // USE_MPI
-			;
-	}
+  /**
+   * Collective operation, printing avg, min and max time
+   */
+  void printTime(const char* text, MPI_Comm comm = MPI_COMM_NULL) const;
 };
 
-}
+} // namespace seissol
 
 #endif // STOPWATCH_H

@@ -46,6 +46,30 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
 #endif
 }
 
+void ReceiverOutput::allocateMemory(
+    const std::vector<std::shared_ptr<ReceiverOutputData>>& states) {
+#ifdef ACL_DEVICE
+  std::size_t maxCellCount = 0;
+  for (const auto& state : states) {
+    if (state) {
+      maxCellCount = std::max(state->cellCount, maxCellCount);
+    }
+  }
+  deviceCopyMemory =
+      reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(real) * tensor::Q::size() * maxCellCount));
+#endif
+}
+
+ReceiverOutput::~ReceiverOutput() {
+  if (deviceCopyMemory != nullptr) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->freePinnedMem(deviceCopyMemory);
+#endif
+    deviceCopyMemory = nullptr;
+  }
+}
+
 void ReceiverOutput::calcFaultOutput(const OutputType type,
                                      std::shared_ptr<ReceiverOutputData> outputData,
                                      const GeneralParams& generalParams,
@@ -55,18 +79,16 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const auto faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  real* dofsCopied =
-      reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-          sizeof(real) * tensor::Q::size() * outputData->cellCount));
-
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
-                                                                        dofsCopied,
-                                                                        tensor::Q::size(),
-                                                                        tensor::Q::size(),
-                                                                        outputData->cellCount,
-                                                                        stream);
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  if (outputData->cellCount > 0) {
+    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
+                                                                          deviceCopyMemory,
+                                                                          tensor::Q::size(),
+                                                                          tensor::Q::size(),
+                                                                          outputData->cellCount,
+                                                                          stream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  }
 #endif
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -97,8 +119,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
 #ifdef ACL_DEVICE
     {
-      real* dofsPlusData = dofsCopied + tensor::Q::size() * outputData->deviceDataPlus[i];
-      real* dofsMinusData = dofsCopied + tensor::Q::size() * outputData->deviceDataMinus[i];
+      real* dofsPlusData = deviceCopyMemory + tensor::Q::size() * outputData->deviceDataPlus[i];
+      real* dofsMinusData = deviceCopyMemory + tensor::Q::size() * outputData->deviceDataMinus[i];
 
       std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
@@ -293,10 +315,6 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }
-
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(dofsCopied);
-#endif
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
