@@ -61,7 +61,7 @@ def from_usgs_param_file(file, dt, trise_min=0):
     with open(file, 'r') as fid:
         lines = fid.readlines()
 
-    if not lines[0].startswith("#Total number of fault_segments"):
+    if not lines[0].startswith(" #Total number of fault_segments"):
         raise ValueError("Not a valid USGS param file.")
     
     
