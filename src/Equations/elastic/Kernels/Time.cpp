@@ -243,6 +243,21 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
 
+  // real alpha_ave = 0.0;
+  // real break_ave = 0.0;
+  // real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
+  // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+  //   break_ave += breakNodal[q] * w_ave;
+  //   alpha_ave += alphaNodal[q] * w_ave;
+  // }
+
+  real alpha_ave = alphaNodal[0];
+  real break_ave = breakNodal[0];
+  for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
+    break_ave = std::max(break_ave, breakNodal[q]);
+    alpha_ave = std::max(alpha_ave, alphaNodal[q]);
+  }
+
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
     real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
@@ -274,13 +289,21 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real alphaCR2q = 2.0*data.material.local.mu0
       /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
 
-    real alphaCRq = std::min(1.0,
-      std::min(alphaCR1q,alphaCR2q)
-    );
+    // real alphaCRq = std::min(1.0,
+    //   std::min(alphaCR1q,alphaCR2q)
+    // );
+    real alphaCRq = 1.0;
+    if (alphaCR1q > 0.0){
+      if (alphaCR2q > 0.0){
+        alphaCRq = std::min(1.0,
+          std::min( alphaCR1q, alphaCR2q )
+        );
+      } 
+    }
 
     if (xi + data.material.local.xi0 > 0) {
-      if (alphaNodal[q] < 0.9){
-        if (breakNodal[q] < 0.9){
+      if (alpha_ave < 0.9){
+        if (break_ave < 0.9){
           fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
@@ -297,7 +320,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
         fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       }
-    } else if (alphaNodal[q] > 5e-1) {
+    } else if (alpha_ave > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         0.0 * damage_para1
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);

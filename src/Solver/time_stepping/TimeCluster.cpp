@@ -432,10 +432,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real const break_coeff = 1e2*damage_para1;
     real const beta_alpha = 0.03;
 
-    real aB0 = 5.45e9;
-    real aB1 = -18.89e9;
-    real aB2 = 23.96e9;
-    real aB3 = -10.112e9;
+    real aB0 = 7.43e9;
+    real aB1 = -22.14e9;
+    real aB2 = 20.93e9;
+    real aB3 = -6.067e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -496,6 +496,22 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+
+      // real alpha_ave = 0.0;
+      // real break_ave = 0.0;
+      // real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
+      // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+      //   break_ave += breakNodal[q] * w_ave;
+      //   alpha_ave += alphaNodal[q] * w_ave;
+      // }
+
+      real alpha_ave = alphaNodal[0];
+      real break_ave = breakNodal[0];
+      for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
+        break_ave = std::max(break_ave, breakNodal[q]);
+        alpha_ave = std::max(alpha_ave, alphaNodal[q]);
+      }
+
       for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
         real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
         real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
@@ -526,13 +542,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         real alphaCR2q = 2.0*data.material.local.mu0
           /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
 
-        real alphaCRq = std::min(1.0,
-          std::min(alphaCR1q,alphaCR2q)
-        );
+         real alphaCRq = 1.0;
+        if (alphaCR1q > 0.0){
+          if (alphaCR2q > 0.0){
+            alphaCRq = std::min(1.0,
+              std::min( alphaCR1q, alphaCR2q )
+            );
+          } 
+        }
 
         if (xi + data.material.local.xi0 > 0) {
-          if (alphaNodal[q] < 0.9 ){
-            if (breakNodal[q] < 0.9 ){
+          if (alpha_ave < 0.9 ){
+            if (break_ave < 0.9 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
                   *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
@@ -547,7 +568,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
             FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
             FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
           }
-        } else if (alphaNodal[q] > 5e-1 ) {
+        } else if (alpha_ave > 5e-1 ) {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             0.0*damage_para1
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
@@ -1165,10 +1186,15 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       real mu0 = materialData[l_cell].local.mu0;
       real beta_m = 0e2;
 
-      real aB0 = 5.45e9;
-      real aB1 = -18.89e9;
-      real aB2 = 23.96e9;
-      real aB3 = -10.112e9;
+      // real aB0 = 4.95e9;
+      // real aB1 = -18.89e9;
+      // real aB2 = 23.96e9;
+      // real aB3 = -10.112e9;
+
+      real aB0 = 7.43e9;
+      real aB1 = -22.14e9;
+      real aB2 = 20.93e9;
+      real aB3 = -6.067e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 

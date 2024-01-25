@@ -74,10 +74,14 @@ class BaseFrictionLaw : public FrictionSolver {
       real mu0M = impAndEta[ltsFace].mu0M;
       real rho0M = impAndEta[ltsFace].rho0M;
 
-      real aB0 = 5.45e9;
-      real aB1 = -18.89e9;
-      real aB2 = 23.96e9;
-      real aB3 = -10.112e9;
+      real aB0 = 7.43e9;
+      real aB1 = -22.14e9;
+      real aB2 = 20.93e9;
+      real aB3 = -6.067e9;
+      // real aB0 = 4.95e9;
+      // real aB1 = -18.89e9;
+      // real aB2 = 23.96e9;
+      // real aB3 = -10.112e9;
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
