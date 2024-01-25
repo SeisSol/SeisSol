@@ -165,7 +165,9 @@ for key in tags.keys():
     gmsh.model.mesh.setSize(gmsh.model.getBoundary(pairs, False, False, True), h)
     gmsh.model.addPhysicalGroup(2, tags[key], key)
 
+gmsh.model.addPhysicalGroup(3, [1], 1)
 gmsh.model.mesh.generate(3)
+gmsh.write("mesh.msh")
 
 if args.interactive:
     gmsh.fltk.run()
