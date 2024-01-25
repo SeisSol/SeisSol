@@ -3,10 +3,33 @@ import gmsh
 import numpy as np
 import glob
 import re
+import argparse
+
+parser = argparse.ArgumentParser(
+    description="generate yaml and netcdf input to be used with friction law 33/34 based on a (here"
+    + "upsampled) kinematic model in the standard rupture format srf file."
+)
+
+parser.add_argument(
+    "--domain_mesh_size",
+    help="mesh size in the domain",
+    nargs=1,
+    type=float,
+    default=[20000],
+)
+parser.add_argument(
+    "--fault_mesh_size",
+    help="mesh size on the faults",
+    nargs=1,
+    type=float,
+    default=[1000],
+)
+args = parser.parse_args()
+
 
 # mesh sizes
-h_domain = 20e3
-h_fault = 5000.0
+h_domain = args.domain_mesh_size[0]
+h_fault = args.fault_mesh_size[0]
 
 # domain dimensions
 length_added = 120e3
@@ -131,10 +154,12 @@ print(tags)
 
 for key in tags.keys():
     h = h_domain if key in [1, 5] else h_fault
-    pairs = [(2,tag) for tag in tags[key]]
+    pairs = [(2, tag) for tag in tags[key]]
     gmsh.model.mesh.setSize(gmsh.model.getBoundary(pairs, False, False, True), h)
     gmsh.model.addPhysicalGroup(2, tags[key], key)
+
 gmsh.model.mesh.generate(3)
+
 
 gmsh.fltk.run()
 gmsh.finalize()
