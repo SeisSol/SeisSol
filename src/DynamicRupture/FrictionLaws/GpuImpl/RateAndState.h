@@ -25,6 +25,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     sycl::free(initialVariables.normalStress, this->queue);
     sycl::free(initialVariables.stateVarReference, this->queue);
     sycl::free(hasConverged, this->queue);
+    this->queue.wait_and_throw();
   }
 
   void allocateAuxiliaryMemory() override {
@@ -36,17 +37,17 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       using gpPointType = real(*)[misc::numPaddedPoints];
       const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(real);
       initialVariables.absoluteShearTraction =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
       initialVariables.localSlipRate =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
       initialVariables.normalStress =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
       initialVariables.stateVarReference =
-          static_cast<gpPointType>(sycl::malloc_shared(requiredNumBytes, this->queue));
+          static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
     }
     {
       const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(bool);
-      hasConverged = static_cast<bool*>(sycl::malloc_shared(requiredNumBytes, this->queue));
+      hasConverged = static_cast<bool*>(sycl::malloc_device(requiredNumBytes, this->queue));
     }
   }
 
