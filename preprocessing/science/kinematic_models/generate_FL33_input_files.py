@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 import argparse
-from FaultPlane import FaultPlane
+from FaultPlane import FaultPlane, MultiFaultPlane
 import os.path
 
 parser = argparse.ArgumentParser(
@@ -50,22 +50,24 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-p1 = FaultPlane()
-p1.init_from_srf(args.filename)
-p1.compute_time_array()
-p1.assess_STF_parameters(args.PSRthreshold[0])
+mfp = MultiFaultPlane.from_srf(args.filename)
+
 prefix, ext = os.path.splitext(args.filename)
 prefix = os.path.basename(prefix)
 
-p1.generate_netcdf_fl33(
-    prefix,
-    method=args.interpolation_method[0],
-    spatial_zoom=args.spatial_zoom[0],
-    proj=args.generate_ts_yaml,
-    write_paraview=args.write_paraview,
-)
+for p, p1 in enumerate(mfp.fault_planes):
+    p1.compute_time_array()
+    p1.assess_STF_parameters(args.PSRthreshold[0])
+    p1.generate_netcdf_fl33(
+        f"{prefix}{p+1}",
+        method=args.interpolation_method[0],
+        spatial_zoom=args.spatial_zoom[0],
+        proj=args.generate_ts_yaml,
+        write_paraview=args.write_paraview,
+    )
+
 if args.generate_ts_yaml:
-    p1.generate_fault_ts_yaml_fl33(
+    mfp.generate_fault_ts_yaml_fl33(
         prefix,
         method=args.interpolation_method[0],
         spatial_zoom=args.spatial_zoom[0],
