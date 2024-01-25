@@ -24,6 +24,13 @@ parser.add_argument(
     type=float,
     default=[1000],
 )
+parser.add_argument(
+    "--interactive",
+    dest="interactive",
+    action="store_true",
+    help="open the gui of gmsh once the mesh is generated",
+)
+
 args = parser.parse_args()
 
 
@@ -160,6 +167,6 @@ for key in tags.keys():
 
 gmsh.model.mesh.generate(3)
 
-
-gmsh.fltk.run()
+if args.interactive:
+    gmsh.fltk.run()
 gmsh.finalize()
