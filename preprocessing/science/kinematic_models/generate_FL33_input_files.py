@@ -53,16 +53,16 @@ args = parser.parse_args()
 prefix, ext = os.path.splitext(args.filename)
 prefix = os.path.basename(prefix)
 
-if ext == '.srf':
+if ext == ".srf":
     mfp = MultiFaultPlane.from_srf(args.filename)
-elif ext == '.param':
+elif ext == ".param":
     mfp = MultiFaultPlane.from_usgs_param_file(args.filename)
 else:
     raise NotImplementedError(f" unknown extension: {ext}")
 
 for p, p1 in enumerate(mfp.fault_planes):
     p1.compute_time_array()
-    if ext == '.srf':
+    if ext == ".srf":
         p1.assess_STF_parameters(args.PSRthreshold[0])
     p1.generate_netcdf_fl33(
         f"{prefix}{p+1}",
