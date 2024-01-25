@@ -230,6 +230,7 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
 
     return allarr0
 
+
 class MultiFaultPlane:
     def __init__(self, fault_planes):
         self.fault_planes = fault_planes
@@ -239,6 +240,7 @@ class MultiFaultPlane:
         import re
         import pandas as pd
         from io import StringIO
+
         """
         Reading USGS param file
         Args:
@@ -253,25 +255,25 @@ class MultiFaultPlane:
             stf (list): list of ndarrays of source time function of each subfault in the segments (normalized stf)
         """
         header = "lat lon depth slip rake strike dip t_rup t_ris t_fal mo"
-        with open(fname, 'r') as fid:
+        with open(fname, "r") as fid:
             lines = fid.readlines()
 
         if not lines[0].startswith(" #Total number of fault_segments"):
-            raise ValueError("Not a valid USGS param file.")        
-        
-        nseg = int(lines[0].split()[-1])     # number of fault segments
-        print(f'No. of fault segments in param file: {nseg}')
+            raise ValueError("Not a valid USGS param file.")
+
+        nseg = int(lines[0].split()[-1])  # number of fault segments
+        print(f"No. of fault segments in param file: {nseg}")
 
         fault_seg_line = [l for l in lines if "#Fault_segment " in l]
-        assert len(fault_seg_line)==nseg, f"No. of segments are wrong. {len(fault_seg_line)} {nseg}"
-        
+        assert len(fault_seg_line) == nseg, f"No. of segments are wrong. {len(fault_seg_line)} {nseg}"
+
         istart = 1
         fault_planes = []
         for i_seg in range(nseg):
             fault_planes.append(FaultPlane())
             fp = fault_planes[i_seg]
 
-            numbers = re.findall(r'[-+]?\d*\.\d+|\d+', fault_seg_line[i_seg])
+            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", fault_seg_line[i_seg])
 
             # Convert extracted strings to float
             numbers = [float(num) for num in numbers]
@@ -280,30 +282,29 @@ class MultiFaultPlane:
             fp.init_spatial_arrays(nx, ny)
 
             line1 = istart + 9
-            line2 = line1 + nx*ny
-            istart = line1 + nx*ny
+            line2 = line1 + nx * ny
+            istart = line1 + nx * ny
 
-            text_file = StringIO("\n".join([header, *lines[line1:line2]]))   
-            df = pd.read_csv(text_file, sep='\s+')
-            
-            assert (df['t_rup'] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
+            text_file = StringIO("\n".join([header, *lines[line1:line2]]))
+            df = pd.read_csv(text_file, sep="\s+")
+
+            assert (df["t_rup"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
             for j in range(fp.ny):
                 for i in range(fp.nx):
-                    k = j*fp.nx + i
-                    fp.lon[j, i] = df['lon'][k]
-                    fp.lat[j, i] = df['lat'][k]
-                    fp.depth[j, i] = df['depth'][k]
-                    fp.slip1[j, i] = df['slip'][k]
-                    fp.rake[j, i] = df['rake'][k]
-                    fp.strike[j, i] = df['strike'][k]
-                    fp.dip[j, i] = df['dip'][k]
+                    k = j * fp.nx + i
+                    fp.lon[j, i] = df["lon"][k]
+                    fp.lat[j, i] = df["lat"][k]
+                    fp.depth[j, i] = df["depth"][k]
+                    fp.slip1[j, i] = df["slip"][k]
+                    fp.rake[j, i] = df["rake"][k]
+                    fp.strike[j, i] = df["strike"][k]
+                    fp.dip[j, i] = df["dip"][k]
                     fp.PSarea_cm2 = dx * dy * 1e10
-                    fp.t0[j, i] = df['t_rup'][k]
-                    fp.tacc[j, i] = df['t_ris'][k]
-                    fp.rise_time[j, i] = df['t_ris'][k] + df['t_fal'][k]
+                    fp.t0[j, i] = df["t_rup"][k]
+                    fp.tacc[j, i] = df["t_ris"][k]
+                    fp.rise_time[j, i] = df["t_ris"][k] + df["t_fal"][k]
 
         return cls(fault_planes)
-
 
     @classmethod
     def from_srf(cls, fname):
@@ -312,7 +313,7 @@ class MultiFaultPlane:
         with open(fname) as fid:
             # version
             line = fid.readline()
-            if line.strip() not in ['1.0', '2.0']:
+            if line.strip() not in ["1.0", "2.0"]:
                 raise NotImplementedError(f"srf version: {line} not supported")
             # skip comments
             while True:
@@ -390,7 +391,7 @@ class MultiFaultPlane:
             t1 = fp.affine_map["t1"]
             t2 = fp.affine_map["t2"]
             fp.write_ts_file(f"{prefix}{p+1}")
-            
+
             template_yaml += f"""      - !GroupFilter
         groups: {fault_id}
         components: !AffineMap
@@ -796,7 +797,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
 
     def compute_affine_vector_map(self):
         """compute the 2d vectors hh and hw and the offsets defining the 2d affine map (parametric coordinates)"""
-        self.affine_map={}
+        self.affine_map = {}
         cm2m = 0.01
         km2m = 1e3
         nx, ny = self.nx, self.ny
@@ -822,7 +823,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         self.affine_map["dx1"] = dx1
         self.affine_map["dx2"] = dx2
 
-    def write_ts_file(self,prefix):
+    def write_ts_file(self, prefix):
         # Generate ts file containing mesh geometry
         vertex = np.zeros((4, 3))
         km2m = 1e3
@@ -857,4 +858,3 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 fout.write("TRGL %d %d %d\n" % (connect[i, 0], connect[i, 1], connect[i, 2]))
             fout.write("END\n")
         print(f"done writing {fname}")
-
