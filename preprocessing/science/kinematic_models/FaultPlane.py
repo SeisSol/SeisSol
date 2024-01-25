@@ -235,6 +235,77 @@ class MultiFaultPlane:
         self.fault_planes = fault_planes
 
     @classmethod
+    def from_usgs_param_file(cls, fname):
+        import re
+        import pandas as pd
+        from io import StringIO
+        """
+        Reading USGS param file
+        Args:
+            fh: THE param file
+            dt: dt of source time function
+            trise_min: min trise time
+            
+        Returns:
+            nseg (int): no. of segments
+            seg_info (list): list of (nx, ny, dx, dy) for each fault segment
+            sources (list): list of dataframe of (Lat. Lon. depth slip rake strike dip t_rup t_ris t_fal mo) for each segments
+            stf (list): list of ndarrays of source time function of each subfault in the segments (normalized stf)
+        """
+        header = "lat lon depth slip rake strike dip t_rup t_ris t_fal mo"
+        with open(fname, 'r') as fid:
+            lines = fid.readlines()
+
+        if not lines[0].startswith(" #Total number of fault_segments"):
+            raise ValueError("Not a valid USGS param file.")        
+        
+        nseg = int(lines[0].split()[-1])     # number of fault segments
+        print(f'No. of fault segments in param file: {nseg}')
+
+        fault_seg_line = [l for l in lines if "#Fault_segment " in l]
+        assert len(fault_seg_line)==nseg, f"No. of segments are wrong. {len(fault_seg_line)} {nseg}"
+        
+        istart = 1
+        fault_planes = []
+        for i_seg in range(nseg):
+            fault_planes.append(FaultPlane())
+            fp = fault_planes[i_seg]
+
+            numbers = re.findall(r'[-+]?\d*\.\d+|\d+', fault_seg_line[i_seg])
+
+            # Convert extracted strings to float
+            numbers = [float(num) for num in numbers]
+            _, nx, dx, ny, dy = numbers
+            nx, ny = map(int, [nx, ny])
+            fp.init_spatial_arrays(nx, ny)
+
+            line1 = istart + 9
+            line2 = line1 + nx*ny
+            istart = line1 + nx*ny
+
+            text_file = StringIO("\n".join([header, *lines[line1:line2]]))   
+            df = pd.read_csv(text_file, sep='\s+')
+            
+            assert (df['t_rup'] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
+            for j in range(fp.ny):
+                for i in range(fp.nx):
+                    k = j*fp.nx + i
+                    fp.lon[j, i] = df['lon'][k]
+                    fp.lat[j, i] = df['lat'][k]
+                    fp.depth[j, i] = df['depth'][k]
+                    fp.slip1[j, i] = df['slip'][k]
+                    fp.rake[j, i] = df['rake'][k]
+                    fp.strike[j, i] = df['strike'][k]
+                    fp.dip[j, i] = df['dip'][k]
+                    fp.PSarea_cm2 = dx * dy * 1e10
+                    fp.t0[j, i] = df['t_rup'][k]
+                    fp.tacc[j, i] = df['t_ris'][k]
+                    fp.rise_time[j, i] = df['t_ris'][k] + df['t_fal'][k]
+
+        return cls(fault_planes)
+
+
+    @classmethod
     def from_srf(cls, fname):
         "init object by reading a srf file (standard rutpure format)"
         fault_planes = []
@@ -394,6 +465,8 @@ class FaultPlane:
         self.strike = np.zeros((ny, nx))
         self.dip = np.zeros((ny, nx))
         self.rake = np.zeros((ny, nx))
+        self.rise_time = np.zeros((self.ny, self.nx))
+        self.tacc = np.zeros((self.ny, self.nx))
 
     def init_aSR(self):
         self.aSR = np.zeros((self.ny, self.nx, self.ndt))
@@ -443,8 +516,6 @@ class FaultPlane:
     def assess_STF_parameters(self, threshold):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
         assert threshold >= 0.0 and threshold < 1
-        self.rise_time = np.zeros((self.ny, self.nx))
-        self.tacc = np.zeros((self.ny, self.nx))
         misfits_Yoffe = []
         misfits_Gaussian = []
         for j in range(self.ny):
