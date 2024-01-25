@@ -230,6 +230,135 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
 
     return allarr0
 
+class MultiFaultPlane:
+    def __init__(self, fault_planes):
+        self.fault_planes = fault_planes
+
+    @classmethod
+    def from_srf(cls, fname):
+        "init object by reading a srf file (standard rutpure format)"
+        fault_planes = []
+        with open(fname) as fid:
+            # version
+            line = fid.readline()
+            if line.strip() not in ['1.0', '2.0']:
+                raise NotImplementedError(f"srf version: {line} not supported")
+            # skip comments
+            while True:
+                line = fid.readline()
+                if not line.startswith("#"):
+                    break
+            line_el = line.split()
+            if line_el[0] != "PLANE":
+                raise ValueError(f"error parsing {fname}: line does not start with PLANE : {line}")
+            nplane = int(line_el[1])
+            for p in range(nplane):
+                line_el = fid.readline().split()
+                nx, ny = [int(val) for val in line_el[2:4]]
+                fault_planes.append(FaultPlane())
+                fault_planes[p].init_spatial_arrays(nx, ny)
+                if len(line_el) == 6:
+                    # the line describing the fault plane is divided in 2
+                    fid.readline()
+            for p in range(nplane):
+                fp = fault_planes[p]
+                print(f"processing fault plane {p}, {fp.nx} {fp.ny}")
+                line_el = fid.readline().split()
+                if line_el[0] != "POINTS":
+                    raise ValueError(f"error parsing {fname}: line does not start with POINTS : {line}")
+                # check that the plane data are consistent with the number of points
+                assert int(line_el[1]) == fp.nx * fp.ny
+                for j in range(fp.ny):
+                    for i in range(fp.nx):
+                        # first header line
+                        line = fid.readline()
+                        # rho_vs are only present for srf version 2
+                        fp.lon[j, i], fp.lat[j, i], fp.depth[j, i], fp.strike[j, i], fp.dip[j, i], fp.PSarea_cm2, fp.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
+                        # second header line
+                        line = fid.readline()
+                        fp.rake[j, i], fp.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
+                        if max(slip2, slip3) > 0.0:
+                            raise NotImplementedError("this script assumes slip2 and slip3 are zero", slip2, slip3)
+                        ndt1 = int(ndt1)
+                        if max(i, j) == 0:
+                            fp.ndt = ndt1
+                            fp.dt = dt
+                            fp.init_aSR()
+                        lSTF = []
+                        if ndt1 == 0:
+                            continue
+                        if ndt1 > fp.ndt:
+                            print(f"a larger ndt ({ndt1}> {fp.ndt}) was found for point source (i,j) = ({i}, {j}) extending aSR array...")
+                            fp.extend_aSR(fp.ndt, ndt1)
+                        if abs(dt - fp.dt) > 1e-6:
+                            raise NotImplementedError("this script assumes that dt is the same for all sources", dt, fp.dt)
+                        while True:
+                            line = fid.readline()
+                            lSTF.extend(line.split())
+                            if len(lSTF) == ndt1:
+                                fp.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
+                                break
+            return cls(fault_planes)
+
+    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
+        """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
+
+        # Generate yaml file loading ASAGI file
+        nplanes = len(self.fault_planes)
+        template_yaml = f"""!Switch
+[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
+    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
+    model: 
+"""
+        for p, fp in enumerate(self.fault_planes):
+            fault_id = 65 + p
+            fp.compute_xy_from_latlon(proj)
+            fp.compute_affine_vector_map()
+            hh = fp.affine_map["hh"]
+            hw = fp.affine_map["hw"]
+            t1 = fp.affine_map["t1"]
+            t2 = fp.affine_map["t2"]
+            fp.write_ts_file(f"{prefix}{p+1}")
+            
+            template_yaml += f"""      - !GroupFilter
+        groups: {fault_id}
+        components: !AffineMap
+              matrix:
+                ua: [{hh[0]}, {hh[1]}, {hh[2]}]
+                ub: [{hw[0]}, {hw[1]}, {hw[2]}]
+              translation:
+                ua: {t1}
+                ub: {t2}
+              components: !Any
+                - !ASAGI
+                    file: {prefix}{p+1}_{spatial_zoom}_{method}.nc
+                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
+                    var: data
+                    interpolation: linear
+                - !ConstantMap
+                  map:
+                    strike_slip: 0.0
+                    dip_slip:    0.0
+                    rupture_onset:    0.0
+                    acc_time:  1e100
+                    effective_rise_time:  2e100
+"""
+
+        template_yaml += f"""    components: !FunctionMap
+       map:
+          #Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
+          strike_slip: return -strike_slip;
+          dip_slip: return dip_slip;
+          rupture_onset: return rupture_onset;
+          tau_S: return acc_time/1.27;
+          tau_R: return effective_rise_time - 2.*acc_time/1.27;
+          rupture_rise_time: return effective_rise_time;
+        """
+        fname = f"{prefix}_fault.yaml"
+        with open(fname, "w") as fid:
+            fid.write(template_yaml)
+        print(f"done writing {fname}")
+
 
 class FaultPlane:
     def __init__(self):
@@ -310,66 +439,6 @@ class FaultPlane:
                     np.savetxt(fout, self.aSR[j, i, :], fmt="%g", newline=" ")
                     fout.write("\n")
         print("done writing", fname)
-
-    def init_from_srf(self, fname):
-        "init object by reading a srf file (standard rutpure format)"
-        with open(fname) as fid:
-            # version
-            line = fid.readline()
-            version = float(line)
-            if not (abs(version - 1.0) < 1e-03 or abs(version - 2.0) < 1e-03):
-                print("srf version: %s not supported" % (line))
-                raise
-            # skip comments
-            while True:
-                line = fid.readline()
-                if not line.startswith("#"):
-                    break
-            line_el = line.split()
-            if line_el[0] != "PLANE":
-                print("no plane specified")
-                raise
-            if line_el[1] != "1":
-                print("only one plane supported")
-                raise NotImplementedError
-            line_el = fid.readline().split()
-            nx, ny = [int(val) for val in line_el[2:4]]
-            line_el = fid.readline().split()
-            # check that the plane data are consistent with the number of points
-            assert int(line_el[1]) == nx * ny
-            self.init_spatial_arrays(nx, ny)
-            for j in range(ny):
-                for i in range(nx):
-                    # first header line
-                    line = fid.readline()
-                    # rho_vs are only present for srf version 2
-                    self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea_cm2, self.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
-                    # second header line
-                    line = fid.readline()
-                    self.rake[j, i], self.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
-                    if max(slip2, slip3) > 0.0:
-                        print("this script assumes slip2 and slip3 are zero", slip2, slip3)
-                        raise NotImplementedError
-                    ndt1 = int(ndt1)
-                    if max(i, j) == 0:
-                        self.ndt = ndt1
-                        self.dt = dt
-                        self.init_aSR()
-                    lSTF = []
-                    if ndt1 == 0:
-                        continue
-                    if ndt1 > self.ndt:
-                        print(f"a larger ndt ({ndt1}> {self.ndt}) was found for point source (i,j) = ({i}, {j}) extending aSR array...")
-                        self.extend_aSR(self.ndt, ndt1)
-                    if abs(dt - self.dt) > 1e-6:
-                        print("this script assumes that dt is the same for all sources", dt, self.dt)
-                        raise NotImplementedError
-                    while True:
-                        line = fid.readline()
-                        lSTF.extend(line.split())
-                        if len(lSTF) == ndt1:
-                            self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
-                            break
 
     def assess_STF_parameters(self, threshold):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
@@ -654,12 +723,11 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
             writeNetcdf(f"{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
         writeNetcdf(prefix2, [self.x_up, self.y_up], ldataName, lgridded_myData)
 
-    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
-        """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
-        # Generate yaml file loading ASAGI file
+    def compute_affine_vector_map(self):
+        """compute the 2d vectors hh and hw and the offsets defining the 2d affine map (parametric coordinates)"""
+        self.affine_map={}
         cm2m = 0.01
         km2m = 1e3
-        self.compute_xy_from_latlon(proj)
         nx, ny = self.nx, self.ny
         p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
         p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
@@ -668,60 +736,38 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
 
         hw = p1 - p0
         dx1 = np.linalg.norm(hw) / (ny - 1)
-        hw = hw / np.linalg.norm(hw)
+        self.affine_map["hw"] = hw / np.linalg.norm(hw)
         hh = p2 - p0
         dx2 = np.linalg.norm(hh) / (nx - 1)
-        hh = hh / np.linalg.norm(hh)
+        self.affine_map["hh"] = hh / np.linalg.norm(hh)
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the dx/2
         # the term dxi/np.sqrt(dx1*dx2) allows accounting for non-square patches
-        non_square_factor = dx / np.sqrt(dx1 * dx2)
-        t1 = -np.dot(p0, hh)
-        t2 = -np.dot(p0, hw)
+        self.affine_map["non_square_factor"] = dx / np.sqrt(dx1 * dx2)
+        self.affine_map["t1"] = -np.dot(p0, hh)
+        self.affine_map["t2"] = -np.dot(p0, hw)
+        self.affine_map["dx1"] = dx1
+        self.affine_map["dx2"] = dx2
 
-        template_yaml = f"""!Switch
-[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
-    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
-    model: !Switch
-        [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !AffineMap
-              matrix:
-                ua: [{hh[0]}, {hh[1]}, {hh[2]}]
-                ub: [{hw[0]}, {hw[1]}, {hw[2]}]
-              translation:
-                ua: {t1}
-                ub: {t2}
-              components: !Any
-                - !ASAGI
-                    file: {prefix}_{spatial_zoom}_{method}.nc
-                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
-                    var: data
-                    interpolation: linear
-                - !ConstantMap
-                  map:
-                    strike_slip: 0.0
-                    dip_slip:    0.0
-                    rupture_onset:    0.0
-                    acc_time:  1e100
-                    effective_rise_time:  2e100
-    components: !FunctionMap
-       map:
-          #Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
-          strike_slip: return -strike_slip;
-          dip_slip: return dip_slip;
-          rupture_onset: return rupture_onset;
-          tau_S: return acc_time/1.27;
-          tau_R: return effective_rise_time - 2.*acc_time/1.27;
-          rupture_rise_time: return effective_rise_time;
-        """
-        fname = f"{prefix}_fault.yaml"
-        with open(fname, "w") as fid:
-            fid.write(template_yaml)
-        print(f"done writing {fname}")
-
+    def write_ts_file(self,prefix):
         # Generate ts file containing mesh geometry
         vertex = np.zeros((4, 3))
+        km2m = 1e3
+        nx, ny = self.nx, self.ny
+
+        p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
+        p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
+        p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -km2m * self.depth[0, nx - 1]])
+        p3 = np.array([self.x[ny - 1, nx - 1], self.y[ny - 1, nx - 1], -km2m * self.depth[ny - 1, nx - 1]])
+
+        hh = self.affine_map["hh"]
+        hw = self.affine_map["hw"]
+        non_square_factor = self.affine_map["non_square_factor"]
+        dx1 = self.affine_map["dx1"]
+        dx2 = self.affine_map["dx2"]
+
         vertex[0, :] = p0 + 0.5 * (-hh * dx1 - hw * dx2) * non_square_factor
         vertex[1, :] = p2 + 0.5 * (hh * dx1 - hw * dx2) * non_square_factor
         vertex[2, :] = p3 + 0.5 * (hh * dx1 + hw * dx2) * non_square_factor
@@ -740,3 +786,4 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 fout.write("TRGL %d %d %d\n" % (connect[i, 0], connect[i, 1], connect[i, 2]))
             fout.write("END\n")
         print(f"done writing {fname}")
+
