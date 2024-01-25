@@ -45,6 +45,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Unit.hpp"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"

@@ -67,6 +67,9 @@ src/Modules/Modules.cpp
 
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
+src/Monitoring/ActorStateStatistics.cpp
+src/Monitoring/Stopwatch.cpp
+src/Monitoring/Unit.cpp
 
 src/Numerical_aux/Functions.cpp
 src/Numerical_aux/ODEInt.cpp

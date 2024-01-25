@@ -8,10 +8,13 @@
 #include "Initializer/tree/Lut.hpp"
 #include <Initializer/parameters/SeisSolParameters.h>
 
+#include <memory>
+#include <vector>
+
 namespace seissol::dr::output {
 class ReceiverOutput {
   public:
-  virtual ~ReceiverOutput() = default;
+  virtual ~ReceiverOutput();
 
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -19,6 +22,7 @@ class ReceiverOutput {
                   seissol::initializers::LTSTree* userDrTree,
                   seissol::initializers::DynamicRupture* userDrDescr);
 
+  void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializers::parameters::OutputType outputType,
@@ -34,6 +38,7 @@ class ReceiverOutput {
   seissol::initializers::DynamicRupture* drDescr{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
+  real* deviceCopyMemory{nullptr};
 
   struct LocalInfo {
     seissol::initializers::Layer* layer{};
