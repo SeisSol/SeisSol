@@ -380,7 +380,8 @@ class MultiFaultPlane:
         template_yaml = f"""!Switch
 [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
-    model: 
+    model: !Any
+     components:
 """
         for p, fp in enumerate(self.fault_planes):
             fault_id = 65 + p
