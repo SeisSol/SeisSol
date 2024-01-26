@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<matrices>
+	
+ 	
+	<matrix name="v" columns="1" rows="8">
+		
+ 		
+		<entry column="1" row="1" value="1.0"/>
+		
+ 		
+		<entry column="1" row="2" value="1.0"/>
+		
+ 		
+		<entry column="1" row="3" value="1.0"/>
+		
+ 		
+		<entry column="1" row="4" value="1.0"/>
+		
+ 		
+		<entry column="1" row="5" value="1.0"/>
+		
+ 		
+		<entry column="1" row="6" value="1.0"/>
+		
+ 		
+		<entry column="1" row="7" value="1.0"/>
+		
+ 		
+		<entry column="1" row="8" value="1.0"/>
+		
+ 	
+	</matrix>
+	
+ 
+	<matrix name="vInv" columns="8" rows="1">
+		<entry column="1" row="1" value="0.0550165795288783"/>
+		<entry column="2" row="1" value="0.0550165795288783"/>
+		<entry column="3" row="1" value="0.09616224359085934"/>
+		<entry column="4" row="1" value="0.09616224359085934"/>
+		<entry column="5" row="1" value="0.12694203872714432"/>
+		<entry column="6" row="1" value="0.12694203872714432"/>
+		<entry column="7" row="1" value="0.22187913815311727"/>
+		<entry column="8" row="1" value="0.22187913815311727"/>
+	</matrix>
+</matrices>
+

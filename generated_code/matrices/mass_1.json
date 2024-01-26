@@ -1,0 +1,10 @@
+[
+  { "name": "M2", "rows": 1, "columns": 1, "entries": [ [ 1, 1, "0.5" ] ]
+  },
+  { "name": "M2inv", "rows": 1, "columns": 1, "entries": [ [ 1, 1, "2.0" ] ]
+  },
+  { "name": "M3", "rows": 1, "columns": 1, "entries": [ [ 1, 1, "0.16666666666666669" ] ]
+  },
+  { "name": "M3inv", "rows": 1, "columns": 1, "entries": [ [ 1, 1, "5.999999999999999" ] ]
+  }
+]

@@ -20,7 +20,7 @@ option(COVERAGE "Generate targed for code coverage using lcob" OFF)
 
 #Seissol specific
 set(ORDER 6 CACHE STRING "Convergence order")  # must be INT type, by cmake-3.16 accepts only STRING
-set(ORDER_OPTIONS 2 3 4 5 6 7 8)
+set(ORDER_OPTIONS 1 2 3 4 5 6 7 8)
 set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
