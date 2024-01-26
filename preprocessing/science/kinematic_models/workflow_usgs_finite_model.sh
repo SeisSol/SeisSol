@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euov pipefail
 
 event_id=$1
 if [ $# -ne 2 ]
