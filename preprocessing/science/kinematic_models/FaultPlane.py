@@ -417,7 +417,7 @@ class MultiFaultPlane:
                     effective_rise_time:  2e100
 """
 
-        template_yaml += f"""    components: !LuaMap
+        template_yaml += """    components: !LuaMap
       returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]
       function: |
         function f (x)
@@ -825,8 +825,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # therefore the dx/2
         # the term dxi/np.sqrt(dx1*dx2) allows accounting for non-square patches
         self.affine_map["non_square_factor"] = dx / np.sqrt(dx1 * dx2)
-        self.affine_map["t1"] = -np.dot(p0, hh)
-        self.affine_map["t2"] = -np.dot(p0, hw)
+        self.affine_map["t1"] = -np.dot(p0, self.affine_map["hh"])
+        self.affine_map["t2"] = -np.dot(p0, self.affine_map["hw"])
         self.affine_map["dx1"] = dx1
         self.affine_map["dx2"] = dx2
 
