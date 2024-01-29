@@ -1,6 +1,6 @@
 #include "OutputParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 void warnIntervalAndDisable(bool& enabled,
                             double interval,
@@ -240,4 +240,4 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
                           receiverParameters,
                           waveFieldParameters);
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

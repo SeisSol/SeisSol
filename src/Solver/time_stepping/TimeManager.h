@@ -143,7 +143,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters(TimeStepping& i_timeStepping,
                      MeshStructure* i_meshStructure,
-                     initializers::MemoryManager& memoryManager,
+                     initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
     void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);

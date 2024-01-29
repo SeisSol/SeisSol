@@ -63,10 +63,10 @@ namespace seissol {
   }
 }
 
-void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+void seissol::initializer::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                                                 GlobalData const& globalData,
                                                 seissol::geometry::MeshReader const& meshReader,
-                                                seissol::initializers::MemoryManager& memoryManager,
+                                                seissol::initializer::MemoryManager& memoryManager,
                                                 LTS const& lts,
                                                 Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
@@ -127,8 +127,8 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   }
 #endif
 
-  seissol::initializers::synchronizeLTSTreeDuplicates(lts.dofs, memoryManager);
+  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs, memoryManager);
   if (kernels::size<tensor::Qane>() > 0) {
-    seissol::initializers::synchronizeLTSTreeDuplicates(lts.dofsAne, memoryManager);
+    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne, memoryManager);
   }
 }

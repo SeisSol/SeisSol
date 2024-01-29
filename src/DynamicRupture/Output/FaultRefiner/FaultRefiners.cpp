@@ -5,29 +5,29 @@
 #include "utils/logger.h"
 
 #include "DynamicRupture/Output/OutputAux.hpp"
-#include "Initializer/parameters/OutputParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output::refiner {
-seissol::initializers::parameters::FaultRefinement castToRefinerType(int strategy) {
+seissol::initializer::parameters::FaultRefinement castToRefinerType(int strategy) {
   switch (strategy) {
   case 1:
-    return seissol::initializers::parameters::FaultRefinement::Triple;
+    return seissol::initializer::parameters::FaultRefinement::Triple;
   case 2:
-    return seissol::initializers::parameters::FaultRefinement::Quad;
+    return seissol::initializer::parameters::FaultRefinement::Quad;
   default:
     logError() << "Unknown refinement strategy for Fault Face Refiner";
     // return something to suppress a compiler warning
-    return seissol::initializers::parameters::FaultRefinement::None;
+    return seissol::initializer::parameters::FaultRefinement::None;
   }
 }
 
-std::unique_ptr<FaultRefiner> get(seissol::initializers::parameters::FaultRefinement strategy) {
+std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy) {
   switch (strategy) {
-  case seissol::initializers::parameters::FaultRefinement::Triple:
+  case seissol::initializer::parameters::FaultRefinement::Triple:
     return std::make_unique<FaultFaceTripleRefiner>();
-  case seissol::initializers::parameters::FaultRefinement::Quad:
+  case seissol::initializer::parameters::FaultRefinement::Quad:
     return std::make_unique<FaultFaceQuadRefiner>();
-  case seissol::initializers::parameters::FaultRefinement::None:
+  case seissol::initializer::parameters::FaultRefinement::None:
   default:
     return nullptr;
   }

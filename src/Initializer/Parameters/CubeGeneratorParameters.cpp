@@ -1,6 +1,6 @@
 #include "CubeGeneratorParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("cubegenerator");
@@ -69,4 +69,4 @@ void discardCubeGeneratorParameters(ParameterReader* baseReader) {
                       "cubety",
                       "cubetz"});
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

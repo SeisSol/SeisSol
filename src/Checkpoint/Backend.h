@@ -42,14 +42,14 @@
 
 #include "Wavefield.h"
 #include "Fault.h"
-#include "Initializer/parameters/OutputParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::checkpoint {
 
 /**
  * Create the backend instances depending on the selected backend
  */
-void createBackend(seissol::initializers::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault);
+void createBackend(seissol::initializer::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault);
 
 } // namespace seissol::checkpoint
 

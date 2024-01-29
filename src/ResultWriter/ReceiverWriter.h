@@ -55,7 +55,7 @@ struct LocalIntegrationData;
 struct GlobalData;
 namespace seissol {
   class SeisSol;
-  namespace initializers::parameters {
+  namespace initializer::parameters {
     struct ReceiverOutputParameters;
   }
 }
@@ -71,12 +71,12 @@ namespace seissol::writer {
     public:
       ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-      void init(const std::string& fileNamePrefix, double endTime, const seissol::initializers::parameters::ReceiverOutputParameters& parameters);
+      void init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
           const seissol::geometry::MeshReader& mesh,
-          const seissol::initializers::Lut& ltsLut,
-          const seissol::initializers::LTS& lts,
+          const seissol::initializer::Lut& ltsLut,
+          const seissol::initializer::LTS& lts,
           const GlobalData* global);
 
       kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {

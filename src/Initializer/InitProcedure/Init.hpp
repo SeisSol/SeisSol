@@ -5,7 +5,7 @@
 #include <SeisSol.h>
 #include <vector>
 
-namespace seissol::initializers::initprocedure {
+namespace seissol::initializer::initprocedure {
 
 void seissolMain(seissol::SeisSol& seissolInstance);
 

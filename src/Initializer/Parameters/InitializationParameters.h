@@ -6,7 +6,7 @@
 #include "Initializer/InputAux.hpp"
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 enum class InitializationType : int {
   Zero,
@@ -33,6 +33,6 @@ struct InitializationParameters {
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

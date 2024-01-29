@@ -93,8 +93,8 @@ Config getConfig() {
 
 
 void seissol::localIntegration(GlobalData* globalData,
-                               initializers::LTS& lts,
-                               initializers::Layer& layer,
+                               initializer::LTS& lts,
+                               initializer::Layer& layer,
                                seissol::SeisSol& seissolInstance) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
@@ -128,8 +128,8 @@ void seissol::localIntegration(GlobalData* globalData,
 }
 
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
-                                       initializers::LTS& lts,
-                                       initializers::Layer& layer,
+                                       initializer::LTS& lts,
+                                       initializer::Layer& layer,
                                        seissol::SeisSol& seissolInstance) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
@@ -153,8 +153,8 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 #endif
 }
 
-void seissol::fakeData(initializers::LTS& lts,
-                       initializers::Layer& layer,
+void seissol::fakeData(initializer::LTS& lts,
+                       initializer::Layer& layer,
                        FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
   real**                      buffers                       = layer.var(lts.buffers);
@@ -213,9 +213,9 @@ void seissol::fakeData(initializers::LTS& lts,
 #endif
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity, seissol::SeisSol& seissolInstance) {
-  initializers::LTSTree ltsTree;
-  initializers::LTS     lts;
+double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool usePlasticity, seissol::SeisSol& seissolInstance) {
+  initializer::LTSTree ltsTree;
+  initializer::LTS     lts;
 
   lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
@@ -227,7 +227,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
                 << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";
 
-  initializers::TimeCluster& cluster = ltsTree.child(0);
+  initializer::TimeCluster& cluster = ltsTree.child(0);
   cluster.child<Ghost>().setNumberOfCells(0);
   cluster.child<Copy>().setNumberOfCells(0);
   cluster.child<Interior>().setNumberOfCells(config.numElements);
@@ -235,7 +235,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
   
-  initializers::Layer& layer = cluster.child<Interior>();
+  initializer::Layer& layer = cluster.child<Interior>();
   
   layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
@@ -243,12 +243,12 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
-  seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
-  seissol::initializers::recording::CompositeRecorder<seissol::initializers::LTS> recorder;
-  recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
+  seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
+  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
   recorder.record(lts, layer);
   ltsTree.allocateScratchPads();
 

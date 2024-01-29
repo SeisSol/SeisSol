@@ -3,13 +3,13 @@
 
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
 #include "ReceiverBasedOutputBuilder.hpp"
-#include "Initializer/parameters/OutputParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
-  void setParams(const seissol::initializers::parameters::ElementwiseFaultParameters& params) {
+  void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
     elementwiseParams = params;
   }
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
@@ -86,7 +86,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   inline const static size_t maxAllowedCacheLevel = 1;
 
   private:
-  seissol::initializers::parameters::ElementwiseFaultParameters elementwiseParams;
+  seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams;
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP

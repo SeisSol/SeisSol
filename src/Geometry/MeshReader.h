@@ -51,7 +51,7 @@
 
 #include <Eigen/Dense>
 
-#include "Initializer/parameters/DRParameters.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "MeshTools.h"
 #include "Parallel/MPI.h"
 
@@ -116,7 +116,7 @@ class MeshReader {
    * Reconstruct the fault information from the boundary conditions
    */
   void extractFaultInformation(const VrtxCoords& refPoint,
-                               seissol::initializers::parameters::RefPointMethod refPointMethod);
+                               seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
 };

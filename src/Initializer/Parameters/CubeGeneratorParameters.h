@@ -3,7 +3,7 @@
 
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 struct CubeGeneratorParameters {
   unsigned int cubeMinX;
@@ -29,6 +29,6 @@ struct CubeGeneratorParameters {
 
 CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader);
 void discardCubeGeneratorParameters(ParameterReader* baseReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

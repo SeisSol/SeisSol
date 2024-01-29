@@ -4,7 +4,7 @@
 #include "Initializer/InitProcedure/Init.hpp"
 #include <SeisSol.h>
 
-namespace seissol::initializers::initprocedure {
+namespace seissol::initializer::initprocedure {
 void initModel(seissol::SeisSol& seissolInstance);
 }
 

@@ -48,7 +48,7 @@
 #include "utils/logger.h"
 
 #include "Checkpoint/Manager.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
@@ -94,9 +94,9 @@ class SeisSol {
    */
   void finalize();
 
-  initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
+  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
-  initializers::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
@@ -182,7 +182,7 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  seissol::initializers::parameters::SeisSolParameters& getSeisSolParameters() {
+  seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
     return m_seissolParameters;
   }
 
@@ -224,10 +224,10 @@ class SeisSol {
   seissol::geometry::MeshReader* m_meshReader;
 
   //! Lts Layout
-  initializers::time_stepping::LtsLayout m_ltsLayout;
+  initializer::time_stepping::LtsLayout m_ltsLayout;
 
   //! Memory Manager
-  std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
+  std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
   //! Time Manager
   time_stepping::TimeManager m_timeManager;
@@ -274,15 +274,15 @@ class SeisSol {
       timeMirrorManagers;
 
   //! Collection of Parameters
-  seissol::initializers::parameters::SeisSolParameters m_seissolParameters;
+  seissol::initializer::parameters::SeisSolParameters m_seissolParameters;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};
 
   public:
-  SeisSol(const initializers::parameters::SeisSolParameters& parameters)
+  SeisSol(const initializer::parameters::SeisSolParameters& parameters)
       : pinning(), m_meshReader(nullptr), m_ltsLayout(parameters),
-        m_memoryManager(std::make_unique<initializers::MemoryManager>(*this)), m_timeManager(*this),
+        m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
         m_energyOutput(*this), timeMirrorManagers(*this, *this), m_seissolParameters(parameters) {}

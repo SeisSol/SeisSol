@@ -50,11 +50,11 @@
 #include "Physics/InitialField.h"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     void projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                              GlobalData const& globalData,
                              seissol::geometry::MeshReader const& meshReader,
-                             seissol::initializers::MemoryManager& memoryManager,
+                             seissol::initializer::MemoryManager& memoryManager,
                              LTS const& lts,
                              Lut const& ltsLut );
   }

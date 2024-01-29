@@ -5,7 +5,7 @@
 
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 constexpr bool isModelAnelastic() { return NUMBER_OF_RELAXATION_MECHANISMS > 0; }
 
@@ -66,6 +66,6 @@ struct ModelParameters {
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
 ITMParameters readITMParameters(ParameterReader* baseReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

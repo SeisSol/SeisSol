@@ -96,11 +96,11 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  long timeStepRate, bool printProgress,
                                                  DynamicRuptureScheduler *dynamicRuptureScheduler,
                                                  CompoundGlobalData i_globalData,
-                                                 seissol::initializers::Layer *i_clusterData,
-                                                 seissol::initializers::Layer *dynRupInteriorData,
-                                                 seissol::initializers::Layer *dynRupCopyData,
-                                                 seissol::initializers::LTS *i_lts,
-                                                 seissol::initializers::DynamicRupture* i_dynRup,
+                                                 seissol::initializer::Layer *i_clusterData,
+                                                 seissol::initializer::Layer *dynRupInteriorData,
+                                                 seissol::initializer::Layer *dynRupCopyData,
+                                                 seissol::initializer::LTS *i_lts,
+                                                 seissol::initializer::DynamicRupture* i_dynRup,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
                                                  dr::output::OutputManager* i_faultOutputManager,
                                                  seissol::SeisSol& seissolInstance,
@@ -200,7 +200,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 }
 
 #ifndef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializer::Layer&  layerData ) {
   if (layerData.getNumberOfCells() == 0) return;
   SCOREP_USER_REGION_DEFINE(myRegionHandle)
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_COMMON )
@@ -260,7 +260,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 }
 #else
 
-void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializer::Layer&  layerData ) {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
@@ -270,7 +270,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     const double stepSizeWidth = timeStepSize();
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    auto computeGraphKey = initializers::GraphKey(graphType, stepSizeWidth);
+    auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
     auto computeGraphHandle = layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
@@ -310,7 +310,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 #endif
 
 
-void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializers::Layer& layerData,
+void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializer::Layer& layerData,
                                                                       long long&                    nonZeroFlops,
                                                                       long long&                    hardwareFlops )
 {
@@ -329,7 +329,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::i
 }
 
 #ifndef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initializers::Layer& i_layerData, bool resetBuffers ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initializer::Layer& i_layerData, bool resetBuffers ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
@@ -420,7 +420,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 }
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegration(
-  seissol::initializers::Layer& i_layerData,
+  seissol::initializer::Layer& i_layerData,
   bool resetBuffers) {
 
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -440,7 +440,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
   const double timeStepWidth = timeStepSize();
 
   ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-  auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, true);
+  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   auto computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
   if (!computeGraphHandle) {
@@ -482,7 +482,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
                                                timeStepWidth);
 
   graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  computeGraphKey = initializers::GraphKey(graphType);
+  computeGraphKey = initializer::GraphKey(graphType);
   computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
   if (!computeGraphHandle) {
@@ -548,7 +548,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
 #endif // ACL_DEVICE
 
 #ifndef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol::initializers::Layer& i_layerData,
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol::initializer::Layer& i_layerData,
                                                                         double subTimeStart) {
   if (usePlasticity) {
     computeNeighboringIntegrationImplementation<true>(i_layerData, subTimeStart);
@@ -557,7 +557,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol:
   }
 }
 #else // ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData,
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializer::Layer&  i_layerData,
                                                                          double subTimeStart) {
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -574,7 +574,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
          "circular streams must be joined with the default stream");
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-  auto computeGraphKey = initializers::GraphKey(graphType);
+  auto computeGraphKey = initializer::GraphKey(graphType);
   auto computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
   if (!computeGraphHandle) {
@@ -623,7 +623,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 }
 #endif // ACL_DEVICE
 
-void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::initializers::Layer& layerData) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::initializer::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Local)];
   auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Local)];
   flopsNonZero = 0;
@@ -652,7 +652,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
 }
 
 void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
-    seissol::initializers::Layer& layerData) {
+    seissol::initializer::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
   auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
   auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];

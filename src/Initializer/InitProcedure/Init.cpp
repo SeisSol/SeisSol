@@ -6,7 +6,7 @@
 #include "InitMesh.hpp"
 #include "InitModel.hpp"
 #include "InitSideConditions.hpp"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Numerical_aux/Statistics.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
@@ -49,10 +49,10 @@ static void initSeisSol(seissol::SeisSol& seissolInstance) {
       seissolParams.model.gravitationalAcceleration;
 
   // initialization procedure
-  seissol::initializers::initprocedure::initMesh(seissolInstance);
-  seissol::initializers::initprocedure::initModel(seissolInstance);
-  seissol::initializers::initprocedure::initSideConditions(seissolInstance);
-  seissol::initializers::initprocedure::initIO(seissolInstance);
+  seissol::initializer::initprocedure::initMesh(seissolInstance);
+  seissol::initializer::initprocedure::initModel(seissolInstance);
+  seissol::initializer::initprocedure::initSideConditions(seissolInstance);
+  seissol::initializer::initprocedure::initIO(seissolInstance);
 
   // set up simulator
   auto& sim = seissolInstance.simulator();
@@ -82,7 +82,7 @@ static void closeSeisSol(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializers::initprocedure::seissolMain(seissol::SeisSol& seissolInstance) {
+void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolInstance) {
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 

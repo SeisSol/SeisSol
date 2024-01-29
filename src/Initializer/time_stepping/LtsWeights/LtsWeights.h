@@ -48,7 +48,7 @@
 #include <string>
 #include <vector>
 
-#include "Initializer/parameters/LtsParameters.h"
+#include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/time_stepping/GlobalTimestep.hpp"
 
 #ifndef PUML_PUML_H
@@ -58,7 +58,7 @@ namespace PUML { class TETPUML; }
 
 namespace seissol {
   class SeisSol;
-  namespace initializers::time_stepping {
+  namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   std::string velocityModel{};
   unsigned rate{};
@@ -103,9 +103,9 @@ public:
 private:
   seissol::SeisSol& seissolInstance;
 protected:
-  seissol::initializers::GlobalTimestep m_details;
+  seissol::initializer::GlobalTimestep m_details;
 
-  seissol::initializers::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
+  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
   void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);

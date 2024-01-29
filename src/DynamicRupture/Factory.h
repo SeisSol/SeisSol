@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <tuple>
 
-#include "DynamicRupture/Initializers/Initializers.h"
+#include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
 #include "Initializer/DynamicRupture.h"
 #include "Output/Output.hpp"
@@ -20,19 +20,19 @@ namespace dr::factory {
  * quantity to which output
  */
 struct DynamicRuptureTuple {
-  std::unique_ptr<seissol::initializers::DynamicRupture> ltsTree;
-  std::unique_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
+  std::unique_ptr<seissol::initializer::DynamicRupture> ltsTree;
+  std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
   std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 
 class AbstractFactory {
   protected:
-  std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters;
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
   seissol::SeisSol& seissolInstance;
 
   public:
-  AbstractFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> drParameters,
+  AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
                   seissol::SeisSol& seissolInstance)
       : drParameters(drParameters), seissolInstance(seissolInstance){};
   virtual ~AbstractFactory() = default;
@@ -88,7 +88,7 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializers::parameters::DRParameters> dynRupParameter,
+    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
                seissol::SeisSol& seissolInstance);
 
 } // namespace dr::factory

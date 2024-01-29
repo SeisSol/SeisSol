@@ -1,6 +1,6 @@
 #include "MeshParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 MeshParameters readMeshParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("meshnml");
@@ -16,14 +16,14 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
 
-  const auto displacementRaw = seissol::initializers::convertStringToArray<double, 3>(
+  const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
   Eigen::Vector3d displacement(displacementRaw.data());
-  const auto scalingXRaw = seissol::initializers::convertStringToArray<double, 3>(
+  const auto scalingXRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("scalingmatrixx", std::string("1.0 0.0 0.0")));
-  const auto scalingYRaw = seissol::initializers::convertStringToArray<double, 3>(
+  const auto scalingYRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("scalingmatrixy", std::string("0.0 1.0 0.0")));
-  const auto scalingZRaw = seissol::initializers::convertStringToArray<double, 3>(
+  const auto scalingZRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("scalingmatrixz", std::string("0.0 0.0 1.0")));
   Eigen::Matrix3d scaling;
   scaling << scalingXRaw[0], scalingXRaw[1], scalingXRaw[2], scalingYRaw[0], scalingYRaw[1],
@@ -36,4 +36,4 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
   return MeshParameters{
       showEdgeCutStatistics, meshFormat, meshFileName, partitioningLib, displacement, scaling};
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

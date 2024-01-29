@@ -7,7 +7,7 @@
 
 #include <Eigen/Dense>
 
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/typedefs.hpp"
 #include "Kernels/precision.hpp"
 #include "generated_code/init.h"
@@ -35,7 +35,7 @@ class ZeroField : public InitialField {
 class PressureInjection : public InitialField {
   public:
   PressureInjection(
-      const seissol::initializers::parameters::InitializationParameters initializationParameters);
+      const seissol::initializer::parameters::InitializationParameters initializationParameters);
 
   void evaluate(double,
                 std::vector<std::array<double, 3>> const&,
@@ -43,7 +43,7 @@ class PressureInjection : public InitialField {
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
   private:
-  seissol::initializers::parameters::InitializationParameters m_parameters;
+  seissol::initializer::parameters::InitializationParameters m_parameters;
 };
 
 // A planar wave travelling in direction kVec

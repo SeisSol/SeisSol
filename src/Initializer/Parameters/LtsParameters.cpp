@@ -7,7 +7,7 @@
 
 #include "ModelParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
   // Convert str to lower case to make function case-insensitive
@@ -188,4 +188,4 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
                                 ltsParameters);
 }
 
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

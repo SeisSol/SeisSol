@@ -2,8 +2,8 @@
 #include "DynamicRupture/Output/OutputManager.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "SeisSol.h"
-#include <Initializer/parameters/OutputParameters.h>
-#include <Initializer/parameters/SeisSolParameters.h>
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Initializer/Parameters/SeisSolParameters.h>
 #include <fstream>
 #include <type_traits>
 #include <unordered_map>
@@ -82,19 +82,19 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
 void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
-  using namespace initializers;
+  using namespace initializer;
   meshReader = &userMesher;
 
   impl->setMeshReader(&userMesher);
 
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
-                           seissol::initializers::parameters::OutputType::AtPickpointAndElementwise;
+                           seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
-                                seissol::initializers::parameters::OutputType::AtPickpoint ||
+                                seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
   const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
-                                      seissol::initializers::parameters::OutputType::Elementwise ||
+                                      seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
@@ -114,11 +114,11 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                               seissol::initializers::LTS* userWpDescr,
-                               seissol::initializers::Lut* userWpLut,
-                               seissol::initializers::LTSTree* userDrTree,
-                               seissol::initializers::DynamicRupture* userDrDescr) {
+void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
+                               seissol::initializer::LTS* userWpDescr,
+                               seissol::initializer::Lut* userWpLut,
+                               seissol::initializer::LTSTree* userDrTree,
+                               seissol::initializer::DynamicRupture* userDrDescr) {
   wpDescr = userWpDescr;
   wpTree = userWpTree;
   wpLut = userWpLut;
@@ -127,12 +127,12 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
-                           seissol::initializers::parameters::OutputType::AtPickpointAndElementwise;
+                           seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
-                                seissol::initializers::parameters::OutputType::AtPickpoint ||
+                                seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
   const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
-                                      seissol::initializers::parameters::OutputType::Elementwise ||
+                                      seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
     ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
@@ -245,7 +245,7 @@ void OutputManager::initFaceToLtsMap() {
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
-    for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+    for (auto it = drTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
          it != drTree->endLeaf();
          ++it) {
 
@@ -276,7 +276,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
     if (this->isAtPickpoint(time, dt)) {
 
       const auto& outputData = ppOutputData;
-      impl->calcFaultOutput(seissol::initializers::parameters::OutputType::AtPickpoint,
+      impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
                             time);
@@ -331,7 +331,7 @@ void OutputManager::flushPickpointDataToFile() {
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-    impl->calcFaultOutput(seissol::initializers::parameters::OutputType::Elementwise,
+    impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
                           ewOutputData);
   }

@@ -3,13 +3,13 @@
 
 #include "ReceiverBasedOutputBuilder.hpp"
 #include <Initializer/PointMapper.h>
-#include <Initializer/parameters/OutputParameters.h>
+#include <Initializer/Parameters/OutputParameters.h>
 
 namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
-  void setParams(seissol::initializers::parameters::PickpointParameters params) {
+  void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams = std::move(params);
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
@@ -29,7 +29,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   protected:
   void readCoordsFromFile() {
-    using namespace seissol::initializers;
+    using namespace seissol::initializer;
     StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName);
     FileProcessor::removeEmptyLines(content);
 
@@ -63,12 +63,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     const auto [faultVertices, faultElements, elementToFault] = getElementsAlongFault();
 
-    seissol::initializers::findMeshIds(eigenPoints.data(),
-                                       faultVertices,
-                                       faultElements,
-                                       numReceiverPoints,
-                                       contained.data(),
-                                       localIds.data());
+    seissol::initializer::findMeshIds(eigenPoints.data(),
+                                      faultVertices,
+                                      faultElements,
+                                      numReceiverPoints,
+                                      contained.data(),
+                                      localIds.data());
 
     const auto& meshElements = meshReader->getElements();
     const auto& meshVertices = meshReader->getVertices();
@@ -240,7 +240,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   private:
-  seissol::initializers::parameters::PickpointParameters pickpointParams;
+  seissol::initializer::parameters::PickpointParameters pickpointParams;
   std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output

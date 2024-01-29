@@ -78,7 +78,7 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     struct LTS;
   }
   namespace tensor {
@@ -86,7 +86,7 @@ namespace seissol {
   }
 }
 
-struct seissol::initializers::LTS {
+struct seissol::initializer::LTS {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
   Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;

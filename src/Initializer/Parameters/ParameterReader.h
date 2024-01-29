@@ -10,7 +10,7 @@
 
 #include "Parallel/MPI.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 // converts a string to lower case, and trims it.
 inline void sanitize(std::string& input) {
@@ -116,6 +116,6 @@ class ParameterReader {
   std::unordered_set<std::string> visited;
   std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders;
 };
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

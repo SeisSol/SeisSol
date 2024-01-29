@@ -1,10 +1,10 @@
-#include <Initializer/parameters/LtsParameters.h>
+#include <Initializer/Parameters/LtsParameters.h>
 #include <memory>
 #include <numeric>
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/typedefs.hpp"
 #include "SeisSol.h"
 
@@ -14,11 +14,11 @@ TEST_CASE("LTS Weights") {
 // PUMLReader is only available with MPI
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  seissol::initializers::parameters::LtsParameters ltsParameters(2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor, seissol::initializers::parameters::LtsWeightsTypes::ExponentialWeights);
-  seissol::initializers::parameters::SeisSolParameters seissolParameters;
+  seissol::initializer::parameters::LtsParameters ltsParameters(2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor, seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+  seissol::initializer::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
   seissol::SeisSol seissolInstance(seissolParameters);
   
@@ -36,7 +36,7 @@ TEST_CASE("LTS Weights") {
 
 TEST_CASE("Cost function for LTS") {
   const auto eps = 10e-12;
-  using namespace initializers::time_stepping;
+  using namespace initializer::time_stepping;
 
   SUBCASE("No clusters") {
     std::vector<int> clusterIds = {};
@@ -122,7 +122,7 @@ TEST_CASE("Cost function for LTS") {
 }
 
 TEST_CASE("Enforce max cluster id") {
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
     const auto should = clusterIds;
@@ -142,7 +142,7 @@ TEST_CASE("Enforce max cluster id") {
 }
 
 TEST_CASE("Auto merging of clusters") {
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;

@@ -6,7 +6,7 @@
 #include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
-#include <Initializer/parameters/DRParameters.h>
+#include <Initializer/Parameters/DRParameters.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -99,7 +99,7 @@ enum VariableID {
   Size
 };
 
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 

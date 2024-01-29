@@ -1,6 +1,6 @@
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 void ParameterReader::warnDeprecatedSingle(const std::string& field) {
   if (hasField(field)) {
@@ -60,4 +60,4 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
 
 bool ParameterReader::hasField(const std::string& field) { return !empty && node[field]; }
 
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

@@ -6,7 +6,7 @@
 #include "DynamicRupture/Misc.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
-#include "Initializer/parameters/DRParameters.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
@@ -17,14 +17,14 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  explicit BaseFrictionLaw(seissol::initializers::parameters::DRParameters* drParameters)
+  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model
    */
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                seissol::initializer::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)

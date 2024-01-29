@@ -39,16 +39,16 @@ src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 
-src/Initializer/parameters/CubeGeneratorParameters.cpp
-src/Initializer/parameters/DRParameters.cpp
-src/Initializer/parameters/InitializationParameters.cpp
-src/Initializer/parameters/LtsParameters.cpp
-src/Initializer/parameters/MeshParameters.cpp
-src/Initializer/parameters/ModelParameters.cpp
-src/Initializer/parameters/OutputParameters.cpp
-src/Initializer/parameters/ParameterReader.cpp
-src/Initializer/parameters/SeisSolParameters.cpp
-src/Initializer/parameters/SourceParameters.cpp
+src/Initializer/Parameters/CubeGeneratorParameters.cpp
+src/Initializer/Parameters/DRParameters.cpp
+src/Initializer/Parameters/InitializationParameters.cpp
+src/Initializer/Parameters/LtsParameters.cpp
+src/Initializer/Parameters/MeshParameters.cpp
+src/Initializer/Parameters/ModelParameters.cpp
+src/Initializer/Parameters/OutputParameters.cpp
+src/Initializer/Parameters/ParameterReader.cpp
+src/Initializer/Parameters/SeisSolParameters.cpp
+src/Initializer/Parameters/SourceParameters.cpp
 
 src/Initializer/time_stepping/GlobalTimestep.cpp
 src/Initializer/time_stepping/LtsLayout.cpp
@@ -121,10 +121,10 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/NoFault.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/BaseDRInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/BaseDRInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp

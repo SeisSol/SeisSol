@@ -12,7 +12,7 @@
 #include "OutputParameters.h"
 #include "SourceParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 struct SeisSolParameters {
   CubeGeneratorParameters cubeGenerator;
@@ -26,6 +26,6 @@ struct SeisSolParameters {
 };
 
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

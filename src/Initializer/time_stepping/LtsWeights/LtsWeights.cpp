@@ -53,7 +53,7 @@
 #include "SeisSol.h"
 #include "generated_code/init.h"
 
-namespace seissol::initializers::time_stepping {
+namespace seissol::initializer::time_stepping {
 
 class FaceSorter {
 private:
@@ -165,11 +165,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     if (!(ltsParameters.isWiggleFactorUsed() && ltsParameters.isAutoMergeUsed())) {
       // Cost models only change things if both wiggle factor and auto merge are on.
       // In all other cases, choose the cheapest cost model.
-      autoMergeBaseline = seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor;
+      autoMergeBaseline = seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor;
     }
 
     ComputeWiggleFactorResult wiggleFactorResult{};
-    if (autoMergeBaseline == seissol::initializers::parameters::AutoMergeCostBaseline::BestWiggleFactor) {
+    if (autoMergeBaseline == seissol::initializer::parameters::AutoMergeCostBaseline::BestWiggleFactor) {
       // First compute wiggle factor without merging as baseline cost
       logInfo(rank) << "Using best wiggle factor as baseline cost for auto merging.";
       logInfo(rank) << "1. Compute best wiggle factor without merging clusters";
@@ -179,7 +179,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
       const auto baselineCost = wiggleFactorResultBaseline.cost;
       wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters.isAutoMergeUsed());
     } else {
-      assert(autoMergeBaseline == seissol::initializers::parameters::AutoMergeCostBaseline::MaxWiggleFactor);
+      assert(autoMergeBaseline == seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor);
       wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters.isAutoMergeUsed());
     }
 
@@ -406,8 +406,8 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-seissol::initializers::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-  return seissol::initializers::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh), seissolInstance.getSeisSolParameters());
+seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializer::CellToVertexArray::fromPUML(*m_mesh), seissolInstance.getSeisSolParameters());
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -593,4 +593,4 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 
   return numberOfReductions;
 }
-} // namespace seissol::initializers::time_stepping
+} // namespace seissol::initializer::time_stepping

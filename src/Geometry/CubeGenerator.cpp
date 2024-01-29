@@ -107,7 +107,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
     const std::string& meshFile,
-    const seissol::initializers::parameters::CubeGeneratorParameters& cubeParams)
+    const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
     : seissol::geometry::MeshReader(rank) {
   // get cubeGenerator parameters
   unsigned int cubeMinX = cubeParams.cubeMinX;

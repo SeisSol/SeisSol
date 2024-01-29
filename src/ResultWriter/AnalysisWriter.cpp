@@ -49,9 +49,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType =  seissolInstance.getSeisSolParameters().initialization.type;
-  if (initialConditionType == seissol::initializers::parameters::InitializationType::Zero ||
-     initialConditionType == seissol::initializers::parameters::InitializationType::Travelling ||
-     initialConditionType == seissol::initializers::parameters::InitializationType::PressureInjection) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
+     initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
+     initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
     return;
   }
 

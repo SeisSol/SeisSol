@@ -8,7 +8,7 @@
 #include "Kernels/precision.hpp"
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 /**
  * Stores the different types of friction laws
@@ -69,5 +69,5 @@ struct DRParameters {
 
 DRParameters readDRParameters(ParameterReader* baseReader);
 
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 #endif // SEISSOL_PARAMETERS_H

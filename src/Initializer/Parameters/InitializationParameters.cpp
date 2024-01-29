@@ -1,6 +1,6 @@
 #include "InitializationParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("inicondition");
@@ -21,10 +21,10 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
           {"pressureinjection", InitializationType::PressureInjection},
       });
   const auto originString = reader->readWithDefault("origin", std::string("0.0 0.0 0.0"));
-  const auto originRaw = seissol::initializers::convertStringToArray<double, 3>(originString);
+  const auto originRaw = seissol::initializer::convertStringToArray<double, 3>(originString);
   const Eigen::Vector3d origin(originRaw.data());
   const auto kVecString = reader->readWithDefault("kvec", std::string("0.0 0.0 0.0"));
-  const auto kVecRaw = seissol::initializers::convertStringToArray<double, 3>(kVecString);
+  const auto kVecRaw = seissol::initializer::convertStringToArray<double, 3>(kVecString);
   const Eigen::Vector3d kVec(kVecRaw.data());
   std::string defaultAmpFieldString;
   for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
@@ -32,7 +32,7 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   }
   const auto ampFieldString = reader->readWithDefault("ampfield", defaultAmpFieldString);
   const auto ampFieldRaw =
-      seissol::initializers::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
+      seissol::initializer::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
   const Eigen::Vector<double, NUMBER_OF_QUANTITIES> ampField(ampFieldRaw.data());
 
   const auto magnitude = reader->readWithDefault("magnitude", 0.0);
@@ -41,4 +41,4 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
 
   return InitializationParameters{type, origin, kVec, ampField, magnitude, width, k};
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

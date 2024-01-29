@@ -4,7 +4,7 @@
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(
-    seissol::initializers::parameters::DRParameters* drParameters)
+    seissol::initializer::parameters::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {

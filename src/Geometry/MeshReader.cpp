@@ -3,7 +3,7 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
-#include <Initializer/parameters/SeisSolParameters.h>
+#include <Initializer/Parameters/SeisSolParameters.h>
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -68,7 +68,7 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
  * Reconstruct the fault information from the boundary conditions
  */
 void MeshReader::extractFaultInformation(
-    const VrtxCoords& refPoint, seissol::initializers::parameters::RefPointMethod refPointMethod) {
+    const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
     for (int j = 0; j < 4; j++) {
@@ -129,7 +129,7 @@ void MeshReader::extractFaultInformation(
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      tmp2);
       bool isPlus;
-      if (refPointMethod == seissol::initializers::parameters::RefPointMethod::Point) {
+      if (refPointMethod == seissol::initializer::parameters::RefPointMethod::Point) {
         isPlus = MeshTools::dot(tmp1, f.normal) * MeshTools::dot(tmp2, f.normal) > 0;
       } else {
         isPlus = MeshTools::dot(refPoint, f.normal) > 0;

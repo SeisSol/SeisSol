@@ -26,18 +26,18 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip
   // magnitude
   real* stateVariable{nullptr};
-  if (dynamic_cast<seissol::initializers::LTSRateAndState*>(dynRup)) {
+  if (dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
-        dynamic_cast<seissol::initializers::LTSRateAndState*>(dynRup)->stateVariable));
+        dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)->stateVariable));
   } else {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->accumulatedSlipMagnitude));
   }
   // Only with prakash-clifton regularization, we store the fault strength, otherwise use the
   // friction coefficient
   real* strength{nullptr};
-  if (dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(dynRup)) {
+  if (dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(dynRup)
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)
             ->regularisedStrength));
   } else {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
@@ -202,7 +202,7 @@ static void setIntegralMask(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializers::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
+void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   const auto rank = MPI::mpi.rank();
   logInfo(rank) << "Begin init output.";
 

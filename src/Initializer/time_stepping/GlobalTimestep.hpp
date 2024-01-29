@@ -5,7 +5,7 @@
 
 #include "Initializer/ParameterDB.h"
 
-namespace seissol::initializers {
+namespace seissol::initializer {
 struct GlobalTimestep {
   std::vector<double> cellTimeStepWidths;
   double globalMinTimeStep;
@@ -20,8 +20,8 @@ GlobalTimestep
     computeTimesteps(double cfl,
                      double maximumAllowedTimeStep,
                      const std::string& velocityModel,
-                     const seissol::initializers::CellToVertexArray& cellToVertex,
-                     const seissol::initializers::parameters::SeisSolParameters& seissolParams);
-} // namespace seissol::initializers
+                     const seissol::initializer::CellToVertexArray& cellToVertex,
+                     const seissol::initializer::parameters::SeisSolParameters& seissolParams);
+} // namespace seissol::initializer
 
 #endif

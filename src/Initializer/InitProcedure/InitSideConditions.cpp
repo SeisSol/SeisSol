@@ -4,7 +4,7 @@
 #include "InitSideConditions.hpp"
 
 #include "Initializer/InitialFieldProjection.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 #include "Parallel/MPI.h"
 
@@ -47,7 +47,7 @@ static std::vector<std::unique_ptr<physics::InitialField>>
   std::vector<std::unique_ptr<physics::InitialField>> initConditions;
   std::string initialConditionDescription = "";
   if (initConditionParams.type ==
-      seissol::initializers::parameters::InitializationType::Planarwave) {
+      seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
     auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
 
@@ -60,7 +60,7 @@ static std::vector<std::unique_ptr<physics::InitialField>>
     initConditions.emplace_back(new physics::Planarwave(materialData));
 #endif
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::SuperimposedPlanarwave) {
+             seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
@@ -73,20 +73,20 @@ static std::vector<std::unique_ptr<physics::InitialField>>
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0)));
 #endif
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Zero) {
+             seissol::initializer::parameters::InitializationType::Zero) {
     initialConditionDescription = "Zero";
     initConditions.emplace_back(new physics::ZeroField());
   }
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
   else if (initConditionParams.type ==
-           seissol::initializers::parameters::InitializationType::Travelling) {
+           seissol::initializer::parameters::InitializationType::Travelling) {
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
     initConditions.emplace_back(new physics::TravellingWave(
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         travellingWaveParameters));
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::AcousticTravellingWithITM) {
+             seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
@@ -94,33 +94,33 @@ static std::vector<std::unique_ptr<physics::InitialField>>
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Scholte) {
+             seissol::initializer::parameters::InitializationType::Scholte) {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";
     initConditions.emplace_back(new physics::ScholteWave());
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Snell) {
+             seissol::initializer::parameters::InitializationType::Snell) {
     initialConditionDescription = "Snell's law (elastic-acoustic)";
     initConditions.emplace_back(new physics::SnellsLaw());
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Ocean0) {
+             seissol::initializer::parameters::InitializationType::Ocean0) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 0)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(0, g));
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Ocean1) {
+             seissol::initializer::parameters::InitializationType::Ocean1) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 1)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(1, g));
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::Ocean2) {
+             seissol::initializer::parameters::InitializationType::Ocean2) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(2, g));
   } else if (initConditionParams.type ==
-             seissol::initializers::parameters::InitializationType::PressureInjection) {
+             seissol::initializer::parameters::InitializationType::PressureInjection) {
     initialConditionDescription = "Pressure Injection";
 #ifndef USE_POROELASTIC
     logError()
@@ -143,13 +143,13 @@ static void initInitialCondition(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  if (initConditionParams.type != seissol::initializers::parameters::InitializationType::Zero) {
-    seissol::initializers::projectInitialField(initConditions,
-                                               *memoryManager.getGlobalDataOnHost(),
-                                               seissolInstance.meshReader(),
-                                               seissolInstance.getMemoryManager(),
-                                               *memoryManager.getLts(),
-                                               *memoryManager.getLtsLut());
+  if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
+    seissol::initializer::projectInitialField(initConditions,
+                                              *memoryManager.getGlobalDataOnHost(),
+                                              seissolInstance.meshReader(),
+                                              seissolInstance.getMemoryManager(),
+                                              *memoryManager.getLts(),
+                                              *memoryManager.getLtsLut());
   }
 
   memoryManager.setInitialConditions(std::move(initConditions));
@@ -177,7 +177,7 @@ static void initBoundary(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializers::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
+void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
   logInfo(seissol::MPI::mpi.rank()) << "Reading source.";

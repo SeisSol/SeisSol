@@ -5,7 +5,7 @@
 
 namespace seissol {
 class SeisSol;
-namespace initializers::initprocedure {
+namespace initializer::initprocedure {
 void initSideConditions(seissol::SeisSol& seissolInstance);
 }
 } // namespace seissol

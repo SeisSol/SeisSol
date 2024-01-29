@@ -1,6 +1,6 @@
 #include "SourceParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 SourceParameters readSourceParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("sourcetype");
@@ -16,4 +16,4 @@ SourceParameters readSourceParameters(ParameterReader* baseReader) {
   return SourceParameters{type, fileName};
 }
 
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

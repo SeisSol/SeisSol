@@ -6,9 +6,9 @@
 #include <stdexcept>
 
 #include "WeightsModels.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
-namespace seissol::initializers::time_stepping {
+namespace seissol::initializer::time_stepping {
 
 inline bool isLtsWeightsTypeAllowed(int id) {
   return ((id >= 0) && (id < static_cast<int>(parameters::LtsWeightsTypes::Count)));

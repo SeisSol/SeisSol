@@ -9,11 +9,11 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                                seissol::initializers::LTS* userWpDescr,
-                                seissol::initializers::Lut* userWpLut,
-                                seissol::initializers::LTSTree* userDrTree,
-                                seissol::initializers::DynamicRupture* userDrDescr) {
+void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
+                                seissol::initializer::LTS* userWpDescr,
+                                seissol::initializer::Lut* userWpLut,
+                                seissol::initializer::LTSTree* userDrTree,
+                                seissol::initializer::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
@@ -71,12 +71,12 @@ ReceiverOutput::~ReceiverOutput() {
 }
 
 void ReceiverOutput::calcFaultOutput(
-    seissol::initializers::parameters::OutputType outputType,
-    seissol::initializers::parameters::SlipRateOutputType slipRateOutputType,
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
     double time) {
 
-  const size_t level = (outputType == seissol::initializers::parameters::OutputType::AtPickpoint)
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
   const auto faultInfos = meshReader->getFault();
@@ -207,11 +207,11 @@ void ReceiverOutput::calcFaultOutput(
     alignAlongDipAndStrikeKernel.execute();
 
     switch (slipRateOutputType) {
-    case seissol::initializers::parameters::SlipRateOutputType::TractionsAndFailure: {
+    case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
-    case seissol::initializers::parameters::SlipRateOutputType::VelocityDifference: {
+    case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
       this->computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
@@ -314,7 +314,7 @@ void ReceiverOutput::calcFaultOutput(
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (outputType == seissol::initializers::parameters::OutputType::AtPickpoint) {
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }

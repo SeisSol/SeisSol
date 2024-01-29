@@ -3,7 +3,7 @@
 
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 enum class LtsWeightsTypes : int {
   ExponentialWeights = 0,
@@ -87,6 +87,6 @@ struct TimeSteppingParameters {
 LtsParameters readLtsParameters(ParameterReader* baseReader);
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader);
 
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_LTSCONFIGURATION_H

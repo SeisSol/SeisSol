@@ -4,7 +4,7 @@
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include <memory>
 
 namespace seissol {
@@ -18,11 +18,11 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(seissol::initializers::LTSTree* userWpTree,
-                  seissol::initializers::LTS* userWpDescr,
-                  seissol::initializers::Lut* userWpLut,
-                  seissol::initializers::LTSTree* userDrTree,
-                  seissol::initializers::DynamicRupture* userDrDescr);
+  void setLtsData(seissol::initializer::LTSTree* userWpTree,
+                  seissol::initializer::LTS* userWpDescr,
+                  seissol::initializer::Lut* userWpLut,
+                  seissol::initializer::LTSTree* userDrTree,
+                  seissol::initializer::DynamicRupture* userDrDescr);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
@@ -45,11 +45,11 @@ class OutputManager {
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
   std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
 
-  seissol::initializers::LTS* wpDescr{nullptr};
-  seissol::initializers::LTSTree* wpTree{nullptr};
-  seissol::initializers::Lut* wpLut{nullptr};
-  seissol::initializers::LTSTree* drTree{nullptr};
-  seissol::initializers::DynamicRupture* drDescr{nullptr};
+  seissol::initializer::LTS* wpDescr{nullptr};
+  seissol::initializer::LTSTree* wpTree{nullptr};
+  seissol::initializer::Lut* wpLut{nullptr};
+  seissol::initializer::LTSTree* drTree{nullptr};
+  seissol::initializer::DynamicRupture* drDescr{nullptr};
 
   FaceToLtsMapType faceToLtsMap{};
   seissol::geometry::MeshReader* meshReader{nullptr};

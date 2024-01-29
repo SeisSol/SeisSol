@@ -71,7 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -99,7 +99,7 @@
 
 namespace seissol {
   class SeisSol;
-  namespace initializers {
+  namespace initializer {
 
 /**
  * Memory manager of SeisSol.
@@ -171,10 +171,10 @@ class MemoryManager {
 
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<seissol::initializers::parameters::SeisSolParameters> m_seissolParams = nullptr;
+    std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -352,21 +352,21 @@ class MemoryManager {
     inline dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
-    inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
+    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
     }
     inline seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
     }
-    inline seissol::initializers::parameters::DRParameters* getDRParameters() {
+    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
         return &(m_seissolParams->drParameters);
     }
 
-    inline seissol::initializers::parameters::LtsParameters* getLtsParameters() {
+    inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
         return &(m_seissolParams->timeStepping.lts);
     };
 
-    void setInputParams(std::shared_ptr<seissol::initializers::parameters::SeisSolParameters> params) {
+    void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
       m_seissolParams = params;
     }
 

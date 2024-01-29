@@ -6,14 +6,14 @@
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>
 
-namespace seissol::dr::initializers {
-void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                                        seissol::initializers::LTSTree* const dynRupTree) {
+namespace seissol::dr::initializer {
+void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                                        seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
                 << misc::numberOfBoundaryGaussPoints << " points.";
-  seissol::initializers::FaultParameterDB faultParameterDB;
-  for (auto it = dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+  seissol::initializer::FaultParameterDB faultParameterDB;
+  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
 
@@ -115,8 +115,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
 }
 
 std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
-    seissol::initializers::DynamicRupture const* const dynRup,
-    seissol::initializers::LTSTree::leaf_iterator& it) {
+    seissol::initializer::DynamicRupture const* const dynRup,
+    seissol::initializer::LTSTree::leaf_iterator& it) {
   const auto& drFaceInformation = it->var(dynRup->faceInformation);
   std::vector<unsigned> faceIDs;
   faceIDs.reserve(it->getNumberOfCells());
@@ -127,16 +127,16 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
   return faceIDs;
 }
 
-void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
+void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
                                    std::vector<unsigned> const& faceIDs) {
   // create a query and evaluate the model
-  seissol::initializers::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
+  seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
   faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
-    seissol::initializers::DynamicRupture const* const dynRup,
-    seissol::initializers::LTSTree::leaf_iterator& it,
+    seissol::initializer::DynamicRupture const* const dynRup,
+    seissol::initializer::LTSTree::leaf_iterator& it,
     StressTensor& stress) {
   // create rotation kernel
   real faultTractionToCartesianMatrixValues[init::stressRotationMatrix::size()];
@@ -186,8 +186,8 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 }
 
 void BaseDRInitializer::rotateStressToFaultCS(
-    seissol::initializers::DynamicRupture const* const dynRup,
-    seissol::initializers::LTSTree::leaf_iterator& it,
+    seissol::initializer::DynamicRupture const* const dynRup,
+    seissol::initializer::LTSTree::leaf_iterator& it,
     real (*stressInFaultCS)[misc::numPaddedPoints][6],
     StressTensor const& stress) {
   // create rotation kernel
@@ -227,14 +227,14 @@ void BaseDRInitializer::rotateStressToFaultCS(
 
 void BaseDRInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture const* const dynRup,
-    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+    seissol::initializer::DynamicRupture const* const dynRup,
+    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
   // do nothing for base friction law
 }
 
 void BaseDRInitializer::initializeOtherVariables(
-    seissol::initializers::DynamicRupture const* const dynRup,
-    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+    seissol::initializer::DynamicRupture const* const dynRup,
+    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
   // initialize rupture front flag
   bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
@@ -329,4 +329,4 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   }
 }
 
-} // namespace seissol::dr::initializers
+} // namespace seissol::dr::initializer

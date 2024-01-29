@@ -5,7 +5,7 @@
 
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 enum class PointSourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
@@ -15,6 +15,6 @@ struct SourceParameters {
 };
 
 SourceParameters readSourceParameters(ParameterReader* baseReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 
 #endif

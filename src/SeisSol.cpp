@@ -50,7 +50,7 @@
 
 #include "utils/args.h"
 
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.hpp"
 #include "Parallel/Helper.hpp"
@@ -155,7 +155,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   m_memoryManager->initialize();
 
   m_memoryManager->setInputParams(
-      std::make_shared<seissol::initializers::parameters::SeisSolParameters>(m_seissolParameters));
+      std::make_shared<seissol::initializer::parameters::SeisSolParameters>(m_seissolParameters));
 
   return true;
 }

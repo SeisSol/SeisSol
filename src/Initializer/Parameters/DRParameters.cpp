@@ -1,7 +1,7 @@
 #include "DRParameters.h"
 #include <cmath>
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 DRParameters readDRParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("dynamicrupture");
@@ -111,4 +111,4 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       faultFileName,
                       referencePoint};
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

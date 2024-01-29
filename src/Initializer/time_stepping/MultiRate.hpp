@@ -50,7 +50,7 @@
 
 namespace seissol {
   class SeisSol;
-  namespace initializers {
+  namespace initializer {
     namespace time_stepping {
       class MultiRate;
     }
@@ -60,7 +60,7 @@ namespace seissol {
 /**
  * Multi-rate scheme for local time stepping.
  **/
-class seissol::initializers::time_stepping::MultiRate {
+class seissol::initializer::time_stepping::MultiRate {
     /**
      * Gets the information of the cluster belonging to a cell with the given time step width in a multi-rate scheme.
      *

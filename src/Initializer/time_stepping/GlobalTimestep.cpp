@@ -7,17 +7,17 @@
 
 #include "Equations/datastructures.hpp"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/parameters//SeisSolParameters.h"
+#include "Initializer/Parameters//SeisSolParameters.h"
 
 #include "SeisSol.h"
 
-namespace seissol::initializers {
+namespace seissol::initializer {
 static double
     computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                         double pWaveVel,
                         double cfl,
                         double maximumAllowedTimeStep,
-                        const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
+                        const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d A;
@@ -40,19 +40,19 @@ GlobalTimestep
     computeTimesteps(double cfl,
                      double maximumAllowedTimeStep,
                      const std::string& velocityModel,
-                     const seissol::initializers::CellToVertexArray& cellToVertex,
-                     const seissol::initializers::parameters::SeisSolParameters& seissolParams) {
+                     const seissol::initializer::CellToVertexArray& cellToVertex,
+                     const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::Material_t;
 
-  auto* queryGen = seissol::initializers::getBestQueryGenerator(
-      seissol::initializers::parameters::isModelAnelastic(),
+  auto* queryGen = seissol::initializer::getBestQueryGenerator(
+      seissol::initializer::parameters::isModelAnelastic(),
       seissolParams.model.plasticity,
-      seissol::initializers::parameters::isModelAnisotropic(),
-      seissol::initializers::parameters::isModelPoroelastic(),
+      seissol::initializer::parameters::isModelAnisotropic(),
+      seissol::initializer::parameters::isModelPoroelastic(),
       seissolParams.model.useCellHomogenizedMaterial,
       cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
-  seissol::initializers::MaterialParameterDB<Material> parameterDB;
+  seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(velocityModel, queryGen);
 
@@ -91,4 +91,4 @@ GlobalTimestep
 #endif
   return timestep;
 }
-} // namespace seissol::initializers
+} // namespace seissol::initializer

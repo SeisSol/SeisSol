@@ -1,6 +1,6 @@
 #include "SeisSolParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
@@ -53,4 +53,4 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
                            sourceParameters,
                            timeSteppingParameters};
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

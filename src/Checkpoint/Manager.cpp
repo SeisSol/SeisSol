@@ -48,7 +48,7 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		real* state, real* strength, unsigned int numSides, unsigned int numBndGP,
 		int &faultTimeStep)
 {
-		if (m_backend == seissol::initializers::parameters::DISABLED) {
+		if (m_backend == seissol::initializer::parameters::DISABLED) {
 			// Always allocate the header struct because other still use it
 			m_header.alloc();
 			m_header.clear();

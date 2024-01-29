@@ -5,7 +5,7 @@
 #include <iterator>
 #include <list>
 
-namespace seissol::initializers {
+namespace seissol::initializer {
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)
  *  is less or equal to the size of a container
@@ -163,5 +163,5 @@ class FileProcessor {
     }
   }
 };
-} // namespace seissol::initializers
+} // namespace seissol::initializer
 #endif // INITIALIZER_INPUTAUX_H_

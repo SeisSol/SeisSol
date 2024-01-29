@@ -44,7 +44,7 @@
 
 #include "Backend.h"
 #include "Monitoring/Stopwatch.h"
-#include "Initializer/parameters/OutputParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::checkpoint {
 
@@ -61,7 +61,7 @@ enum BufferTags {
  */
 struct CheckpointInitParam
 {
-        seissol::initializers::parameters::CheckpointingBackend backend;
+        seissol::initializer::parameters::CheckpointingBackend backend;
 	unsigned int numBndGP;
 	bool loaded;
 };

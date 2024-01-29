@@ -51,8 +51,8 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
                                                       unsigned                          pointId,
                                                       Eigen::Vector3d const&            point,
                                                       seissol::geometry::MeshReader const&                 mesh,
-                                                      seissol::initializers::Lut const& ltsLut,
-                                                      seissol::initializers::LTS const& lts ) {
+                                                      seissol::initializer::Lut const& ltsLut,
+                                                      seissol::initializer::LTS const& lts ) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 

@@ -202,7 +202,7 @@ namespace proxy::cpu {
 
   void computeDynRupGodunovState()
   {
-    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    seissol::initializer::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
     DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);

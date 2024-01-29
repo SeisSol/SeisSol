@@ -65,7 +65,7 @@ seissol::time_stepping::TimeManager::~TimeManager() {}
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
-                                                      initializers::MemoryManager& memoryManager,
+                                                      initializer::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;

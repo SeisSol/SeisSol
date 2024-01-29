@@ -38,13 +38,13 @@
  * @section DESCRIPTION
  */
 
-#include <Initializer/parameters/OutputParameters.h>
-#include <Initializer/parameters/ParameterReader.h>
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Initializer/Parameters/ParameterReader.h>
 #include <fty/fty.hpp>
 
 #include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
 #include "utils/args.h"
 
@@ -114,9 +114,8 @@ int main(int argc, char* argv[]) {
   const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
-  seissol::initializers::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
-  const auto parameters =
-      seissol::initializers::parameters::readSeisSolParameters(&parameterReader);
+  seissol::initializer::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
+  const auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
   // Initialize SeisSol
@@ -128,7 +127,7 @@ int main(int argc, char* argv[]) {
 
   // Run SeisSol
   if (runSeisSol) {
-    seissol::initializers::initprocedure::seissolMain(seissolInstance);
+    seissol::initializer::initprocedure::seissolMain(seissolInstance);
   }
 
 #pragma omp parallel

@@ -1,7 +1,7 @@
 #include "EnergyOutput.h"
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Parallel/MPI.h"
@@ -29,15 +29,15 @@ double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializers::DynamicRupture* newDynRup,
-    seissol::initializers::LTSTree* newDynRuptTree,
+    seissol::initializer::DynamicRupture* newDynRup,
+    seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializers::LTSTree* newLtsTree,
-    seissol::initializers::LTS* newLts,
-    seissol::initializers::Lut* newLtsLut,
+    seissol::initializer::LTSTree* newLtsTree,
+    seissol::initializer::LTS* newLts,
+    seissol::initializer::Lut* newLtsLut,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
-    const seissol::initializers::parameters::EnergyOutputParameters& parameters) {
+    const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
   if (parameters.enabled && parameters.interval > 0) {
     isEnabled = true;
   } else {

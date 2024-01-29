@@ -47,14 +47,14 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 
-#include <Initializer/parameters/SeisSolParameters.h>
+#include <Initializer/Parameters/SeisSolParameters.h>
 
 #include <array>
 #include <limits>
 #include <cassert>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     namespace time_stepping {
       class LtsLayout;
     }
@@ -64,7 +64,7 @@ namespace seissol {
 /**
  * Layout used by the LTS schemes for computation.
  **/
-class seissol::initializers::time_stepping::LtsLayout {
+class seissol::initializer::time_stepping::LtsLayout {
   //private:
     //! used clustering strategy
     enum TimeClustering m_clusteringStrategy;
@@ -189,7 +189,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      **/
     std::vector< std::vector< std::pair< unsigned int, std::vector< unsigned int > > > > m_clusteredGhost;
 
-    const seissol::initializers::parameters::SeisSolParameters& seissolParams;
+    const seissol::initializer::parameters::SeisSolParameters& seissolParams;
 
     /**
      * Gets the associated plain local region of the given mpi rank.
@@ -462,7 +462,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     /**
      * Constructor which initializes all pointers to NULL.
      **/
-    LtsLayout(const seissol::initializers::parameters::SeisSolParameters& parameters);
+    LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters);
 
     /**
      * Destructor which frees all dynamically allocated memory of the class members.

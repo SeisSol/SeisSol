@@ -107,8 +107,8 @@ namespace seissol {
                         unsigned          pointId,
                         Eigen::Vector3d   const& point,
                         seissol::geometry::MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
+                        seissol::initializer::Lut const& ltsLut,
+                        seissol::initializer::LTS const& lts );
 
       //! Returns new receiver time
       double calcReceivers( double time,

@@ -10,7 +10,7 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
-        src/Initializer/parameters
+        src/Initializer/Parameters
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader

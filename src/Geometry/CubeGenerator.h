@@ -51,7 +51,7 @@
 #include "utils/logger.h"
 
 #include "MeshReader.h"
-#include "Initializer/parameters/CubeGeneratorParameters.h"
+#include "Initializer/Parameters/CubeGeneratorParameters.h"
 
 namespace seissol::geometry {
 
@@ -60,7 +60,7 @@ class CubeGenerator : public seissol::geometry::MeshReader {
   CubeGenerator(int rank,
                 int nProcs,
                 const std::string& meshFile,
-                const seissol::initializers::parameters::CubeGeneratorParameters& cubeParams);
+                const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams);
 
   /*
     inline void loadBar(int x, int n, int r = 100, int w = 50);

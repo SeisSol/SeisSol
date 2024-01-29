@@ -6,7 +6,7 @@
 namespace seissol {
   class SeisSol;
 
-namespace initializers::time_stepping {
+namespace initializer::time_stepping {
 
 class ExponentialWeights : public LtsWeights {
 public:

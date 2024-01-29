@@ -50,7 +50,7 @@
 
 #include "Parallel/MPI.h"
 #include "Modules/Modules.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
@@ -172,7 +172,7 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializers::parameters::ReceiverOutputParameters& parameters)
+void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
 {
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
@@ -183,8 +183,8 @@ void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, do
 }
 
 void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
-                                                const seissol::initializers::Lut& ltsLut,
-                                                const seissol::initializers::LTS& lts,
+                                                const seissol::initializer::Lut& ltsLut,
+                                                const seissol::initializer::LTS& lts,
                                                 const GlobalData* global ) {
   std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
@@ -207,10 +207,10 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";
-  initializers::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
+  initializer::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
-  initializers::cleanDoubles(contained.data(), numberOfPoints);
+  initializer::cleanDoubles(contained.data(), numberOfPoints);
 #endif
 
   logInfo(rank) << "Mapping receivers to LTS cells...";

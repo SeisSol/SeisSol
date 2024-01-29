@@ -10,7 +10,7 @@
 #include "Initializer/InputAux.hpp"
 #include "ParameterReader.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 constexpr double veryLongTime = 1.0e100;
 
@@ -147,5 +147,5 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader);
 OutputParameters readOutputParameters(ParameterReader* baseReader);
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters
 #endif

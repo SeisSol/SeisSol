@@ -48,32 +48,32 @@
 #include "mpio/WavefieldAsync.h"
 #include "mpio/Fault.h"
 #include "mpio/FaultAsync.h"
-#include <Initializer/parameters/OutputParameters.h>
+#include <Initializer/Parameters/OutputParameters.h>
 #ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
 #endif // USE_SIONLIB
 
-void seissol::checkpoint::createBackend(seissol::initializers::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault)
+void seissol::checkpoint::createBackend(seissol::initializer::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault)
 {
   switch (backend) {
-    case seissol::initializers::parameters::CheckpointingBackend::POSIX:
+    case seissol::initializer::parameters::CheckpointingBackend::POSIX:
       waveField = new posix::Wavefield();
       fault = new posix::Fault();
       break;
-    case seissol::initializers::parameters::CheckpointingBackend::HDF5:
+    case seissol::initializer::parameters::CheckpointingBackend::HDF5:
       waveField = new h5::Wavefield();
       fault = new h5::Fault();
       break;
-    case seissol::initializers::parameters::CheckpointingBackend::MPIO:
+    case seissol::initializer::parameters::CheckpointingBackend::MPIO:
       waveField = new mpio::Wavefield();
       fault = new mpio::Fault();
       break;
-    case seissol::initializers::parameters::CheckpointingBackend::MPIO_ASYNC:
+    case seissol::initializer::parameters::CheckpointingBackend::MPIO_ASYNC:
       waveField = new mpio::WavefieldAsync();
       fault = new mpio::FaultAsync();
       break;
-    case seissol::initializers::parameters::CheckpointingBackend::SIONLIB:
+    case seissol::initializer::parameters::CheckpointingBackend::SIONLIB:
 #ifdef USE_SIONLIB
       waveField = new sionlib::Wavefield();
       fault = new sionlib::Fault();

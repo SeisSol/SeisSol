@@ -53,7 +53,7 @@
 
 #include <iomanip>
 
-seissol::initializers::time_stepping::LtsLayout::LtsLayout(const seissol::initializers::parameters::SeisSolParameters& parameters):
+seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
  seissolParams(parameters),
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
@@ -62,7 +62,7 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout(const seissol::initia
  m_numberOfPlainGhostCells(  NULL ),
  m_plainGhostCellClusterIds( NULL ) {}
 
-seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
+seissol::initializer::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
   delete[] m_cellClusterIds;
   delete[] m_globalTimeStepWidths;
@@ -77,7 +77,7 @@ seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   delete[] m_plainCopyRegions;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::geometry::MeshReader &i_mesh ) {
+void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geometry::MeshReader &i_mesh ) {
   // TODO: remove the copy by a pointer once the mesh stays constant
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
@@ -90,24 +90,24 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::ge
   }
 
   // compute timesteps
-  auto timesteps = seissol::initializers::computeTimesteps(
+  auto timesteps = seissol::initializer::computeTimesteps(
       seissolParams.timeStepping.cfl,
       seissolParams.timeStepping.maxTimestepWidth,
       seissolParams.model.materialFileName,
-      seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh),
+      seissol::initializer::CellToVertexArray::fromMeshReader(i_mesh),
       seissolParams);
   
   m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }
 
-FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
+FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
   if (i_meshFaceType < 0 || i_meshFaceType > 7) {
     logError() << "face type" << i_meshFaceType << "not supported.";
   }
   return static_cast<FaceType>(i_meshFaceType);
 }
 
-void seissol::initializers::time_stepping::LtsLayout::derivePlainCopyInterior() {
+void seissol::initializer::time_stepping::LtsLayout::derivePlainCopyInterior() {
 	const int rank = seissol::MPI::mpi.rank();
 
   // unique set of neighboring ranks
@@ -154,7 +154,7 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainCopyInterior() 
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
+void seissol::initializer::time_stepping::LtsLayout::derivePlainGhost() {
   /*
    * Get sizes of ghost regions.
    */
@@ -204,7 +204,7 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
   delete[] l_numberOfCopyCells;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainCopyInterior()
+void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCopyInterior()
 {
   m_dynamicRupturePlainInterior.resize( m_localClusters.size() );
   m_dynamicRupturePlainCopy.resize(     m_localClusters.size() );
@@ -254,7 +254,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainC
   delete[] localClusterHistogram;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
+void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
 	const int rank = seissol::MPI::mpi.rank();
 
   /*
@@ -433,7 +433,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData) {
+void seissol::initializer::time_stepping::LtsLayout::synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData) {
   // buffer for copy cell cluster ids
   std::vector< std::vector< unsigned int > > l_copyBuffer;
 
@@ -481,11 +481,11 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostData(
 #endif // USE_MPI
 }
 
-void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClusterIds() {
+void seissol::initializer::time_stepping::LtsLayout::synchronizePlainGhostClusterIds() {
   synchronizePlainGhostData(m_cellClusterIds, m_plainGhostCellClusterIds);
 }
 
-unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
+unsigned seissol::initializer::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
   const int rank = seissol::MPI::mpi.rank();
   unsigned reductions = 0;
   
@@ -520,7 +520,7 @@ unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureG
   return reductions;
 }
 
-unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
+unsigned int seissol::initializer::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   // get up-to-date cluster ids of the ghost layer before starting
@@ -582,12 +582,12 @@ unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDiff
   return l_totalNumberOfReductions;
 }
 
-unsigned int seissol::initializers::time_stepping::LtsLayout::enforceSingleBuffer() {
+unsigned int seissol::initializer::time_stepping::LtsLayout::enforceSingleBuffer() {
   // TODO: Implementation required
   return 0;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
+void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
   const int rank = seissol::MPI::mpi.rank();
   // allocate memory for the cluster ids of the ghost layer
   m_plainGhostCellClusterIds = new unsigned int*[ m_plainNeighboringRanks.size() ];
@@ -670,7 +670,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
   delete[] localClusterHistogram;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
+void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
                                                                              double &o_clustering  ) {
   // use khan sum
   // 0: true sum
@@ -721,7 +721,7 @@ void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( dou
   o_clustering            = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_clustering;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::addClusteredCopyCell( unsigned int i_cellId,
+void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsigned int i_cellId,
                                                                             unsigned int i_globalClusterId,
                                                                             unsigned int i_neighboringRank,
                                                                             unsigned int i_neighboringGlobalClusterId ) {
@@ -771,7 +771,7 @@ void seissol::initializers::time_stepping::LtsLayout::addClusteredCopyCell( unsi
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clusterCopyRegion &io_copyRegion ) {
+void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clusterCopyRegion &io_copyRegion ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   // buffers holding cells sending either derivatives or buffers
@@ -839,7 +839,7 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::deriveClusteredCopyInterior() {
+void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior() {
 	const int rank = seissol::MPI::mpi.rank();
 
   /*
@@ -957,7 +957,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredCopyInterio
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
+void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
   /*
    * Get sizes of the ghost regions
    */
@@ -1153,7 +1153,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
 #endif // USE_MPI
 }
 
-void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClustering i_timeClustering,
+void seissol::initializer::time_stepping::LtsLayout::deriveLayout( enum TimeClustering i_timeClustering,
                                                                     unsigned int        i_clusterRate ) {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -1218,7 +1218,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   deriveDynamicRupturePlainCopyInterior();
 }
 
-void seissol::initializers::time_stepping::LtsLayout::getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping ) {
+void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping ) {
   // set number of global clusters
   o_timeStepping.numberOfGlobalClusters = m_numberOfGlobalClusters;
 
@@ -1244,7 +1244,7 @@ void seissol::initializers::time_stepping::LtsLayout::getCrossClusterTimeSteppin
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
+void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
                                                                           unsigned int         *&o_ltsToMesh,
                                                                           unsigned int          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
@@ -1496,7 +1496,7 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLo
   }
 }
 
-void seissol::initializers::time_stepping::LtsLayout::getDynamicRuptureInformation( unsigned*&  ltsToFace,
+void seissol::initializer::time_stepping::LtsLayout::getDynamicRuptureInformation( unsigned*&  ltsToFace,
                                                                                     unsigned*&   numberOfDRCopyFaces,
                                                                                     unsigned*&   numberOfDRInteriorFaces )
 {
@@ -1526,7 +1526,7 @@ void seissol::initializers::time_stepping::LtsLayout::getDynamicRuptureInformati
 }
 
 
-void seissol::initializers::time_stepping::LtsLayout::getMeshStructure( MeshStructure *&o_meshStructure ) {
+void seissol::initializer::time_stepping::LtsLayout::getMeshStructure( MeshStructure *&o_meshStructure ) {
   // allocate data for per cluster mesh structure
   o_meshStructure = new MeshStructure[ m_localClusters.size() ];
 

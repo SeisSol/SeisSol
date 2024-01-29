@@ -3,7 +3,7 @@
 
 #include "BaseDRInitializer.h"
 
-namespace seissol::dr::initializers {
+namespace seissol::dr::initializer {
 
 /**
  * Derived initializer class for the LinearSlipWeakening friction law
@@ -14,16 +14,16 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                       seissol::initializers::LTSTree* const dynRupTree) override;
+  void initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                       seissol::initializer::LTSTree* const dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion and if available forced_rupture_time.
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::DynamicRupture const* const dynRup,
+                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
 };
 
 /**
@@ -35,9 +35,9 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
   /**
    * Computes initial value for the regularized strength
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                       seissol::initializers::LTSTree* const dynRupTree) override;
+  void initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                       seissol::initializer::LTSTree* const dynRupTree) override;
 };
 
-} // namespace seissol::dr::initializers
+} // namespace seissol::dr::initializer
 #endif // SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H

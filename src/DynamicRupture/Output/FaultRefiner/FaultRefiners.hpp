@@ -2,7 +2,7 @@
 #define SEISSOL_DR_OUTPUT_REFINERS_HPP
 
 #include "DynamicRupture/Output/DataTypes.hpp"
-#include <Initializer/parameters/OutputParameters.h>
+#include <Initializer/Parameters/OutputParameters.h>
 #include <memory>
 #include <tuple>
 
@@ -47,7 +47,7 @@ class FaultFaceQuadRefiner : public FaultRefiner {
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
-seissol::initializers::parameters::FaultRefinement castToRefinerType(int strategy);
-std::unique_ptr<FaultRefiner> get(seissol::initializers::parameters::FaultRefinement strategy);
+seissol::initializer::parameters::FaultRefinement castToRefinerType(int strategy);
+std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy);
 } // namespace seissol::dr::output::refiner
 #endif // SEISSOL_DR_OUTPUT_REFINERS_HPP

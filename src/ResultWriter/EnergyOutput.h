@@ -15,7 +15,7 @@
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;
@@ -46,15 +46,15 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializers::DynamicRupture* newDynRup,
-            seissol::initializers::LTSTree* newDynRuptTree,
+            seissol::initializer::DynamicRupture* newDynRup,
+            seissol::initializer::LTSTree* newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
-            seissol::initializers::LTSTree* newLtsTree,
-            seissol::initializers::LTS* newLts,
-            seissol::initializers::Lut* newLtsLut,
+            seissol::initializer::LTSTree* newLtsTree,
+            seissol::initializer::LTS* newLts,
+            seissol::initializer::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
-            const seissol::initializers::parameters::EnergyOutputParameters& parameters);
+            const seissol::initializer::parameters::EnergyOutputParameters& parameters);
 
   void syncPoint(double time) override;
 
@@ -98,12 +98,12 @@ class EnergyOutput : public Module {
   std::ofstream out;
 
   const GlobalData* global = nullptr;
-  seissol::initializers::DynamicRupture* dynRup = nullptr;
-  seissol::initializers::LTSTree* dynRupTree = nullptr;
+  seissol::initializer::DynamicRupture* dynRup = nullptr;
+  seissol::initializer::LTSTree* dynRupTree = nullptr;
   seissol::geometry::MeshReader* meshReader = nullptr;
-  seissol::initializers::LTSTree* ltsTree = nullptr;
-  seissol::initializers::LTS* lts = nullptr;
-  seissol::initializers::Lut* ltsLut = nullptr;
+  seissol::initializer::LTSTree* ltsTree = nullptr;
+  seissol::initializer::LTS* lts = nullptr;
+  seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
 };

@@ -1,6 +1,6 @@
 #include "ModelParameters.h"
 
-namespace seissol::initializers::parameters {
+namespace seissol::initializer::parameters {
 
 ITMParameters readITMParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -74,4 +74,4 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          materialFileName,
                          itmParameters};
 }
-} // namespace seissol::initializers::parameters
+} // namespace seissol::initializer::parameters

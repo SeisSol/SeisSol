@@ -63,7 +63,7 @@
 #include <Modules/Module.h>
 
 // for OutputBounds
-#include "Initializer/parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;
@@ -200,7 +200,7 @@ class WaveFieldWriter
             const real* pstrain,
             const real* integrals,
             unsigned int* map,
-            const seissol::initializers::parameters::WaveFieldOutputParameters& parameters,
+            const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
 
