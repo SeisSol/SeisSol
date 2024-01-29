@@ -85,7 +85,8 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
   using namespace seissol::initializers::time_stepping;
-  LtsWeightsConfig config{seissolParams.model.materialFileName,
+  LtsWeightsConfig config{seissolParams.mesh.pumlBoundaryFormat,
+                          seissolParams.model.materialFileName,
                           static_cast<unsigned int>(seissolParams.timeStepping.lts.rate),
                           seissolParams.timeStepping.vertexWeight.weightElement,
                           seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
@@ -99,6 +100,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
                                         seissolParams.mesh.partitioningLib.c_str(),
                                         seissolParams.timeStepping.maxTimestepWidth,
                                         seissolParams.output.checkpointParameters.fileName.c_str(),
+                                        seissolParams.mesh.pumlBoundaryFormat,
                                         ltsWeights.get(),
                                         nodeWeight,
                                         readPartitionFromFile);

@@ -42,6 +42,7 @@
 #ifndef INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 #define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 
+#include <Geometry/PUMLReader.h>
 #include <limits>
 #include <map>
 #include <optional>
@@ -57,6 +58,7 @@ namespace PUML { class TETPUML; }
 
 namespace seissol::initializers::time_stepping {
 struct LtsWeightsConfig {
+  seissol::geometry::BoundaryFormat boundaryFormat;
   std::string velocityModel{};
   unsigned rate{};
   int vertexWeightElement{};
@@ -106,7 +108,7 @@ protected:
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
   void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
-  int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
+  int getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
   // returns number of reductions for maximum difference
   int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
@@ -120,6 +122,7 @@ protected:
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
+  seissol::geometry::BoundaryFormat boundaryFormat;
   std::string m_velocityModel{};
   unsigned m_rate{};
   std::vector<int> m_vertexWeights{};

@@ -10,6 +10,7 @@
 #include "time_stepping/LtsWeights/WeightsFactory.h"
 #include "Parallel/MPI.h"
 
+#include <Geometry/PUMLReader.h>
 #include <yaml-cpp/yaml.h>
 #include <unordered_set>
 #include <unordered_map>
@@ -216,6 +217,16 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
       reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
   seissolParams.mesh.showEdgeCutStatistics = reader.readWithDefault("showedgecutstatistics", false);
+
+  seissolParams.mesh.pumlBoundaryFormat =
+      reader.readWithDefaultStringEnum<seissol::geometry::BoundaryFormat>(
+          "pumlboundaryformat",
+          "i32",
+          {
+              {"i32", seissol::geometry::BoundaryFormat::I32},
+              {"i64", seissol::geometry::BoundaryFormat::I64},
+              {"i32x4", seissol::geometry::BoundaryFormat::I32x4},
+          });
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();

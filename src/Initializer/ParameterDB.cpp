@@ -90,7 +90,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 #ifdef USE_HDF
 seissol::initializers::CellToVertexArray
     seissol::initializers::CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
-  const int* groups = mesh.cellData(0);
+  const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   return CellToVertexArray(

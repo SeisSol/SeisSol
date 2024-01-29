@@ -2,6 +2,7 @@
 #ifndef INPUT_PARAMETERS_HPP_
 #define INPUT_PARAMETERS_HPP_
 
+#include <Geometry/PUMLReader.h>
 #include <cstdint>
 #include <string>
 #include <array>
@@ -97,6 +98,7 @@ struct VertexWeightParameters {
 
 struct MeshParameters {
   std::string meshFileName;
+  seissol::geometry::BoundaryFormat pumlBoundaryFormat;
   std::string partitioningLib;
   seissol::geometry::MeshFormat meshFormat;
   std::array<double, 3> displacement;
