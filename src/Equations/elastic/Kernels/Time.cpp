@@ -333,6 +333,45 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
 #endif
 }
 
+void seissol::kernels::Time::computeInterleavedAder(
+                                                double i_timeStepWidth,
+                                                LocalTmp& tmp,
+                                                ConditionalPointersToRealsTable &dataTable,
+                                                ConditionalMaterialTable &materialTable,
+                                                bool updateDisplacement,
+                                                real* interleavedDofs,
+                                                real* interleavedBuffers,
+                                                real* interleavedDerivatives,
+                                                const real* coordinates,
+                                                const real* stardata) {
+#ifdef ACL_DEVICE
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto &entry = dataTable[timeVolumeKernelKey];
+
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+
+    seissol::kernels::time::aux::interleaveLauncher(numElements, tensor::Q::size(), const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, device.api->getDefaultStream());
+    seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, device.api->getDefaultStream());
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::I::size(), const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), device.api->getDefaultStream());
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, yateto::computeFamilySize<tensor::dQ>(), const_cast<const real*>(interleavedDerivatives), (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+  }
+
+  if (updateDisplacement) {
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
+    for (unsigned face = 0; face < 4; ++face) {
+      bc.evaluateOnDevice(face,
+                          deviceDerivativeToNodalBoundaryRotated,
+                          *this,
+                          dataTable,
+                          materialTable,
+                          i_timeStepWidth,
+                          device);
+    }
+  }
+#endif
+}
+
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {
   // reset flops

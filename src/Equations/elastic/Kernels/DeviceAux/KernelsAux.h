@@ -2,6 +2,15 @@
 
 #include "Kernels/precision.hpp"
 #include "generated_code/init.h"
+#include <cstddef>
+
+namespace seissol::kernels::time::aux {
+  constexpr size_t Blocksize = 32;
+  void setConstantData(const real* startptr);
+  void interleaveLauncher(std::size_t count, std::size_t size, const real** indata, real* outdata, void* stream);
+  void deinterleaveLauncher(std::size_t count, std::size_t size, const real* indata, real** outdata, void* stream);
+  void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, void* stream);
+}
 
 namespace seissol::kernels::local_flux::aux::details {
   void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,

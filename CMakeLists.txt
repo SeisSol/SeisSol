@@ -193,6 +193,7 @@ target_compile_definitions(SeisSol-common-properties INTERFACE LOGLEVEL=${LOG_LE
 target_compile_definitions(SeisSol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
 
+target_compile_definitions(SeisSol-common-properties INTERFACE EXPERIMENTAL_INTERLEAVE)
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_PLASTICITY_IP)

@@ -75,7 +75,8 @@ struct seissol::initializers::Variable {
   unsigned index;
   LayerMask mask;
   unsigned count;
-  Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
+  size_t block;
+  Variable(size_t block=1) : index(std::numeric_limits<unsigned>::max()), count(1), block(block) {}
 };
 
 struct seissol::initializers::Bucket {
@@ -92,6 +93,7 @@ struct seissol::initializers::MemoryInfo {
   size_t bytes;
   size_t alignment;
   LayerMask mask;
+  size_t block;
   seissol::memory::Memkind memkind;
 };
 
@@ -201,7 +203,7 @@ public:
   void addVariableSizes(std::vector<MemoryInfo> const& vars, std::vector<size_t>& bytes) {
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
-        bytes[var] += m_numberOfCells * vars[var].bytes;
+        bytes[var] += ((m_numberOfCells + vars[var].block - 1) / vars[var].block) * vars[var].bytes;
       }
     }
   }
@@ -256,7 +258,7 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (unsigned cell = 0; cell < m_numberOfCells; ++cell) {
+        for (unsigned cell = 0; cell < ((m_numberOfCells + vars[var].block - 1) / vars[var].block); ++cell) {
           memset(static_cast<char*>(m_vars[var]) + cell * vars[var].bytes, 0, vars[var].bytes);
         }
       }

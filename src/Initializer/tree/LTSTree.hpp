@@ -120,6 +120,7 @@ public:
     m.alignment = alignment;
     m.mask = mask;
     m.memkind = memkind;
+    m.block = handle.block;
     varInfo.push_back(m);
   }
   
@@ -128,6 +129,7 @@ public:
     MemoryInfo m;
     m.alignment = alignment;
     m.memkind = memkind;
+    m.block = 1;
     bucketInfo.push_back(m);
   }
 
@@ -137,6 +139,7 @@ public:
     MemoryInfo memoryInfo;
     memoryInfo.alignment = alignment;
     memoryInfo.memkind = memkind;
+    memoryInfo.block = 1;
     scratchpadMemInfo.push_back(memoryInfo);
   }
 #endif // ACL_DEVICE

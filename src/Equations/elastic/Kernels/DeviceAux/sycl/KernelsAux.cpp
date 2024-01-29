@@ -1,7 +1,7 @@
 #include <CL/sycl.hpp>
 #include <Kernels/precision.hpp>
-#include <init.h>
-#include <tensor.h>
+#include <generated_code/init.h>
+#include <generated_code/tensor.h>
 #include <yateto.h>
 #include <cstdio>
 

@@ -116,6 +116,18 @@ class seissol::kernels::Time : public TimeBase {
                             ConditionalMaterialTable &materialTable,
                             bool updateDisplacement = false);
 
+    void computeInterleavedAder(
+                                                double i_timeStepWidth,
+                                                LocalTmp& tmp,
+                                                ConditionalPointersToRealsTable &dataTable,
+                                                ConditionalMaterialTable &materialTable,
+                                                bool updateDisplacement,
+                                                real* interleavedDofs,
+                                                real* interleavedBuffers,
+                                                real* interleavedDerivatives,
+                                                const real* coordinates,
+                                                const real* stardata);
+
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
 

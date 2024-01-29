@@ -45,6 +45,10 @@
 #include <generated_code/tensor.h>
 #include <Kernels/common.hpp>
 
+#ifdef ACL_DEVICE
+#include <Equations/elastic/Kernels/DeviceAux/KernelsAux.h>
+#endif
+
 #if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
 #endif
@@ -106,11 +110,21 @@ struct seissol::initializers::LTS {
   Bucket                                  faceDisplacementsBuffer;
 
 #ifdef ACL_DEVICE
+#ifdef EXPERIMENTAL_INTERLEAVE
+  ScratchpadMemory                        interleavedDofs;
+  ScratchpadMemory                        interleavedDerivatives;
+  ScratchpadMemory                        interleavedBuffers;
+  Variable<real[9][seissol::kernels::time::aux::Blocksize]>                       coordinates;
+  Variable<real[3][seissol::kernels::time::aux::Blocksize]>                       stardata;
+#endif
+
   Variable<LocalIntegrationData>          localIntegrationOnDevice;
   Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
+
+  LTS() : coordinates(seissol::kernels::time::aux::Blocksize), stardata(seissol::kernels::time::aux::Blocksize) {}
 #endif
   
   /// \todo Memkind
@@ -143,6 +157,13 @@ struct seissol::initializers::LTS {
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
+#ifdef EXPERIMENTAL_INTERLEAVE
+    tree.addScratchpadMemory(interleavedDofs,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(interleavedDerivatives,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(interleavedBuffers,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addVar(coordinates, LayerMask(Ghost),                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    tree.addVar(stardata, LayerMask(Ghost),                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+#endif
     tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
     tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);

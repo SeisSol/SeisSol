@@ -156,6 +156,28 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   /* cell information and integration data*/
   seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
+#ifdef EXPERIMENTAL_INTERLEAVE
+// TODO: non-elastic
+  using Startype = real[3][seissol::kernels::time::aux::Blocksize];
+  Startype* stardata = layer.var(m_lts.stardata);
+  for (int i = 0; i < (layer.getNumberOfCells() + seissol::kernels::time::aux::Blocksize - 1) / seissol::kernels::time::aux::Blocksize; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      for (int k = 0; k < seissol::kernels::time::aux::Blocksize; ++k) {
+        stardata[i][j][k] = (j+1) / 12.0;
+      }
+    }
+  }
+  using CoordinateType = real[9][seissol::kernels::time::aux::Blocksize];
+  CoordinateType* coordinates = layer.var(m_lts.coordinates);
+  for (int i = 0; i < (layer.getNumberOfCells() + seissol::kernels::time::aux::Blocksize - 1) / seissol::kernels::time::aux::Blocksize; ++i) {
+    for (int j = 0; j < 9; ++j) {
+      for (int k = 0; k < seissol::kernels::time::aux::Blocksize; ++k) {
+        coordinates[i][j][k] = (j+1) / 12.0;
+      }
+    }
+  }
+#endif
+
   if (enableDynamicRupture) {
     // From lts tree
     CellDRMapping (*drMapping)[4] = m_ltsTree->var(m_lts.drMapping);

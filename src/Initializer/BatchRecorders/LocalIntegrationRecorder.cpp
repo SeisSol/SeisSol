@@ -86,7 +86,11 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         dQPtrs[cell] = derivatives[cell];
 
       } else {
+#ifdef EXPERIMENTAL_INTERLEAVE
+        dQPtrs[cell] = nullptr;
+#else
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
+#endif
         derivativesAddressCounter += yateto::computeFamilySize<tensor::dQ>();
       }
     }

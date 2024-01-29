@@ -620,12 +620,24 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(L
 
       }
     }
-    layer->setScratchpadSize(lts.integratedDofsScratch,
-                             integratedDofsCounter * tensor::I::size() * sizeof(real));
-    layer->setScratchpadSize(lts.derivativesScratch,
-                             derivativesCounter * totalDerivativesSize * sizeof(real));
     layer->setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
+
+#ifdef EXPERIMENTAL_INTERLEAVE  
+    size_t interleaveBlocks = (layer->getNumberOfCells() + seissol::kernels::time::aux::Blocksize - 1) / seissol::kernels::time::aux::Blocksize;
+    layer->setScratchpadSize(lts.interleavedDofs,
+                             interleaveBlocks * seissol::kernels::time::aux::Blocksize * tensor::Q::size() * sizeof(real));
+    layer->setScratchpadSize(lts.interleavedBuffers,
+                             interleaveBlocks * seissol::kernels::time::aux::Blocksize * tensor::I::size() * sizeof(real));
+    layer->setScratchpadSize(lts.interleavedDerivatives,
+                             interleaveBlocks * seissol::kernels::time::aux::Blocksize * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
+    layer->setScratchpadSize(lts.derivativesScratch, 0);
+#else
+    layer->setScratchpadSize(lts.derivativesScratch,
+                             derivativesCounter * totalDerivativesSize * sizeof(real));
+#endif
+    layer->setScratchpadSize(lts.integratedDofsScratch,
+                             integratedDofsCounter * tensor::I::size() * sizeof(real));
   }
 }
 

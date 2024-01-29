@@ -158,6 +158,26 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
+#ifdef EXPERIMENTAL_INTERLEAVE
+      auto*           coordinates                = it->var(i_lts->coordinates);
+      auto*       stardata        = it->var(i_lts->stardata);
+
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][0][cell % seissol::kernels::time::aux::Blocksize] = gradXi[0];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][1][cell % seissol::kernels::time::aux::Blocksize] = gradXi[1];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][2][cell % seissol::kernels::time::aux::Blocksize] = gradXi[2];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][3][cell % seissol::kernels::time::aux::Blocksize] = gradEta[0];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][4][cell % seissol::kernels::time::aux::Blocksize] = gradEta[1];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][5][cell % seissol::kernels::time::aux::Blocksize] = gradEta[2];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][6][cell % seissol::kernels::time::aux::Blocksize] = gradZeta[0];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][7][cell % seissol::kernels::time::aux::Blocksize] = gradZeta[1];
+      coordinates[cell / seissol::kernels::time::aux::Blocksize][8][cell % seissol::kernels::time::aux::Blocksize] = gradZeta[2];
+
+      // TODO(David): generalize to non-elastic
+      stardata[cell / seissol::kernels::time::aux::Blocksize][0][cell % seissol::kernels::time::aux::Blocksize] = 1 / material[cell].local.rho;
+      stardata[cell / seissol::kernels::time::aux::Blocksize][1][cell % seissol::kernels::time::aux::Blocksize] = material[cell].local.lambda;
+      stardata[cell / seissol::kernels::time::aux::Blocksize][2][cell % seissol::kernels::time::aux::Blocksize] = material[cell].local.mu;
+#endif
+
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
