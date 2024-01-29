@@ -77,7 +77,7 @@ public:
 		OUTPUT_PREFIX = 0,
 		CELLS = 1,
 		VERTICES = 2,
-		CLUSTERING = 3,
+		FAULTTAGS = 3,
 		VARIABLES0 = 4
 	};
 

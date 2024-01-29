@@ -90,7 +90,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 		m_xdmfWriter->setMesh(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)),
 			nVertices, static_cast<const double*>(info.buffer(VERTICES)),
 			param.timestep != 0);
-		setFaultTagsData(static_cast<const unsigned int*>(info.buffer(CLUSTERING)));
+		setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FAULTTAGS)));
 
 
 		logInfo(rank) << "Initializing XDMF fault output. Done.";
