@@ -105,6 +105,7 @@ class ADERDGBase(ABC):
 
 
     # Note: MV2nTo2m is Vandermonde matrix from nodal to modal representation WITHOUT mass matrix factor
+
     self.V2nTo2JacobiQuad = tensor_from_constant_expression('V2nTo2JacobiQuad', self.db.V2mTo2JacobiQuad['ik'] * \
                                                              self.db.MV2nTo2m['kj'],
                                                              target_indices='ij')
@@ -116,6 +117,7 @@ class ADERDGBase(ABC):
                                     (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
                                     alignStride=True)
 
+    print(self.db.rDivM[1])
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
