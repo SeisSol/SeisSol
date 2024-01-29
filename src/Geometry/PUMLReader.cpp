@@ -195,7 +195,7 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   std::string file(meshFile);
 
   puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
-  puml.addData((file + ":/group").c_str(), PUML::CELL);
+  puml.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
 
   if (boundaryFormat == BoundaryFormat::I32) {
     puml.addData<uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
