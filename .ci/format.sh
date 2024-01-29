@@ -10,6 +10,7 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Geometry
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
@@ -32,14 +33,6 @@ format() {
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp
-        src/Geometry/MeshReader.h
-        src/Geometry/MeshReader.cpp
-        src/Geometry/NetcdfReader.h
-        src/Geometry/NetcdfReader.cpp
-        src/Geometry/PUMLReader.h
-        src/Geometry/PUMLReader.cpp
-        src/Geometry/PartitioningLib.h
-        src/Geometry/PartitioningLib.cpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
