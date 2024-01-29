@@ -6,10 +6,12 @@
 #include <iostream>
 
 #include "utils/logger.h"
+#include "utils/env.h"
 
 #include "SeisSol.h"
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
+#include "Geometry/CubeGenerator.h"
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
@@ -58,24 +60,26 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
 
-#ifdef USE_MINI_SEISSOL
-  if (seissol::MPI::mpi.size() > 1) {
-    logInfo(rank) << "Running mini SeisSol to determine node weight";
-    auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
-                                            seissolParams.model.plasticity);
-    nodeWeight = 1.0 / elapsedTime;
+  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
+    if (seissol::MPI::mpi.size() > 1) {
+      logInfo(rank) << "Running mini SeisSol to determine node weights.";
+      auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                              seissolParams.model.plasticity);
+      nodeWeight = 1.0 / elapsedTime;
 
-    const auto summary = seissol::statistics::parallelSummary(nodeWeight);
-    logInfo(rank) << "Node weights: mean =" << summary.mean << " std =" << summary.std
-                  << " min =" << summary.min << " median =" << summary.median
-                  << " max =" << summary.max;
+      const auto summary = seissol::statistics::parallelSummary(nodeWeight);
+      logInfo(rank) << "Node weights: mean =" << summary.mean << " std =" << summary.std
+                    << " min =" << summary.min << " median =" << summary.median
+                    << " max =" << summary.max;
 
-    writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
-    writer.write(elapsedTime, nodeWeight);
+      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
+      writer.write(elapsedTime, nodeWeight);
+    } else {
+      logInfo(rank) << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
+    }
+  } else {
+    logInfo(rank) << "Skipping mini SeisSol (disabled).";
   }
-#else
-  logInfo(rank) << "Skipping mini SeisSol";
-#endif
 
   logInfo(rank) << "Reading PUML mesh";
 
@@ -133,6 +137,27 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 } // namespace
 
+static void
+    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+#if USE_NETCDF
+  // unpack seissolParams
+  const auto cubeParameters = seissolParams.cubeGenerator;
+
+  const auto commRank = seissol::MPI::mpi.rank();
+  const auto commSize = seissol::MPI::mpi.size();
+  std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+  auto meshReader = new seissol::geometry::CubeGenerator(
+      commRank, commSize, realMeshFileName.c_str(), cubeParameters);
+
+  // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
+  seissol::SeisSol::main.setMeshReader(
+      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
+#else
+  logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
+                "not linked to Netcdf.";
+#endif
+}
+
 void seissol::initializer::initprocedure::initMesh() {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -169,6 +194,9 @@ void seissol::initializer::initprocedure::initMesh() {
     break;
   case seissol::geometry::MeshFormat::PUML:
     readMeshPUML(seissolParams);
+    break;
+  case seissol::geometry::MeshFormat::CubeGenerator:
+    readCubeGenerator(seissolParams);
     break;
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);

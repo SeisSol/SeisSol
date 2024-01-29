@@ -130,6 +130,17 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+
+  const bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
+  const bool pointEnabled = generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled;
+  const bool elementwiseEnabled =
+      generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
+  if (pointEnabled) {
+    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+  }
+  if (elementwiseEnabled) {
+    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+  }
 }
 
 void OutputManager::initElementwiseOutput() {
@@ -223,6 +234,7 @@ void OutputManager::init() {
   if (ppOutputBuilder) {
     initPickpointOutput();
   }
+  impl->allocateMemory({ppOutputData, ewOutputData});
 }
 
 void OutputManager::initFaceToLtsMap() {

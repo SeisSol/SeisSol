@@ -10,6 +10,12 @@ Tv=0.05
 FreqCentral=0.5
 FreqRatio=100
 GravitationalAcceleration = 9.81 ! value of gravitational acceleration
+!ITM Parameters
+ITMEnable = 1 ! 1 is on, 0 is off
+ITMStartingtime = 2.0 ! Time when ITM is turned on
+ITMTime = 0.01 !Time duration for which ITM is on
+ITMVelocityscalingfactor = 2 ! Scaling factor
+ITMReflectionType = 1 ! 1 reflects both waves, 2 reflects both waves with constant velocity, 3 reflects only P-waves, 4 reflects only S-waves
 /
 
 &IniCondition
@@ -19,6 +25,7 @@ cICType = 'Zero'                  ! Initial Condition
 !Zero        All zero - the standard case to work with point source or dynamic rupture
 !Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
 !Travelling  A planar wave travelling wave (one period of a plane wave), needs more parameters to be specified
+!AcousticTravellingwithITM A travelling acoustic wave with ITM
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
@@ -26,6 +33,7 @@ cICType = 'Zero'                  ! Initial Condition
 !The following parameters are only needed for the travelling wave IC:
 origin = 0 0 0.5             ! Origin of the wave 
 kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
+k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 /
 

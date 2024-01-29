@@ -57,6 +57,7 @@
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
 #include "DynamicRupture/Misc.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif

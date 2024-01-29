@@ -407,11 +407,20 @@ struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  // When integrating quantities over the fault (e.g. mu*slip for the seismic moment)
+  // we need to integrate over each physical element.
+  // The integration is effectively done in the reference element, and the scaling factor of
+  // the transformation, the surface Jacobian (e.g. |n^e(\chi)| in eq. (35) of Uphoff et al. (2023))
+  // is incorporated. This explains the factor 2 (doubledSurfaceArea)
+  //
+  // Uphoff, C., May, D. A., & Gabriel, A. A. (2023). A discontinuous Galerkin method for
+  // sequences of earthquakes and aseismic slip on multiple faults using unstructured curvilinear
+  // grids. Geophysical Journal International, 233(1), 586-626.
   double doubledSurfaceArea;
 };
 
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipRateInterpolated::size()];
+  real slip[seissol::tensor::slipInterpolated::size()];
   real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
   real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
 };
@@ -466,6 +475,10 @@ struct TravellingWaveParameters {
   std::array<double, 3> kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
+};
+
+struct AcousticTravellingWaveParametersITM {
+  double k;
 };
 
 struct PressureInjectionParameters {

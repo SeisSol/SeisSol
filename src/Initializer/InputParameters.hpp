@@ -12,6 +12,7 @@
 #include <xdmfwriter/XdmfWriter.h>
 
 #include "Geometry/MeshReader.h"
+#include "Geometry/CubeGenerator.h"
 #include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
@@ -64,6 +65,16 @@ struct ModelParameters {
   bool hasBoundaryFile;
 };
 
+enum class ReflectionType : int { bothwaves = 1, bothwaves_velocity = 2, pwave = 3, swave = 4 };
+
+struct ITMParameters {
+  double ITMTime;
+  double ITMVelocityScalingFactor;
+  double ITMStartingTime;
+  bool ITMToggle;
+  ReflectionType reflectionType;
+};
+
 enum class InitializationType : int {
   Zero,
   Planarwave,
@@ -74,7 +85,8 @@ enum class InitializationType : int {
   Ocean0,
   Ocean1,
   Ocean2,
-  PressureInjection
+  PressureInjection,
+  AcousticTravellingwithITM,
 };
 
 struct InitializationParameters {
@@ -84,6 +96,7 @@ struct InitializationParameters {
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
   double magnitude;
   double width;
+  double k;
 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
@@ -201,11 +214,13 @@ struct EndParameters {
 struct SeisSolParameters {
   ModelParameters model;
   MeshParameters mesh;
+  seissol::geometry::CubeGeneratorParameters cubeGenerator;
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;
   SourceParameters source;
   EndParameters end;
+  ITMParameters itmParameters;
 
   void readParameters(const YAML::Node& baseNode);
 };

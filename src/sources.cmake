@@ -55,6 +55,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
+src/Kernels/Touch.cpp
 src/SeisSol.cpp
 src/Parallel/Pin.cpp
 
@@ -62,6 +63,9 @@ src/Geometry/MeshTools.cpp
 src/Geometry/MeshReader.cpp
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
+src/Monitoring/ActorStateStatistics.cpp
+src/Monitoring/Stopwatch.cpp
+src/Monitoring/Unit.cpp
 
 src/Checkpoint/Manager.cpp
 
@@ -72,6 +76,7 @@ src/Checkpoint/posix/Fault.cpp
 src/ResultWriter/AnalysisWriter.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/PostProcessor.cpp
@@ -80,17 +85,18 @@ src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/EnergyOutput.cpp
 
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
 src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
+src/Physics/InstantaneousTimeMirrorManager.cpp
 
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 src/Common/IntegerMaskParser.cpp
+
 
 )
 
@@ -151,11 +157,11 @@ if (HDF5 AND MPI)
     )
 endif()
 
-
 if (NETCDF)
   list(APPEND SYCL_DEPENDENT_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
     )
 endif()
 

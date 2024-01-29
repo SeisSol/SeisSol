@@ -1,9 +1,19 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
+#include <map>
+#include <set>
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
   localRank = MPI::mpi.rank();
+}
+
+void ReceiverBasedOutputBuilder::setLtsData(seissol::initializers::LTSTree* userWpTree,
+                                            seissol::initializers::LTS* userWpDescr,
+                                            seissol::initializers::Lut* userWpLut) {
+  wpTree = userWpTree;
+  wpDescr = userWpDescr;
+  wpLut = userWpLut;
 }
 
 void ReceiverBasedOutputBuilder::initBasisFunctions() {
@@ -12,11 +22,18 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& verticesInfo = meshReader->getVertices();
   const auto& mpiGhostMetadata = meshReader->getGhostlayerMetadata();
 
+  std::set<std::size_t> elementIndices;
+  std::map<std::pair<int, std::size_t>, std::pair<std::size_t, int>> elementIndicesGhost;
+  std::size_t foundPoints = 0;
+
   constexpr size_t numVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
+      ++foundPoints;
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
+
+      elementIndices.insert(elementIndex);
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
@@ -28,6 +45,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       const VrtxCoords* neighborElemCoords[numVertices]{};
       if (neighborElementIndex >= 0) {
+        elementIndices.insert(neighborElementIndex);
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
           const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
           neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
@@ -39,6 +57,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         assert(ghostMetadataItr != mpiGhostMetadata.end());
 
         const auto neighborIndex = element.mpiIndices[faultSide];
+
+        elementIndicesGhost[std::pair<int, std::size_t>(neighborRank, neighborIndex)] =
+            std::pair<std::size_t, int>(elementIndex, faultSide);
+
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
           auto* data = const_cast<double*>(array3d);
@@ -48,6 +70,63 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       outputData->basisFunctions.emplace_back(
           getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+    }
+  }
+
+  outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
+
+#ifdef ACL_DEVICE
+  real** preDofPtr =
+      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(real*) * outputData->cellCount));
+  outputData->deviceDataPtr =
+      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocGlobMem(
+          sizeof(real*) * outputData->cellCount));
+
+  std::size_t arrayIndex = 0;
+  for (const auto& index : elementIndices) {
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    assert(preDofPtr[arrayIndex] != nullptr);
+    ++arrayIndex;
+  }
+  for (const auto& [_, neighbor] : elementIndicesGhost) {
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    assert(preDofPtr[arrayIndex] != nullptr);
+    ++arrayIndex;
+  }
+
+  device::DeviceInstance::getInstance().api->copyTo(
+      outputData->deviceDataPtr, preDofPtr, sizeof(real*) * outputData->cellCount);
+  device::DeviceInstance::getInstance().api->freePinnedMem(preDofPtr);
+#endif
+
+  outputData->deviceDataPlus.resize(foundPoints);
+  outputData->deviceDataMinus.resize(foundPoints);
+  std::size_t pointCounter = 0;
+  for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+    const auto& point = outputData->receiverPoints[i];
+    if (point.isInside) {
+      const auto elementIndex = faultInfo[point.faultFaceIndex].element;
+      const auto& element = elementsInfo[elementIndex];
+      outputData->deviceDataPlus[pointCounter] =
+          std::distance(elementIndices.begin(), elementIndices.find(elementIndex));
+
+      const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+      if (neighborElementIndex >= 0) {
+        outputData->deviceDataMinus[pointCounter] =
+            std::distance(elementIndices.begin(), elementIndices.find(neighborElementIndex));
+      } else {
+        const auto faultSide = faultInfo[point.faultFaceIndex].side;
+        const auto neighborRank = element.neighborRanks[faultSide];
+        const auto neighborIndex = element.mpiIndices[faultSide];
+        outputData->deviceDataMinus[pointCounter] =
+            elementIndices.size() +
+            std::distance(
+                elementIndicesGhost.begin(),
+                elementIndicesGhost.find(std::pair<int, std::size_t>(neighborRank, neighborIndex)));
+      }
+
+      ++pointCounter;
     }
   }
 }

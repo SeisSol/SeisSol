@@ -43,7 +43,7 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(BLAS REQUIRED)
 
         set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${LIBXSMM_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${LIBXSMM_LIBRARIES})
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${LIBXSMM_LIBRARIES} ${BLAS_LIBRARIES})
 
     elseif ("${component}" STREQUAL "PSpaMM")
         find_package(PSpaMM REQUIRED)

@@ -16,7 +16,9 @@ format() {
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Monitoring
         src/SourceTerm
+        src/Physics
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
@@ -32,9 +34,15 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
+        src/Kernels/PointSourceCluster.h
+        src/Kernels/PointSourceCluster.cpp
+        src/Kernels/PointSourceClusterOnHost.h
+        src/Kernels/PointSourceClusterOnHost.cpp
+        src/Kernels/PointSourceClusterOnDevice.h
+        src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Touch.h
+        src/Kernels/Touch.cpp
         src/Monitoring/instrumentation.hpp
-        src/Physics/Attenuation.hpp
-        src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

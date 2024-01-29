@@ -113,7 +113,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
@@ -162,9 +162,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   // Sub triangles
   triRefiner.refine(maxRefinementDepth);
 
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles = seissol::kernels::getNumberOfAlignedReals(numberOfSubTriangles);
+  const auto projectionMatrixNCols = tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)][1];
 
+  numberOfSubTriangles = triRefiner.subTris.size();
+  numberOfAlignedSubTriangles = tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
+
+  assert(numberOfAlignedSubTriangles * projectionMatrixNCols == tensor::subTriangleProjection::size(maxRefinementDepth));
   assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals = 4 * tensor::subTriangleProjection::size(maxRefinementDepth);

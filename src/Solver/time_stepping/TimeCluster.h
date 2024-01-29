@@ -92,6 +92,9 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Monitoring/ActorStateStatistics.h>
+#include "Initializer/DynamicRupture.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.hpp"
 
 #include "AbstractTimeCluster.h"
 
@@ -193,6 +196,7 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+    unsigned        m_regionComputePointSources;
 
     kernels::ReceiverCluster* m_receiverCluster;
 
@@ -259,7 +263,7 @@ private:
       CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
       PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-      real (*pstrain)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = i_layerData.var(m_lts->pstrain);
+      auto* pstrain = i_layerData.var(m_lts->pstrain);
       unsigned numberOTetsWithPlasticYielding = 0;
 
       kernels::NeighborData::Loader loader;
@@ -436,6 +440,8 @@ public:
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
   void setReceiverTime(double receiverTime);
+
+  std::vector<NeighborCluster>* getNeighborClusters();
 };
 
 #endif

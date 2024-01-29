@@ -107,9 +107,12 @@ class ParameterReader {
     }
   }
 
-  void markUnused(const std::string& field) {
-    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
-    visited.emplace(field);
+  template <typename... Args>
+  void markUnused(const Args&... argFields) {
+    for (const auto& field : {argFields...}) {
+      logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
+      visited.emplace(field);
+    }
   }
 
   ParameterReader readSubNode(const std::string& subnodeName) {
@@ -166,6 +169,32 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.model.tv = reader.readWithDefault("tv", 0.1);
   seissolParams.model.useCellHomogenizedMaterial =
       reader.readWithDefault("usecellhomogenizedmaterial", true);
+  seissolParams.itmParameters.ITMToggle = reader.readWithDefault("itmenable", bool(0));
+  if (seissolParams.itmParameters.ITMToggle) {
+    seissolParams.itmParameters.ITMStartingTime = reader.readWithDefault("itmstartingtime", 0.0);
+    seissolParams.itmParameters.ITMTime = reader.readWithDefault("itmtime", 0.0);
+    seissolParams.itmParameters.ITMVelocityScalingFactor =
+        reader.readWithDefault("itmvelocityscalingfactor", 1.0);
+    seissolParams.itmParameters.reflectionType =
+        reader.readWithDefaultEnum("itmreflectiontype",
+                                   ReflectionType::bothwaves,
+                                   {ReflectionType::bothwaves,
+                                    ReflectionType::bothwaves_velocity,
+                                    ReflectionType::pwave,
+                                    ReflectionType::swave});
+    if (seissolParams.itmParameters.ITMTime <= 0.0) {
+      logError() << "ITM Time is not positive. It should be positive!";
+    }
+    if (seissolParams.itmParameters.ITMVelocityScalingFactor < 0.0) {
+      logError() << "ITM Velocity Scaling Factor is less than zero. It should be positive!";
+    }
+    if (seissolParams.itmParameters.ITMStartingTime < 0.0) {
+      logError() << "ITM Starting Time can not be less than zero";
+    }
+  } else {
+    reader.markUnused(
+        "itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype");
+  }
 
   if (isModelViscoelastic()) {
     seissolParams.model.freqCentral = reader.readOrFail<double>(
@@ -186,6 +215,37 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   reader.warnUnknown();
 }
 
+static void readCubeGenerator(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
+  auto reader = baseReader.readSubNode("cubegenerator");
+  seissolParams.cubeGenerator.cubeMinX = reader.readWithDefault("cubeminx", 6);
+  seissolParams.cubeGenerator.cubeMaxX = reader.readWithDefault("cubemaxx", 6);
+  seissolParams.cubeGenerator.cubeMinY = reader.readWithDefault("cubeminy", 6);
+  seissolParams.cubeGenerator.cubeMaxY = reader.readWithDefault("cubemaxy", 6);
+  seissolParams.cubeGenerator.cubeMinZ = reader.readWithDefault("cubeminz", 6);
+  seissolParams.cubeGenerator.cubeMaxZ = reader.readWithDefault("cubemaxz", 6);
+
+  seissolParams.cubeGenerator.cubeX = reader.readWithDefault("cubex", 2);
+  seissolParams.cubeGenerator.cubeY = reader.readWithDefault("cubey", 2);
+  seissolParams.cubeGenerator.cubeZ = reader.readWithDefault("cubez", 2);
+
+  // only x dimension has its number of partitions set to number of MPI processes
+  seissolParams.cubeGenerator.cubePx = seissol::MPI::mpi.size();
+  seissolParams.cubeGenerator.cubePy = 1;
+  seissolParams.cubeGenerator.cubePz = 1;
+
+  seissolParams.cubeGenerator.cubeS = reader.readWithDefault("cubes", 100);
+  seissolParams.cubeGenerator.cubeSx =
+      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.cubeS);
+  seissolParams.cubeGenerator.cubeSy =
+      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.cubeS);
+  seissolParams.cubeGenerator.cubeSz =
+      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.cubeS);
+
+  seissolParams.cubeGenerator.cubeTx = reader.readWithDefault("cubetx", 0.0);
+  seissolParams.cubeGenerator.cubeTy = reader.readWithDefault("cubety", 0.0);
+  seissolParams.cubeGenerator.cubeTz = reader.readWithDefault("cubetz", 0.0);
+}
+
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("meshnml");
 
@@ -197,7 +257,30 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
       "meshgenerator",
       "puml",
       {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
-       {"puml", seissol::geometry::MeshFormat::PUML}});
+       {"puml", seissol::geometry::MeshFormat::PUML},
+       {"cubegenerator", seissol::geometry::MeshFormat::CubeGenerator}});
+
+  if (seissolParams.mesh.meshFormat == seissol::geometry::MeshFormat::CubeGenerator) {
+    readCubeGenerator(baseReader, seissolParams);
+  } else {
+    reader.markUnused("cubegenerator",
+                      "cubeminx",
+                      "cubemaxx",
+                      "cubeminy",
+                      "cubemaxy",
+                      "cubeminz",
+                      "cubemaxz",
+                      "cubex",
+                      "cubey",
+                      "cubez",
+                      "cubes",
+                      "cubesx",
+                      "cubesy",
+                      "cubesz",
+                      "cubetx",
+                      "cubety",
+                      "cubetz");
+  }
 
   seissolParams.mesh.displacement = seissol::initializers::convertStringToArray<double, 3>(
       reader.readWithDefault("displacement", std::string("0.0 0.0 0.0")));
@@ -277,13 +360,13 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
   }
 
   // TODO(David): integrate LTS parameters here
-  reader.markUnused("ltswigglefactormin");
-  reader.markUnused("ltswigglefactorstepsize");
-  reader.markUnused("ltswigglefactorenforcemaximumdifference");
-  reader.markUnused("ltsmaxnumberofclusters");
-  reader.markUnused("ltsautomergeclusters");
-  reader.markUnused("ltsallowedrelativeperformancelossautomerge");
-  reader.markUnused("ltsautomergecostbaseline");
+  reader.markUnused("ltswigglefactormin",
+                    "ltswigglefactorstepsize",
+                    "ltswigglefactorenforcemaximumdifference",
+                    "ltsmaxnumberofclusters",
+                    "ltsautomergeclusters",
+                    "ltsallowedrelativeperformancelossautomerge",
+                    "ltsautomergecostbaseline");
 
   reader.warnDeprecated({"ckmethod",
                          "dgfineout1d",
@@ -309,6 +392,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
           {"planarwave", InitializationType::Planarwave},
           {"superimposedplanarwave", InitializationType::SuperimposedPlanarwave},
           {"travelling", InitializationType::Travelling},
+          {"acoustictravellingwithitm", InitializationType::AcousticTravellingwithITM},
           {"scholte", InitializationType::Scholte},
           {"snell", InitializationType::Snell},
           {"ocean_0", InitializationType::Ocean0},
@@ -332,6 +416,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
   seissolParams.initialization.magnitude = reader.readWithDefault("magnitude", 0.0);
   seissolParams.initialization.width =
       reader.readWithDefault("width", std::numeric_limits<double>::infinity());
+  seissolParams.initialization.k = reader.readWithDefault("k", 0.0);
 
   reader.warnUnknown();
 }
@@ -564,9 +649,7 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   readAbortCriteria(baseReader, *this);
 
   // TODO(David): remove once DR parameter reading is integrated here
-  baseReader.markUnused("dynamicrupture");
-  baseReader.markUnused("elementwise");
-  baseReader.markUnused("pickpoint");
+  baseReader.markUnused("dynamicrupture", "elementwise", "pickpoint");
 
   baseReader.warnDeprecated({"boundaries",
                              "rffile",

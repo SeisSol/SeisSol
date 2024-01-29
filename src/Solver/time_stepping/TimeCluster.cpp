@@ -151,6 +151,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
+  m_regionComputePointSources = m_loopStatistics->getRegion("computePointSources");
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
@@ -170,7 +171,11 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   if (m_receiverCluster != nullptr) {
     m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
   }
+}
 
+std::vector<seissol::time_stepping::NeighborCluster>*
+    seissol::time_stepping::TimeCluster::getNeighborClusters() {
+  return &neighbors;
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {
@@ -182,7 +187,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   // Return when point sources not initialised. This might happen if there
   // are no point sources on this rank.
   if (m_sourceCluster) {
+    m_loopStatistics->begin(m_regionComputePointSources);
     m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSize());
+    m_loopStatistics->end(m_regionComputePointSources, m_sourceCluster->size(), m_profilingId);
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
@@ -641,7 +648,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   }
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seissol::initializers::Layer& layerData) {
+void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
+    seissol::initializers::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
   auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
   auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];

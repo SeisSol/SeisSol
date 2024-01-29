@@ -13,6 +13,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   public:
   PointSourceClusterOnHost(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
   void addTimeIntegratedPointSources(double from, double to) override;
+  unsigned size() const override;
 
   private:
   void addTimeIntegratedPointSourceNRF(unsigned source,

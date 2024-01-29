@@ -103,13 +103,11 @@ void seissol::MPI::setDataTransferModeFromEnv() {
 
     if (option == "direct") {
       preferredDataTransferMode = DataTransferMode::Direct;
-    } else if (option == "device") {
-      preferredDataTransferMode = DataTransferMode::CopyInCopyOutDevice;
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
     } else {
       logWarning(m_rank) << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                         << "Expected values: direct, device, host.";
+                         << "Expected values: direct, host.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
