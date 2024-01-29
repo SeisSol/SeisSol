@@ -61,12 +61,16 @@ double Stopwatch::stop() {
  * Collective operation, printing avg, min and max time
  */
 void Stopwatch::printTime(const char* text, MPI_Comm comm) const {
+  print(text, seconds(time), comm);
+}
+
+void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   int rank = 0;
-  double avg = seconds(time);
+  double avg = time;
 
 #ifdef USE_MPI
-  double min = seconds(time);
-  double max = seconds(time);
+  double min = time;
+  double max = time;
 
   if (comm == MPI_COMM_NULL)
     comm = seissol::MPI::mpi.comm();
