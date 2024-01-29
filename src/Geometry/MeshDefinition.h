@@ -42,6 +42,7 @@
 #ifndef MESH_DEFINITION_H
 #define MESH_DEFINITION_H
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -94,7 +95,7 @@ struct MPINeighborElement {
   /** Side of the local element */
   SideId localSide;
   /** Global number neighbor element */
-  GlobalElemId neighborElement;
+  LocalElemId neighborElement;
   /** Side of the neighbor element */
   SideId neighborSide;
 };
@@ -105,7 +106,7 @@ struct Fault {
   /** The side of the element */
   SideId side;
 
-  GlobalElemId neighborElement;
+  LocalElemId neighborElement;
   SideId neighborSide;
 
   /** Normal of the fault face */
