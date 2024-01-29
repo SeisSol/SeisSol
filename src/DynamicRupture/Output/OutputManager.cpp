@@ -148,6 +148,7 @@ void OutputManager::initElementwiseOutput() {
 
   const auto& receiverPoints = ewOutputData->receiverPoints;
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
+  const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
   constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
   const auto intMask = convertMaskFromBoolToInt<maxNumVars>(this->elementwiseParams.outputMask);
@@ -166,6 +167,7 @@ void OutputManager::initElementwiseOutput() {
 
   seissol::SeisSol::main.faultWriter().init(cellConnectivity.data(),
                                             vertices.data(),
+                                            faultTags.data(),
                                             static_cast<unsigned int>(receiverPoints.size()),
                                             static_cast<unsigned int>(3 * receiverPoints.size()),
                                             &intMask[0],

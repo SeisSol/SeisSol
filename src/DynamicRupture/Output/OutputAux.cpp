@@ -226,6 +226,14 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
   }
   return cells;
 }
+std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
+  std::vector<unsigned int> faultTags(receiverPoints.size());
+
+  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
+  }
+  return faultTags;
+}
 
 real computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = triangle.point(0).getAsEigen3LibVector();

@@ -77,7 +77,8 @@ public:
 		OUTPUT_PREFIX = 0,
 		CELLS = 1,
 		VERTICES = 2,
-		VARIABLES0 = 3
+		CLUSTERING = 3,
+		VARIABLES0 = 4
 	};
 
 private:
@@ -124,6 +125,10 @@ public:
 		m_xdmfWriter->flush();
 
 		m_stopwatch.pause();
+	}
+
+	void setFaultTagsData(const unsigned int *faultTags) {
+		m_xdmfWriter->writeClusteringInfo(faultTags);
 	}
 
 	void finalize()
