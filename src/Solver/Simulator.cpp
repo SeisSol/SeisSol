@@ -88,8 +88,13 @@ void seissol::Simulator::simulate() {
   auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
 
-  Stopwatch stopwatch;
-  stopwatch.start();
+  Stopwatch simulationStopwatch;
+  simulationStopwatch.start();
+
+  Stopwatch computeStopwatch;
+  Stopwatch ioStopwatch;
+
+  ioStopwatch.start();
 
   // Set start time (required for checkpointing)
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
@@ -113,12 +118,23 @@ void seissol::Simulator::simulate() {
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
   upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
+  double lastSplit = 0;
+
+  ioStopwatch.pause();
+
+  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
+
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
-    if (upcomingTime < m_currentTime + l_timeTolerance)
+    if (upcomingTime < m_currentTime + l_timeTolerance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
+    }
 
     // update the DOFs
+    computeStopwatch.start();
     seissol::SeisSol::main.timeManager().advanceInTime( upcomingTime );
+    computeStopwatch.pause();
+
+    ioStopwatch.start();
 
     // update current time
     m_currentTime = upcomingTime;
@@ -137,13 +153,22 @@ void seissol::Simulator::simulate() {
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
-    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
+    ioStopwatch.pause();
+
+    double currentSplit = simulationStopwatch.split();
+    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
+    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(currentSplit);
+    lastSplit = currentSplit;
   }
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
-  double wallTime = stopwatch.split();
-  logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds ( =" << UnitTime.formatTime(wallTime).c_str() << ").";
+  double wallTime = simulationStopwatch.pause();
+  simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
+  computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
+  ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
 
   const auto& memoryManager = SeisSol::main.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();

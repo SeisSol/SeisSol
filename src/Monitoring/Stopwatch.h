@@ -119,6 +119,8 @@ class Stopwatch {
    * Collective operation, printing avg, min and max time
    */
   void printTime(const char* text, MPI_Comm comm = MPI_COMM_NULL) const;
+
+  static void print(const char* text, double time, MPI_Comm comm = MPI_COMM_NULL);
 };
 
 } // namespace seissol
