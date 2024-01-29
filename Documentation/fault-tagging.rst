@@ -62,29 +62,19 @@ Note also that if a face is tagged twice, only the first tag will be considered.
 Using more than 189 dynamic rupture tags
 ----------------------------------------
 
-Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic rupture tags. To overcome this limitation, it is necessary to patch PUMGen, SeisSol and the PUML submodule of SeisSol. This can be done with:
+To handle more than 189 dynamic rupture tags (i.e. more than 255 fault tags), you will need to adjust the boundary format to at least i64 (or i32x4).
 
-.. code-block::
+That is, build your mesh in PUMgen with the option ``--boundarytype=int64``.
+Next, specify ``pumlboundaryformat = 'i64'`` in the ``&meshnml`` section of your SeisSol parameter file.
 
-   cd PUMGen
-   git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
+The i64 boundary format has an upper limit of 65469 dynamic rupture tags (65535 fault tags).
+For an even larger tag space, you will need to resort to the i32x4 format. For that, proceed
+as before, replacing ``i64`` by ``i32x4``.
 
+To see which boundary format you have built your mesh for, you can use ``h5dump -H <yourmeshfile>.puml.h5``,
+and look at the datatype and the shape of the ``boundary`` dataset.
 
-.. code-block::
-
-   cd SeisSol
-   git apply Documentation/patchesI64/patch_SeisSol.diff
-
-
-and finally:
-
-.. code-block::
-
-   cd SeisSol/submodules/PUML/
-   git apply ../../Documentation/patchesI64/patch_PUML.diff
-
-
-Meshes with more than 255 tags can be created using pumgen -xml option, e.g. :
+In PUMgen, meshes with more than 255 tags can be created using ``pumgen -xml`` option, e.g. :
 
 .. code-block:: xml
 
