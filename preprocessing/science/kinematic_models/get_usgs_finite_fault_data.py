@@ -62,9 +62,11 @@ eq_code = args.eq_code
 minM = args.min_magnitude[0]
 if not os.path.exists(eq_code):
     os.makedirs(eq_code)
+if not os.path.exists(f"{eq_code}/tmp"):
+    os.makedirs(f"{eq_code}/tmp")
 
 url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&&minmagnitude={minM}&eventid={eq_code}"
-fn_json = f"{eq_code}/{eq_code}.json"
+fn_json = f"{eq_code}/tmp/{eq_code}.json"
 wget_overwrite(url, fn_json)
 
 with open(fn_json) as f:
@@ -79,11 +81,11 @@ for item in basic_inversion:
     hypocenter_x = subjsondata["properties"]["longitude"]
     hypocenter_y = subjsondata["properties"]["latitude"]
     hypocenter_z = subjsondata["properties"]["depth"]
-    with open(f"{eq_code}/hypocenter.txt", "w") as f:
+    with open(f"{eq_code}/tmp/hypocenter.txt", "w") as f:
         jsondata = f.write(f"{hypocenter_x} {hypocenter_y} {hypocenter_z}\n")
     print(code, update_time)
     fn = "basic_inversion.param"
     url = (
         f"https://earthquake.usgs.gov/product/finite-fault/{code}/us/{update_time}/{fn}"
     )
-    wget_overwrite(url, f"{eq_code}/{fn}")
+    wget_overwrite(url, f"{eq_code}/tmp/{fn}")

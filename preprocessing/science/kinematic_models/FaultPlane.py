@@ -8,7 +8,7 @@ from scipy import ndimage
 from GaussianSTF import GaussianSTF
 from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
-
+import os
 
 def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
     """create a netcdf file either readable by ASAGI
@@ -372,7 +372,7 @@ class MultiFaultPlane:
                                 break
             return cls(fault_planes)
 
-    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
+    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj, instantaneous=False):
         """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
 
         # Generate yaml file loading ASAGI file
@@ -384,7 +384,7 @@ class MultiFaultPlane:
      components:
 """
         for p, fp in enumerate(self.fault_planes):
-            fault_id = 3 if i == 0 else 64 + i
+            fault_id = 3 if p == 0 else 64 + p
             fp.compute_xy_from_latlon(proj)
             fp.compute_affine_vector_map()
             hh = fp.affine_map["hh"]
@@ -416,24 +416,25 @@ class MultiFaultPlane:
                     acc_time:  1e100
                     effective_rise_time:  2e100
 """
-
+        sonset = "0" if instantaneous else """x["rupture_onset"]"""
+        srisetime = "0.1"if instantaneous else """x["effective_rise_time"]"""
         template_yaml += """    components: !LuaMap
       returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]
       function: |
         function f (x)
           -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
-          return {
+          return {""" + f"""
           strike_slip = -x["strike_slip"],
           dip_slip = -x["dip_slip"],
-          rupture_onset = x["rupture_onset"],
+          rupture_onset = {sonset},
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
-          rupture_rise_time = x["effective_rise_time"]
+          rupture_rise_time = {srisetime}""" + """
           }
         end
         """
 
-        fname = f"{prefix}_fault.yaml"
+        fname = f"FL33_34_fault.yaml"
         with open(fname, "w") as fid:
             fid.write(template_yaml)
         print(f"done writing {fname}")
@@ -490,7 +491,7 @@ class FaultPlane:
         if proj:
             from pyproj import Transformer
 
-            transformer = Transformer.from_crs("epsg:4326", proj[0], always_xy=True)
+            transformer = Transformer.from_crs("epsg:4326", proj, always_xy=True)
             self.x, self.y = transformer.transform(self.lon, self.lat)
         else:
             print("no proj string specified!")
@@ -500,7 +501,7 @@ class FaultPlane:
         if proj:
             from pyproj import Transformer
 
-            transformer = Transformer.from_crs(proj[0], "epsg:4326", always_xy=True)
+            transformer = Transformer.from_crs(proj, "epsg:4326", always_xy=True)
             self.lon, self.lat = transformer.transform(self.x, self.y)
         else:
             self.lon, self.lat = self.x, self.y
@@ -758,6 +759,9 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
     def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview):
         "generate netcdf files to be used with SeisSol friction law 33"
 
+        if not os.path.exists("ASAGI_files"):
+            os.makedirs("ASAGI_files")
+
         cm2m = 0.01
         km2m = 1e3
         # a kinematic model defines the fault quantities at the subfault center
@@ -799,8 +803,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                     [lgridded_myData[i]],
                     paraview_readable=True,
                 )
-            writeNetcdf(f"{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
-        writeNetcdf(prefix2, [self.x_up, self.y_up], ldataName, lgridded_myData)
+            writeNetcdf(f"ASAGI_files/{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
+        writeNetcdf(f"ASAGI_files/{prefix2}", [self.x_up, self.y_up], ldataName, lgridded_myData)
 
     def compute_affine_vector_map(self):
         """compute the 2d vectors hh and hw and the offsets defining the 2d affine map (parametric coordinates)"""
@@ -832,6 +836,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
 
     def write_ts_file(self, prefix):
         # Generate ts file containing mesh geometry
+        if not os.path.exists("tmp"):
+            os.makedirs("tmp")
         vertex = np.zeros((4, 3))
         km2m = 1e3
         nx, ny = self.nx, self.ny
@@ -855,7 +861,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         connect = np.zeros((2, 3), dtype=int)
         connect[0, :] = [1, 2, 3]
         connect[1, :] = [1, 3, 4]
-        fname = f"{prefix}_fault.ts"
+        fname = f"tmp/{prefix}_fault.ts"
         with open(fname, "w") as fout:
             fout.write("GOCAD TSURF 1\nHEADER {\nname:%s\nborder: true\nmesh: false\n*border*bstone: true\n}\nTFACE\n" % (fname))
             for ivx in range(1, 5):

@@ -58,7 +58,7 @@ def Gridto2Dlocal(coords, lengths, myAffineMap, fault_fname, ldataName, ids):
         gridded_myData[ids_in] = gridded_myData_lin[ids_in]
 
         if args.taper:
-            taper_value  = args.taper[0]*1e6
+            taper_value = args.taper[0] * 1e6
             gridded_myData[gridded_myData > taper_value] = taper_value
             gridded_myData[gridded_myData < -taper_value] = -taper_value
 
@@ -97,7 +97,10 @@ def WriteAllNetcdf(mygrid, lgridded_myData, sName, ldataName):
 
 # parsing python arguments
 parser = argparse.ArgumentParser(
-    description="project 3d fault output onto 2d grids to be read with Asagi. One grid per fault tag"
+    description=(
+        "project 3d fault output onto 2d grids to be read with Asagi. One grid per"
+        " fault tag"
+    )
 )
 parser.add_argument("fault", help="fault.xdmf filename")
 parser.add_argument(

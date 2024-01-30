@@ -4,6 +4,7 @@ import numpy as np
 import glob
 import re
 import argparse
+import os
 
 parser = argparse.ArgumentParser(
     description="generate yaml and netcdf input to be used with friction law 33/34 based on a (here"
@@ -52,7 +53,8 @@ gmsh.logger.start()
 vertex_pattern = re.compile(r"VRTX (\d+) ([\d.-]+) ([\d.-]+) ([\d.-]+)")
 allv = []
 faults = []
-ts_files = glob.glob(f"*.ts")
+ts_files = glob.glob(f"tmp/*.ts")
+
 for i, fn in enumerate(ts_files):
     vertices = []
     with open(fn, "r") as file:
@@ -169,7 +171,10 @@ for key in tags.keys():
 
 gmsh.model.addPhysicalGroup(3, [1], 1)
 gmsh.model.mesh.generate(3)
-gmsh.write("mesh.msh")
+
+if not os.path.exists("tmp"):
+    os.makedirs("tmp")
+gmsh.write("tmp/mesh.msh")
 
 if args.interactive:
     gmsh.fltk.run()
