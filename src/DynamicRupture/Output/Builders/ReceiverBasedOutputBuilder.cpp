@@ -113,7 +113,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocGlobMem(
           sizeof(real*) * outputData->cellCount));
 
-  for (const auto& [arrayIndex, index] : elementIndices) {
+  for (const auto& [index, arrayIndex] : elementIndices) {
     preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
     assert(preDofPtr[arrayIndex] != nullptr);
   }
