@@ -384,7 +384,7 @@ class MultiFaultPlane:
      components:
 """
         for p, fp in enumerate(self.fault_planes):
-            fault_id = 65 + p
+            fault_id = 3 if i == 0 else 64 + i
             fp.compute_xy_from_latlon(proj)
             fp.compute_affine_vector_map()
             hh = fp.affine_map["hh"]
@@ -404,7 +404,7 @@ class MultiFaultPlane:
                 ub: {t2}
               components: !Any
                 - !ASAGI
-                    file: {prefix}{p+1}_{spatial_zoom}_{method}.nc
+                    file: ASAGI_files/{prefix}{p+1}_{spatial_zoom}_{method}.nc
                     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
                     var: data
                     interpolation: linear
@@ -793,7 +793,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
             # see comment above
             for i, sdata in enumerate(ldataName):
                 writeNetcdf(
-                    f"{prefix2}_{sdata}",
+                    f"ASAGI_files/{prefix2}_{sdata}",
                     [self.x_up, self.y_up],
                     [sdata],
                     [lgridded_myData[i]],

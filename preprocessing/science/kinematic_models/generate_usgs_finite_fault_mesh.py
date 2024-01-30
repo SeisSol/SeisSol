@@ -116,7 +116,8 @@ tags = {}
 for i in [1, 5]:
     tags[i] = []
 for i, fn in enumerate(ts_files):
-    tags[65 + i] = []
+    fault_id = 3 if i == 0 else 64 + i
+    tags[fault_id] = []
 
 for surface in all_surfaces:
     curves = gmsh.model.getBoundary([surface])
@@ -140,6 +141,7 @@ for surface in all_surfaces:
     else:
         tagged = False
         for i, fn in enumerate(ts_files):
+            fault_id = 3 if i == 0 else 64 + i
             j = i * 4
             nb_match = 0
             for k in range(4):
@@ -149,7 +151,7 @@ for surface in all_surfaces:
                 if dist < 200:
                     nb_match += 1
             if nb_match > 1:
-                tags[65 + i].append(stag)
+                tags[fault_id].append(stag)
                 tagged = True
                 break
         if not tagged:
