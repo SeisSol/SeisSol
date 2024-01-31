@@ -548,12 +548,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
             alphaCRq = std::min(1.0,
               std::min( alphaCR1q, alphaCR2q )
             );
-          } 
+          }
         }
 
         if (xi + data.material.local.xi0 > 0) {
           if (alpha_ave < 0.9 ){
-            if (break_ave < 0.9 ){
+            if (break_ave < 0.85 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
                   *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
