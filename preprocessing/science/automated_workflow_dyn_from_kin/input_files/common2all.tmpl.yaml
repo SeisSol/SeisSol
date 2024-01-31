@@ -1,0 +1,44 @@
+!Switch
+[forced_rupture_time]: !LuaMap
+  returns: [forced_rupture_time]
+  function: |
+      function f (x)
+        xha = {0, 0, {{ hypo_z }}}
+        r_crita = 2500.0
+        ra = math.sqrt((x["x"]-xha[1])^2 + (x["y"]-xha[2])^2 + (x["z"]-xha[3])^2 )
+        Vs = 3464.0
+        if (ra <= r_crita) then
+          forced_rupture_time = ra/(0.7*Vs)+(0.081*r_crita/(0.7*Vs))*(1.0/(1.0-(ra/r_crita)^2)-1.0)
+        else
+          forced_rupture_time = 1000000000.0
+        end
+        return {
+          forced_rupture_time = forced_rupture_time
+        }
+      end
+[cohesion]: !LuaMap
+  returns: [cohesion]
+  function: |
+   function f (x)
+    z = x["z"]
+    cohesion = -0.5e6
+    zIncreasingCohesion = 6000.0
+    if (z >= -zIncreasingCohesion) then
+      cohesion = cohesion - 1.0e6 * (z+zIncreasingCohesion)/zIncreasingCohesion;
+    end
+    return {
+      cohesion = cohesion
+    }
+    end
+[d_c]: !EvalModel
+    parameters: [fault_slip]
+    model: !Switch
+        [fault_slip]: !Include yaml_files/fault_slip.yaml
+    components: !LuaMap
+      returns: [d_c]
+      function: |
+       function f (x)
+        return {
+          d_c =  math.max(0.02, x["fault_slip"] * {{ C }});
+        }
+        end

@@ -187,7 +187,7 @@ for tag in unique_tags:
     ldataName = ["T_s", "T_d", "T_n"]
     WriteAllNetcdf(grid, lgridded_myData, f"ASAGI_files/{fn}", ldataName)
 
-fname = f"Ts0Td0.yaml"
+fname = "yaml_files/Ts0Td0.yaml"
 with open(fname, "w") as fid:
     fid.write(template_yaml)
 print(f"done writing {fname}")

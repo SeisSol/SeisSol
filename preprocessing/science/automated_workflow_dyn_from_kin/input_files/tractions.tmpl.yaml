@@ -1,0 +1,27 @@
+!Switch
+[T_s, T_d, T_n, Tau0]: !EvalModel
+    parameters: [Ts0, Td0, mu_d, rho, z, rake]
+    model: !Switch
+        [Ts0, Td0]: !Include yaml_files/Ts0Td0.yaml
+        [mu_d]: !Include yaml_files/mud.yaml
+        [rake]: !Include yaml_files/rake.yaml
+        [rho]: !Include yaml_files/smooth_PREM_material.yaml
+        [z]: !AffineMap
+          matrix:
+            z: [0.0, 0.0, 1.0]
+          translation:
+            z: 0.0
+    components: !LuaMap
+      returns: [T_s, T_d, T_n, Tau0]
+      function: |
+       function f (x)
+        T_n = math.min(-10^6, (x['rho']-1000)*9.8*x['z'])
+        T_s = math.cos(x['rake']) * (-x['mu_d']*T_n) - {{ B }} * x['Ts0']
+        T_d = math.sin(x['rake']) * (-x['mu_d']*T_n) - {{ B }} * x['Td0']
+        return {
+          T_s = T_s,
+          T_d = T_d,
+          T_n = T_n,
+          Tau0 =  math.sqrt(T_s^2 + T_d^2)
+        }
+        end

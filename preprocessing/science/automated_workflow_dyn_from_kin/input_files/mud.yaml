@@ -1,0 +1,4 @@
+!Switch
+[mu_d]: !ConstantMap
+    map:
+      mu_d:        0.2

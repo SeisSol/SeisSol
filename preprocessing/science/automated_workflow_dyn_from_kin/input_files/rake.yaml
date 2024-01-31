@@ -1,0 +1,18 @@
+!Switch
+[rake]: !EvalModel
+   parameters: [fault_slip, strike_slip, dip_slip, rake_lowslip]
+   model: !Switch 
+      [fault_slip, strike_slip, dip_slip]: !Include yaml_files/fault_slip.yaml
+      [rake_lowslip]: !Include yaml_files/rake_lowslip.yaml
+   components: !LuaMap
+      returns: [rake]
+      function: |
+       function f (x)
+        if x['fault_slip']<0.05 then
+           rake = x['rake_lowslip']*3.1415/180
+        end
+        rake= math.atan2(x['dip_slip'], x['strike_slip'])
+        return {
+           rake =  rake
+        }
+        end

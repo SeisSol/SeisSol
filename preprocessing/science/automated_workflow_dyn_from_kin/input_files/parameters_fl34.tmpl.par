@@ -1,0 +1,86 @@
+&equations
+!yaml file defining spatial dependance of material properties
+MaterialFileName = 'yaml_files/smooth_PREM_material.yaml'
+/
+
+&IniCondition
+/
+
+&DynamicRupture
+FL = 34                                        ! Friction law  
+!0: none, 16:LSW, 103: RS with strong velocity weakening
+!yaml file defining spatial dependance of fault properties
+ModelFileName = 'yaml_files/FL33_34_fault.yaml'
+
+!reference vector for defining strike and dip direction
+XRef = 0.0 
+YRef = 0.0
+ZRef = -1.0
+refPointMethod = 1
+
+RF_output_on = 0                               ! Rupture front ascii output
+OutputPointType = 4                            ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
+SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
+                            ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
+/
+
+!see: https://seissol.readthedocs.io/en/latest/fault-output.html
+! parameterize paraview file output
+&Elementwise
+printtimeinterval_sec = 1.00                   ! Time interval at which output will be written
+OutputMask = 1 1 0 0 1 1 1 1 1 1 0             ! turn on and off fault outputs
+refinement_strategy = 2
+refinement = 1
+/
+
+&SourceType
+/
+
+&SpongeLayer
+/
+            
+&MeshNml
+MeshFile = 'tmp/mesh.puml.h5'
+meshgenerator = 'PUML'                         ! Name of meshgenerator (Gambit3D-fast, Netcdf or PUML)
+/
+
+&Discretization
+CFL = 0.5                                      ! CFL number (<=1.0)
+ClusteredLTS = 2                               ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
+!ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
+/
+
+&Output
+OutputFile = 'output/fl33'
+wavefieldoutput = 0
+checkpoint = 0
+!             |stress     |vel
+iOutputMask = 0 0 0 0 0 0 1 1 1
+!                 |strain     |eta
+iPlasticityMask = 0 0 0 0 0 0 1
+TimeInterval =  5.                           ! Index of printed info at time
+refinement = 1
+
+! Free surface output
+SurfaceOutput = 0
+SurfaceOutputRefinement = 1
+SurfaceOutputInterval = 0.5
+
+xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
+! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
+! HDF5 support.
+
+EnergyOutput = 1 ! Computation of energy, written in csv file
+EnergyTerminalOutput = 1 ! Write energy to standard output
+EnergyOutputInterval = 0.5
+/
+
+&AbortCriteria
+EndTime = {{ end_time }}
+/
+
+&Analysis
+/
+
+&Debugging
+/

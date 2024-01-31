@@ -1,0 +1,31 @@
+!Switch
+
+[mu_d]: !Include yaml_files/mud.yaml
+
+[mu_s]: !EvalModel
+    parameters: [T_n, Tau0, DeltaS, R, mu_d]
+    model: !Switch
+        [T_n, Tau0]: !Include {{ tractions_fname }}
+        [mu_d]: !Include yaml_files/mud.yaml
+        [DeltaS,R]: !ConstantMap
+           map:
+             DeltaS: 100000
+             R: {{ R }}
+    components: !LuaMap
+      returns: [mu_s]
+      function: |
+       function f (x)
+        return {
+          -- mu_s =  math.min(10, -(x['Tau0'] + x['DeltaS'])/x['T_n'])
+          mu_s =  math.max(x['mu_d'], math.min(10, x['mu_d'] + (-x['Tau0']/x['T_n']-x['mu_d'])/x['R']))
+        }
+        end
+
+[T_s, T_d, T_n]: !Include {{ tractions_fname }}
+
+[forced_rupture_time, cohesion, d_c]: !Include {{ common2all_fname }}
+[Tnuc_n, Tnuc_s, Tnuc_d]: !ConstantMap
+  map:
+    Tnuc_n: 0
+    Tnuc_s: 0
+    Tnuc_d: 0
