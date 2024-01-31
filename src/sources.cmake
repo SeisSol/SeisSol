@@ -103,6 +103,7 @@ src/Common/IntegerMaskParser.cpp
 set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Graph/SyclGraphCapturing.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp

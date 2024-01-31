@@ -5,6 +5,8 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include <CL/sycl.hpp>
+#include <Parallel/Graph/SyclGraphCapturing.hpp>
+#include <Parallel/Graph/GraphCapturing.hpp>
 
 #ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
@@ -38,6 +40,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 
   sycl::device device;
   sycl::queue queue;
+
+  std::unordered_map<real, seissol::parallel::ComputeGraph<seissol::parallel::SyclGraph>> graphs;
 };
 } // namespace seissol::dr::friction_law::gpu
 
