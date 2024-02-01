@@ -7,7 +7,7 @@ default:
         entrypoint: [""]
 
 variables:
-    HOST: "wsm"
+    HOST: "snb"
     GPU_VENDOR: "nvidia"
     GPU_MODEL: "sm_60"
 
