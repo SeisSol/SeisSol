@@ -216,8 +216,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
 
-  real const break_coeff = 1e1*damage_para1;
-  real const beta_alpha = 0.03;
+  real const break_coeff = 1e2*damage_para1;
+  real const beta_alpha = 0.05;
 
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
