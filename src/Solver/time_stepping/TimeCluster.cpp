@@ -429,7 +429,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real epsInityz = -0e-1; // eps_yz0
     real epsInitzx = -0e-1; // eps_zx0
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-    real const break_coeff = 1e2*damage_para1;
+    real const break_coeff = 1e1*damage_para1;
     real const beta_alpha = 0.03;
 
     real aB0 = 7.43e9;
