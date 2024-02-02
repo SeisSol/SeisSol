@@ -41,11 +41,12 @@ check-images:
     reports:
       dotenv: rebuild.env
 
-build-cpu-image:
+build-images:
   stage: build
   dependencies:
     - check-images
   allow_failure: false
+  timeout: 12 hours # building the compiler image may take a very long time
   variables:
     GIT_STRATEGY: clone
   script:
@@ -61,17 +62,6 @@ build-cpu-image:
       else
         echo "No CPU image changes; skipping build."
       fi
-
-build-gpu-image:
-  stage: build
-  timeout: 6 hours # building the compiler image may take a very long time
-  dependencies:
-    - check-images
-  allow_failure: false
-  variables:
-    GIT_STRATEGY: clone
-  script:
-    # cf. https://docs.gitlab.com/ee/ci/docker/using_kaniko.html
     - >
       if [ $GPU_COMPILER_REBUILD == 1 ]; then
         mkdir -p /kaniko/.docker ;
@@ -83,6 +73,7 @@ build-gpu-image:
       else
         echo "No GPU compiler image changes; skipping build."
       fi
+    - >
       if [ $GPU_REBUILD == 1 ]; then
         mkdir -p /kaniko/.docker ;
         export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
