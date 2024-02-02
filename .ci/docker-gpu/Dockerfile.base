@@ -58,7 +58,7 @@ cd .. && rm -rf ./hdf5*
 
 
 RUN export VERSION=4.7.4 && \
-wget --progress=bar:force:noscroll ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-c-${VERSION}.tar.gz && \
+wget --progress=bar:force:noscroll https://github.com/Unidata/netcdf-c/archive/refs/tags/v{VERSION}.tar.gz && \
 tar -xvf netcdf-c-${VERSION}.tar.gz && \
 cd netcdf-c-${VERSION} && \
 CFLAGS="-fPIC" CC=/usr/bin/h5pcc ./configure --enable-shared=no --prefix=/usr --disable-dap && \
@@ -78,7 +78,7 @@ cp metis/include/metis.h /usr/include && \
 cd .. && rm -rf ./parmetis-*
 
 
-RUN export VERSION=1.16.1 && \
+RUN export VERSION=1.17 && \
 git clone https://github.com/hfp/libxsmm.git && \
 cd libxsmm && \
 git checkout ${VERSION} && \
