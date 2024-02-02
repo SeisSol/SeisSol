@@ -9,7 +9,7 @@ namespace seissol::kernels::time::aux {
   void setConstantData(const real* startptr);
   void interleaveLauncher(std::size_t count, std::size_t size, const real** indata, real* outdata, void* stream);
   void deinterleaveLauncher(std::size_t count, std::size_t size, const real* indata, real** outdata, void* stream);
-  void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, void* stream);
+  void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, real* temp, void* stream);
 }
 
 namespace seissol::kernels::local_flux::aux::details {

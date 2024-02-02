@@ -629,6 +629,8 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(L
                              interleaveBlocks * seissol::kernels::time::aux::Blocksize * tensor::Q::size() * sizeof(real));
     layer->setScratchpadSize(lts.interleavedBuffers,
                              interleaveBlocks * seissol::kernels::time::aux::Blocksize * tensor::I::size() * sizeof(real));
+    layer->setScratchpadSize(lts.interleavedTemp,
+                             interleaveBlocks * seissol::kernels::time::aux::Blocksize * tensor::I::size() * 3 * sizeof(real));
     layer->setScratchpadSize(lts.interleavedDerivatives,
                              interleaveBlocks * seissol::kernels::time::aux::Blocksize * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
     layer->setScratchpadSize(lts.derivativesScratch, 0);

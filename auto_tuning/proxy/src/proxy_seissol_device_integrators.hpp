@@ -59,7 +59,7 @@ namespace proxy::device {
 #ifdef EXPERIMENTAL_INTERLEAVE
       m_timeKernel.computeInterleavedAder(timeStepWidth, tmp, dataTable, materialTable, false,
         reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers)),
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)));
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp)));
 #else
       m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false);
 #endif
@@ -137,7 +137,7 @@ namespace proxy::device {
 #ifdef EXPERIMENTAL_INTERLEAVE
       m_timeKernel.computeInterleavedAder(timeStepWidth, tmp, dataTable, materialTable, false,
         reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers)),
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)));
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp)));
 #else
       m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false);
 #endif

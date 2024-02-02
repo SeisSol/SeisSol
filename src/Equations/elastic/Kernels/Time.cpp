@@ -343,7 +343,8 @@ void seissol::kernels::Time::computeInterleavedAder(
                                                 real* interleavedBuffers,
                                                 real* interleavedDerivatives,
                                                 const real* coordinates,
-                                                const real* stardata) {
+                                                const real* stardata,
+                                                real* temp) {
 #ifdef ACL_DEVICE
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -352,7 +353,7 @@ void seissol::kernels::Time::computeInterleavedAder(
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
     seissol::kernels::time::aux::interleaveLauncher(numElements, tensor::Q::size(), const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, device.api->getDefaultStream());
-    seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, device.api->getDefaultStream());
+    seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, temp, device.api->getDefaultStream());
     seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::I::size(), const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), device.api->getDefaultStream());
     seissol::kernels::time::aux::deinterleaveLauncher(numElements, yateto::computeFamilySize<tensor::dQ>(), const_cast<const real*>(interleavedDerivatives), (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
   }

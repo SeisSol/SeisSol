@@ -114,6 +114,7 @@ struct seissol::initializers::LTS {
   ScratchpadMemory                        interleavedDofs;
   ScratchpadMemory                        interleavedDerivatives;
   ScratchpadMemory                        interleavedBuffers;
+  ScratchpadMemory                        interleavedTemp;
   Variable<real[9][seissol::kernels::time::aux::Blocksize]>                       coordinates;
   Variable<real[3][seissol::kernels::time::aux::Blocksize]>                       stardata;
 #endif
@@ -161,6 +162,7 @@ struct seissol::initializers::LTS {
     tree.addScratchpadMemory(interleavedDofs,               1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(interleavedDerivatives,               1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(interleavedBuffers,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(interleavedTemp,               1,      seissol::memory::DeviceGlobalMemory);
     tree.addVar(coordinates, LayerMask(Ghost),                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
     tree.addVar(stardata, LayerMask(Ghost),                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 #endif

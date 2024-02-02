@@ -126,7 +126,8 @@ class seissol::kernels::Time : public TimeBase {
                                                 real* interleavedBuffers,
                                                 real* interleavedDerivatives,
                                                 const real* coordinates,
-                                                const real* stardata);
+                                                const real* stardata,
+                                                real* temp);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );

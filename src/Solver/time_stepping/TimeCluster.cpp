@@ -446,7 +446,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
 #ifdef EXPERIMENTAL_INTERLEAVE
     m_timeKernel.computeInterleavedAder(timeStepWidth, tmp, dataTable, materialTable, false,
         reinterpret_cast<real*>(i_layerData.getScratchpadMemory(m_lts->interleavedDofs)), reinterpret_cast<real*>(i_layerData.getScratchpadMemory(m_lts->interleavedBuffers)),
-        reinterpret_cast<real*>(i_layerData.getScratchpadMemory(m_lts->interleavedDerivatives)), reinterpret_cast<real*>(i_layerData.var(m_lts->coordinates)), reinterpret_cast<real*>(i_layerData.var(m_lts->stardata)));
+        reinterpret_cast<real*>(i_layerData.getScratchpadMemory(m_lts->interleavedDerivatives)), reinterpret_cast<real*>(i_layerData.var(m_lts->coordinates)), reinterpret_cast<real*>(i_layerData.var(m_lts->stardata)), reinterpret_cast<real*>(i_layerData.getScratchpadMemory(m_lts->interleavedTemp)));
 #else
     m_timeKernel.computeBatchedAder(timeStepWidth,
                                     tmp,
