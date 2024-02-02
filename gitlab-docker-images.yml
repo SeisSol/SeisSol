@@ -26,17 +26,17 @@ check-images:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
     - export full_image_name="${CI_REGISTRY_USER}/${cpu_image_name}:${cpu_image_version}"
-    - export CPU_REBUILD=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_image_name}")
-    - echo "CPU image ${full_image_name} exists = ${image_exists}. Rebuild = ${CPU_REBUILD}"
+    - export CPU_EXISTS=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_image_name}")
+    - echo "CPU image ${full_image_name} exists = ${CPU_EXISTS}"
     - export full_compiler_image_name="${CI_REGISTRY_USER}/gpu-ci-compiler-image:${gpu_image_version}" ;
-    - export GPU_COMPILER_REBUILD=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_compiler_image_name}")
-    - echo "GPU compiler image ${full_compiler_image_name} exists = ${GPU_COMPILER_REBUILD}"
+    - export GPU_COMPILER_EXISTS=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_compiler_image_name}")
+    - echo "GPU compiler image ${full_compiler_image_name} exists = ${GPU_COMPILER_EXISTS}"
     - export full_image_name="${CI_REGISTRY_USER}/${gpu_image_name}:${gpu_image_version}"
-    - export GPU_REBUILD=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_image_name}")
-    - echo "GPU image ${full_image_name} exists = ${GPU_REBUILD}"
-    - echo "CPU_REBUILD=${CPU_REBUILD}" > rebuild.env
-    - echo "GPU_COMPILER_REBUILD=${GPU_COMPILER_REBUILD}" >> rebuild.env
-    - echo "GPU_REBUILD=${GPU_REBUILD}" >> rebuild.env
+    - export GPU_EXISTS=$(sh ${CI_PROJECT_DIR}/.ci/does_image_exist.sh "${full_image_name}")
+    - echo "GPU image ${full_image_name} exists = ${GPU_EXISTS}"
+    - echo "CPU_EXISTS=${CPU_EXISTS}" > rebuild.env
+    - echo "GPU_COMPILER_EXISTS=${GPU_COMPILER_EXISTS}" >> rebuild.env
+    - echo "GPU_EXISTS=${GPU_EXISTS}" >> rebuild.env
   artifacts:
     reports:
       dotenv: rebuild.env
@@ -52,7 +52,7 @@ build-images:
   script:
     # cf. https://docs.gitlab.com/ee/ci/docker/using_kaniko.html
     - >
-      if [ $CPU_REBUILD == 1 ]; then
+      if [ $CPU_EXISTS == 0 ]; then
         mkdir -p /kaniko/.docker ;
         export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
         echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
@@ -63,7 +63,7 @@ build-images:
         echo "No CPU image changes; skipping build."
       fi
     - >
-      if [ $GPU_COMPILER_REBUILD == 1 ]; then
+      if [ $GPU_COMPILER_EXISTS == 0 ]; then
         mkdir -p /kaniko/.docker ;
         export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
         echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
@@ -74,7 +74,7 @@ build-images:
         echo "No GPU compiler image changes; skipping build."
       fi
     - >
-      if [ $GPU_REBUILD == 1 ]; then
+      if [ $GPU_EXISTS == 0 ]; then
         mkdir -p /kaniko/.docker ;
         export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
         echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
