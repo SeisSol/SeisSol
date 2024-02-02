@@ -351,11 +351,23 @@ void seissol::kernels::Time::computeInterleavedAder(
     auto &entry = dataTable[timeVolumeKernelKey];
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    std::size_t blocks = (numElements + seissol::kernels::time::aux::Blocksize - 1) / seissol::kernels::time::aux::Blocksize;
 
-    seissol::kernels::time::aux::interleaveLauncher(numElements, tensor::Q::size(), const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, device.api->getDefaultStream());
+    seissol::kernels::time::aux::interleaveLauncher(numElements, tensor::Q::size(), 56, 64, const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, device.api->getDefaultStream());
     seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, temp, device.api->getDefaultStream());
-    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::I::size(), const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), device.api->getDefaultStream());
-    seissol::kernels::time::aux::deinterleaveLauncher(numElements, yateto::computeFamilySize<tensor::dQ>(), const_cast<const real*>(interleavedDerivatives), (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::I::size(), 56, 64, const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), device.api->getDefaultStream());
+    std::size_t offset = 0;
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(0), 56, 64, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    offset += tensor::dQ::size(0);
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(1), 35, 48, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    offset += tensor::dQ::size(1);
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(2), 20, 32, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    offset += tensor::dQ::size(2);
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(3), 10, 16, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    offset += tensor::dQ::size(3);
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(4), 4, 16, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+    offset += tensor::dQ::size(4);
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, tensor::dQ::size(5), 1, 16, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
   }
 
   if (updateDisplacement) {

@@ -7,8 +7,8 @@
 namespace seissol::kernels::time::aux {
   constexpr size_t Blocksize = 32;
   void setConstantData(const real* startptr);
-  void interleaveLauncher(std::size_t count, std::size_t size, const real** indata, real* outdata, void* stream);
-  void deinterleaveLauncher(std::size_t count, std::size_t size, const real* indata, real** outdata, void* stream);
+  void interleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real** indata, real* outdata, void* stream);
+  void deinterleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real* indata, real** outdata, void* stream);
   void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, real* temp, void* stream);
 }
 

@@ -932,7 +932,7 @@ const real* __restrict__ derivativeY, const real* __restrict__ derivativeZ) {
 }
 
 template<size_t N, size_t Nmax>
-__device__ __forceinline__ void dgkernelPart2(real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
+__device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
     real lambda, real mu, real rhoD) {
         real l2mu = lambda + 2 * mu;
         #pragma unroll
@@ -971,10 +971,21 @@ __device__ __forceinline__ void dgkernelPart2(real* __restrict__ output, real* _
         #pragma unroll
         for (int j = 0; j < Quantities; ++j) {
             output[MATRIX(i,j, N, Quantities)] = outRow[j];
-            acc[MATRIX(i,j, Nmax, Quantities)] = accRow[j] + outRow[j];
+            acc[MATRIX(i,j, Nmax, Quantities)] = scale * accRow[j] + outRow[j];
         }
     }
 }
+
+template<size_t Nmax>
+__device__ __forceinline__ void dgkernelInit(real scale, real* __restrict__ acc, const real* __restrict__ dofs) {
+    // TODO: move into first kernel
+        #pragma unroll
+        for (int i = 0; i < Nmax; ++i) {
+            for (int j = 0; j < Quantities; ++j) {
+                acc[MATRIX(i,j, Nmax, Quantities)] = scale * dofs[MATRIX(i,j, Nmax, Quantities)];
+            }
+        }
+    }
 
 __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
     if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
@@ -992,16 +1003,18 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size
         dgkernelPart1<4, 1, 56>(temp, dQ2, derivative6X, derivative6Y, derivative6Z);
         dgkernelPart2<1, 56>(dQ1, I,  temp, coordinates, lambda, mu, rhoD);*/
         real tempreg[4 * Quantities * 3];
-        dgkernel56(temp, dQ6);
-        dgkernelPart2<35, 56>(dQ5, I,  temp, coordinates, lambda, mu, rhoD);
+        real coeff = scale;
+        dgkernelInit<56>(coeff, I, Q);
+        dgkernel56(temp, Q);
+        dgkernelPart2<35, 56>(coeff, dQ5, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel35(temp, dQ5);
-        dgkernelPart2<20, 56>(dQ4, I,  temp, coordinates, lambda, mu, rhoD);
+        dgkernelPart2<20, 56>(coeff, dQ4, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel20(temp, dQ4);
-        dgkernelPart2<10, 56>(dQ3, I,  temp, coordinates, lambda, mu, rhoD);
+        dgkernelPart2<10, 56>(coeff, dQ3, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel10(tempreg, dQ3);
-        dgkernelPart2<4, 56>(dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernelPart2<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
         dgkernel4(tempreg, dQ2);
-        dgkernelPart2<1, 56>(dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernelPart2<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
     }
 }
 
@@ -1067,7 +1080,7 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * blocks;
   dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * blocks;
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
-  // kernelXTiled3x32 <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates);
+  cudaMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Quantities * Functions<6>, cudaMemcpyDeviceToDevice, streamObject);
   dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   CHECK_ERR;
 }
@@ -1077,10 +1090,10 @@ __device__ __forceinline__ T& iacc1(T* __restrict__ data, size_t size, size_t in
     return data[block * size + inblock + threadIdx.x];
 }
 
-constexpr size_t InterleaveMultiple = 1;
+constexpr size_t InterleaveMultiple = 3;
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t size, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t realdim, size_t paddeddim, size_t size, size_t count) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -1106,8 +1119,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
             __syncwarp();
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (i + j < size) {
-                target[size * Blocksize * block + (i + j) * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
+              size_t index = i + j;
+              if (i + j < size && index % paddeddim < realdim) {
+                size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
+                target[size * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
             }
         }
@@ -1116,7 +1131,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
 }
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t size, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t realdim, size_t paddeddim, size_t size, size_t count) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -1132,8 +1147,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
         for (size_t j = 0; j < size; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (i + j < size) {
-                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = source[size * Blocksize * block + (i + j) * Blocksize + threadIdx.x];
+              size_t index = i + j;
+              if (index < size && index % paddeddim < realdim) {
+                size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
+                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = source[size * Blocksize * block + realindex * Blocksize + threadIdx.x];
               }
               else {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
@@ -1151,18 +1168,18 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
     }
 }
 
-void interleaveLauncher(std::size_t count, std::size_t size, const real** indata, real* outdata, void* stream) {
+void interleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real** indata, real* outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, size, count);
+  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, size, count);
   CHECK_ERR;
 }
-void deinterleaveLauncher(std::size_t count, std::size_t size, const real* indata, real** outdata, void* stream) {
+void deinterleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real* indata, real** outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, size, count);
+  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, size, count);
   CHECK_ERR;
 }
 
