@@ -971,7 +971,7 @@ __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ out
         #pragma unroll
         for (int j = 0; j < Quantities; ++j) {
             output[MATRIX(i,j, N, Quantities)] = outRow[j];
-            acc[MATRIX(i,j, Nmax, Quantities)] = scale * accRow[j] + outRow[j];
+            acc[MATRIX(i,j, Nmax, Quantities)] = accRow[j] + scale * outRow[j];
         }
     }
 }
