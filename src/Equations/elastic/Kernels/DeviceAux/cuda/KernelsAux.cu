@@ -1079,13 +1079,13 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   dim3 block(Blocksize, AderMultiple, 1);
   std::vector<std::size_t> dataOffsets(6);
   dataOffsets[0] = 0;
-  dataOffsets[1] = dataOffsets[0] + Functions<6> * Blocksize * blocks;
-  dataOffsets[2] = dataOffsets[1] + Functions<5> * Blocksize * blocks;
-  dataOffsets[3] = dataOffsets[2] + Functions<4> * Blocksize * blocks;
-  dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * blocks;
-  dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * blocks;
+  dataOffsets[1] = dataOffsets[0] + Functions<6> * Blocksize * Quantities * blocks;
+  dataOffsets[2] = dataOffsets[1] + Functions<5> * Blocksize * Quantities * blocks;
+  dataOffsets[3] = dataOffsets[2] + Functions<4> * Blocksize * Quantities * blocks;
+  dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
+  dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
-  cudaMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Quantities * Functions<6>, cudaMemcpyDeviceToDevice, streamObject);
+  cudaMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<6>, cudaMemcpyDeviceToDevice, streamObject);
   dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   CHECK_ERR;
 }
