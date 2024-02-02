@@ -33,18 +33,11 @@ cross0 = np.cross(
 face_area = 0.5 * np.apply_along_axis(np.linalg.norm, 1, cross0)
 
 ndt = sx.ReadNdt()
-slip = sx.ReadData("ASl", ndt - 1)
-M0 = np.sum(face_area * slip) * 6.250000e09
-print(M0)
-Mw = 2.0 / 3.0 * np.log10(M0 * 1e7) - 10.7
-print(Mw)
-face_area = face_area[slip > 0.01]
-ruptured_area = np.sum(face_area)
 
 strike_slip = sx.ReadData("Sls", ndt - 1)
 dip_slip = sx.ReadData("Sld", ndt - 1)
 slip = sx.ReadData("ASl", ndt - 1)
-rake = np.atan2(x["dip_slip"], x["strike_slip"]) * 180 / np.pi
+rake = np.arctan2(dip_slip, strike_slip) * 180 / np.pi
 
 
 template_yaml = """!Any
@@ -62,7 +55,7 @@ for tag in unique_tags:
     groups: {tag}
     components: !ConstantMap
               map:
-                rake: {average_rake}
+                rake_lowslip: {average_rake}
 """
 
 fname = "yaml_files/rake_lowslip.yaml"

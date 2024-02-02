@@ -37,13 +37,13 @@ def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
                 vTd[:] = lData[i]
         else:
             ldata4 = [(name, "f4") for name in lName]
-            # ldata8 = [(name, "f8") for name in lName]
             mattype4 = np.dtype(ldata4)
-            # mattype8 = np.dtype(ldata8)
             mat_t = rootgrp.createCompoundType(mattype4, "material")
 
             # this transform the n D array into an array of tuples
-            arr = np.stack([lData[i] for i in range(len(lName))], axis=len(dims))
+            arr = np.stack(
+                [lData[i].astype(np.float32) for i in range(len(lName))], axis=len(dims)
+            )
             arr = np.ascontiguousarray(arr)
             newarr = arr.view(dtype=mattype4)
             newarr = newarr.reshape(newarr.shape[:-1])

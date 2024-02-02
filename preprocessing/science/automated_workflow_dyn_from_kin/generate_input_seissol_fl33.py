@@ -4,8 +4,8 @@ import glob
 import re
 import os
 import jinja2
-from sklearn.decomposition import PCA
 import shutil
+from scipy.spatial.distance import pdist
 
 # Get the directory of the script
 script_path = os.path.abspath(__file__)
@@ -18,7 +18,7 @@ templateEnv = jinja2.Environment(loader=templateLoader)
 vertex_pattern = re.compile(r"VRTX (\d+) ([\d.-]+) ([\d.-]+) ([\d.-]+)")
 allv = []
 faults = []
-ts_files = glob.glob(f"tmp/*.ts")
+ts_files = sorted(glob.glob(f"tmp/*.ts"))
 
 for i, fn in enumerate(ts_files):
     vertices = []
@@ -30,12 +30,12 @@ for i, fn in enumerate(ts_files):
                 vertices.append([x, y, z])
     allv.extend(vertices)
 xyz = np.array(allv)
-pca = PCA(n_components=1)
-points = pca.fit_transform(xyz)
-length = np.amax(points, axis=0) - np.amin(points, axis=0)
+
+# Find the maximum distance
+max_distance = np.max(pdist(xyz))
 
 # 3200 is the smallest wave speed in the model
-end_time = length[0] / 3200.0
+end_time = max_distance / 3200.0
 template_par = {}
 # well in theory we would need to run for end_time, but practically
 # a portion of it may be sufficient

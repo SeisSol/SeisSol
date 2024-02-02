@@ -53,7 +53,7 @@ gmsh.logger.start()
 vertex_pattern = re.compile(r"VRTX (\d+) ([\d.-]+) ([\d.-]+) ([\d.-]+)")
 allv = []
 faults = []
-ts_files = glob.glob(f"tmp/*.ts")
+ts_files = sorted(glob.glob(f"tmp/*.ts"))
 
 for i, fn in enumerate(ts_files):
     vertices = []

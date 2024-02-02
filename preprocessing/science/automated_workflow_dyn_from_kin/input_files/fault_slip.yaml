@@ -2,7 +2,7 @@
 [fault_slip, strike_slip, dip_slip]: !EvalModel
     parameters: [strike_slip, dip_slip]
     model: !Switch
-        [strike_slip, dip_slip]: !Include 'yaml_file/FL33_34_fault.yaml'
+        [strike_slip, dip_slip]: !Include 'yaml_files/FL33_34_fault.yaml'
     components: !LuaMap
       returns: [fault_slip, strike_slip, dip_slip]
       function: |

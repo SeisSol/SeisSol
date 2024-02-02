@@ -327,6 +327,8 @@ class MultiFaultPlane:
     def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj, instantaneous=False):
         """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
 
+        if not os.path.exists("yaml_files"):
+            os.makedirs("yaml_files")
         # Generate yaml file loading ASAGI file
         nplanes = len(self.fault_planes)
         template_yaml = f"""!Switch
@@ -343,7 +345,7 @@ class MultiFaultPlane:
             hw = fp.affine_map["hw"]
             t1 = fp.affine_map["t1"]
             t2 = fp.affine_map["t2"]
-            fp.write_ts_file(f"{prefix}{p+1}")
+            fp.write_ts_file(f"{prefix}{fault_id}")
 
             template_yaml += f"""      - !GroupFilter
         groups: {fault_id}
@@ -386,7 +388,7 @@ class MultiFaultPlane:
         end
         """
 
-        fname = f"FL33_34_fault.yaml"
+        fname = "yaml_files/FL33_34_fault.yaml"
         with open(fname, "w") as fid:
             fid.write(template_yaml)
         print(f"done writing {fname}")

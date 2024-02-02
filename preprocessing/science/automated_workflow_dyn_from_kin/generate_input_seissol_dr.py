@@ -32,28 +32,12 @@ def render_file(template_par, template_fname, out_fname):
     print(f"done creating {out_fname}")
 
 
-for B in aB:
-    template_par = {"B": B}
-    fn_tractions = f"yaml_files/tractions_B{B}.yaml"
-    render_file(template_par, "tractions.tmpl.yaml", fn_tractions)
-
 hypo_z = np.loadtxt("tmp/hypocenter.txt")[2] * -1e3
 
-for C in aC:
-    template_par = {"C": C, "hypo_z": hypo_z}
-    fn_common = f"yaml_files/common2all_C{C}.yaml"
-    render_file(template_par, "common2all.tmpl.yaml", fn_common)
-
 for B in aB:
-    fn_tractions = f"yaml_files/tractions_B{B}.yaml"
     for C in aC:
-        fn_common = f"yaml_files/common2all_C{C}.yaml"
         for R in aR:
-            template_par = {
-                "R": R,
-                "common2all_fname": fn_common,
-                "tractions_fname": fn_tractions,
-            }
+            template_par = {"R": R, "B": B, "C": C, "hypo_z": hypo_z}
             fn_fault = f"yaml_files/fault_B{B}_C{C}_R{R}.yaml"
             render_file(template_par, "fault.tmpl.yaml", fn_fault)
 
@@ -64,9 +48,6 @@ for B in aB:
             fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
             render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
-shutil.copy(
-    f"{input_file_dir}/smooth_PREM_material.yaml",
-    "yaml_files/smooth_PREM_material.yaml",
-)
-shutil.copy(f"{input_file_dir}/mud.yaml", "yaml_files/mud.yaml")
-shutil.copy(f"{input_file_dir}/rake.yaml", "yaml_files/rake.yaml")
+fnames = ["smooth_PREM_material.yaml", "mud.yaml", "rake.yaml", "fault_slip.yaml"]
+for fn in fnames:
+    shutil.copy(f"{input_file_dir}/{fn}", f"yaml_files/{fn}")

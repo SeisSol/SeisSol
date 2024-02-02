@@ -2,30 +2,85 @@
 
 [mu_d]: !Include yaml_files/mud.yaml
 
-[mu_s]: !EvalModel
-    parameters: [T_n, Tau0, DeltaS, R, mu_d]
+[T_s, T_d, T_n, mu_s, cohesion]: !EvalModel
+    parameters: [Ts0, Td0, mu_d, z, rake, DeltaS, R]
     model: !Switch
-        [T_n, Tau0]: !Include {{ tractions_fname }}
+        [Ts0, Td0]: !Include yaml_files/Ts0Td0.yaml
         [mu_d]: !Include yaml_files/mud.yaml
+        [rake]: !Include yaml_files/rake.yaml
+        [z]: !AffineMap
+          matrix:
+            z: [0.0, 0.0, 1.0]
+          translation:
+            z: 0.0
         [DeltaS,R]: !ConstantMap
            map:
              DeltaS: 100000
              R: {{ R }}
     components: !LuaMap
-      returns: [mu_s]
+      returns: [T_s, T_d, T_n, cohesion, mu_s]
       function: |
        function f (x)
+        T_n = math.min(-10^6, 0.2*2700*9.8*x['z'])
+        sigma_n = math.abs(T_n)
+
+        depthIncreasingCohesion = 6000.0
+        cohesion = -0.5e6  - 1e6 * math.max(0, (x['z'] + depthIncreasingCohesion) / depthIncreasingCohesion)
+
+        T_s = math.cos(x['rake']) * x['mu_d']*sigma_n - {{ B }} * x['Ts0']
+        T_d = math.sin(x['rake']) * x['mu_d']*sigma_n - {{ B }} * x['Td0']
+        Tau0 =  math.sqrt(T_s^2 + T_d^2)
+        mu_smax = 1.5
+        Tau0_max = sigma_n * ( x['mu_d'] + (mu_smax - x['mu_d'] - cohesion/sigma_n) * x['R'])
+        if (Tau0 > Tau0_max) then
+          T_s = T_s * Tau0_max/Tau0
+          T_d = T_d * Tau0_max/Tau0
+          Tau0 =  math.sqrt(T_s^2 + T_d^2)
+        end
+        mu_s =  x['mu_d'] + (Tau0/sigma_n - x['mu_d'])/x['R'] + cohesion/sigma_n
         return {
-          -- mu_s =  math.min(10, -(x['Tau0'] + x['DeltaS'])/x['T_n'])
-          mu_s =  math.max(x['mu_d'], math.min(10, x['mu_d'] + (-x['Tau0']/x['T_n']-x['mu_d'])/x['R']))
+          T_s = T_s,
+          T_d = T_d,
+          T_n = T_n,
+          cohesion = cohesion,
+          mu_s = mu_s
         }
         end
 
-[T_s, T_d, T_n]: !Include {{ tractions_fname }}
 
-[forced_rupture_time, cohesion, d_c]: !Include {{ common2all_fname }}
 [Tnuc_n, Tnuc_s, Tnuc_d]: !ConstantMap
   map:
     Tnuc_n: 0
     Tnuc_s: 0
     Tnuc_d: 0
+
+[forced_rupture_time]: !LuaMap
+  returns: [forced_rupture_time]
+  function: |
+      function f (x)
+        xha = {0, 0, {{ hypo_z }}}
+        r_crita = 2500.0
+        ra = math.sqrt((x["x"]-xha[1])^2 + (x["y"]-xha[2])^2 + (x["z"]-xha[3])^2 )
+        Vs = 3464.0
+        if (ra <= r_crita) then
+          forced_rupture_time = ra/(0.7*Vs)+(0.081*r_crita/(0.7*Vs))*(1.0/(1.0-(ra/r_crita)^2)-1.0)
+        else
+          forced_rupture_time = 1000000000.0
+        end
+        return {
+          forced_rupture_time = forced_rupture_time
+        }
+      end
+
+[d_c]: !EvalModel
+    parameters: [fault_slip]
+    model: !Switch
+        [fault_slip]: !Include yaml_files/fault_slip.yaml
+    components: !LuaMap
+      returns: [d_c]
+      function: |
+       function f (x)
+        return {
+          d_c =  math.max(0.02, x["fault_slip"] * {{ C }});
+        }
+        end
