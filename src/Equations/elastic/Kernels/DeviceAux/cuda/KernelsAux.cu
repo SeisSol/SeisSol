@@ -958,12 +958,12 @@ __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ out
             real n1 = coordinates[VECTOR(0 + d * 3, 9)];
             real n2 = coordinates[VECTOR(1 + d * 3, 9)];
             real n3 = coordinates[VECTOR(2 + d * 3, 9)];
-            outRow[0] += -n1 * l2mu * inRow[0] - lambda * (n2 * inRow[1] + n3 * inRow[2]);
-            outRow[1] += -n2 * l2mu * inRow[1] - lambda * (n1 * inRow[0] + n3 * inRow[2]);
-            outRow[2] += -n3 * l2mu * inRow[2] - lambda * (n1 * inRow[0] + n2 * inRow[1]);
-            outRow[3] += -mu * (n2 * inRow[0] + n1 * inRow[1]);
-            outRow[4] += -mu * (n3 * inRow[1] + n2 * inRow[2]);
-            outRow[5] += -mu * (n1 * inRow[2] + n3 * inRow[0]);
+            outRow[0] += -n1 * l2mu * inRow[6] - lambda * (n2 * inRow[7] + n3 * inRow[8]);
+            outRow[1] += -n2 * l2mu * inRow[7] - lambda * (n1 * inRow[6] + n3 * inRow[8]);
+            outRow[2] += -n3 * l2mu * inRow[8] - lambda * (n1 * inRow[6] + n2 * inRow[7]);
+            outRow[3] += -mu * (n2 * inRow[6] + n1 * inRow[7]);
+            outRow[4] += -mu * (n3 * inRow[7] + n2 * inRow[8]);
+            outRow[5] += -mu * (n1 * inRow[8] + n3 * inRow[6]);
             outRow[6] += -rhoD * (n1 * inRow[0] + n2 * inRow[3] + n3 * inRow[5]);
             outRow[7] += -rhoD * (n1 * inRow[3] + n2 * inRow[1] + n3 * inRow[4]);
             outRow[8] += -rhoD * (n1 * inRow[5] + n2 * inRow[4] + n3 * inRow[2]);
@@ -990,8 +990,8 @@ __device__ __forceinline__ void dgkernelInit(real scale, real* __restrict__ acc,
 __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
     if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
         real rhoD = stardata[VECTOR(0, 3)];
-        real mu = stardata[VECTOR(1, 3)];
-        real lambda = stardata[VECTOR(2, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)];
         /*dgkernelPart1<56, 35, 56>(temp, dQ6, derivative6X, derivative6Y, derivative6Z);
         dgkernelPart2<35, 56>(dQ5, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernelPart1<35, 20, 56>(temp, dQ5, derivative6X, derivative6Y, derivative6Z);
