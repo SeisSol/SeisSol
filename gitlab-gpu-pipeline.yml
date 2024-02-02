@@ -1,7 +1,4 @@
 default:
-    tags:
-        - sccs
-        - helper
     image:
         name: $CI_REGISTRY_USER/$gpu_image_name:$gpu_image_version
         entrypoint: [""]
@@ -182,6 +179,9 @@ gpu_run_tpv:
 check_faultoutput:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: gpu_run_tpv
     variables:
@@ -206,6 +206,9 @@ check_faultoutput:
 check_receivers:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: gpu_run_tpv
     variables:
@@ -228,6 +231,9 @@ check_receivers:
 gpu_check_energies:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: gpu_run_tpv
     variables:
