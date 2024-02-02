@@ -4,7 +4,7 @@ default:
         entrypoint: [""]
 
 variables:
-    HOST: "snb"
+    HOST: "noarch" # actually possible: snb
     GPU_VENDOR: "nvidia"
     GPU_MODEL: "sm_60"
 
