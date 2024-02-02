@@ -58,7 +58,7 @@ cd .. && rm -rf ./hdf5*
 
 
 RUN export VERSION=4.7.4 && \
-wget --progress=bar:force:noscroll https://github.com/Unidata/netcdf-c/archive/refs/tags/v{VERSION}.tar.gz && \
+wget --progress=bar:force:noscroll https://github.com/Unidata/netcdf-c/archive/refs/tags/v${VERSION}.tar.gz && \
 tar -xvf netcdf-c-${VERSION}.tar.gz && \
 cd netcdf-c-${VERSION} && \
 CFLAGS="-fPIC" CC=/usr/bin/h5pcc ./configure --enable-shared=no --prefix=/usr --disable-dap && \
