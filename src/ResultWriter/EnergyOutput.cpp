@@ -50,6 +50,8 @@ void EnergyOutput::init(
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
+  maxTimeFromRuptureEnd = parameters.maxTimeFromRuptureEnd;
+  isCheckAbortCriteraEnabled = std::isfinite(maxTimeFromRuptureEnd);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -74,8 +76,12 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
+  reduceMinTimeSinceSlipRateBelowThreshold();
   if (isTerminalOutputEnabled) {
     printEnergies();
+  }
+  if (isCheckAbortCriteraEnabled) {
+    checkAbortCriterion();
   }
   if (isFileOutputEnabled) {
     writeEnergies(time);
@@ -151,6 +157,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
   double& potency = energiesStorage.potency();
+  minTimeSinceSlipRateBelowThreshold = std::numeric_limits<double>::max();
+
 #ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
@@ -247,6 +255,22 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                            seissol::dr::misc::numberOfBoundaryGaussPoints;
         potency += potencyIncrease;
         seismicMoment += potencyIncrease * mu;
+      }
+    }
+
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for reduction(min : minTimeSinceSlipRateBelowThreshold) default(none)         \
+    shared(it, drEnergyOutput, faceInformation)
+#endif
+    for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
+      if (faceInformation[i].plusSideOnThisRank) {
+        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+          if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] <
+              minTimeSinceSlipRateBelowThreshold) {
+            minTimeSinceSlipRateBelowThreshold =
+                drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
+          }
+        }
       }
     }
   }
@@ -460,6 +484,25 @@ void EnergyOutput::reduceEnergies() {
 #endif
 }
 
+void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
+#ifdef USE_MPI
+  const auto rank = MPI::mpi.rank();
+  const auto& comm = MPI::mpi.comm();
+
+  if (rank == 0) {
+    MPI_Reduce(MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+  } else {
+    MPI_Reduce(&minTimeSinceSlipRateBelowThreshold,
+               &minTimeSinceSlipRateBelowThreshold,
+               1,
+               MPI_DOUBLE,
+               MPI_MIN,
+               0,
+               comm);
+  }
+#endif
+}
+
 void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
@@ -517,6 +560,33 @@ void EnergyOutput::printEnergies() {
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
       logError() << "Detected Inf/NaN in energies. Aborting.";
     }
+  }
+}
+void EnergyOutput::checkAbortCriterion() {
+  const auto rank = MPI::mpi.rank();
+  bool abort = false;
+  if (rank == 0) {
+    if (minTimeSinceSlipRateBelowThreshold > 0) {
+      if (minTimeSinceSlipRateBelowThreshold < maxTimeFromRuptureEnd) {
+        logInfo(rank) << "all slip rates are below threshold since"
+                      << minTimeSinceSlipRateBelowThreshold
+                      << "s (lower than the abort criteria: " << maxTimeFromRuptureEnd << "s)";
+      } else {
+        logInfo(rank) << "all slip rates are below threshold since"
+                      << minTimeSinceSlipRateBelowThreshold
+                      << "s (greater than the abort criteria: " << maxTimeFromRuptureEnd << "s)";
+        logInfo(rank) << "aborting...";
+        abort = true;
+      }
+    }
+  }
+#ifdef USE_MPI
+  const auto& comm = MPI::mpi.comm();
+  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+#endif
+  if (abort) {
+    seissol::MPI::mpi.finalize();
+    exit(0);
   }
 }
 

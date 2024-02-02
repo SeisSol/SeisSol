@@ -41,6 +41,7 @@ struct EnergyOutputParameters {
   int computeVolumeEnergiesEveryOutput;
   double interval;
   bool terminalOutput;
+  double maxTimeFromRuptureEnd;
 };
 
 struct FreeSurfaceOutputParameters {

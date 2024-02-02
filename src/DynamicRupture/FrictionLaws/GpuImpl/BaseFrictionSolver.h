@@ -111,6 +111,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSpaceWeights{this->devSpaceWeights};
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
+      auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       this->queue.submit([&](sycl::handler& cgh) {
@@ -133,6 +134,14 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      pointIndex);
 
           if (isFrictionEnergyRequired) {
+
+            common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                devSlipRateMagnitude[ltsFace],
+                devRuptureTimePending[ltsFace],
+                devEnergyData[ltsFace],
+                devSumDt,
+                pointIndex);
+
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
                                                         devQInterpolatedMinus[ltsFace],

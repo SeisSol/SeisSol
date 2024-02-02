@@ -118,6 +118,12 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_END(myRegionHandle)
 
       if (this->drParameters->isFrictionEnergyRequired) {
+
+        common::updateTimeSinceSlipRateBelowThreshold(slipRateMagnitude[ltsFace],
+                                                      ruptureTimePending[ltsFace],
+                                                      energyData[ltsFace],
+                                                      this->sumDt);
+
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

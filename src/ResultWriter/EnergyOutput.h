@@ -79,7 +79,11 @@ class EnergyOutput : public Module {
 
   void reduceEnergies();
 
+  void reduceMinTimeSinceSlipRateBelowThreshold();
+
   void printEnergies();
+
+  void checkAbortCriterion();
 
   void writeHeader();
 
@@ -93,6 +97,7 @@ class EnergyOutput : public Module {
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
+  bool isCheckAbortCriteraEnabled = false;
   int computeVolumeEnergiesEveryOutput = 1;
   int outputId = 0;
 
@@ -108,6 +113,8 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
+  double minTimeSinceSlipRateBelowThreshold;
+  double maxTimeFromRuptureEnd;
 };
 
 } // namespace writer

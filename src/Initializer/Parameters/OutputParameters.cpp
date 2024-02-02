@@ -88,8 +88,12 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
       reader->readWithDefault("computevolumeenergieseveryoutput", 1);
   const auto terminalOutput = reader->readWithDefault("energyterminaloutput", false);
 
+  auto* timeReader = baseReader->readSubNode("abortcriteria");
+  const auto maxTimeFromRuptureEnd =
+      timeReader->readWithDefault("maxtimefromruptureend", std::numeric_limits<double>::infinity());
+
   return EnergyOutputParameters{
-      enabled, computeVolumeEnergiesEveryOutput, interval, terminalOutput};
+      enabled, computeVolumeEnergiesEveryOutput, interval, terminalOutput, maxTimeFromRuptureEnd};
 }
 
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader) {
