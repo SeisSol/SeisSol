@@ -1006,14 +1006,19 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size
         real coeff = scale;
         dgkernelInit<56>(coeff, I, Q);
         dgkernel56(temp, Q);
+        coeff *= scale / 2;
         dgkernelPart2<35, 56>(coeff, dQ5, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel35(temp, dQ5);
+        coeff *= scale / 3;
         dgkernelPart2<20, 56>(coeff, dQ4, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel20(temp, dQ4);
+        coeff *= scale / 4;
         dgkernelPart2<10, 56>(coeff, dQ3, I,  temp, coordinates, lambda, mu, rhoD);
         dgkernel10(tempreg, dQ3);
+        coeff *= scale / 5;
         dgkernelPart2<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
         dgkernel4(tempreg, dQ2);
+        coeff *= scale / 6;
         dgkernelPart2<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
     }
 }
