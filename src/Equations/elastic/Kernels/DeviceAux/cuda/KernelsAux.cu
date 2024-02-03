@@ -442,7 +442,7 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
 constexpr size_t InterleaveMultiple = 1;
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count, size_t offset) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -451,7 +451,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        sourcePtrs[j] = source[block * Blocksize + j];
+        sourcePtrs[j] = source[block * Blocksize + j] + offset;
         notZero |= sourcePtrs[j] != nullptr;
       }
       if (notZero) {
@@ -480,7 +480,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
 }
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count, size_t offset) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -489,7 +489,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        targetPtrs[j] = target[block * Blocksize + j];
+        targetPtrs[j] = target[block * Blocksize + j] + offset;
         notZero |= targetPtrs[j] != nullptr;
       }
       if (notZero) {
@@ -517,18 +517,18 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
     }
 }
 
-void interleaveLauncher(std::size_t count, size_t realsize, size_t paddedsize, std::size_t realdim, std::size_t paddeddim, const real** indata, real* outdata, void* stream) {
+void interleaveLauncher(std::size_t count, size_t realsize, size_t paddedsize, std::size_t realdim, std::size_t paddeddim, std::size_t offset, const real** indata, real* outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count);
+  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count, offset);
   CHECK_ERR;
 }
-void deinterleaveLauncher(std::size_t count, std::size_t realsize, std::size_t paddedsize, std::size_t realdim, std::size_t paddeddim, const real* indata, real** outdata, void* stream) {
+void deinterleaveLauncher(std::size_t count, std::size_t realsize, std::size_t paddedsize, std::size_t realdim, std::size_t paddeddim, std::size_t offset, const real* indata, real** outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count);
+  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count, offset);
   CHECK_ERR;
 }
 
