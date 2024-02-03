@@ -338,7 +338,7 @@ __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ out
             #pragma unroll
             for (int j = 0; j < Quantities; ++j) {
                 if constexpr (N >= 10) {
-                    inRow[j] = temp[MATRIX(i, j * Quantities * d, N, Quantities * 3)];
+                    inRow[j] = temp[MATRIX(i, j + Quantities * d, N, Quantities * 3)];
                 }
                 else {
                     inRow[j] = temp[i * Quantities * 3 + (j + Quantities * d)];
