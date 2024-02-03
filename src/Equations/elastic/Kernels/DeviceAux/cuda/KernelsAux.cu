@@ -56,531 +56,6 @@ constexpr size_t AderMultiple = 1;
 #define MATRIX(I,J,N,M) (INDEX((I) + (J) * (N)) + OFFSET(Blocksize * (N) * (M)))
 #define VECTOR(I,N) (INDEX(I) + OFFSET(Blocksize * (N)))
 
-template<bool>
-__device__ __forceinline__ void assign(real& target, real source);
-
-template<>
-__device__ __forceinline__ void assign<false>(real& target, real source) {
-  target = source;
-}
-
-template<>
-__device__ __forceinline__ void assign<true>(real& target, real source) {
-  target += source;
-}
-
-template<bool>
-__device__ __forceinline__ void assign(float4& target, float4 source);
-
-template<>
-__device__ __forceinline__ void assign<false>(float4& target, float4 source) {
-  target = source;
-}
-
-template<>
-__device__ __forceinline__ void assign<true>(float4& target, float4 source) {
-  float4 target2;
-  target2.x = target.x + source.x;
-  target2.y = target.y + source.y;
-  target2.z = target.z + source.z;
-  target2.w = target.w + source.w;
-  target = target2;
-}
-
-template<size_t TileN1, size_t TileN2, size_t TileK, size_t Order, bool Override>
-__device__ __forceinline__ void dgkernel(real* __restrict__ output, const real* __restrict__ dQ, const real* __restrict__ coordinates, const real* __restrict__ derivative,
-    real lambda, real mu, real rhoD, int offset) {
-    real l2mu = lambda + 2 * mu;
-    real n1 = coordinates[VECTOR(offset, 9)];
-    real n2 = coordinates[VECTOR(offset+1, 9)];
-    real n3 = coordinates[VECTOR(offset+2, 9)];
-
-{
-    constexpr size_t TileN = TileN1;
-        for (int i = 0; i < Functions<Order>; i += TileN) {
-        {
-            constexpr size_t TileM = 6;
-            constexpr int j = 0;
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                for (int k = 0; k < Functions<Order+1>; k += TileK) {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivative[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<Override>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][0] + n2 * result[ii][3] + n3 * result[ii][5]));
-                assign<Override>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][3] + n2 * result[ii][1] + n3 * result[ii][4]));
-                assign<Override>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][5] + n2 * result[ii][4] + n3 * result[ii][2]));
-            }
-        }
-    }
-}
-    {
-        constexpr size_t TileN = TileN2;
-    for (int i = 0; i < Functions<Order>; i += TileN) {
-        {
-            constexpr size_t TileM = 3;
-            constexpr int j = 6;
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                for (int k = 0; k < Functions<Order+1>; k += TileK) {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivative[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<Override>(output[MATRIX(i+ii, 0, Functions<Order>, Quantities)], -n1 * l2mu * result[ii][0] - lambda * (n2 * result[ii][1] + n3 * result[ii][2]));
-                assign<Override>(output[MATRIX(i+ii, 1, Functions<Order>, Quantities)], -n2 * l2mu * result[ii][1] - lambda * (n1 * result[ii][0] + n3 * result[ii][2]));
-                assign<Override>(output[MATRIX(i+ii, 2, Functions<Order>, Quantities)], -n3 * l2mu * result[ii][2] - lambda * (n1 * result[ii][0] + n2 * result[ii][1]));
-                assign<Override>(output[MATRIX(i+ii, 3, Functions<Order>, Quantities)], -mu * (n2 * result[ii][0] + n1 * result[ii][1]));
-                assign<Override>(output[MATRIX(i+ii, 4, Functions<Order>, Quantities)], -mu * (n3 * result[ii][1] + n2 * result[ii][2]));
-                assign<Override>(output[MATRIX(i+ii, 5, Functions<Order>, Quantities)], -mu * (n1 * result[ii][2] + n3 * result[ii][0]));
-            }
-        }
-    }
-    }
-}
-
-template<size_t TileN1, size_t TileN2, size_t TileK, size_t Order, bool Override>
-__device__ __forceinline__ void dgkernel2b(real* __restrict__ output, const real* __restrict__ dQ, const real* __restrict__ coordinates, const real* __restrict__ derivativeX,
-const real* __restrict__ derivativeY, const real* __restrict__ derivativeZ,
-    real lambda, real mu, real rhoD, int offset) {
-    real l2mu = lambda + 2 * mu;
-    real n1 = coordinates[VECTOR(offset, 9)];
-    real n2 = coordinates[VECTOR(offset+1, 9)];
-    real n3 = coordinates[VECTOR(offset+2, 9)];
-    real n4 = coordinates[VECTOR(offset+3, 9)];
-    real n5 = coordinates[VECTOR(offset+4, 9)];
-    real n6 = coordinates[VECTOR(offset+5, 9)];
-    real n7 = coordinates[VECTOR(offset+6, 9)];
-    real n8 = coordinates[VECTOR(offset+7, 9)];
-    real n9 = coordinates[VECTOR(offset+8, 9)];
-
-{
-    constexpr size_t TileN = TileN1;
-        for (int i = 0; i < Functions<Order>; i += TileN) {
-        {
-            constexpr size_t TileM = 3;
-            constexpr int j = 0;
-            for (int k = 0; k < Functions<Order+1>; k += TileK) {
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeX[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][0]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n2 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n3 * result[ii][2]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeY[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n4 * result[ii][0]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n5 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n6 * result[ii][2]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeZ[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n7 * result[ii][0]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n8 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n9 * result[ii][2]));
-            }
-            }
-        }}
-    }
-}
-{
-    constexpr size_t TileN = TileN1;
-        for (int i = 0; i < Functions<Order>; i += TileN) {
-        {
-            constexpr size_t TileM = 3;
-            constexpr int j = 3;
-            for (int k = 0; k < Functions<Order+1>; k += TileK) {
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeX[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n2 * result[ii][0] + n3 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][0] + n3 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n1 * result[ii][2] + n2 * result[ii][1]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeY[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n5 * result[ii][0] + n6 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n4 * result[ii][0] + n6 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n4 * result[ii][2] + n5 * result[ii][1]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeZ[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 6, Functions<Order>, Quantities)], -rhoD * (n8 * result[ii][0] + n9 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 7, Functions<Order>, Quantities)], -rhoD * (n7 * result[ii][0] + n9 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 8, Functions<Order>, Quantities)], -rhoD * (n7 * result[ii][2] + n8 * result[ii][1]));
-            }
-            }
-        }}
-    }
-}
-    {
-        constexpr size_t TileN = TileN2;
-    for (int i = 0; i < Functions<Order>; i += TileN) {
-        {
-            constexpr size_t TileM = 3;
-            constexpr int j = 6;
-            for (int k = 0; k < Functions<Order+1>; k += TileK){
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeX[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 0, Functions<Order>, Quantities)], -n1 * l2mu * result[ii][0] - lambda * (n2 * result[ii][1] + n3 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 1, Functions<Order>, Quantities)], -n2 * l2mu * result[ii][1] - lambda * (n1 * result[ii][0] + n3 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 2, Functions<Order>, Quantities)], -n3 * l2mu * result[ii][2] - lambda * (n1 * result[ii][0] + n2 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 3, Functions<Order>, Quantities)], -mu * (n2 * result[ii][0] + n1 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 4, Functions<Order>, Quantities)], -mu * (n3 * result[ii][1] + n2 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 5, Functions<Order>, Quantities)], -mu * (n1 * result[ii][2] + n3 * result[ii][0]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeY[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 0, Functions<Order>, Quantities)], -n1 * l2mu * result[ii][0] - lambda * (n5 * result[ii][1] + n6 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 1, Functions<Order>, Quantities)], -n2 * l2mu * result[ii][1] - lambda * (n4 * result[ii][0] + n6 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 2, Functions<Order>, Quantities)], -n3 * l2mu * result[ii][2] - lambda * (n4 * result[ii][0] + n5 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 3, Functions<Order>, Quantities)], -mu * (n5 * result[ii][0] + n4 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 4, Functions<Order>, Quantities)], -mu * (n6 * result[ii][1] + n5 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 5, Functions<Order>, Quantities)], -mu * (n4 * result[ii][2] + n6 * result[ii][0]));
-            }
-            }
-            {
-            real result[TileN][TileM] = { 0 };
-            {
-
-            // derivative * dQ
-    // #pragma unroll
-                {
-    #pragma unroll
-                        for (int jj = 0; jj < TileM; ++jj) {
-    #pragma unroll
-                            for (int kk = 0; kk < TileK; ++kk) {
-                                real dQLocal = dQ[MATRIX(k+kk, j+jj, Functions<Order+1>, Quantities)];
-    #pragma unroll
-                                for (int ii = 0; ii < TileN; ++ii) {
-                                result[ii][jj]
-                                    +=
-                                    dQLocal
-                                    * derivativeZ[k * TileN + kk * TileN + ii + i * Functions<6>];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // star 0
-
-            #pragma unroll
-            for (int ii = 0; ii < TileN; ++ii) {
-                assign<false>(output[MATRIX(i+ii, 0, Functions<Order>, Quantities)], -n1 * l2mu * result[ii][0] - lambda * (n8 * result[ii][1] + n9 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 1, Functions<Order>, Quantities)], -n2 * l2mu * result[ii][1] - lambda * (n7 * result[ii][0] + n9 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 2, Functions<Order>, Quantities)], -n3 * l2mu * result[ii][2] - lambda * (n7 * result[ii][0] + n8 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 3, Functions<Order>, Quantities)], -mu * (n8 * result[ii][0] + n7 * result[ii][1]));
-                assign<false>(output[MATRIX(i+ii, 4, Functions<Order>, Quantities)], -mu * (n9 * result[ii][1] + n8 * result[ii][2]));
-                assign<false>(output[MATRIX(i+ii, 5, Functions<Order>, Quantities)], -mu * (n7 * result[ii][2] + n9 * result[ii][0]));
-            }
-            }
-        }
-        }
-    }
-    }
-}
-
-template<size_t Order, size_t Block, bool Override>
-__device__ __forceinline__ void sumkernel(real* __restrict__ I, const real* __restrict__ dQ, real scale) {
-    // #pragma unroll
-    for (int i = 0; i < Functions<Order>; i += Block) {
-#pragma unroll
-      for (int ii = 0; ii < Block - (Block % 4); ii += 4) {
-#pragma unroll
-        for (int j = 0; j < Quantities; ++j) {
-          float4 preQ = *((float4*)&dQ[MATRIX4(i+ii, j, Functions<Order>, Quantities)]);
-          preQ.x *= scale;
-          preQ.y *= scale;
-          preQ.z *= scale;
-          preQ.w *= scale;
-            assign<Override>(*((float4*)&I[MATRIX4(i+ii, j, Functions<6>, Quantities)]), preQ);
-        }
-      }
-#pragma unroll
-      for (int ii = Block - (Block % 4); ii < Block; ++ii) {
-#pragma unroll
-        for (int j = 0; j < Quantities; ++j) {
-            assign<Override>(I[MATRIX(i+ii, j, Functions<6>, Quantities)], scale * dQ[MATRIX(i+ii, j, Functions<Order>, Quantities)]);
-        }
-      }
-    }
-}
-
-template<size_t Order, size_t Block>
-__device__ __forceinline__ void copykernel(real* __restrict__ I, const real* __restrict__ dQ) {
-  constexpr size_t TotalSize = Functions<Order> * Quantities;
-    for (int i = 0; i < TotalSize; i += Block) {
-#pragma unroll
-      for (int ii = 0; ii < Block; ii+=4) {
-            *((float4*)&I[threadIdx.x * 4 + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]) = *((float4*)&dQ[threadIdx.x * 4 + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]);
-      }
-    }
-    int i = (TotalSize / Block) * Block;
-#pragma unroll
-    for (int ii = 0; ii < (TotalSize % Block) - ((TotalSize % Block) % 4); ii+=4) {
-          *((float4*)&I[threadIdx.x * 4 + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]) = *((float4*)&dQ[threadIdx.x * 4 + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]);
-    }
-    i = (TotalSize / 4) * 4;
-#pragma unroll
-    for (int ii = 0; ii < TotalSize % 4; ++ii) {
-          *((float*)&I[threadIdx.x + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]) = *((float*)&dQ[threadIdx.x + (i + ii) * Blocksize + OFFSET(TotalSize*Blocksize)]);
-    }
-}
-
 __device__ __forceinline__ void dgkernel56(real* __restrict__ temp, const real* __restrict__ dQ) {
 for (int j = 0; j < Quantities; ++j) {
     real column[56];
@@ -845,92 +320,6 @@ for (int j = 0; j < Quantities; ++j) {
     }
 }
 
-
-
-template<size_t N, size_t N1, size_t Nmax>
-__device__ __forceinline__ void dgkernelPart1(real* __restrict__ temp, const real* __restrict__ dQ, const real* __restrict__ derivativeX,
-const real* __restrict__ derivativeY, const real* __restrict__ derivativeZ) {
-    constexpr size_t TileK = 12;
-    for (int j = 0; j < Quantities; ++j) {
-        float column[N1];
-        #pragma unroll
-        for (int i = 0; i < N1; ++i) {
-            column[i] = dQ[MATRIX(i, j, N1, Quantities)];
-        }
-        for (int i = 0; i < N; ++i) {
-            float outX = 0, outY = 0, outZ = 0;
-            constexpr int kr = N1 - (N1 % TileK);
-            /*
-            for (int k = 0; k < kr; k += TileK) {
-                #pragma unroll
-                for (int kk = 0; kk < TileK; ++kk) {
-                    outX += derivativeX[i * Nmax + k + kk] * column[k + kk];
-                }
-            }
-            #pragma unroll
-            for (int kk = 0; kk < N1 % TileK; ++kk) {
-                outX += derivativeX[i * Nmax + kr + kk] * column[kr + kk];
-            }
-            for (int k = 0; k < kr; k += TileK) {
-                #pragma unroll
-                for (int kk = 0; kk < TileK; ++kk) {
-                    outY += derivativeY[i * Nmax + k + kk] * column[k + kk];
-                }
-            }
-            #pragma unroll
-            for (int kk = 0; kk < N1 % TileK; ++kk) {
-                outY += derivativeY[i * Nmax + kr + kk] * column[kr + kk];
-            }
-            for (int k = 0; k < kr; k += TileK) {
-                #pragma unroll
-                for (int kk = 0; kk < TileK; ++kk) {
-                    outZ += derivativeZ[i * Nmax + k + kk] * column[k + kk];
-                }
-            }
-            #pragma unroll
-            for (int kk = 0; kk < N1 % TileK; ++kk) {
-                outZ += derivativeZ[i * Nmax + kr + kk] * column[kr + kk];
-            }
-            */
-            for (int k = 0; k < kr; k += TileK) {
-                /*#pragma unroll
-                for (int kk = 0; kk < TileK; ++kk) {
-                    outX += derivativeX[i * Nmax + k + kk] * column[k + kk];
-                    outY += derivativeY[i * Nmax + k + kk] * column[k + kk];
-                    outZ += derivativeZ[i * Nmax + k + kk] * column[k + kk];
-                }*/
-                #pragma unroll
-                for (int kk = 0; kk < TileK; kk += 4) {
-                    float4 dx = *(float4*)&derivativeX[i * Nmax + k + kk];
-                    float4 dy = *(float4*)&derivativeY[i * Nmax + k + kk];
-                    float4 dz = *(float4*)&derivativeZ[i * Nmax + k + kk];
-                    outX += dx.x * column[k + kk + 0];
-                    outY += dy.x * column[k + kk + 0];
-                    outZ += dx.x * column[k + kk + 0];
-                    outX += dx.y * column[k + kk + 1];
-                    outY += dy.y * column[k + kk + 1];
-                    outZ += dx.y * column[k + kk + 1];
-                    outX += dx.z * column[k + kk + 2];
-                    outY += dy.z * column[k + kk + 2];
-                    outZ += dx.z * column[k + kk + 2];
-                    outX += dx.w * column[k + kk + 3];
-                    outY += dy.w * column[k + kk + 3];
-                    outZ += dx.z * column[k + kk + 3];
-                }
-            }
-            #pragma unroll
-            for (int kk = 0; kk < N1 % TileK; ++kk) {
-                outX += derivativeX[i * Nmax + kr + kk] * column[kr + kk];
-                outY += derivativeY[i * Nmax + kr + kk] * column[kr + kk];
-                outZ += derivativeZ[i * Nmax + kr + kk] * column[kr + kk];
-            }
-            temp[MATRIX(i, j, N, Quantities * 3)] = outX;
-            temp[MATRIX(i, j + Quantities, N, Quantities * 3)] = outY;
-            temp[MATRIX(i, j + Quantities * 2, N, Quantities * 3)] = outZ;
-        }
-    }
-}
-
 template<size_t N, size_t Nmax>
 __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
     real lambda, real mu, real rhoD) {
@@ -979,11 +368,29 @@ __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ out
 template<size_t Nmax>
 __device__ __forceinline__ void dgkernelInit(real scale, real* __restrict__ acc, const real* __restrict__ dofs) {
     // TODO: move into first kernel
+    /*
         #pragma unroll
         for (int i = 0; i < Nmax; ++i) {
+          #pragma unroll
             for (int j = 0; j < Quantities; ++j) {
                 acc[MATRIX(i,j, Nmax, Quantities)] = scale * dofs[MATRIX(i,j, Nmax, Quantities)];
             }
+        }
+        */
+        std::size_t blockpos = Nmax * Quantities * Blocksize * (blockIdx.x * AderMultiple + threadIdx.y);
+        #pragma unroll
+        for (int i = 0; i < Nmax * Quantities - ((Nmax * Quantities) % 4); i += 4) {
+          float4 inres = *(float4*)&dofs[blockpos + Blocksize * i + threadIdx.x * 4];
+          inres.x *= scale;
+          inres.y *= scale;
+          inres.z *= scale;
+          inres.w *= scale;
+          *(float4*)&acc[blockpos + Blocksize * i + threadIdx.x * 4] = inres;
+        }
+        #pragma unroll
+        for (int i = Nmax * Quantities - ((Nmax * Quantities) % 4); i < Nmax * Quantities; ++i) {
+          real inres = dofs[blockpos + Blocksize * i + threadIdx.x];
+          acc[blockpos + Blocksize * i + threadIdx.x] = inres * scale;
         }
     }
 
@@ -992,16 +399,6 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size
         real rhoD = stardata[VECTOR(0, 3)];
         real lambda = stardata[VECTOR(1, 3)];
         real mu = stardata[VECTOR(2, 3)];
-        /*dgkernelPart1<56, 35, 56>(temp, dQ6, derivative6X, derivative6Y, derivative6Z);
-        dgkernelPart2<35, 56>(dQ5, I,  temp, coordinates, lambda, mu, rhoD);
-        dgkernelPart1<35, 20, 56>(temp, dQ5, derivative6X, derivative6Y, derivative6Z);
-        dgkernelPart2<20, 56>(dQ4, I,  temp, coordinates, lambda, mu, rhoD);
-        dgkernelPart1<20, 10, 56>(temp, dQ4, derivative6X, derivative6Y, derivative6Z);
-        dgkernelPart2<10, 56>(dQ3, I,  temp, coordinates, lambda, mu, rhoD);
-        dgkernelPart1<10, 4, 56>(temp, dQ3, derivative6X, derivative6Y, derivative6Z);
-        dgkernelPart2<4, 56>(dQ2, I,  temp, coordinates, lambda, mu, rhoD);
-        dgkernelPart1<4, 1, 56>(temp, dQ2, derivative6X, derivative6Y, derivative6Z);
-        dgkernelPart2<1, 56>(dQ1, I,  temp, coordinates, lambda, mu, rhoD);*/
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<56>(coeff, I, Q);
@@ -1023,54 +420,6 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size
     }
 }
 
-__global__ __launch_bounds__(AderMultiple*Blocksize) void kernelXTiled3x32(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates) {
-    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
-      real rhoD = stardata[VECTOR(0, 3)];
-      real mu = stardata[VECTOR(1, 3)];
-      real lambda = stardata[VECTOR(2, 3)];
-      
-      real scale1 = scale;
-      real scale2 = 1;
-      // TODO: zero init
-
-      copykernel<6, 32>(dQ6, Q);
-
-      // 56x9 -> 36x9
-      dgkernel2b<12, 12, 14, 5, true>(dQ5, Q, coordinates, derivative6X, derivative6Y, derivative6Z, lambda, mu, rhoD, 0);
-      sumkernel<5, 12, true>(I, dQ5, scale1);
-      // sumkernel<5, true>(I, dQ5, scale1);
-      scale1 *= scale;
-      scale2 *= scale;
-
-      // 36x9 -> 20x9
-      dgkernel2b<10, 10, 12, 4, true>(dQ4, dQ5, coordinates, derivative6X, derivative6Y, derivative6Z, lambda, mu, rhoD, 0);
-      sumkernel<4, 10, false>(I, dQ4, scale1);
-      scale1 *= scale / 2;
-      scale2 *= scale;
-
-      // 20x9 -> 10x9
-      dgkernel<10, 10, 10, 3, true>(dQ3, dQ3, coordinates, derivative6X, lambda, mu, rhoD, 0);
-      dgkernel<10, 10, 10, 3, false>(dQ3, dQ4, coordinates, derivative6Y, lambda, mu, rhoD, 3);
-      dgkernel<10, 10, 10, 3, false>(dQ3, dQ4, coordinates, derivative6Z, lambda, mu, rhoD, 6);
-      sumkernel<3, 10, false>(I, dQ3, scale1);
-      scale1 *= scale / 3;
-      scale2 *= scale / 2;
-
-      // 10x9 -> 4x9
-      dgkernel<4, 4, 10, 2, true>(dQ2, dQ3, coordinates, derivative6X, lambda, mu, rhoD, 0);
-      dgkernel<4, 4, 10, 2, false>(dQ2, dQ3, coordinates, derivative6Y, lambda, mu, rhoD, 3);
-      dgkernel<4, 4, 10, 2, false>(dQ2, dQ3, coordinates, derivative6Z, lambda, mu, rhoD, 6);
-      sumkernel<2, 4, false>(I, dQ2, scale1);
-      scale1 *= scale / 4;
-      scale2 *= scale / 3;
-
-      // 4x9 -> 1x9
-      dgkernel<1, 1, 4, 1, true>(dQ1, dQ2, coordinates, derivative6X, lambda, mu, rhoD, 0);
-      dgkernel<1, 1, 4, 1, false>(dQ1, dQ2, coordinates, derivative6Y, lambda, mu, rhoD, 3);
-      dgkernel<1, 1, 4, 1, false>(dQ1, dQ2, coordinates, derivative6Z, lambda, mu, rhoD, 6);
-      sumkernel<1, 1, false>(I, dQ1, scale1);
-    }
-}
 void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, real* temp, void* stream) {
   std::size_t blocks = (count + Blocksize - 1) / Blocksize;
   std::size_t launchSize = (blocks + AderMultiple - 1) / AderMultiple;
@@ -1090,15 +439,10 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   CHECK_ERR;
 }
 
-template<typename T>
-__device__ __forceinline__ T& iacc1(T* __restrict__ data, size_t size, size_t inblock, size_t block) {
-    return data[block * size + inblock + threadIdx.x];
-}
-
-constexpr size_t InterleaveMultiple = 3;
+constexpr size_t InterleaveMultiple = 1;
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t realdim, size_t paddeddim, size_t size, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(const T** source, T* target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -1111,10 +455,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
         notZero |= sourcePtrs[j] != nullptr;
       }
       if (notZero) {
-        for (size_t j = 0; j < size; j += Blocksize) {
+        for (size_t j = 0; j < paddedsize; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (block * Blocksize + i < count && j + threadIdx.x < size && sourcePtrs[i] != nullptr) {
+              if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && sourcePtrs[i] != nullptr) {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = sourcePtrs[i][j + threadIdx.x];
               }
               else {
@@ -1125,9 +469,9 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
-              if (i + j < size && index % paddeddim < realdim) {
+              if (i + j < paddedsize && index % paddeddim < realdim) {
                 size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
-                target[size * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
+                target[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
             }
         }
@@ -1136,7 +480,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
 }
 
 template<typename T>
-__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t realdim, size_t paddeddim, size_t size, size_t count) {
+__global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(const T* source, T** target, size_t realdim, size_t paddeddim, size_t realsize, size_t paddedsize, size_t count) {
     __shared__ T swap[Blocksize * (Blocksize * InterleaveMultiple + 1)];
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
@@ -1149,13 +493,13 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
         notZero |= targetPtrs[j] != nullptr;
       }
       if (notZero) {
-        for (size_t j = 0; j < size; j += Blocksize) {
+        for (size_t j = 0; j < paddedsize; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
-              if (index < size && index % paddeddim < realdim) {
+              if (index < paddedsize && index % paddeddim < realdim) {
                 size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
-                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = source[size * Blocksize * block + realindex * Blocksize + threadIdx.x];
+                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = source[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x];
               }
               else {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
@@ -1164,7 +508,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
             __syncwarp();
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (block * Blocksize + i < count && j + threadIdx.x < size && targetPtrs[i] != nullptr) {
+              if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && targetPtrs[i] != nullptr) {
                 targetPtrs[i][j + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
             }
@@ -1173,27 +517,19 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
     }
 }
 
-void interleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real** indata, real* outdata, void* stream) {
+void interleaveLauncher(std::size_t count, size_t realsize, size_t paddedsize, std::size_t realdim, std::size_t paddeddim, const real** indata, real* outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, size, count);
+  interleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count);
   CHECK_ERR;
 }
-void deinterleaveLauncher(std::size_t count, std::size_t size, std::size_t realdim, std::size_t paddeddim, const real* indata, real** outdata, void* stream) {
+void deinterleaveLauncher(std::size_t count, std::size_t realsize, std::size_t paddedsize, std::size_t realdim, std::size_t paddeddim, const real* indata, real** outdata, void* stream) {
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   dim3 grid((count + Blocksize * InterleaveMultiple - 1) / (Blocksize * InterleaveMultiple), 1, 1);
   dim3 block(Blocksize, InterleaveMultiple, 1);
-  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, size, count);
+  deinterleave<<<grid, block, 0, streamObject>>>(indata, outdata, realdim, paddeddim, realsize, paddedsize, count);
   CHECK_ERR;
-}
-
-void setConstantData(const real* startptr) {
-  cudaMemcpyToSymbol(derivative6X, startptr, sizeof(derivative6X));
-  startptr += sizeof(derivative6X) / sizeof(real);
-  cudaMemcpyToSymbol(derivative6Y, startptr, sizeof(derivative6Y));
-  startptr += sizeof(derivative6Y) / sizeof(real);
-  cudaMemcpyToSymbol(derivative6Z, startptr, sizeof(derivative6Z));
 }
 
 }
