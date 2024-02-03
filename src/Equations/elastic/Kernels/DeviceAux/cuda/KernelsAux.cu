@@ -452,6 +452,9 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
         sourcePtrs[j] = source[block * Blocksize + j] + offset;
+        if (sourcePtrs[j] != nullptr) {
+          sourcePtrs[j] += offset;
+        }
         notZero |= sourcePtrs[j] != nullptr;
       }
       if (notZero) {
@@ -489,7 +492,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        targetPtrs[j] = target[block * Blocksize + j] + offset;
+        targetPtrs[j] = target[block * Blocksize + j];
+        if (targetPtrs[j] != nullptr) {
+          targetPtrs[j] += offset;
+        }
         notZero |= targetPtrs[j] != nullptr;
       }
       if (notZero) {
