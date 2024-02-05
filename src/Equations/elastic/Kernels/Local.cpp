@@ -204,12 +204,19 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             // ezxNodal[q] = -0e-3;
 
             // tpv 5
-            exxNodal[q] = -1.8738e-4; // eps_xx0
-            eyyNodal[q] = -1.1225e-3; // eps_yy0
-            ezzNodal[q] = -1.8738e-4; // eps_zz0
-            exyNodal[q] = 1.0909e-3; // eps_xx0
-            eyzNodal[q] = -0e-1; // eps_yy0
-            ezxNodal[q] = -0e-1; // eps_zz0
+            // exxNodal[q] = -1.8738e-4; // eps_xx0
+            // eyyNodal[q] = -1.1225e-3; // eps_yy0
+            // ezzNodal[q] = -1.8738e-4; // eps_zz0
+            // exyNodal[q] = 1.0909e-3; // eps_xx0
+            // eyzNodal[q] = -0e-1; // eps_yy0
+            // ezxNodal[q] = -0e-1; // eps_zz0
+
+            exxNodal[q] = -4.6921e-5; // eps_xx0
+            eyyNodal[q] = -5.9238e-4; // eps_yy0
+            ezzNodal[q] = -4.6921e-5; // eps_zz0
+            exyNodal[q] = 4.5787e-3; // eps_xy0
+            eyzNodal[q] = -0e-1; // eps_yz0
+            ezxNodal[q] = -0e-1; // eps_zx0
           }
           kernel::damageAssignFToDQ d_convertInitialToModal;
           d_convertInitialToModal.dQModal = QInitialModal;

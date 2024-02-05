@@ -180,10 +180,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     // real epsInityz = -0e-1; // eps_yy0
     // real epsInitzx = -0e-1; // eps_zz0
 
-    real epsInitxx = -1.8738e-4; // eps_xx0
-    real epsInityy = -1.1225e-3; // eps_yy0
-    real epsInitzz = -1.8738e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInitxx = -4.6921e-5; // eps_xx0
+    real epsInityy = -5.9238e-4; // eps_yy0
+    real epsInitzz = -4.6921e-5; // eps_zz0
+    real epsInitxy = 4.5787e-3; // eps_xy0
     real epsInityz = -0e-1; // eps_yz0
     real epsInitzx = -0e-1; // eps_zx0
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
@@ -227,11 +227,13 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
       dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
 
       dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
     real dofsStressPlus[tensor::Q::size()]{};
