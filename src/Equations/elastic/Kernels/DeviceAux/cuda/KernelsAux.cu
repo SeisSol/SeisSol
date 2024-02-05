@@ -467,7 +467,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
-              if (i + j < paddedsize && index % paddeddim < realdim) {
+              if (index < paddedsize && index % paddeddim < realdim) {
                 size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
                 target[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
