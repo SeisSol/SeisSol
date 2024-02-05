@@ -135,6 +135,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/ActorStateStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Plasticity.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
