@@ -193,6 +193,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	removeBuffer(FreeSurfaceWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FreeSurfaceWriterExecutor::CELLS);
 	removeBuffer(FreeSurfaceWriterExecutor::VERTICES);
+	removeBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Register for the synchronization point hook
 	Modules::registerHook(*this, SIMULATION_START);
