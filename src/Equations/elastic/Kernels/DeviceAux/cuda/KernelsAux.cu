@@ -51,6 +51,7 @@ void taylorSumInner(TargetRealT* const __restrict__ target,
   static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize, "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {
+    __syncthreads();
     constexpr std::size_t Rounds = LoadSize / Blocksize;
     constexpr std::size_t Rest = LoadSize % Blocksize;
   #pragma unroll
