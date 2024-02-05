@@ -86,7 +86,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 #endif // USE_MPI
 		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-		m_xdmfWriter->init(variables, std::vector<const char*>(), true, true, true);
+		m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", true, true);
 		m_xdmfWriter->setMesh(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)),
 			nVertices, static_cast<const double*>(info.buffer(VERTICES)),
 			param.timestep != 0);

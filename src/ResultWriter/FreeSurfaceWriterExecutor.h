@@ -68,7 +68,8 @@ public:
 		OUTPUT_PREFIX = 0,
 		CELLS = 1,
 		VERTICES = 2,
-		VARIABLES0 = 3,
+		LOCATIONFLAGS = 3,
+		VARIABLES0 = 4,
 	};
 
 private:
@@ -114,6 +115,10 @@ public:
 		m_xdmfWriter->flush();
 
 		m_stopwatch.pause();
+	}
+
+	void setlocationFlagData(const unsigned int *locationFlags) {
+		m_xdmfWriter->writeExtraIntCellData(locationFlags);
 	}
 
 	void finalize()

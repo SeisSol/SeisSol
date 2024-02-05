@@ -128,7 +128,7 @@ public:
 	}
 
 	void setFaultTagsData(const unsigned int *faultTags) {
-		m_xdmfWriter->writeClusteringInfo(faultTags);
+		m_xdmfWriter->writeExtraIntCellData(faultTags);
 	}
 
 	void finalize()

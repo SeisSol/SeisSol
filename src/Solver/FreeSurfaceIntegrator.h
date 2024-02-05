@@ -100,7 +100,7 @@ public:
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
 public:
-  std::vector<double> locationFlags;
+  std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
 
