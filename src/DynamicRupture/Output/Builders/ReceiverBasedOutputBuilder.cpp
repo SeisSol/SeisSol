@@ -7,9 +7,9 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                                            seissol::initializers::LTS* userWpDescr,
-                                            seissol::initializers::Lut* userWpLut) {
+void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
+                                            seissol::initializer::LTS* userWpDescr,
+                                            seissol::initializer::Lut* userWpLut) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;

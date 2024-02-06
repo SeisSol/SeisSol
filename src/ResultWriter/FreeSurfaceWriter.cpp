@@ -109,7 +109,7 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometr
 void seissol::writer::FreeSurfaceWriter::setUp()	{
     setExecutor(m_executor);
     if (isAffinityNecessary()) {
-      const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+      const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
       logInfo(seissol::MPI::mpi.rank()) << "Free surface writer thread affinity:" <<
         parallel::Pinning::maskToString(freeCpus);
       if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -123,7 +123,7 @@ void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
 
-	seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
+	seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 
@@ -152,7 +152,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	unsigned nVertices;
 	constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
 
-	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
@@ -184,7 +184,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
-	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
+	param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 	param.backend = backend;
 	param.backupTimeStamp = backupTimeStamp;
 	callInit(param);
@@ -229,7 +229,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	call(param);
 
 	// Update the timestep in the checkpoint header
-	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
+	seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
 	m_stopwatch.pause();
 

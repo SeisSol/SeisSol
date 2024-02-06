@@ -10,6 +10,7 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Initializer/Parameters
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
@@ -24,8 +25,6 @@ format() {
     local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
-        src/Initializer/InputParameters.hpp
-        src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
