@@ -62,10 +62,11 @@ for i, fn in enumerate(ts_files):
             match = vertex_pattern.match(line)
             if match:
                 vertex_id, x, y, z = map(float, match.groups())
+                if z > -h_fault:
+                    z = 0.0
                 vertices.append([x, y, z])
     allv.extend(vertices)
     vertices = np.array(vertices)
-    print(vertices)
     # Define the points
     point1 = gmsh.model.occ.addPoint(*vertices[0, :])
     point2 = gmsh.model.occ.addPoint(*vertices[1, :])
@@ -120,6 +121,7 @@ for i in [1, 5]:
 for i, fn in enumerate(ts_files):
     fault_id = 3 if i == 0 else 64 + i
     tags[fault_id] = []
+
 
 for surface in all_surfaces:
     curves = gmsh.model.getBoundary([surface])

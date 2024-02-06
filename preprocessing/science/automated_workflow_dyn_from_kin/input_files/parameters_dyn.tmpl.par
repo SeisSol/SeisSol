@@ -22,15 +22,21 @@ RF_output_on = 0                               ! Rupture front ascii output
 OutputPointType = 4                            ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
+LtsWiggleFactorMin = 0.51 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
+LtsWiggleFactorStepsize = 0.05 ! Stepsize for wiggle factor grid search
+LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum difference between neighboring clusters during wiggle factor search
+LtsAutoMergeClusters = 1 !  0 or 1: Activates auto merging of clusters
+LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
+LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging clusters. Valid options: bestWiggleFactor / maxWiggleFactor
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
 ! parameterize paraview file output
 &Elementwise
 printtimeinterval_sec = 1.00                   ! Time interval at which output will be written
-OutputMask = 1 1 1 1 1 1 1 1 1 1 1             ! turn on and off fault outputs
+OutputMask = 1 1 0 1 1 1 1 1 1 1 1             ! turn on and off fault outputs
 refinement_strategy = 2
-refinement = 1
+refinement = 0
 /
 
 &SourceType
@@ -72,11 +78,12 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
-EnergyOutputInterval = 0.5
+EnergyOutputInterval = 0.25
 /
 
 &AbortCriteria
 EndTime = {{ end_time }}
+maxTimeFromRuptureEnd = 5
 /
 
 &Analysis
