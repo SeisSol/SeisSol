@@ -407,7 +407,7 @@ struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
-  // When integrating quantities over the fault (e.g. mu*slip for the seismic moment)
+  // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
   // the transformation, the surface Jacobian (e.g. |n^e(\chi)| in eq. (35) of Uphoff et al. (2023))

@@ -20,7 +20,7 @@
 namespace seissol::writer {
 
 struct EnergiesStorage {
-  std::array<double, 9> energies{};
+  std::array<double, 10> energies{};
 
   double& gravitationalEnergy();
 
@@ -39,6 +39,8 @@ struct EnergiesStorage {
   double& plasticMoment();
 
   double& seismicMoment();
+
+  double& potency();
 };
 
 class EnergyOutput : public Module {
