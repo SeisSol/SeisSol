@@ -20,9 +20,9 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(seissol::initializers::LTSTree* userWpTree,
-                  seissol::initializers::LTS* userWpDescr,
-                  seissol::initializers::Lut* userWpLut);
+  void setLtsData(seissol::initializer::LTSTree* userWpTree,
+                  seissol::initializer::LTS* userWpDescr,
+                  seissol::initializer::Lut* userWpLut);
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -36,9 +36,9 @@ class ReceiverBasedOutputBuilder {
 
   protected:
   const seissol::geometry::MeshReader* meshReader{};
-  seissol::initializers::LTSTree* wpTree;
-  seissol::initializers::LTS* wpDescr;
-  seissol::initializers::Lut* wpLut;
+  seissol::initializer::LTSTree* wpTree;
+  seissol::initializer::LTS* wpDescr;
+  seissol::initializer::Lut* wpLut;
   std::shared_ptr<ReceiverOutputData> outputData;
   int localRank{-1};
 };

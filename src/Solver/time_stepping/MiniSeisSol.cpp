@@ -45,6 +45,7 @@
 #include <Kernels/Touch.h>
 #include <Monitoring/Stopwatch.h>
 #include "utils/env.h"
+#include "SeisSol.h"
 
 #ifdef ACL_DEVICE
 #include <Initializer/BatchRecorders/Recorders.h>
@@ -92,8 +93,9 @@ Config getConfig() {
 
 
 void seissol::localIntegration(GlobalData* globalData,
-                               initializers::LTS& lts,
-                               initializers::Layer& layer) {
+                               initializer::LTS& lts,
+                               initializer::Layer& layer,
+                               seissol::SeisSol& seissolInstance) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
@@ -103,10 +105,10 @@ void seissol::localIntegration(GlobalData* globalData,
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(tmp) schedule(static)
+  #pragma omp parallel for firstprivate(tmp) schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
@@ -126,8 +128,9 @@ void seissol::localIntegration(GlobalData* globalData,
 }
 
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
-                                       initializers::LTS& lts,
-                                       initializers::Layer& layer) {
+                                       initializer::LTS& lts,
+                                       initializer::Layer& layer,
+                                       seissol::SeisSol& seissolInstance) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
@@ -139,7 +142,7 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -150,8 +153,8 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
 #endif
 }
 
-void seissol::fakeData(initializers::LTS& lts,
-                       initializers::Layer& layer,
+void seissol::fakeData(initializer::LTS& lts,
+                       initializer::Layer& layer,
                        FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
   real**                      buffers                       = layer.var(lts.buffers);
@@ -210,9 +213,9 @@ void seissol::fakeData(initializers::LTS& lts,
 #endif
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
-  initializers::LTSTree ltsTree;
-  initializers::LTS     lts;
+double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool usePlasticity, seissol::SeisSol& seissolInstance) {
+  initializer::LTSTree ltsTree;
+  initializer::LTS     lts;
 
   lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
@@ -224,7 +227,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
                 << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";
 
-  initializers::TimeCluster& cluster = ltsTree.child(0);
+  initializer::TimeCluster& cluster = ltsTree.child(0);
   cluster.child<Ghost>().setNumberOfCells(0);
   cluster.child<Copy>().setNumberOfCells(0);
   cluster.child<Interior>().setNumberOfCells(config.numElements);
@@ -232,7 +235,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
   
-  initializers::Layer& layer = cluster.child<Interior>();
+  initializer::Layer& layer = cluster.child<Interior>();
   
   layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
@@ -240,18 +243,18 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
-  seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
-  seissol::initializers::recording::CompositeRecorder<seissol::initializers::LTS> recorder;
-  recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
+  seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
+  recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
   recorder.record(lts, layer);
   ltsTree.allocateScratchPads();
 
   auto globalData = memoryManager.getGlobalData();
-  auto runBenchmark = [&globalData, &lts, &layer]() {
-    localIntegrationOnDevice(globalData, lts, layer);
+  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance]() {
+    localIntegrationOnDevice(globalData, lts, layer, seissolInstance);
   };
 
   const auto &device = device::DeviceInstance::getInstance();
@@ -260,8 +263,8 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   };
 #else
   auto* globalData = memoryManager.getGlobalDataOnHost();
-  auto runBenchmark = [globalData, &lts, &layer]() {
-    localIntegration(globalData, lts, layer);
+  auto runBenchmark = [globalData, &lts, &layer, &seissolInstance]() {
+    localIntegration(globalData, lts, layer, seissolInstance);
   };
   auto syncBenchmark = []() {};
 #endif

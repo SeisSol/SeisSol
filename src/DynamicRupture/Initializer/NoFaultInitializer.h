@@ -3,7 +3,7 @@
 
 #include "BaseDRInitializer.h"
 
-namespace seissol::dr::initializers {
+namespace seissol::dr::initializer {
 
 /**
  * Derived initializer class for the NoFault friction law
@@ -14,6 +14,6 @@ class NoFaultInitializer : public BaseDRInitializer {
   using BaseDRInitializer::BaseDRInitializer;
   using BaseDRInitializer::initializeFault;
 };
-} // namespace seissol::dr::initializers
+} // namespace seissol::dr::initializer
 
 #endif // SEISSOL_NOFAULTINITIALIZER_H

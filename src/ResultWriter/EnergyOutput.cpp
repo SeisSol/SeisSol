@@ -1,13 +1,11 @@
 #include "EnergyOutput.h"
-#include <Kernels/DynamicRupture.h>
-#include <Numerical_aux/Quadrature.h>
+
 #include "DynamicRupture/Misc.h"
-#include <Parallel/MPI.h>
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "Initializer/InputParameters.hpp"
-#include "Initializer/preProcessorMacros.hpp"
-#include <cstring>
-#include <generated_code/tensor.h>
 
 namespace seissol::writer {
 
@@ -33,12 +31,12 @@ double& EnergiesStorage::potency() { return energies[9]; }
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializers::DynamicRupture* newDynRup,
-    seissol::initializers::LTSTree* newDynRuptTree,
+    seissol::initializer::DynamicRupture* newDynRup,
+    seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializers::LTSTree* newLtsTree,
-    seissol::initializers::LTS* newLts,
-    seissol::initializers::Lut* newLtsLut,
+    seissol::initializer::LTSTree* newLtsTree,
+    seissol::initializer::LTS* newLts,
+    seissol::initializer::Lut* newLtsLut,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -269,7 +267,7 @@ void EnergyOutput::computeVolumeEnergies() {
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
 
-  const auto g = SeisSol::main.getGravitationSetup().acceleration;
+  const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
