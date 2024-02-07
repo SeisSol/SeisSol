@@ -66,15 +66,6 @@
 #endif
 
 bool seissol::SeisSol::init(int argc, char* argv[]) {
-#ifdef USE_ASAGI
-  // Construct an instance of AsagiModule, to initialize it.
-  // It needs to be done here, as it registers PRE_MPI hooks
-  asagi::AsagiModule::getInstance();
-#endif
-  // Call pre MPI hooks
-  seissol::Modules::callHook<seissol::PRE_MPI>();
-
-  MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
 
   // Print welcome message
@@ -82,15 +73,24 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
+#ifdef COMMIT_HASH
   logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
+#endif
+  logInfo(rank) << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
+#ifdef ACL_DEVICE
+  logInfo(rank) << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
+  logInfo(rank) << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
+#endif
 
   if (MPI::mpi.rank() == 0) {
     const auto& hostNames = MPI::mpi.getHostNames();
-    logInfo() << "Running on:" << hostNames.front();
+    logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+  logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:" << MPI::mpi.sharedMemMpiSize();
+  MPI::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   MPI::mpi.setDataTransferModeFromEnv();
 
@@ -149,8 +149,9 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   seissol::Modules::callHook<seissol::POST_MPI_INIT>();
 
   // Initialize the ASYNC I/O library
-  if (!m_asyncIO.init())
+  if (!m_asyncIO.init()) {
     return false;
+  }
 
   m_memoryManager->initialize();
 
