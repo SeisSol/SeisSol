@@ -42,14 +42,14 @@
 #include <limits>
 
 #include "Simulator.h"
-#include "SeisSol.h"
-#include "time_stepping/TimeManager.h"
 #include "Modules/Modules.h"
-#include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/Stopwatch.h"
 #include "Monitoring/Unit.hpp"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
+#include "SeisSol.h"
+#include "time_stepping/TimeManager.h"
 
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
@@ -82,10 +82,10 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 	m_currentTime = i_currentTime;
 }
 
-void seissol::Simulator::simulate() {
+void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
+  auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
 
   Stopwatch simulationStopwatch;
@@ -97,9 +97,9 @@ void seissol::Simulator::simulate() {
   ioStopwatch.start();
 
   // Set start time (required for checkpointing)
-  seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
+  seissolInstance.timeManager().setInitialTimes(m_currentTime);
 
-  double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
+  double l_timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
@@ -131,7 +131,7 @@ void seissol::Simulator::simulate() {
 
     // update the DOFs
     computeStopwatch.start();
-    seissol::SeisSol::main.timeManager().advanceInTime( upcomingTime );
+    seissolInstance.timeManager().advanceInTime( upcomingTime );
     computeStopwatch.pause();
 
     ioStopwatch.start();
@@ -147,8 +147,8 @@ void seissol::Simulator::simulate() {
 
     // write checkpoint if required
     if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
-      const unsigned int faultTimeStep = seissol::SeisSol::main.faultWriter().timestep();
-      seissol::SeisSol::main.checkPointManager().write(m_currentTime, faultTimeStep);
+      const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
+      seissolInstance.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
@@ -159,7 +159,7 @@ void seissol::Simulator::simulate() {
     Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
-    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(currentSplit);
+    seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }
 
@@ -170,13 +170,13 @@ void seissol::Simulator::simulate() {
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
   ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
 
-  const auto& memoryManager = SeisSol::main.getMemoryManager();
+  const auto& memoryManager = seissolInstance.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
   const auto& outputPrefix = memoryManager.getOutputPrefix();
-  seissol::SeisSol::main.timeManager().printComputationTime(outputPrefix,
+  seissolInstance.timeManager().printComputationTime(outputPrefix,
                                                             isLoopStatisticsNetcdfOutputOn);
 
-  seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
+  seissolInstance.analysisWriter().printAnalysis(m_currentTime);
 
-  seissol::SeisSol::main.flopCounter().printPerformanceSummary(wallTime);
+  seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
