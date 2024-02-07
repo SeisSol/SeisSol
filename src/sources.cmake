@@ -111,6 +111,9 @@ src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+
+src/Reader/AsagiModule.cpp
+src/Reader/AsagiReader.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
@@ -200,13 +203,6 @@ if (NETCDF)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
-    )
-endif()
-
-if (ASAGI)
-  target_sources(SeisSol-lib PRIVATE
-    #todo:
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Reader/AsagiModule.cpp
     )
 endif()
 

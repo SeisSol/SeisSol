@@ -17,8 +17,9 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Monitoring
-        src/SourceTerm
         src/Physics
+        src/SourceTerm
+        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead

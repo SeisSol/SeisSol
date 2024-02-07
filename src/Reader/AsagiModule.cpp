@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -38,6 +39,8 @@
  * Velocity field reader Fortran interface
  */
 
+#ifdef USE_ASAGI
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
@@ -49,52 +52,98 @@
 #include "AsagiModule.h"
 #include "Parallel/Helper.hpp"
 
-seissol::asagi::AsagiModule::AsagiModule()
-	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
-{
-	// Register for the pre MPI hook
-	Modules::registerHook(*this, seissol::PRE_MPI);
+namespace seissol::asagi {
 
-	// Emit a warning/error later
-	// TODO use a general logger that can buffer log messages and emit them later
-	if (m_mpiMode == MPI_UNKNOWN) {
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
-	} else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
-		m_mpiMode = MPI_WINDOWS;
+AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
+  // Register for the pre MPI hook
+  Modules::registerHook(*this, seissol::PRE_MPI);
 
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
-	}
+  // Emit a warning/error later
+  // TODO use a general logger that can buffer log messages and emit them later
+  if (m_mpiMode == MPI_UNKNOWN) {
+    Modules::registerHook(*this, seissol::POST_MPI_INIT);
+  } else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
+    m_mpiMode = MPI_WINDOWS;
+
+    Modules::registerHook(*this, seissol::POST_MPI_INIT);
+  }
 }
 
-seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
-{
+MPI_Mode AsagiModule::getMPIMode() {
 #ifdef USE_MPI
-	std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
-	if (mpiModeName == "WINDOWS")
-		return MPI_WINDOWS;
-	if (mpiModeName == "COMM_THREAD")
-		return MPI_COMM_THREAD;
-	if (mpiModeName == "OFF")
-		return MPI_OFF;
+  std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
+  if (mpiModeName == "WINDOWS")
+    return MPI_WINDOWS;
+  if (mpiModeName == "COMM_THREAD")
+    return MPI_COMM_THREAD;
+  if (mpiModeName == "OFF")
+    return MPI_OFF;
 
-	return MPI_UNKNOWN;
-#else // USE_MPI
-	return MPI_OFF;
+  return MPI_UNKNOWN;
+#else  // USE_MPI
+  return MPI_OFF;
 #endif // USE_MPI
 }
 
-int seissol::asagi::AsagiModule::getTotalThreads()
-{
-	int totalThreads = 1;
+int AsagiModule::getTotalThreads() {
+  int totalThreads = 1;
 
 #ifdef _OPENMP
-	totalThreads = omp_get_max_threads();
-	if (seissol::useCommThread(seissol::MPI::mpi)) {
-		totalThreads++;
-	}
+  totalThreads = omp_get_max_threads();
+  if (seissol::useCommThread(seissol::MPI::mpi)) {
+    totalThreads++;
+  }
 #endif // _OPENMP
 
-	return totalThreads;
+  return totalThreads;
 }
 
-const char* seissol::asagi::AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";
+const char* AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";
+
+void AsagiModule::preMPI() {
+  // Communication threads required
+  if (m_mpiMode == MPI_COMM_THREAD) {
+    // Comm threads has to be started before model initialization
+    Modules::registerHook(*this, PRE_MODEL, HIGHEST);
+    // Comm threads has to be stoped after model initialization
+    Modules::registerHook(*this, POST_MODEL, LOWEST);
+  }
+}
+
+void AsagiModule::postMPIInit() {
+  if (m_mpiMode == MPI_UNKNOWN) {
+    std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "");
+    logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
+  } else {
+    const int rank = MPI::mpi.rank();
+    logWarning(rank) << "Running with only one OMP thread."
+                     << "Using MPI window communication instead of threads.";
+  }
+}
+
+void AsagiModule::preModel() {
+#ifdef USE_MPI
+  // TODO check if ASAGI is required for model setup
+  ::asagi::Grid::startCommThread();
+#endif // USE_MPI
+}
+
+void AsagiModule::postModel() {
+#ifdef USE_MPI
+  // TODO check if ASAGI is required for model setup
+  ::asagi::Grid::stopCommThread();
+#endif // USE_MPI
+}
+
+AsagiModule& AsagiModule::getInstance() {
+  static AsagiModule instance;
+  return instance;
+}
+
+MPI_Mode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
+
+int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
+
+} // namespace seissol::asagi
+
+#endif
