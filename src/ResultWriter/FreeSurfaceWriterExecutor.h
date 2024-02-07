@@ -117,7 +117,7 @@ public:
 		m_stopwatch.pause();
 	}
 
-	void setlocationFlagData(const unsigned int *locationFlags) {
+	void setLocationFlagData(const unsigned int *locationFlags) {
 		m_xdmfWriter->writeExtraIntCellData(locationFlags);
 	}
 

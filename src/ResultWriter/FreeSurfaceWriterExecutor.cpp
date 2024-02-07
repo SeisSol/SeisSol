@@ -94,7 +94,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		                      nVertices,
 		                      static_cast<const double*>(info.buffer(VERTICES)),
 		                      param.timestep != 0);
-		setlocationFlagData(static_cast<const unsigned int*>(info.buffer(LOCATIONFLAGS)));
+		setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LOCATIONFLAGS)));
 
 		logInfo(rank) << "Initializing free surface output. Done.";
 	}
