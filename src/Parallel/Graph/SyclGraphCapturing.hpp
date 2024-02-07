@@ -2,6 +2,7 @@
 
 #include <Parallel/AcceleratorDevice.h>
 #include <Parallel/SyclInterop.hpp>
+#include <memory>
 #include <optional>
 
 #ifndef __DPCPP_COMPILER
@@ -35,8 +36,8 @@ class SyclNativeGraph {
   void runCapture(StreamT& queue);
 
   private:
-  NativeGraphT graph;
-  NativeInstanceT instance;
+  std::shared_ptr<NativeGraphT> graph{nullptr};
+  std::shared_ptr<NativeInstanceT> instance{nullptr};
 };
 #ifdef SYCL_EXT_ONEAPI_GRAPH
 class SyclOneapiGraph {

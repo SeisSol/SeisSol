@@ -30,37 +30,40 @@ void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::beginCapture
 }
 template <typename NativeStreamT, typename NativeGraphT, typename NativeInstanceT>
 void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::endCapture(StreamT& queue) {
-  syclNativeOperation(queue, true, [&](auto& stream) {
+  auto graph = this->graph;
+  auto instance = this->instance;
+  syclNativeOperation(queue, true, [graph, instance](auto& stream) {
     using LocalNativeStreamT = std::decay_t<decltype(stream)>;
     static_assert(std::is_same_v<NativeStreamT, LocalNativeStreamT>, "");
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
     if constexpr (std::is_same_v<NativeStreamT, cudaStream_t>) {
-      cudaStreamEndCapture(stream, &graph);
-      cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
+      cudaStreamEndCapture(stream, graph.get());
+      cudaGraphInstantiate(instance.get(), *graph, nullptr, nullptr, 0);
     }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
     if constexpr (std::is_same_v<NativeStreamT, hipStream_t>) {
-      hipStreamEndCapture(stream, &graph);
-      hipGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
+      hipStreamEndCapture(stream, graph.get());
+      hipGraphInstantiate(instance.get(), *graph, nullptr, nullptr, 0);
     }
 #endif
   }).wait_and_throw();
 }
 template <typename NativeStreamT, typename NativeGraphT, typename NativeInstanceT>
 void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::runCapture(StreamT& queue) {
-  assert(instance.has_value());
-  syclNativeOperation(queue, false, [&](auto& stream) {
+  assert(instance.get() != nullptr);
+  auto instance = this->instance;
+  syclNativeOperation(queue, false, [instance](auto& stream) {
     using LocalNativeStreamT = std::decay_t<decltype(stream)>;
     static_assert(std::is_same_v<NativeStreamT, LocalNativeStreamT>, "");
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
     if constexpr (std::is_same_v<NativeStreamT, cudaStream_t>) {
-      cudaGraphLaunch(instance, stream);
+      cudaGraphLaunch(*instance, stream);
     }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
     if constexpr (std::is_same_v<NativeStreamT, hipStream_t>) {
-      hipGraphLaunch(instance, stream);
+      hipGraphLaunch(*instance, stream);
     }
 #endif
   });
