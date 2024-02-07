@@ -109,8 +109,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int
-    NumberOfBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER) {
+constexpr unsigned int NumberOfBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -122,7 +121,7 @@ constexpr unsigned int
  **/
 template <typename RealT = real>
 constexpr unsigned int NumberOfAlignedReals(unsigned int numberOfReals,
-                                               unsigned int alignment = VECTORSIZE) {
+                                            unsigned int alignment = VECTORSIZE) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
   // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
   // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
@@ -142,7 +141,7 @@ constexpr unsigned int NumberOfAlignedReals(unsigned int numberOfReals,
 template <typename RealT = real>
 constexpr unsigned int
     NumberOfAlignedBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
-                                     unsigned int alignment = VECTORSIZE) {
+                                  unsigned int alignment = VECTORSIZE) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   unsigned int numberOfBasisFunctions = NumberOfBasisFunctions(convergenceOrder);
@@ -158,11 +157,10 @@ constexpr unsigned int
  **/
 constexpr unsigned
     NumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
-                                               unsigned int alignment = VECTORSIZE) {
-  return (convergenceOrder > 0)
-             ? NumberOfAlignedBasisFunctions(convergenceOrder) +
-                   NumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
-             : 0;
+                                            unsigned int alignment = VECTORSIZE) {
+  return (convergenceOrder > 0) ? NumberOfAlignedBasisFunctions(convergenceOrder) +
+                                      NumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
+                                : 0;
 }
 
 /**
