@@ -278,7 +278,7 @@ TEST_CASE("DR Geometry") {
     e2.vertices[3] = 5;
     elements.push_back(e2);
 
-    initializers::findMeshIds(points, vertices, elements, numPoints, contained, meshId);
+    initializer::findMeshIds(points, vertices, elements, numPoints, contained, meshId);
 
     REQUIRE(contained[0] == 1);
     REQUIRE(contained[1] == 0);

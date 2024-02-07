@@ -66,9 +66,9 @@ inline real computeSampleTimeIntegral(double from,
   to = MathFunctions::min(to, (sampleSize - 1) * samplingInterval);
 
   // j_{from} := \argmax_j s.t. t_{from} >= j*dt = floor[t_{from} / dt]
-  long fromIndex = from / samplingInterval;
+  long fromIndex = MathFunctions::floor(from / samplingInterval);
   // j_{to}   := \argmin_j s.t. t_{to}   <= j*dt =  ceil[t_{to}   / dt]
-  long toIndex = -static_cast<long>(-to / samplingInterval);
+  long toIndex = MathFunctions::ceil(to / samplingInterval);
 
   fromIndex = MathFunctions::max(0l, fromIndex);
   toIndex = MathFunctions::min(static_cast<long>(sampleSize) - 1, toIndex);

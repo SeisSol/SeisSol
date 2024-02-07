@@ -5,12 +5,13 @@
 #include <cstring>
 #include <type_traits>
 
-#include "SeisSol.h"
 #include "Initializer/MemoryManager.h"
 #include "LTSTree.hpp"
 #include "Lut.hpp"
 
-namespace seissol::initializer {
+namespace seissol {
+class SeisSol;
+namespace initializer {
 
 /*
 Assigns the given value to the target object, initializing the memory in the process.
@@ -49,8 +50,8 @@ void initAssign(T& target, const T& value) {
 }
 
 template <typename T>
-void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle) {
-  auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
+void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handle,
+                                  seissol::initializer::MemoryManager& memoryManager) {
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
   unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
   const unsigned numberOfDuplicatedMeshIds =
@@ -62,7 +63,7 @@ void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& hand
   for (unsigned dupMeshId = 0; dupMeshId < numberOfDuplicatedMeshIds; ++dupMeshId) {
     const unsigned meshId = duplicatedMeshIds[dupMeshId];
     const T& ref = var[meshToLts[0][meshId]];
-    for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates &&
+    for (unsigned dup = 1; dup < seissol::initializer::Lut::MaxDuplicates &&
                            meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max();
          ++dup) {
 
@@ -73,6 +74,7 @@ void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& hand
   }
 }
 
-} // namespace seissol::initializer
+} // namespace initializer
+} // namespace seissol
 
 #endif
