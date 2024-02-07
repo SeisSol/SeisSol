@@ -67,8 +67,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         devSlipRateMagnitude[ltsFace][pointIndex] =
-            std::max(static_cast<real>(0.0),
-                     (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
+            sycl::max(static_cast<real>(0.0),
+                      (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
         const auto divisor = strength[pointIndex] +
                              devImpAndEta[ltsFace].etaS * devSlipRateMagnitude[ltsFace][pointIndex];
         devSlipRate1[ltsFace][pointIndex] =
@@ -132,7 +132,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const auto pointIndex = item.get_local_id(0);
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
-            std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
+            sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
                 devDC[ltsFace][pointIndex]) {
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
@@ -202,7 +202,7 @@ class LinearSlipWeakeningLaw
                                        faultStresses.normalStress[timeIndex][pointIndex];
         strength[pointIndex] =
             -devCohesion[ltsFace][pointIndex] -
-            devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+            devMu[ltsFace][pointIndex] * sycl::min(totalNormalStress, static_cast<real>(0.0));
 
         strength[pointIndex] =
             SpecializationT::strengthHook(currentLayerDetails,
@@ -231,38 +231,33 @@ class LinearSlipWeakeningLaw
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          resampledSlipRate(misc::numPaddedPoints, cgh);
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        resampledSlipRate[pointIndex] = SpecializationT::resampleSlipRate(
+        real resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
-        item.barrier(sycl::access::fence_space::local_space);
-        auto& stateVariable = devStateVariableBuffer[ltsFace];
-
         // integrate slip rate to get slip = state variable
-        devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate[pointIndex] * deltaT;
+        devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate * deltaT;
 
         // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
-            std::min(std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
-                         devDC[ltsFace][pointIndex],
-                     static_cast<real>(1.0));
+            sycl::min(sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
+                          devDC[ltsFace][pointIndex],
+                      static_cast<real>(1.0));
 
         real f2 = 0.0;
         if (t0 == 0) {
           f2 = 1.0 * (tn >= devForcedRuptureTime[ltsFace][pointIndex]);
         } else {
-          f2 = std::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
-                          static_cast<real>(0.0),
-                          static_cast<real>(1.0));
+          f2 = sycl::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
+                           static_cast<real>(0.0),
+                           static_cast<real>(1.0));
         }
-        stateVariable[pointIndex] = std::max(localStateVariable, f2);
+        devStateVariableBuffer[ltsFace][pointIndex] = sycl::max(localStateVariable, f2);
       });
     });
   }
