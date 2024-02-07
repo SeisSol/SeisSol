@@ -41,26 +41,25 @@
 
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
+#include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/PUML.h>
 
-namespace seissol::initializers::time_stepping {
+namespace seissol::initializer::time_stepping {
 class LtsWeights;
-} // namespace seissol::initializers::time_stepping
+} // namespace seissol::initializer::time_stepping
 
 namespace seissol::geometry {
-enum class BoundaryFormat : int { I32, I64, I32x4 };
-
 inline int decodeBoundary(const void* data,
                           size_t cell,
                           int face,
-                          seissol::geometry::BoundaryFormat format) {
-  if (format == seissol::geometry::BoundaryFormat::I32) {
+                          seissol::initializer::parameters::BoundaryFormat format) {
+  if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
     const uint32_t* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
-  } else if (format == seissol::geometry::BoundaryFormat::I64) {
+  } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
     const uint64_t* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
-  } else if (format == seissol::geometry::BoundaryFormat::I32x4) {
+  } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const int* dataCasted = reinterpret_cast<const int*>(data);
     return dataCasted[cell * 4 + face];
   } else {
@@ -75,13 +74,14 @@ class PUMLReader : public seissol::geometry::MeshReader {
              const char* partitioningLib,
              double maximumAllowedTimeStep,
              const char* checkPointFile,
-             BoundaryFormat boundaryFormat = BoundaryFormat::I32,
-             initializers::time_stepping::LtsWeights* ltsWeights = nullptr,
+             seissol::initializer::parameters::BoundaryFormat boundaryFormat =
+                 seissol::initializer::parameters::BoundaryFormat::I32,
+             initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0,
              bool readPartitionFromFile = false);
 
   private:
-  BoundaryFormat boundaryFormat;
+  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
 
   /**
    * Read the mesh
@@ -92,7 +92,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
    * Create the partitioning
    */
   void partition(PUML::TETPUML& puml,
-                 initializers::time_stepping::LtsWeights* ltsWeights,
+                 initializer::time_stepping::LtsWeights* ltsWeights,
                  double tpwgt,
                  const char* meshFile,
                  const char* partitioningLib,

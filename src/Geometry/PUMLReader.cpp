@@ -163,14 +163,15 @@ const int FirstFaceVertex[4] = {0, 0, 0, 1};
 /**
  * @todo Cleanup this code
  */
-seissol::geometry::PUMLReader::PUMLReader(const char* meshFile,
-                                          const char* partitioningLib,
-                                          double maximumAllowedTimeStep,
-                                          const char* checkPointFile,
-                                          BoundaryFormat boundaryFormat,
-                                          initializers::time_stepping::LtsWeights* ltsWeights,
-                                          double tpwgt,
-                                          bool readPartitionFromFile)
+seissol::geometry::PUMLReader::PUMLReader(
+    const char* meshFile,
+    const char* partitioningLib,
+    double maximumAllowedTimeStep,
+    const char* checkPointFile,
+    seissol::initializer::parameters::BoundaryFormat boundaryFormat,
+    initializer::time_stepping::LtsWeights* ltsWeights,
+    double tpwgt,
+    bool readPartitionFromFile)
     : seissol::geometry::MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat) {
   PUML::TETPUML puml;
   puml.setComm(MPI::mpi.comm());
@@ -197,11 +198,11 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
   puml.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
 
-  if (boundaryFormat == BoundaryFormat::I32) {
+  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
     puml.addData<uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
-  } else if (boundaryFormat == BoundaryFormat::I64) {
+  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I64) {
     puml.addData<uint64_t>((file + ":/boundary").c_str(), PUML::CELL, {});
-  } else if (boundaryFormat == BoundaryFormat::I32x4) {
+  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
   }
   const auto numTotalCells = puml.numTotalCells();
@@ -362,7 +363,7 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
 }
 
 void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
-                                              initializers::time_stepping::LtsWeights* ltsWeights,
+                                              initializer::time_stepping::LtsWeights* ltsWeights,
                                               double tpwgt,
                                               const char* meshFile,
                                               const char* partitioningLib,

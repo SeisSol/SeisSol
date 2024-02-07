@@ -5,10 +5,10 @@
 #include <cstring>
 #include <iostream>
 
+#include "Eigen/Dense"
 #include "utils/logger.h"
 #include "utils/env.h"
 
-#include "SeisSol.h"
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
 #include "Geometry/CubeGenerator.h"
@@ -22,6 +22,7 @@
 #include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
+#include "SeisSol.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 
 #include "Parallel/MPI.h"
@@ -29,8 +30,9 @@
 namespace {
 
 static void postMeshread(seissol::geometry::MeshReader& meshReader,
-                         const std::array<double, 3>& displacement,
-                         const std::array<std::array<double, 3>, 3>& scalingMatrix) {
+                         const Eigen::Vector3d& displacement,
+                         const Eigen::Matrix3d& scalingMatrix,
+                         seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
@@ -43,7 +45,7 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
 
-  auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
+  auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
   VrtxCoords center{drParameters->referencePoint[0],
                     drParameters->referencePoint[1],
                     drParameters->referencePoint[2]};
@@ -52,10 +54,11 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
-  seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
+  seissolInstance.getLtsLayout().setMesh(meshReader);
 }
 
-static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                         seissol::SeisSol& seissolInstance) {
 #if defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
@@ -63,8 +66,8 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
-                                              seissolParams.model.plasticity);
+      auto elapsedTime = seissol::miniSeisSol(
+          seissolInstance.getMemoryManager(), seissolParams.model.plasticity, seissolInstance);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -86,19 +89,18 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   seissol::Stopwatch watch;
   watch.start();
 
-  bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
+  bool readPartitionFromFile = seissolInstance.simulator().checkPointingEnabled();
 
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   LtsWeightsConfig config{seissolParams.mesh.pumlBoundaryFormat,
                           seissolParams.model.materialFileName,
-                          static_cast<unsigned int>(seissolParams.timeStepping.lts.rate),
+                          static_cast<unsigned int>(seissolParams.timeStepping.lts.getRate()),
                           seissolParams.timeStepping.vertexWeight.weightElement,
                           seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
                           seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
-  const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
-  auto ltsWeights =
-      getLtsWeightsImplementation(seissolParams.timeStepping.lts.weighttype, config, ltsParameters);
+  auto ltsWeights = getLtsWeightsImplementation(
+      seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto meshReader =
       new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                         seissolParams.mesh.partitioningLib.c_str(),
@@ -108,7 +110,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
                                         ltsWeights.get(),
                                         nodeWeight,
                                         readPartitionFromFile);
-  seissol::SeisSol::main.setMeshReader(meshReader);
+  seissolInstance.setMeshReader(meshReader);
 
   watch.pause();
   watch.printTime("PUML mesh read in:");
@@ -138,7 +140,8 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 } // namespace
 
 static void
-    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
+    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                      seissol::SeisSol& seissolInstance) {
 #if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
@@ -150,7 +153,7 @@ static void
       commRank, commSize, realMeshFileName.c_str(), cubeParameters);
 
   // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
-  seissol::SeisSol::main.setMeshReader(
+  seissolInstance.setMeshReader(
       new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
 #else
   logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
@@ -158,10 +161,10 @@ static void
 #endif
 }
 
-void seissol::initializer::initprocedure::initMesh() {
+void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
@@ -179,31 +182,32 @@ void seissol::initializer::initprocedure::initMesh() {
 
   std::string realMeshFileName = seissolParams.mesh.meshFileName;
   switch (meshFormat) {
-  case seissol::geometry::MeshFormat::Netcdf:
+  case seissol::initializer::parameters::MeshFormat::Netcdf:
 #if USE_NETCDF
     realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
     logInfo(commRank)
         << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
         << realMeshFileName;
-    seissol::SeisSol::main.setMeshReader(
+    seissolInstance.setMeshReader(
         new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
 #else
     logError()
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
 #endif
     break;
-  case seissol::geometry::MeshFormat::PUML:
-    readMeshPUML(seissolParams);
+  case seissol::initializer::parameters::MeshFormat::PUML:
+    readMeshPUML(seissolParams, seissolInstance);
     break;
-  case seissol::geometry::MeshFormat::CubeGenerator:
-    readCubeGenerator(seissolParams);
+  case seissol::initializer::parameters::MeshFormat::CubeGenerator:
+    readCubeGenerator(seissolParams, seissolInstance);
     break;
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);
   }
 
-  auto& meshReader = seissol::SeisSol::main.meshReader();
-  postMeshread(meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling);
+  auto& meshReader = seissolInstance.meshReader();
+  postMeshread(
+      meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
   watch.pause();
   watch.printTime("Mesh initialized in:");

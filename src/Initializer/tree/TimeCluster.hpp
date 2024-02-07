@@ -44,12 +44,12 @@
 #include "Log2.hpp"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class TimeCluster;
   }
 }
 
-class seissol::initializers::TimeCluster : public seissol::initializers::LTSInternalNode {
+class seissol::initializer::TimeCluster : public seissol::initializer::LTSInternalNode {
 public:
   TimeCluster() {
     setChildren<Layer>(3);

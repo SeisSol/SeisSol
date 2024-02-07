@@ -50,7 +50,7 @@
 #include <Initializer/Boundary.h>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
       class EasiBoundary;
       /**
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
