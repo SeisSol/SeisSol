@@ -14,8 +14,6 @@ class ComputeGraph {
   template <typename F>
   void run(typename GraphT::StreamT& stream, F&& handler) {
     if (implementation.canCapture()) {
-      std::invoke(std::forward<F>(handler), stream);
-    } else {
       if (!captured) {
         implementation.beginCapture(stream);
         std::invoke(std::forward<F>(handler), stream);
@@ -23,6 +21,8 @@ class ComputeGraph {
         captured = true;
       }
       implementation.runCapture(stream);
+    } else {
+      std::invoke(std::forward<F>(handler), stream);
     }
   }
 };
