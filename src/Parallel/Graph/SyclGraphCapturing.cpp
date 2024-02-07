@@ -47,7 +47,7 @@ void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::endCapture(S
       hipGraphInstantiate(&instance.value(), graph, nullptr, nullptr, 0);
     }
 #endif
-  });
+  }).wait_and_throw();
 }
 template <typename NativeStreamT, typename NativeGraphT, typename NativeInstanceT>
 void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::runCapture(StreamT& queue) {

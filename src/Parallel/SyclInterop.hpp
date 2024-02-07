@@ -27,7 +27,7 @@ namespace seissol::parallel {
 #endif
 
 template <typename F>
-void syclNativeOperation(sycl::queue& queue, bool blocking, F&& function) {
+sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function) {
 #ifndef SEISSOL_SYCL_HAS_HOST_TASK
   logError() << "Requested SYCL native interop operation, but that is not supported.";
 #endif
@@ -45,7 +45,7 @@ void syclNativeOperation(sycl::queue& queue, bool blocking, F&& function) {
   auto waitList = queue.get_wait_list();
 #endif
   // NOTE: if some thread adds something to the queue here, we may have a problem
-  queue.submit([&](sycl::handler& h) {
+  return queue.submit([&](sycl::handler& h) {
 #if defined(HIPSYCL_EXT_QUEUE_WAIT_LIST) || defined(ACPP_EXT_QUEUE_WAIT_LIST)
     // use "barrier", if needed
     if (blocking) {
