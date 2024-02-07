@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(DRParameters* drParameters)
+  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
@@ -51,10 +51,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
   }
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      seissol::initializer::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializer::LTSRateAndState const* const>(dynRup);
     this->a = layerData.var(concreteLts->rsA);
     this->sl0 = layerData.var(concreteLts->rsSl0);
     this->stateVariable = layerData.var(concreteLts->stateVariable);
@@ -95,10 +95,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer);
   }
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializer::LTSRateAndState const* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);

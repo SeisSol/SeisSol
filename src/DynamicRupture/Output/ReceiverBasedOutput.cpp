@@ -9,11 +9,11 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                                seissol::initializers::LTS* userWpDescr,
-                                seissol::initializers::Lut* userWpLut,
-                                seissol::initializers::LTSTree* userDrTree,
-                                seissol::initializers::DynamicRupture* userDrDescr) {
+void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
+                                seissol::initializer::LTS* userWpDescr,
+                                seissol::initializer::Lut* userWpLut,
+                                seissol::initializer::LTSTree* userDrTree,
+                                seissol::initializer::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
@@ -70,12 +70,15 @@ ReceiverOutput::~ReceiverOutput() {
   }
 }
 
-void ReceiverOutput::calcFaultOutput(const OutputType type,
-                                     std::shared_ptr<ReceiverOutputData> outputData,
-                                     const GeneralParams& generalParams,
-                                     double time) {
+void ReceiverOutput::calcFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    std::shared_ptr<ReceiverOutputData> outputData,
+    double time) {
 
-  const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
   const auto faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
@@ -203,12 +206,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    switch (generalParams.slipRateOutputType) {
-    case SlipRateOutputType::TractionsAndFailure: {
+    switch (slipRateOutputType) {
+    case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
-    case SlipRateOutputType::VelocityDifference: {
+    case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
       this->computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
@@ -311,7 +314,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (type == OutputType::AtPickpoint) {
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }
@@ -435,8 +438,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = local.layer->var(drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
-      real chi = chiTau2dPoints(jBndGP, 0);
-      real tau = chiTau2dPoints(jBndGP, 1);
+      const real chi = chiTau2dPoints(jBndGP, 0);
+      const real tau = chiTau2dPoints(jBndGP, 1);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {

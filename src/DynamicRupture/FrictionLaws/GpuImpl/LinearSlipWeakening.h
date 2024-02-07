@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningBase<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
@@ -157,15 +157,16 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningLaw<SpecializationT>(
+      seissol::initializer::parameters::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      seissol::initializer::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -267,10 +268,10 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters* parameters){};
+  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   static real resampleSlipRate(real const* resampleMatrix,
@@ -307,13 +308,13 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters* parameters){};
+  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 

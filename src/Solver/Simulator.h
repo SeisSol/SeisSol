@@ -44,6 +44,7 @@
 
 namespace seissol {
   class Simulator;
+  class SeisSol;
 }
 
 /**
@@ -119,7 +120,7 @@ class seissol::Simulator {
     /**
      * Simulates until finished.
      **/
-    void simulate();
+    void simulate(seissol::SeisSol& seissolInstance);
 };
 
 #endif

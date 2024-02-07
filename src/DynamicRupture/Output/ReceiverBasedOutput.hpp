@@ -6,6 +6,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
+#include <Initializer/Parameters/SeisSolParameters.h>
 
 #include <memory>
 #include <vector>
@@ -15,32 +16,32 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput();
 
-  void setLtsData(seissol::initializers::LTSTree* userWpTree,
-                  seissol::initializers::LTS* userWpDescr,
-                  seissol::initializers::Lut* userWpLut,
-                  seissol::initializers::LTSTree* userDrTree,
-                  seissol::initializers::DynamicRupture* userDrDescr);
+  void setLtsData(seissol::initializer::LTSTree* userWpTree,
+                  seissol::initializer::LTS* userWpDescr,
+                  seissol::initializer::Lut* userWpLut,
+                  seissol::initializer::LTSTree* userDrTree,
+                  seissol::initializer::DynamicRupture* userDrDescr);
 
   void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(OutputType type,
+  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        std::shared_ptr<ReceiverOutputData> state,
-                       const GeneralParams& generalParams,
                        double time = 0.0);
 
   protected:
-  seissol::initializers::LTS* wpDescr{nullptr};
-  seissol::initializers::LTSTree* wpTree{nullptr};
-  seissol::initializers::Lut* wpLut{nullptr};
-  seissol::initializers::LTSTree* drTree{nullptr};
-  seissol::initializers::DynamicRupture* drDescr{nullptr};
+  seissol::initializer::LTS* wpDescr{nullptr};
+  seissol::initializer::LTSTree* wpTree{nullptr};
+  seissol::initializer::Lut* wpLut{nullptr};
+  seissol::initializer::LTSTree* drTree{nullptr};
+  seissol::initializer::DynamicRupture* drDescr{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
 
   struct LocalInfo {
-    seissol::initializers::Layer* layer{};
+    seissol::initializer::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};

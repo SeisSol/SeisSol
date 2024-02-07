@@ -38,13 +38,32 @@
  * @section DESCRIPTION
  */
 
-#include "SeisSol.h"
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Initializer/Parameters/ParameterReader.h>
+#include <fty/fty.hpp>
+
 #include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "SeisSol.h"
+#include "utils/args.h"
 
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
+
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
+  // Read parameter file input from file
+  fty::Loader<fty::AsLowercase> loader{};
+  std::shared_ptr<YAML::Node> inputParams = nullptr;
+  try {
+    inputParams = std::make_shared<YAML::Node>(loader.load(parameterFile));
+  } catch (const std::exception& error) {
+    logError() << "Error while reading the parameter file:" << std::string(error.what())
+               << std::endl;
+  }
+  return inputParams;
+}
 
 int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
@@ -76,15 +95,41 @@ int main(int argc, char* argv[]) {
   EPIK_TRACER("SeisSol");
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
+  // TODO Read parameters here
+  // Parse command line arguments
+  utils::Args args;
+  args.addAdditionalOption("file", "The parameter file", false);
+  switch (args.parse(argc, argv)) {
+  case utils::Args::Help: {
+    [[fallthrough]];
+  }
+  case utils::Args::Error: {
+    MPI::mpi.finalize();
+    exit(1);
+    break;
+  }
+  case utils::Args::Success: {
+    break;
+  }
+  }
+  const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  logInfo() << "Using the parameter file" << parameterFile;
+  // read parameter file input
+  const auto yamlParams = readYamlParams(parameterFile);
+  seissol::initializer::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
+  const auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
+  parameterReader.warnUnknown();
+
   // Initialize SeisSol
-  const bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
+  seissol::SeisSol seissolInstance(parameters);
+  const bool runSeisSol = seissolInstance.init(argc, argv);
 
   const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
-  seissol::SeisSol::main.setBackupTimeStamp(stamp);
+  seissolInstance.setBackupTimeStamp(stamp);
 
   // Run SeisSol
   if (runSeisSol) {
-    seissol::initializer::initprocedure::seissolMain();
+    seissol::initializer::initprocedure::seissolMain(seissolInstance);
   }
 
 #pragma omp parallel
@@ -92,7 +137,7 @@ int main(int argc, char* argv[]) {
 
   LIKWID_MARKER_CLOSE;
   // Finalize SeisSol
-  seissol::SeisSol::main.finalize();
+  seissolInstance.finalize();
 
 #ifdef ACL_DEVICE
   device.api->finalize();
