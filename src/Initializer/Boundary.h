@@ -3,12 +3,12 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
-
+#include <Parallel/Helper.hpp>
 
 #ifndef ACL_DEVICE
 # define MEMKIND_BOUNDARY  initializers::AllocationMode::HostOnly
 #else
-# define MEMKIND_BOUNDARY  initializers::AllocationMode::HostDeviceSplit // initializers::AllocationMode::HostDeviceUnified
+# define MEMKIND_BOUNDARY  useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif // ACL_DEVICE
 
 namespace seissol {

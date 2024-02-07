@@ -90,7 +90,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     ++arrayIndex;
   }
   for (const auto& [_, neighbor] : elementIndicesGhost) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+    preDofPtr[arrayIndex] =
+        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(preDofPtr[arrayIndex] != nullptr);
     ++arrayIndex;
   }

@@ -19,8 +19,7 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighborsDevice)[4] =
-      currentLayer->var(currentHandler->faceNeighborsDevice);
+  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
   real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->integratedDofsScratch, AllocationPlace::Device));
 
@@ -101,8 +100,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
-  CellDRMapping(*drMapping)[4] =
-      currentLayer->var(currentHandler->drMapping);
+  CellDRMapping(*drMapping)[4] = currentLayer->var(currentHandler->drMapping);
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {

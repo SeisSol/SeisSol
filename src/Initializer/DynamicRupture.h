@@ -40,10 +40,11 @@
 #ifndef INITIALIZER_DR_H_
 #define INITIALIZER_DR_H_
 
+#include <DynamicRupture/Misc.h>
+#include <generated_code/tensor.h>
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/tensor.h>
-#include <DynamicRupture/Misc.h>
+#include <Parallel/Helper.hpp>
 
 namespace seissol {
   namespace initializers {
@@ -66,9 +67,9 @@ namespace seissol {
 #define MEMKIND_IMPOSED_STATE AllocationMode::HostOnly
 #define MEMKIND_STANDARD AllocationMode::HostOnly
 #else
-#define MEMKIND_NEIGHBOUR_INTEGRATION AllocationMode::HostDeviceSplit // AllocationMode::HostDeviceUnified
-#define MEMKIND_IMPOSED_STATE AllocationMode::HostDeviceSplit // AllocationMode::HostDeviceUnified
-#define MEMKIND_STANDARD AllocationMode::HostDeviceSplit // AllocationMode::HostDeviceUnified
+#define MEMKIND_NEIGHBOUR_INTEGRATION useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#define MEMKIND_IMPOSED_STATE useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#define MEMKIND_STANDARD useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif
 
 struct seissol::initializers::DynamicRupture {

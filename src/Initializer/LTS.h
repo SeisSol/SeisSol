@@ -45,6 +45,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
 #include <Kernels/common.hpp>
+#include <Parallel/Helper.hpp>
 
 #ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   AllocationMode::HostOnlyHBM
@@ -73,12 +74,12 @@
 #else // ACL_DEVICE
 #	define MEMKIND_GLOBAL   AllocationMode::HostOnly
 #	define MEMKIND_CONSTANT AllocationMode::HostOnly
-#	define MEMKIND_CONSTANT_SHARED AllocationMode::HostDeviceSplit // HostDeviceUnified
+#	define MEMKIND_CONSTANT_SHARED useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 # define MEMKIND_TIMEDOFS_CONSTANT AllocationMode::HostOnly
-#	define MEMKIND_DOFS     AllocationMode::HostDeviceSplit // HostDeviceUnified
-#	define MEMKIND_TIMEDOFS AllocationMode::HostDeviceSplit // HostDeviceUnified
-#	define MEMKIND_TIMEBUCKET AllocationMode::DeviceOnly
-# define MEMKIND_UNIFIED  AllocationMode::HostDeviceSplit // HostDeviceUnified
+#	define MEMKIND_DOFS     useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#	define MEMKIND_TIMEDOFS useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#	define MEMKIND_TIMEBUCKET useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+# define MEMKIND_UNIFIED  useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif // ACL_DEVICE
 
 namespace seissol {

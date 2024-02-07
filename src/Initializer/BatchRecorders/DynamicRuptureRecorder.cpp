@@ -13,10 +13,8 @@ void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
 }
 
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
-  real** timeDerivativePlus =
-      currentLayer->var(currentHandler->timeDerivativePlus);
-  real** timeDerivativeMinus =
-      currentLayer->var(currentHandler->timeDerivativeMinus);
+  real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
+  real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
   real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
@@ -60,8 +58,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
 
   DRGodunovData* godunovData =
       currentLayer->var(currentHandler->godunovData, AllocationPlace::Device);
-  DRFaceInformation* faceInfo =
-      currentLayer->var(currentHandler->faceInformation);
+  DRFaceInformation* faceInfo = currentLayer->var(currentHandler->faceInformation);
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
