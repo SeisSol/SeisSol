@@ -103,7 +103,7 @@ class FastVelocityWeakeningLaw
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
