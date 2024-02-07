@@ -183,27 +183,6 @@ inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {
   logError() << "Synchronization point hooks have to be called with \"callSyncHook\"";
 }
 
-// Create all template instances for call
-#define MODULES_CALL_INSTANCE(enum, func)                                                          \
-  template <>                                                                                      \
-  inline void seissol::Modules::call<seissol::enum>(Module * module) {                             \
-    module->func();                                                                                \
-  }
-
-MODULES_CALL_INSTANCE(ModuleHook::PreMPI, preMPI)
-MODULES_CALL_INSTANCE(ModuleHook::PostMPIInit, postMPIInit)
-MODULES_CALL_INSTANCE(ModuleHook::PreMesh, preMesh)
-MODULES_CALL_INSTANCE(ModuleHook::PostMesh, postMesh)
-MODULES_CALL_INSTANCE(ModuleHook::PreLtsInit, preLtsInit)
-MODULES_CALL_INSTANCE(ModuleHook::PostLtsInit, postLtsInit)
-MODULES_CALL_INSTANCE(ModuleHook::PreModel, preModel)
-MODULES_CALL_INSTANCE(ModuleHook::PostModel, postModel)
-MODULES_CALL_INSTANCE(ModuleHook::SimulationStart, simulationStart)
-MODULES_CALL_INSTANCE(ModuleHook::SimulationEnd, simulationEnd)
-MODULES_CALL_INSTANCE(ModuleHook::Shutdown, shutdown)
-
-#undef MODULES_CALL_INSTANCE
-
 } // namespace seissol
 
 #endif // MODULES_H
