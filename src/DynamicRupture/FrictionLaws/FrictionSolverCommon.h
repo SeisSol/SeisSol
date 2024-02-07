@@ -182,9 +182,9 @@ inline void precomputeStressFromQInterpolated(
   real epsInitzx = -0e-1; // eps_zz0
 
   real aB0 = 7.43e9;
-  real aB1 = -22.14e9;
-  real aB2 = 20.93e9;
-  real aB3 = -6.067e9;
+  real aB1 = -12.14e9;
+  real aB2 = 18.93e9;
+  real aB3 = -5.067e9;
 
   real EspIp = (exxP+epsInitxx) + (eyyP+epsInityy) + (ezzP+epsInitzz);
   real EspIIp = (exxP+epsInitxx)*(exxP+epsInitxx)

@@ -433,9 +433,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real const beta_alpha = 0.03;
 
     real aB0 = 7.43e9;
-    real aB1 = -22.14e9;
-    real aB2 = 20.93e9;
-    real aB3 = -6.067e9;
+    real aB1 = -12.14e9;
+    real aB2 = 18.93e9;
+    real aB3 = -5.067e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -1192,9 +1192,9 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB3 = -10.112e9;
 
       real aB0 = 7.43e9;
-      real aB1 = -22.14e9;
-      real aB2 = 20.93e9;
-      real aB3 = -6.067e9;
+      real aB1 = -12.14e9;
+      real aB2 = 18.93e9;
+      real aB3 = -5.067e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 
