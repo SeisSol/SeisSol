@@ -193,10 +193,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   }
   SeisSol::main.wiggleFactorLts = wiggleFactor;
 
-  m_clusterIds = computeClusterIds(wiggleFactor);
-
   m_ncon = evaluateNumberOfConstraints();
-  auto finalNumberOfReductions = enforceMaximumDifference();
+  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
 
   logInfo(rank) << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
@@ -416,11 +414,35 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
   if (lb != clusteringCache.end() && !(clusteringCache.key_comp()(curWiggleFactor, lb->first))) {
     m_clusterIds = lb->second;
   } else {
-    m_clusterIds = computeClusterIds(curWiggleFactor);
-    if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
-      numberOfReductions = enforceMaximumDifference();
+    // re-use best computed maxdiff enforcement available
+    // reason that works: cf. Lukas' proof for cluster merging not violating maximum difference
+    // we may generalize due to the fact that min(a, min(b,c)) = min(min(a,b), c) = min(min(a,c), b),
+    // essentially establishing a partial ordering of clusterings, where A >= B iff cluster(A[i]) >= cluster(B[i]) for all cells i.
+    // Thus: walking through the wiggle factors from lower to higher will save a lot of reductions
+
+    int cellchanges = 0;
+    if (lb != clusteringCache.end()) {
+      auto newClusterIds = computeClusterIds(curWiggleFactor);
+      for (unsigned cell = 0; cell < m_mesh->cells().size(); ++cell) {
+        if (lb->second[cell] > newClusterIds[cell]) {
+          ++cellchanges;
+        }
+        m_clusterIds[cell] = std::min(lb->second[cell], newClusterIds[cell]);
+      }
     }
-    clusteringCache.insert(lb, std::make_pair(curWiggleFactor, m_clusterIds));
+    else {
+      m_clusterIds = computeClusterIds(curWiggleFactor);
+      cellchanges = m_mesh->cells().size();
+    }
+    if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
+#ifdef USE_MPI
+      MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
+#endif
+      if (cellchanges > 0) {
+        numberOfReductions = enforceMaximumDifference();
+      }
+    }
+    clusteringCache[curWiggleFactor] = m_clusterIds;
   }
 
   return numberOfReductions;
@@ -490,6 +512,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   std::unordered_map<int, int> localFaceIdToLocalCellId;
 #endif // USE_MPI
 
+  #pragma omp parallel for reduction(+:numberOfReductions)
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int timeCluster = m_clusterIds[cell];
 
@@ -506,8 +529,8 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
           int cellIds[2];
           PUML::Upward::cells(*m_mesh, face, cellIds);
 
-          int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          int otherTimeCluster = m_clusterIds[neighbourCell];
+          int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
+          int otherTimeCluster = m_clusterIds[neighborCell];
 
           if (boundary == 3) {
             difference = 0;
@@ -520,8 +543,11 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         }
 #ifdef USE_MPI
         else {
+#pragma omp critical
+{
           rankToSharedFaces[face.shared()[0]].push_back(faceids[f]);
           localFaceIdToLocalCellId[faceids[f]] = cell;
+}
         }
 #endif // USE_MPI
       }

@@ -133,7 +133,7 @@ protected:
   std::vector<int> m_clusterIds{};
   const LtsParameters* ltsParameters;
   double wiggleFactor = 1.0;
-  std::map<double, decltype(m_clusterIds)> clusteringCache; // Maps wiggle factor to clustering
+  std::map<double, decltype(m_clusterIds), std::greater<double>> clusteringCache; // Maps wiggle factor to clustering
   struct ComputeWiggleFactorResult {
     int maxClusterId;
     double wiggleFactor;
