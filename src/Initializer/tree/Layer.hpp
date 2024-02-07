@@ -74,6 +74,8 @@ namespace seissol {
       HostOnlyHBM,
       HostDeviceUnified,
       HostDeviceSplit,
+      HostDeviceSplitPinned,
+      HostDevicePinned,
       DeviceOnly
     };
 
@@ -118,8 +120,16 @@ namespace seissol {
           host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceUnifiedMemory);
           device = host;
         }
+        if (mode == AllocationMode::HostDevicePinned) {
+          host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
+          device = host;
+        }
         if (mode == AllocationMode::HostDeviceSplit) {
           host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Standard);
+          device = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
+        }
+        if (mode == AllocationMode::HostDeviceSplitPinned) {
+          host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
           device = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
         }
         allocationMode = mode;
