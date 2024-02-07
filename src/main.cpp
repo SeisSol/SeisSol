@@ -59,7 +59,8 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   try {
     inputParams = std::make_shared<YAML::Node>(loader.load(parameterFile));
   } catch (const std::exception& error) {
-    logError() << error.what() << std::endl;
+    logError() << "Error while reading the parameter file:" << std::string(error.what())
+               << std::endl;
   }
   return inputParams;
 }
@@ -73,6 +74,17 @@ int main(int argc, char* argv[]) {
   device.api->initialize();
   device.api->allocateStackMem();
 #endif // ACL_DEVICE
+
+#ifdef USE_ASAGI
+  // Construct an instance of AsagiModule, to initialize it.
+  // It needs to be done here, as it registers PRE_MPI hooks
+  asagi::AsagiModule::getInstance();
+#endif
+  // Call pre MPI hooks
+  seissol::Modules::callHook<seissol::PRE_MPI>();
+
+  MPI::mpi.init(argc, argv);
+  const int rank = MPI::mpi.rank();
 
   LIKWID_MARKER_INIT;
 #pragma omp parallel
@@ -112,6 +124,7 @@ int main(int argc, char* argv[]) {
   }
   }
   const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializer::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
