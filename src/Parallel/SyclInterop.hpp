@@ -2,12 +2,16 @@
 
 #include "utils/logger.h"
 #include <utility>
+#include <Parallel/AcceleratorDevice.h>
 
 #if defined(__HIPSYCL_ENABLE_CUDA_TARGET__) || defined(__ACPP_ENABLE_CUDA_TARGET__)
 #define SEISSOL_SYCL_BACKEND_CUDA
 #endif
 #if defined(__HIPSYCL_ENABLE_HIP_TARGET__) || defined(__ACPP_ENABLE_HIP_TARGET__)
 #define SEISSOL_SYCL_BACKEND_HIP
+#endif
+#if defined(__HIPSYCL_ENABLE_SPIRV_TARGET__) || defined(__ACPP_ENABLE_SPIRV_TARGET__)
+#define SEISSOL_SYCL_BACKEND_SPIRV
 #endif
 
 namespace seissol::parallel {
@@ -56,6 +60,13 @@ void syclNativeOperation(sycl::queue& queue, bool blocking, F&& function) {
 #ifdef SEISSOL_SYCL_BACKEND_HIP
       if (queue.get_device().get_backend() == sycl::backend::hip) {
         auto stream = handle.get_native_queue<sycl::backend::hip>();
+        std::invoke(std::forward<F>(function), stream);
+        return;
+      }
+#endif
+#ifdef SEISSOL_SYCL_BACKEND_ZE
+      if (queue.get_device().get_backend() == sycl::backend::ze) {
+        auto stream = handle.get_native_queue<sycl::backend::ze>();
         std::invoke(std::forward<F>(function), stream);
         return;
       }

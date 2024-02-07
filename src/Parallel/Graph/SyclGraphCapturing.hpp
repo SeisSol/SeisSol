@@ -1,7 +1,8 @@
 #pragma once
 
+#include <Parallel/AcceleratorDevice.h>
+#include <Parallel/SyclInterop.hpp>
 #include <optional>
-#include <CL/sycl.hpp>
 
 #ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
