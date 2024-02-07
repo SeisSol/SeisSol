@@ -36,15 +36,13 @@ void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::endCapture(S
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
     if constexpr (std::is_same_v<NativeStreamT, cudaStream_t>) {
       cudaStreamEndCapture(stream, &graph);
-      instance = std::make_optional<cudaGraphExec_t>();
-      cudaGraphInstantiate(&instance.value(), graph, nullptr, nullptr, 0);
+      cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
     }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
     if constexpr (std::is_same_v<NativeStreamT, hipStream_t>) {
       hipStreamEndCapture(stream, &graph);
-      instance = std::make_optional<hipGraphExec_t>();
-      hipGraphInstantiate(&instance.value(), graph, nullptr, nullptr, 0);
+      hipGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
     }
 #endif
   }).wait_and_throw();
@@ -57,12 +55,12 @@ void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::runCapture(S
     static_assert(std::is_same_v<NativeStreamT, LocalNativeStreamT>, "");
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
     if constexpr (std::is_same_v<NativeStreamT, cudaStream_t>) {
-      cudaGraphLaunch(instance.value(), stream);
+      cudaGraphLaunch(instance, stream);
     }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
     if constexpr (std::is_same_v<NativeStreamT, hipStream_t>) {
-      hipGraphLaunch(instance.value(), stream);
+      hipGraphLaunch(instance, stream);
     }
 #endif
   });

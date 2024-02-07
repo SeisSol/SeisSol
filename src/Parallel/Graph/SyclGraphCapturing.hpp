@@ -36,7 +36,7 @@ class SyclNativeGraph {
 
   private:
   NativeGraphT graph;
-  std::optional<NativeInstanceT> instance;
+  NativeInstanceT instance;
 };
 #ifdef SYCL_EXT_ONEAPI_GRAPH
 class SyclOneapiGraph {
