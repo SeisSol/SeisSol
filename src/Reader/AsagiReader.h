@@ -55,19 +55,19 @@
 #include "Monitoring/instrumentation.hpp"
 
 namespace seissol::asagi {
-enum NUMACache_Mode { NUMA_OFF, NUMA_ON, NUMA_CACHE };
+enum class NumaCacheMode { Off, On, Cache };
 
 class AsagiReader : public easi::AsagiReader {
   private:
   /** Prefix for environment variables */
-  const std::string m_envPrefix;
+  const std::string envPrefix;
 
   /** Number of threads used by ASAGI */
-  unsigned int m_asagiThreads;
+  unsigned int asagiThreads;
 
 #ifdef USE_MPI
   /** MPI communicator used by ASAGI */
-  MPI_Comm m_comm;
+  MPI_Comm comm;
 #endif
 
   public:
@@ -82,7 +82,7 @@ class AsagiReader : public easi::AsagiReader {
   virtual unsigned numberOfThreads() const;
 
   private:
-  static NUMACache_Mode getNUMAMode();
+  static NumaCacheMode getNumaMode();
 };
 
 } // namespace seissol::asagi

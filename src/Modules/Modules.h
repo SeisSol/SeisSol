@@ -45,6 +45,7 @@
 #include <cassert>
 #include <limits>
 #include <map>
+#include <array>
 #include <utility>
 
 #include "utils/logger.h"
@@ -52,6 +53,18 @@
 #include "Module.h"
 
 namespace seissol {
+
+enum class ModulePriority : int {
+  Max = std::numeric_limits<int>::min(),
+  Highest = -10000,
+  Higher = -1000,
+  High = -100,
+  Default = 0,
+  Low = 100,
+  Lower = 1000,
+  Lowest = 10000,
+  Min = std::numeric_limits<int>::max()
+};
 
 /**
  * Possible hooks for modules
@@ -62,33 +75,32 @@ namespace seissol {
  *
  * @warning The order of the hooks has to be the same they are called in SeisSol.
  */
-enum Hook {
-  PRE_MPI,
-  POST_MPI_INIT,
-  PRE_MESH,
-  POST_MESH,
-  PRE_LTSINIT,
-  POST_LTSINIT,
-  PRE_MODEL,
-  POST_MODEL,
+enum class ModuleHook : int {
+  PreMPI,
+  PostMPIInit,
+  PreMesh,
+  PostMesh,
+  PreLtsInit,
+  PostLtsInit,
+  PreModel,
+  PostModel,
   /**
    * Called when the simulation starts.
    *
    * @warning Only called when the simulation is not loaded from a checkpoint.
-   * @warning This will only be triggered in the generated kernels version.
    */
-  SIMULATION_START,
+  SimulationStart,
   /**
    * Global synchronization point during simulation
    *
    * Registering for this hook requires setting the update interval.
-   *
-   * @warning This will only be triggered in the generated kernels version.
    */
-  SYNCHRONIZATION_POINT,
-  FIRST_HOOK = PRE_MPI,
-  MAX_INIT_HOOKS = SIMULATION_START + 1,
-  MAX_HOOKS = SYNCHRONIZATION_POINT + 1
+  SynchronizationPoint,
+  SimulationEnd,
+  Shutdown,
+  FirstHook = PreMPI,
+  MaxInitHooks = SimulationStart + 1,
+  MaxHooks = Shutdown + 1
 };
 
 /**
@@ -96,45 +108,33 @@ enum Hook {
  */
 class Modules {
   private:
-  std::multimap<int, Module*> m_hooks[MAX_HOOKS];
+  std::array<std::multimap<ModulePriority, Module*>, static_cast<size_t>(ModuleHook::MaxHooks)>
+      hooks;
 
   /** The hook that should be called next */
-  Hook m_nextHook;
+  ModuleHook nextHook;
 
   private:
-  Modules() : m_nextHook(FIRST_HOOK) {}
+  Modules();
 
   /**
    * Do the real work for registering for a hook
    */
-  void _registerHook(Module& module, Hook hook, int priority);
+  void _registerHook(Module& module, ModuleHook hook, ModulePriority priority);
 
   /**
    * Do the real work for handling a hook
    */
-  template <Hook hook>
+  template <ModuleHook hook>
   void _callHook() {
-    for (std::multimap<int, Module*>::iterator it = m_hooks[hook].begin();
-         it != m_hooks[hook].end();
-         it++) {
-      call<hook>(it->second);
+    for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+      call<hook>(module);
     }
 
-    m_nextHook = static_cast<Hook>(hook + 1);
+    nextHook = static_cast<ModuleHook>(static_cast<int>(hook) + 1);
   }
 
-  double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
-    double nextSyncTime = std::numeric_limits<double>::max();
-
-    for (std::multimap<int, Module*>::iterator it = m_hooks[SYNCHRONIZATION_POINT].begin();
-         it != m_hooks[SYNCHRONIZATION_POINT].end();
-         it++) {
-      nextSyncTime = std::min(
-          nextSyncTime, it->second->potentialSyncPoint(currentTime, timeTolerance, forceSyncPoint));
-    }
-
-    return nextSyncTime;
-  }
+  double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
 
   /**
    * Set the simulation start time.
@@ -142,40 +142,28 @@ class Modules {
    * This is required to handle synchronization points correctly when the simulation starts
    * from a checkpoint.
    */
-  void _setSimulationStartTime(double time) {
-    assert(m_nextHook <= SYNCHRONIZATION_POINT);
-
-    // Set the simulation time in all modules that are called at synchronization points
-    for (std::multimap<int, Module*>::iterator it = m_hooks[SYNCHRONIZATION_POINT].begin();
-         it != m_hooks[SYNCHRONIZATION_POINT].end();
-         it++) {
-      it->second->setSimulationStartTime(time);
-    }
-  }
+  void _setSimulationStartTime(double time);
 
   private:
-  template <Hook hook>
+  template <ModuleHook hook>
   static void call(Module* module);
 
-  static const char* strHook(Hook hook);
+  static const char* strHook(ModuleHook hook);
 
   /**
    * The only instance of this class
    *
    * We need to use a static function to prevent the "static initialization order fiasco".
    */
-  static Modules& instance() {
-    static Modules _instance;
-    return _instance;
-  }
+  static Modules& instance();
 
   // Public interface
   public:
-  static void registerHook(Module& module, Hook hook, int priority = Module::DEFAULT) {
-    instance()._registerHook(module, hook, priority);
-  }
+  static void registerHook(Module& module,
+                           ModuleHook hook,
+                           ModulePriority priority = ModulePriority::Default);
 
-  template <Hook hook>
+  template <ModuleHook hook>
   static void callHook() {
     instance()._callHook<hook>();
   }
@@ -187,21 +175,16 @@ class Modules {
    *
    * @todo The time tolerance is global constant, maybe not necessary to pass it here
    */
-  static double
-      callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false) {
-    return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
-  }
+  static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false);
 
   /**
    * Set the simulation start time
    */
-  static void setSimulationStartTime(double time) {
-    return instance()._setSimulationStartTime(time);
-  }
+  static void setSimulationStartTime(double time);
 };
 
 template <>
-inline void seissol::Modules::_callHook<SYNCHRONIZATION_POINT>() {
+inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {
   logError() << "Synchronization point hooks have to be called with \"callSyncHook\"";
 }
 
@@ -212,15 +195,17 @@ inline void seissol::Modules::_callHook<SYNCHRONIZATION_POINT>() {
     module->func();                                                                                \
   }
 
-MODULES_CALL_INSTANCE(PRE_MPI, preMPI)
-MODULES_CALL_INSTANCE(POST_MPI_INIT, postMPIInit)
-MODULES_CALL_INSTANCE(PRE_MESH, preMesh)
-MODULES_CALL_INSTANCE(POST_MESH, postMesh)
-MODULES_CALL_INSTANCE(PRE_LTSINIT, preLtsInit)
-MODULES_CALL_INSTANCE(POST_LTSINIT, postLtsInit)
-MODULES_CALL_INSTANCE(PRE_MODEL, preModel)
-MODULES_CALL_INSTANCE(POST_MODEL, postModel)
-MODULES_CALL_INSTANCE(SIMULATION_START, simulationStart)
+MODULES_CALL_INSTANCE(ModuleHook::PreMPI, preMPI)
+MODULES_CALL_INSTANCE(ModuleHook::PostMPIInit, postMPIInit)
+MODULES_CALL_INSTANCE(ModuleHook::PreMesh, preMesh)
+MODULES_CALL_INSTANCE(ModuleHook::PostMesh, postMesh)
+MODULES_CALL_INSTANCE(ModuleHook::PreLtsInit, preLtsInit)
+MODULES_CALL_INSTANCE(ModuleHook::PostLtsInit, postLtsInit)
+MODULES_CALL_INSTANCE(ModuleHook::PreModel, preModel)
+MODULES_CALL_INSTANCE(ModuleHook::PostModel, postModel)
+MODULES_CALL_INSTANCE(ModuleHook::SimulationStart, simulationStart)
+MODULES_CALL_INSTANCE(ModuleHook::SimulationEnd, simulationEnd)
+MODULES_CALL_INSTANCE(ModuleHook::Shutdown, shutdown)
 
 #undef MODULES_CALL_INSTANCE
 

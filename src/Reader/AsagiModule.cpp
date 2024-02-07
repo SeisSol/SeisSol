@@ -56,32 +56,32 @@ namespace seissol::asagi {
 
 AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
   // Register for the pre MPI hook
-  Modules::registerHook(*this, seissol::PRE_MPI);
+  Modules::registerHook(*this, ModuleHook::PreMPI);
 
   // Emit a warning/error later
   // TODO use a general logger that can buffer log messages and emit them later
-  if (m_mpiMode == MPI_UNKNOWN) {
-    Modules::registerHook(*this, seissol::POST_MPI_INIT);
-  } else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
-    m_mpiMode = MPI_WINDOWS;
+  if (m_mpiMode == AsagiMPIMode::Unknown) {
+    Modules::registerHook(*this, ModuleHook::PostMPIInit);
+  } else if (m_mpiMode == AsagiMPIMode::CommThread && m_totalThreads == 1) {
+    m_mpiMode = AsagiMPIMode::Windows;
 
-    Modules::registerHook(*this, seissol::POST_MPI_INIT);
+    Modules::registerHook(*this, ModuleHook::PostMPIInit);
   }
 }
 
-MPI_Mode AsagiModule::getMPIMode() {
+AsagiMPIMode AsagiModule::getMPIMode() {
 #ifdef USE_MPI
-  std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
+  std::string mpiModeName = utils::Env::get(EnvMPIMode, "WINDOWS");
   if (mpiModeName == "WINDOWS")
-    return MPI_WINDOWS;
+    return AsagiMPIMode::Windows;
   if (mpiModeName == "COMM_THREAD")
-    return MPI_COMM_THREAD;
+    return AsagiMPIMode::CommThread;
   if (mpiModeName == "OFF")
-    return MPI_OFF;
+    return AsagiMPIMode::Off;
 
-  return MPI_UNKNOWN;
+  return AsagiMPIMode::Unknown;
 #else  // USE_MPI
-  return MPI_OFF;
+  return AsagiMPIMode::Off;
 #endif // USE_MPI
 }
 
@@ -98,21 +98,19 @@ int AsagiModule::getTotalThreads() {
   return totalThreads;
 }
 
-const char* AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";
-
 void AsagiModule::preMPI() {
   // Communication threads required
-  if (m_mpiMode == MPI_COMM_THREAD) {
+  if (m_mpiMode == AsagiMPIMode::CommThread) {
     // Comm threads has to be started before model initialization
-    Modules::registerHook(*this, PRE_MODEL, HIGHEST);
+    Modules::registerHook(*this, ModuleHook::PreModel, ModulePriority::Highest);
     // Comm threads has to be stoped after model initialization
-    Modules::registerHook(*this, POST_MODEL, LOWEST);
+    Modules::registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
   }
 }
 
 void AsagiModule::postMPIInit() {
-  if (m_mpiMode == MPI_UNKNOWN) {
-    std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "");
+  if (m_mpiMode == AsagiMPIMode::Unknown) {
+    std::string mpiModeName = utils::Env::get(EnvMPIMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     const int rank = MPI::mpi.rank();
@@ -140,7 +138,7 @@ AsagiModule& AsagiModule::getInstance() {
   return instance;
 }
 
-MPI_Mode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
+AsagiMPIMode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
 
 int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
 

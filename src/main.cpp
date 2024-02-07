@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
   seissol::asagi::AsagiModule::getInstance();
 #endif
   // Call pre MPI hooks
-  seissol::Modules::callHook<seissol::PRE_MPI>();
+  seissol::Modules::callHook<ModuleHook::PreMPI>();
 
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();

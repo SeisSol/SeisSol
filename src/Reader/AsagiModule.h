@@ -58,12 +58,12 @@
 
 namespace seissol::asagi {
 
-enum MPI_Mode { MPI_OFF, MPI_WINDOWS, MPI_COMM_THREAD, MPI_UNKNOWN };
+enum class AsagiMPIMode { Off, Windows, CommThread, Unknown };
 
 class AsagiModule : public Module {
   private:
   /** The MPI mode used for ASAGI communication */
-  MPI_Mode m_mpiMode;
+  AsagiMPIMode m_mpiMode;
 
   /** The real name set via the environment variable */
   std::string m_mpiModeName;
@@ -104,7 +104,7 @@ class AsagiModule : public Module {
    *
    * @warning This function is called before MPI initialization
    */
-  static MPI_Mode getMPIMode();
+  static AsagiMPIMode getMPIMode();
 
   /**
    * @warning This function is called before MPI initialization
@@ -115,7 +115,7 @@ class AsagiModule : public Module {
   /**
    * @return The MPI mode for ASAGI
    */
-  static MPI_Mode mpiMode();
+  static AsagiMPIMode mpiMode();
 
   /**
    * @return The total number of threads available for ASAGI
@@ -123,7 +123,7 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static const char* ENV_MPI_MODE;
+  static inline const char* EnvMPIMode = "SEISSOL_ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi

@@ -63,6 +63,7 @@ src/Kernels/Touch.cpp
 
 src/Model/common.cpp
 
+src/Modules/Module.cpp
 src/Modules/Modules.cpp
 
 src/Monitoring/FlopCounter.cpp
@@ -137,6 +138,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Module.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/ActorStateStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp

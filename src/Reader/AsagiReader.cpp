@@ -16,46 +16,48 @@ namespace seissol::asagi {
 
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
-  if (utils::Env::get<bool>((m_envPrefix + "_SPARSE").c_str(), false)) {
+  if (utils::Env::get<bool>((envPrefix + "_SPARSE").c_str(), false)) {
     grid->setParam("GRID", "CACHE");
   }
 
   // Set MPI mode
-  if (AsagiModule::mpiMode() != MPI_OFF) {
+  if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
 #ifdef USE_MPI
-    ::asagi::Grid::Error err = grid->setComm(m_comm);
+    ::asagi::Grid::Error err = grid->setComm(comm);
     if (err != ::asagi::Grid::SUCCESS)
       logError() << "Could not set ASAGI communicator:" << err;
 
 #endif // USE_MPI
 
-    if (AsagiModule::mpiMode() == MPI_COMM_THREAD)
+    if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread)
       grid->setParam("MPI_COMMUNICATION", "THREAD");
   }
 
   // Set NUMA mode
-  m_asagiThreads = utils::Env::get((m_envPrefix + "_NUM_THREADS").c_str(), 0u);
-  if (m_asagiThreads == 0)
-    m_asagiThreads = AsagiModule::totalThreads();
-  else if (static_cast<int>(m_asagiThreads) > AsagiModule::totalThreads()) {
+  asagiThreads = utils::Env::get((envPrefix + "_NUM_THREADS").c_str(), 0u);
+  if (asagiThreads == 0) {
+    asagiThreads = AsagiModule::totalThreads();
+  } else if (static_cast<int>(asagiThreads) > AsagiModule::totalThreads()) {
     logWarning(rank) << "Only" << AsagiModule::totalThreads()
                      << "threads can be used for ASAGI initialization.";
-    m_asagiThreads = AsagiModule::totalThreads();
+    asagiThreads = AsagiModule::totalThreads();
   }
 
-  if (AsagiModule::mpiMode() == MPI_COMM_THREAD)
-    m_asagiThreads--; // one thread is used for communication
+  if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
+    // one thread is used for communication
+    --asagiThreads;
+  }
 
-  grid->setThreads(m_asagiThreads);
+  grid->setThreads(asagiThreads);
 
-  switch (getNUMAMode()) {
-  case NUMA_ON:
+  switch (getNumaMode()) {
+  case NumaCacheMode::On:
     grid->setParam("NUMA_COMMUNICATION", "ON");
     break;
-  case NUMA_OFF:
+  case NumaCacheMode::Off:
     grid->setParam("NUMA_COMMUNICATION", "OFF");
     break;
-  case NUMA_CACHE:
+  case NumaCacheMode::Cache:
     grid->setParam("NUMA_COMMUNICATION", "CACHE");
     break;
   }
@@ -64,12 +66,12 @@ namespace seissol::asagi {
   grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
   // Set additional parameters
-  std::string blockSize = utils::Env::get((m_envPrefix + "_BLOCK_SIZE").c_str(), "64");
+  std::string blockSize = utils::Env::get((envPrefix + "_BLOCK_SIZE").c_str(), "64");
   grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-  std::string cacheSize = utils::Env::get((m_envPrefix + "_CACHE_SIZE").c_str(), "128");
+  std::string cacheSize = utils::Env::get((envPrefix + "_CACHE_SIZE").c_str(), "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
   grid->setParam("VARIABLE", varname);
@@ -78,7 +80,7 @@ namespace seissol::asagi {
   // Read the data
   // SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
-#pragma omp parallel shared(abort) num_threads(m_asagiThreads)
+#pragma omp parallel shared(abort) num_threads(asagiThreads)
 #endif // _OPENMP
   {
     ::asagi::Grid::Error err = grid->open(file);
@@ -94,21 +96,21 @@ namespace seissol::asagi {
   return grid;
 }
 
-NUMACache_Mode AsagiReader::getNUMAMode() {
+NumaCacheMode AsagiReader::getNUMAMode() {
   const char* numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
 
   if (strcmp(numaModeName, "ON") == 0)
-    return NUMA_ON;
+    return NumaCacheMode::On;
   if (strcmp(numaModeName, "OFF") == 0)
-    return NUMA_OFF;
+    return NumaCacheMode::Off;
   if (strcmp(numaModeName, "CACHE") == 0)
-    return NUMA_CACHE;
+    return NumaCacheMode::Cache;
 
   logError() << "Unknown NUMA mode:" << numaModeName;
-  return NUMA_OFF;
+  return NumaCacheMode::Off;
 }
 
-unsigned AsagiReader::numberOfThreads() const { return m_asagiThreads; }
+unsigned AsagiReader::numberOfThreads() const { return asagiThreads; }
 
 AsagiReader::AsagiReader(const char* envPrefix
 #ifdef USE_MPI
@@ -116,10 +118,10 @@ AsagiReader::AsagiReader(const char* envPrefix
                          MPI_Comm comm
 #endif
                          )
-    : m_envPrefix(envPrefix)
+    : envPrefix(envPrefix)
 #ifdef USE_MPI
       ,
-      m_comm(comm)
+      comm(comm)
 #endif
 {
 }

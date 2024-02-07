@@ -41,14 +41,6 @@
 #ifndef MODULE_H
 #define MODULE_H
 
-#include <cassert>
-#include <climits>
-#include <cmath>
-#include <limits>
-
-#include "utils/logger.h"
-#include "Parallel/MPI.h"
-
 namespace seissol {
 
 /**
@@ -57,37 +49,16 @@ namespace seissol {
 class Module {
   private:
   /** The synchronization interval for this module */
-  double m_syncInterval;
+  double isyncInterval;
 
   /** The next synchronization point for this module */
-  double m_nextSyncPoint;
+  double nextSyncPoint;
 
   /** The last time when syncPoint was called */
-  double m_lastSyncPoint;
+  double lastSyncPoint;
 
   public:
-  /**
-   * Possible priorites for modules
-   *
-   * @todo Use std::numeric_limits<int> as soon as we switch to
-   *  C++0x
-   */
-  enum Priority {
-    MAX = INT_MIN,
-    HIGHEST = -10000,
-    HIGHER = -1000,
-    HIGH = -100,
-    DEFAULT = 0,
-    LOW = 100,
-    LOWER = 1000,
-    LOWEST = 10000,
-    MIN = INT_MAX
-  };
-
-  public:
-  Module()
-      : m_syncInterval(0), m_nextSyncPoint(0),
-        m_lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
+  Module();
 
   /**
    * Called by {@link Modules} at every synchronization point
@@ -97,30 +68,14 @@ class Module {
    *
    * @return The next synchronization point for this module
    */
-  double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
-    if (std::abs(currentTime - m_lastSyncPoint) < timeTolerance) {
-      int const rank = seissol::MPI::mpi.rank();
-      logInfo(rank) << "Ignoring duplicate synchronisation point at time" << currentTime
-                    << "; the last sync point was at " << m_lastSyncPoint;
-    } else if (forceSyncPoint || std::abs(currentTime - m_nextSyncPoint) < timeTolerance) {
-      syncPoint(currentTime);
-      m_lastSyncPoint = currentTime;
-      m_nextSyncPoint += m_syncInterval;
-    }
-
-    return m_nextSyncPoint;
-  }
+  double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint);
 
   /**
    * Called by {@link Modules} before the simulation starts to set the synchronization point.
    *
    * This is only called for modules that register for the SYNCHRONIZATION_POINT hook.
    */
-  void setSimulationStartTime(double time) {
-    assert(m_syncInterval > 0);
-    m_lastSyncPoint = time;
-    m_nextSyncPoint = time + m_syncInterval;
-  }
+  void setSimulationStartTime(double time);
 
   //
   // Potential hooks
@@ -173,24 +128,24 @@ class Module {
    */
   virtual void simulationStart() {}
 
+  virtual void simulationEnd() {}
+
+  virtual void shutdown() {}
+
   /**
    * Called at synchronization points
    */
   virtual void syncPoint(double currentTime) {}
 
   protected:
-  double syncInterval() const { return m_syncInterval; }
+  double syncInterval() const { return isyncInterval; }
 
   /**
    * Set the synchronization interval for this module
    *
    * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
    */
-  void setSyncInterval(double interval) {
-    if (m_syncInterval != 0)
-      logError() << "Synchronization interval is already set";
-    m_syncInterval = interval;
-  }
+  void setSyncInterval(double interval);
 };
 
 } // namespace seissol

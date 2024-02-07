@@ -142,7 +142,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   }
 
   // Call post MPI initialization hooks
-  seissol::Modules::callHook<seissol::POST_MPI_INIT>();
+  seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
   if (!m_asyncIO.init()) {
@@ -160,6 +160,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 void seissol::SeisSol::finalize() {
   // Cleanup ASYNC I/O library
   m_asyncIO.finalize();
+
+  Modules::callHook<ModuleHook::Shutdown>();
 
   const int rank = MPI::mpi.rank();
 
