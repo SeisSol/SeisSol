@@ -47,15 +47,18 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <Initializer/time_stepping/LtsParameters.h>
-#include <Initializer/time_stepping/GlobalTimestep.hpp>
+
+#include "Initializer/Parameters/LtsParameters.h"
+#include "Initializer/time_stepping/GlobalTimestep.hpp"
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }
 #endif // PUML_PUML_H
 
 
-namespace seissol::initializers::time_stepping {
+namespace seissol {
+  class SeisSol;
+  namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   std::string velocityModel{};
   unsigned rate{};
@@ -88,10 +91,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 
 class LtsWeights {
 public:
-  LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters);
-
-
-
+  LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
   void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
@@ -100,6 +100,8 @@ public:
   const double *imbalances() const;
   int nWeightsPerVertex() const;
 
+private:
+  seissol::SeisSol& seissolInstance;
 protected:
   seissol::initializer::GlobalTimestep m_details;
 
@@ -120,6 +122,7 @@ protected:
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
+
   std::string m_velocityModel{};
   unsigned m_rate{};
   std::vector<int> m_vertexWeights{};
@@ -131,7 +134,6 @@ protected:
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
-  const LtsParameters* ltsParameters;
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds), std::greater<double>> clusteringCache; // Maps wiggle factor to clustering
   struct ComputeWiggleFactorResult {
@@ -142,6 +144,7 @@ protected:
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
 };
+}
 }
 
 #endif

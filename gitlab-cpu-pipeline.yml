@@ -1,7 +1,4 @@
 default:
-    tags:
-        - sccs
-        - helper
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
@@ -17,6 +14,9 @@ stages:
         
 fetch_submodules:
     stage: pre_build
+    tags:
+        - sccs
+        - helper
     variables:
         GIT_STRATEGY: clone
     before_script:
@@ -129,7 +129,7 @@ run_tpv:
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 8b1201c
+        - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
         - cd ..
         - export equations=elastic
         - if [ "$tpv" = ahsp ]; then equations=anisotropic; fi;
@@ -156,6 +156,9 @@ run_tpv:
 check_faultoutput:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:
@@ -178,6 +181,9 @@ check_faultoutput:
 check_receivers:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:
@@ -199,6 +205,9 @@ check_receivers:
 check_energies:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:

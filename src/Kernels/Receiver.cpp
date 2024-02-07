@@ -51,8 +51,8 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
                                                       unsigned                          pointId,
                                                       Eigen::Vector3d const&            point,
                                                       seissol::geometry::MeshReader const&                 mesh,
-                                                      seissol::initializers::Lut const& ltsLut,
-                                                      seissol::initializers::LTS const& lts ) {
+                                                      seissol::initializer::Lut const& ltsLut,
+                                                      seissol::initializer::LTS const& lts ) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -86,7 +86,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   derivativeKrnl.spaceTimePredictor = stp;
 #else
   alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -115,8 +115,8 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
 #endif
-      seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
-      seissol::SeisSol::main.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
+      seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
+      seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
