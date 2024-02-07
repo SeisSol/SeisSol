@@ -33,6 +33,7 @@ class ReceiverBasedOutputBuilder {
   void initOutputVariables(std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask);
   void initJacobian2dMatrices();
   void assignNearestInternalGaussianPoints();
+  void assignFaultTags();
 
   protected:
   const seissol::geometry::MeshReader* meshReader{};
