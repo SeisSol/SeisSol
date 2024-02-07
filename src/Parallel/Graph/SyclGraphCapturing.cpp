@@ -52,18 +52,17 @@ void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::endCapture(S
 template <typename NativeStreamT, typename NativeGraphT, typename NativeInstanceT>
 void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::runCapture(StreamT& queue) {
   assert(instance.has_value());
-  auto graphInstance = instance.value();
-  syclNativeOperation(queue, false, [&, graphInstance](auto& stream) {
+  syclNativeOperation(queue, false, [&](auto& stream) {
     using LocalNativeStreamT = std::decay_t<decltype(stream)>;
     static_assert(std::is_same_v<NativeStreamT, LocalNativeStreamT>, "");
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
     if constexpr (std::is_same_v<NativeStreamT, cudaStream_t>) {
-      cudaGraphLaunch(graphInstance, stream);
+      cudaGraphLaunch(instance.value(), stream);
     }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
     if constexpr (std::is_same_v<NativeStreamT, hipStream_t>) {
-      hipGraphLaunch(graphInstance, stream);
+      hipGraphLaunch(instance.value(), stream);
     }
 #endif
   });

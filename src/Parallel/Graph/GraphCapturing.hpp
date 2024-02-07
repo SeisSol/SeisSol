@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <utility>
 
 namespace seissol::parallel {
@@ -8,7 +9,7 @@ template <typename GraphT>
 class ComputeGraph {
   private:
   bool captured = false;
-  GraphT implementation;
+  std::shared_ptr<GraphT> implementation;
 
   public:
   template <typename F>

@@ -25,6 +25,9 @@ class SyclNativeGraph {
   public:
   using StreamT = sycl::queue;
 
+  // currently, no move supported
+  SyclNativeGraph(SyclNativeGraph&&) = delete;
+
   bool canCapture() const;
 
   void beginCapture(StreamT& queue);
