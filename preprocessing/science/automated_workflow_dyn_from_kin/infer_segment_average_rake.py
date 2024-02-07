@@ -8,7 +8,7 @@ import os
 class seissolxdmfExtended(seissolxdmf.seissolxdmf):
     def ReadFaultTags(self):
         """Read partition array"""
-        return self.Read1dData("clustering", self.nElements, isInt=True).T
+        return self.Read1dData("fault-tag", self.nElements, isInt=True).T
 
 
 # parsing python arguments

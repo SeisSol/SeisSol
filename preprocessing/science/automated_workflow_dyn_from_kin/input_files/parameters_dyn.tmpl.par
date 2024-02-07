@@ -18,16 +18,9 @@ YRef = 0.0
 ZRef = -1.0
 refPointMethod = 1
 
-RF_output_on = 0                               ! Rupture front ascii output
 OutputPointType = 4                            ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
-LtsWiggleFactorMin = 0.51 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
-LtsWiggleFactorStepsize = 0.05 ! Stepsize for wiggle factor grid search
-LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum difference between neighboring clusters during wiggle factor search
-LtsAutoMergeClusters = 1 !  0 or 1: Activates auto merging of clusters
-LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
-LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging clusters. Valid options: bestWiggleFactor / maxWiggleFactor
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
@@ -54,6 +47,12 @@ meshgenerator = 'PUML'                         ! Name of meshgenerator (Gambit3D
 CFL = 0.5                                      ! CFL number (<=1.0)
 ClusteredLTS = 2                               ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
 !ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
+LtsWiggleFactorMin = 0.51 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
+LtsWiggleFactorStepsize = 0.05 ! Stepsize for wiggle factor grid search
+LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum difference between neighboring clusters during wiggle factor search
+LtsAutoMergeClusters = 1 !  0 or 1: Activates auto merging of clusters
+LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
+LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging clusters. Valid options: bestWiggleFactor / maxWiggleFactor
 /
 
 &Output

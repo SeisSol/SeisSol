@@ -9,5 +9,6 @@ then
     exit 1
 fi
 
-$2/preprocessing/science/automated_workflow_dyn_from_kin/project_fault_tractions_asagi_grid.py --dx 100 output/fl33-fault.xdmf
-$2/preprocessing/science/automated_workflow_dyn_from_kin/infer_segment_average_rake.py
+$1/preprocessing/science/automated_workflow_dyn_from_kin/project_fault_tractions_asagi_grid.py --dx 100 output/fl33-fault.xdmf
+$1/preprocessing/science/automated_workflow_dyn_from_kin/infer_segment_average_rake.py output/fl33-fault.xdmf
+$1/preprocessing/science/automated_workflow_dyn_from_kin/generate_input_seissol_dr.py
