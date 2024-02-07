@@ -44,11 +44,11 @@
 #include "PUML/PUML.h"
 
 namespace seissol {
-namespace initializers {
+namespace initializer {
 namespace time_stepping {
 class LtsWeights;
 }
-} // namespace initializers
+} // namespace initializer
 } // namespace seissol
 
 namespace seissol::geometry {
@@ -58,7 +58,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
              const char* partitioningLib,
              double maximumAllowedTimeStep,
              const char* checkPointFile,
-             initializers::time_stepping::LtsWeights* ltsWeights = nullptr,
+             initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0,
              bool readPartitionFromFile = false);
 
@@ -72,7 +72,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
    * Create the partitioning
    */
   void partition(PUML::TETPUML& puml,
-                 initializers::time_stepping::LtsWeights* ltsWeights,
+                 initializer::time_stepping::LtsWeights* ltsWeights,
                  double tpwgt,
                  const char* meshFile,
                  const char* partitioningLib,

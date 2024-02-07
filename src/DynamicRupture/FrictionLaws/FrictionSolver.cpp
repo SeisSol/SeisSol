@@ -14,12 +14,12 @@ void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
   deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
 }
 
-void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                        seissol::initializers::DynamicRupture const* const dynRup,
+void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                                        seissol::initializer::DynamicRupture const* const dynRup,
                                         real fullUpdateTime) {
-  seissol::initializers::AllocationPlace place =
-      seissol::isDeviceOn() ? seissol::initializers::AllocationPlace::Device
-                            : seissol::initializers::AllocationPlace::Host;
+  seissol::initializer::AllocationPlace place =
+      seissol::isDeviceOn() ? seissol::initializer::AllocationPlace::Device
+                            : seissol::initializer::AllocationPlace::Host;
   impAndEta = layerData.var(dynRup->impAndEta, place);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS, place);

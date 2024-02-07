@@ -74,7 +74,7 @@ namespace seissol {
                                                                 struct Loader { \
                                                                   MAGIC_FOR_EACH(_LTSTREE_MEMBER_PTR, HANDLE_STRUCT, __VA_ARGS__) \
                                                                   template<typename T> \
-                                                                  void load(HANDLE_STRUCT const & handleStruct, T& tree, seissol::initializers::AllocationPlace place = seissol::initializers::AllocationPlace::Host) { \
+                                                                  void load(HANDLE_STRUCT const & handleStruct, T& tree, seissol::initializer::AllocationPlace place = seissol::initializer::AllocationPlace::Host) { \
                                                                     MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__) \
                                                                   } \
                                                                   NAME entry(unsigned index) { \

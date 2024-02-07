@@ -48,7 +48,7 @@
 
 namespace init = seissol::init;
 
-namespace seissol::initializers {
+namespace seissol::initializer {
   namespace matrixmanip {
     MemoryProperties OnHost::getProperties() {
       // returns MemoryProperties initialized with default values i.e., CPU memory properties
@@ -254,4 +254,4 @@ template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& glo
                                                                  memory::ManagedAllocator& memoryAllocator,
                                                                  enum memory::Memkind memkind);
 
-} // namespace seissol::initializers
+} // namespace seissol::initializer

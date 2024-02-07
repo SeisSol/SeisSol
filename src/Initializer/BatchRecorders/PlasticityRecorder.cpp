@@ -3,8 +3,8 @@
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   kernels::LocalData::Loader loader, loaderHost;

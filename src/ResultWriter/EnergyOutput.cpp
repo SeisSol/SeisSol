@@ -1,13 +1,11 @@
 #include "EnergyOutput.h"
-#include <Kernels/DynamicRupture.h>
-#include <Numerical_aux/Quadrature.h>
+
 #include "DynamicRupture/Misc.h"
-#include <Parallel/MPI.h>
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "Initializer/InputParameters.hpp"
-#include "Initializer/preProcessorMacros.hpp"
-#include <cstring>
-#include <generated_code/tensor.h>
 
 namespace seissol::writer {
 
@@ -29,14 +27,16 @@ double& EnergiesStorage::plasticMoment() { return energies[7]; }
 
 double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
+double& EnergiesStorage::potency() { return energies[9]; }
+
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializers::DynamicRupture* newDynRup,
-    seissol::initializers::LTSTree* newDynRuptTree,
+    seissol::initializer::DynamicRupture* newDynRup,
+    seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializers::LTSTree* newLtsTree,
-    seissol::initializers::LTS* newLts,
-    seissol::initializers::Lut* newLtsLut,
+    seissol::initializer::LTSTree* newLtsTree,
+    seissol::initializer::LTS* newLts,
+    seissol::initializer::Lut* newLtsLut,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -150,6 +150,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
+  double& potency = energiesStorage.potency();
 #ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
@@ -212,7 +213,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
-        + : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none)                \
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
     shared(it,                                                                                     \
                drEnergyOutput,                                                                     \
                faceInformation,                                                                    \
@@ -237,14 +238,15 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                       waveSpeedsPlus[i].sWaveVelocity;
         real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
                        waveSpeedsMinus[i].sWaveVelocity;
-        real mu = muPlus * muMinus / (muPlus + muMinus);
-        real seismicMomentIncrease = 0.0;
+        real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+        real potencyIncrease = 0.0;
         for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
-          seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
+          potencyIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
-        seismicMomentIncrease *=
-            godunovData[i].doubledSurfaceArea * mu / seissol::dr::misc::numberOfBoundaryGaussPoints;
-        seismicMoment += seismicMomentIncrease;
+        potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea /
+                           seissol::dr::misc::numberOfBoundaryGaussPoints;
+        potency += potencyIncrease;
+        seismicMoment += potencyIncrease * mu;
       }
     }
   }
@@ -265,7 +267,7 @@ void EnergyOutput::computeVolumeEnergies() {
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
 
-  const auto g = SeisSol::main.getGravitationSetup().acceleration;
+  const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
@@ -532,6 +534,7 @@ void EnergyOutput::writeEnergies(double time) {
   out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
       << time << ",static_frictional_work," << energiesStorage.staticFrictionalWork() << "\n"
       << time << ",seismic_moment," << energiesStorage.seismicMoment() << "\n"
+      << time << ",potency," << energiesStorage.potency() << "\n"
       << time << ",plastic_moment," << energiesStorage.plasticMoment() << std::endl;
 }
 

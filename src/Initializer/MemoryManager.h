@@ -72,6 +72,7 @@
 #define MEMORYMANAGER_H_
 
 #include "tree/Layer.hpp"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -88,7 +89,6 @@
 #include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
-#include <Initializer/time_stepping/LtsParameters.h>
 
 #include <Physics/InitialField.h>
 
@@ -99,16 +99,16 @@
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
-  namespace initializers {
-    class MemoryManager;
-  }
-}
+  class SeisSol;
+  namespace initializer {
 
 /**
  * Memory manager of SeisSol.
  **/
-class seissol::initializers::MemoryManager {
+class MemoryManager {
   private: // explicit private for unit tests
+    seissol::SeisSol& seissolInstance;
+
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
 
@@ -172,12 +172,10 @@ class seissol::initializers::MemoryManager {
 
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
-    std::shared_ptr<YAML::Node> m_inputParams = nullptr;
-    std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
+    std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -236,7 +234,7 @@ class seissol::initializers::MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager() {}
+    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {};
 
     /**
      * Destructor, memory is freed by managed allocator
@@ -355,32 +353,30 @@ class seissol::initializers::MemoryManager {
     inline dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
-    inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
+    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
     }
     inline seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
     }
-    inline seissol::dr::DRParameters* getDRParameters() {
-        return m_dynRupParameters.get();
+    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
+        return &(m_seissolParams->drParameters);
     }
 
-    inline time_stepping::LtsParameters* getLtsParameters() {
-        return ltsParameters.get();
+    inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
+        return &(m_seissolParams->timeStepping.lts);
     };
 
-    void setInputParams(std::shared_ptr<YAML::Node> params) {
-      m_inputParams = params;
-      m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
-      ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
+    void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
+      m_seissolParams = params;
     }
 
     std::string getOutputPrefix() const {
-      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
+      return m_seissolParams->output.prefix;
     }
 
     bool isLoopStatisticsNetcdfOutputOn() const {
-      return getWithDefault((*m_inputParams)["output"], "loopstatisticsnetcdfoutput", false);
+      return m_seissolParams->output.loopStatisticsNetcdfOutput;
     }
 
 #ifdef ACL_DEVICE
@@ -400,12 +396,10 @@ class seissol::initializers::MemoryManager {
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
-  void synchronizeTo(seissol::initializers::AllocationPlace place);
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
 
 
-namespace seissol {
-    namespace initializers {
     bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                                   unsigned int face);
     bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,

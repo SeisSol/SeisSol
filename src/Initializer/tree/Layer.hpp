@@ -58,7 +58,7 @@ enum LayerType {
 };
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     typedef std::bitset<NUMBER_OF_LAYERS> LayerMask;
 
     template<typename T> struct Variable;
@@ -175,24 +175,24 @@ namespace seissol {
 }
 
 template<typename T>
-struct seissol::initializers::Variable {
+struct seissol::initializer::Variable {
   unsigned index;
   LayerMask mask;
   unsigned count;
   Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
 };
 
-struct seissol::initializers::Bucket {
+struct seissol::initializer::Bucket {
   unsigned index;
 
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 #ifdef ACL_DEVICE
-struct seissol::initializers::ScratchpadMemory : public seissol::initializers::Bucket{};
+struct seissol::initializer::ScratchpadMemory : public seissol::initializer::Bucket{};
 #endif
 
-struct seissol::initializers::MemoryInfo {
+struct seissol::initializer::MemoryInfo {
   size_t bytes;
   size_t alignment;
   LayerMask mask;
@@ -200,7 +200,7 @@ struct seissol::initializers::MemoryInfo {
   AllocationMode allocMode;
 };
 
-class seissol::initializers::Layer : public seissol::initializers::Node {
+class seissol::initializer::Layer : public seissol::initializer::Node {
 private:
   enum LayerType m_layerType;
   unsigned m_numberOfCells;

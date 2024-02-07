@@ -9,7 +9,7 @@
 #include <Kernels/Interface.hpp>
 #include <vector>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 template <typename LtsT>
 class AbstractRecorder {
   public:
@@ -68,7 +68,7 @@ class CompositeRecorder : public AbstractRecorder<LtsT> {
   std::vector<AbstractRecorder<LtsT>*> concreteRecorders{};
 };
 
-class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
+class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
   void record(LTS& handler, Layer& layer) override;
 
@@ -100,7 +100,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::
   size_t derivativesAddressCounter{0};
 };
 
-class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
+class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
   void record(LTS& handler, Layer& layer) override;
 
@@ -122,7 +122,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializers::
   size_t integratedDofsAddressCounter{0};
 };
 
-class PlasticityRecorder : public AbstractRecorder<seissol::initializers::LTS> {
+class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
   void setUpContext(LTS& handler,
                     Layer& layer,
@@ -138,7 +138,7 @@ class PlasticityRecorder : public AbstractRecorder<seissol::initializers::LTS> {
   kernels::LocalData::Loader* currentLoaderHost{nullptr};
 };
 
-class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializers::DynamicRupture> {
+class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
   public:
   void record(DynamicRupture& handler, Layer& layer) override;
 
@@ -151,6 +151,6 @@ class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializers::Dy
   std::unordered_map<real*, real*> idofsAddressRegistry{};
 };
 
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #endif // SEISSOL_RECORDERS_H

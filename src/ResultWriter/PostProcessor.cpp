@@ -42,7 +42,7 @@
 #include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep,
-	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
+	seissol::initializer::Layer& i_layerData, const unsigned int l_cell,
 	const double * const i_dofs) {
 
 	real *integrals = i_layerData.var(m_integrals);
@@ -74,12 +74,12 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
 	}
 }
 
-void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTree* ltsTree) {
-	ltsTree->addVar( m_integrals, seissol::initializers::LayerMask(Ghost), PAGESIZE_HEAP,
-      initializers::AllocationMode::HostOnly );
+void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTree* ltsTree) {
+	ltsTree->addVar( m_integrals, seissol::initializer::LayerMask(Ghost), PAGESIZE_HEAP,
+      initializer::AllocationMode::HostOnly );
 }
 
-const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
+const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializer::LTSTree* ltsTree) {
 	if (m_numberOfVariables == 0) {
 		return 0L;
 	} else {

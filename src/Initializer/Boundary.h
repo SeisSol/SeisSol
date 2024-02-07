@@ -6,18 +6,18 @@
 #include <Parallel/Helper.hpp>
 
 #ifndef ACL_DEVICE
-# define MEMKIND_BOUNDARY  initializers::AllocationMode::HostOnly
+# define MEMKIND_BOUNDARY  initializer::AllocationMode::HostOnly
 #else
 # define MEMKIND_BOUNDARY  useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     struct Boundary;
   }
 }
 
-struct seissol::initializers::Boundary {
+struct seissol::initializer::Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
   
   void addTo(LTSTree& tree) {

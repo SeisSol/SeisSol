@@ -45,12 +45,12 @@
 #include "Layer.hpp"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class Lut;
   }
 }
 
-class seissol::initializers::Lut {
+class seissol::initializer::Lut {
 public:
   static unsigned const             MaxDuplicates = 4;
 
