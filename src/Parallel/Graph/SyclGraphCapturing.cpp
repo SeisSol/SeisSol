@@ -13,7 +13,7 @@ bool SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::canCapture()
 }
 template <typename NativeStreamT, typename NativeGraphT, typename NativeInstanceT>
 void SyclNativeGraph<NativeStreamT, NativeGraphT, NativeInstanceT>::beginCapture(StreamT& queue) {
-  syclNativeOperation(queue, true, [&](auto& stream) {
+  syclNativeOperation(queue, true, [](auto& stream) {
     using LocalNativeStreamT = std::decay_t<decltype(stream)>;
     static_assert(std::is_same_v<NativeStreamT, LocalNativeStreamT>, "");
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
