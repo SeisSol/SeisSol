@@ -66,15 +66,6 @@
 #endif
 
 bool seissol::SeisSol::init(int argc, char* argv[]) {
-#ifdef USE_ASAGI
-  // Construct an instance of AsagiModule, to initialize it.
-  // It needs to be done here, as it registers PRE_MPI hooks
-  asagi::AsagiModule::getInstance();
-#endif
-  // Call pre MPI hooks
-  seissol::Modules::callHook<seissol::PRE_MPI>();
-
-  MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
 
   // Print welcome message
@@ -161,7 +152,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   if (!m_asyncIO.init()) {
     return false;
   }
-  
+
   m_memoryManager->initialize();
 
   m_memoryManager->setInputParams(
