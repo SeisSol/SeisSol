@@ -41,16 +41,14 @@
 
 #ifdef USE_ASAGI
 
+#include "AsagiModule.h"
+#include "utils/env.h"
+#include "Parallel/Helper.hpp"
+#include <string>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
-
-#include <string>
-
-#include "utils/env.h"
-
-#include "AsagiModule.h"
-#include "Parallel/Helper.hpp"
 
 namespace seissol::asagi {
 

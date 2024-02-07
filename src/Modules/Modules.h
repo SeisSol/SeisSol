@@ -41,16 +41,11 @@
 #ifndef MODULES_H
 #define MODULES_H
 
-#include <algorithm>
-#include <cassert>
+#include "utils/logger.h"
+#include "Module.h"
+#include <array>
 #include <limits>
 #include <map>
-#include <array>
-#include <utility>
-
-#include "utils/logger.h"
-
-#include "Module.h"
 
 namespace seissol {
 

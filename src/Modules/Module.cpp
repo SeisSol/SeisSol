@@ -1,11 +1,10 @@
 #include "Module.h"
 
+#include "Parallel/MPI.h"
+#include "utils/logger.h"
 #include <cassert>
 #include <cmath>
 #include <limits>
-
-#include "utils/logger.h"
-#include "Parallel/MPI.h"
 
 namespace seissol {
 Module::Module()
