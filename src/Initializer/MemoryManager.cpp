@@ -414,7 +414,6 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
 
-    if constexpr (!seissol::isDeviceOn()) {
 #ifdef USE_MPI
     /*
      * ghost layer
@@ -451,7 +450,6 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                           static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives)),
                                           cluster.child<Interior>().var(m_lts.buffers),
                                           cluster.child<Interior>().var(m_lts.derivatives)  );
-    }
 
 #ifdef ACL_DEVICE
     #ifdef USE_MPI
@@ -595,7 +593,11 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
        ++layer, ++boundaryLayer) {
     auto* cellInformation = layer->var(m_lts.cellInformation);
     auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
-    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
+#ifdef ACL_DEVICE
+    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Device);
+#else
+    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Host);
+#endif
 
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
