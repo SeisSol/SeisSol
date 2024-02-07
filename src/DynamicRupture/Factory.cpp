@@ -115,7 +115,7 @@ DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {
       std::make_unique<seissol::initializer::LTSImposedSlipRatesYoffe>(),
       std::make_unique<initializer::ImposedSlipRatesYoffeInitializer>(drParameters,
                                                                       seissolInstance),
-      std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
+      std::make_unique<friction_law_impl::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
       std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                               seissolInstance)};
 }
