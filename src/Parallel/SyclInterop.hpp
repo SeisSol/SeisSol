@@ -41,11 +41,15 @@ void syclNativeOperation(sycl::queue& queue, bool blocking, F&& function) {
     queue.ext_oneapi_submit_barrier();
   }
 #endif
+#if defined(HIPSYCL_EXT_QUEUE_WAIT_LIST) || defined(ACPP_EXT_QUEUE_WAIT_LIST)
+  auto waitList = queue.get_wait_list();
+#endif
+  // NOTE: if some thread adds something to the queue here, we may have a problem
   queue.submit([&](sycl::handler& h) {
 #if defined(HIPSYCL_EXT_QUEUE_WAIT_LIST) || defined(ACPP_EXT_QUEUE_WAIT_LIST)
     // use "barrier", if needed
     if (blocking) {
-      h.depends_on(queue.get_wait_list());
+      h.depends_on(waitList);
     }
 #endif
 #if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
