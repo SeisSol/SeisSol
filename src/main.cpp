@@ -113,10 +113,10 @@ int main(int argc, char* argv[]) {
   // TODO Read parameters here
   // Parse command line arguments
   utils::Args args;
-  args.addAdditionalOption("file", "The parameter file", false);
+      args.addAdditionalOption("file", "The parameter file", false);
   switch (args.parse(argc, argv)) {
   case utils::Args::Help: {
-    [[fallthrough]];
+        [[fallthrough]];
   }
   case utils::Args::Error: {
     MPI::mpi.finalize();
