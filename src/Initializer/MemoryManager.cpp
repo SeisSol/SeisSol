@@ -854,6 +854,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   m_dynRup = std::move(product.ltsTree);
   m_DRInitializer = std::move(product.initializer);
   m_FrictionLaw = std::move(product.frictionLaw);
+  m_FrictionLawDevice = std::move(product.frictionLawDevice);
   m_faultOutputManager = std::move(product.output);
 }
 
