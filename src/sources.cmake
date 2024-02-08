@@ -10,116 +10,157 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 
-src/Initializer/ParameterDB.cpp
-src/Initializer/PointMapper.cpp
-src/Initializer/GlobalData.cpp
-src/Initializer/InternalState.cpp
-src/Initializer/MemoryAllocator.cpp
+src/Checkpoint/Backend.cpp
+src/Checkpoint/Fault.cpp
+src/Checkpoint/Manager.cpp
+src/Checkpoint/posix/Fault.cpp
+src/Checkpoint/posix/Wavefield.cpp
+
+src/Common/IntegerMaskParser.cpp
+
+src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+src/Equations/poroelastic/Model/datastructures.cpp
+
+src/Geometry/MeshReader.cpp
+src/Geometry/MeshTools.cpp
+
 src/Initializer/CellLocalMatrices.cpp
-
-src/Initializer/time_stepping/LtsLayout.cpp
-src/Initializer/time_stepping/LtsParameters.cpp
-src/Initializer/time_stepping/GlobalTimestep.cpp
-src/Initializer/tree/Lut.cpp
-src/Initializer/MemoryManager.cpp
-src/Initializer/InitialFieldProjection.cpp
-src/Initializer/InputParameters.cpp
-
+src/Initializer/GlobalData.cpp
+src/Initializer/InitProcedure/Init.cpp
+src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InitProcedure/Init.cpp
+src/Initializer/InitialFieldProjection.cpp
+src/Initializer/InternalState.cpp
+src/Initializer/MemoryAllocator.cpp
+src/Initializer/MemoryManager.cpp
+src/Initializer/ParameterDB.cpp
+src/Initializer/PointMapper.cpp
 
-src/Modules/Modules.cpp
-src/Model/common.cpp
-src/Numerical_aux/Functions.cpp
-src/Numerical_aux/Transformation.cpp
-src/Numerical_aux/Statistics.cpp
+src/Initializer/Parameters/CubeGeneratorParameters.cpp
+src/Initializer/Parameters/DRParameters.cpp
+src/Initializer/Parameters/InitializationParameters.cpp
+src/Initializer/Parameters/LtsParameters.cpp
+src/Initializer/Parameters/MeshParameters.cpp
+src/Initializer/Parameters/ModelParameters.cpp
+src/Initializer/Parameters/OutputParameters.cpp
+src/Initializer/Parameters/ParameterReader.cpp
+src/Initializer/Parameters/SeisSolParameters.cpp
+src/Initializer/Parameters/SourceParameters.cpp
 
-src/Solver/Simulator.cpp
-src/Solver/FreeSurfaceIntegrator.cpp
+src/Initializer/time_stepping/GlobalTimestep.cpp
+src/Initializer/time_stepping/LtsLayout.cpp
 
-src/Solver/time_stepping/AbstractTimeCluster.cpp
-src/Solver/time_stepping/ActorState.cpp
-src/Solver/time_stepping/MiniSeisSol.cpp
-src/Solver/time_stepping/TimeCluster.cpp
-src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
-src/Solver/time_stepping/DirectGhostTimeCluster.cpp
-src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/CommunicationManager.cpp
+src/Initializer/tree/Lut.cpp
 
-src/Solver/time_stepping/TimeManager.cpp
-src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
-src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
-src/SeisSol.cpp
-src/Parallel/Pin.cpp
+src/Kernels/TimeCommon.cpp
+src/Kernels/Touch.cpp
 
-src/Geometry/MeshTools.cpp
-src/Geometry/MeshReader.cpp
+src/Model/common.cpp
+
+src/Modules/Modules.cpp
+
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
 src/Monitoring/ActorStateStatistics.cpp
 src/Monitoring/Stopwatch.cpp
 src/Monitoring/Unit.cpp
 
-src/Checkpoint/Manager.cpp
-
-src/Checkpoint/Backend.cpp
-src/Checkpoint/Fault.cpp
-src/Checkpoint/posix/Wavefield.cpp
-src/Checkpoint/posix/Fault.cpp
-src/ResultWriter/AnalysisWriter.cpp
-src/ResultWriter/MiniSeisSolWriter.cpp
-src/ResultWriter/ClusteringWriter.cpp
-src/ResultWriter/ThreadsPinningWriter.cpp
-src/ResultWriter/FreeSurfaceWriterExecutor.cpp
-src/ResultWriter/PostProcessor.cpp
-src/ResultWriter/ReceiverWriter.cpp
-src/ResultWriter/FaultWriterExecutor.cpp
-src/ResultWriter/FaultWriter.cpp
-src/ResultWriter/WaveFieldWriter.cpp
-src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/EnergyOutput.cpp
-
+src/Numerical_aux/Functions.cpp
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
+src/Numerical_aux/Statistics.cpp
+src/Numerical_aux/Transformation.cpp
+
+src/Parallel/Pin.cpp
+
 src/Physics/Attenuation.cpp
+src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Physics/InitialField.cpp
 
-src/Equations/poroelastic/Model/datastructures.cpp
-src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+src/ResultWriter/AnalysisWriter.cpp
+src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/EnergyOutput.cpp
+src/ResultWriter/FaultWriter.cpp
+src/ResultWriter/FaultWriterExecutor.cpp
+src/ResultWriter/FreeSurfaceWriter.cpp
+src/ResultWriter/FreeSurfaceWriterExecutor.cpp
+src/ResultWriter/MiniSeisSolWriter.cpp
+src/ResultWriter/PostProcessor.cpp
+src/ResultWriter/ReceiverWriter.cpp
+src/ResultWriter/ThreadsPinningWriter.cpp
+src/ResultWriter/WaveFieldWriter.cpp
 
-src/Common/IntegerMaskParser.cpp
+src/SeisSol.cpp
 
+src/Solver/FreeSurfaceIntegrator.cpp
+src/Solver/Pipeline/DrTuner.cpp
+src/Solver/Simulator.cpp
+
+src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
+src/Solver/time_stepping/AbstractTimeCluster.cpp
+src/Solver/time_stepping/ActorState.cpp
+src/Solver/time_stepping/CommunicationManager.cpp
+src/Solver/time_stepping/DirectGhostTimeCluster.cpp
+src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
+src/Solver/time_stepping/MiniSeisSol.cpp
+src/Solver/time_stepping/TimeCluster.cpp
+src/Solver/time_stepping/TimeManager.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Common/IntegerMaskParser.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/NoFault.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/BaseDRInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputManager.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/ReceiverBasedOutput.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/BaseDRInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputAux.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputManager.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/ReceiverBasedOutput.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/ActorStateStatistics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Plasticity.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Receiver.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Numerical_aux/Statistics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Pin.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Physics/InstantaneousTimeMirrorManager.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/ClusteringWriter.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/FaultWriter.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/FaultWriterExecutor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/Pipeline/DrTuner.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/AbstractTimeCluster.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/ActorState.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/CommunicationManager.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/DirectGhostTimeCluster.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeCluster.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp
+)
 
 set(SYCL_ONLY_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
@@ -154,11 +195,11 @@ if (HDF5 AND MPI)
     )
 endif()
 
-
 if (NETCDF)
   list(APPEND SYCL_DEPENDENT_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
     )
 endif()
 

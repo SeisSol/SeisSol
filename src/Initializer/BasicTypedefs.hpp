@@ -18,7 +18,7 @@ enum TimeClustering {
 
 // face types
 // Note: When introducting new types also change
-// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
+// int seissol::initializer::time_stepping::LtsWeights::getBoundaryCondition
 // and PUMLReader. Otherwise it might become a DR face...
 enum class FaceType {
   // regular: inside the computational domain

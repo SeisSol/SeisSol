@@ -47,22 +47,25 @@
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 #include <ResultWriter/ClusteringWriter.h>
+#include "Parallel/Helper.hpp"
 
-seissol::time_stepping::TimeManager::TimeManager():
+seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
+  seissolInstance(seissolInstance),
   m_logUpdates(std::numeric_limits<unsigned int>::max()), actorStateStatisticsManager(m_loopStatistics)
 {
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");
   m_loopStatistics.addRegion("computeDynamicRupture");
+  m_loopStatistics.addRegion("computePointSources");
 
-  m_loopStatistics.enableSampleOutput(seissol::SeisSol::main.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
+  m_loopStatistics.enableSampleOutput(seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 }
 
 seissol::time_stepping::TimeManager::~TimeManager() {}
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
-                                                      initializers::MemoryManager& memoryManager,
+                                                      initializer::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
@@ -129,6 +132,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
           memoryManager.getFaultOutputManager(),
+          seissolInstance,
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId))
       );
@@ -165,10 +169,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       }
     }
 
+    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
+    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
+    increaseManager.setTimeClusterVector(&clusters);
+    decreaseManager.setTimeClusterVector(&clusters);
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
+    const auto persistent = usePersistentMpi();
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
@@ -191,7 +200,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                          globalClusterId,
                                                          otherGlobalClusterId,
                                                          meshStructure,
-                                                         preferredDataTransferMode);
+                                                         preferredDataTransferMode,
+                                                         persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.
@@ -219,23 +229,21 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-#ifdef USE_COMM_THREAD
-  bool useCommthread = true;
-#else
-  bool useCommthread = false;
-#endif
-  if (useCommthread && MPI::mpi.size() == 1)  {
-    logInfo(MPI::mpi.rank()) << "Only using one mpi rank. Not using communication thread.";
-    useCommthread = false;
-  }
-
-  if (useCommthread) {
+  if (seissol::useCommThread(MPI::mpi)) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
-                                                                          &seissol::SeisSol::main.getPinning()
+                                                                          &seissolInstance.getPinning()
                                                                           );
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
+  auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
+  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+  auto ghostClusterPointer = communicationManager->getGhostClusters();
+
+  increaseManager.setGhostClusterVector(ghostClusterPointer);
+  decreaseManager.setGhostClusterVector(ghostClusterPointer);
 
 }
 
@@ -377,7 +385,7 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
 void seissol::time_stepping::TimeManager::freeDynamicResources() {
   for (auto& cluster : clusters) {
     cluster->freePointSources();
+    cluster->finalize();
   }
   communicationManager.reset(nullptr);
 }
-

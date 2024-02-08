@@ -247,7 +247,7 @@ template <typename T>
 static nc_type type2nc() {
   if constexpr (std::is_signed_v<T>) {
     static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
-        "type2nc supports 32 or 64 bit integral types only");
+                  "type2nc supports 32 or 64 bit integral types only");
     if constexpr (sizeof(T) == 4) {
       return NC_INT;
     } else {
@@ -309,7 +309,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   timespectyp,
                                   "nsec",
                                   NC_COMPOUND_OFFSET(timespec, tv_nsec),
-                       type2nc<decltype(timespec::tv_nsec)>());
+                                  type2nc<decltype(timespec::tv_nsec)>());
         check_err(stat, __LINE__, __FILE__);
       }
 

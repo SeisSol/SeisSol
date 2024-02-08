@@ -2,8 +2,8 @@
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
 #include <type_traits>
@@ -475,10 +475,7 @@ inline void computeFrictionEnergy(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-
-  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
@@ -506,14 +503,13 @@ inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
-      const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                       interpolatedTraction12 * interpolatedSlipRate2 +
+
+      const auto weight = -timeWeight * spaceWeight * doubledSurfaceArea;
+      frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                        interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
