@@ -143,7 +143,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     upcomingTime = m_finalTime;
 
     // synchronize data (TODO(David): synchronize lazily)
-    seissol::SeisSol::main.getMemoryManager().synchronizeTo(seissol::::AllocationPlace::Host);
+    seissolInstance.getMemoryManager().synchronizeTo(seissol::AllocationPlace::Host);
 
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
@@ -167,7 +167,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   }
 
   // synchronize data (TODO(David): synchronize lazily)
-  seissol::SeisSol::main.getMemoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+  seissolInstance.getMemoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
