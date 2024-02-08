@@ -105,6 +105,7 @@ public:
 	}
 
 	void init(const unsigned int* cells, const double* vertices,
+		const unsigned int* faultTags,
 		unsigned int nCells, unsigned int nVertices,
 		int* outputMask, const real** dataBuffer,
 		const char* outputPrefix,

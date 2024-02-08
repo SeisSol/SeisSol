@@ -35,7 +35,6 @@ format() {
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceCluster.cpp
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h

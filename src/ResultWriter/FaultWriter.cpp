@@ -65,6 +65,7 @@ void seissol::writer::FaultWriter::setUp()
 }
 
 void seissol::writer::FaultWriter::init(const unsigned int* cells, const double* vertices,
+	const unsigned int* faultTags,
 	unsigned int nCells, unsigned int nVertices,
 	int* outputMask, const real** dataBuffer,
 	const char* outputPrefix,
@@ -97,6 +98,9 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	assert(bufferId == FaultWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FaultWriterExecutor::VERTICES);
+
+	bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
+	assert(bufferId == FaultWriterExecutor::FAULTTAGS);
 
 	// Create data buffers
 	std::fill_n(param.outputMask, FaultInitParam::OUTPUT_MASK_SIZE, false);
@@ -151,6 +155,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 
 	sendBuffer(FaultWriterExecutor::CELLS);
 	sendBuffer(FaultWriterExecutor::VERTICES);
+	sendBuffer(FaultWriterExecutor::FAULTTAGS);
 
 	// Initialize the executor
 	callInit(param);
@@ -159,6 +164,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	removeBuffer(FaultWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FaultWriterExecutor::CELLS);
 	removeBuffer(FaultWriterExecutor::VERTICES);
+	removeBuffer(FaultWriterExecutor::FAULTTAGS);
 
 	// Register for the synchronization point hook
 	Modules::registerHook(*this, ModuleHook::SimulationStart);
