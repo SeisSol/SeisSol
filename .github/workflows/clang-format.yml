@@ -1,0 +1,24 @@
+name: clang-format
+on:
+  - push
+
+jobs:
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: apt-get
+        run: |
+          sudo apt-get -y install clang-format-14
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-14 10
+
+      - name: run-clang-format
+        run: |
+          set -euo pipefail
+          clang-format --version
+          ./.ci/format.sh $(which clang-format) .
+          git diff > formatting.patch
+          cat formatting.patch 
+          if [ -s ./formatting.patch ]; then (exit 166); fi
