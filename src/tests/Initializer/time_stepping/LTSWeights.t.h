@@ -15,15 +15,30 @@ TEST_CASE("LTS Weights") {
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
-  LtsWeightsConfig config{seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
+  LtsWeightsConfig config{
+      seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
 
-  seissol::initializer::parameters::LtsParameters ltsParameters(2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor, seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+  seissol::initializer::parameters::LtsParameters ltsParameters(
+      2,
+      1.0,
+      0.01,
+      false,
+      100,
+      false,
+      1.0,
+      seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+      seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
   seissol::initializer::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
   seissol::SeisSol seissolInstance(seissolParameters);
-  
+
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", seissol::initializer::parameters::BoundaryFormat::I32, ltsWeights.get());
+  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5",
+                                           "Default",
+                                           5000.0,
+                                           "",
+                                           seissol::initializer::parameters::BoundaryFormat::I32,
+                                           ltsWeights.get());
   std::cout.clear();
 
   std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
@@ -182,14 +197,14 @@ TEST_CASE("Auto merging of clusters") {
   SUBCASE("Some performance loss allowed") {
     SUBCASE("Merge one cluster") {
       const auto should = 1;
-      const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25 * costBeforeRate2, 1, minDt);
+      const auto is = computeMaxClusterIdAfterAutoMerge(
+          clusterIds, cellCosts, 2, 1.25 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
-      const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06 * costBeforeRate2, 1, minDt);
+      const auto is = computeMaxClusterIdAfterAutoMerge(
+          clusterIds, cellCosts, 2, 2.06 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
   }

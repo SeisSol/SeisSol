@@ -12,9 +12,13 @@ format() {
         src/DynamicRupture
         src/Geometry
         src/Initializer/Parameters
+        src/tests/Common
         src/tests/DynamicRupture
+        src/tests/Initializer
+        src/tests/Kernel
         src/tests/Model
         src/tests/Reader
+        src/tests/SourceTerm
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Monitoring
