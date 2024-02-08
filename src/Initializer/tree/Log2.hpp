@@ -41,7 +41,7 @@
 #define INITIALIZER_TREE_LOG2_HPP_
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     template<unsigned N>
     struct Log2 {
       static unsigned const Result = 1 + Log2<(N >> 1)>::Result;

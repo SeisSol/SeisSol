@@ -99,6 +99,8 @@ class seissol::time_stepping::TimeManager {
     //! last #updates of log
     unsigned int m_logUpdates;
 
+    seissol::SeisSol& seissolInstance;
+
     //! time stepping
     TimeStepping m_timeStepping;
 
@@ -124,7 +126,7 @@ class seissol::time_stepping::TimeManager {
     /**
      * Construct a new time manager.
      **/
-    TimeManager();
+    TimeManager(seissol::SeisSol& seissolInstance);
 
     /**
      * Destruct the time manager.
@@ -141,7 +143,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters(TimeStepping& i_timeStepping,
                      MeshStructure* i_meshStructure,
-                     initializers::MemoryManager& memoryManager,
+                     initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
     void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
@@ -186,6 +188,10 @@ class seissol::time_stepping::TimeManager {
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
     void freeDynamicResources();
+
+    inline const TimeStepping* getTimeStepping() {
+      return &m_timeStepping;
+    }
 };
 
 #endif

@@ -4,11 +4,13 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/InputAux.hpp"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
-namespace seissol::dr::initializers {
+namespace seissol {
+class SeisSol;
+namespace dr::initializer {
 /**
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
@@ -17,10 +19,11 @@ namespace seissol::dr::initializers {
  */
 class BaseDRInitializer {
   protected:
+  seissol::SeisSol& seissolInstance;
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
-  std::shared_ptr<DRParameters> drParameters;
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
 
   /**
    * Set which contains all parameteres, which are provided by easi for the fault
@@ -60,10 +63,11 @@ class BaseDRInitializer {
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters)
-      : drParameters(drParameters),
+  BaseDRInitializer(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
+                    seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance), drParameters(drParameters),
         faultParameterNames(
-            seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
+            seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
 
   virtual ~BaseDRInitializer() = default;
 
@@ -75,8 +79,8 @@ class BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSTree* const dynRupTree);
+  virtual void initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                               seissol::initializer::LTSTree* const dynRupTree);
 
   protected:
   /**
@@ -89,8 +93,8 @@ class BaseDRInitializer {
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture const* const dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
+                              seissol::initializer::DynamicRupture const* const dynRup,
+                              seissol::initializer::LTSInternalNode::leaf_iterator& it);
 
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
@@ -99,8 +103,8 @@ class BaseDRInitializer {
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
   std::vector<unsigned>
-      getFaceIDsInIterator(seissol::initializers::DynamicRupture const* const dynRup,
-                           seissol::initializers::LTSInternalNode::leaf_iterator& it);
+      getFaceIDsInIterator(seissol::initializer::DynamicRupture const* const dynRup,
+                           seissol::initializer::LTSInternalNode::leaf_iterator& it);
 
   /**
    * Initialize all other variables:
@@ -117,15 +121,15 @@ class BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  void initializeOtherVariables(seissol::initializers::DynamicRupture const* const dynRup,
-                                seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  void initializeOtherVariables(seissol::initializer::DynamicRupture const* const dynRup,
+                                seissol::initializer::LTSInternalNode::leaf_iterator& it);
 
   /**
    * Reads the parameters from the easi file
    * @param faultParameterDB reference to a FaultParameterDB, which manages easi
    * @param faceIDs faceIDs of the cells which are to be read
    */
-  void queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
+  void queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
                   std::vector<unsigned> const& faceIDs);
 
   /**
@@ -144,8 +148,8 @@ class BaseDRInitializer {
    * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
    */
-  void rotateTractionToCartesianStress(seissol::initializers::DynamicRupture const* const dynRup,
-                                       seissol::initializers::LTSTree::leaf_iterator& it,
+  void rotateTractionToCartesianStress(seissol::initializer::DynamicRupture const* const dynRup,
+                                       seissol::initializer::LTSTree::leaf_iterator& it,
                                        StressTensor& stress);
 
   /**
@@ -156,8 +160,8 @@ class BaseDRInitializer {
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
-  void rotateStressToFaultCS(seissol::initializers::DynamicRupture const* const dynRup,
-                             seissol::initializers::LTSTree::leaf_iterator& it,
+  void rotateStressToFaultCS(seissol::initializer::DynamicRupture const* const dynRup,
+                             seissol::initializer::LTSTree::leaf_iterator& it,
                              real (*stressInFaultCS)[misc::numPaddedPoints][6],
                              StressTensor const& stress);
 
@@ -174,5 +178,6 @@ class BaseDRInitializer {
   std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(bool readNucleation);
 };
 
-} // namespace seissol::dr::initializers
+} // namespace dr::initializer
+} // namespace seissol
 #endif // SEISSOL_BASEDRINITIALIZER_H

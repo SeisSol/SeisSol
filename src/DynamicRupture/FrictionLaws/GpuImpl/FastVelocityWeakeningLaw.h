@@ -11,14 +11,14 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      seissol::initializer::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
-    using SelfInitializerType = seissol::initializers::LTSRateAndStateFastVelocityWeakening;
+    using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
     auto* concreteLts = dynamic_cast<SelfInitializerType const* const>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW);
 
@@ -30,9 +30,9 @@ class FastVelocityWeakeningLaw
     decltype(FastVelocityWeakeningLaw::a) a;
     decltype(FastVelocityWeakeningLaw::sl0) sl0;
     decltype(FastVelocityWeakeningLaw::srW) srW;
-    decltype(dr::DRParameters::rsSr0) rsSr0;
-    decltype(dr::DRParameters::rsF0) rsF0;
-    decltype(dr::DRParameters::rsB) rsB;
+    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
+    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
+    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
   };
 
   Details getCurrentLtsLayerDetails() {
@@ -103,7 +103,7 @@ class FastVelocityWeakeningLaw
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {

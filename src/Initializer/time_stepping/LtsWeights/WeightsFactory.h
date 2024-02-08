@@ -1,28 +1,22 @@
 #ifndef SEISSOL_LTSWEIGHTSFACTORY_H
 #define SEISSOL_LTSWEIGHTSFACTORY_H
 
-#include <stdexcept>
-#include <sstream>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
+
 #include "WeightsModels.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
-
-namespace seissol::initializers::time_stepping {
-
-enum class LtsWeightsTypes: int {
-  ExponentialWeights = 0,
-  ExponentialBalancedWeights,
-  EncodedBalancedWeights,
-  Count
-};
+namespace seissol::initializer::time_stepping {
 
 inline bool isLtsWeightsTypeAllowed(int id) {
-  return ((id >= 0) && (id < static_cast<int>(LtsWeightsTypes::Count)));
+  return ((id >= 0) && (id < static_cast<int>(parameters::LtsWeightsTypes::Count)));
 }
 
-inline LtsWeightsTypes convertLtsIdToType(int id) {
+inline parameters::LtsWeightsTypes convertLtsIdToType(int id) {
   if (isLtsWeightsTypeAllowed(id)) {
-    return static_cast<LtsWeightsTypes>(id);
+    return static_cast<parameters::LtsWeightsTypes>(id);
   }
   else {
     std::stringstream err;
@@ -31,18 +25,18 @@ inline LtsWeightsTypes convertLtsIdToType(int id) {
   }
 }
 
-inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type,
+inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(parameters::LtsWeightsTypes type,
                                                         const LtsWeightsConfig& config,
-                                                        const LtsParameters* ltsParameters) {
+                                                        seissol::SeisSol& seissolInstance) {
   switch (type) {
-    case LtsWeightsTypes::ExponentialWeights : {
-      return std::make_unique<ExponentialWeights>(config, ltsParameters);
+    case parameters::LtsWeightsTypes::ExponentialWeights : {
+      return std::make_unique<ExponentialWeights>(config, seissolInstance);
     }
-    case LtsWeightsTypes::ExponentialBalancedWeights : {
-      return std::make_unique<ExponentialBalancedWeights>(config, ltsParameters);
+    case parameters::LtsWeightsTypes::ExponentialBalancedWeights : {
+      return std::make_unique<ExponentialBalancedWeights>(config, seissolInstance);
     }
-    case LtsWeightsTypes::EncodedBalancedWeights : {
-      return std::make_unique<EncodedBalancedWeights>(config, ltsParameters);
+    case parameters::LtsWeightsTypes::EncodedBalancedWeights : {
+      return std::make_unique<EncodedBalancedWeights>(config, seissolInstance);
     }
     default : {
       return std::unique_ptr<LtsWeights>(nullptr);

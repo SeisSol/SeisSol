@@ -7,12 +7,11 @@ static const InverseFourierCoefficients<misc::numberOfTPGridPoints> tpInverseFou
 static const GaussianHeatSource<misc::numberOfTPGridPoints> heatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture const* const dynRup,
+    seissol::initializer::Layer& layerData,
+    seissol::initializer::DynamicRupture const* const dynRup,
     real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTSRateAndStateThermalPressurization const* const>(
-          dynRup);
+      dynamic_cast<seissol::initializer::LTSRateAndStateThermalPressurization const* const>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);

@@ -55,7 +55,6 @@
 #endif
 
 namespace seissol::sourceterm {
-enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 #ifdef ACL_DEVICE
 using AllocatorT = device::UsmAllocator<real>;
 #else

@@ -40,14 +40,14 @@
 #include <array>
 #include "Lut.hpp"
 
-seissol::initializers::Lut::LutsForMask::LutsForMask()
+seissol::initializer::Lut::LutsForMask::LutsForMask()
   : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0)
 {
   for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
     meshToLts[dup] = NULL;
   }
 }
-seissol::initializers::Lut::LutsForMask::~LutsForMask()
+seissol::initializer::Lut::LutsForMask::~LutsForMask()
 {
   delete[] duplicatedMeshIds;
   for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
@@ -56,7 +56,7 @@ seissol::initializers::Lut::LutsForMask::~LutsForMask()
   delete[] ltsToMesh;
 }
 
-void seissol::initializers::Lut::LutsForMask::createLut(  LayerMask mask,
+void seissol::initializer::Lut::LutsForMask::createLut(  LayerMask mask,
                                                           LTSTree*  ltsTree,
                                                           unsigned* globalLtsToMesh,
                                                           unsigned  numberOfMeshIds )
@@ -114,17 +114,17 @@ void seissol::initializers::Lut::LutsForMask::createLut(  LayerMask mask,
   delete[] numDuplicates;
 }
 
-seissol::initializers::Lut::Lut()
+seissol::initializer::Lut::Lut()
   : m_ltsTree(NULL), m_meshToClusters(NULL)
 {
 }
 
-seissol::initializers::Lut::~Lut()
+seissol::initializer::Lut::~Lut()
 {
   delete[] m_meshToClusters;
 }
 
-void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
+void seissol::initializer::Lut::createLuts(  LTSTree*        ltsTree,
                                               unsigned*       ltsToMesh,
                                               unsigned        numberOfMeshIds )
 {

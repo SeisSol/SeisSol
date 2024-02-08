@@ -3,7 +3,7 @@
 
 #include "BaseDRInitializer.h"
 
-namespace seissol::dr::initializers {
+namespace seissol::dr::initializer {
 
 /**
  * Derived initializer class for the common part of RateAndState friction laws
@@ -16,15 +16,15 @@ class RateAndStateInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                       seissol::initializers::LTSTree* const dynRupTree) override;
+  void initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                       seissol::initializer::LTSTree* const dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::DynamicRupture const* const dynRup,
+                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -73,8 +73,8 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * Adds the additional parameters rs_srW
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::DynamicRupture const* const dynRup,
+                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
@@ -115,17 +115,17 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                       seissol::initializers::LTSTree* const dynRupTree) override;
+  void initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+                       seissol::initializer::LTSTree* const dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::DynamicRupture const* const dynRup,
+                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
 };
 
-} // namespace seissol::dr::initializers
+} // namespace seissol::dr::initializer
 #endif // SEISSOL_RATEANDSTATEINITIALIZER_H

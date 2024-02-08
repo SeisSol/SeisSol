@@ -48,10 +48,8 @@
 #include <Kernels/LocalBase.h>
 #include <generated_code/tensor.h>
 
-namespace seissol {
-  namespace kernels {
-    class Local;
-  }
+namespace seissol::kernels {
+  class Local;
 }
 
 class seissol::kernels::Local : public LocalBase {

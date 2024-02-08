@@ -9,12 +9,12 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("filename", help="filename of the srf file")
 parser.add_argument(
-    "--spatial_order",
+    "--interpolation_method",
     nargs=1,
-    metavar=("spatial_order"),
-    default=[3],
-    help="spatial order of the interpolation",
-    type=int,
+    metavar=("interpolation_method"),
+    default=["linear"],
+    help="interpolation method",
+    choices=["linear", "nearest", "slinear", "cubic", "quintic"],
 )
 parser.add_argument(
     "--spatial_zoom",
@@ -58,7 +58,7 @@ prefix = os.path.basename(prefix)
 
 p1.generate_netcdf_fl33(
     prefix,
-    spatial_order=args.spatial_order[0],
+    method=args.interpolation_method[0],
     spatial_zoom=args.spatial_zoom[0],
     proj=args.generate_ts_yaml,
     write_paraview=args.write_paraview,
@@ -66,7 +66,7 @@ p1.generate_netcdf_fl33(
 if args.generate_ts_yaml:
     p1.generate_fault_ts_yaml_fl33(
         prefix,
-        spatial_order=args.spatial_order[0],
+        method=args.interpolation_method[0],
         spatial_zoom=args.spatial_zoom[0],
         proj=args.generate_ts_yaml,
     )

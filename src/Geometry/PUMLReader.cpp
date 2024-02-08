@@ -67,7 +67,7 @@ seissol::geometry::PUMLReader::PUMLReader(const char* meshFile,
                                           const char* partitioningLib,
                                           double maximumAllowedTimeStep,
                                           const char* checkPointFile,
-                                          initializers::time_stepping::LtsWeights* ltsWeights,
+                                          initializer::time_stepping::LtsWeights* ltsWeights,
                                           double tpwgt,
                                           bool readPartitionFromFile)
     : seissol::geometry::MeshReader(MPI::mpi.rank()) {
@@ -245,7 +245,7 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
 }
 
 void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
-                                              initializers::time_stepping::LtsWeights* ltsWeights,
+                                              initializer::time_stepping::LtsWeights* ltsWeights,
                                               double tpwgt,
                                               const char* meshFile,
                                               const char* partitioningLib,

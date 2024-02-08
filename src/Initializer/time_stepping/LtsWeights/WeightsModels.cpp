@@ -11,7 +11,7 @@
 #include <generated_code/init.h>
 
 
-namespace seissol::initializers::time_stepping {
+namespace seissol::initializer::time_stepping {
 
 void ExponentialWeights::setVertexWeights() {
   assert(m_ncon == 1 && "single constraint partitioning");

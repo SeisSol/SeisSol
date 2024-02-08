@@ -44,6 +44,7 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
+#include <Initializer/Parameters/OutputParameters.h>
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -61,6 +62,7 @@
 
 namespace seissol
 {
+  class SeisSol;
 
 namespace checkpoint
 {
@@ -68,10 +70,12 @@ namespace checkpoint
 class Manager : private async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	ManagerExecutor m_executor;
 
 	/** The backend that should be used */
-	Backend m_backend;
+        seissol::initializer::parameters::CheckpointingBackend m_backend;
 
 	/** The filename for the checkpoints */
 	std::string m_filename;
@@ -89,16 +93,14 @@ private:
 	Stopwatch m_stopwatch;
 
 public:
-	Manager()
-		: m_backend(DISABLED),
-		  m_numDofs(0), m_numDRDofs(0)
-	{
-	}
+	Manager(seissol::SeisSol& seissolInstance) :
+                  seissolInstance(seissolInstance),
+                  m_backend(initializer::parameters::DISABLED),
+                  m_numDofs(0),
+                  m_numDRDofs(0) {}
 
-	virtual ~Manager()
-	{ }
-
-	void setBackend(Backend backend)
+	virtual ~Manager() {}
+	void setBackend(seissol::initializer::parameters::CheckpointingBackend backend)
 	{
 		m_backend = backend;
 	}
@@ -147,8 +149,9 @@ public:
 	{
 		SCOREP_USER_REGION("CheckpointManager_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-		if (m_backend == DISABLED)
+		if (m_backend == initializer::parameters::DISABLED) {
 			return;
+                }
 
 		m_stopwatch.start();
 
@@ -190,7 +193,7 @@ public:
 	 */
 	void close()
 	{
-		if (m_backend == DISABLED)
+		if (m_backend == initializer::parameters::DISABLED)
 			return;
 
 		// Terminate the executor

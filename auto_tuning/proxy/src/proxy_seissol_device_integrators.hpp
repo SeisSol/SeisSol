@@ -43,14 +43,14 @@ namespace proxy::device {
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
 
     const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
     ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
@@ -78,7 +78,7 @@ namespace proxy::device {
     auto& layer = m_ltsTree->child(0).child<Interior>();
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -86,7 +86,7 @@ namespace proxy::device {
 
     const double timeStepWidth = 0.0;
     ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
@@ -114,7 +114,7 @@ namespace proxy::device {
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
 
     auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
     auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -122,7 +122,7 @@ namespace proxy::device {
 
     const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
     ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
@@ -165,7 +165,7 @@ namespace proxy::device {
                                                           dataTable);
 
     ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-    auto computeGraphKey = initializers::GraphKey(graphType);
+    auto computeGraphKey = initializer::GraphKey(graphType);
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
@@ -196,7 +196,7 @@ namespace proxy::device {
     auto &dataTable = layer.getConditionalTable<inner_keys::Dr>();
 
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    auto computeGraphKey = initializers::GraphKey(graphType, 0.0);
+    auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {

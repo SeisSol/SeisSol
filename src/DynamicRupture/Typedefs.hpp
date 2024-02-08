@@ -7,23 +7,6 @@
 namespace seissol::dr {
 
 /**
- * Stores the different types of friction laws
- * The values resemble the identifiers used in the old fortran implementation
- */
-enum class FrictionLawType : unsigned int {
-  NoFault = 0,
-  LinearSlipWeakening = 16,
-  LinearSlipWeakeningBimaterial = 6,
-  RateAndStateAgingLaw = 3,
-  RateAndStateSlipLaw = 4,
-  RateAndStateFastVelocityWeakening = 103,
-  ImposedSlipRatesYoffe = 33,
-  ImposedSlipRatesGaussian = 34,
-  RateAndStateVelocityWeakening = 7,
-  RateAndStateAgingNucleation = 101,
-};
-
-/**
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
  * Carsten Uphoff's dissertation equation (4.51)
  */

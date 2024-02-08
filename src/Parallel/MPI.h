@@ -72,7 +72,6 @@ class MPI : public MPIBasic {
   public:
   ~MPI() override = default;
 
-#ifdef ACL_DEVICE
   /**
    * @brief Inits Device(s).
    *
@@ -88,7 +87,8 @@ class MPI : public MPIBasic {
    * OMPI_COMM_WORLD_LOCAL_RANK env. variables
    * */
   void bindAcceleratorDevice();
-#endif // ACL_DEVICE
+
+  void printAcceleratorDeviceInfo();
 
   /**
    * Initialize MPI
@@ -264,7 +264,7 @@ class MPI : public MPIBasic {
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutDevice, CopyInCopyOutHost };
+  enum class DataTransferMode { Direct, CopyInCopyOutHost };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */

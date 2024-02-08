@@ -1,4 +1,5 @@
-#Ensure that we have an set HIP_PATH
+
+# ensure that we have an set HIP_PATH
 if(NOT DEFINED HIP_PATH)
     if(NOT DEFINED ENV{HIP_PATH})
         set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
@@ -7,15 +8,13 @@ if(NOT DEFINED HIP_PATH)
     endif()
 endif()
 
-#set the CMAKE_MODULE_PATH for the helper cmake files from HIP
-set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+# set the CMAKE_MODULE_PATH for the helper cmake files from HIP
+set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MODULE_PATH})
 
-set(HIP_COMPILER hcc)
 find_package(HIP REQUIRED)
 
 # Note: -std=c++14 because of cuda@10
 set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++14; -O3)
-set(SEISSOL_HCC)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})
@@ -56,7 +55,6 @@ set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 
 hip_reset_flags()
 hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
-        HCC_OPTIONS ${SEISSOL_HCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
 
 target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
@@ -69,4 +67,3 @@ if (IS_NVCC_PLATFORM)
 else()
     target_link_libraries(SeisSol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
-

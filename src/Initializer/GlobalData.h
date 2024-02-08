@@ -49,7 +49,7 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     namespace matrixmanip {
       struct OnHost {
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;
@@ -89,7 +89,7 @@ namespace seissol {
     // Specific Global data initializers of SeisSol.
     using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
     using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-  }  // namespace initializers
+  }  // namespace initializer
 } // namespace seissol
 
 #endif

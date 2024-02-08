@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <type_traits>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 template <typename T>
 constexpr bool isEncodedConstant() {
   return std::is_same_v<FaceKinds, T> || std::is_same_v<KernelNames, T> ||
@@ -44,9 +44,9 @@ class Condition {
   size_t encoding;
   size_t count;
 };
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer::recording;
 using namespace seissol;
 
 /** Implements "OR" operation.

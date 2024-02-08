@@ -47,6 +47,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #=============================================================================
 
+# enforce including GKlib, if it's linked dynamically
+find_package(GKlib QUIET)
+
 find_path(PARMETIS_INCLUDE_DIR parmetis.h
   HINTS ${PARMETIS_INCLUDE_DIR} ENV PARMETIS_INCLUDE_DIR ${PARMETIS_DIR} ENV PARMETIS_DIR
   PATH_SUFFIXES include

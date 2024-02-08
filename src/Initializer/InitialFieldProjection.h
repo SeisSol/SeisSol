@@ -43,16 +43,18 @@
 #include <memory>
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/typedefs.hpp"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
 #include "Physics/InitialField.h"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     void projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                              GlobalData const& globalData,
                              seissol::geometry::MeshReader const& meshReader,
+                             seissol::initializer::MemoryManager& memoryManager,
                              LTS const& lts,
                              Lut const& ltsLut );
   }

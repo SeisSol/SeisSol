@@ -55,6 +55,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
+std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
 
 real computeTriangleArea(ExtTriangle& triangle);
 

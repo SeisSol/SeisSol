@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(DRParameters* drParameters)
+  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
@@ -27,12 +27,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
         faultStresses, stateVariableBuffer, timeIndex, ltsFace);
-    std::array<real, misc::numPaddedPoints> absoluteShearStress =
+    const std::array<real, misc::numPaddedPoints> absoluteShearStress =
         std::move(initialVariables.absoluteShearTraction);
     std::array<real, misc::numPaddedPoints> localSlipRate =
         std::move(initialVariables.localSlipRate);
     std::array<real, misc::numPaddedPoints> normalStress = std::move(initialVariables.normalStress);
-    std::array<real, misc::numPaddedPoints> stateVarReference =
+    const std::array<real, misc::numPaddedPoints> stateVarReference =
         std::move(initialVariables.stateVarReference);
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
@@ -78,10 +78,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializer::LTSRateAndState const* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);

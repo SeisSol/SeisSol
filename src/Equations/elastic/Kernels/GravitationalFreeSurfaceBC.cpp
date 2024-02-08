@@ -3,10 +3,6 @@
 
 namespace seissol {
 
-double getGravitationalAcceleration() {
-  return SeisSol::main.getGravitationSetup().acceleration;
-}
-
 std::pair<long long, long long>
 GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
   long long hardwareFlops = 0;

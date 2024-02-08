@@ -44,7 +44,7 @@
 #include <cassert>
 #include <yateto.h>
 
-void seissol::initializers::InternalState::deriveLayerLayout(       unsigned int                  i_numberOfClusters,
+void seissol::initializer::InternalState::deriveLayerLayout(       unsigned int                  i_numberOfClusters,
                                                                     unsigned int                 *i_numberOfRegions,
                                                                     unsigned int                **i_numberOfRegionCells,
                                                               const struct CellLocalInformation  *i_cellLocalInformation,
@@ -71,7 +71,7 @@ void seissol::initializers::InternalState::deriveLayerLayout(       unsigned int
   }
 }
 
-void seissol::initializers::InternalState::deriveInteriorLayout(       unsigned int                  i_numberOfClusters,
+void seissol::initializer::InternalState::deriveInteriorLayout(       unsigned int                  i_numberOfClusters,
                                                                        unsigned int                 *i_numberOfInteriorCells,
                                                                  const struct CellLocalInformation  *i_cellLocalInformation,
                                                                        unsigned int                 *o_numberOfBuffers,
@@ -110,7 +110,7 @@ void seissol::initializers::InternalState::deriveInteriorLayout(       unsigned 
   delete[] l_numberOfRegionCells;
 }
 
-void seissol::initializers::InternalState::setUpLayerPointers(       unsigned int                 i_numberOfRegions,
+void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int                 i_numberOfRegions,
                                                                const unsigned int                *i_numberOfRegionCells,
                                                                const struct CellLocalInformation *i_cellLocalInformation,
                                                                const unsigned int                *i_numberOfBuffers,
@@ -164,7 +164,7 @@ void seissol::initializers::InternalState::setUpLayerPointers(       unsigned in
   }
 }
 
-void seissol::initializers::InternalState::setUpInteriorPointers(       unsigned int                  i_numberOfInteriorCells,
+void seissol::initializer::InternalState::setUpInteriorPointers(       unsigned int                  i_numberOfInteriorCells,
                                                                   const struct CellLocalInformation  *i_cellLocalInformation,
                                                                         unsigned int                  i_numberOfBuffers,
                                                                         unsigned int                  i_numberOfDerivatives,

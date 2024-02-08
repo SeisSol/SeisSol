@@ -21,6 +21,15 @@ thus estimating the performance of all nodes relative to each other. The number 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer; especially when running only on a single node with multiple ranks.
 To disable it, set `SEISSOL_MINISEISSOL=0`.
 
+Persistent MPI Operations
+-------------------------
+
+Since SeisSol has a static communication pattern (in the sense of: per iteration, we issue the same MPI transfer requests),
+we may use persistent MPI communication—it may reduce the communication latency.
+
+You may enable persistent communication by setting `SEISSOL_MPI_PERSISTENT=1`,
+and explicitly disable it with `SEISSOL_MPI_PERSISTENT=0`. Right now, it is disabled by default.
+
 Output
 ------
 

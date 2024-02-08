@@ -4,8 +4,8 @@
 #include <array>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
@@ -100,13 +100,14 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
+      : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   /**
@@ -137,7 +138,7 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
 
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.

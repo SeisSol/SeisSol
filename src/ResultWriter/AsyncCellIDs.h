@@ -67,12 +67,12 @@ private:
 	const unsigned int* m_constCells;
 
 public:
-	AsyncCellIDs(unsigned int nCells, unsigned int nVertices, const unsigned int* cells)
+	AsyncCellIDs(unsigned int nCells, unsigned int nVertices, const unsigned int* cells, seissol::SeisSol& seissolInstance)
 		: m_cells(0L)
 	{
 #ifdef USE_MPI
 		// Add the offset to the cells
-		MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
+		MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
 		unsigned int offset = nVertices;
 		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
 		offset -= nVertices;

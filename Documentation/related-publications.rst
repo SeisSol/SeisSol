@@ -17,8 +17,6 @@ Breuer, A., A. Heinecke, S. Rettenberger, M. Bader, A.-A. Gabriel, and C. Peltie
 
 Heinecke, A., A. Breuer, S. Rettenberger, M. Bader, A. Gabriel, C. Pelties, A. Bode, W. Barth, X. Liao, K. Vaidyanathan, M. Smelyanskiy, and P. Dubey (2014), Petascale High Order Dynamic Rupture Earthquake Simulations on Heterogeneous Supercomputers, paper presented at SC '14: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis, 16-21 Nov. 2014, doi: `10.1109/SC.2014.6 <https://doi.org/10.1109/SC.2014.6>`_.
 
-Heinecke, A., A. Breuer, S. Rettenberger, M. Bader, A. Gabriel, C. Pelties, A. Bode, W. Barth, X. Liao, K. Vaidyanathan, M. Smelyanskiy, and P. Dubey (2014), Petascale High Order Dynamic Rupture Earthquake Simulations on Heterogeneous Supercomputers, paper presented at SC '14: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis, 16-21 Nov. 2014, doi: `10.1109/SC.2014.6 <https://doi.org/10.1109/SC.2014.6>`_.
-
 Pelties, C., J. de la Puente, J.-P. Ampuero, G. B. Brietzke, and M. Käser (2012), Three-dimensional dynamic rupture simulation with a high-order discontinuous Galerkin method on unstructured tetrahedral meshes, J. Geophys. Res., 117(B2), doi: `10.1029/2011JB008857 <https://doi.org/10.1029/2011JB008857>`_.
 
 de la Puente, J., J.-P. Ampuero, and M. Käser (2009), Dynamic rupture modeling on unstructured meshes using a discontinuous Galerkin method, J. Geophys. Res., 114(B10), doi: `10.1029/2008JB006271 <https://doi.org/10.1029/2008JB006271>`_.

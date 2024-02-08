@@ -4,7 +4,6 @@
 #include "Initializer/typedefs.hpp"
 #include "AbstractTimeCluster.h"
 
-
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
@@ -42,6 +41,5 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   void reset() override;
   ActResult act() override;
-
 };
 } // namespace seissol::time_stepping

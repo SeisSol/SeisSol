@@ -45,12 +45,12 @@
 #include <cassert>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class Node;
   }
 }
 
-class seissol::initializers::Node {
+class seissol::initializer::Node {
 protected:
   Node** m_children;
   unsigned m_numChildren;

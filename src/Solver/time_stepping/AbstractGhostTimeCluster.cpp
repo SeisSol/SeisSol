@@ -116,4 +116,5 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
         << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
+
 } // namespace seissol::time_stepping

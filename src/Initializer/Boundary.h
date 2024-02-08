@@ -12,12 +12,12 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     struct Boundary;
   }
 }
 
-struct seissol::initializers::Boundary {
+struct seissol::initializer::Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
   
   void addTo(LTSTree& tree) {

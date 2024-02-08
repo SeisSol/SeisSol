@@ -55,12 +55,15 @@
 
 namespace seissol
 {
+  class SeisSol;
 namespace writer
 {
 
 class FreeSurfaceWriter : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>, public seissol::Module
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	/** Is enabled? */
 	bool m_enabled;
 
@@ -83,7 +86,8 @@ private:
                               unsigned&         nVertices );
 
 public:
-	FreeSurfaceWriter() : m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
+	FreeSurfaceWriter(seissol::SeisSol& seissolInstance) : 
+          seissolInstance(seissolInstance), m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
 
 	/**
 	 * Called by ASYNC on all ranks

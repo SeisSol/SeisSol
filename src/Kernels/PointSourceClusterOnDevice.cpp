@@ -11,6 +11,8 @@
 #include <utility>
 #include <cstdint>
 
+#include "Numerical_aux/SyclFunctions.h"
+
 namespace seissol::kernels {
 
 PointSourceClusterOnDevice::PointSourceClusterOnDevice(sourceterm::ClusterMapping mapping,
@@ -49,12 +51,13 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
                 for (int i = 0; i < 3; ++i) {
                   auto o0 = sampleOffsets[i][source];
                   auto o1 = sampleOffsets[i][source + 1];
-                  slip[i] = computeSampleTimeIntegral(from,
-                                                      to,
-                                                      onsetTime[source],
-                                                      samplingInterval[source],
-                                                      sample[i] + o0,
-                                                      o1 - o0);
+                  slip[i] = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
+                      from,
+                      to,
+                      onsetTime[source],
+                      samplingInterval[source],
+                      sample[i] + o0,
+                      o1 - o0);
                 }
 
                 addTimeIntegratedPointSourceNRF(slip,
@@ -79,7 +82,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
               for (unsigned source = startSource; source < endSource; ++source) {
                 auto o0 = sampleOffsets[0][source];
                 auto o1 = sampleOffsets[0][source + 1];
-                real slip = computeSampleTimeIntegral(
+                real slip = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
                     from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
                 addTimeIntegratedPointSourceFSRM(slip,
                                                  mInvJInvPhisAtSources[source].data(),

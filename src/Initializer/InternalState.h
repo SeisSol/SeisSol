@@ -45,7 +45,7 @@
 #include <Initializer/typedefs.hpp>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class InternalState;
   }
 }
@@ -53,7 +53,7 @@ namespace seissol {
 /**
  * Setup of SeisSols internal state.
  **/
-class seissol::initializers::InternalState {
+class seissol::initializer::InternalState {
   //private:
 
   public:
