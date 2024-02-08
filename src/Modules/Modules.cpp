@@ -45,7 +45,7 @@
 namespace seissol {
 
 void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
-  assert(hook < MAX_HOOKS);
+  assert(static_cast<int>(hook) < static_cast<int>(ModuleHook::MaxHooks));
 
   if (nextHook >= ModuleHook::MaxInitHooks) {
     logError() << "Trying to register for a hook after initialization phase";
@@ -104,7 +104,7 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
 }
 
 void Modules::_setSimulationStartTime(double time) {
-  assert(nextHook <= static_cast<size_t>(ModuleHook::SynchronizationPoint));
+  assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
   // Set the simulation time in all modules that are called at synchronization points
   for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {

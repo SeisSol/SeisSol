@@ -41,8 +41,9 @@
 #ifndef MODULES_H
 #define MODULES_H
 
-#include "utils/logger.h"
 #include "Module.h"
+
+#include "utils/logger.h"
 #include <array>
 #include <limits>
 #include <map>
