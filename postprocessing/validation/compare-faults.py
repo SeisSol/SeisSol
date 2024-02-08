@@ -44,6 +44,8 @@ if __name__ == "__main__":
 
     quantity_names = sorted(fault.ReadAvailableDataFields())
     quantity_names.remove("partition")
+    if "fault-tag" in quantity_names:
+        quantity_names.remove("fault-tag")
     errors = np.zeros((len(quantity_names)))
 
     last_index = fault.ndt
