@@ -98,6 +98,7 @@ struct Fault {
 
 	int neighborElement;
 	int neighborSide;
+	int tag;
 
 	/** Normal of the fault face */
 	VrtxCoords normal;
