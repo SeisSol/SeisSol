@@ -15,7 +15,7 @@ TEST_CASE("LTS Weights") {
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
-  LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
+  LtsWeightsConfig config{seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
 
   seissol::initializer::parameters::LtsParameters ltsParameters(2, 1.0, 0.01, false, 100, false, 1.0, seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor, seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
   seissol::initializer::parameters::SeisSolParameters seissolParameters;
@@ -23,7 +23,7 @@ TEST_CASE("LTS Weights") {
   seissol::SeisSol seissolInstance(seissolParameters);
   
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", ltsWeights.get());
+  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", seissol::initializer::parameters::BoundaryFormat::I32, ltsWeights.get());
   std::cout.clear();
 
   std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,

@@ -108,7 +108,7 @@ struct Fault {
 
   LocalElemId neighborElement;
   SideId neighborSide;
-	int tag;
+  int tag;
 
   /** Normal of the fault face */
   VrtxCoords normal;
