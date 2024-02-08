@@ -133,9 +133,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     real mu0M = impAndEtaGet->mu0M;
 
     real aB0 = 7.43e9;
-    real aB1 = -22.14e9;
-    real aB2 = 20.93e9;
-    real aB3 = -6.067e9;
+    real aB1 = -12.14e9;
+    real aB2 = 18.93e9;
+    real aB3 = -5.067e9;
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       real EspIp = (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)

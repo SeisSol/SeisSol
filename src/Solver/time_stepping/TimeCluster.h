@@ -464,9 +464,9 @@ private:
             real rho0M = materialData[l_cell].neighbor[side].rho;
 
             real aB0 = 7.43e9;
-            real aB1 = -22.14e9;
-            real aB2 = 20.93e9;
-            real aB3 = -6.067e9;
+            real aB1 = -12.14e9;
+            real aB2 = 18.93e9;
+            real aB3 = -5.067e9;
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP
