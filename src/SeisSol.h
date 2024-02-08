@@ -214,6 +214,9 @@ class SeisSol {
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
 
+  //! Collection of Parameters
+  seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
 
@@ -273,19 +276,16 @@ class SeisSol {
             seissol::ITM::InstantaneousTimeMirrorManager>
       timeMirrorManagers;
 
-  //! Collection of Parameters
-  seissol::initializer::parameters::SeisSolParameters m_seissolParameters;
-
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};
 
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), m_meshReader(nullptr), m_ltsLayout(parameters),
+  SeisSol(initializer::parameters::SeisSolParameters& parameters)
+      : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this), timeMirrorManagers(*this, *this), m_seissolParameters(parameters) {}
+        m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
 };
 
 } // namespace seissol

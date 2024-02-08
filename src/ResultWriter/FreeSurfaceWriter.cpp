@@ -163,6 +163,8 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	assert(bufferId == FreeSurfaceWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
+	bufferId = addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
+	assert(bufferId == FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	for (auto & velocity : m_freeSurfaceIntegrator->velocities) {
 		addBuffer(velocity, nCells * sizeof(real));
@@ -170,7 +172,6 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	for (auto & displacement : m_freeSurfaceIntegrator->displacements) {
 		addBuffer(displacement, nCells * sizeof(real));
 	}
-	addBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(double));
 
 	//
 	// Send all buffers for initialization
@@ -179,6 +180,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	sendBuffer(FreeSurfaceWriterExecutor::CELLS);
 	sendBuffer(FreeSurfaceWriterExecutor::VERTICES);
+	sendBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
@@ -191,6 +193,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	removeBuffer(FreeSurfaceWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FreeSurfaceWriterExecutor::CELLS);
 	removeBuffer(FreeSurfaceWriterExecutor::VERTICES);
+	removeBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Register for the synchronization point hook
 	Modules::registerHook(*this, SIMULATION_START);
@@ -219,7 +222,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	FreeSurfaceParam param;
 	param.time = time;
 
-	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1; ++i) {
+	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
 		sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
 	}
 
