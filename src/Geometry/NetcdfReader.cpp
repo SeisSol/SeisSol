@@ -332,7 +332,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   unsigned long localStart = 0;
 
 #ifdef USE_MPI
-  MPI_Scan(&localCells, &localStart, 1, MPI_UNSIGNED_LONG, MPI_SUM, seissol::MPI::mpi.comm());
+  MPI_Exscan(&localCells, &localStart, 1, MPI_UNSIGNED_LONG, MPI_SUM, seissol::MPI::mpi.comm());
 #endif
 
   // Copy buffers to elements
