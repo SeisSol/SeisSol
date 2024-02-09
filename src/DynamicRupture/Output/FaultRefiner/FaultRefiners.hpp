@@ -35,6 +35,13 @@ class FaultRefiner {
   inline void addReceiver(Data data, TrianglePair& face);
 };
 
+class NoRefiner : public FaultRefiner {
+  public:
+  int getNumSubTriangles() final { return 1; }
+  void refineAndAccumulate(Data data, TrianglePair face) final;
+};
+
+
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
   int getNumSubTriangles() final { return 3; }
@@ -47,7 +54,6 @@ class FaultFaceQuadRefiner : public FaultRefiner {
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
-seissol::initializer::parameters::FaultRefinement castToRefinerType(int strategy);
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy);
 } // namespace seissol::dr::output::refiner
 #endif // SEISSOL_DR_OUTPUT_REFINERS_HPP
