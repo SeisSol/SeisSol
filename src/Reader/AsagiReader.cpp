@@ -96,7 +96,7 @@ namespace seissol::asagi {
   return grid;
 }
 
-NumaCacheMode AsagiReader::getNUMAMode() {
+NumaCacheMode AsagiReader::getNumaMode() {
   const char* numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
 
   if (strcmp(numaModeName, "ON") == 0)
