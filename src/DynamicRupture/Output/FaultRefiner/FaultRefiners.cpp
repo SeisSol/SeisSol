@@ -51,9 +51,7 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   points.push_back(receiver);
 }
 
-void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) {
-  addReceiver(data, face);
-}
+void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }
 
 void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 

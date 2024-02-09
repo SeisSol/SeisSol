@@ -41,7 +41,6 @@ class NoRefiner : public FaultRefiner {
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
-
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
   int getNumSubTriangles() const final { return 3; }
