@@ -114,13 +114,13 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
           sizeof(real*) * outputData->cellCount));
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
     assert(preDofPtr[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(preDofPtr[arrayIndex] != nullptr);
   }
 

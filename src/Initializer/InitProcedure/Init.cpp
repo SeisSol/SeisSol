@@ -55,6 +55,10 @@ static void initSeisSol(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
 
+  // synchronize data to device
+  seissolInstance.getMemoryManager().synchronizeTo(
+      seissol::initializer::AllocationPlace::Device);
+
   // set up simulator
   auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);

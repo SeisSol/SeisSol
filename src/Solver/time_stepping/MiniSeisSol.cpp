@@ -157,13 +157,21 @@ void seissol::fakeData(initializer::LTS& lts,
                        initializer::Layer& layer,
                        FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
+#ifdef ACL_DEVICE
+  auto allocationPlace = seissol::initializer::AllocationPlace::Device;
+  real**                      buffers                       = layer.var(lts.buffersDevice);
+  real**                      derivatives                   = layer.var(lts.derivativesDevice);
+  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighborsDevice);
+#else
+  auto allocationPlace = seissol::initializer::AllocationPlace::Host;
   real**                      buffers                       = layer.var(lts.buffers);
   real**                      derivatives                   = layer.var(lts.derivatives);
   real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
+#endif
   LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
+  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, allocationPlace));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -198,7 +206,7 @@ void seissol::fakeData(initializer::LTS& lts,
     }
   }
   
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), true);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), true);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
@@ -210,6 +218,12 @@ void seissol::fakeData(initializer::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
   }
+#endif
+
+#ifdef ACL_DEVICE
+  const auto &device = device::DeviceInstance::getInstance();
+  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  device.api->syncDefaultStreamWithHost();
 #endif
 }
 

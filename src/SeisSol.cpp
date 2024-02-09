@@ -104,6 +104,10 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
   printPersistentMpiInfo(MPI::mpi);
 #endif
+#ifdef ACL_DEVICE
+  printUSMInfo(MPI::mpi);
+  printMPIUSMInfo(MPI::mpi);
+#endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();

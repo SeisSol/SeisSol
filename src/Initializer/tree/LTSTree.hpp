@@ -42,6 +42,7 @@
 #define INITIALIZER_TREE_LTSTREE_HPP_
 
 #include "LTSInternalNode.hpp"
+#include "Layer.hpp"
 #include "TimeCluster.hpp"
 
 #include <Initializer/MemoryAllocator.h>
@@ -54,8 +55,8 @@ namespace seissol {
 
 class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNode {
 private:
-  void** m_vars;
-  void** m_buckets;
+  std::vector<DualMemoryContainer> m_vars;
+  std::vector<DualMemoryContainer> m_buckets;
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
@@ -65,14 +66,28 @@ private:
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
   std::vector<size_t> scratchpadMemSizes{};  /*!< sizes of variables within the entire tree in bytes */
-  void** scratchpadMemories;
+  std::vector<DualMemoryContainer> scratchpadMemories;
   std::vector<int> scratchpadMemIds{};
 #endif  // ACL_DEVICE
 
 public:
-  LTSTree() : m_vars(NULL), m_buckets(NULL) {}
+  LTSTree() {}
   
-  ~LTSTree() { delete[] m_vars; delete[] m_buckets; }
+  ~LTSTree() { }
+
+  void synchronizeTo(AllocationPlace place, void* stream) {
+    for (auto& variable : m_vars) {
+      variable.synchronizeTo(place, stream);
+    }
+    for (auto& bucket : m_buckets) {
+      bucket.synchronizeTo(place, stream);
+    }
+#ifdef ACL_DEVICE
+    for (auto& scratchpad : scratchpadMemories) {
+      scratchpad.synchronizeTo(place, stream);
+    }
+#endif
+  }
   
   void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
     setChildren<TimeCluster>(numberOfTimeCluster);
@@ -97,10 +112,10 @@ public:
   }
 
   template<typename T>
-  T* var(Variable<T> const& handle) {
+  T* var(Variable<T> const& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
-    return static_cast<T*>(m_vars[handle.index]);
+    assert(m_vars.size() > handle.index);
+    return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
   MemoryInfo const& info(unsigned index) const {
@@ -112,37 +127,37 @@ public:
   }
   
   template<typename T>
-  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, seissol::memory::Memkind memkind) {
+  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, AllocationMode allocMode) {
     handle.index = varInfo.size();
     handle.mask = mask;
     MemoryInfo m;
     m.bytes = sizeof(T)*handle.count;
     m.alignment = alignment;
     m.mask = mask;
-    m.memkind = memkind;
+    m.allocMode = allocMode;
     varInfo.push_back(m);
   }
   
-  void addBucket(Bucket& handle, size_t alignment, seissol::memory::Memkind memkind) {
+  void addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode) {
     handle.index = bucketInfo.size();
     MemoryInfo m;
     m.alignment = alignment;
-    m.memkind = memkind;
+    m.allocMode = allocMode;
     bucketInfo.push_back(m);
   }
 
 #ifdef ACL_DEVICE
-  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, seissol::memory::Memkind memkind) {
+  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, AllocationMode allocMode) {
     handle.index = scratchpadMemInfo.size();
     MemoryInfo memoryInfo;
     memoryInfo.alignment = alignment;
-    memoryInfo.memkind = memkind;
+    memoryInfo.allocMode = allocMode;
     scratchpadMemInfo.push_back(memoryInfo);
   }
 #endif // ACL_DEVICE
   
   void allocateVariables() {
-    m_vars = new void*[varInfo.size()];
+    m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -150,7 +165,7 @@ public:
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
-      m_vars[var] = m_allocator.allocateMemory(variableSizes[var], varInfo[var].alignment, varInfo[var].memkind);
+      m_vars[var].allocate(m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
     }
     
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
@@ -161,7 +176,7 @@ public:
   }
   
   void allocateBuckets() {
-    m_buckets = new void*[bucketInfo.size()];
+    m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
     
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -169,7 +184,7 @@ public:
     }
     
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
-      m_buckets[bucket] = m_allocator.allocateMemory(bucketSizes[bucket], bucketInfo[bucket].alignment, bucketInfo[bucket].memkind);
+      m_buckets[bucket].allocate(m_allocator, bucketSizes[bucket], bucketInfo[bucket].alignment, bucketInfo[bucket].allocMode);
     }
     
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
@@ -187,7 +202,7 @@ public:
   // Note, all scratchpad entities are shared between leaves.
   // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
   void allocateScratchPads() {
-    scratchpadMemories = new void*[scratchpadMemInfo.size()];
+    scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -197,13 +212,13 @@ public:
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
       // TODO {ravil}: check whether the assert makes sense
       //assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
-      scratchpadMemories[id] = m_allocator.allocateMemory(scratchpadMemSizes[id],
+      scratchpadMemories[id].allocate(m_allocator, scratchpadMemSizes[id],
                                                           scratchpadMemInfo[id].alignment,
-                                                          scratchpadMemInfo[id].memkind);
+                                                          scratchpadMemInfo[id].allocMode);
     }
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories, scratchpadMemInfo.size());
+      it->setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
