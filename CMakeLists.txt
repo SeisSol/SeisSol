@@ -454,7 +454,7 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION LESS "9.0")
-    message(WARNING "GNU Minimum version 9.0 is requiredd")
+    message(WARNING "GNU Minimum version 9.0 is required")
   endif()
   target_compile_options(SeisSol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
@@ -463,7 +463,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
   if(CMAKE_CXX_COMPILER_VERSION LESS "2021")
-    message(WARNING "Intel Minimum version 2021 is requiredd")
+    message(WARNING "Intel Minimum version 2021 is required")
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
