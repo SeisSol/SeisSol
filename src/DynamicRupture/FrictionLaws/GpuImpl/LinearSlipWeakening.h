@@ -72,7 +72,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         devSlipRateMagnitude[ltsFace][pointIndex] =
-            sycl::max(static_cast<real>(0.0),
+            std::max(static_cast<real>(0.0),
                       (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
         const auto divisor = strength[pointIndex] +
                              devImpAndEta[ltsFace].etaS * devSlipRateMagnitude[ltsFace][pointIndex];
@@ -141,7 +141,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
-            sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
+            std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
                 devDC[ltsFace][pointIndex]) {
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
@@ -289,7 +289,7 @@ class LinearSlipWeakeningLaw
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
-            sycl::min(sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
+            std::min(std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
                           devDC[ltsFace][pointIndex],
                       static_cast<real>(1.0));
 
@@ -297,7 +297,7 @@ class LinearSlipWeakeningLaw
         if (t0 == 0) {
           f2 = 1.0 * (tn >= devForcedRuptureTime[ltsFace][pointIndex]);
         } else {
-          f2 = sycl::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
+          f2 = std::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
                            static_cast<real>(0.0),
                            static_cast<real>(1.0));
         }

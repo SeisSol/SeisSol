@@ -135,9 +135,11 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   m_ltsTree->allocateBuckets();
   
   if (enableDynamicRupture) {
-    seissol::dr::DRParameters parameters;
+    seissol::initializer::parameters::DRParameters parameters;
     parameters.frictionLawType = static_cast<decltype(parameters.frictionLawType)>(frictionLaw);
-    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::dr::DRParameters>(parameters))->produce();
+    auto ssp = seissol::initializer::parameters::SeisSolParameters{};
+    seissol::SeisSol ssol = seissol::SeisSol(ssp);
+    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::initializer::parameters::DRParameters>(parameters), ssol)->produce();
     m_dynRup = std::move(drTuple.ltsTree);
     m_frictionSolver = std::move(drTuple.frictionLaw);
 
@@ -238,7 +240,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_frictionSolver.get())) {
       impl->initSyclQueue();
 
-      auto mask = seissol::initializers::LayerMask(Ghost);
+      auto mask = seissol::initializer::LayerMask(Ghost);
       auto maxSize = m_dynRupTree->getMaxClusterSize(mask);
       impl->setMaxClusterSize(maxSize);
 

@@ -10,6 +10,7 @@
 #define ACCELERATOR_DEVICE_H
 
 #include <device.h>
+#include <vector>
 
 namespace seissol {
 class AcceleratorDevice {
@@ -22,9 +23,6 @@ class AcceleratorDevice {
   void bindAcceleratorDevice(int deviceId) {
     bindNativeDevice(deviceId);
   }
-
-  private:
-  void bindNativeDevice(int mpiRank);
 
   void printInfo();
 

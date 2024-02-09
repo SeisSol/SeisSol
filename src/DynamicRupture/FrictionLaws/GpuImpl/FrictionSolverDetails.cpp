@@ -77,7 +77,5 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
     const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
     memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
   }
-
-  queue.wait_and_throw();
 }
 } // namespace seissol::dr::friction_law::gpu

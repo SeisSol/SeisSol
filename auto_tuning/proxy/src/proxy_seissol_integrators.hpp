@@ -230,7 +230,7 @@ namespace proxy::cpu {
   }
 
   void computeDynamicRupture() {
-    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    seissol::initializer::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     m_frictionSolver->computeDeltaT(m_dynRupKernel.timePoints);
     m_frictionSolver->evaluate(layerData,
                            m_dynRup.get(),
