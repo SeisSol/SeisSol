@@ -6,10 +6,10 @@
 namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
-  NoTP(DRParameters* drParameters){};
+  NoTP(seissol::initializer::parameters::DRParameters* drParameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   #pragma omp declare target

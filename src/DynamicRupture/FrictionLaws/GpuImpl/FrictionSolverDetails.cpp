@@ -6,7 +6,8 @@
 #include "utils/logger.h"
 
 namespace seissol::dr::friction_law::gpu {
-FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
+FrictionSolverDetails::FrictionSolverDetails(
+    seissol::initializer::parameters::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {
@@ -76,5 +77,7 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
     const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
     memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
   }
+
+  queue.wait_and_throw();
 }
 } // namespace seissol::dr::friction_law::gpu

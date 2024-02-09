@@ -3,16 +3,15 @@
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   kernels::LocalData::Loader loader;
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
 
-  real(*pstrains)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] =
-      currentLayer->var(currentHandler->pstrain);
+  auto* pstrains = currentLayer->var(currentHandler->pstrain);
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =
       static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));

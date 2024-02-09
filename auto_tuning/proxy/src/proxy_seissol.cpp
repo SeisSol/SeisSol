@@ -183,8 +183,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   device.api->allocateStackMem();
 #endif // ACL_DEVICE
 
-  m_ltsTree = new seissol::initializers::LTSTree;
-  m_dynRupTree = new seissol::initializers::LTSTree;
+  m_ltsTree = new seissol::initializer::LTSTree;
+  m_dynRupTree = new seissol::initializer::LTSTree;
   m_allocator = new seissol::memory::ManagedAllocator;
 
   print_hostname();

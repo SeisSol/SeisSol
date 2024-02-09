@@ -7,30 +7,27 @@
 #include "PointSourceCluster.h"
 #include <SourceTerm/typedefs.hpp>
 
+#include <array>
+
 namespace seissol::kernels {
 class PointSourceClusterOnDevice : public PointSourceCluster {
   public:
   PointSourceClusterOnDevice(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
   void addTimeIntegratedPointSources(double from, double to) override;
+  unsigned size() const override;
 
   private:
   #pragma omp declare target
-  static void addTimeIntegratedPointSourceNRF(
-      std::array<sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const*, 3> slipRates,
-      real* mInvJInvPhisAtSources,
-      real* tensor,
-      real A,
-      real* stiffnessTensor,
-      double from,
-      double to,
-      real* dofs);
+  static void addTimeIntegratedPointSourceNRF(std::array<real, 3> const& slip,
+                                              real* mInvJInvPhisAtSources,
+                                              real* tensor,
+                                              real A,
+                                              real* stiffnessTensor,
+                                              double from,
+                                              double to,
+                                              real* dofs);
   static void addTimeIntegratedPointSourceFSRM(
-      sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const* slipRate0,
-      real* mInvJInvPhisAtSources,
-      real* tensor,
-      double from,
-      double to,
-      real* dofs);
+      real slip, real* mInvJInvPhisAtSources, real* tensor, double from, double to, real* dofs);
   #pragma omp end declare target
 
   sourceterm::ClusterMapping clusterMapping_;

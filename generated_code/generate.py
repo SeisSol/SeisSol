@@ -45,7 +45,7 @@ import sys
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, KernelForge
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
@@ -71,11 +71,13 @@ cmdLineParser.add_argument('--gemm_tools')
 cmdLineParser.add_argument('--drQuadRule')
 cmdLineParser.add_argument('--enable_premultiply_flux', action='store_true')
 cmdLineParser.add_argument('--disable_premultiply_flux', dest='enable_premultiply_flux', action='store_false')
+cmdLineParser.add_argument('--executable_libxsmm', default='')
+cmdLineParser.add_argument('--executable_pspamm', default='')
 cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi', 'omptarget']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
 if cmdLineArgs.memLayout == 'auto':
@@ -152,7 +154,13 @@ gemm_generators = []
 for tool in gemm_tool_list:
   if hasattr(gemm_configuration, tool):
     specific_gemm_class = getattr(gemm_configuration, tool)
-    gemm_generators.append(specific_gemm_class(arch))
+    # take executable arguments, but only if they are not empty
+    if specific_gemm_class is gemm_configuration.LIBXSMM and cmdLineArgs.executable_libxsmm != '':
+      gemm_generators.append(specific_gemm_class(arch, cmdLineArgs.executable_libxsmm))
+    elif specific_gemm_class is gemm_configuration.PSpaMM and cmdLineArgs.executable_pspamm != '':
+      gemm_generators.append(specific_gemm_class(arch, cmdLineArgs.executable_pspamm))
+    else:
+      gemm_generators.append(specific_gemm_class(arch))
   else:
     print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
           "Please, refer to the documentation".format(tool))
@@ -160,13 +168,8 @@ for tool in gemm_tool_list:
 
 
 cost_estimators = BoundingBoxCostEstimator
-if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
-  try:
-    chainforge_spec = importlib.util.find_spec('chainforge')
-    chainforge_spec.loader.load_module()
-    cost_estimators = FusedGemmsBoundingBoxCostEstimator
-  except:
-    print('WARNING: ChainForge was not found. Falling back to GemmForge.')
+if 'gpu' in targets:
+  cost_estimators = FusedGemmsBoundingBoxCostEstimator
 
 
 # Generate code

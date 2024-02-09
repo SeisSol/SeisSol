@@ -8,7 +8,7 @@
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(dr::DRParameters* drParameters);
+  explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
   void initSyclQueue() override;
@@ -16,8 +16,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   void copyStaticDataToDevice() override;
 
   virtual void
-      copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                     seissol::initializers::DynamicRupture const* const dynRup,
+      copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                     seissol::initializer::DynamicRupture const* const dynRup,
                                      real fullUpdateTime) = 0;
 
   protected:

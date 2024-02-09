@@ -54,7 +54,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("ader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -83,7 +83,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("localwoader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -115,7 +115,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -202,7 +202,7 @@ namespace proxy::cpu {
 
   void computeDynRupGodunovState()
   {
-    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    seissol::initializer::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup->godunovData);
     DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup->drEnergyOutput);

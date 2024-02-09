@@ -15,12 +15,14 @@
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
-namespace seissol::writer {
+namespace seissol {
+class SeisSol;
+namespace writer {
 
 struct EnergiesStorage {
-  std::array<double, 9> energies{};
+  std::array<double, 10> energies{};
 
   double& gravitationalEnergy();
 
@@ -39,17 +41,19 @@ struct EnergiesStorage {
   double& plasticMoment();
 
   double& seismicMoment();
+
+  double& potency();
 };
 
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializers::DynamicRupture* newDynRup,
-            seissol::initializers::LTSTree* newDynRuptTree,
+            seissol::initializer::DynamicRupture* newDynRup,
+            seissol::initializer::LTSTree* newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
-            seissol::initializers::LTSTree* newLtsTree,
-            seissol::initializers::LTS* newLts,
-            seissol::initializers::Lut* newLtsLut,
+            seissol::initializer::LTSTree* newLtsTree,
+            seissol::initializer::LTS* newLts,
+            seissol::initializer::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -58,12 +62,14 @@ class EnergyOutput : public Module {
 
   void simulationStart() override;
 
+  EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
                          DRFaceInformation const& faceInfo,
                          DRGodunovData const& godunovData,
-                         const real slip[seissol::tensor::slipRateInterpolated::size()]);
+                         const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 
@@ -79,6 +85,8 @@ class EnergyOutput : public Module {
 
   void writeEnergies(double time);
 
+  seissol::SeisSol& seissolInstance;
+
   bool shouldComputeVolumeEnergies() const;
 
   bool isEnabled = false;
@@ -92,16 +100,17 @@ class EnergyOutput : public Module {
   std::ofstream out;
 
   const GlobalData* global = nullptr;
-  seissol::initializers::DynamicRupture* dynRup = nullptr;
-  seissol::initializers::LTSTree* dynRupTree = nullptr;
+  seissol::initializer::DynamicRupture* dynRup = nullptr;
+  seissol::initializer::LTSTree* dynRupTree = nullptr;
   seissol::geometry::MeshReader* meshReader = nullptr;
-  seissol::initializers::LTSTree* ltsTree = nullptr;
-  seissol::initializers::LTS* lts = nullptr;
-  seissol::initializers::Lut* ltsLut = nullptr;
+  seissol::initializer::LTSTree* ltsTree = nullptr;
+  seissol::initializer::LTS* lts = nullptr;
+  seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
 };
 
-} // namespace seissol::writer
+} // namespace writer
+} // namespace seissol
 
 #endif // ENERGYOUTPUT_H

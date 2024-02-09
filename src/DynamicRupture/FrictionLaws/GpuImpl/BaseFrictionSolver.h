@@ -10,12 +10,12 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                seissol::initializer::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
 

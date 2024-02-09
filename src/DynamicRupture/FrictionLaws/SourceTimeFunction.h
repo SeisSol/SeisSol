@@ -14,8 +14,8 @@ class YoffeSTF {
   real (*tauR)[misc::numPaddedPoints];
 
   public:
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime,
@@ -30,8 +30,8 @@ class GaussianSTF {
   real (*riseTime)[misc::numPaddedPoints];
 
   public:
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);

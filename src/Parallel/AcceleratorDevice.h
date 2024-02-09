@@ -25,6 +25,15 @@ class AcceleratorDevice {
 
   private:
   void bindNativeDevice(int mpiRank);
+
+  void printInfo();
+
+  private:
+  void bindNativeDevice(int deviceId);
+  void bindSyclDevice(int deviceId);
+
+  std::vector<std::string> infoMessages;
+  std::vector<std::string> warnMessages;
 };
 } // namespace seissol
 

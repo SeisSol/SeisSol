@@ -14,7 +14,7 @@ class NoSpecialization;
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningBase<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
@@ -72,8 +72,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         devSlipRateMagnitude[ltsFace][pointIndex] =
-            std::max(static_cast<real>(0.0),
-                     (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
+            sycl::max(static_cast<real>(0.0),
+                      (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
         const auto divisor = strength[pointIndex] +
                              devImpAndEta[ltsFace].etaS * devSlipRateMagnitude[ltsFace][pointIndex];
         devSlipRate1[ltsFace][pointIndex] =
@@ -141,7 +141,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
-            std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
+            sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
                 devDC[ltsFace][pointIndex]) {
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
@@ -167,15 +167,16 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters* drParameters)
+  LinearSlipWeakeningLaw<SpecializationT>(
+      seissol::initializer::parameters::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      seissol::initializer::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -288,17 +289,17 @@ class LinearSlipWeakeningLaw
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
-            std::min(std::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
-                         devDC[ltsFace][pointIndex],
-                     static_cast<real>(1.0));
+            sycl::min(sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
+                          devDC[ltsFace][pointIndex],
+                      static_cast<real>(1.0));
 
         real f2 = 0.0;
         if (t0 == 0) {
           f2 = 1.0 * (tn >= devForcedRuptureTime[ltsFace][pointIndex]);
         } else {
-          f2 = std::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
-                          static_cast<real>(0.0),
-                          static_cast<real>(1.0));
+          f2 = sycl::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
+                           static_cast<real>(0.0),
+                           static_cast<real>(1.0));
         }
         stateVariable[pointIndex] = std::max(localStateVariable, f2);
       }
@@ -312,10 +313,10 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters* parameters){};
+  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   #pragma omp declare target
@@ -354,13 +355,13 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters* parameters){};
+  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 
