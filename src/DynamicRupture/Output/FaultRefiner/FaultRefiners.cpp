@@ -17,6 +17,7 @@ std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinem
   case seissol::initializer::parameters::FaultRefinement::None:
     return std::make_unique<NoRefiner>();
   default:
+    logError() << "Unknown refinement strategy for Fault Face Refiner";
     return nullptr;
   }
 }

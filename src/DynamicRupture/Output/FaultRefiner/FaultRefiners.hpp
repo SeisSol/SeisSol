@@ -18,7 +18,7 @@ class FaultRefiner {
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
-  virtual int getNumSubTriangles() = 0;
+  virtual int getNumSubTriangles() const = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
@@ -37,20 +37,20 @@ class FaultRefiner {
 
 class NoRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() final { return 1; }
+  int getNumSubTriangles() const final { return 1; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() final { return 3; }
+  int getNumSubTriangles() const final { return 3; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceQuadRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() final { return 4; }
+  int getNumSubTriangles() const final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
