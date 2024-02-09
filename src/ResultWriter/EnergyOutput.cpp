@@ -213,15 +213,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
-        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
-    shared(it,                                                                                     \
-               drEnergyOutput,                                                                     \
-               faceInformation,                                                                    \
-               timeDerivativeMinusPtr,                                                             \
-               timeDerivativePlusPtr,                                                              \
-               godunovData,                                                                        \
-               waveSpeedsPlus,                                                                     \
-               waveSpeedsMinus)
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency)                     \
+    shared(it, drEnergyOutput, faceInformation, godunovData, waveSpeedsPlus, waveSpeedsMinus)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -277,8 +270,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalAcousticKineticEnergyLocal,           \
                                                         totalElasticEnergyLocal,                   \
                                                         totalElasticKineticEnergyLocal,            \
-                                                        totalPlasticMoment)                        \
-    shared(elements, vertices, lts, ltsLut, global)
+                                                        totalPlasticMoment) shared(lts, ltsLut)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real volume = MeshTools::volume(elements[elementId], vertices);
