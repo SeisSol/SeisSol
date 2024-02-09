@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     break;
   }
   }
-  const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  const auto parameterFile = args.getAdditionalArgument("file", "parameters.par");
   logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
