@@ -48,6 +48,10 @@
 #include "SeisSol.h"
 #include "utils/args.h"
 
+#ifdef USE_ASAGI
+#include "Reader/AsagiModule.h"
+#endif
+
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
