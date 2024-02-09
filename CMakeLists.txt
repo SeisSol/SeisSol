@@ -23,6 +23,20 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   endif()
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  set(GNU_REQUIRED_VERSION "9.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
+    message(WARNING "GNU versions below ${GNU_REQUIRED_VERSION} are not suppoerted")
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+  set(INTEL_REQUIRED_VERSION "2021")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS INTEL_REQUIRED_VERSION)
+    message(WARNING "INTEL versions below ${INTEL_REQUIRED_VERSION} are not suppoerted")
+  endif()
+endif()
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -453,18 +467,12 @@ endif()
 
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION LESS "9.0")
-    message(WARNING "GNU Minimum version 9.0 is required")
-  endif()
   target_compile_options(SeisSol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  if(CMAKE_CXX_COMPILER_VERSION LESS "2021")
-    message(WARNING "Intel Minimum version 2021 is required")
-  endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
