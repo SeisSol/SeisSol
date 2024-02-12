@@ -566,7 +566,8 @@ void EnergyOutput::checkAbortCriterion() {
   const auto rank = MPI::mpi.rank();
   bool abort = false;
   if (rank == 0) {
-    if (minTimeSinceSlipRateBelowThreshold > 0) {
+    if ((minTimeSinceSlipRateBelowThreshold > 0) and
+        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<double>::max())) {
       if (minTimeSinceSlipRateBelowThreshold < maxTimeFromRuptureEnd) {
         logInfo(rank) << "all slip rates are below threshold since"
                       << minTimeSinceSlipRateBelowThreshold
