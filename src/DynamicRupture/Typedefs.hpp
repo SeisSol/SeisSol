@@ -29,12 +29,12 @@ enum class FrictionLawType : unsigned int {
  */
 struct ImpedancesAndEta {
   real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
-  #if defined USE_DAMAGEDELASTIC
+#if defined USE_DAMAGEDELASTIC
   real lambda0P, mu0P, gammaRP, xi0P, rho0P;
   real lambda0M, mu0M, gammaRM, xi0M, rho0M;
   real csOcpTZsOZp, csOcpTZsOZpNeig;
   VrtxCoords faultN, faultT1, faultT2;
-  #endif
+#endif
 };
 
 /**

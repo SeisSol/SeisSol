@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -41,37 +42,36 @@
 
 #include "Modules.h"
 
-void seissol::Modules::_registerHook(Module &module, Hook hook, int priority)
-{
-	assert(hook < MAX_HOOKS);
+void seissol::Modules::_registerHook(Module& module, Hook hook, int priority) {
+  assert(hook < MAX_HOOKS);
 
-	if (m_nextHook >= MAX_INIT_HOOKS)
-		logError() << "Trying to register for a hook after initialization phase";
-	if (hook < m_nextHook)
-		logError() << "Trying to register for hook" << strHook(hook)
-			<< "but SeisSol was already processing" << strHook(static_cast<Hook>(m_nextHook-1));
+  if (m_nextHook >= MAX_INIT_HOOKS)
+    logError() << "Trying to register for a hook after initialization phase";
+  if (hook < m_nextHook)
+    logError() << "Trying to register for hook" << strHook(hook)
+               << "but SeisSol was already processing"
+               << strHook(static_cast<Hook>(m_nextHook - 1));
 
-	m_hooks[hook].insert(std::pair<int, Module*>(priority, &module));
+  m_hooks[hook].insert(std::pair<int, Module*>(priority, &module));
 }
 
-const char* seissol::Modules::strHook(Hook hook)
-{
-	switch (hook) {
-	case PRE_MPI:
-		return "PRE_MPI";
-	case POST_MPI_INIT:
-		return "POST_MPI_INIT";
-	case POST_MESH:
-		return "POST_MESH";
-	case PRE_MODEL:
-		return "PRE_MODEL";
-	case POST_MODEL:
-		return "POST_MODEL";
-	case SIMULATION_START:
-		return "SIMULATION_START";
-	case SYNCHRONIZATION_POINT:
-		return "SYNCHRONIZATION_POINT";
-	default:
-		return "unknown hook";
-	}
+const char* seissol::Modules::strHook(Hook hook) {
+  switch (hook) {
+  case PRE_MPI:
+    return "PRE_MPI";
+  case POST_MPI_INIT:
+    return "POST_MPI_INIT";
+  case POST_MESH:
+    return "POST_MESH";
+  case PRE_MODEL:
+    return "PRE_MODEL";
+  case POST_MODEL:
+    return "POST_MODEL";
+  case SIMULATION_START:
+    return "SIMULATION_START";
+  case SYNCHRONIZATION_POINT:
+    return "SYNCHRONIZATION_POINT";
+  default:
+    return "unknown hook";
+  }
 }

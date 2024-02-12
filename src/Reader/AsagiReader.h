@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -51,45 +52,43 @@
 #include "AsagiModule.h"
 #include "Monitoring/instrumentation.fpp"
 
-namespace seissol
-{
-namespace asagi
-{
-enum NUMACache_Mode
-{
-	NUMA_OFF, NUMA_ON, NUMA_CACHE
-};
+namespace seissol {
+namespace asagi {
+enum NUMACache_Mode { NUMA_OFF, NUMA_ON, NUMA_CACHE };
 
-class AsagiReader : public easi::AsagiReader
-{
-private:
-	/** Prefix for environment variables */
-	const std::string m_envPrefix;
+class AsagiReader : public easi::AsagiReader {
+  private:
+  /** Prefix for environment variables */
+  const std::string m_envPrefix;
 
-	/** Number of threads used by ASAGI */
-	unsigned int m_asagiThreads;
-  
+  /** Number of threads used by ASAGI */
+  unsigned int m_asagiThreads;
+
 #ifdef USE_MPI
   /** MPI communicator used by ASAGI */
   MPI_Comm m_comm;
 #endif
 
-public:
-	AsagiReader(  const char* envPrefix
+  public:
+  AsagiReader(const char* envPrefix
 #ifdef USE_MPI
-                , MPI_Comm comm = seissol::MPI::mpi.comm()
-#endif                
-                ) : m_envPrefix(envPrefix)
-#ifdef USE_MPI
-                    , m_comm(comm)
+              ,
+              MPI_Comm comm = seissol::MPI::mpi.comm()
 #endif
-  {}
-  
+                  )
+      : m_envPrefix(envPrefix)
+#ifdef USE_MPI
+        ,
+        m_comm(comm)
+#endif
+  {
+  }
+
   virtual ::asagi::Grid* open(char const* file, char const* varname);
   virtual unsigned numberOfThreads() const { return m_asagiThreads; }
 
-private:
-	static NUMACache_Mode getNUMAMode();
+  private:
+  static NUMACache_Mode getNUMAMode();
 };
 
 /**
@@ -123,12 +122,12 @@ private:
   }
 
   // Set NUMA mode
-  m_asagiThreads = utils::Env::get((m_envPrefix  + "_NUM_THREADS").c_str(), 0u);
+  m_asagiThreads = utils::Env::get((m_envPrefix + "_NUM_THREADS").c_str(), 0u);
   if (m_asagiThreads == 0)
     m_asagiThreads = AsagiModule::totalThreads();
   else if (static_cast<int>(m_asagiThreads) > AsagiModule::totalThreads()) {
     logWarning(rank) << "Only" << AsagiModule::totalThreads()
-        << "threads can be used for ASAGI initialization.";
+                     << "threads can be used for ASAGI initialization.";
     m_asagiThreads = AsagiModule::totalThreads();
   }
 
@@ -153,28 +152,28 @@ private:
   grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
   // Set additional parameters
-  std::string blockSize = utils::Env::get((m_envPrefix  + "_BLOCK_SIZE").c_str(), "64");
+  std::string blockSize = utils::Env::get((m_envPrefix + "_BLOCK_SIZE").c_str(), "64");
   grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-  std::string cacheSize = utils::Env::get((m_envPrefix  + "_CACHE_SIZE").c_str(), "128");
+  std::string cacheSize = utils::Env::get((m_envPrefix + "_CACHE_SIZE").c_str(), "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
   grid->setParam("VARIABLE", varname);
 
   bool abort = false;
   // Read the data
-  //SCOREP_RECORDING_OFF();
+  // SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
-  #pragma omp parallel shared(abort) num_threads(m_asagiThreads)
+#pragma omp parallel shared(abort) num_threads(m_asagiThreads)
 #endif // _OPENMP
   {
     ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS)
       abort = true;
   }
-  //SCOREP_RECORDING_ON();
+  // SCOREP_RECORDING_ON();
   if (abort) {
     logError() << "Could not open " << file << " with ASAGI.";
     return nullptr;
@@ -183,8 +182,7 @@ private:
   return grid;
 }
 
-NUMACache_Mode AsagiReader::getNUMAMode()
-{
+NUMACache_Mode AsagiReader::getNUMAMode() {
   const char* numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
 
   if (strcmp(numaModeName, "ON") == 0)
@@ -197,7 +195,7 @@ NUMACache_Mode AsagiReader::getNUMAMode()
   logError() << "Unknown NUMA mode:" << numaModeName;
   return NUMA_OFF;
 }
-}
-}
+} // namespace asagi
+} // namespace seissol
 
 #endif // ASAGIREADER_H

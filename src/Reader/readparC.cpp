@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -43,9 +44,8 @@
 
 extern "C" {
 
-void getParameterFile(int i_maxlen, char* o_file)
-{
-	strncpy(o_file, seissol::SeisSol::main.parameterFile(), i_maxlen);
+void getParameterFile(int i_maxlen, char* o_file) {
+  strncpy(o_file, seissol::SeisSol::main.parameterFile(), i_maxlen);
 }
 
 } // extern "C"

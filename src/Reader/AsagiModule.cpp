@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -49,51 +50,48 @@
 #include "AsagiModule.h"
 
 seissol::asagi::AsagiModule::AsagiModule()
-	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
-{
-	// Register for the pre MPI hook
-	Modules::registerHook(*this, seissol::PRE_MPI);
+    : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
+  // Register for the pre MPI hook
+  Modules::registerHook(*this, seissol::PRE_MPI);
 
-	// Emit a warning/error later
-	// TODO use a general logger that can buffer log messages and emit them later
-	if (m_mpiMode == MPI_UNKNOWN) {
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
-	} else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
-		m_mpiMode = MPI_WINDOWS;
+  // Emit a warning/error later
+  // TODO use a general logger that can buffer log messages and emit them later
+  if (m_mpiMode == MPI_UNKNOWN) {
+    Modules::registerHook(*this, seissol::POST_MPI_INIT);
+  } else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
+    m_mpiMode = MPI_WINDOWS;
 
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
-	}
+    Modules::registerHook(*this, seissol::POST_MPI_INIT);
+  }
 }
 
-seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
-{
+seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode() {
 #ifdef USE_MPI
-	std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
-	if (mpiModeName == "WINDOWS")
-		return MPI_WINDOWS;
-	if (mpiModeName == "COMM_THREAD")
-		return MPI_COMM_THREAD;
-	if (mpiModeName == "OFF")
-		return MPI_OFF;
+  std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
+  if (mpiModeName == "WINDOWS")
+    return MPI_WINDOWS;
+  if (mpiModeName == "COMM_THREAD")
+    return MPI_COMM_THREAD;
+  if (mpiModeName == "OFF")
+    return MPI_OFF;
 
-	return MPI_UNKNOWN;
-#else // USE_MPI
-	return MPI_OFF;
+  return MPI_UNKNOWN;
+#else  // USE_MPI
+  return MPI_OFF;
 #endif // USE_MPI
 }
 
-int seissol::asagi::AsagiModule::getTotalThreads()
-{
-	int totalThreads = 1;
+int seissol::asagi::AsagiModule::getTotalThreads() {
+  int totalThreads = 1;
 
 #ifdef _OPENMP
-	totalThreads = omp_get_max_threads();
+  totalThreads = omp_get_max_threads();
 #ifdef USE_COMM_THREAD
-	totalThreads++;
+  totalThreads++;
 #endif // USE_COMM_THREAD
 #endif // _OPENMP
 
-	return totalThreads;
+  return totalThreads;
 }
 
 const char* seissol::asagi::AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";

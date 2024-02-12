@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -54,25 +55,23 @@
 
 namespace seissol {
 class LoopStatistics {
-public:
+  public:
   void addRegion(std::string const& name, bool includeInSummary = true) {
     m_regions.push_back(name);
     m_begin.push_back(timespec{});
     m_times.emplace_back();
     m_includeInSummary.push_back(includeInSummary);
   }
-  
+
   unsigned getRegion(std::string const& name) {
     auto first = m_regions.cbegin();
     auto it = std::find(first, m_regions.cend(), name);
     assert(it != m_regions.end());
     return std::distance(first, it);
   }
-  
-  void begin(unsigned region) {
-    clock_gettime(CLOCK_MONOTONIC, &m_begin[region]);
-  }
-  
+
+  void begin(unsigned region) { clock_gettime(CLOCK_MONOTONIC, &m_begin[region]); }
+
   void end(unsigned region, unsigned numIterations, unsigned subRegion) {
     Sample sample;
     clock_gettime(CLOCK_MONOTONIC, &sample.end);
@@ -82,8 +81,8 @@ public:
     m_times[region].push_back(sample);
   }
 
-  void addSample(unsigned region, unsigned numIters, unsigned subRegion,
-                 timespec begin, timespec end) {
+  void addSample(
+      unsigned region, unsigned numIters, unsigned subRegion, timespec begin, timespec end) {
     Sample sample;
     sample.begin = std::move(begin);
     sample.end = std::move(end);
@@ -92,25 +91,25 @@ public:
     m_times[region].push_back(sample);
   }
 
-#ifdef USE_MPI  
+#ifdef USE_MPI
   void printSummary(MPI_Comm comm);
 #endif
 
   void writeSamples();
-  
-private:
+
+  private:
   struct Sample {
     timespec begin;
     timespec end;
     unsigned numIters;
     unsigned subRegion;
   };
-  
+
   std::vector<timespec> m_begin;
   std::vector<std::string> m_regions;
   std::vector<std::vector<Sample>> m_times;
   std::vector<bool> m_includeInSummary;
 };
-}
+} // namespace seissol
 
 #endif // MONITORING_LOOPSTATISTICS_H_

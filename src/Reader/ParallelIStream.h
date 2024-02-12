@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -46,61 +47,54 @@
 #include <sstream>
 #include <vector>
 
-class ParallelIStream : public std::wistringstream
-{
-private:
-	/** Contains the content of the file */
-	std::vector<wchar_t> m_buffer;
+class ParallelIStream : public std::wistringstream {
+  private:
+  /** Contains the content of the file */
+  std::vector<wchar_t> m_buffer;
 
-public:
-	ParallelIStream()
-	{
-	}
+  public:
+  ParallelIStream() {}
 
-	ParallelIStream(const char* filename)
-	{
-		open(filename);
-	}
+  ParallelIStream(const char* filename) { open(filename); }
 
-	void open(const char* filename)
-	{
+  void open(const char* filename) {
 #ifdef USE_MPI
-		MPI_Comm comm = seissol::MPI::mpi.comm();
-		const int rank = seissol::MPI::mpi.rank();
+    MPI_Comm comm = seissol::MPI::mpi.comm();
+    const int rank = seissol::MPI::mpi.rank();
 
-		if (rank == 0) {
+    if (rank == 0) {
 #endif // USE_MPI
 
-			// Open the file and set the buffer
-			// This only done on rank 0 when running in parallel
-			std::wifstream file(filename);
-			if (!file)
-				logError() << "Could not open file" << filename;
+      // Open the file and set the buffer
+      // This only done on rank 0 when running in parallel
+      std::wifstream file(filename);
+      if (!file)
+        logError() << "Could not open file" << filename;
 
-			file.seekg(0, std::ios::end);
-			m_buffer.resize(file.tellg());
-			file.seekg(0, std::ios::beg);
+      file.seekg(0, std::ios::end);
+      m_buffer.resize(file.tellg());
+      file.seekg(0, std::ios::beg);
 
-			file.read(&m_buffer[0], m_buffer.size());
+      file.read(&m_buffer[0], m_buffer.size());
 
-			rdbuf()->pubsetbuf(&m_buffer[0], m_buffer.size());
+      rdbuf()->pubsetbuf(&m_buffer[0], m_buffer.size());
 
 #ifdef USE_MPI
-			// Broadcast the size and the content of the file
-			unsigned long size = m_buffer.size();
-			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
-			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
-		} else {
-			unsigned long size;
-			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
+      // Broadcast the size and the content of the file
+      unsigned long size = m_buffer.size();
+      MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
+      MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
+    } else {
+      unsigned long size;
+      MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
 
-			m_buffer.resize(size);
-			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
+      m_buffer.resize(size);
+      MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
 
-			rdbuf()->pubsetbuf(&m_buffer[0], size);
-		}
+      rdbuf()->pubsetbuf(&m_buffer[0], size);
+    }
 #endif // USE_MPI
-	}
+  }
 };
 
 #endif // PARALLEL_ISTREAM_H

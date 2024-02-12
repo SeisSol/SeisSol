@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -42,58 +43,64 @@
 #include "Parallel/MPI.h"
 
 #ifndef PUML_PUML_H
-namespace PUML
-{
-	class TETPUML;
+namespace PUML {
+class TETPUML;
 }
 #endif // PUML_PUML_H
 
 namespace seissol {
-  namespace initializers {
-    namespace time_stepping {
-      class LtsWeights;
-    }
-  }
+namespace initializers {
+namespace time_stepping {
+class LtsWeights;
 }
+} // namespace initializers
+} // namespace seissol
 
-namespace seissol
-{
-class PUMLReader : public MeshReader
-{
-public:
-        PUMLReader(const char* meshFile, double maximumAllowedTimeStep, const char* checkPointFile,
-            initializers::time_stepping::LtsWeights* ltsWeights = nullptr, double tpwgt = 1.0, bool readPartitionFromFile = false);
+namespace seissol {
+class PUMLReader : public MeshReader {
+  public:
+  PUMLReader(const char* meshFile,
+             double maximumAllowedTimeStep,
+             const char* checkPointFile,
+             initializers::time_stepping::LtsWeights* ltsWeights = nullptr,
+             double tpwgt = 1.0,
+             bool readPartitionFromFile = false);
 
-private:
-	/**
-	 * Read the mesh
-	 */
-	void read(PUML::TETPUML &puml, const char* meshFile);
+  private:
+  /**
+   * Read the mesh
+   */
+  void read(PUML::TETPUML& puml, const char* meshFile);
 
-	/**
-	 * Create the partitioning
-	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile, bool readPartitionFromFile, const char* checkPointFile);
-	int readPartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
-	void writePartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
-	/**
-	 * Generate the PUML data structure
-	 */
-	void generatePUML(PUML::TETPUML &puml);
+  /**
+   * Create the partitioning
+   */
+  void partition(PUML::TETPUML& puml,
+                 initializers::time_stepping::LtsWeights* ltsWeights,
+                 double tpwgt,
+                 const char* meshFile,
+                 bool readPartitionFromFile,
+                 const char* checkPointFile);
+  int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  /**
+   * Generate the PUML data structure
+   */
+  void generatePUML(PUML::TETPUML& puml);
 
-	/**
-	 * Get the mesh
-	 */
-	void getMesh(const PUML::TETPUML &puml);
+  /**
+   * Get the mesh
+   */
+  void getMesh(const PUML::TETPUML& puml);
 
-	void addMPINeighor(const PUML::TETPUML &puml, int rank, const std::vector<unsigned int> &faces);
+  void addMPINeighor(const PUML::TETPUML& puml, int rank, const std::vector<unsigned int>& faces);
 
-private:
-	static int FACE_PUML2SEISSOL[4];
-	static int FACEVERTEX2ORIENTATION[4][4];
-	static int FIRST_FACE_VERTEX[4];
+  private:
+  static int FACE_PUML2SEISSOL[4];
+  static int FACEVERTEX2ORIENTATION[4][4];
+  static int FIRST_FACE_VERTEX[4];
 };
 
-}
+} // namespace seissol
 
 #endif // PUMLREADER_H

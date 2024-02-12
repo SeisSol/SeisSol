@@ -3,21 +3,17 @@
 
 #include <Kernels/precision.hpp>
 
-enum mpiTag {
-  localIntegrationData = 0,
-  neighboringIntegrationData = 1,
-  timeData = 2
-};
+enum mpiTag { localIntegrationData = 0, neighboringIntegrationData = 1, timeData = 2 };
 
 enum TimeClustering {
   // global time stepping
-  single    = 0,
+  single = 0,
   // offline clustering computed in pre-processing
-  offline   = 1,
+  offline = 1,
   // online clustering resulting in a multi-rate scheme
   multiRate = 2,
   // online clustering aiming at LTS for slithers only
-  slithers  = 3
+  slithers = 3
 };
 
 // face types
@@ -50,11 +46,7 @@ enum class FaceType {
   analytical = 7
 };
 
-enum SystemType {
-  Host = 0,
-  Device = 1
-};
-
+enum SystemType { Host = 0, Device = 1 };
 
 // plasticity information per cell
 struct PlasticityData {
@@ -65,4 +57,4 @@ struct PlasticityData {
   real mufactor;
 };
 
-#endif //SEISSOL_BASICTYPEDEFS_HPP
+#endif // SEISSOL_BASICTYPEDEFS_HPP

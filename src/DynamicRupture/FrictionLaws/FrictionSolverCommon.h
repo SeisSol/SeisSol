@@ -136,112 +136,106 @@ inline void precomputeStressFromQInterpolated(
   real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP, breP;
   real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM, breM;
 
-  exxP = 0; eyyP = 0; ezzP = 0; exyP = 0; eyzP = 0; ezxP = 0; damP = 0;
-  exxM = 0; eyyM = 0; ezzM = 0; exyM = 0; eyzM = 0; ezxM = 0; damM = 0;
+  exxP = 0;
+  eyyP = 0;
+  ezzP = 0;
+  exyP = 0;
+  eyzP = 0;
+  ezxP = 0;
+  damP = 0;
+  exxM = 0;
+  eyyM = 0;
+  ezzM = 0;
+  exyM = 0;
+  eyzM = 0;
+  ezxM = 0;
+  damM = 0;
 
   using Range = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
   /// TODO: test if reduction would work here
   // reduction(+:exxP,eyyP,ezzP,exyP,eyzP,ezxP,damP,exxM,eyyM,ezzM,exyM,eyzM,ezxM,damM)
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto i{startLoopIndex + index};
 
-    exxP += qStrainIPlus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyyP += qStrainIPlus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezzP += qStrainIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    exyP += qStrainIPlus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    breP += qStrainIPlus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exxP += qStrainIPlus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyP += qStrainIPlus[0][YY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzP += qStrainIPlus[0][ZZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyP += qStrainIPlus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzP += qStrainIPlus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxP += qStrainIPlus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damP += qStrainIPlus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breP += qStrainIPlus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
 
-    exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezzM += qStrainIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    exyM += qStrainIMinus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
-    breM += qStrainIMinus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exxM += qStrainIMinus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyM += qStrainIMinus[0][YY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzM += qStrainIMinus[0][ZZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyM += qStrainIMinus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzM += qStrainIMinus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxM += qStrainIMinus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damM += qStrainIMinus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breM += qStrainIMinus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
   real epsInitxx = 0.0e-4; // eps_xx0
   real epsInityy = 0.0e-3; // eps_yy0
   real epsInitzz = 0.0e-4; // eps_zz0
   real epsInitxy = 0.0e-3; // eps_xx0
-  real epsInityz = -0e-1; // eps_yy0
-  real epsInitzx = -0e-1; // eps_zz0
-  
-  //TODO(NONLINEAR) what are these numbers?
+  real epsInityz = -0e-1;  // eps_yy0
+  real epsInitzx = -0e-1;  // eps_zz0
+
+  // TODO(NONLINEAR) what are these numbers?
   real aB0 = 7.43e9;
   real aB1 = -12.14e9;
   real aB2 = 18.93e9;
   real aB3 = -5.067e9;
 
-  real EspIp = (exxP+epsInitxx) + (eyyP+epsInityy) + (ezzP+epsInitzz);
-  real EspIIp = (exxP+epsInitxx)*(exxP+epsInitxx)
-    + (eyyP+epsInityy)*(eyyP+epsInityy)
-    + (ezzP+epsInitzz)*(ezzP+epsInitzz)
-    + 2*(exyP+epsInitxy)*(exyP+epsInitxy)
-    + 2*(eyzP+epsInityz)*(eyzP+epsInityz)
-    + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
+  real EspIp = (exxP + epsInitxx) + (eyyP + epsInityy) + (ezzP + epsInitzz);
+  real EspIIp =
+      (exxP + epsInitxx) * (exxP + epsInitxx) + (eyyP + epsInityy) * (eyyP + epsInityy) +
+      (ezzP + epsInitzz) * (ezzP + epsInitzz) + 2 * (exyP + epsInitxy) * (exyP + epsInitxy) +
+      2 * (eyzP + epsInityz) * (eyzP + epsInityz) + 2 * (ezxP + epsInitzx) * (ezxP + epsInitzx);
   real alphap = damP;
   real xip;
-  if (EspIIp > 1e-30){
+  if (EspIIp > 1e-30) {
     xip = EspIp / std::sqrt(EspIIp);
-  } else{
+  } else {
     xip = 0.0;
   }
 
-  real EspIm = (exxM+epsInitxx) + (eyyM+epsInityy) + (ezzM+epsInitzz);
-  real EspIIm = (exxM+epsInitxx)*(exxM+epsInitxx)
-    + (eyyM+epsInityy)*(eyyM+epsInityy)
-    + (ezzM+epsInitzz)*(ezzM+epsInitzz)
-    + 2*(exyM+epsInitxy)*(exyM+epsInitxy)
-    + 2*(eyzM+epsInityz)*(eyzM+epsInityz)
-    + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
+  real EspIm = (exxM + epsInitxx) + (eyyM + epsInityy) + (ezzM + epsInitzz);
+  real EspIIm =
+      (exxM + epsInitxx) * (exxM + epsInitxx) + (eyyM + epsInityy) * (eyyM + epsInityy) +
+      (ezzM + epsInitzz) * (ezzM + epsInitzz) + 2 * (exyM + epsInitxy) * (exyM + epsInitxy) +
+      2 * (eyzM + epsInityz) * (eyzM + epsInityz) + 2 * (ezxM + epsInitzx) * (ezxM + epsInitzx);
   real alpham = damM;
   real xim;
-  if (EspIIm > 1e-30){
+  if (EspIIm > 1e-30) {
     xim = EspIm / std::sqrt(EspIIm);
-  } else{
+  } else {
     xim = 0.0;
   }
 
   // compute laP, muP, laM and muM
-  auto muP = (1-breP) * (mu0P
-    - alphap*xi0P*gaRP
-    - 0.5*alphap*gaRP*xip)
-    + breP * (
-      (aB0 + 0.5*aB1*xip - 0.5*aB3*xip*xip*xip)
-    );
-  auto laP = (1-breP) * (la0P
-  - alphap*gaRP*(eyyP+epsInityy)/std::sqrt(EspIIp))
-  + breP * (
-    (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
-  );
+  auto muP = (1 - breP) * (mu0P - alphap * xi0P * gaRP - 0.5 * alphap * gaRP * xip) +
+             breP * ((aB0 + 0.5 * aB1 * xip - 0.5 * aB3 * xip * xip * xip));
+  auto laP = (1 - breP) * (la0P - alphap * gaRP * (eyyP + epsInityy) / std::sqrt(EspIIp)) +
+             breP * ((2.0 * aB2 + 3.0 * aB3 * xip) + aB1 * (eyyP + epsInityy) / std::sqrt(EspIIp));
 
-  auto muM = (1-breM) * (mu0M
-    - alpham*xi0M*gaRM
-    - 0.5*alpham*gaRM*xim)
-    + breM * (
-      (aB0 + 0.5*aB1*xim - 0.5*aB3*xim*xim*xim)
-    );
-  auto laM = (1-breM) * (la0M
-  - alpham*gaRM*(eyyM+epsInityy)/std::sqrt(EspIIm))
-  + breM * (
-    (2.0*aB2 + 3.0*aB3*xim) + aB1*(eyyM+epsInityy)/std::sqrt(EspIIm)
-  );
+  auto muM = (1 - breM) * (mu0M - alpham * xi0M * gaRM - 0.5 * alpham * gaRM * xim) +
+             breM * ((aB0 + 0.5 * aB1 * xim - 0.5 * aB3 * xim * xim * xim));
+  auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM + epsInityy) / std::sqrt(EspIIm)) +
+             breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM + epsInityy) / std::sqrt(EspIIm));
 
-  invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
-  invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );
-  invZs = 1.0/std::sqrt( rhoP*(muP) );
-  invZsNeig = 1.0/std::sqrt( rhoM*(muM) );
+  invZp = 1.0 / std::sqrt(rhoP * (laP + 2 * muP));
+  invZpNeig = 1.0 / std::sqrt(rhoM * (laM + 2 * muM));
+  invZs = 1.0 / std::sqrt(rhoP * (muP));
+  invZsNeig = 1.0 / std::sqrt(rhoM * (muM));
 
-  etaP = 1.0/(invZp + invZpNeig);
-  etaS = 1.0/(invZs + invZsNeig);
+  etaP = 1.0 / (invZp + invZpNeig);
+  etaS = 1.0 / (invZs + invZsNeig);
 
   // Change the values in impAndEta so that they can be used in later calculation
   // of "hat" variables.
@@ -258,16 +252,16 @@ inline void precomputeStressFromQInterpolated(
   impAndEta.zpNeig = 1.0 / invZpNeig;
   impAndEta.zsNeig = 1.0 / invZsNeig;
 
-  impAndEta.csOcpTZsOZp = std::sqrt( (muP)/rhoP ) / std::sqrt( (laP+2*muP)/rhoP )
-                          * impAndEta.zs / impAndEta.zp;
-  impAndEta.csOcpTZsOZpNeig = std::sqrt( (muM)/rhoM ) / std::sqrt( (laM+2*muM)/rhoM )
-                          * impAndEta.zsNeig / impAndEta.zpNeig;
+  impAndEta.csOcpTZsOZp =
+      std::sqrt((muP) / rhoP) / std::sqrt((laP + 2 * muP) / rhoP) * impAndEta.zs / impAndEta.zp;
+  impAndEta.csOcpTZsOZpNeig = std::sqrt((muM) / rhoM) / std::sqrt((laM + 2 * muM) / rhoM) *
+                              impAndEta.zsNeig / impAndEta.zpNeig;
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto i{startLoopIndex + index};
@@ -404,7 +398,7 @@ inline void postcomputeImposedStateFromNewStress(
 
     using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = NumPointsRange::start; index < NumPointsRange::end;
          index += NumPointsRange::step) {
@@ -417,12 +411,9 @@ inline void postcomputeImposedStateFromNewStress(
       interM[N][i] += weight * normalStress;
       interM[T1][i] += weight * traction1;
       interM[T2][i] += weight * traction2;
-      interM[U][i] +=
-          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      interM[V][i] +=
-          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      interM[W][i] +=
-          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
+      interM[U][i] += weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
+      interM[V][i] += weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
+      interM[W][i] += weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
       interP[N][i] += weight * normalStress;
       interP[T1][i] += weight * traction1;
@@ -433,68 +424,67 @@ inline void postcomputeImposedStateFromNewStress(
     }
   }
   // Fill in nonlinear Flux term at the end time integratoon point.
-  for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
-        i ++) {
-    real vx, vy ,vz; // In global coord.
-    vx = impAndEta.faultN[0]*interP[U][i] +
-    impAndEta.faultT1[0]*interP[V][i] + impAndEta.faultT2[0]*interP[W][i];
-    vy = impAndEta.faultN[1]*interP[U][i] +
-    impAndEta.faultT1[1]*interP[V][i] + impAndEta.faultT2[1]*interP[W][i];
-    vz = impAndEta.faultN[2]*interP[U][i] +
-    impAndEta.faultT1[2]*interP[V][i] + impAndEta.faultT2[2]*interP[W][i];
-    imposedStateP[0][i] = - vx * impAndEta.faultN[0]; // minus sign from conservation laws
-    imposedStateP[1][i] = - vy * impAndEta.faultN[1];
-    imposedStateP[2][i] = - vz * impAndEta.faultN[2];
+  for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
+    real vx, vy, vz; // In global coord.
+    vx = impAndEta.faultN[0] * interP[U][i] + impAndEta.faultT1[0] * interP[V][i] +
+         impAndEta.faultT2[0] * interP[W][i];
+    vy = impAndEta.faultN[1] * interP[U][i] + impAndEta.faultT1[1] * interP[V][i] +
+         impAndEta.faultT2[1] * interP[W][i];
+    vz = impAndEta.faultN[2] * interP[U][i] + impAndEta.faultT1[2] * interP[V][i] +
+         impAndEta.faultT2[2] * interP[W][i];
+    imposedStateP[0][i] = -vx * impAndEta.faultN[0]; // minus sign from conservation laws
+    imposedStateP[1][i] = -vy * impAndEta.faultN[1];
+    imposedStateP[2][i] = -vz * impAndEta.faultN[2];
 
-    imposedStateP[3][i] = - 0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]);
-    imposedStateP[4][i] = - 0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]);
-    imposedStateP[5][i] = - 0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]);
+    imposedStateP[3][i] = -0.5 * (vx * impAndEta.faultN[1] + vy * impAndEta.faultN[0]);
+    imposedStateP[4][i] = -0.5 * (vy * impAndEta.faultN[2] + vz * impAndEta.faultN[1]);
+    imposedStateP[5][i] = -0.5 * (vx * impAndEta.faultN[2] + vz * impAndEta.faultN[0]);
 
     // Also need to project traction (N, T1, T2) in rotated coord, back to
     // global coords.
-    real trac_x, trac_y ,trac_z; // In global coord.
-    trac_x = impAndEta.faultN[0]*interP[N][i] +
-    impAndEta.faultT1[0]*interP[T1][i] + impAndEta.faultT2[0]*interP[T2][i];
-    trac_y = impAndEta.faultN[1]*interP[N][i] +
-    impAndEta.faultT1[1]*interP[T1][i] + impAndEta.faultT2[1]*interP[T2][i];
-    trac_z = impAndEta.faultN[2]*interP[N][i] +
-    impAndEta.faultT1[2]*interP[T1][i] + impAndEta.faultT2[2]*interP[T2][i];
+    real trac_x, trac_y, trac_z; // In global coord.
+    trac_x = impAndEta.faultN[0] * interP[N][i] + impAndEta.faultT1[0] * interP[T1][i] +
+             impAndEta.faultT2[0] * interP[T2][i];
+    trac_y = impAndEta.faultN[1] * interP[N][i] + impAndEta.faultT1[1] * interP[T1][i] +
+             impAndEta.faultT2[1] * interP[T2][i];
+    trac_z = impAndEta.faultN[2] * interP[N][i] + impAndEta.faultT1[2] * interP[T1][i] +
+             impAndEta.faultT2[2] * interP[T2][i];
 
     // minus sign from conservation laws.
-    imposedStateP[6][i] = - trac_x / impAndEta.rho0P;
-    imposedStateP[7][i] = - trac_y / impAndEta.rho0P;
-    imposedStateP[8][i] = - trac_z / impAndEta.rho0P;
+    imposedStateP[6][i] = -trac_x / impAndEta.rho0P;
+    imposedStateP[7][i] = -trac_y / impAndEta.rho0P;
+    imposedStateP[8][i] = -trac_z / impAndEta.rho0P;
     imposedStateP[9][i] = 0.0;
     imposedStateP[10][i] = 0.0;
 
-    vx = (impAndEta.faultN[0]*interM[U][i] +
-    impAndEta.faultT1[0]*interM[V][i] + impAndEta.faultT2[0]*interM[W][i]);
-    vy = (impAndEta.faultN[1]*interM[U][i] +
-    impAndEta.faultT1[1]*interM[V][i] + impAndEta.faultT2[1]*interM[W][i]);
-    vz = (impAndEta.faultN[2]*interM[U][i] +
-    impAndEta.faultT1[2]*interM[V][i] + impAndEta.faultT2[2]*interM[W][i]);
+    vx = (impAndEta.faultN[0] * interM[U][i] + impAndEta.faultT1[0] * interM[V][i] +
+          impAndEta.faultT2[0] * interM[W][i]);
+    vy = (impAndEta.faultN[1] * interM[U][i] + impAndEta.faultT1[1] * interM[V][i] +
+          impAndEta.faultT2[1] * interM[W][i]);
+    vz = (impAndEta.faultN[2] * interM[U][i] + impAndEta.faultT1[2] * interM[V][i] +
+          impAndEta.faultT2[2] * interM[W][i]);
     // additional minus sign due to projected face-normal coords
     // are opposite to face normal of the cell "M".
-    imposedStateM[0][i] = -1.0*(- vx * impAndEta.faultN[0]);
-    imposedStateM[1][i] = -1.0*(- vy * impAndEta.faultN[1]);
-    imposedStateM[2][i] = -1.0*(- vz * impAndEta.faultN[2]);
+    imposedStateM[0][i] = -1.0 * (-vx * impAndEta.faultN[0]);
+    imposedStateM[1][i] = -1.0 * (-vy * impAndEta.faultN[1]);
+    imposedStateM[2][i] = -1.0 * (-vz * impAndEta.faultN[2]);
 
-    imposedStateM[3][i] = -1.0*(-0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]));
-    imposedStateM[4][i] = -1.0*(-0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]));
-    imposedStateM[5][i] = -1.0*(-0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]));
+    imposedStateM[3][i] = -1.0 * (-0.5 * (vx * impAndEta.faultN[1] + vy * impAndEta.faultN[0]));
+    imposedStateM[4][i] = -1.0 * (-0.5 * (vy * impAndEta.faultN[2] + vz * impAndEta.faultN[1]));
+    imposedStateM[5][i] = -1.0 * (-0.5 * (vx * impAndEta.faultN[2] + vz * impAndEta.faultN[0]));
 
     // minus sign due to traction needs to time (-1,0,0) in roated coords for cell "M"
-    trac_x = - (impAndEta.faultN[0]*interM[N][i] +
-    impAndEta.faultT1[0]*interM[T1][i] + impAndEta.faultT2[0]*interM[T2][i]);
-    trac_y = - (impAndEta.faultN[1]*interM[N][i] +
-    impAndEta.faultT1[1]*interM[T1][i] + impAndEta.faultT2[1]*interM[T2][i]);
-    trac_z = - (impAndEta.faultN[2]*interM[N][i] +
-    impAndEta.faultT1[2]*interM[T1][i] + impAndEta.faultT2[2]*interM[T2][i]);
+    trac_x = -(impAndEta.faultN[0] * interM[N][i] + impAndEta.faultT1[0] * interM[T1][i] +
+               impAndEta.faultT2[0] * interM[T2][i]);
+    trac_y = -(impAndEta.faultN[1] * interM[N][i] + impAndEta.faultT1[1] * interM[T1][i] +
+               impAndEta.faultT2[1] * interM[T2][i]);
+    trac_z = -(impAndEta.faultN[2] * interM[N][i] + impAndEta.faultT1[2] * interM[T1][i] +
+               impAndEta.faultT2[2] * interM[T2][i]);
 
     // minus sign from conservation laws.
-    imposedStateM[6][i] = - trac_x / impAndEta.rho0M;
-    imposedStateM[7][i] = - trac_y / impAndEta.rho0M;
-    imposedStateM[8][i] = - trac_z / impAndEta.rho0M;
+    imposedStateM[6][i] = -trac_x / impAndEta.rho0M;
+    imposedStateM[7][i] = -trac_y / impAndEta.rho0M;
+    imposedStateM[8][i] = -trac_z / impAndEta.rho0M;
     imposedStateM[9][i] = 0.0;
     imposedStateM[10][i] = 0.0;
   }
@@ -524,7 +514,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto pointIndex{startIndex + index};
@@ -554,7 +544,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -580,7 +570,7 @@ inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints]
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-  #pragma omp simd
+#pragma omp simd
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
@@ -621,7 +611,7 @@ inline void computeFrictionEnergy(
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (size_t index = Range::start; index < Range::end; index += Range::step) {
       const size_t i{startIndex + index};

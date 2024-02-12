@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -36,7 +37,7 @@
  *
  * @section DESCRIPTION
  */
- 
+
 #include "LoopStatistics.h"
 
 #include <cmath>
@@ -51,31 +52,31 @@
 #include "Monitoring/Stopwatch.h"
 #include <utils/env.h>
 
-#ifdef USE_MPI  
+#ifdef USE_MPI
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   unsigned const nRegions = m_times.size();
-  auto sums = std::vector<double>(5*nRegions);
+  auto sums = std::vector<double>(5 * nRegions);
   double totalTimePerRank = 0.0;
   for (unsigned region = 0; region < nRegions; ++region) {
     double x = 0.0, x2 = 0.0, xy = 0.0, y = 0.0;
     unsigned N = 0;
-  
+
     for (auto const& sample : m_times[region]) {
       if (sample.numIters > 0) {
         double time = seconds(difftime(sample.begin, sample.end));
-        x  += sample.numIters;
+        x += sample.numIters;
         x2 += static_cast<double>(sample.numIters) * static_cast<double>(sample.numIters);
         xy += static_cast<double>(sample.numIters) * time;
-        y  += time;
+        y += time;
         ++N;
       }
     }
 
-    sums[5*region + 0] = x;
-    sums[5*region + 1] = x2;
-    sums[5*region + 2] = xy;
-    sums[5*region + 3] = y;
-    sums[5*region + 4] = N;
+    sums[5 * region + 0] = x;
+    sums[5 * region + 1] = x2;
+    sums[5 * region + 2] = xy;
+    sums[5 * region + 3] = y;
+    sums[5 * region + 4] = N;
     // Make sure that events that lead to duplicate accounting are ignored
     if (m_includeInSummary[region]) {
       totalTimePerRank += y;
@@ -87,35 +88,33 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
   logInfo(rank) << "Time spent in compute kernels: mean =" << summary.mean
-    << " std =" << summary.std
-    << " min =" << summary.min
-    << " median =" << summary.median
-    << " max =" << summary.max;
+                << " std =" << summary.std << " min =" << summary.min
+                << " median =" << summary.median << " max =" << summary.max;
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
   logInfo(rank) << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
 
-  auto regressionCoeffs = std::vector<double>(2*nRegions);
+  auto regressionCoeffs = std::vector<double>(2 * nRegions);
   auto stderror = std::vector<double>(nRegions, 0.0);
   for (unsigned region = 0; region < nRegions; ++region) {
-    double const x = sums[5*region + 0];
-    double const x2 = sums[5*region + 1];
-    double const xy = sums[5*region + 2];
-    double const y = sums[5*region + 3];
-    double const N = sums[5*region + 4];
+    double const x = sums[5 * region + 0];
+    double const x2 = sums[5 * region + 1];
+    double const xy = sums[5 * region + 2];
+    double const y = sums[5 * region + 3];
+    double const N = sums[5 * region + 4];
 
-    double const det = N*x2 - x*x;
-    double const constant = (x2*y - x*xy) / det;
-    double const slope = (-x*y + N*xy) / det;
+    double const det = N * x2 - x * x;
+    double const constant = (x2 * y - x * xy) / det;
+    double const slope = (-x * y + N * xy) / det;
     regressionCoeffs[2 * region + 0] = constant;
     regressionCoeffs[2 * region + 1] = slope;
 
     for (auto const& sample : m_times[region]) {
       if (sample.numIters > 0) {
-        double const error = seconds(difftime(sample.begin, sample.end))
-                                - (constant + slope * sample.numIters);
+        double const error =
+            seconds(difftime(sample.begin, sample.end)) - (constant + slope * sample.numIters);
         stderror[region] += error * error;
       }
     }
@@ -131,23 +130,22 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
-      double const x = sums[5*region + 0];
-      double const x2 = sums[5*region + 1];
-      double const y = sums[5*region + 3];
-      double const N = sums[5*region + 4];
+      double const x = sums[5 * region + 0];
+      double const x2 = sums[5 * region + 1];
+      double const y = sums[5 * region + 3];
+      double const N = sums[5 * region + 4];
 
       double const xm = x / N;
-      double const xv = x2 - 2*x*xm + xm*xm;
+      double const xv = x2 - 2 * x * xm + xm * xm;
 
       // https://en.wikipedia.org/wiki/Simple_linear_regression#Normality_assumption
-      double const se = std::sqrt((stderror[region] / (N-2)) / xv);
+      double const se = std::sqrt((stderror[region] / (N - 2)) / xv);
 
-      char const* names[] = { "constant", "per element"};
+      char const* names[] = {"constant", "per element"};
       for (unsigned c = 0; c < 2; ++c) {
-        logInfo(rank) << m_regions[region]
-                      << "(" << names[c] << "):"
-                      << regressionCoeffs[2 * region + c]
-                      << "(sample size:" << N << ", standard error:" << se << ")";
+        logInfo(rank) << m_regions[region] << "(" << names[c]
+                      << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << N
+                      << ", standard error:" << se << ")";
       }
       totalTime += y;
     }
@@ -156,7 +154,7 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 
     double time_DR = 0;
     unsigned int dynRup = getRegion("computeDynamicRupture");
-    for (auto& timeSample: m_times[dynRup]) {
+    for (auto& timeSample : m_times[dynRup]) {
       time_DR += timeSample.begin.tv_sec - timeSample.end.tv_sec;
     }
     logInfo(rank) << "Total time spent in Dynamic Rupture iteration: " << time_DR;
@@ -165,27 +163,32 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 #endif
 
 #ifdef USE_NETCDF
-static void check_err(const int stat, const int line, const char *file) {
+static void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
 
-template <typename T> struct type2nc {};
-template <> struct type2nc<int32_t> {
-    static constexpr auto type = NC_INT;
+template <typename T>
+struct type2nc {};
+template <>
+struct type2nc<int32_t> {
+  static constexpr auto type = NC_INT;
 };
-template <> struct type2nc<uint32_t> {
-    static constexpr auto type = NC_UINT;
+template <>
+struct type2nc<uint32_t> {
+  static constexpr auto type = NC_UINT;
 };
-template <> struct type2nc<int64_t> {
-    static constexpr auto type = NC_INT64;
+template <>
+struct type2nc<int64_t> {
+  static constexpr auto type = NC_INT64;
 };
-template <> struct type2nc<uint64_t> {
-    static constexpr auto type = NC_UINT64;
+template <>
+struct type2nc<uint64_t> {
+  static constexpr auto type = NC_UINT64;
 };
 #endif
-  
+
 void seissol::LoopStatistics::writeSamples() {
   std::string loopStatFile = utils::Env::get<std::string>("SEISSOL_LOOP_STAT_PREFIX", "");
   if (!loopStatFile.empty()) {
@@ -196,59 +199,94 @@ void seissol::LoopStatistics::writeSamples() {
       std::stringstream ss;
       ss << loopStatFile << m_regions[region] << ".nc";
       std::string fileName = ss.str();
-      
+
       int nSamples = m_times[region].size();
       int sampleOffset;
       MPI_Scan(&nSamples, &sampleOffset, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
-      
+
       int ncid, stat;
-      stat = nc_create_par(fileName.c_str(), NC_MPIIO | NC_CLOBBER | NC_NETCDF4, seissol::MPI::mpi.comm(), MPI_INFO_NULL, &ncid); check_err(stat,__LINE__,__FILE__);
-      
+      stat = nc_create_par(fileName.c_str(),
+                           NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
+                           seissol::MPI::mpi.comm(),
+                           MPI_INFO_NULL,
+                           &ncid);
+      check_err(stat, __LINE__, __FILE__);
+
       int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
-      
-      stat = nc_def_dim(ncid, "rank", 1+seissol::MPI::mpi.size(), &rankdim);             check_err(stat,__LINE__,__FILE__);
-      stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim); check_err(stat,__LINE__,__FILE__);
 
-      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp); check_err(stat,__LINE__,__FILE__);
+      stat = nc_def_dim(ncid, "rank", 1 + seissol::MPI::mpi.size(), &rankdim);
+      check_err(stat, __LINE__, __FILE__);
+      stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
+      check_err(stat, __LINE__, __FILE__);
+
+      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp);
+      check_err(stat, __LINE__, __FILE__);
       {
-        stat = nc_insert_compound(ncid, timespectyp, "sec", NC_COMPOUND_OFFSET(timespec,tv_sec), type2nc<decltype(timespec::tv_sec)>::type); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, timespectyp, "nsec", NC_COMPOUND_OFFSET(timespec,tv_nsec), type2nc<decltype(timespec::tv_nsec)>::type); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid,
+                                  timespectyp,
+                                  "sec",
+                                  NC_COMPOUND_OFFSET(timespec, tv_sec),
+                                  type2nc<decltype(timespec::tv_sec)>::type);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(ncid,
+                                  timespectyp,
+                                  "nsec",
+                                  NC_COMPOUND_OFFSET(timespec, tv_nsec),
+                                  type2nc<decltype(timespec::tv_nsec)>::type);
+        check_err(stat, __LINE__, __FILE__);
       }
 
-      stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp); check_err(stat,__LINE__,__FILE__);
+      stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp);
+      check_err(stat, __LINE__, __FILE__);
       {
-        stat = nc_insert_compound(ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample,begin), timespectyp); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample,end), timespectyp); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample,numIters), NC_UINT); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample,subRegion), NC_UINT); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample, begin), timespectyp);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample, end), timespectyp);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample, numIters), NC_UINT);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample, subRegion), NC_UINT);
+        check_err(stat, __LINE__, __FILE__);
       }
-      
-      stat = nc_def_var(ncid, "offset", NC_INT,   1, &rankdim,   &offsetid); check_err(stat,__LINE__,__FILE__);
-      stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid); check_err(stat,__LINE__,__FILE__);
-      
-      stat = nc_enddef(ncid); check_err(stat,__LINE__,__FILE__);
-      
-      stat = nc_var_par_access(ncid, offsetid, NC_COLLECTIVE); check_err(stat,__LINE__,__FILE__);
-      stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE); check_err(stat,__LINE__,__FILE__);
-  
+
+      stat = nc_def_var(ncid, "offset", NC_INT, 1, &rankdim, &offsetid);
+      check_err(stat, __LINE__, __FILE__);
+      stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid);
+      check_err(stat, __LINE__, __FILE__);
+
+      stat = nc_enddef(ncid);
+      check_err(stat, __LINE__, __FILE__);
+
+      stat = nc_var_par_access(ncid, offsetid, NC_COLLECTIVE);
+      check_err(stat, __LINE__, __FILE__);
+      stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE);
+      check_err(stat, __LINE__, __FILE__);
+
       size_t start, count;
       int offsetData[2];
       if (seissol::MPI::mpi.rank() == 0) {
         start = 0;
-        count = 2;        
+        count = 2;
         offsetData[0] = 0;
       } else {
-        start = 1+seissol::MPI::mpi.rank();
+        start = 1 + seissol::MPI::mpi.rank();
         count = 1;
       }
-      offsetData[count-1] = sampleOffset;
-      stat = nc_put_vara_int(ncid, offsetid, &start, &count, offsetData);  check_err(stat,__LINE__,__FILE__);
-      
-      start = sampleOffset-nSamples;
+      offsetData[count - 1] = sampleOffset;
+      stat = nc_put_vara_int(ncid, offsetid, &start, &count, offsetData);
+      check_err(stat, __LINE__, __FILE__);
+
+      start = sampleOffset - nSamples;
       count = nSamples;
-      stat = nc_put_vara(ncid, sampleid, &start, &count, m_times[region].data());  check_err(stat,__LINE__,__FILE__);      
-      
-      stat = nc_close(ncid); check_err(stat,__LINE__,__FILE__);
+      stat = nc_put_vara(ncid, sampleid, &start, &count, m_times[region].data());
+      check_err(stat, __LINE__, __FILE__);
+
+      stat = nc_close(ncid);
+      check_err(stat, __LINE__, __FILE__);
     }
 #else
     logWarning(seissol::MPI::mpi.rank()) << "Writing loop statistics requires NetCDF and MPI.";

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -40,17 +41,9 @@
 
 #include "Modules.h"
 
-extern "C"
-{
+extern "C" {
 
-void callHookPreModel()
-{
-	seissol::Modules::callHook<seissol::PRE_MODEL>();
-}
+void callHookPreModel() { seissol::Modules::callHook<seissol::PRE_MODEL>(); }
 
-void callHookPostModel()
-{
-	seissol::Modules::callHook<seissol::POST_MODEL>();
-}
-
+void callHookPostModel() { seissol::Modules::callHook<seissol::POST_MODEL>(); }
 }
