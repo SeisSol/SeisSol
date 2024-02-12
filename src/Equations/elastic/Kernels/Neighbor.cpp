@@ -139,6 +139,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       nfKrnl.I = i_timeIntegrated[l_face];
       nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
       nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+      // TODO(NONLINEAR) Why is this commented out?
       // nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
 		  //    data.cellInformation.faceRelations[l_face][0],
 		  //    l_face);

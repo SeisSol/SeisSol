@@ -93,40 +93,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     real dofsStressNPlus[tensor::Q::size()]{};
     real dofsStressNMinus[tensor::Q::size()]{};
 
-    // real dofsStressPlus[tensor::Q::size()]{};
-    // real dofsStressMinus[tensor::Q::size()]{};
-
     seissol::dr::ImpedancesAndEta* impAndEtaGet = &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
-    // real epsInitxx = 4.63e-4; // eps_xx0
-    // real epsInityy = -1.85e-3; // eps_yy0
-    // real epsInitzz = 4.63e-4; // eps_zz0
-    // real epsInitxy = 1.11e-3; // eps_xx0
-    // real epsInityz = -0e-1; // eps_yy0
-    // real epsInitzx = -0e-1; // eps_zz0
-
-    // real epsInitxx = -9.26e-4; // eps_xx0
-    // real epsInityy = -9.26e-4; // eps_yy0
-    // real epsInitzz = -9.26e-4; // eps_zz0
-    // real epsInitxy = 1.11e-3; // eps_xx0
-    // real epsInityz = -0e-1; // eps_yy0
-    // real epsInitzx = -0e-1; // eps_zz0
-
-    // tpv 5
-    // real epsInitxx = 3.73854e-4; // eps_xx0
-    // real epsInityy = -1.4963e-3; // eps_yy0
-    // real epsInitzz = 3.73854e-4; // eps_zz0
-    // real epsInitxy = 1.0909e-3; // eps_xx0
-    // real epsInityz = -0e-1; // eps_yy0
-    // real epsInitzx = -0e-1; // eps_zz0
-
-    // real epsInitxx = -1.8738e-4; // eps_xx0
-    // real epsInityy = -1.1225e-3; // eps_yy0
-    // real epsInitzz = -1.8738e-4; // eps_zz0
-    // real epsInitxy = 1.0909e-3; // eps_xy0
-    // real epsInityz = -0e-1; // eps_yz0
-    // real epsInitzx = -0e-1; // eps_zx0
-
+    // TODO(NONLINEAR) What are these numbers?
     real epsInitxx = 3.7986e-4; // eps_xx0
     real epsInityy = -1.0383e-3; // eps_yy0
     real epsInitzz = -1.0072e-3; // eps_zz0
@@ -139,6 +108,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
+    // TODO(NONLINEAR) What are these numbers?
     real aB0 = 7.43e9;
     real aB1 = -12.14e9;
     real aB2 = 18.93e9;

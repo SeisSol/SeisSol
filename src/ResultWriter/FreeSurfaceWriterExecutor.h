@@ -40,6 +40,9 @@
 #ifndef FREESURFACEWRITEREXECUTOR_H
 #define FREESURFACEWRITEREXECUTOR_H
 
+#include <array>
+#include <string>
+
 #include "xdmfwriter/XdmfWriter.h"
 #include "async/ExecInfo.h"
 
@@ -138,11 +141,10 @@ public:
 
 private:
 	/** Variable names in the output */
-	static char const * const LABELS[];
+        static const std::array<std::string, 7> LABELS; 
 };
 
-}
-
-}
+} // namespace writer
+} // namespace seissol
 
 #endif // FREESURFACEWRITEREXECUTOR_H

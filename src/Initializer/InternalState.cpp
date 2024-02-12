@@ -44,8 +44,6 @@
 #include <cassert>
 #include <yateto.h>
 
-#include <iostream>
-
 void seissol::initializers::InternalState::deriveLayerLayout(       unsigned int                  i_numberOfClusters,
                                                                     unsigned int                 *i_numberOfRegions,
                                                                     unsigned int                **i_numberOfRegionCells,
@@ -140,7 +138,6 @@ void seissol::initializers::InternalState::setUpLayerPointers(       unsigned in
     for( unsigned int l_cell = l_firstRegionCell; l_cell < l_firstNonRegionCell; l_cell++ ) {
       // set pointers and increase conunters
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ) {
-        // std::cout << "has buffers" << std::endl;
         o_buffers[l_cell] = i_layerMemory + l_offset
                                           + l_bufferCounter * tensor::I::size();
         l_bufferCounter++;

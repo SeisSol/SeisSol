@@ -91,7 +91,6 @@ class seissol::kernels::TimeBase {
     kernel::spaceTimePredictor m_krnlPrototype;
 #else
     kernel::derivative m_krnlPrototype;
-    // kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
 #endif
     kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 

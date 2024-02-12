@@ -46,8 +46,6 @@ namespace seissol {
         this->epsyz_alpha = materialValues[12];
         this->epszx_alpha = materialValues[13];
         this->Cd = materialValues[14];
-
-        // std::cout << "==================------" << this->gammaR << std::endl;
       }
 
       virtual ~DamagedElasticMaterial() {};

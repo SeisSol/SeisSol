@@ -21,7 +21,7 @@ protected:
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
 
-  // [[nodiscard]] double timeStepSize() const;
+  [[nodiscard]] double getMaxTimeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
   AbstractTimeCluster(double maxTimeStepSize, long timeStepRate);
@@ -65,10 +65,25 @@ public:
 
   long getTimeStepRate();
 
+  /**
+   * @brief Returns the time step size of the cluster.
+   * @return the time step size of the cluster.
+   */
+  double getClusterTimes();
+  /**
+   * @brief Sets the time step size of the cluster.
+   * @param newTimeStepSize
+   */
+  void setClusterTimes(double newTimeStepSize);
+
+  /**
+   * @brief Returns the neighbor clusters of the cluster.
+   * @return the pointer to the vector of neighbor clusters.
+   */
+  std::vector<NeighborCluster>* getNeighborClusters();
   double getMaxTimeStepSize();
 
   [[nodiscard]] double timeStepSize() const;
-
 };
 
 }

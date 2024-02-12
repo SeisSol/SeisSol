@@ -146,16 +146,10 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
-
-    // //! cell average kernel
-    // kernel::cellAve m_cellAverageKernel;
-
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
     kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
-
     kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
-
     kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
 
   /*
@@ -320,27 +314,7 @@ private:
       }
       #endif
 
-      // for (int i_out = 0; i_out<50; ++i_out){
-      //   std::cout << faceNeighbors[i_out][0][20*6+0] << " ";
-      // }
-      // std::cout << faceNeighbors[50][0][20*9] << " "<< std::endl;
-
-      // // Print nodes corresponding to exx and vx:
-      // auto faceNeighborsView = init::Q::view::create(faceNeighbors[100][0]);
-      // auto data1 = loader.entry(100);
-      // // real* derivative = derivatives[100];
-      // for (int i_out = 0; i_out<2; ++i_out){
-      //   std::cout
-      //             << faceNeighbors[100][0][20*i_out*6+0]/timeStepSize() << " "
-      //             << faceNeighborsView(0,i_out*6)/timeStepSize() << " "
-      //             << data1.dofs[20*i_out*6+0] << " "
-      //             // << derivative[0]
-      //             // << derivatives[l_cell][20*i_out+0]
-      //             << "s ";
-      // }
-      // std::cout << faceNeighbors[100][0][20*6+0]/faceNeighbors[100][0][20*0+0]
-      //           << " " << data1.dofs[20*6+0]/data1.dofs[20*0+0] << std::endl;
-
+      
       #ifdef _OPENMP
       #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(std::cout, materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart, timePoints, timeWeights) reduction(+:numberOTetsWithPlasticYielding)
       #endif
@@ -349,7 +323,7 @@ private:
 
         #if defined USE_DAMAGEDELASTIC
           // Nonlinear surface flux integration -- for regular/periodic flux
-          /// TODO: Check if it works for periodic BCs.
+          // TODO: Check if it works for periodic BCs.
           // Here, plus side is actually minus (or local solution side),
           // minus side is neighbor solution side.
         for (unsigned int side = 0; side < 4; side++ ){
@@ -362,9 +336,7 @@ private:
             alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
             for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-              // alignas(PAGESIZE_STACK)
               real degreesOfFreedomPlus[tensor::Q::size()];
-              // alignas(PAGESIZE_STACK)
               real degreesOfFreedomMinus[tensor::Q::size()];
 
               for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
@@ -376,32 +348,28 @@ private:
               m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
               m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
 
-              /// Prototype is necessary for openmp
+              // Prototype is necessary for openmp
               kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
                 = m_nonlinearInterpolation;
 
               m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
               m_nonLinInter.Q = degreesOfFreedomPlus;
-              // m_nonlinearInterpolation.TinvT = localIntegration[l_cell].TinvT[side];
-              // m_nonlinearInterpolation._prefetch.QInterpolated = plusPrefetch;
               m_nonLinInter.execute(side, 0);
 
               m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
               m_nonLinInter.Q = degreesOfFreedomMinus;
-              // m_nonlinearInterpolation.TinvT = localIntegration[l_cell].TinvT[side];
-              // m_nonlinearInterpolation._prefetch.QInterpolated = minusPrefetch;
               m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0]
                             , cellInformation[l_cell].faceRelations[side][1]+1);
             }
 
-            /// S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
-            //// Reshape the interpolated results
+            // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+            // Reshape the interpolated results
             using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
-            // std::cout << seissol::dr::misc::numQuantities << std::endl;
+
             auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
             auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
 
-            //// The arrays to store time integrated flux
+            // The arrays to store time integrated flux
             alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
             // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
 
@@ -411,49 +379,14 @@ private:
 
             using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
             auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
-            // auto* rusanovFluxM = reinterpret_cast<rusanovFluxShape>(rusanovFluxMinus);
-
+            
             /// Checked that, after reshaping, it still uses the same memory address
             /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
             using namespace seissol::dr::misc::quantity_indices;
             unsigned DAM = 9;
             unsigned BRE = 10;
 
-            // real epsInitxx = -0e-2; // eps_xx0
-            // real epsInityy = -0e-1; // eps_yy0
-            // real epsInitzz = -0e-1; // eps_zz0
-            // real epsInitxy = -0e-1; // eps_xx0
-            // real epsInityz = -0e-1; // eps_yy0
-            // real epsInitzx = -0e-1; // eps_zz0
-
-            // real epsInitxx = 4.63e-4; // eps_xx0
-            // real epsInityy = -1.85e-3; // eps_yy0
-            // real epsInitzz = 4.63e-4; // eps_zz0
-            // real epsInitxy = 1.11e-3; // eps_xx0
-            // real epsInityz = -0e-1; // eps_yy0
-            // real epsInitzx = -0e-1; // eps_zz0
-
-            // real epsInitxx = -9.26e-4; // eps_xx0
-            // real epsInityy = -9.26e-4; // eps_yy0
-            // real epsInitzz = -9.26e-4; // eps_zz0
-            // real epsInitxy = 1.11e-3; // eps_xx0
-            // real epsInityz = -0e-1; // eps_yy0
-            // real epsInitzx = -0e-1; // eps_zz0
-
-            // tpv 5
-            // real epsInitxx = 3.73854e-4; // eps_xx0
-            // real epsInityy = -1.4963e-3; // eps_yy0
-            // real epsInitzz = 3.73854e-4; // eps_zz0
-            // real epsInitxy = 1.0909e-3; // eps_xx0
-            // real epsInityz = -0e-1; // eps_yy0
-            // real epsInitzx = -0e-1; // eps_zz0
-
-            // real epsInitxx = -1.8738e-4; // eps_xx0
-            // real epsInityy = -1.1225e-3; // eps_yy0
-            // real epsInitzz = -1.8738e-4; // eps_zz0
-            // real epsInitxy = 1.0909e-3; // eps_xy0
-            // real epsInityz = -0e-1; // eps_yz0
-            // real epsInitzx = -0e-1; // eps_zx0
+            // TODO(NONLINEAR) Write unified reader for these parameters
 
             real epsInitxx = 3.7986e-4; // eps_xx0
             real epsInityy = -1.0383e-3; // eps_yy0
@@ -479,7 +412,7 @@ private:
             real sxxP, syyP, szzP, sxyP, syzP, szxP
             ,sxxM, syyM, szzM, sxyM, syzM, szxM;
 
-            /// In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
+            // In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
             for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
               auto weight = timeWeights[o];
 
@@ -541,11 +474,6 @@ private:
                   std::sqrt( (lambp+2*mup)/rho0P ),
                   std::sqrt( (lambm+2*mum)/rho0M )
                 );
-
-                // lambda_max = std::min(
-                //   std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0P+2*mu0P)/rho0P ),
-                //   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0M+2*mu0M)/rho0M )
-                // );
 
                 // damage stress
                 real mu_eff = materialData[l_cell].local.mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0
@@ -779,9 +707,7 @@ private:
             kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
             m_surfIntegral.Q = data.dofs;
             m_surfIntegral.Flux = rusanovFluxPlus;
-            // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
             m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
@@ -791,26 +717,13 @@ private:
             kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
             m_drIntegral.Q = data.dofs;
             m_drIntegral.Flux = drMapping[l_cell][side].godunov;
-            // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
             m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_drIntegral.execute(side, drMapping[l_cell][side].faceRelation);
 
-            // dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-            // drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
-            // drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
-            // drKrnl.Q = data.dofs;
-            // drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-            // drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
           } // if (faceTypes)
         } // for (side)
 
         #else
-
-        // for (int i_out = 0; i_out<50; ++i_out){
-        //   std::cout << faceNeighbors[l_cell][0][20*i_out+0] << " ";
-        // }
-        // std::cout << faceNeighbors[l_cell][0][50] << " "<< std::endl;
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                        data.cellInformation.ltsSetup,
                                                        data.cellInformation.faceTypes,

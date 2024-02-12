@@ -100,7 +100,6 @@ seissol::kernels::TimeBase::TimeBase() {
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
-      // std::cout << tensor::dQ::size(order-1) << " " << yateto::computeFamilySize<tensor::dQ>() << std::endl;
     }
   }
 }
@@ -130,7 +129,6 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   checkGlobalData(global, ALIGNMENT);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-  // m_krnlNonlVolPrototype.kDivM = global->stiffnessMatrices;
 
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
 
@@ -185,35 +183,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  // real epsInitxx = 4.63e-4; // eps_xx0
-  // real epsInityy = -1.85e-3; // eps_yy0
-  // real epsInitzz = 4.63e-4; // eps_zz0
-  // real epsInitxy = 1.11e-3; // eps_xy0
-  // real epsInityz = -0e-1; // eps_yz0
-  // real epsInitzx = -0e-1; // eps_zx0
-
-  // real epsInitxx = -9.26e-4; // eps_xx0
-  // real epsInityy = -9.26e-4; // eps_yy0
-  // real epsInitzz = -9.26e-4; // eps_zz0
-  // real epsInitxy = 1.11e-3; // eps_xx0
-  // real epsInityz = -0e-1; // eps_yy0
-  // real epsInitzx = -0e-1; // eps_zz0
-
-  // tpv 5
-  // real epsInitxx = 3.73854e-4; // eps_xx0
-  // real epsInityy = -1.4963e-3; // eps_yy0
-  // real epsInitzz = 3.73854e-4; // eps_zz0
-  // real epsInitxy = 1.0909e-3; // eps_xx0
-  // real epsInityz = -0e-1; // eps_yy0
-  // real epsInitzx = -0e-1; // eps_zz0
-
-  // real epsInitxx = -1.8738e-4; // eps_xx0
-  // real epsInityy = -1.1225e-3; // eps_yy0
-  // real epsInitzz = -1.8738e-4; // eps_zz0
-  // real epsInitxy = 1.0909e-3; // eps_xy0
-  // real epsInityz = -0e-1; // eps_yz0
-  // real epsInitzx = -0e-1; // eps_zx0
-
   real epsInitxx = 3.7986e-4; // eps_xx0
   real epsInityy = -1.0383e-3; // eps_yy0
   real epsInitzz = -1.0072e-3; // eps_zz0
@@ -226,14 +195,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real const break_coeff = 1e2*damage_para1;
   real const beta_alpha = 0.05;
 
-  // real const damage_para2 = 3e-6;
-  // real const lambda0 = 9.71e10; // data.material.local.lambda0
-  // real const mu0 = 8.27e10; // data.material.local.mu0
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions
   alignas(PAGESIZE_STACK) real solNData[tensor::QNodal::size()];
-  // auto solN = tensor::QNodal::view::create(solNData);
   d_converToKrnl.v = init::v::Values;
   d_converToKrnl.QNodal = solNData;
   d_converToKrnl.Q = data.dofs;
@@ -250,14 +215,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
 
-  // real alpha_ave = 0.0;
-  // real break_ave = 0.0;
-  // real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
-  // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-  //   break_ave += breakNodal[q] * w_ave;
-  //   alpha_ave += alphaNodal[q] * w_ave;
-  // }
-
   real alpha_ave = alphaNodal[0];
   real break_ave = breakNodal[0];
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
@@ -265,7 +222,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     alpha_ave = std::max(alpha_ave, alphaNodal[q]);
   }
 
-  // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
     real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
     real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
@@ -296,9 +252,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real alphaCR2q = 2.0*data.material.local.mu0
       /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
 
-    // real alphaCRq = std::min(1.0,
-    //   std::min(alphaCR1q,alphaCR2q)
-    // );
     real alphaCRq = 1.0;
     if (alphaCR1q > 0.0){
       if (alphaCR2q > 0.0){
@@ -339,11 +292,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
     }
-
-    // std::cout << fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] << std::endl;
-
-    // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
-  }
+}
 
   // Convert them back to modal space
   alignas(PAGESIZE_STACK) real dQModalData[tensor::dQModal::size()];
@@ -376,7 +325,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
-  // intKrnl.dQModal = dQModalData;
   intKrnl.I = o_timeIntegrated;
   intKrnl.dQ(0) = data.dofs;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -403,23 +351,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.execute(der);
   }
 
-  // if (o_timeDerivatives == nullptr) {
-  //   std::cout << "null " << std::endl;
-  //   std::cout << o_timeDerivatives << std::endl;
-  // }
-  // else{
-  //   std::cout << "not null " << std::endl;
-  //   std::cout << o_timeDerivatives << std::endl;
-  // }
-
-  // for (int i_out = 0; i_out<10; ++i_out){
-  //   std::cout << derivativesBuffer[20*i_out+0] << " " << data.dofs[20*i_out+0];
-  //   std::cout
-  //   // << tensor::dQ::size(0)
-  //   << std::endl;
-  // }
-
-
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
@@ -443,155 +374,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     }
   }
-
-  // Do integration of the nonlinear source here - Is there a better way?
-  #ifdef USE_DAMAGEDELASTIC
-  // // Compute the Q at quadrature points in space and time
-  // /// Get quadrature points in time
-  // double timePoints[CONVERGENCE_ORDER];
-  // double timeWeights[CONVERGENCE_ORDER];
-  // seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
-  // for (unsigned int point = 0; point < CONVERGENCE_ORDER; ++point) {
-  //   timePoints[point] = 0.5 * (i_timeStepWidth * timePoints[point] + i_timeStepWidth);
-  //   timeWeights[point] = 0.5 * i_timeStepWidth * timeWeights[point];
-  // }
-
-  // /// Get Q_{lp}(tau_z) at different time quadrature points
-  // alignas(PAGESIZE_STACK) real QInterpolatedBody[CONVERGENCE_ORDER][tensor::Q::size()]; // initializations?
-  // alignas(PAGESIZE_STACK) real* QInterpolatedBodyi;
-  // alignas(PAGESIZE_STACK) real QInterpolatedBodyNodal[CONVERGENCE_ORDER][tensor::QNodal::size()];
-  // alignas(PAGESIZE_STACK) real* QInterpolatedBodyNodali;
-
-  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-  //   QInterpolatedBodyi = QInterpolatedBody[timeInterval];
-  //   QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
-  //   computeTaylorExpansion(timePoints[timeInterval], 0.0, derivativesBuffer, QInterpolatedBodyi);
-  //   /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
-  //   d_converToKrnl.v = init::v::Values;
-  //   d_converToKrnl.QNodal = QInterpolatedBodyNodali;
-  //   d_converToKrnl.Q = QInterpolatedBodyi;
-  //   d_converToKrnl.execute();
-  // }
-
-
-
-  // alignas(PAGESIZE_STACK) real FInterpolatedBody[CONVERGENCE_ORDER][tensor::QNodal::size()] = {{0}}; // initializations?
-
-  // alignas(PAGESIZE_STACK) real FluxInterpolatedBodyX[CONVERGENCE_ORDER][tensor::QNodal::size()] = {{0}};
-  // alignas(PAGESIZE_STACK) real FluxInterpolatedBodyY[CONVERGENCE_ORDER][tensor::QNodal::size()] = {{0}};
-  // alignas(PAGESIZE_STACK) real FluxInterpolatedBodyZ[CONVERGENCE_ORDER][tensor::QNodal::size()] = {{0}};
-
-  // alignas(PAGESIZE_STACK) real sxxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-  // alignas(PAGESIZE_STACK) real syyNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-  // alignas(PAGESIZE_STACK) real szzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-  // alignas(PAGESIZE_STACK) real sxyNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-  // alignas(PAGESIZE_STACK) real syzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-  // alignas(PAGESIZE_STACK) real szxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
-
-  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-  //   real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
-
-  //   real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  //   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-  //     FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-  //     1.0e0/(damage_para2*damage_para1)
-  //       *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
-  //     // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
-
-  //     // Compute nonlinear flux term
-  //     sxxNodal[q] = (1-alphaNodal[q])*lambda0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])
-  //                   + 2*(1-alphaNodal[q])*mu0*exxNodal[q];
-  //     syyNodal[q] = (1-alphaNodal[q])*lambda0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])
-  //                   + 2*(1-alphaNodal[q])*mu0*eyyNodal[q];
-  //     szzNodal[q] = (1-alphaNodal[q])*lambda0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])
-  //                   + 2*(1-alphaNodal[q])*mu0*ezzNodal[q];
-  //     sxyNodal[q] = 2*(1-alphaNodal[q])*mu0*exyNodal[q];
-  //     syzNodal[q] = 2*(1-alphaNodal[q])*mu0*eyzNodal[q];
-  //     szxNodal[q] = 2*(1-alphaNodal[q])*mu0*ezxNodal[q];
-  //     // //--- x-dir
-  //     FluxInterpolatedBodyX[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];
-  //     FluxInterpolatedBodyX[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyX[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyX[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vyNodal[q];
-  //     FluxInterpolatedBodyX[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyX[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vzNodal[q];
-  //     FluxInterpolatedBodyX[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxxNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyX[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxyNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyX[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szxNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyX[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     //--- y-dir
-  //     FluxInterpolatedBodyY[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyY[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vyNodal[q];
-  //     FluxInterpolatedBodyY[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyY[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vxNodal[q];
-  //     FluxInterpolatedBodyY[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vzNodal[q];
-  //     FluxInterpolatedBodyY[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyY[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxyNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyY[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syyNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyY[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syzNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyY[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     //--- z-dir
-  //     FluxInterpolatedBodyZ[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyZ[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyZ[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vzNodal[q];
-  //     FluxInterpolatedBodyZ[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //     FluxInterpolatedBodyZ[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vyNodal[q];
-  //     FluxInterpolatedBodyZ[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vxNodal[q];
-  //     FluxInterpolatedBodyZ[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szxNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyZ[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syzNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyZ[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szzNodal[q]/data.material.local.rho;
-  //     FluxInterpolatedBodyZ[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-  //   }
-  // }
-
-  // /// Convert Q_{lp} at the initial time step from modal to nodal space
-  // //// Quadrature in time and nodal space and project back to modal space
-  // kernel::damageIntegration d_timeIntegration;
-  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-  //   d_timeIntegration.vInv = init::vInv::Values;
-  //   d_timeIntegration.QTNodal(timeInterval) = FInterpolatedBody[timeInterval];
-  //   d_timeIntegration.Q = data.dofs;
-  //   d_timeIntegration.Tweight = (timeWeights[timeInterval]);
-  //   d_timeIntegration.execute(timeInterval);
-  // }
-
-  // // Do integration of the nonlinear volumetric flux here
-  // /// Integrate V^-1_li * F_ip^d * Theta_ed * K^e_kl in time (*TweightN)
-  // kernel::nonlinearVolumeIntegration d_nonlinearVolumeIntegration = m_krnlNonlVolPrototype;
-  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-  //   /// Convert F^d_{lp}(tau_z) in nodal basis back to modal basis
-  //   d_nonlinearVolumeIntegration.vInv = init::vInv::Values;
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaX0 = data.localIntegration.gradXiEtaZeta[0][0]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaX1 = data.localIntegration.gradXiEtaZeta[0][1]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaX2 = data.localIntegration.gradXiEtaZeta[0][2]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaY0 = data.localIntegration.gradXiEtaZeta[1][0]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaY1 = data.localIntegration.gradXiEtaZeta[1][1]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaY2 = data.localIntegration.gradXiEtaZeta[1][2]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ0 = data.localIntegration.gradXiEtaZeta[2][0]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ1 = data.localIntegration.gradXiEtaZeta[2][1]*timeWeights[timeInterval];
-  //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ2 = data.localIntegration.gradXiEtaZeta[2][2]*timeWeights[timeInterval];
-
-  //   d_nonlinearVolumeIntegration.Q = data.dofs;
-  //   d_nonlinearVolumeIntegration.FluxVolX(timeInterval) = FluxInterpolatedBodyX[timeInterval];
-  //   d_nonlinearVolumeIntegration.FluxVolY(timeInterval) = FluxInterpolatedBodyY[timeInterval];
-  //   d_nonlinearVolumeIntegration.FluxVolZ(timeInterval) = FluxInterpolatedBodyZ[timeInterval];
-  //   // d_nonlinearVolumeIntegration.TweightN = (timeWeights[timeInterval]);
-  //   // std::cout << timeWeights[timeInterval] << std::endl;
-  //   d_nonlinearVolumeIntegration.execute(timeInterval);
-  // }
-
-
-  // //================================END OF DAMAGE===============================
-  #endif // Damage material
 #endif //USE_STP
 }
 
@@ -742,20 +524,12 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_firstTerm  = (real) 1;
   real l_secondTerm = (real) 1;
   real l_factorial  = (real) 1;
-  // std::cout << *i_timeDerivatives << std::endl;
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
-
-  // for (int i_out = 0; i_out<9; ++i_out){
-  //   std::cout << i_timeDerivatives[20*i_out+0] << " ";
-  // }
-  // std::cout << i_timeDerivatives[20*9] << " "<< std::endl;
-
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
   }
-  // std::cout << m_derivativesOffsets[0] << std::endl;
-
+ 
   // iterate over time derivatives
   for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
     l_firstTerm  *= l_deltaTUpper;

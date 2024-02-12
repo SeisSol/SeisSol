@@ -408,7 +408,7 @@ struct CellMaterialData {
   seissol::model::DamagedElasticMaterial local;
   seissol::model::DamagedElasticMaterial neighbor[4];
 #else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC,USE_DAMAGEDELASTIC,  USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 

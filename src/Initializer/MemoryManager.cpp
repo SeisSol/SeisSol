@@ -319,12 +319,10 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 	  cellInformation[cell].faceTypes[face] == FaceType::dynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
-          // std::cout << "yes" << std::endl;
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
         }
         // neighboring cell provides a time buffer
         else {
-          // std::cout << "no" << std::endl;
           faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
         }
         assert(faceNeighbors[cell][face] != nullptr);
@@ -422,8 +420,6 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
       }
     }
   }
-
-  // std::cout << derivatives[100] << std::endl;
 }
 
 void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,

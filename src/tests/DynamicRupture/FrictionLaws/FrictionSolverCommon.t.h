@@ -17,6 +17,10 @@ TEST_CASE("Friction Solver Common") {
   ImpedancesAndEta impAndEta;
   alignas(ALIGNMENT) real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  // TODO(NONLINEAR) Reset this file to the state of ff11d9426539be5a3cbb23787756b7f4050d5cc3
+
+  alignas(ALIGNMENT) real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real imposedStatePlus[tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()];
   double timeWeights[CONVERGENCE_ORDER];
@@ -57,8 +61,8 @@ TEST_CASE("Friction Solver Common") {
   }
 
   SUBCASE("Precompute Stress") {
-    friction_law::common::precomputeStressFromQInterpolated(
-        faultStresses, impAndEta, qInterpolatedPlus, qInterpolatedMinus);
+    friction_law::common::precomputeStressFromQInterpolated<seissol::dr::friction_law::common::RangeType::CPU>(
+        faultStresses, impAndEta, qInterpolatedPlus, qInterpolatedMinus, qStrainInterpolatedMinus, qStrainInterpolatedPlus);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {

@@ -803,9 +803,6 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
         if( m_cellClusterIds[l_neighboringMeshId] > m_cellClusterIds[l_meshId] ) {
           l_reorder = true;
         }
-        // else{
-        //   l_reorder = true;
-        // }
       }
       // reorder also when the "GTS on der"-case is related to another copy region
       // TODO: Strictly speaking this reordering is not required as the cell could operate
@@ -824,9 +821,6 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
         }
         #endif
       }
-      // else{
-      //   l_reorder = true;
-      // }
     }
 
     // add cell either to derivatives or buffers

@@ -1,7 +1,6 @@
 #include "CommunicationManager.h"
 
 #include "Parallel/Pin.h"
-#include <iostream>
 
 seissol::time_stepping::AbstractCommunicationManager::AbstractCommunicationManager(
     seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters) : ghostClusters(std::move(ghostClusters)) {
@@ -16,12 +15,10 @@ void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncT
 
 bool seissol::time_stepping::AbstractCommunicationManager::poll() {
   bool finished = true;
-  // std::cout << "In Ghost cells..." << std::endl;
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->act();
     finished = finished && ghostCluster->synced();
   }
-  // std::cout << "Out Ghost cells..." << std::endl;
   return finished;
 }
 
@@ -39,7 +36,6 @@ bool seissol::time_stepping::SerialCommunicationManager::checkIfFinished() const
 }
 
 void seissol::time_stepping::SerialCommunicationManager::progression() {
-  // std::cout << "In Ghost cells..." << std::endl;
   poll();
 }
 

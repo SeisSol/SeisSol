@@ -108,7 +108,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #elif USE_DAMAGEDELASTIC
   std::array<std::string, 2> additionalNames({"damage","breakage"});
-  names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
+  names.insert(names.end(), additionalNames.begin(), additionalNames.end());
 #endif
   if (m_computeRotation) {
     std::array<std::string, 3> rotationNames({"rot1", "rot2", "rot3"});

@@ -201,6 +201,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
     }
     default: {
       std::array<int, 3> traction_indices = {0,3,5};
+      // TODO(NONLINEAR) understand why there are 7 velocities now?
       // std::array<int, 4> velocity_indices = {6,7,8,9};
       std::array<int, 7> velocity_indices = {1,2,4,6,7,8,9};
       using Matrix33 = Eigen::Matrix<double, 3, 3>;

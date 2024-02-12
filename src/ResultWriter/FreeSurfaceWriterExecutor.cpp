@@ -71,10 +71,10 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
 		outputName += "-surface";
 
-    m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1;
+                m_numVariables = LABELS.size();
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-      variables.push_back(LABELS[i]);
+                      variables.push_back(LABELS.at(i).c_str());
 		}
 
 		// TODO get the timestep from the checkpoint
@@ -97,7 +97,8 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 	}
 }
 
-char const * const seissol::writer::FreeSurfaceWriterExecutor::LABELS[] = {
-	// "v1", "v2", "v3", "u1", "u2", "u3", "locationFlag"
-	"v2", "v3", "alpha", "u1", "u2", "alpha_t", "locationFlag"
+// TODO(NONLINEAR) unify 
+const std::array<std::string, 7> seissol::writer::FreeSurfaceWriterExecutor::LABELS = {
+  // "v1", "v2", "v3", "u1", "u2", "u3", "locationFlag"
+  "v2", "v3", "alpha", "u1", "u2", "alpha_t", "locationFlag"
 };

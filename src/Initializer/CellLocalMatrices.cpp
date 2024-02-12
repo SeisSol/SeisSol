@@ -168,15 +168,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
-      // auto staM = CTData[26]*gradXi[2];
-      // if (meshId > 1000 && meshId < 1002){
-      //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
-      //   std::cout << staM << std::endl;
-      // }
-
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
+      //TODO(NONLNINEAR) Why is this commented out?
         // seissol::model::getTransposedGodunovState(  material[cell].local,
         //                                             material[cell].neighbor[side],
         //                                             cellInformation[cell].faceTypes[side],
