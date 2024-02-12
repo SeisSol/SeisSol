@@ -12,6 +12,8 @@ format() {
     local allowlist_dir="
         src/DynamicRupture
         src/Initializers/Parameters
+        src/Modules
+        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
