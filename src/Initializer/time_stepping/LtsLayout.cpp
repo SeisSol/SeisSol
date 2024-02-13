@@ -724,7 +724,8 @@ void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( doub
 void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsigned int i_cellId,
                                                                             unsigned int i_globalClusterId,
                                                                             unsigned int i_neighboringRank,
-                                                                            unsigned int i_neighboringGlobalClusterId ) {
+                                                                            unsigned int i_neighboringGlobalClusterId,
+                                                                            unsigned int i_neighborFaceScale ) {
   // get local cluster id
   unsigned int l_localClusterId = getLocalClusterId( i_globalClusterId );
 
@@ -741,7 +742,8 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
   for( unsigned int l_region = 0; l_region < m_clusteredCopy[l_localClusterId].size(); l_region++ ) {
     // copy region already present: add cell
     if( m_clusteredCopy[l_localClusterId][l_region].first[0]  == i_neighboringRank &&
-        m_clusteredCopy[l_localClusterId][l_region].first[1]  == i_neighboringGlobalClusterId ) {
+        m_clusteredCopy[l_localClusterId][l_region].first[1]  == i_neighboringGlobalClusterId &&
+        m_clusteredCopy[l_localClusterId][l_region].first[3]  == i_neighborFaceScale ) {
       // assert ordering is preserved
       assert( *(m_clusteredCopy[l_localClusterId][l_region].second.end()-1) <= i_cellId );
 
@@ -752,12 +754,17 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       break;
     }
     // copy region with higher rank or same rank and higher neighboring cluster present: insert before
+    // (or, NEW: forced GTS before LTS)
     else if( m_clusteredCopy[l_localClusterId][l_region].first[0] > i_neighboringRank ||
              (  m_clusteredCopy[l_localClusterId][l_region].first[0] == i_neighboringRank
-             && m_clusteredCopy[l_localClusterId][l_region].first[1] > i_neighboringGlobalClusterId ) ) {
+             && m_clusteredCopy[l_localClusterId][l_region].first[1] > i_neighboringGlobalClusterId ) ||
+             (m_clusteredCopy[l_localClusterId][l_region].first[0]  == i_neighboringRank &&
+        m_clusteredCopy[l_localClusterId][l_region].first[1]  == i_neighboringGlobalClusterId &&
+        m_clusteredCopy[l_localClusterId][l_region].first[3] > i_neighborFaceScale)) {
       m_clusteredCopy[l_localClusterId].insert( m_clusteredCopy[l_localClusterId].begin()+l_region, clusterCopyRegion() );
       m_clusteredCopy[l_localClusterId][l_region].first[0] = i_neighboringRank;
       m_clusteredCopy[l_localClusterId][l_region].first[1] = i_neighboringGlobalClusterId;
+      m_clusteredCopy[l_localClusterId][l_region].first[3] = i_neighborFaceScale;
       m_clusteredCopy[l_localClusterId][l_region].second.push_back( i_cellId );
       break;
     }
@@ -766,6 +773,7 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       m_clusteredCopy[l_localClusterId].push_back( clusterCopyRegion() );
       m_clusteredCopy[l_localClusterId][l_region+1].first[0] = i_neighboringRank;
       m_clusteredCopy[l_localClusterId][l_region+1].first[1] = i_neighboringGlobalClusterId;
+      m_clusteredCopy[l_localClusterId][l_region+1].first[3] = i_neighborFaceScale;
       m_clusteredCopy[l_localClusterId][l_region+1].second.push_back( i_cellId );
     }
   }
@@ -886,7 +894,8 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
         addClusteredCopyCell( l_cell,
                               m_cellClusterIds[l_cell],
                               m_cells[l_cell].neighborRanks[l_face],
-                              l_neighboringClusterId );
+                              l_neighboringClusterId,
+                              0 ? getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::dynamicRupture : 1 );
       }
     }
 
