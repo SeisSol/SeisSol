@@ -177,13 +177,13 @@ class LinearSlipWeakeningLaw
                                       real fullUpdateTime) override {
     auto* concreteLts =
         dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
-    this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
-    this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
-    this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
+    this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Host);
+    this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Host);
+    this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Host);
     this->cohesion =
-        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Device);
+        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Host);
     this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime,
-                                            seissol::initializer::AllocationPlace::Device);
+                                            seissol::initializer::AllocationPlace::Host);
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -365,7 +365,7 @@ class BiMaterialFault {
     auto* concreteLts =
         dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
-                                              seissol::initializer::AllocationPlace::Device);
+                                              seissol::initializer::AllocationPlace::Host);
   }
 
   #pragma omp declare target
