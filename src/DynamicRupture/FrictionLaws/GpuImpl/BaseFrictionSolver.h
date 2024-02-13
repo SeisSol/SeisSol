@@ -56,7 +56,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       // #pragma omp distribute
       #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(from: devFaultStresses[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for 
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
@@ -80,7 +80,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         // #pragma omp distribute
         #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize]) map(to: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-          #pragma omp parallel for schedule(static, 1)
+          #pragma omp parallel for 
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
             common::adjustInitialStress<gpuRangeType>(
@@ -106,7 +106,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       // #pragma omp distribute
       #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize]) map(to: devSlipRateMagnitude[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for 
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
