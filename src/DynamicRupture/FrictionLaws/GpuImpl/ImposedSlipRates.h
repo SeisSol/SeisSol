@@ -22,9 +22,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
-  void allocateAuxiliaryMemory() override {
-    FrictionSolverDetails::allocateAuxiliaryMemory();
-  }
+  void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
   void updateFrictionAndSlip(unsigned timeIndex) {
 
