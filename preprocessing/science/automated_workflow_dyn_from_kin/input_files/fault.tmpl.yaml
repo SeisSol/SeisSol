@@ -21,7 +21,7 @@
       returns: [T_s, T_d, T_n, cohesion, mu_s]
       function: |
        function f (x)
-        T_n = math.min(-10^6, 0.2*2700*9.8*x['z'])
+        T_n = math.min(-10^6, 0.15*2700*9.8*x['z'])
         sigma_n = math.abs(T_n)
 
         depthIncreasingCohesion = 6000.0
@@ -37,7 +37,7 @@
           T_d = T_d * Tau0_max/Tau0
           Tau0 =  math.sqrt(T_s^2 + T_d^2)
         end
-        mu_s =  x['mu_d'] + (Tau0/sigma_n - x['mu_d'])/x['R'] + cohesion/sigma_n
+        mu_s =  x['mu_d'] + math.max(0, (Tau0/sigma_n - x['mu_d'])/x['R'] + cohesion/sigma_n)
         return {
           T_s = T_s,
           T_d = T_d,
@@ -54,23 +54,6 @@
     Tnuc_s: 0
     Tnuc_d: 0
 
-[forced_rupture_time]: !LuaMap
-  returns: [forced_rupture_time]
-  function: |
-      function f (x)
-        xha = {0, 0, {{ hypo_z }}}
-        r_crita = 2500.0
-        ra = math.sqrt((x["x"]-xha[1])^2 + (x["y"]-xha[2])^2 + (x["z"]-xha[3])^2 )
-        Vs = 3464.0
-        if (ra <= r_crita) then
-          forced_rupture_time = ra/(0.7*Vs)+(0.081*r_crita/(0.7*Vs))*(1.0/(1.0-(ra/r_crita)^2)-1.0)
-        else
-          forced_rupture_time = 1000000000.0
-        end
-        return {
-          forced_rupture_time = forced_rupture_time
-        }
-      end
 
 [d_c]: !EvalModel
     parameters: [fault_slip]

@@ -71,7 +71,7 @@ SurfaceOutput = 0
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 0.5
 
-xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
+xdmfWriterBackend = 'hdf5' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
 
