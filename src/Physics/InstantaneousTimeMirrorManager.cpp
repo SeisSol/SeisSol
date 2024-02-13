@@ -23,7 +23,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly
                                      // is to be sent here
   setSyncInterval(triggerTime);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {

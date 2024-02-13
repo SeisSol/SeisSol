@@ -95,7 +95,7 @@ Then you can unload the seissol-env module and add the required dynamic librarie
 
 .. code-block:: bash
 
-    export LD_LIBRARY_PATH=$SCRATCH/lib_dump/:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$SCRATCH/libdump/:$LD_LIBRARY_PATH
     module unload seissol-env
 
 Finally, we provide an example of launch script used for running a full-machine frontera run.

@@ -16,9 +16,11 @@ format() {
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Modules
         src/Monitoring
-        src/SourceTerm
         src/Physics
+        src/SourceTerm
+        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
@@ -33,7 +35,6 @@ format() {
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceCluster.cpp
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h

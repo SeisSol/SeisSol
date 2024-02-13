@@ -177,11 +177,13 @@ void MeshReader::extractFaultInformation(
         f.side = j;
         f.neighborElement = neighborIndex;
         f.neighborSide = i.neighborSides[j];
+        f.tag = i.faultTags[j];
       } else {
         f.element = neighborIndex;
         f.side = i.neighborSides[j];
         f.neighborElement = i.localId;
         f.neighborSide = j;
+        f.tag = i.faultTags[j];
       }
 
       m_fault.push_back(f);

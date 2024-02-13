@@ -18,6 +18,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
+    assignFaultTags();
     initTimeCaching();
     initFaultDirections();
     initOutputVariables(pickpointParams.outputMask);

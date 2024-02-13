@@ -63,6 +63,7 @@ src/Kernels/Touch.cpp
 
 src/Model/common.cpp
 
+src/Modules/Module.cpp
 src/Modules/Modules.cpp
 
 src/Monitoring/FlopCounter.cpp
@@ -111,6 +112,9 @@ src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+
+src/Reader/AsagiModule.cpp
+src/Reader/AsagiReader.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
@@ -133,6 +137,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Module.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/ActorStateStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
@@ -199,13 +204,6 @@ if (NETCDF)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
-    )
-endif()
-
-if (ASAGI)
-  target_sources(SeisSol-lib PRIVATE
-    #todo:
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Reader/AsagiModule.cpp
     )
 endif()
 
