@@ -2,8 +2,8 @@
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
 #include <type_traits>

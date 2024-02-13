@@ -10,22 +10,23 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Initializer/Parameters
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Modules
         src/Monitoring
-        src/SourceTerm
         src/Physics
+        src/SourceTerm
+        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
-        src/Initializer/InputParameters.hpp
-        src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
@@ -34,7 +35,6 @@ format() {
         src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceCluster.cpp
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
@@ -52,6 +52,8 @@ format() {
         src/Geometry/PartitioningLib.cpp
         src/Geometry/CubeGenerator.h
         src/Geometry/CubeGenerator.cpp
+        src/Parallel/AcceleratorDevice.h
+        src/Parallel/AcceleratorDevice.cpp
         src/Parallel/Helper.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
@@ -66,13 +68,13 @@ format() {
 
     if [ ! -f "${formatter}" ]; then
         echo "Could not find a clang-format. Please specify one as the first argument"
-        exit 166
+        exit 176
     fi
 
     # check for self
     if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/format.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the second argument"
-        exit 166
+        exit 176
     fi
 
     for dir in ${allowlist_dir}; do

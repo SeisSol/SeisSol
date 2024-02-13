@@ -1,22 +1,21 @@
-#include "utils/logger.h"
-#include "utils/args.h"
 #include "CubeGenerator.h"
-#include "MeshReader.h"
 
 #ifdef USE_NETCDF
-#include <netcdf.h>
-
-#include <omp.h>
-
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <map>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <netcdf.h>
+#include <omp.h>
+
+#include "MeshReader.h"
+#include "utils/args.h"
+#include "utils/logger.h"
 
 namespace {
 typedef int t_vertex[3];
@@ -108,7 +107,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
     const std::string& meshFile,
-    const seissol::geometry::CubeGeneratorParameters& cubeParams)
+    const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
     : seissol::geometry::MeshReader(rank) {
   // get cubeGenerator parameters
   unsigned int cubeMinX = cubeParams.cubeMinX;

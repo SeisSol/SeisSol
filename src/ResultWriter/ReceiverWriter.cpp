@@ -40,19 +40,17 @@
 #include "ReceiverWriter.h"
 
 #include <cctype>
-#include <iterator>
-#include <sstream>
-#include <iomanip>
 #include <fstream>
-#include <sys/stat.h>
-#include <Parallel/MPI.h>
-#include <Modules/Modules.h>
-
+#include <iomanip>
+#include <iterator>
+#include <regex>
 #include <sstream>
 #include <string>
-#include <fstream>
-#include <regex>
-#include "Initializer/InputParameters.hpp"
+#include <sys/stat.h>
+
+#include "Parallel/MPI.h"
+#include "Modules/Modules.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
@@ -181,12 +179,12 @@ void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, do
   m_samplingInterval = parameters.samplingInterval;
   m_computeRotation = parameters.computeRotation;
   setSyncInterval(std::min(endTime, parameters.interval));
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
-                                                const seissol::initializers::Lut& ltsLut,
-                                                const seissol::initializers::LTS& lts,
+                                                const seissol::initializer::Lut& ltsLut,
+                                                const seissol::initializer::LTS& lts,
                                                 const GlobalData* global ) {
   std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
@@ -209,10 +207,10 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";
-  initializers::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
+  initializer::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
-  initializers::cleanDoubles(contained.data(), numberOfPoints);
+  initializer::cleanDoubles(contained.data(), numberOfPoints);
 #endif
 
   logInfo(rank) << "Mapping receivers to LTS cells...";
@@ -227,7 +225,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
       for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation);
+        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation, seissolInstance);
       }
 
       writeHeader(point, points[point]);

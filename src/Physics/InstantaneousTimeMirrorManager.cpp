@@ -8,9 +8,9 @@ namespace seissol::ITM {
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
-                                          initializers::LTSTree* ltsTree,
-                                          initializers::LTS* lts,
-                                          initializers::Lut* ltsLut,
+                                          initializer::LTSTree* ltsTree,
+                                          initializer::LTS* lts,
+                                          initializer::Lut* ltsLut,
                                           const TimeStepping* timestepping) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
@@ -23,7 +23,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly
                                      // is to be sent here
   setSyncInterval(triggerTime);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
@@ -43,7 +43,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo(rank) << "Updating CellLocalMatrices";
-  initializers::initializeCellLocalMatrices(
+  initializer::initializeCellLocalMatrices(
       *meshReader, ltsTree, lts, ltsLut, *timestepping); // An empty timestepping is added. Need to
                                                          // discuss what exactly is to be sent here
 
@@ -58,13 +58,13 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 #ifdef USE_ANISOTROPIC
   logError() << "This feature has not been implemented for anisotropic yet";
 #else
-  auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
-  auto reflectionType = itmParameters.reflectionType;
-  for (auto it = ltsTree->beginLeaf(initializers::LayerMask(Ghost)); it != ltsTree->endLeaf();
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto reflectionType = itmParameters.itmReflectionType;
+  for (auto it = ltsTree->beginLeaf(initializer::LayerMask(Ghost)); it != ltsTree->endLeaf();
        ++it) {
     CellMaterialData* materials = it->var(lts->material);
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves
@@ -77,7 +77,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves_velocity) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
@@ -92,7 +92,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::pwave) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
@@ -103,7 +103,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       }
     }
 
-    if (reflectionType == seissol::initializer::parameters::ReflectionType::swave) {
+    if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
       for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
@@ -128,11 +128,11 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 
 void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
-  auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
-  auto reflectionType = itmParameters.reflectionType;
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  auto reflectionType = itmParameters.itmReflectionType;
 
-  if (reflectionType == seissol::initializer::parameters::ReflectionType::bothwaves ||
-      reflectionType == seissol::initializer::parameters::ReflectionType::pwave)
+  if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves ||
+      reflectionType == seissol::initializer::parameters::ReflectionType::Pwave)
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
@@ -156,7 +156,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   }
 
   if (reflectionType ==
-      seissol::initializer::parameters::ReflectionType::swave) { // refocusing only S-waves
+      seissol::initializer::parameters::ReflectionType::Swave) { // refocusing only S-waves
     for (auto& cluster : *timeClusters) {
       //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
       cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
@@ -192,11 +192,12 @@ void InstantaneousTimeMirrorManager::setGhostClusterVector(
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
-                                  initializers::LTSTree* ltsTree,
-                                  initializers::LTS* lts,
-                                  initializers::Lut* ltsLut,
+                                  initializer::LTSTree* ltsTree,
+                                  initializer::LTS* lts,
+                                  initializer::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
+                                  seissol::SeisSol& seissolInstance,
                                   const TimeStepping* timestepping) {
   increaseManager.init(scalingFactor,
                        triggerTime,
@@ -206,8 +207,8 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        ltsLut,
                        timestepping); // An empty timestepping is added. Need to discuss what
                                       // exactly is to be sent here
-  auto itmParameters = seissol::SeisSol::main.getSeisSolParameters().itmParameters;
-  double eps = itmParameters.ITMTime;
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+  double eps = itmParameters.itmDuration;
 
   // const double eps = 1.0;
   decreaseManager.init(1 / scalingFactor,
