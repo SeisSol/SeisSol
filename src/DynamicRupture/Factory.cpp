@@ -5,8 +5,10 @@
 
 #ifdef ACL_DEVICE
 namespace friction_law_impl = seissol::dr::friction_law::gpu;
+using MathFunctions = seissol::functions::SyclStdFunctions;
 #else
 namespace friction_law_impl = seissol::dr::friction_law;
+using MathFunctions = seissol::functions::HostStdFunctions;
 #endif
 
 namespace seissol::dr::factory {
@@ -115,7 +117,8 @@ DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {
       std::make_unique<seissol::initializer::LTSImposedSlipRatesYoffe>(),
       std::make_unique<initializer::ImposedSlipRatesYoffeInitializer>(drParameters,
                                                                       seissolInstance),
-      std::make_unique<friction_law_impl::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
+      std::make_unique<friction_law_impl::ImposedSlipRates<friction_law::YoffeSTF<MathFunctions>>>(
+          drParameters.get()),
       std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                               seissolInstance)};
 }
@@ -124,7 +127,8 @@ DynamicRuptureTuple ImposedSlipRatesGaussianFactory::produce() {
   return {std::make_unique<seissol::initializer::LTSImposedSlipRatesGaussian>(),
           std::make_unique<initializer::ImposedSlipRatesGaussianInitializer>(drParameters,
                                                                              seissolInstance),
-          std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(
+          std::make_unique<
+              friction_law_impl::ImposedSlipRates<friction_law::GaussianSTF<MathFunctions>>>(
               drParameters.get()),
           std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                                   seissolInstance)};

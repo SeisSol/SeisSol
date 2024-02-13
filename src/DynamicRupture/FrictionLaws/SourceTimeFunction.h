@@ -7,6 +7,7 @@
 #include "Numerical_aux/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law {
+template <typename MathFunctions>
 class YoffeSTF {
   private:
   real (*onsetTime)[misc::numPaddedPoints];
@@ -27,12 +28,13 @@ class YoffeSTF {
                 [[maybe_unused]] real timeIncrement,
                 size_t ltsFace,
                 size_t pointIndex) {
-    return regularizedYoffe::regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
-                                              tauS[ltsFace][pointIndex],
-                                              tauR[ltsFace][pointIndex]);
+    return regularizedYoffe::regularizedYoffe<MathFunctions>(currentTime -
+                                                                 onsetTime[ltsFace][pointIndex],
+                                                             tauS[ltsFace][pointIndex],
+                                                             tauR[ltsFace][pointIndex]);
   }
 };
-
+template <typename MathFunctions>
 class GaussianSTF {
   private:
   real (*onsetTime)[misc::numPaddedPoints];
@@ -49,7 +51,7 @@ class GaussianSTF {
   }
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
-    const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
+    const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(
         currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, riseTime[ltsFace][pointIndex]);
     return smoothStepIncrement / timeIncrement;
   }

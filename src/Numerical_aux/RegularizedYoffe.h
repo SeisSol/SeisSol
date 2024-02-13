@@ -5,30 +5,35 @@ namespace seissol::regularizedYoffe {
 /**
  * Implementation of the regularized Yoffe function defined in Appendix of Tinti et al. (2005)
  */
+template <typename MathFunctions>
 inline real regularizedYoffe(real time, real tauS, real tauR) {
   real k = 2.0 / (M_PI * tauR * tauS * tauS);
   // c1 to c6 are analytical functions used for building the regularized Yoffe function
   auto c1 = [&]() {
-    return (0.5 * time + 0.25 * tauR) * std::sqrt(time * (tauR - time)) +
-           (time * tauR - tauR * tauR) * std::asin(std::sqrt(time / tauR)) -
-           0.75 * tauR * tauR * std::atan(std::sqrt((tauR - time) / time));
+    return (0.5 * time + 0.25 * tauR) * MathFunctions::sqrt(time * (tauR - time)) +
+           (time * tauR - tauR * tauR) * MathFunctions::asin(MathFunctions::sqrt(time / tauR)) -
+           0.75 * tauR * tauR * MathFunctions::atan(MathFunctions::sqrt((tauR - time) / time));
   };
 
   auto c2 = [&] { return 0.375 * M_PI * tauR * tauR; };
 
   auto c3 = [&]() {
-    return (tauS - time - 0.5 * tauR) * std::sqrt((time - tauS) * (tauR - time + tauS)) +
-           tauR * (2 * tauR - 2 * time + 2 * tauS) * std::asin(std::sqrt((time - tauS) / tauR)) +
-           1.5 * tauR * tauR * std::atan(std::sqrt((tauR - time + tauS) / (time - tauS)));
+    return (tauS - time - 0.5 * tauR) * MathFunctions::sqrt((time - tauS) * (tauR - time + tauS)) +
+           tauR * (2 * tauR - 2 * time + 2 * tauS) *
+               MathFunctions::asin(MathFunctions::sqrt((time - tauS) / tauR)) +
+           1.5 * tauR * tauR *
+               MathFunctions::atan(MathFunctions::sqrt((tauR - time + tauS) / (time - tauS)));
   };
 
   auto c4 = [&]() {
     // 2 typos fixed in the second term compared with Tinti et al. 2005
     return (-tauS + 0.5 * time + 0.25 * tauR) *
-               std::sqrt((time - 2.0 * tauS) * (tauR - time + 2.0 * tauS)) -
-           tauR * (tauR - time + 2.0 * tauS) * std::asin(std::sqrt((time - 2.0 * tauS) / tauR)) -
+               MathFunctions::sqrt((time - 2.0 * tauS) * (tauR - time + 2.0 * tauS)) -
+           tauR * (tauR - time + 2.0 * tauS) *
+               MathFunctions::asin(MathFunctions::sqrt((time - 2.0 * tauS) / tauR)) -
            0.75 * tauR * tauR *
-               std::atan(std::sqrt((tauR - time + 2.0 * tauS) / (time - 2.0 * tauS)));
+               MathFunctions::atan(
+                   MathFunctions::sqrt((tauR - time + 2.0 * tauS) / (time - 2.0 * tauS)));
   };
 
   auto c5 = [&]() { return 0.5 * M_PI * tauR * (time - tauR); };

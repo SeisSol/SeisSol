@@ -16,6 +16,9 @@ struct SyclStdFunctions {
   template <typename T1, typename ...T> static inline T1 min(T1 value1, T... value) { return cl::sycl::min(value1, value...); }
   template <typename T> static inline T ceil(T value) { return cl::sycl::ceil(value); }
   template <typename T> static inline T floor(T value) { return cl::sycl::floor(value); }
+  template <typename T> static inline T sqrt(T value) { return cl::sycl::sqrt(value); }
+  template <typename T> static inline T asin(T value) { return cl::sycl::asin(value); }
+  template <typename T> static inline T atan(T value) { return cl::sycl::atan(value); }
 };
 } // namespace seissol::functions
 
