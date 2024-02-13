@@ -36,10 +36,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       this->devTimeWeights[i] = timeWeights[i];
     }
 
-#ifdef TARGETDART
-    omp_set_default_device(TARGETDART_ANY); // TARGETDART_DEVICE(N) => runs on device N
-#endif
-
      // map(to:timeWeightsCopy[0:CONVERGENCE_ORDER])
 
     // #pragma omp target teams
