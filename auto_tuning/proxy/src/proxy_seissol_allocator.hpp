@@ -259,6 +259,10 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
       impl->allocateAuxiliaryMemory();
       impl->copyStaticDataToDevice();
     }
+
+    const auto& device = ::device::DeviceInstance::getInstance();
+    m_dynRupTree->synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
   }
 }
 #endif // ACL_DEVICE
