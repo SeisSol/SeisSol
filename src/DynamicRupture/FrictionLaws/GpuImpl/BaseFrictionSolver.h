@@ -54,7 +54,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto layerSize{this->currLayerSize};
 
       // #pragma omp distribute
-      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(from: devFaultStresses[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(from: devFaultStresses[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -78,7 +78,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const auto* devNucleationPressure{this->nucleationPressure};
 
         // #pragma omp distribute
-        #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize]) map(to: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
+        #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize]) map(to: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp parallel for schedule(static, 1)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -104,7 +104,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devRuptureTime{this->ruptureTime};
 
       // #pragma omp distribute
-      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize]) map(to: devSlipRateMagnitude[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize]) map(to: devSlipRateMagnitude[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for schedule(static, 1)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -128,7 +128,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devGodunovData{this->godunovData};
 
       /*
-      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
       #pragma omp metadirective when( device={arch(nvptx)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when( device={arch(nvptx)}: parallel for ) default(simd)
@@ -136,7 +136,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       // #pragma omp distribute
-      #pragma omp target teams distribute depend(inout: *queue) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
+      #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp parallel for
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
