@@ -157,7 +157,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
   double& potency = energiesStorage.potency();
-  minTimeSinceSlipRateBelowThreshold = std::numeric_limits<double>::max();
+  minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
 #ifdef ACL_DEVICE
   unsigned maxCells = 0;
@@ -567,7 +567,7 @@ void EnergyOutput::checkAbortCriterion() {
   bool abort = false;
   if (rank == 0) {
     if ((minTimeSinceSlipRateBelowThreshold > 0) and
-        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<double>::max())) {
+        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
       if (minTimeSinceSlipRateBelowThreshold < maxTimeFromRuptureEnd) {
         logInfo(rank) << "all slip rates are below threshold since"
                       << minTimeSinceSlipRateBelowThreshold
