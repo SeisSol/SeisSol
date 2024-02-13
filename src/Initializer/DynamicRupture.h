@@ -251,10 +251,10 @@ struct seissol::initializer::LTSImposedSlipRates : public seissol::initializer::
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(imposedSlipDirection1, mask, 1, seissol::memory::Standard);
-    tree.addVar(imposedSlipDirection2, mask, 1, seissol::memory::Standard);
-    tree.addVar(slip2, mask, 1, seissol::memory::Standard);
-    tree.addVar(onsetTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(imposedSlipDirection1, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(imposedSlipDirection2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slip2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(onsetTime, mask, 1, MEMKIND_STANDARD);
   }
 };
 
@@ -266,8 +266,8 @@ struct seissol::initializer::LTSImposedSlipRatesYoffe : public seissol::initiali
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(tauS, mask, 1, seissol::memory::Standard);
-    tree.addVar(tauR, mask, 1, seissol::memory::Standard);
+    tree.addVar(tauS, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(tauR, mask, 1, MEMKIND_STANDARD);
   }
 };
 
@@ -278,7 +278,7 @@ struct seissol::initializer::LTSImposedSlipRatesGaussian : public seissol::initi
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(riseTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(riseTime, mask, 1, MEMKIND_STANDARD);
   }
 };
 

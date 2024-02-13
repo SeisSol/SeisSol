@@ -14,13 +14,18 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
 
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                       seissol::initializer::DynamicRupture const* const dynRup,
-                                      real fullUpdateTime) {
+                                      real fullUpdateTime) override {
     auto* concreteLts =
         dynamic_cast<seissol::initializer::LTSImposedSlipRates const* const>(dynRup);
     imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
     imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
+
+  void allocateAuxiliaryMemory() override {
+    FrictionSolverDetails::allocateAuxiliaryMemory();
+  }
+
   void updateFrictionAndSlip(unsigned timeIndex) {
 
     this->updateFrictionAndSlipImposedSR(this->faultStresses, this->tractionResults, timeIndex);
