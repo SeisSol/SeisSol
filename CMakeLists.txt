@@ -398,12 +398,12 @@ if (WITH_GPU)
 
   if (SYCL_CC MATCHES "omptarget")
     if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-        target_compile_options(general-sycl-offloading INTERFACE -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
-        target_link_options(general-sycl-offloading INTERFACE -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
+        target_compile_options(general-sycl-offloading PUBLIC -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
+        target_link_options(general-sycl-offloading PUBLIC -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
     else()
-        target_compile_options(general-sycl-offloading INTERFACE -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+        target_compile_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
               -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH} -Xcuda-ptxas -v)
-        target_link_options(general-sycl-offloading INTERFACE -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+        target_link_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
               -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH})
         # for now, this is DPCPP
         # target_compile_options(general-sycl-offloading INTERFACE -fiopenmp -fopenmp-targets=spir64)
