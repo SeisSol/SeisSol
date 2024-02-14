@@ -2,10 +2,10 @@ jobs:
   - job:
     displayName: seissol-clang-format
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-22.04'
     variables:
       - name: version
-        value: 10
+        value: 14
     steps:
       - bash: |
           set -euo pipefail

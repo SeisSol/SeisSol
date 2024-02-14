@@ -1,57 +1,11 @@
 #ifndef INITIALIZER_INPUTAUX_H_
 #define INITIALIZER_INPUTAUX_H_
 
-#include <type_traits>
-#include <string>
 #include <fstream>
-#include <yaml-cpp/yaml.h>
+#include <iterator>
+#include <list>
 
-#include "DynamicRupture/Typedefs.hpp"
-#include "utils/logger.h"
-
-namespace YAML {
-template <>
-struct convert<seissol::dr::FrictionLawType> {
-  static Node encode(const seissol::dr::FrictionLawType& rhs) {
-    Node node;
-    node.push_back(static_cast<unsigned int>(rhs));
-    return node;
-  }
-
-  static bool decode(const Node& node, seissol::dr::FrictionLawType& rhs) {
-    if (node.IsSequence() || node.size() != 0) {
-      return false;
-    }
-
-    rhs = static_cast<seissol::dr::FrictionLawType>(node.as<unsigned int>());
-    return true;
-  }
-};
-} // namespace YAML
-namespace seissol::initializers {
-/*
- * If param stores a node with name field override value
- * @param param: YAML Node, which we want to read from.
- * @param field: Name of the field, we would like to read
- * @param value: Reference to the value, which we want to override
- */
-template <typename T>
-T getWithDefault(const YAML::Node& param, std::string&& field, T defaultValue) {
-  T value = defaultValue;
-  if (param[field]) {
-    try {
-      // booleans are stored as integers
-      if constexpr (std::is_same<T, bool>::value) {
-        value = param[field].as<int>() > 0;
-      } else {
-        value = param[field].as<T>();
-      }
-    } catch (std::exception& e) {
-      logError() << "Error while reading field " << field << ": " << e.what();
-    }
-  }
-  return value;
-}
+namespace seissol::initializer {
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)
  *  is less or equal to the size of a container
@@ -76,8 +30,9 @@ template <typename ContainerT>
 void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   using T = typename std::iterator_traits<typename ContainerT::iterator>::value_type;
 
-  if (!isCapacityEnough<T>(stringMask, mask))
+  if (!isCapacityEnough<T>(stringMask, mask)) {
     throw std::runtime_error("Number of input elements is more than the mask capacity");
+  }
 
   std::istringstream inputStream(stringMask);
   auto it = std::istream_iterator<T>(inputStream);
@@ -92,6 +47,85 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   }
 }
 
+/**
+ * \brief Converts an input string to a vector of the datatype T and length n. Unless explicitly
+ * ignored, this contains: we want exactly n elements, and empty elements are not considered (i.e.
+ * two delimiters following on each other are treated as a single one).
+ *
+ * \throws runtime_error if the input string contains parameters, which can not be converted to T.
+ * Or if the length is not equal to n (unless ignored).
+ * */
+template <typename T, size_t n>
+std::array<T, n> convertStringToArray(const std::string& inputString,
+                                      bool exactLength = true,
+                                      bool skipEmpty = true,
+                                      char delimiter = ' ') {
+  auto result = std::array<T, n>();
+  if (inputString.empty()) {
+    if (exactLength && n > 0) {
+      throw std::runtime_error(
+          std::string("Insufficient number of elements in array. Given: 0. Required: ") +
+          std::to_string(n) + std::string("."));
+    } else {
+      return result;
+    }
+  }
+
+  auto convert = [&inputString](size_t begin, size_t end) {
+    size_t count = end - begin;
+    std::string word = inputString.substr(begin, count);
+    if constexpr (std::is_integral<T>::value) {
+      return std::stoi(word);
+    } else if constexpr (std::is_floating_point<T>::value) {
+      return std::stod(word);
+    } else {
+      return static_cast<T>(word);
+    }
+  };
+
+  size_t begin = 0;
+  size_t wordCount = 0;
+  enum class State { Word, Delimiter };
+  State s = inputString.at(0) == delimiter ? State::Delimiter : State::Word;
+
+  // iterate over all words. We need to start at zero here: suppose we had ";;;" with delimiter ';'.
+  // when !skipEmpty, this denotes an array with four elements; the first three are found with this
+  // loop here.
+  for (size_t i = 0; i < inputString.size(); i++) {
+    if (inputString.at(i) == delimiter) {
+      // either we have a word, or two subsequent delimiters
+      if (s == State::Word || !skipEmpty) {
+        result.at(wordCount) = convert(begin, i);
+        ++wordCount;
+        if (wordCount >= n) {
+          break;
+        }
+      }
+
+      // exclude the delimiter, hence i+1
+      begin = i + 1;
+      s = State::Delimiter;
+    } else {
+      s = State::Word;
+    }
+  }
+
+  // handle rest. Note that if a line ends with a delimiter, we consider the last element to be an
+  // empty one again.
+  if ((s == State::Word || !skipEmpty) && wordCount < n) {
+    result.at(wordCount) = convert(begin, inputString.size());
+    ++wordCount;
+  }
+
+  if (wordCount != n && exactLength) {
+    throw std::runtime_error(std::string("Insufficient number of elements in array. Given: ") +
+                             std::to_string(wordCount) + std::string(". Required: ") +
+                             std::to_string(n));
+  }
+
+  return result;
+}
+//
 using StringsType = std::list<std::string>;
 class FileProcessor {
   public:
@@ -129,6 +163,5 @@ class FileProcessor {
     }
   }
 };
-} // namespace seissol::initializers
-
+} // namespace seissol::initializer
 #endif // INITIALIZER_INPUTAUX_H_

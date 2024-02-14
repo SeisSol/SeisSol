@@ -4,8 +4,8 @@
 #include <array>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
@@ -36,7 +36,7 @@ template <size_t N>
 class InverseFourierCoefficients {
   public:
   constexpr InverseFourierCoefficients() {
-    GridPoints<N> localGridPoints;
+    const GridPoints<N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
       values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::tpLogDz;
@@ -57,8 +57,8 @@ template <size_t N>
 class GaussianHeatSource {
   public:
   constexpr GaussianHeatSource() {
-    GridPoints<N> localGridPoints;
-    real factor = 1 / std::sqrt(2.0 * M_PI);
+    const GridPoints<N> localGridPoints;
+    const real factor = 1 / std::sqrt(2.0 * M_PI);
 
     for (size_t i = 0; i < N; ++i) {
       const real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
@@ -100,13 +100,14 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
+      : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   /**
@@ -137,7 +138,7 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
 
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.

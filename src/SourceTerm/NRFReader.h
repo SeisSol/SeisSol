@@ -44,10 +44,8 @@
 
 #include "NRF.h"
 
-namespace seissol {
-namespace sourceterm {
+namespace seissol::sourceterm {
 void readNRF(char const* filename, NRF& nrf);
-}
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 #endif

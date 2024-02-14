@@ -62,13 +62,16 @@ struct GlobalData;
 
 class seissol::kernels::LocalBase {
   protected:
+    double gravitationalAcceleration;
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::volume m_volumeKernelPrototype;
     kernel::localFlux m_localFluxKernelPrototype;
     kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
+#ifdef USE_DAMAGEDELASTIC
     // Added for initial strain
     kernel::localInitFlux m_localInitFluxKernelPrototype;
+#endif
 
     kernel::projectToNodalBoundary m_projectKrnlPrototype;
     kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
@@ -87,6 +90,10 @@ class seissol::kernels::LocalBase {
 public:
     virtual void setInitConds(decltype(initConds) initConds) {
       this->initConds = initConds;
+    }
+
+    void setGravitationalAcceleration(double g) {
+      gravitationalAcceleration = g;
     }
 
     physics::InitialField* getInitCond(size_t index) {

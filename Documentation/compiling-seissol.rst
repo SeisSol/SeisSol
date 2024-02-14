@@ -1,3 +1,5 @@
+.. _Compiling_and_running_seissol:
+
 Compiling and running SeisSol
 -----------------------------
 
@@ -15,7 +17,7 @@ If you have compiled :ref:`seissol-env with spack<spack_installation>`, load the
 .. code-block:: bash
 
    mkdir build-release && cd build-release
-   CC=mpicc CXX=mpiCC FC=mpif90 cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM ..
+   CC=mpicc CXX=mpiCC FC=mpif90 cmake -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM ..
    make -j 4
 
 Please adapt ``CC``, ``CXX`` and ``FC`` to the mpi compilers you used for compiling the dependencies.

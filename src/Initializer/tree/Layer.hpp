@@ -43,6 +43,7 @@
 #include "Node.hpp"
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include "Initializer/DeviceGraph.h"
 #include <bitset>
 #include <limits>
 #include <cstring>
@@ -56,7 +57,7 @@ enum LayerType {
 };
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     typedef std::bitset<NUMBER_OF_LAYERS> LayerMask;
 
     template<typename T> struct Variable;
@@ -70,31 +71,31 @@ namespace seissol {
 }
 
 template<typename T>
-struct seissol::initializers::Variable {
+struct seissol::initializer::Variable {
   unsigned index;
   LayerMask mask;
   unsigned count;
   Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
 };
 
-struct seissol::initializers::Bucket {
+struct seissol::initializer::Bucket {
   unsigned index;
 
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 #ifdef ACL_DEVICE
-struct seissol::initializers::ScratchpadMemory : public seissol::initializers::Bucket{};
+struct seissol::initializer::ScratchpadMemory : public seissol::initializer::Bucket{};
 #endif
 
-struct seissol::initializers::MemoryInfo {
+struct seissol::initializer::MemoryInfo {
   size_t bytes;
   size_t alignment;
   LayerMask mask;
   seissol::memory::Memkind memkind;
 };
 
-class seissol::initializers::Layer : public seissol::initializers::Node {
+class seissol::initializer::Layer : public seissol::initializer::Node {
 private:
   enum LayerType m_layerType;
   unsigned m_numberOfCells;
@@ -105,6 +106,7 @@ private:
 #ifdef ACL_DEVICE
   void** m_scratchpads{};
   size_t* m_scratchpadSizes{};
+  std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
   ConditionalMaterialTable m_conditionalMaterialTable{};
@@ -297,6 +299,24 @@ public:
 
     if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
       return m_conditionalIndicesTable;
+    }
+  }
+
+  device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
+    if (m_computeGraphHandles.find(graphKey) != m_computeGraphHandles.end()) {
+      return m_computeGraphHandles[graphKey];
+    }
+    else {
+      return device::DeviceGraphHandle();
+    }
+  }
+
+  void updateDeviceComputeGraphHandle(GraphKey graphKey,
+                                      device::DeviceGraphHandle graphHandle) {
+    assert(m_computeGraphHandles.find(graphKey) == m_computeGraphHandles.end()
+           && "an entry of hash table must be empty on write");
+    if (graphHandle.isInitialized()) {
+      m_computeGraphHandles[graphKey] = graphHandle;
     }
   }
 #endif // ACL_DEVICE

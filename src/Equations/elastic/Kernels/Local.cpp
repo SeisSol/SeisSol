@@ -48,6 +48,7 @@
 #include <cassert>
 #include <stdint.h>
 #include "GravitationalFreeSurfaceBC.h"
+#include "SeisSol.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -76,9 +77,11 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 
+#ifdef USE_DAMAGEDELASTIC
   // for initial strain BC
   m_localInitFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localInitFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+#endif
 
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
 
@@ -95,10 +98,13 @@ void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
   checkGlobalData(global.onDevice, deviceAlignment);
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+#else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+#endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 #endif
 }
@@ -231,13 +237,15 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(materialData != nullptr);
         auto* displ = tmp.nodalAvgDisplacements[face].data();
         auto displacement = init::averageNormalDisplacement::view::create(displ);
-        auto applyFreeSurfaceBc = [&displacement, &materialData](
+        // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
+        const auto localG = gravitationalAcceleration;
+        auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
-            const double g = getGravitationalAcceleration(); // [m/s^2]
-            const double pressureAtBnd = -1 * rho * g * displacement(i);
+            assert(localG > 0);
+            const double pressureAtBnd = -1 * rho * localG * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
             boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
@@ -319,7 +327,6 @@ void seissol::kernels::Local::computeBatchedIntegral(
   ConditionalIndicesTable& indicesTable,
   kernels::LocalData::Loader& loader,
   LocalTmp& tmp,
-  double time,
   double timeStepWidth) {
 #ifdef ACL_DEVICE
   // Volume integral
@@ -375,7 +382,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
       auto nodalAvgDisplacements = dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = getGravitationalAcceleration();
+      freeSurfaceGravityBc.g = gravitationalAcceleration;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
       dirichletBoundary.evaluateOnDevice(face,
@@ -410,8 +417,19 @@ void seissol::kernels::Local::computeBatchedIntegral(
   if (tmpMem != nullptr) {
     device.api->popStackMemory();
   }
+#else
+  assert(false && "no implementation provided");
+#endif
+}
 
-  device.api->synchDevice();
+void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    kernels::LocalData::Loader& loader,
+    double time,
+    double timeStepWidth) {
+
+#ifdef ACL_DEVICE
   for (unsigned face = 0; face < 4; ++face) {
     ConditionalKey analyticalKey(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if(indicesTable.find(analyticalKey) != indicesTable.end()) {
@@ -447,10 +465,9 @@ void seissol::kernels::Local::computeBatchedIntegral(
       }
     }
   }
-
 #else
   assert(false && "no implementation provided");
-#endif
+#endif // ACL_DEVICE
 }
 
 void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],

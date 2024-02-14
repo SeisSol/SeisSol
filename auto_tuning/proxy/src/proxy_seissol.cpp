@@ -150,14 +150,14 @@ ProxyOutput runProxy(ProxyConfig config) {
   }
 
 #ifdef ACL_DEVICE
-  deviceT &device = deviceT::getInstance();
+  deviceType &device = deviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
   device.api->allocateStackMem();
 #endif
 
-  m_ltsTree = new seissol::initializers::LTSTree;
-  m_dynRupTree = new seissol::initializers::LTSTree;
+  m_ltsTree = new seissol::initializer::LTSTree;
+  m_dynRupTree = new seissol::initializer::LTSTree;
   m_allocator = new seissol::memory::ManagedAllocator;
 
   print_hostname();

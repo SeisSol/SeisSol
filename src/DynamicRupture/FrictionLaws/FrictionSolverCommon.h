@@ -2,8 +2,8 @@
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
 #include <type_traits>
@@ -84,13 +84,16 @@ inline void checkAlignmentPreCompute(
  *             at the 2d face quadrature nodes evaluated at the time
  *             quadrature points
  * @param[in] impAndEta contains eta and impedance values
+ * @param[in] impedanceMatrices contains impedance and eta values, in the poroelastic case, these
+ * are non-diagonal matrices
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
 template <RangeType Type = RangeType::CPU>
 inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
-    ImpedancesAndEta& impAndEta,
+    ImpedancesAndEta& impAndEta, // TODO(NONLINEAR): make const again?
+    const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -100,6 +103,7 @@ inline void precomputeStressFromQInterpolated(
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
+#ifndef USE_POROELASTIC
   auto etaP = impAndEta.etaP;
   auto etaS = impAndEta.etaS;
   auto invZp = impAndEta.invZp;
@@ -107,6 +111,8 @@ inline void precomputeStressFromQInterpolated(
   auto invZpNeig = impAndEta.invZpNeig;
   auto invZsNeig = impAndEta.invZsNeig;
 
+// TODO(NONLINEAR): unify
+#ifdef USE_damageIdxAGEDELASTIC
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
@@ -117,21 +123,23 @@ inline void precomputeStressFromQInterpolated(
   auto gaRM = impAndEta.gammaRM;
   auto xi0M = impAndEta.xi0M;
   auto rhoM = impAndEta.rho0M;
+#endif
 
   using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
-  auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
-  auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
-  unsigned DAM = 9;
-  unsigned BRE = 10;
 
 #ifndef ACL_DEVICE
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
+#ifdef USE_damageIdxAGEDELASTIC
+  auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
+  auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
+  unsigned damageIdx = 9;
+  unsigned BRE = 10;
   // Derive averaged field and material properties at t0 of each time step
   real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP, breP;
   real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM, breM;
@@ -166,7 +174,7 @@ inline void precomputeStressFromQInterpolated(
     exyP += qStrainIPlus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     eyzP += qStrainIPlus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxP += qStrainIPlus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damP += qStrainIPlus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damP += qStrainIPlus[0][damageIdx][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     breP += qStrainIPlus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
 
     exxM += qStrainIMinus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
@@ -175,7 +183,7 @@ inline void precomputeStressFromQInterpolated(
     exyM += qStrainIMinus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     eyzM += qStrainIMinus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxM += qStrainIMinus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damM += qStrainIMinus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damM += qStrainIMinus[0][damageIdx][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     breM += qStrainIMinus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
@@ -256,7 +264,7 @@ inline void precomputeStressFromQInterpolated(
       std::sqrt((muP) / rhoP) / std::sqrt((laP + 2 * muP) / rhoP) * impAndEta.zs / impAndEta.zp;
   impAndEta.csOcpTZsOZpNeig = std::sqrt((muM) / rhoM) / std::sqrt((laM + 2 * muM) / rhoM) *
                               impAndEta.zsNeig / impAndEta.zpNeig;
-
+#endif // USE_damageIdxAGEDELASTIC
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
@@ -278,6 +286,33 @@ inline void precomputeStressFromQInterpolated(
                   qIMinus[o][T2][i] * invZsNeig);
     }
   }
+#else
+  seissol::dynamicRupture::kernel::computeTheta krnl;
+  krnl.extractVelocities = init::extractVelocities::Values;
+  krnl.extractTractions = init::extractTractions::Values;
+
+  // Compute Theta from eq (4.53) in Carsten's thesis
+  krnl.Zplus = impedanceMatrices.impedance;
+  krnl.Zminus = impedanceMatrices.impedanceNeig;
+  krnl.eta = impedanceMatrices.eta;
+
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  krnl.theta = thetaBuffer;
+  auto thetaView = init::theta::view::create(thetaBuffer);
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    krnl.Qplus = qInterpolatedPlus[o];
+    krnl.Qminus = qInterpolatedMinus[o];
+    krnl.execute();
+
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      faultStresses.normalStress[o][i] = thetaView(i, 0);
+      faultStresses.traction1[o][i] = thetaView(i, 1);
+      faultStresses.traction2[o][i] = thetaView(i, 2);
+      faultStresses.fluidPressure[o][i] = thetaView(i, 3);
+    }
+  }
+#endif
 }
 
 /**
@@ -334,6 +369,7 @@ inline void checkAlignmentPostCompute(
  * @param[in] faultStresses
  * @param[in] tractionResults
  * @param[in] impAndEta
+ * @param[in] impedancenceMatrices
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] timeWeights
@@ -345,6 +381,7 @@ inline void postcomputeImposedStateFromNewStress(
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults,
     const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -365,14 +402,16 @@ inline void postcomputeImposedStateFromNewStress(
     interPlus[i] = static_cast<real>(0.0);
     interMinus[i] = static_cast<real>(0.0);
   }
-
+#ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
   const auto invZp = impAndEta.invZp;
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
+#ifdef USE_damageIdxAGEDELASTIC
   const auto csOcpTZsOZp = impAndEta.csOcpTZsOZp;
   const auto csOcpTZsOZpNeig = impAndEta.csOcpTZsOZpNeig;
+#endif
 
   using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
   auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
@@ -386,7 +425,7 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-  unsigned DAM = 9;
+  constexpr unsigned damageIdx = 9;
 
 #ifndef ACL_DEVICE
   checkAlignmentPostCompute(
@@ -423,6 +462,7 @@ inline void postcomputeImposedStateFromNewStress(
       interP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
+#ifdef USE_damageIdxAGEDELASTIC
   // Fill in nonlinear Flux term at the end time integratoon point.
   for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
     real vx, vy, vz; // In global coord.
@@ -488,6 +528,49 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateM[9][i] = 0.0;
     imposedStateM[10][i] = 0.0;
   }
+#endif
+#else // USE_POROELASTIC
+  // setup kernel
+  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
+  krnlM.extractVelocities = init::extractVelocities::Values;
+  krnlM.extractTractions = init::extractTractions::Values;
+  krnlM.mapToVelocities = init::mapToVelocities::Values;
+  krnlM.mapToTractions = init::mapToTractions::Values;
+  krnlM.Zminus = impedanceMatrices.impedanceNeig;
+  krnlM.imposedState = imposedStateMinus;
+
+  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
+  krnlP.extractVelocities = init::extractVelocities::Values;
+  krnlP.extractTractions = init::extractTractions::Values;
+  krnlP.mapToVelocities = init::mapToVelocities::Values;
+  krnlP.mapToTractions = init::mapToTractions::Values;
+  krnlP.Zplus = impedanceMatrices.impedance;
+  krnlP.imposedState = imposedStatePlus;
+
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  auto thetaView = init::theta::view::create(thetaBuffer);
+  krnlM.theta = thetaBuffer;
+  krnlP.theta = thetaBuffer;
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    auto weight = timeWeights[o];
+    // copy values to yateto dataformat
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      thetaView(i, 0) = faultStresses.normalStress[o][i];
+      thetaView(i, 1) = tractionResults.traction1[o][i];
+      thetaView(i, 2) = tractionResults.traction2[o][i];
+      thetaView(i, 3) = faultStresses.fluidPressure[o][i];
+    }
+    // execute kernel (and hence update imposedStatePlus/Minus)
+    krnlM.Qminus = qInterpolatedMinus[o];
+    krnlM.weight = weight;
+    krnlM.execute();
+
+    krnlP.Qplus = qInterpolatedPlus[o];
+    krnlP.weight = weight;
+    krnlP.execute();
+  }
+#endif
 }
 
 /**
@@ -501,8 +584,14 @@ inline void postcomputeImposedStateFromNewStress(
  */
 template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                // See https://github.com/llvm/llvm-project/issues/60163
+                                // NOLINTNEXTLINE
+                                real initialPressure[misc::numPaddedPoints],
+                                const real nucleationPressure[misc::numPaddedPoints],
                                 real fullUpdateTime,
                                 real t0,
                                 real dt,
@@ -521,6 +610,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
       for (unsigned i = 0; i < 6; i++) {
         initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
       }
+      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }
@@ -535,7 +625,11 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime,
@@ -563,7 +657,9 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in, out] peakSlipRate
  */
 template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
+inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real peakSlipRate[misc::numPaddedPoints],
                                    unsigned startIndex = 0) {
 
@@ -629,14 +725,13 @@ inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
-      const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                       interpolatedTraction12 * interpolatedSlipRate2 +
+
+      const auto weight = -timeWeight * spaceWeight * doubledSurfaceArea;
+      frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                        interpolatedTraction13 * interpolatedSlipRate3);
     }
   }

@@ -4,10 +4,10 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
 /**
@@ -17,13 +17,14 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
+      : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model
    */
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                seissol::initializer::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
@@ -57,6 +58,7 @@ class BaseFrictionLaw : public FrictionSolver {
       auto* qStressIMinus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedMinus));
 
       using namespace seissol::dr::misc::quantity_indices;
+#ifdef USE_DAMAGEDELASTIC
       unsigned DAM = 9;
       unsigned BRE = 10;
 
@@ -215,9 +217,11 @@ class BaseFrictionLaw : public FrictionSolver {
           qStressIMinus[o][BRE][i] = qIMinus[o][BRE][i];
         }
       } // time integration loop
+#endif
 
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
+                                                impedanceMatrices[ltsFace],
                                                 qStressInterpolatedPlus,
                                                 qStressInterpolatedMinus,
                                                 qInterpolatedPlus[ltsFace],
@@ -246,6 +250,8 @@ class BaseFrictionLaw : public FrictionSolver {
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
+                                    initialPressure[ltsFace],
+                                    nucleationPressure[ltsFace],
                                     this->mFullUpdateTime,
                                     this->drParameters->t0,
                                     this->deltaT[timeIndex]);
@@ -283,21 +289,25 @@ class BaseFrictionLaw : public FrictionSolver {
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
+                                                   impedanceMatrices[ltsFace],
                                                    imposedStatePlus[ltsFace],
                                                    imposedStateMinus[ltsFace],
+                                                   // TODO(NONLINEAR): unify
                                                    qStressInterpolatedPlus,
                                                    qStressInterpolatedMinus,
                                                    timeWeights);
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
 
-      common::computeFrictionEnergy(energyData[ltsFace],
-                                    qStressInterpolatedPlus,
-                                    qStressInterpolatedMinus,
-                                    impAndEta[ltsFace],
-                                    timeWeights,
-                                    spaceWeights,
-                                    godunovData[ltsFace]);
+      if (this->drParameters->isFrictionEnergyRequired) {
+        common::computeFrictionEnergy(energyData[ltsFace],
+                                      qStressInterpolatedPlus,
+                                      qStressInterpolatedMinus,
+                                      impAndEta[ltsFace],
+                                      timeWeights,
+                                      spaceWeights,
+                                      godunovData[ltsFace]);
+      }
     }
   }
 };

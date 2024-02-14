@@ -39,9 +39,10 @@
 
 #include "PostProcessor.h"
 #include "SeisSol.h"
+#include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep,
-	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
+	seissol::initializer::Layer& i_layerData, const unsigned int l_cell,
 	const double * const i_dofs) {
 
 	real *integrals = i_layerData.var(m_integrals);
@@ -50,10 +51,10 @@ void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep
 	}
 }
 
-void seissol::writer::PostProcessor::setIntegrationMask(const int * const i_integrationMask) {
+void seissol::writer::PostProcessor::setIntegrationMask(const std::array<bool, 9>& i_integrationMask) {
 	unsigned int nextId = 0;
 	for (int i = 0; i < 9; i++) {
-		m_integrationMask[i] = (i_integrationMask[i] > 0);
+		m_integrationMask[i] = i_integrationMask[i];
 		if (m_integrationMask[i]) {
 			m_integerMap.push_back(i);
 			m_numberOfVariables++;
@@ -73,12 +74,12 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
 	}
 }
 
-void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTree* ltsTree) {
-	ltsTree->addVar( m_integrals, seissol::initializers::LayerMask(Ghost), PAGESIZE_HEAP,
+void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTree* ltsTree) {
+	ltsTree->addVar( m_integrals, seissol::initializer::LayerMask(Ghost), PAGESIZE_HEAP,
       seissol::memory::Standard );
 }
 
-const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
+const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializer::LTSTree* ltsTree) {
 	if (m_numberOfVariables == 0) {
 		return 0L;
 	} else {

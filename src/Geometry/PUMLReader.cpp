@@ -38,62 +38,57 @@
 
 #include <algorithm>
 #include <cassert>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 
-#include "PUML/PUML.h"
-#include "PUML/PartitionMetis.h"
+#include "PUMLReader.h"
+#include "PartitioningLib.h"
+
+#include "PUML/Partition.h"
+#include "PUML/PartitionGraph.h"
+#include "PUML/PartitionTarget.h"
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 
-#include "PUMLReader.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
 #include <hdf5.h>
 #include <sstream>
 #include <fstream>
-
-class GlobalFaceSorter {
-  private:
-  const PUML::TETPUML& m_puml;
-
-  public:
-  GlobalFaceSorter(const PUML::TETPUML& puml) : m_puml(puml) {}
-
-  bool operator()(unsigned int a, unsigned int b) const {
-    return m_puml.faces()[a].gid() < m_puml.faces()[b].gid();
-  }
-};
+#include <string_view>
 
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char* meshFile,
-                                double maximumAllowedTimeStep,
-                                const char* checkPointFile,
-                                initializers::time_stepping::LtsWeights* ltsWeights,
-                                double tpwgt,
-                                bool readPartitionFromFile)
-    : MeshReader(MPI::mpi.rank()) {
+seissol::geometry::PUMLReader::PUMLReader(const char* meshFile,
+                                          const char* partitioningLib,
+                                          double maximumAllowedTimeStep,
+                                          const char* checkPointFile,
+                                          initializer::time_stepping::LtsWeights* ltsWeights,
+                                          double tpwgt,
+                                          bool readPartitionFromFile)
+    : seissol::geometry::MeshReader(MPI::mpi.rank()) {
   PUML::TETPUML puml;
   puml.setComm(MPI::mpi.comm());
 
   read(puml, meshFile);
 
+  generatePUML(puml); // We need to call generatePUML in order to create the dual graph of the mesh
   if (ltsWeights != nullptr) {
-    generatePUML(puml);
     ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
   }
-  partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
+  partition(
+      puml, ltsWeights, tpwgt, meshFile, partitioningLib, readPartitionFromFile, checkPointFile);
 
   generatePUML(puml);
 
   getMesh(puml);
 }
 
-void seissol::PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
+void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   std::string file(meshFile);
@@ -101,11 +96,15 @@ void seissol::PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
   puml.addData((file + ":/group").c_str(), PUML::CELL);
   puml.addData((file + ":/boundary").c_str(), PUML::CELL);
+  const auto numTotalCells = puml.numTotalCells();
+  std::vector<int> cellIdsAsInFile(numTotalCells);
+  std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), 0);
+  puml.addData(cellIdsAsInFile.data(), numTotalCells, PUML::CELL);
 }
 
-int seissol::PUMLReader::readPartition(PUML::TETPUML& puml,
-                                       int* partition,
-                                       const char* checkPointFile) {
+int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
+                                                 int* partition,
+                                                 const char* checkPointFile) {
   /*
   write the partionning array to an hdf5 file using parallel access
   see https://support.hdfgroup.org/ftp/HDF5/examples/parallel/coll_test.c for more info about the
@@ -175,9 +174,9 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML& puml,
   return 0;
 }
 
-void seissol::PUMLReader::writePartition(PUML::TETPUML& puml,
-                                         int* partition,
-                                         const char* checkPointFile) {
+void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
+                                                   int* partition,
+                                                   const char* checkPointFile) {
   /*
   write the partionning array to an hdf5 file using parallel access
   see https://support.hdfgroup.org/ftp/HDF5/examples/parallel/coll_test.c for more info about the
@@ -245,69 +244,76 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML& puml,
   H5Fclose(file);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML& puml,
-                                    initializers::time_stepping::LtsWeights* ltsWeights,
-                                    double tpwgt,
-                                    const char* meshFile,
-                                    bool readPartitionFromFile,
-                                    const char* checkPointFile) {
+void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
+                                              initializer::time_stepping::LtsWeights* ltsWeights,
+                                              double tpwgt,
+                                              const char* meshFile,
+                                              const char* partitioningLib,
+                                              bool readPartitionFromFile,
+                                              const char* checkPointFile) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  int* partition = new int[puml.numOriginalCells()];
+  auto doPartition =
+      [&] {
+        auto partType = toPartitionerType(std::string_view(partitioningLib));
+        logInfo(MPI::mpi.rank()) << "Using the" << toStringView(partType)
+                                 << "partition library and strategy.";
+        if (partType == PUML::PartitionerType::None) {
+          logWarning(MPI::mpi.rank())
+              << partitioningLib
+              << "not found. Expect poor performance as the mesh is not properly partitioned.";
+        }
+        auto partitioner = PUML::TETPartition::getPartitioner(partType);
+        if (partitioner == nullptr) {
+          logError() << "Unrecognized partition library: " << partitioningLib;
+        }
+        auto graph = PUML::TETPartitionGraph(puml);
+        graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
-  auto partitionMetis = [&] {
-    PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-    auto* nodeWeights = new double[seissol::MPI::mpi.size()];
-    MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
-    double sum = 0.0;
-    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-      sum += nodeWeights[rk];
-    }
-    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-      nodeWeights[rk] /= sum;
-    }
+        auto nodeWeights = std::vector<double>(MPI::mpi.size());
+        MPI_Allgather(
+            &tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+        double sum = 0.0;
+        for (auto const& w : nodeWeights) {
+          sum += w;
+        }
+        for (auto& w : nodeWeights) {
+          w /= sum;
+        }
 #else
-    tpwgt = 1.0;
-    double* nodeWeights = &tpwgt;
+        auto nodeWeights = std::vector<double>{1.0};
 #endif
 
-    auto status = metis.partition(partition,
-                                  ltsWeights->vertexWeights(),
-                                  ltsWeights->imbalances(),
-                                  ltsWeights->nWeightsPerVertex(),
-                                  nodeWeights);
+        auto target = PUML::PartitionTarget{};
+        target.setVertexWeights(nodeWeights);
+        target.setImbalance(ltsWeights->imbalances()[0] - 1.0);
 
-    if (status == PUML::TETPartitionMetis::Status::Error) {
-      logError() << "mesh partitioning step failed";
-    }
+        return partitioner->partition(graph, target);
+      };
 
-#ifdef USE_MPI
-    delete[] nodeWeights;
-#endif
-  };
-
+  auto newPartition = std::vector<int>();
   if (readPartitionFromFile) {
-    int status = readPartition(puml, &partition[0], checkPointFile);
+    newPartition.resize(puml.numOriginalCells());
+    int status = readPartition(puml, newPartition.data(), checkPointFile);
     if (status < 0) {
-      partitionMetis();
-      writePartition(puml, partition, checkPointFile);
+      newPartition = doPartition();
+      writePartition(puml, newPartition.data(), checkPointFile);
     }
   } else {
-    partitionMetis();
+    newPartition = doPartition();
   }
 
-  puml.partition(partition);
-  delete[] partition;
+  puml.partition(newPartition.data());
 }
 
-void seissol::PUMLReader::generatePUML(PUML::TETPUML& puml) {
+void seissol::geometry::PUMLReader::generatePUML(PUML::TETPUML& puml) {
   SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   puml.generateMesh();
 }
 
-void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
+void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const int rank = MPI::mpi.rank();
@@ -318,8 +324,11 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   const int* group = puml.cellData(0);
   const int* boundaryCond = puml.cellData(1);
+  const int* cellIdsAsInFile = puml.cellData(2);
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
+
+  bool isMeshCorrect = true;
 
   // Compute everything local
   m_elements.resize(cells.size());
@@ -336,6 +345,10 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
     int neighbors[4];
     PUML::Neighbor::face(puml, i, neighbors);
     for (unsigned int j = 0; j < 4; j++) {
+      int bcCurrentFace = (boundaryCond[i] >> (j * 8)) & 0xFF;
+      const bool isLocallyCorrect = checkMeshCorrectnessLocally(
+          faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
+      isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
         m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = cells.size();
 
@@ -375,7 +388,6 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
         m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
       }
 
-      int bcCurrentFace = (boundaryCond[i] >> (j * 8)) & 0xFF;
       int faultTag = bcCurrentFace;
       if (bcCurrentFace > 64) {
         bcCurrentFace = 3;
@@ -387,6 +399,10 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
     m_elements[i].group = group[i];
   }
+  if (!isMeshCorrect) {
+    logError() << "Found at least one broken face in the mesh, see errors above for a more "
+                  "detailled analysis.";
+  }
 
   // Exchange ghost layer information and generate neighbor list
   char** copySide = new char*[neighborInfo.size()];
@@ -397,17 +413,22 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   MPI_Request* requests = new MPI_Request[neighborInfo.size() * 4];
 
   std::unordered_set<unsigned int> t;
+#ifndef NDEBUG
   unsigned int sum = 0;
+#endif
   unsigned int k = 0;
   for (std::unordered_map<int, std::vector<unsigned int>>::iterator it = neighborInfo.begin();
        it != neighborInfo.end();
-       ++it, k++) {
+       ++it, ++k) {
     // Need to sort the neighborInfo vectors once
-    GlobalFaceSorter faceSorter(puml);
-    std::sort(it->second.begin(), it->second.end(), faceSorter);
+    std::sort(it->second.begin(), it->second.end(), [&](unsigned int a, unsigned int b) {
+      return puml.faces()[a].gid() < puml.faces()[b].gid();
+    });
 
     t.insert(it->second.begin(), it->second.end());
+#ifndef NDEBUG
     sum += it->second.size();
+#endif
 
     // Create MPI neighbor list
     addMPINeighor(puml, it->first, it->second);
@@ -461,7 +482,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
               MPI::mpi.comm(),
               &requests[neighborInfo.size() * 3 + k]);
   }
+#ifndef NDEBUG
   assert(t.size() == sum);
+#endif
 
   MPI_Waitall(neighborInfo.size() * 4, requests, MPI_STATUSES_IGNORE);
 
@@ -512,9 +535,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   }
 }
 
-void seissol::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
-                                        int rank,
-                                        const std::vector<unsigned int>& faces) {
+void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
+                                                  int rank,
+                                                  const std::vector<unsigned int>& faces) {
   unsigned int id = m_MPINeighbors.size();
   MPINeighbor& neighbor = m_MPINeighbors[rank];
 
@@ -529,9 +552,9 @@ void seissol::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
   }
 }
 
-int seissol::PUMLReader::FACE_PUML2SEISSOL[4] = {0, 1, 3, 2};
+int seissol::geometry::PUMLReader::FACE_PUML2SEISSOL[4] = {0, 1, 3, 2};
 
-int seissol::PUMLReader::FACEVERTEX2ORIENTATION[4][4] = {
+int seissol::geometry::PUMLReader::FACEVERTEX2ORIENTATION[4][4] = {
     {0, 2, 1, -1}, {0, 1, -1, 2}, {0, -1, 2, 1}, {-1, 0, 1, 2}};
 
-int seissol::PUMLReader::FIRST_FACE_VERTEX[4] = {0, 0, 0, 1};
+int seissol::geometry::PUMLReader::FIRST_FACE_VERTEX[4] = {0, 0, 0, 1};

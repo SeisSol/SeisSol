@@ -74,8 +74,8 @@
 #include <utils/logger.h>
 #include <Parallel/MPI.h>
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
-                                        MeshReader const& mesh,
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
+                                        seissol::geometry::MeshReader const& mesh,
                                         unsigned numPoints,
                                         short* contained,
                                         unsigned* meshIds) {
@@ -87,7 +87,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
               meshIds);
 }
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
                                         std::vector<Vertex> const& vertices,
                                         std::vector<Element> const& elements,
                                         unsigned numPoints,
@@ -181,7 +181,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
 }
 
 #ifdef USE_MPI
-void seissol::initializers::cleanDoubles(short* contained, unsigned numPoints)
+void seissol::initializer::cleanDoubles(short* contained, unsigned numPoints)
 {
   int myrank = seissol::MPI::mpi.rank();
   int size = seissol::MPI::mpi.size();

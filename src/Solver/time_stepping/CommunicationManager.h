@@ -6,19 +6,20 @@
 #include <thread>
 #include <vector>
 #include <Parallel/Pin.h>
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
-#include "Solver/time_stepping/GhostTimeCluster.h"
 
 namespace seissol::time_stepping {
-
 class AbstractCommunicationManager {
 public:
-  using ghostClusters_t = std::vector<std::unique_ptr<GhostTimeCluster>>;
+  using ghostClusters_t = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset(double newSyncTime);
 
   virtual ~AbstractCommunicationManager() = default;
+
+  ghostClusters_t* getGhostClusters();
 
 protected:
   explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);

@@ -5,7 +5,7 @@
 #include <limits>
 #include <utility>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 struct ConditionalKey {
   ConditionalKey(size_t kernel,
                  size_t type = std::numeric_limits<size_t>::max(),
@@ -44,6 +44,6 @@ struct ConditionalHash<ConditionalKey> {
     return result;
   }
 };
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #endif // SEISSOL_CONDITIONALKEY_HPP

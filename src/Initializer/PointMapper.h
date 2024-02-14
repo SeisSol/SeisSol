@@ -44,13 +44,13 @@
 #include <Eigen/Dense>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     /** Finds the tetrahedrons that contain the points.
      *  In "contained" we save if the point source is contained in the mesh.
      *  We use short here as bool. For MPI use cleanDoubles afterwards.
      */
     void findMeshIds( Eigen::Vector3d const*  points,
-                      MeshReader const& mesh,
+                      seissol::geometry::MeshReader const& mesh,
                       unsigned          numPoints,
                       short*            contained,
                       unsigned*         meshId );

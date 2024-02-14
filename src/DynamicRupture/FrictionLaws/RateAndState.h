@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(DRParameters* drParameters)
+  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
@@ -27,12 +27,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
         faultStresses, stateVariableBuffer, timeIndex, ltsFace);
-    std::array<real, misc::numPaddedPoints> absoluteShearStress =
+    const std::array<real, misc::numPaddedPoints> absoluteShearStress =
         std::move(initialVariables.absoluteShearTraction);
     std::array<real, misc::numPaddedPoints> localSlipRate =
         std::move(initialVariables.localSlipRate);
     std::array<real, misc::numPaddedPoints> normalStress = std::move(initialVariables.normalStress);
-    std::array<real, misc::numPaddedPoints> stateVarReference =
+    const std::array<real, misc::numPaddedPoints> stateVarReference =
         std::move(initialVariables.stateVarReference);
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
@@ -78,10 +78,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializer::LTSRateAndState const* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
@@ -226,13 +226,23 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   faultStresses.traction1[timeIndex][pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
                                   faultStresses.traction2[timeIndex][pointIndex];
-      // update stress change
-      this->traction1[ltsFace][pointIndex] =
-          (totalTraction1 / absoluteTraction[pointIndex]) * strength -
-          this->initialStressInFaultCS[ltsFace][pointIndex][3];
-      this->traction2[ltsFace][pointIndex] =
-          (totalTraction2 / absoluteTraction[pointIndex]) * strength -
-          this->initialStressInFaultCS[ltsFace][pointIndex][5];
+
+      const auto divisor =
+          strength + this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
+      this->slipRate1[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction1 / divisor;
+      this->slipRate2[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction2 / divisor;
+
+      // calculate traction
+      tractionResults.traction1[timeIndex][pointIndex] =
+          faultStresses.traction1[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
+      tractionResults.traction2[timeIndex][pointIndex] =
+          faultStresses.traction2[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
+      this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+      this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
 
       // Compute slip
       // ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed
@@ -240,35 +250,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           this->slipRateMagnitude[ltsFace][pointIndex] * this->deltaT[timeIndex];
 
-      // Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate
-      // caused by a free surface!)
-      this->slipRate1[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->traction1[ltsFace][pointIndex] - faultStresses.traction1[timeIndex][pointIndex]);
-      this->slipRate2[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->traction2[ltsFace][pointIndex] - faultStresses.traction2[timeIndex][pointIndex]);
-
-      // correct slipRate1 and slipRate2 to avoid numerical errors
-      const real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
-                                                        this->slipRate2[ltsFace][pointIndex]);
-      if (locSlipRateMagnitude != 0) {
-        this->slipRate1[ltsFace][pointIndex] *=
-            this->slipRateMagnitude[ltsFace][pointIndex] / locSlipRateMagnitude;
-        this->slipRate2[ltsFace][pointIndex] *=
-            this->slipRateMagnitude[ltsFace][pointIndex] / locSlipRateMagnitude;
-      }
-
-      // Save traction for flux computation
-      tractionResults.traction1[timeIndex][pointIndex] = this->traction1[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] = this->traction2[ltsFace][pointIndex];
-
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=
           this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];
       this->slip2[ltsFace][pointIndex] +=
           this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
-    } // End of BndGP-loop
+    }
   }
 
   void saveDynamicStressOutput(unsigned int face) {
@@ -353,12 +340,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           FaultStresses const& faultStresses,
                           size_t timeIndex,
                           size_t ltsFace) {
+    // Todo(SW): consider poroelastic materials together with thermal pressurisation
 #pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              this->tpMethod.getFluidPressure(ltsFace, pointIndex));
+                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+                                              faultStresses.fluidPressure[timeIndex][pointIndex] +
+                                              this->initialPressure[ltsFace][pointIndex] -
+                                              tpMethod.getFluidPressure(ltsFace, pointIndex));
     }
   }
 

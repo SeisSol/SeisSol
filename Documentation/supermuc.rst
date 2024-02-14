@@ -105,7 +105,7 @@ Install SeisSol with cmake, e.g. with (more options with ccmake)
 .. code-block:: bash
 
    mkdir build-release && cd build-release
-   cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM ..
+   cmake -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM ..
    make -j 48
 
 Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
@@ -173,7 +173,7 @@ to the amount of nodes you want to run on. A rule of thumb for optimal performan
   export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
   #Prevents errors such as experience in Issue #691
-  export I_MPI_SHM_HEAP_VSIZE=8192
+  export I_MPI_SHM_HEAP_VSIZE=32768
 
   export XDMFWRITER_ALIGNMENT=8388608
   export XDMFWRITER_BLOCK_SIZE=8388608
@@ -185,7 +185,7 @@ to the amount of nodes you want to run on. A rule of thumb for optimal performan
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS 'cpus_per_task:' $SLURM_CPUS_PER_TASK
+  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 

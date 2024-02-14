@@ -3,12 +3,15 @@
 
 #include "LtsWeights.h"
 
+namespace seissol {
+  class SeisSol;
 
-namespace seissol::initializers::time_stepping {
+namespace initializer::time_stepping {
 
 class ExponentialWeights : public LtsWeights {
 public:
-  explicit ExponentialWeights(const LtsWeightsConfig &config) : LtsWeights(config) {}
+  explicit ExponentialWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
+      : LtsWeights(config, seissolInstance) {}
   ~ExponentialWeights() override = default;
 
 protected:
@@ -20,7 +23,9 @@ protected:
 
 class ExponentialBalancedWeights : public LtsWeights {
 public:
-  explicit ExponentialBalancedWeights(const LtsWeightsConfig &config) : LtsWeights(config) {
+  explicit ExponentialBalancedWeights(const LtsWeightsConfig& config,
+                                      seissol::SeisSol& seissolInstance) 
+      : LtsWeights(config, seissolInstance) {
   }
   ~ExponentialBalancedWeights() override = default;
 
@@ -33,8 +38,9 @@ protected:
 
 class EncodedBalancedWeights : public LtsWeights {
 public:
-  explicit EncodedBalancedWeights(const LtsWeightsConfig &config) : LtsWeights(config) {
-  }
+  explicit EncodedBalancedWeights(const LtsWeightsConfig& config,
+                                  seissol::SeisSol& seissolInstance)
+      : LtsWeights(config, seissolInstance) {}
   ~EncodedBalancedWeights() override = default;
 
 protected:
@@ -42,6 +48,7 @@ protected:
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
+}
 }
 
 #endif //SEISSOL_LTSWEIGHTSMODELS_H

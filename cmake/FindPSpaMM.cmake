@@ -16,7 +16,7 @@
 
 include(FindPackageHandleStandardArgs)
 
-find_program(PSpaMM_PROGRAM pspamm.py
+find_program(PSpaMM_PROGRAM pspamm-generator pspamm.py
   HINTS ENV PSpaMM_DIR
   DOC "Directory where the PSpaMM python script is located"
 )

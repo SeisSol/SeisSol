@@ -85,13 +85,16 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
+		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
+		std::string extraIntVarName = "locationFlag";
 
-		m_xdmfWriter->init(variables, std::vector<const char*>());
+		m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str());
 		m_xdmfWriter->setMesh(nCells,
 		                      static_cast<const unsigned int*>(info.buffer(CELLS)),
 		                      nVertices,
 		                      static_cast<const double*>(info.buffer(VERTICES)),
 		                      param.timestep != 0);
+		setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LOCATIONFLAGS)));
 
 		logInfo(rank) << "Initializing free surface output. Done.";
 	}

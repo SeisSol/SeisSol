@@ -134,6 +134,45 @@ function(git_describe _var)
 	set(${_var} "${out}" PARENT_SCOPE)
 endfunction()
 
+function(get_git_commit_info _varHash _varTimestamp)
+	if(NOT GIT_FOUND)
+		find_package(Git QUIET)
+	endif()
+	get_git_head_revision(refspec hash)
+	if(NOT GIT_FOUND)
+		set(${_varHash} "GIT-NOTFOUND" PARENT_SCOPE)
+		set(${_varTimestamp} "0000-00-00T00:00:00+00:00" PARENT_SCOPE)
+		return()
+	endif()
+	if(NOT hash)
+		set(${_varHash} "HEAD-HASH-NOTFOUND" PARENT_SCOPE)
+		set(${_varTimestamp} "0000-00-00T00:00:00+00:00" PARENT_SCOPE)
+		return()
+	endif()
+
+	execute_process(COMMAND
+		"${GIT_EXECUTABLE}" show -s --format=%H%cI
+		WORKING_DIRECTORY
+		"${CMAKE_CURRENT_SOURCE_DIR}"
+		RESULT_VARIABLE
+		res
+		OUTPUT_VARIABLE
+		out
+		ERROR_QUIET
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	
+	if(NOT res EQUAL 0)
+		set(outHash "${out}-${res}-NOTFOUND")
+		set(outTimestamp "${out}-${res}-NOTFOUND")
+	else()
+	string(SUBSTRING "${out}" 0 40 outHash)
+		string(SUBSTRING "${out}" 40 25 outTimestamp)
+	endif()
+
+	set(${_varHash} "${outHash}" PARENT_SCOPE)
+	set(${_varTimestamp} "${outTimestamp}" PARENT_SCOPE)
+endfunction()
+
 function(git_get_exact_tag _var)
 	git_describe(out --exact-match ${ARGN})
 	set(${_var} "${out}" PARENT_SCOPE)

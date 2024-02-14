@@ -54,6 +54,8 @@
 
 struct GlobalData;
 namespace seissol {
+  class SeisSol;
+
   namespace kernels {
     struct Receiver {
       Receiver(unsigned pointId,
@@ -80,20 +82,23 @@ namespace seissol {
 
     class ReceiverCluster {
     public:
-      ReceiverCluster()
+      ReceiverCluster(seissol::SeisSol& seissolInstance)
         : m_nonZeroFlops(0), m_hardwareFlops(0),
-          m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
+          m_samplingInterval(1.0e99), m_syncPointInterval(0.0),
+          seissolInstance(seissolInstance)
       {}
 
       ReceiverCluster(  GlobalData const*             global,
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
                         double                        syncPointInterval,
-                        bool                          computeRotation)
+                        bool                          computeRotation,
+                        seissol::SeisSol&             seissolInstance)
         : m_quantities(quantities),
           m_samplingInterval(samplingInterval),
           m_syncPointInterval(syncPointInterval),
-          m_computeRotation(computeRotation){
+          m_computeRotation(computeRotation),
+          seissolInstance(seissolInstance) {
         m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
@@ -101,9 +106,9 @@ namespace seissol {
       void addReceiver( unsigned          meshId,
                         unsigned          pointId,
                         Eigen::Vector3d   const& point,
-                        MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
+                        seissol::geometry::MeshReader const& mesh,
+                        seissol::initializer::Lut const& ltsLut,
+                        seissol::initializer::LTS const& lts );
 
       //! Returns new receiver time
       double calcReceivers( double time,
@@ -130,6 +135,7 @@ namespace seissol {
       }
 
     private:
+      seissol::SeisSol& seissolInstance;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;

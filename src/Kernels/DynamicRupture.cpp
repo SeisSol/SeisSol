@@ -47,6 +47,7 @@
 #include <generated_code/kernel.h>
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Quadrature.h>
+#include <Numerical_aux/BasisFunction.h>
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -106,6 +107,10 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
   // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+#ifdef USE_STP
+    double tau = timePoints[point];
+    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER, tau);
+#endif
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
@@ -138,13 +143,18 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+#ifdef USE_STP
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
+#else
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+#endif
 
         // Derive stress solutions from strain
     alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
-
+#ifdef USE_DAMAGEDELASTIC
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
     d_converToKrnl.QNodal = dofsNPlus;
@@ -154,6 +164,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_converToKrnl.QNodal = dofsNMinus;
     d_converToKrnl.Q = degreesOfFreedomMinus;
     d_converToKrnl.execute();
+#endif
 
     alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
@@ -219,6 +230,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     real dofsStressPlus[tensor::Q::size()]{};
     real dofsStressMinus[tensor::Q::size()]{};
 
+#ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
@@ -228,6 +240,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_convertBackKrnl.FNodal = dofsStressNMinus;
     d_convertBackKrnl.dQModal = dofsStressMinus;
     d_convertBackKrnl.execute();
+#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
@@ -256,7 +269,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
@@ -285,8 +298,9 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
                                                  maxNumElements);
     }
 
-    device.api->fastStreamsSync(); // finish all previous work in the default stream
+    // finish all previous work in the default stream
     size_t streamCounter{0};
+    device.api->forkCircularStreamsFromDefault();
     for (unsigned side = 0; side < 4; ++side) {
       ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
       if (table.find(plusSideKey) != table.end()) {
@@ -330,7 +344,6 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
     }
     resetDeviceCurrentState(streamCounter);
   }
-  device.api->synchDevice();
 #else
   assert(false && "no implementation provided");
 #endif

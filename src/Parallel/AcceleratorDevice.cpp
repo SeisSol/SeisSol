@@ -6,8 +6,6 @@
 
 namespace seissol {
 void AcceleratorDevice::bindSyclDevice(int deviceId) {
-  std::ostringstream info;
-
   try {
 #ifdef __DPCPP_COMPILER
     syclDevice = sycl::device(sycl::gpu_selector_v);
@@ -19,7 +17,11 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
     syclDevice = sycl::device(sycl::cpu_selector());
 #endif // __DPCPP_COMPILER
   } catch (sycl::exception const& err) {
-    info << "[SYCL] " << err.what() << "; ";
+    {
+      std::ostringstream warn;
+      warn << "SYCL error: " << err.what();
+      warnMessages.push_back(warn.str());
+    }
 #ifdef __DPCPP_COMPILER
     syclDevice = sycl::device(sycl::cpu_selector_v);
 #else
@@ -27,11 +29,10 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 #endif
   }
 
-  info << "[SYCL] GPU device: " << std::boolalpha << syclDevice.is_gpu() << "; ";
-  info << "[SYCL] Using Device: " << syclDevice.get_info<sycl::info::device::name>();
-
-  const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << info.str();
+  std::ostringstream info;
+  info << "SYCL device for Dynamic Rupture and Point sources (GPU: " << std::boolalpha
+       << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
+  infoMessages.push_back(info.str());
 
   sycl::property_list property{sycl::property::queue::in_order()};
   syclDefaultQueue = sycl::queue(syclDevice, property);
@@ -39,15 +40,26 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-
-#ifdef _OPENMP
-#pragma omp parallel
   {
-#pragma omp critical
-    { device.api->setDevice(deviceId); }
+    std::ostringstream info;
+    info << "Device API: " << device.api->getApiName();
+    infoMessages.push_back(info.str());
   }
-#else
+  {
+    std::ostringstream info;
+    info << "Device (rank=0): " << device.api->getDeviceName(deviceId);
+    infoMessages.push_back(info.str());
+  }
   device.api->setDevice(deviceId);
-#endif
+}
+
+void AcceleratorDevice::printInfo() {
+  const auto rank = seissol::MPI::mpi.rank();
+  for (const auto& warn : warnMessages) {
+    logWarning(rank) << warn.c_str();
+  }
+  for (const auto& info : infoMessages) {
+    logInfo(rank) << info.c_str();
+  }
 }
 } // namespace seissol

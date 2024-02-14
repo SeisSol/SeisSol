@@ -46,6 +46,10 @@ class DamagedElasticADERDG(ADERDGBase):
 
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+  def addAdditionalTerms(self, i, derivativeSum):
+    if i==1:
+      derivativeSum += self.dQModal['kp']
+
   def numberOfQuantities(self):
     return 11
 

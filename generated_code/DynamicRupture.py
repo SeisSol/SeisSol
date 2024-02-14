@@ -44,6 +44,7 @@ from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from copy import deepcopy
+import numpy as np
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
@@ -119,16 +120,49 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
+  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3), alignStride=True)
   tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
-  frictionalEnergy = Tensor('frictionalEnergy', ())
-  timeWeight = Scalar('timeWeight')
+  staticFrictionalWork = Tensor('staticFrictionalWork', ())
+  minusSurfaceArea = Scalar('minusSurfaceArea')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
-  generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
+  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
+  generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
+
+  ## Dynamic Rupture Precompute
+  qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  qMinus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+
+  extractVelocitiesSPP = aderdg.extractVelocities()
+  extractVelocities = Tensor('extractVelocities', extractVelocitiesSPP.shape, spp=extractVelocitiesSPP)
+  extractTractionsSPP = aderdg.extractTractions()
+  extractTractions = Tensor('extractTractions', extractTractionsSPP.shape, spp=extractTractionsSPP)
+
+  N = extractTractionsSPP.shape[0]
+  eta = Tensor('eta', (N,N))
+  zPlus = Tensor('Zplus', (N,N))
+  zMinus = Tensor('Zminus', (N,N))
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (numberOfPoints, N), alignStride=True)
+
+  velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
+  tractionsPlus = extractTractions['mn'] * qPlus['in']
+  tractionsMinus = extractTractions['mn'] * qMinus['in']
+  computeTheta = theta['ik'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
+  generator.add('computeTheta', computeTheta)
+
+  mapToVelocitiesSPP = aderdg.mapToVelocities()
+  mapToVelocities = Tensor('mapToVelocities', mapToVelocitiesSPP.shape, spp=mapToVelocitiesSPP)
+  mapToTractionsSPP = aderdg.mapToTractions()
+  mapToTractions = Tensor('mapToTractions', mapToTractionsSPP.shape, spp=mapToTractionsSPP)
+  imposedState = OptionalDimTensor('imposedState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  weight = Scalar('weight')
+  computeImposedStateM = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qMinus['im'] - zMinus['lm'] * theta['im'] + zMinus['lm'] * tractionsMinus) + weight * mapToTractions['kl'] * theta['il']
+  computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']
+  generator.add('computeImposedStateM', computeImposedStateM)
+  generator.add('computeImposedStateP', computeImposedStateP)
+
 
   return {db.resample, db.quadpoints, db.quadweights}

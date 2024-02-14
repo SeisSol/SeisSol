@@ -1,19 +1,19 @@
-#include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <unordered_map>
+#include <cstring>
 
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                                seissol::initializers::LTS* userWpDescr,
-                                seissol::initializers::Lut* userWpLut,
-                                seissol::initializers::LTSTree* userDrTree,
-                                seissol::initializers::DynamicRupture* userDrDescr) {
+void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
+                                seissol::initializer::LTS* userWpDescr,
+                                seissol::initializer::Lut* userWpLut,
+                                seissol::initializer::LTSTree* userDrTree,
+                                seissol::initializer::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
@@ -26,26 +26,83 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+#ifdef ACL_DEVICE // okay
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else  // ACL_DEVICE
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif // ACL_DEVICE
 }
 
 void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
+#ifdef ACL_DEVICE // okay
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else  // ACL_DEVICE
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+#endif // ACL_DEVICE
 }
 
-void ReceiverOutput::calcFaultOutput(const OutputType type,
-                                     std::shared_ptr<ReceiverOutputData> outputData,
-                                     const GeneralParams& generalParams,
-                                     double time) {
+void ReceiverOutput::allocateMemory(
+    const std::vector<std::shared_ptr<ReceiverOutputData>>& states) {
+#ifdef ACL_DEVICE // okay
+  std::size_t maxCellCount = 0;
+  for (const auto& state : states) {
+    if (state) {
+      maxCellCount = std::max(state->cellCount, maxCellCount);
+    }
+  }
+  deviceCopyMemory =
+      reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(real) * tensor::Q::size() * maxCellCount));
+#endif // ACL_DEVICE
+}
 
-  const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
+ReceiverOutput::~ReceiverOutput() {
+  if (deviceCopyMemory != nullptr) {
+#ifdef ACL_DEVICE // okay
+    device::DeviceInstance::getInstance().api->freePinnedMem(deviceCopyMemory);
+#endif // ACL_DEVICE
+    deviceCopyMemory = nullptr;
+  }
+}
+
+void ReceiverOutput::calcFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    std::shared_ptr<ReceiverOutputData> outputData,
+    double time) {
+
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
   const auto faultInfos = meshReader->getFault();
 
+#ifdef ACL_DEVICE // okay
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for
+#endif // defined(_OPENMP) && !NVHPC_AVOID_OMP
+  if (outputData->cellCount > 0) {
+    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(outputData->deviceDataPtr,
+                                                                          deviceCopyMemory,
+                                                                          tensor::Q::size(),
+                                                                          tensor::Q::size(),
+                                                                          outputData->cellCount,
+                                                                          stream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  }
+#endif // ACL_DEVICE
+
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for
+#endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -66,16 +123,28 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    real dofsPlus[tensor::Q::size()]{};
-    getDofs(dofsPlus, faultInfo.element);
+#ifdef ACL_DEVICE
+    {
+      real* dofsPlusData = deviceCopyMemory + tensor::Q::size() * outputData->deviceDataPlus[i];
+      real* dofsMinusData = deviceCopyMemory + tensor::Q::size() * outputData->deviceDataMinus[i];
 
-    real dofsMinus[tensor::Q::size()]{};
+      std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
+      std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+    }
+#else
+    getDofs(dofsPlus, faultInfo.element);
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
+    seissol::dr::ImpedancesAndEta* impAndEtaGet =
+        &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+
+    real dofsStressPlus[tensor::Q::size()]{};
+    real dofsStressMinus[tensor::Q::size()]{};
+#ifdef USE_DAMAGEDELASTIC
     // Derive stress solutions from strain
     real dofsNPlus[tensor::Q::size()]{};
     real dofsNMinus[tensor::Q::size()]{};
@@ -92,10 +161,6 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     real dofsStressNPlus[tensor::Q::size()]{};
     real dofsStressNMinus[tensor::Q::size()]{};
-
-    seissol::dr::ImpedancesAndEta* impAndEtaGet =
-        &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-
     // TODO(NONLINEAR) What are these numbers?
     real epsInitxx = 3.7986e-4;  // eps_xx0
     real epsInityy = -1.0383e-3; // eps_yy0
@@ -303,9 +368,6 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
           dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
-
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
@@ -315,7 +377,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     d_convertBackKrnl.FNodal = dofsStressNMinus;
     d_convertBackKrnl.dQModal = dofsStressMinus;
     d_convertBackKrnl.execute();
+#endif // USE_DAMAGEDELASTIC
 
+#endif
     const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
@@ -385,12 +449,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    switch (generalParams.slipRateOutputType) {
-    case SlipRateOutputType::TractionsAndFailure: {
+    switch (slipRateOutputType) {
+    case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
-    case SlipRateOutputType::VelocityDifference: {
+    case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
       this->computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
@@ -426,9 +490,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData->vars);
     if (normalVelocity.isActive) {
-      // normalVelocity(level, i) = local.faultNormalVelocity;
+#ifndef USE_DAMAGEDELASTIC
+      normalVelocity(level, i) = local.faultNormalVelocity;
+#else
       normalVelocity(level, i) =
           std::max(local.faceAlignedValuesPlus[9], local.faceAlignedValuesMinus[9]);
+#endif
     }
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
@@ -456,9 +523,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
     if (ruptureVelocity.isActive) {
       auto& jacobiT2d = outputData->jacobianT2d[i];
-      // ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d, local);
+#ifndef USE_DAMAGEDELASTIC
+      ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d, local);
+#else
       ruptureVelocity(level, i) =
           std::max(local.faceAlignedValuesPlus[10], local.faceAlignedValuesMinus[10]);
+#endif
     }
 
     auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
@@ -497,7 +567,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     this->outputSpecifics(outputData, local, level, i);
   }
 
-  if (type == OutputType::AtPickpoint) {
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
     outputData->currentCacheLevel += 1;
   }
@@ -621,8 +691,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = local.layer->var(drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
-      real chi = chiTau2dPoints(jBndGP, 0);
-      real tau = chiTau2dPoints(jBndGP, 1);
+      const real chi = chiTau2dPoints(jBndGP, 0);
+      const real tau = chiTau2dPoints(jBndGP, 1);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {

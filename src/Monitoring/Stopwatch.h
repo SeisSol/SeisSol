@@ -66,10 +66,10 @@ inline double seconds(long long time) { return 1.0e-9 * time; }
  */
 class Stopwatch {
   private:
-  struct timespec m_start;
+  struct timespec startTime;
 
   /** Time already spent */
-  long long m_time;
+  long long time;
 
   public:
   /**
@@ -77,101 +77,50 @@ class Stopwatch {
    *
    * resets the Stopwatch
    */
-  Stopwatch() : m_time(0) {}
+  Stopwatch();
 
   /**
    * Destructor
    */
-  ~Stopwatch() {}
+  ~Stopwatch() = default;
 
   /**
    * Reset the stopwatch to zero
    */
-  void reset() { m_time = 0; }
+  void reset();
 
   /**
    * starts the time measuring
    */
-  void start() { clock_gettime(CLOCK_MONOTONIC, &m_start); }
+  void start();
 
   /**
    * get time measuring
    *
    * @return measured time (until now) in seconds
    */
-  double split() {
-    struct timespec end;
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    return seconds(difftime(m_start, end));
-  }
+  double split();
 
   /**
    * pauses the measuring
    *
    * @return measured time (until now) in seconds
    */
-  double pause() {
-    struct timespec end;
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    m_time += difftime(m_start, end);
-    return seconds(m_time);
-  }
+  double pause();
 
   /**
    * stops time measuring
    *
    * @return measured time in seconds
    */
-  double stop() {
-    double time = pause();
-    reset();
-    return time;
-  }
+  double stop();
 
   /**
    * Collective operation, printing avg, min and max time
    */
-  void printTime(const char* text
-#ifdef USE_MPI
-                 ,
-                 MPI_Comm comm = MPI_COMM_NULL
-#endif // USE_MPI
-  ) {
-    int rank = 0;
-    double avg = seconds(m_time);
+  void printTime(const char* text, MPI_Comm comm = MPI_COMM_NULL) const;
 
-#ifdef USE_MPI
-    double min = seconds(m_time);
-    double max = seconds(m_time);
-
-    if (comm == MPI_COMM_NULL)
-      comm = seissol::MPI::mpi.comm();
-
-    MPI_Comm_rank(comm, &rank);
-
-    if (rank == 0) {
-      MPI_Reduce(MPI_IN_PLACE, &avg, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-      MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-      MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
-
-      int size;
-      MPI_Comm_size(comm, &size);
-      avg /= size;
-    } else {
-      MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-      MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-      MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
-    }
-#endif // USE_MPI
-
-    logInfo(rank) << text << avg
-#ifdef USE_MPI
-                  << "(min:" << utils::nospace << min << ", max: " << max << ')'
-#endif // USE_MPI
-        ;
-  }
+  static void print(const char* text, double time, MPI_Comm comm = MPI_COMM_NULL);
 };
 
 } // namespace seissol

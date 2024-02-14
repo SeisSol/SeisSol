@@ -6,7 +6,6 @@
 #include <fstream>
 #include <iostream>
 
-#include "Solver/Interoperability.h"
 #include "Physics/InitialField.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
@@ -16,9 +15,9 @@
 
 #include <Geometry/MeshReader.h>
 
-extern seissol::Interoperability e_interoperability;
-
-namespace seissol::writer {
+namespace seissol {
+  class SeisSol;
+namespace writer {
 class CsvAnalysisWriter {
 public:
   CsvAnalysisWriter(std::string fileName);
@@ -38,22 +37,25 @@ private:
   std::string fileName;
 };
 
-  class AnalysisWriter {
+class AnalysisWriter {
 private:
+    seissol::SeisSol& seissolInstance;
+
     struct data {
       double val;
       int rank;
     };
 
     bool isEnabled; // TODO(Lukas) Do we need this?
-    const MeshReader* meshReader;
+    const seissol::geometry::MeshReader* meshReader;
 
     std::string fileName;
 public:
-  AnalysisWriter() :
-    isEnabled(false) { }
+  AnalysisWriter(seissol::SeisSol& seissolInstance) :
+    seissolInstance(seissolInstance),
+    isEnabled(false) {}
 
-    void init(const MeshReader* meshReader,
+    void init(const seissol::geometry::MeshReader* meshReader,
               std::string_view fileNamePrefix) {
       isEnabled = true;
       this->meshReader = meshReader;
@@ -64,6 +66,6 @@ public:
     void printAnalysis(double simulationTime);
   }; // class AnalysisWriter
 
-
-} // namespace seissol::writer
+} // namespace writer
+} // namespace seissol
 #endif // ANALYSISWRITER_H

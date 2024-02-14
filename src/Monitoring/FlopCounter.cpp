@@ -43,6 +43,7 @@
  * Counts the floating point operations in SeisSol.
  **/
 
+#include "Unit.hpp"
 #include <cassert>
 #include <fstream>
 
@@ -59,15 +60,18 @@ namespace seissol::monitoring {
 
 void FlopCounter::init(std::string outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
+  const int rank = seissol::MPI::mpi.rank();
   const int worldSize = seissol::MPI::mpi.size();
-  out.open(outputFileName);
-  out << "time,";
-  for (size_t i = 0; i < worldSize - 1; ++i) {
-    out << "rank_" << i << "_accumulated,";
-    out << "rank_" << i << "_current,";
+  if (rank == 0) {
+    out.open(outputFileName);
+    out << "time,";
+    for (size_t i = 0; i < worldSize - 1; ++i) {
+      out << "rank_" << i << "_accumulated,";
+      out << "rank_" << i << "_current,";
+    }
+    out << "rank_" << worldSize - 1 << "_accumulated,";
+    out << "rank_" << worldSize - 1 << "_current" << std::endl;
   }
-  out << "rank_" << worldSize - 1 << "_accumulated,";
-  out << "rank_" << worldSize - 1 << "_current" << std::endl;
 }
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
@@ -85,40 +89,34 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const double accumulatedGflopsPerSecond = newTotalFlops * 1.e-9 / wallTime;
   const double previousGflopsPerSecond = diffFlops * 1.e-9 / diffTime;
 
-  double accumulatedGflopsPerSecondOnRanks[worldSize];
-  double previousGflopsPerSecondOnRanks[worldSize];
-  MPI_Gather(&accumulatedGflopsPerSecond,
-             1,
-             MPI_DOUBLE,
-             accumulatedGflopsPerSecondOnRanks,
-             1,
-             MPI_DOUBLE,
-             0,
-             seissol::MPI::mpi.comm());
-  MPI_Gather(&previousGflopsPerSecond,
-             1,
-             MPI_DOUBLE,
-             previousGflopsPerSecondOnRanks,
-             1,
-             MPI_DOUBLE,
-             0,
-             seissol::MPI::mpi.comm());
+  auto accumulatedGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(accumulatedGflopsPerSecond);
+  auto previousGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(previousGflopsPerSecond);
 
   if (rank == 0) {
     double accumulatedGflopsSum = 0;
     double previousGflopsSum = 0;
+#ifdef _OPENMP
+#pragma omp simd reduction(+ : accumulatedGflopsSum, previousGflopsSum)
+#endif
     for (size_t i = 0; i < worldSize; i++) {
       accumulatedGflopsSum += accumulatedGflopsPerSecondOnRanks[i];
       previousGflopsSum += previousGflopsPerSecondOnRanks[i];
     }
     const auto accumulatedGflopsPerRank = accumulatedGflopsSum / seissol::MPI::mpi.size();
     const auto previousGflopsPerRank = previousGflopsSum / seissol::MPI::mpi.size();
-    logInfo(rank) << "Performance since the start:" << accumulatedGflopsSum * 1.e-3 << "TFLOP/s"
-                  << "(rank 0:" << accumulatedGflopsPerSecond
-                  << "GFLOP/s, average over ranks:" << accumulatedGflopsPerRank << "GFLOP/s)";
-    logInfo(rank) << "Performance since last sync point:" << previousGflopsSum * 1.e-3 << "TFLOP/s"
-                  << "(rank 0:" << previousGflopsPerSecond
-                  << "GFLOP/s, average over ranks:" << previousGflopsPerRank << "GFLOP/s)";
+
+    // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
+    logInfo(rank) << "Performance since the start:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsSum * 1e9).c_str() << "(rank 0:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecond * 1e9).c_str()
+                  << ", average over ranks:"
+                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerRank * 1e9).c_str() << ")";
+    logInfo(rank) << "Performance since last sync point:"
+                  << UnitFlopPerS.formatPrefix(previousGflopsSum * 1e9).c_str()
+                  << "(rank 0:" << UnitFlopPerS.formatPrefix(previousGflopsPerSecond * 1e9).c_str()
+                  << ", average over ranks:"
+                  << UnitFlopPerS.formatPrefix(previousGflopsPerRank * 1e9).c_str() << ")";
+
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
       out << accumulatedGflopsPerSecondOnRanks[i] << ",";
@@ -166,31 +164,45 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
 #endif
 
 #ifndef NDEBUG
-  logInfo(rank) << "Total    libxsmm HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
-  logInfo(rank) << "Total     pspamm HW-GFLOP: " << totalFlops[Pspamm] * 1.e-9;
+  logInfo(rank) << "Total    libxsmm HW-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();
+  logInfo(rank) << "Total     pspamm HW-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[Pspamm]).c_str();
 #endif
-  logInfo(rank) << "Total calculated HW-GFLOP: "
-                << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                    totalFlops[PLHardwareFlops]) *
-                       1.e-9;
-  logInfo(rank) << "Total calculated NZ-GFLOP: "
-                << (totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                    totalFlops[PLNonZeroFlops]) *
-                       1.e-9;
-  logInfo(rank) << "Total calculated HW-GFLOP/s: "
-                << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                    totalFlops[PLHardwareFlops]) *
-                       1.e-9 / wallTime;
-  logInfo(rank) << "Total calculated NZ-GFLOP/s: "
-                << (totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                    totalFlops[PLNonZeroFlops]) *
-                       1.e-9 / wallTime;
-  logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;
-  logInfo(rank) << "WP calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]) * 1.e-9;
-  logInfo(rank) << "DR calculated HW-GFLOP: " << (totalFlops[DRHardwareFlops]) * 1.e-9;
-  logInfo(rank) << "DR calculated NZ-GFLOP: " << (totalFlops[DRNonZeroFlops]) * 1.e-9;
-  logInfo(rank) << "PL calculated HW-GFLOP: " << (totalFlops[PLHardwareFlops]) * 1.e-9;
-  logInfo(rank) << "PL calculated NZ-GFLOP: " << (totalFlops[PLNonZeroFlops]) * 1.e-9;
+  logInfo(rank) << "Total calculated HW-FLOP: "
+                << UnitFlop
+                       .formatPrefix(totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
+                                     totalFlops[PLHardwareFlops])
+                       .c_str();
+  logInfo(rank) << "Total calculated NZ-FLOP: "
+                << UnitFlop
+                       .formatPrefix(totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
+                                     totalFlops[PLNonZeroFlops])
+                       .c_str();
+  logInfo(rank) << "Total calculated HW-FLOP/s: "
+                << UnitFlopPerS
+                       .formatPrefix((totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
+                                      totalFlops[PLHardwareFlops]) /
+                                     wallTime)
+                       .c_str();
+  logInfo(rank) << "Total calculated NZ-FLOP/s: "
+                << UnitFlopPerS
+                       .formatPrefix((totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
+                                      totalFlops[PLNonZeroFlops]) /
+                                     wallTime)
+                       .c_str();
+  logInfo(rank) << "WP calculated HW-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[WPHardwareFlops]).c_str();
+  logInfo(rank) << "WP calculated NZ-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[WPNonZeroFlops]).c_str();
+  logInfo(rank) << "DR calculated HW-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[DRHardwareFlops]).c_str();
+  logInfo(rank) << "DR calculated NZ-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[DRNonZeroFlops]).c_str();
+  logInfo(rank) << "PL calculated HW-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[PLHardwareFlops]).c_str();
+  logInfo(rank) << "PL calculated NZ-FLOP: "
+                << UnitFlop.formatPrefix(totalFlops[PLNonZeroFlops]).c_str();
 }
 void FlopCounter::incrementNonZeroFlopsLocal(long long update) {
   assert(update >= 0);

@@ -7,6 +7,7 @@
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2023, Intel corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,11 +46,37 @@
 #include <cstdlib>
 #include <array>
 #include <vector>
-#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
 #include <generated_code/tensor.h>
+#include <cstdint>
 
-namespace seissol {
-namespace sourceterm {
+#ifdef ACL_DEVICE
+#include "Device/UsmAllocator.h"
+#endif
+
+namespace seissol::sourceterm {
+#ifdef ACL_DEVICE
+using AllocatorT = device::UsmAllocator<real>;
+#else
+using AllocatorT = std::allocator<real>;
+#endif
+template <typename T>
+using VectorT =
+    std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
+
+template <typename T, std::size_t N>
+class AlignedArray {
+  public:
+  inline T* data() { return data_; }
+  inline T const* data() const { return data_; }
+  constexpr T& operator[](std::size_t pos) { return data_[pos]; }
+  constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+  constexpr std::size_t size() const noexcept { return N; }
+
+  private:
+  alignas(ALIGNMENT) T data_[N];
+};
+
 /** Models point sources of the form
  *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
  * where S(t) : t -> \mathbb R is the moment time history,
@@ -62,12 +89,12 @@ struct PointSources {
   constexpr static unsigned TensorSize =
       (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
   enum Mode { NRF, FSRM };
-  enum Mode mode;
+  enum Mode mode = NRF;
 
   /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
-   * the l-th basis function and xi_s, eta_s, and zeta_s are the space position of the point source
-   * in the reference tetrahedron. */
-  real (*mInvJInvPhisAtSources)[tensor::mInvJInvPhisAtSources::size()];
+   * the l-th basis function and xi_s, eta_s, and zeta_s are the space position
+   *  of the point source in the reference tetrahedron. */
+  VectorT<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
 
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -75,13 +102,22 @@ struct PointSources {
    * 6-8: NormalX-Z = fault normal
    *
    * FSRM: Moment tensor */
-  real (*tensor)[TensorSize];
+  VectorT<AlignedArray<real, TensorSize>> tensor;
 
   /// Area
-  std::vector<real> A;
+  VectorT<real> A;
 
   /// elasticity tensor
-  std::vector<std::array<real, 81>> stiffnessTensor;
+  VectorT<std::array<real, 81>> stiffnessTensor;
+
+  /// onset time
+  VectorT<double> onsetTime;
+
+  /// sampling interval
+  VectorT<double> samplingInterval;
+
+  /// offset into slip rate vector
+  std::array<VectorT<std::size_t>, 3u> sampleOffsets;
 
   /** NRF: slip rate in
    * 0: Tan1 direction
@@ -89,17 +125,22 @@ struct PointSources {
    * 2: Normal direction
    *
    * FSRM: 0: slip rate (all directions) */
-  std::vector<std::array<PiecewiseLinearFunction1D, 3>> slipRates;
+  std::array<VectorT<real>, 3u> sample;
 
   /** Number of point sources in this struct. */
-  unsigned numberOfSources;
+  unsigned numberOfSources = 0;
 
-  PointSources() : mode(NRF), mInvJInvPhisAtSources(nullptr), tensor(nullptr), numberOfSources(0) {}
-  ~PointSources() {
-    numberOfSources = 0;
-    free(mInvJInvPhisAtSources);
-    free(tensor);
-  }
+  PointSources(AllocatorT const& alloc)
+      : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
+        tensor(decltype(tensor)::allocator_type(alloc)), A(alloc),
+        stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
+        onsetTime(decltype(onsetTime)::allocator_type(alloc)),
+        samplingInterval(decltype(samplingInterval)::allocator_type(alloc)),
+        sampleOffsets{VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
+                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
+                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc))},
+        sample{VectorT<real>(alloc), VectorT<real>(alloc), VectorT<real>(alloc)} {}
+  ~PointSources() { numberOfSources = 0; }
 };
 
 struct CellToPointSourcesMapping {
@@ -118,21 +159,12 @@ struct CellToPointSourcesMapping {
 };
 
 struct ClusterMapping {
-  unsigned* sources;
-  unsigned numberOfSources;
-  CellToPointSourcesMapping* cellToSources;
-  unsigned numberOfMappings;
+  VectorT<unsigned> sources;
+  VectorT<CellToPointSourcesMapping> cellToSources;
 
-  ClusterMapping()
-      : sources(nullptr), numberOfSources(0), cellToSources(nullptr), numberOfMappings(0) {}
-  ~ClusterMapping() {
-    delete[] sources;
-    numberOfSources = 0;
-    delete[] cellToSources;
-    numberOfMappings = 0;
-  }
+  ClusterMapping(AllocatorT const& alloc)
+      : sources(alloc), cellToSources(decltype(cellToSources)::allocator_type(alloc)) {}
 };
-} // namespace sourceterm
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 #endif

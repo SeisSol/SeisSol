@@ -49,6 +49,8 @@ from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 from yateto.memory import CSCMemoryLayout
+from yateto.util import create_collection
+
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -117,15 +119,13 @@ class ADERDGBase(ABC):
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
-      group_indices=range(4),
+      group_indices=simpleParameterSpace(4),
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
 
     selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    # TODO(NONLINEAR): Switch order of quantities
-    # selectVelocitySpp[6:9,0:3] = np.eye(3)
-    selectVelocitySpp[7:10,0:3] = np.eye(3)
+    selectVelocitySpp[6:9,0:3] = np.eye(3)
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
     self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
@@ -159,6 +159,26 @@ class ADERDGBase(ABC):
 
   def transformation_inv_spp(self):
     return self.godunov_spp()
+
+  def extractVelocities(self):
+    extractVelocitiesSPP = np.zeros((3, self.numberOfQuantities()))
+    extractVelocitiesSPP[0, 6] = 1
+    extractVelocitiesSPP[1, 7] = 1
+    extractVelocitiesSPP[2, 8] = 1
+    return extractVelocitiesSPP
+
+  def mapToVelocities(self):
+    return self.extractVelocities().T
+
+  def extractTractions(self):
+    extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+    extractTractionsSPP[0, 0] = 1
+    extractTractionsSPP[1, 3] = 1
+    extractTractionsSPP[2, 5] = 1
+    return extractTractionsSPP
+
+  def mapToTractions(self):
+    return self.extractTractions().T
 
   @abstractmethod
   def numberOfQuantities(self):
@@ -219,6 +239,9 @@ class ADERDGBase(ABC):
 
 class LinearADERDG(ADERDGBase):
 
+  def addAdditionalTerms(self, i, derivativeSum):
+    pass
+
   def sourceMatrix(self):
     return None
 
@@ -249,14 +272,6 @@ class LinearADERDG(ADERDGBase):
       volume = (self.Q['kp'] <= volumeSum)
       generator.add(f'{name_prefix}volume', volume, target=target)
 
-      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-      localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-      generator.addFamily(f'{name_prefix}localFlux',
-                          simpleParameterSpace(4),
-                          localFlux,
-                          localFluxPrefetch,
-                          target=target)
-
       localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
       localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
       generator.addFamily(f'{name_prefix}localFluxNodal',
@@ -265,16 +280,48 @@ class LinearADERDG(ADERDGBase):
                           localFluxNodalPrefetch,
                           target=target)
 
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily(f'localFlux',
+                        simpleParameterSpace(4),
+                        localFlux,
+                        localFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      plusFluxMatrixAccessor = lambda i: self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')]
+      if self.kwargs['enable_premultiply_flux']:
+        contractionResult = tensor_collection_from_constant_expression('plusFluxMatrices', plusFluxMatrixAccessor, simpleParameterSpace(4), target_indices='kl')
+        self.db.update(contractionResult)
+        plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]['kl']
+
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + plusFluxMatrixAccessor(i) * self.I['lq'] * self.AplusT['qp']
+      generator.addFamily(f'gpu_localFlux',
+                          simpleParameterSpace(4),
+                          localFlux,
+                          target='gpu')
+
   def addNeighbor(self, generator, targets):
-    for target in targets:
-      name_prefix = generate_kernel_name_prefix(target)
-      neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-      neighbourFluxPrefetch = lambda h,j,i: self.I
-      generator.addFamily(f'{name_prefix}neighboringFlux',
+    neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighborFluxPrefetch = lambda h, j, i: self.I
+    generator.addFamily(f'neighboringFlux',
+                        simpleParameterSpace(3, 4, 4),
+                        neighborFlux,
+                        neighborFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      minusFluxMatrixAccessor = lambda h, j, i: self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')]
+      if self.kwargs['enable_premultiply_flux']:
+        contractionResult = tensor_collection_from_constant_expression('minusFluxMatrices', minusFluxMatrixAccessor, simpleParameterSpace(3,4,4), target_indices='kl')
+        self.db.update(contractionResult)
+        minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[h,j,i]['kl']
+
+      neighborFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + minusFluxMatrixAccessor(h, j, i) * self.I['lq'] * self.AminusT['qp']
+      generator.addFamily(f'gpu_neighboringFlux',
                           simpleParameterSpace(3,4,4),
-                          neighbourFlux,
-                          neighbourFluxPrefetch,
-                          target=target)
+                          neighborFlux,
+                          target='gpu')
 
   def addTime(self, generator, targets):
     for target in targets:
@@ -297,8 +344,7 @@ class LinearADERDG(ADERDGBase):
         for j in range(3):
           derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
         ## nonlinear source term
-        if i==1:
-          derivativeSum += self.dQModal['kp']
+        self.addAdditionalTerms(i, derivativeSum)
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)

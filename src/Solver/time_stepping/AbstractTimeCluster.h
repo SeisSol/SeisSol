@@ -21,6 +21,7 @@ protected:
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
 
+  [[nodiscard]] double timeStepSize() const;
   [[nodiscard]] double getMaxTimeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
@@ -47,6 +48,7 @@ public:
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
+  virtual void finalize();
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
@@ -81,9 +83,7 @@ public:
    * @return the pointer to the vector of neighbor clusters.
    */
   std::vector<NeighborCluster>* getNeighborClusters();
-  double getMaxTimeStepSize();
 
-  [[nodiscard]] double timeStepSize() const;
 };
 
 }

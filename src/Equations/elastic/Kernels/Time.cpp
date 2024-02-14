@@ -153,7 +153,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
                                          real* o_timeDerivatives,
-                                         double startTime,
                                          bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
@@ -183,6 +182,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
+
+  #ifdef USE_DAMAGEDELASTIC
   real epsInitxx = 3.7986e-4; // eps_xx0
   real epsInityy = -1.0383e-3; // eps_yy0
   real epsInitzz = -1.0072e-3; // eps_zz0
@@ -191,12 +192,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInitzx = -0e-1; // eps_zx0
 
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-
   real const break_coeff = 1e2*damage_para1;
   real const beta_alpha = 0.05;
-
   kernel::damageConvertToNodal d_converToKrnl;
-  #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions
   alignas(PAGESIZE_STACK) real solNData[tensor::QNodal::size()];
   d_converToKrnl.v = init::v::Values;
@@ -311,7 +309,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
+#ifdef USE_DAMAGEDELASTIC
   krnl.dQModal = dQModalData;
+#endif
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
@@ -366,7 +366,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
             tmp.nodalAvgDisplacements[face].data(),
             *this,
             derivativesBuffer,
-            startTime,
             i_timeStepWidth,
             data.material,
             data.cellInformation.faceTypes[face]
@@ -381,7 +380,6 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,
                                                 ConditionalMaterialTable &materialTable,
-                                                double startTime,
                                                 bool updateDisplacement) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
@@ -452,7 +450,6 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                           *this,
                           dataTable,
                           materialTable,
-                          startTime,
                           i_timeStepWidth,
                           device);
     }

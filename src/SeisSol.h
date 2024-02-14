@@ -48,10 +48,12 @@
 #include "utils/logger.h"
 
 #include "Checkpoint/Manager.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
 #include "Parallel/Pin.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/EnergyOutput.h"
@@ -64,97 +66,23 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
-class MeshReader;
-
 namespace seissol {
+
+namespace geometry {
+class MeshReader;
+} // namespace geometry
 
 /**
  * @todo Initialize rank
  */
 class SeisSol {
-  private:
-  // Note: This HAS to be the first member so that it is initialized before all others!
-  // Otherwise it will NOT work.
-  // The reason for this is simple yet weird:
-  // MPI sets the affinity mask for the process
-  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
-  // => Initialize it first, to avoid this.
-  parallel::Pinning pinning;
-
-  /** The name of the parameter file */
-  std::string m_parameterFile;
-
-  GravitationSetup gravitationSetup;
-
-  /** Async I/O handler (needs to be initialize before other I/O modules) */
-  io::AsyncIO m_asyncIO;
-
-  MeshReader* m_meshReader;
-
-  /*
-   * initializers
-   */
-  initializers::time_stepping::LtsLayout m_ltsLayout;
-
-  std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
-
-  //! time manager
-  time_stepping::TimeManager m_timeManager;
-
-  //! simulator
-  Simulator m_simulator;
-
-  /** Check pointing module */
-  checkpoint::Manager m_checkPointManager;
-
-  /** Source term module */
-  sourceterm::Manager m_sourceTermManager;
-
-  /** PostProcessor module **/
-  writer::PostProcessor m_postProcessor;
-
-  /** Free surface integrator module **/
-  solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
-
-  /** Free surface writer module **/
-  writer::FreeSurfaceWriter m_freeSurfaceWriter;
-
-  /** Analysis writer module **/
-  writer::AnalysisWriter m_analysisWriter;
-
-  /** Wavefield output module */
-  writer::WaveFieldWriter m_waveFieldWriter;
-
-  /** Fault output module */
-  writer::FaultWriter m_faultWriter;
-
-  //! Receiver writer module
-  writer::ReceiverWriter m_receiverWriter;
-
-  //! Energy writer module
-  writer::EnergyOutput m_energyOutput;
-
-  //! Input parameters
-  std::shared_ptr<YAML::Node> m_inputParams;
-
-  //! Flop Counter
-  monitoring::FlopCounter m_flopCounter;
-
-  private:
-  /**
-   * Only one instance of this class should exist (private constructor).
-   */
-  SeisSol() : m_meshReader(0L) {
-    m_memoryManager = std::make_unique<initializers::MemoryManager>();
-  }
-
   public:
-  const parallel::Pinning& getPinning() { return pinning; }
-
   /**
    * Cleanup data structures
    */
   virtual ~SeisSol() { delete m_meshReader; }
+
+  const parallel::Pinning& getPinning() { return pinning; }
 
   /**
    * Initialize C++ part of the program
@@ -166,11 +94,9 @@ class SeisSol {
    */
   void finalize();
 
-  const char* parameterFile() const { return m_parameterFile.c_str(); }
+  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
-  initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
-
-  initializers::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
@@ -216,13 +142,22 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+  /**
+   * Reference for timeMirrorManagers to be accessed externally when required
+   */
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>&
+      getTimeMirrorManagers() {
+    return timeMirrorManagers;
+  }
 
   /**
    * Set the mesh reader
    */
-  void setMeshReader(MeshReader* meshReader) {
-    if (m_meshReader != 0L)
+  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
+    if (m_meshReader != nullptr) {
       logError() << "Mesh reader already initialized";
+    }
 
     m_meshReader = meshReader;
   }
@@ -240,16 +175,16 @@ class SeisSol {
   /**
    * Get the mesh reader
    */
-  const MeshReader& meshReader() const { return *m_meshReader; }
+  const seissol::geometry::MeshReader& meshReader() const { return *m_meshReader; }
 
   /**
    * Get the mesh reader
    */
-  MeshReader& meshReader() { return *m_meshReader; }
+  seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  void readInputParams();
-
-  const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
+  seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+    return m_seissolParameters;
+  }
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
@@ -260,9 +195,97 @@ class SeisSol {
 
   GravitationSetup& getGravitationSetup() { return gravitationSetup; }
 
+  /*
+   * sets a time stamp for backuping
+   * */
+  void setBackupTimeStamp(const std::string& stamp);
+
+  /*
+   * returns the backup time stamp
+   * */
+  const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
+
+  private:
+  // Note: This HAS to be the first member so that it is initialized before all others!
+  // Otherwise it will NOT work.
+  // The reason for this is simple yet weird:
+  // MPI sets the affinity mask for the process
+  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
+  // => Initialize it first, to avoid this.
+  parallel::Pinning pinning;
+
+  //! Collection of Parameters
+  seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+
+  //! Gravitation setup for tsunami boundary condition
+  GravitationSetup gravitationSetup;
+
+  //! Async I/O handler (needs to be initialize before other I/O modules)
+  io::AsyncIO m_asyncIO;
+
+  //! Mesh Reader
+  seissol::geometry::MeshReader* m_meshReader;
+
+  //! Lts Layout
+  initializer::time_stepping::LtsLayout m_ltsLayout;
+
+  //! Memory Manager
+  std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
+
+  //! Time Manager
+  time_stepping::TimeManager m_timeManager;
+
+  //! Simulator
+  Simulator m_simulator;
+
+  //! Check pointing module
+  checkpoint::Manager m_checkPointManager;
+
+  //! Source term module
+  sourceterm::Manager m_sourceTermManager;
+
+  //! PostProcessor module
+  writer::PostProcessor m_postProcessor;
+
+  //! Free surface integrator module
+  solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
+
+  //! Free surface writer module
+  writer::FreeSurfaceWriter m_freeSurfaceWriter;
+
+  //! Analysis writer module
+  writer::AnalysisWriter m_analysisWriter;
+
+  //! Wavefield output module
+  writer::WaveFieldWriter m_waveFieldWriter;
+
+  //! Fault output module
+  writer::FaultWriter m_faultWriter;
+
+  //! Receiver writer module
+  writer::ReceiverWriter m_receiverWriter;
+
+  //! Energy writer module
+  writer::EnergyOutput m_energyOutput;
+
+  //! Flop Counter
+  monitoring::FlopCounter m_flopCounter;
+
+  //! TimeMirror Managers
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>
+      timeMirrorManagers;
+
+  //! time stamp which can be used for backuping files of previous runs
+  std::string m_backupTimeStamp{};
+
   public:
-  /** The only instance of this class; the main C++ functionality */
-  static SeisSol main;
+  SeisSol(initializer::parameters::SeisSolParameters& parameters)
+      : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
+        m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
+        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
+        m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
+        m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
 };
 
 } // namespace seissol

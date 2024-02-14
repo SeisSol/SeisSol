@@ -50,24 +50,24 @@
 #include <Initializer/Boundary.h>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
       class EasiBoundary;
       /**
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
       **/
-     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,
+     void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
                                        Lut*                   i_ltsLut,
                                        TimeStepping const&    timeStepping );
                                        
-     void initializeBoundaryMappings(MeshReader const& i_meshReader,
+     void initializeBoundaryMappings(seissol::geometry::MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,
                                      LTSTree* io_ltsTree,
                                      LTS* i_lts,
                                      Lut* i_ltsLut);
  
-     void initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,                                                    
+     void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,                                                    
                                             LTSTree*               io_ltsTree,
                                             LTS*                   i_lts,
                                             Lut*                   i_ltsLut,

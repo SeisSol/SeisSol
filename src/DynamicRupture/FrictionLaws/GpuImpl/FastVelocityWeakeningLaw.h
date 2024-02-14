@@ -11,14 +11,14 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture const* const dynRup,
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      seissol::initializer::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
-    using SelfInitializerType = seissol::initializers::LTSRateAndStateFastVelocityWeakening;
+    using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
     auto* concreteLts = dynamic_cast<SelfInitializerType const* const>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW);
 
@@ -30,9 +30,9 @@ class FastVelocityWeakeningLaw
     decltype(FastVelocityWeakeningLaw::a) a;
     decltype(FastVelocityWeakeningLaw::sl0) sl0;
     decltype(FastVelocityWeakeningLaw::srW) srW;
-    decltype(dr::DRParameters::rsSr0) rsSr0;
-    decltype(dr::DRParameters::rsF0) rsF0;
-    decltype(dr::DRParameters::rsB) rsB;
+    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
+    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
+    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
   };
 
   Details getCurrentLtsLayerDetails() {
@@ -64,21 +64,21 @@ class FastVelocityWeakeningLaw
         const double localSrW = details.srW[ltsFace][pointIndex];
         const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
 
-        const real lowVelocityFriction =
+        const double lowVelocityFriction =
             details.rsF0 - (details.rsB - localA) * sycl::log(localSlipRate / details.rsSr0);
 
-        const real steadyStateFrictionCoefficient =
+        const double steadyStateFrictionCoefficient =
             muW + (lowVelocityFriction - muW) /
                       sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
-        const real steadyStateStateVariable =
+        const double steadyStateStateVariable =
             localA * sycl::log(details.rsSr0 / localSlipRate *
                                (sycl::exp(steadyStateFrictionCoefficient / localA) -
                                 sycl::exp(-steadyStateFrictionCoefficient / localA)));
 
-        const real exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
-        const real localStateVariable = steadyStateStateVariable * (1.0 - exp1) +
-                                        exp1 * devStateVarReference[ltsFace][pointIndex];
+        const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
+        const double localStateVariable = steadyStateStateVariable * (1.0 - exp1) +
+                                          exp1 * devStateVarReference[ltsFace][pointIndex];
 
         devStateVariableBuffer[ltsFace][pointIndex] = localStateVariable;
       });
@@ -91,7 +91,7 @@ class FastVelocityWeakeningLaw
                          size_t ltsFace,
                          size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
-    const real x =
+    const double x =
         0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA) * localSlipRateMagnitude;
     return localA * sycl::asinh(x);
   }
@@ -102,8 +102,8 @@ class FastVelocityWeakeningLaw
                                    size_t ltsFace,
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
-    const real c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
@@ -134,8 +134,7 @@ class FastVelocityWeakeningLaw
           resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
         }
 
-        devStateVariable[ltsFace][pointIndex] =
-            sycl::max(static_cast<real>(0.0), localStateVariable + resampledDeltaStateVar);
+        devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
       });
     });
   }

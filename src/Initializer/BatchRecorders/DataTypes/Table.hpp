@@ -12,7 +12,7 @@
 #include <array>
 #include <vector>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 
 template <typename Type>
 class GenericTableEntry {
@@ -50,7 +50,7 @@ class GenericTableEntry {
   }
 
   PointerType getDeviceDataPtr() {
-    assert(devicePtrs != nullptr && "requested batch has not been recorded");
+    assert(deviceDataPtr != nullptr && "requested batch has not been recorded");
     return deviceDataPtr;
   }
 
@@ -97,16 +97,16 @@ using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
 using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #else  // ACL_DEVICE
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 // Provide a dummy implementations for a pure CPU execution
 struct PointersToRealsTable {};
 struct DrPointersToRealsTable {};
 struct MaterialTable {};
 struct IndicesTable {};
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 #endif // ACL_DEVICE
 
 #endif // SEISSOL_POINTERSTABLE_HPP

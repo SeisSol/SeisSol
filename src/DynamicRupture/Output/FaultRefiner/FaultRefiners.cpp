@@ -1,30 +1,23 @@
 #include "FaultRefiners.hpp"
-#include "DynamicRupture/Output/OutputAux.hpp"
-#include "utils/logger.h"
+
 #include <memory>
 
+#include "utils/logger.h"
+
+#include "DynamicRupture/Output/OutputAux.hpp"
+#include "Initializer/Parameters/OutputParameters.h"
+
 namespace seissol::dr::output::refiner {
-RefinerType castToRefinerType(int strategy) {
+std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy) {
   switch (strategy) {
-  case 1:
-    return RefinerType::Triple;
-  case 2:
-    return RefinerType::Quad;
+  case seissol::initializer::parameters::FaultRefinement::Triple:
+    return std::make_unique<FaultFaceTripleRefiner>();
+  case seissol::initializer::parameters::FaultRefinement::Quad:
+    return std::make_unique<FaultFaceQuadRefiner>();
+  case seissol::initializer::parameters::FaultRefinement::None:
+    return std::make_unique<NoRefiner>();
   default:
     logError() << "Unknown refinement strategy for Fault Face Refiner";
-    // return something to suppress a compiler warning
-    return RefinerType::Invalid;
-  }
-}
-
-std::unique_ptr<FaultRefiner> get(RefinerType strategy) {
-  switch (strategy) {
-  case RefinerType::Triple:
-    return std::make_unique<FaultFaceTripleRefiner>();
-  case RefinerType::Quad:
-    return std::make_unique<FaultFaceQuadRefiner>();
-  case RefinerType::Invalid:
-  default:
     return nullptr;
   }
 }
@@ -33,10 +26,10 @@ void FaultRefiner::repeatRefinement(Data data,
                                     PointsPair& point1,
                                     PointsPair& point2,
                                     PointsPair& point3) {
-  ExtTriangle subGlobalFace(
+  const ExtTriangle subGlobalFace(
       std::get<global>(point1), std::get<global>(point2), std::get<global>(point3));
 
-  ExtTriangle subReferenceFace(
+  const ExtTriangle subReferenceFace(
       std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
 
   auto updatedData = data;
@@ -57,6 +50,8 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
 
   points.push_back(receiver);
 }
+
+void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }
 
 void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 

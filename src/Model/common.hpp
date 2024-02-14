@@ -48,6 +48,7 @@
 #include "generated_code/init.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical_aux/Transformation.h"
+#include "Numerical_aux/Eigenvalues.h"
 
 #include "Model/common_datastructures.hpp"
 
@@ -65,6 +66,9 @@ namespace seissol {
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
                                                 T& E) {}
+
+    template <typename Tmaterial>
+    seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> getEigenDecomposition (Tmaterial const& material, double zeroThreshold=1e-7);
 
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
@@ -172,6 +176,58 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
       QgodLocal(v, v) = 1.0;
     }
 }
+
+template <typename Tmaterial>
+seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> seissol::model::getEigenDecomposition (Tmaterial const& material, double zeroThreshold) {
+  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
+  auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  getTransposedCoefficientMatrix(material, 0, ATView);
+  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
+  //transpose AT to get A
+  for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
+      A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
+    }
+  }
+  seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair;
+  seissol::eigenvalues::computeEigenvaluesWithEigen3(A, eigenpair);
+#ifndef NDEBUG
+  using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+  using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
+  CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
+  CVector eigenvalues = CVector(eigenpair.values.data());
+  //check number of eigenvalues
+  //also check that the imaginary parts are zero
+  int evNeg = 0;
+  int evPos = 0;
+  for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
+    if (eigenvalues(i).real() < -zeroThreshold) {
+      ++evNeg;
+    } else if (eigenvalues(i).real() > zeroThreshold) {
+      ++evPos;
+    }
+  }
+  assert(evNeg == 3);
+  assert(evPos == 3);
+
+  //check whether eigensolver is good enough
+  CMatrix coeff(A.data());
+  const CMatrix matrixMult = coeff * eigenvectors;
+  CMatrix eigenvalueMatrix = CMatrix::Zero();
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    eigenvalueMatrix(i,i) = eigenvalues(i);
+  }
+  const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
+  const CMatrix diff = matrixMult - vectorMult;
+  const double norm = diff.norm();
+
+  std::stringstream messageStream;
+  messageStream << "Residual " << norm << " is larger than " << zeroThreshold << ": Eigensolver is not accurate enough";
+  assert((messageStream.str().c_str(), norm < zeroThreshold));
+#endif
+  return eigenpair;
+};
 
 template<typename T, typename Tmatrix>
 void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
