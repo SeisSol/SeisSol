@@ -112,7 +112,7 @@ inline void precomputeStressFromQInterpolated(
   auto invZsNeig = impAndEta.invZsNeig;
 
 // TODO(NONLINEAR): unify
-#ifdef USE_damageIdxAGEDELASTIC
+#ifdef USE_DAMAGEDELASTIC
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
@@ -135,7 +135,7 @@ inline void precomputeStressFromQInterpolated(
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-#ifdef USE_damageIdxAGEDELASTIC
+#ifdef USE_DAMAGEDELASTIC
   auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
   auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
   unsigned damageIdx = 9;
@@ -264,7 +264,7 @@ inline void precomputeStressFromQInterpolated(
       std::sqrt((muP) / rhoP) / std::sqrt((laP + 2 * muP) / rhoP) * impAndEta.zs / impAndEta.zp;
   impAndEta.csOcpTZsOZpNeig = std::sqrt((muM) / rhoM) / std::sqrt((laM + 2 * muM) / rhoM) *
                               impAndEta.zsNeig / impAndEta.zpNeig;
-#endif // USE_damageIdxAGEDELASTIC
+#endif // USE_DAMAGEDELASTIC
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
@@ -389,18 +389,12 @@ inline void postcomputeImposedStateFromNewStress(
     const double timeWeights[CONVERGENCE_ORDER],
     unsigned startIndex = 0) {
 
-  // set imposed state to zero
-  real interPlus[tensor::QInterpolated::size()];
-  real interMinus[tensor::QInterpolated::size()];
-
   using QInterpolatedRange = typename QInterpolated<Type>::Range;
   for (auto index = QInterpolatedRange::start; index < QInterpolatedRange::end;
        index += QInterpolatedRange::step) {
     auto i{startIndex + index};
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
-    interPlus[i] = static_cast<real>(0.0);
-    interMinus[i] = static_cast<real>(0.0);
   }
 #ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
@@ -408,14 +402,7 @@ inline void postcomputeImposedStateFromNewStress(
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
-#ifdef USE_damageIdxAGEDELASTIC
-  const auto csOcpTZsOZp = impAndEta.csOcpTZsOZp;
-  const auto csOcpTZsOZpNeig = impAndEta.csOcpTZsOZpNeig;
-#endif
-
   using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
-  auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
-  auto* interM = reinterpret_cast<ImposedStateShapeT>(interMinus);
 
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
@@ -447,22 +434,53 @@ inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      interM[N][i] += weight * normalStress;
-      interM[T1][i] += weight * traction1;
-      interM[T2][i] += weight * traction2;
-      interM[U][i] += weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      interM[V][i] += weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      interM[W][i] += weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
+      imposedStateM[N][i] += weight * normalStress;
+      imposedStateM[T1][i] += weight * traction1;
+      imposedStateM[T2][i] += weight * traction2;
+      imposedStateM[U][i] +=
+          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
+      imposedStateM[V][i] +=
+          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
+      imposedStateM[W][i] +=
+          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      interP[N][i] += weight * normalStress;
-      interP[T1][i] += weight * traction1;
-      interP[T2][i] += weight * traction2;
-      interP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      interP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      interP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+      imposedStateP[N][i] += weight * normalStress;
+      imposedStateP[T1][i] += weight * traction1;
+      imposedStateP[T2][i] += weight * traction2;
+      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
-#ifdef USE_damageIdxAGEDELASTIC
+#ifdef USE_DAMAGEDELASTIC
+  const auto csOcpTZsOZp = impAndEta.csOcpTZsOZp;
+  const auto csOcpTZsOZpNeig = impAndEta.csOcpTZsOZpNeig;
+
+  real interPlus[tensor::QInterpolated::size()];
+  real interMinus[tensor::QInterpolated::size()];
+  auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
+  auto* interM = reinterpret_cast<ImposedStateShapeT>(interMinus);
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
+       index += NumPointsRange::step) {
+    auto i{startIndex + index};
+    interM[N][i] = imposedStateM[N][i];
+    interM[T1][i] = imposedStateM[T1][i];
+    interM[T2][i] = imposedStateM[T2][i];
+    interM[U][i] = imposedStateM[U][i];
+    interM[V][i] = imposedStateM[V][i];
+    interM[W][i] = imposedStateM[W][i];
+
+    interP[N][i] = imposedStateP[N][i];
+    interP[T1][i] = imposedStateP[T1][i];
+    interP[T2][i] = imposedStateP[T2][i];
+    interP[U][i] = imposedStateP[U][i];
+    interP[V][i] = imposedStateP[V][i];
+    interP[W][i] = imposedStateP[W][i];
+  }
+
   // Fill in nonlinear Flux term at the end time integratoon point.
   for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
     real vx, vy, vz; // In global coord.
