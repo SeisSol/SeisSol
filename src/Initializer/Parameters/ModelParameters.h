@@ -73,6 +73,7 @@ struct DamagedElasticParameters{
   real aB1;
   real aB2;
   real aB3;
+  real scalingvalue;
 };
 #endif
 

@@ -407,7 +407,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
 
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-    real const break_coeff = 1e2*damage_para1;
+    real const scaling_value = damagedElasticParameters.scalingvalue;
+    real const break_coeff = scaling_value*damage_para1;
     real const beta_alpha = damagedElasticParameters.beta_alpha;
 
     real aB0 = damagedElasticParameters.aB0;

@@ -47,13 +47,14 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
     const auto aB1 = reader->readWithDefault<real>("aB1", -12.14e9);
     const auto aB2 = reader->readWithDefault<real>("aB2", 18.93e9);
     const auto aB3 = reader->readWithDefault<real>("aB3", -5.067e9);
+    const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 1e2);
 
     if(!isModelNonLinear){
       reader->markUnused(
-          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "aB0", "aB1", "aB2", "aB3"});
+          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "aB0", "aB1", "aB2", "aB3", "scalingvalue"});
     }
     return DamagedElasticParameters{
-      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3};
+      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3, scalingvalue};
 }
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
