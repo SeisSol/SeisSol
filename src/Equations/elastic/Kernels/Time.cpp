@@ -253,7 +253,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real alphaCRq = 1.0;
     if (alphaCR1q > 0.0){
       if (alphaCR2q > 0.0){
-        alphaCRq = std::min(1.0,
+        alphaCRq = std::min(static_cast<real>(1.0),
           std::min( alphaCR1q, alphaCR2q )
         );
       }
