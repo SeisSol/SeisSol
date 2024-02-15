@@ -397,23 +397,23 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     #ifdef USE_DAMAGEDELASTIC
 
-    //TODO(NONLINEAR) Where do these numbers come from?
+    auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
-    real epsInitxx = 3.7986e-4; // eps_xx0
-    real epsInityy = -1.0383e-3; // eps_yy0
-    real epsInitzz = -1.0072e-3; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
+    real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
+    real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
+    real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
+    real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
+    real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
 
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     real const break_coeff = 1e2*damage_para1;
-    real const beta_alpha = 0.05;
+    real const beta_alpha = damagedElasticParameters.beta_alpha;
 
-    real aB0 = 7.43e9;
-    real aB1 = -12.14e9;
-    real aB2 = 18.93e9;
-    real aB3 = -5.067e9;
+    real aB0 = damagedElasticParameters.aB0;
+    real aB1 = damagedElasticParameters.aB1;
+    real aB2 = damagedElasticParameters.aB2;
+    real aB3 = damagedElasticParameters.aB3;
 
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time

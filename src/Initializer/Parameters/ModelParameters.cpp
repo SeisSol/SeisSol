@@ -34,6 +34,28 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
 
+DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader){
+    auto* reader = baseReader -> readSubNode("equations");
+    const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 3.7986e-4);
+    const auto epsInityy = reader->readWithDefault<real>("epsinityy", -1.0383e-3);
+    const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", -1.0072e-3);
+    const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 1.0909e-3);
+    const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
+    const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
+    const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0.05);
+    const auto aB0 = reader->readWithDefault<real>("aB0", 7.43e9);
+    const auto aB1 = reader->readWithDefault<real>("aB1", -12.14e9);
+    const auto aB2 = reader->readWithDefault<real>("aB2", 18.93e9);
+    const auto aB3 = reader->readWithDefault<real>("aB3", -5.067e9);
+
+    if(!isModelNonLinear){
+      reader->markUnused(
+          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "aB0", "aB1", "aB2", "aB3"});
+    }
+    return DamagedElasticParameters{
+      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3};
+}
+
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
@@ -60,6 +82,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
+  const DamagedElasticParameters damagedElasticParameters = readDamagedElasticParameters(baseReader);
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
@@ -72,6 +95,10 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          tv,
                          boundaryFileName,
                          materialFileName,
-                         itmParameters};
+                         itmParameters,
+#ifdef USE_DAMAGEDELASTIC
+    damagedElasticParameters
+#endif
+  };
 }
 } // namespace seissol::initializer::parameters
