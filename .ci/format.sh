@@ -10,17 +10,18 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
-        src/Initializer/Parameters
-        src/tests/DynamicRupture
-        src/tests/Model
-        src/tests/Reader
+        src/Equations/damaged-elastic
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
         src/Modules
         src/Monitoring
         src/Physics
-        src/SourceTerm
         src/Reader
+        src/SourceTerm
+        src/tests/DynamicRupture
+        src/tests/Model
+        src/tests/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead

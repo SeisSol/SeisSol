@@ -2,13 +2,11 @@
 #define MODEL_DAMAGED_INTEGRATIONDATA_H_
 
 namespace seissol {
-  namespace model {
+namespace model {
 
-    struct DamagedElasticLocalData {
-    };
-    struct DamagedElasticNeighborData {
-    };
-  }
-}
+struct DamagedElasticLocalData {};
+struct DamagedElasticNeighborData {};
+} // namespace model
+} // namespace seissol
 
 #endif
