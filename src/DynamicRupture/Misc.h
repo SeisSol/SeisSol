@@ -135,6 +135,8 @@ enum QuantityIndices : size_t {
   XY = 3,
   YZ = 4,
   XZ = 5,
+  DAM = 9,
+  BRE = 10,
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc

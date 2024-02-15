@@ -3,8 +3,10 @@
 
 //Gather all Setup Headers here
 #include "Equations/anisotropic/Model/AnisotropicSetup.h"
-#include "Equations/damaged-elastic/Model/DamagedSetup.h"
 #include "Equations/elastic/Model/ElasticSetup.h"
+#ifdef USE_DAMAGEDELASTIC
+#include "Equations/damaged-elastic/Model/DamagedSetup.h"
+#endif
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #endif

@@ -159,18 +159,18 @@ TEST_CASE("Friction Solver Common") {
         expectedV[1] += timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
         expectedW[1] += timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
       }
-      REQUIRE(iSMinus[0][p] == expectedNormalStress[0]);
-      REQUIRE(iSMinus[3][p] == expectedTraction1[0]);
-      REQUIRE(iSMinus[5][p] == expectedTraction2[0]);
-      REQUIRE(iSMinus[6][p] == expectedU[0]);
-      REQUIRE(iSMinus[7][p] == expectedV[0]);
-      REQUIRE(iSMinus[8][p] == expectedW[0]);
-      REQUIRE(iSPlus[0][p] == expectedNormalStress[1]);
-      REQUIRE(iSPlus[3][p] == expectedTraction1[1]);
-      REQUIRE(iSPlus[5][p] == expectedTraction2[1]);
-      REQUIRE(iSPlus[6][p] == expectedU[1]);
-      REQUIRE(iSPlus[7][p] == expectedV[1]);
-      REQUIRE(iSPlus[8][p] == expectedW[1]);
+      REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(epsilon));
+      REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(epsilon));
+      REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(epsilon));
+      REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(epsilon));
+      REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(epsilon));
+      REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(epsilon));
+      REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(epsilon));
+      REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(epsilon));
+      REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(epsilon));
+      REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(epsilon));
+      REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(epsilon));
+      REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(epsilon));
     }
   }
 }

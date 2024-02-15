@@ -139,12 +139,12 @@ void ReceiverOutput::calcFaultOutput(
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
-    seissol::dr::ImpedancesAndEta* impAndEtaGet =
-        &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-
     real dofsStressPlus[tensor::Q::size()]{};
     real dofsStressMinus[tensor::Q::size()]{};
 #ifdef USE_DAMAGEDELASTIC
+    seissol::dr::ImpedancesAndEta* impAndEtaGet =
+        &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+
     // Derive stress solutions from strain
     real dofsNPlus[tensor::Q::size()]{};
     real dofsNMinus[tensor::Q::size()]{};

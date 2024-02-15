@@ -507,10 +507,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         real alphaCR2q = 2.0*data.material.local.mu0
           /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
 
-         real alphaCRq = 1.0;
+        real alphaCRq = 1.0;
         if (alphaCR1q > 0.0){
           if (alphaCR2q > 0.0){
-            alphaCRq = std::min(1.0,
+            alphaCRq = std::min(static_cast<real>(1.0),
               std::min( alphaCR1q, alphaCR2q )
             );
           } 

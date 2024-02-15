@@ -138,8 +138,6 @@ inline void precomputeStressFromQInterpolated(
 #ifdef USE_DAMAGEDELASTIC
   auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
   auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
-  unsigned damageIdx = 9;
-  unsigned BRE = 10;
   // Derive averaged field and material properties at t0 of each time step
   real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP, breP;
   real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM, breM;
@@ -174,7 +172,7 @@ inline void precomputeStressFromQInterpolated(
     exyP += qStrainIPlus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     eyzP += qStrainIPlus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxP += qStrainIPlus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damP += qStrainIPlus[0][damageIdx][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damP += qStrainIPlus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     breP += qStrainIPlus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
 
     exxM += qStrainIMinus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
@@ -183,7 +181,7 @@ inline void precomputeStressFromQInterpolated(
     exyM += qStrainIMinus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     eyzM += qStrainIMinus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     ezxM += qStrainIMinus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damM += qStrainIMinus[0][damageIdx][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damM += qStrainIMinus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
     breM += qStrainIMinus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
@@ -412,7 +410,6 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-  constexpr unsigned damageIdx = 9;
 
 #ifndef ACL_DEVICE
   checkAlignmentPostCompute(
@@ -460,6 +457,7 @@ inline void postcomputeImposedStateFromNewStress(
   real interMinus[tensor::QInterpolated::size()];
   auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
   auto* interM = reinterpret_cast<ImposedStateShapeT>(interMinus);
+  using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
@@ -712,10 +710,8 @@ inline void computeFrictionEnergy(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
 
-  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
