@@ -47,6 +47,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     auto* devImposedSlipDirection1{this->imposedSlipDirection1};
     auto* devImposedSlipDirection2{this->imposedSlipDirection2};
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
+    auto devStf{this->stf};
 
     for (unsigned i = 0; i <= timeIndex; i++) {
       currentTime += devDeltaT[i];
@@ -61,7 +62,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
         auto& faultStresses = devFaultStresses[ltsFace];
         auto& tractionResults = devTractionResults[ltsFace];
 
-        const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
+        const real stfEvaluated = devStf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
         devSlipRate1[ltsFace][pointIndex] =
             devImposedSlipDirection1[ltsFace][pointIndex] * stfEvaluated;

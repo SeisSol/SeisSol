@@ -27,7 +27,7 @@ class YoffeSTF {
   real evaluate(real currentTime,
                 [[maybe_unused]] real timeIncrement,
                 size_t ltsFace,
-                size_t pointIndex) {
+                size_t pointIndex) const {
     return regularizedYoffe::regularizedYoffe<MathFunctions>(currentTime -
                                                                  onsetTime[ltsFace][pointIndex],
                                                              tauS[ltsFace][pointIndex],
@@ -50,7 +50,7 @@ class GaussianSTF {
     riseTime = layerData.var(concreteLts->riseTime);
   }
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) const {
     const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(
         currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, riseTime[ltsFace][pointIndex]);
     return smoothStepIncrement / timeIncrement;
