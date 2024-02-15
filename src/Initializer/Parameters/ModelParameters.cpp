@@ -33,7 +33,7 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
   return ITMParameters{
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
-
+#ifdef USE_DAMAGEDELASTIC
 DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader){
     auto* reader = baseReader -> readSubNode("equations");
     const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 3.7986e-4);
@@ -56,6 +56,7 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
     return DamagedElasticParameters{
       epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3, scalingvalue};
 }
+#endif
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
