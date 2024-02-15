@@ -40,27 +40,26 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
-      /// TODO: convert from strain to stress
+
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
+#ifdef USE_DAMAGEDELASTIC
+      // TODO: convert from strain to stress
 
       using QInterpolatedShapeT =
           const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
       using QStressInterpolatedShapeT =
           real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+
+      using namespace seissol::dr::misc::quantity_indices;
       auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus[ltsFace]));
       auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus[ltsFace]));
       auto* qStressIPlus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedPlus));
       auto* qStressIMinus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedMinus));
-
-      using namespace seissol::dr::misc::quantity_indices;
-#ifdef USE_DAMAGEDELASTIC
-      unsigned DAM = 9;
-      unsigned BRE = 10;
 
       real epsInitxx = 0.0e-4; // eps_xx0
       real epsInityy = 0.0e-3; // eps_yy0
@@ -217,6 +216,13 @@ class BaseFrictionLaw : public FrictionSolver {
           qStressIMinus[o][BRE][i] = qIMinus[o][BRE][i];
         }
       } // time integration loop
+#else
+      for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+        for (unsigned i = 0; i < seissol::tensor::QInterpolated::size(); i++) {
+          qStressInterpolatedPlus[o][i] = 0.0;
+          qStressInterpolatedMinus[o][i] = 0.0;
+        }
+      }
 #endif
 
       common::precomputeStressFromQInterpolated(faultStresses,
