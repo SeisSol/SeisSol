@@ -11,8 +11,8 @@ double AbstractTimeCluster::timeStepSize() const {
 }
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
-    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-      timeOfLastStageChange(std::chrono::steady_clock::now()) {
+    : timeOfLastStageChange(std::chrono::steady_clock::now()),
+      timeStepRate(timeStepRate), numberOfTimeSteps(0) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
