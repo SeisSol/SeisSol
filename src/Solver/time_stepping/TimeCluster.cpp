@@ -71,6 +71,7 @@
 
 #include "TimeCluster.h"
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <cassert>
 #include <cstring>
 
@@ -115,7 +116,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  dr::output::OutputManager* i_faultOutputManager,
                                                  seissol::SeisSol& seissolInstance,
                                                  LoopStatistics *i_loopStatistics,
-                                                 ActorStateStatistics* actorStateStatistics) :
+                                                 ActorStateStatistics* actorStateStatistics,
+                                                 seissol::initializer::parameters::DamagedElasticParameters* damageparameters) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
@@ -140,7 +142,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
-    seissolInstance(seissolInstance)
+    seissolInstance(seissolInstance),
+    m_dynamicRuptureKernel(damageparameters)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );

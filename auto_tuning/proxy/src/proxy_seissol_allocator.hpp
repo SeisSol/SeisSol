@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>
@@ -84,7 +85,9 @@ real* m_fakeDerivatives = nullptr;
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
 seissol::kernels::Neighbor  m_neighborKernel;
-seissol::kernels::DynamicRupture m_dynRupKernel;
+
+seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;
+seissol::kernels::DynamicRupture m_dynRupKernel(m_damageParameters);
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 

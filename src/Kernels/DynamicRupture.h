@@ -41,6 +41,8 @@
 #ifndef KERNELS_DYNAMICRUPTURE_H_
 #define KERNELS_DYNAMICRUPTURE_H_
 
+#include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/Parameters/SeisSolParameters.h>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
@@ -60,6 +62,7 @@ namespace seissol {
 }
 
 class seissol::kernels::DynamicRupture {
+  seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;  
   private:
     dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
@@ -76,7 +79,8 @@ class seissol::kernels::DynamicRupture {
     std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
 #endif
 
-  DynamicRupture() {}
+  // DynamicRupture() {}
+  DynamicRupture( seissol::initializer::parameters::DamagedElasticParameters* damageParameters ) : m_damageParameters(damageParameters) {}
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     void setHostGlobalData(GlobalData const* global);

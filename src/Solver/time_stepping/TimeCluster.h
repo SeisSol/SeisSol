@@ -895,7 +895,8 @@ public:
       dr::output::OutputManager* i_faultOutputManager,
       seissol::SeisSol& seissolInstance,
       LoopStatistics* i_loopStatistics,
-      ActorStateStatistics* actorStateStatistics);
+      ActorStateStatistics* actorStateStatistics,
+      seissol::initializer::parameters::DamagedElasticParameters* damageparameters);
 
   /**
    * Destructor of a LTS cluster.

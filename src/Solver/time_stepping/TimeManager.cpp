@@ -79,6 +79,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   bool foundDynamicRuptureCluster = false;
 
+  auto damagedelasticparameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
     // get memory layout of this cluster
@@ -134,7 +136,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           memoryManager.getFaultOutputManager(),
           seissolInstance,
           &m_loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId))
+          &actorStateStatisticsManager.addCluster(profilingId),
+          &damagedelasticparameters)
       );
 
       const auto clusterSize = layerData->getNumberOfCells();
