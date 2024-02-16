@@ -84,7 +84,9 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
+#ifdef USE_DAMAGEDELASTIC
   const DamagedElasticParameters damagedElasticParameters = readDamagedElasticParameters(baseReader);
+#endif
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
