@@ -184,6 +184,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else //USE_STP
 
   #ifdef USE_DAMAGEDELASTIC
+  
   real epsInitxx = 3.7986e-4; // eps_xx0
   real epsInityy = -1.0383e-3; // eps_yy0
   real epsInitzz = -1.0072e-3; // eps_zz0

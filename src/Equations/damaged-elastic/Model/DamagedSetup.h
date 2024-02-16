@@ -18,7 +18,6 @@ inline void getTransposedCoefficientMatrix(DamagedElasticMaterial const& i_mater
                                            T& o_M) {
   o_M.setZero();
 
-  // real epsInit = -1e-1; // eps_xx0
   real lambda2muInvRho = (i_material.lambda + 2.0 * i_material.mu) / i_material.rho;
   real lambdaInvRho = i_material.lambda / i_material.rho;
   real muInvRho = i_material.mu / i_material.rho;

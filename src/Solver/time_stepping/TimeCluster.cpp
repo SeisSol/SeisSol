@@ -1080,13 +1080,19 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-      // TODO(NONLINEAR) Write generalized reader for these parameters
-      real epsInitxx = 3.7986e-4; // eps_xx0
-      real epsInityy = -1.0383e-3; // eps_yy0
-      real epsInitzz = -1.0072e-3; // eps_zz0
-      real epsInitxy = 1.0909e-3; // eps_xy0
-      real epsInityz = -0e-1; // eps_yz0
-      real epsInitzx = -0e-1; // eps_zx0
+    auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+
+    real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
+    real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
+    real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
+    real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
+    real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
+    real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
+
+    real aB0 = damagedElasticParameters.aB0;
+    real aB1 = damagedElasticParameters.aB1;
+    real aB2 = damagedElasticParameters.aB2;
+    real aB3 = damagedElasticParameters.aB3;
 
       real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
       real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
@@ -1108,13 +1114,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 
       real lambda0 = materialData[l_cell].local.lambda0;
       real mu0 = materialData[l_cell].local.mu0;
-      real beta_m = 0e2;
-
-      // TODO(NONLINEAR) Write generalized reader for these parameters
-      real aB0 = 7.43e9;
-      real aB1 = -12.14e9;
-      real aB2 = 18.93e9;
-      real aB3 = -5.067e9;
 
 
       materialData[l_cell].local.mu = (1-breakAve) * (mu0
