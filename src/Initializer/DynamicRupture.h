@@ -253,7 +253,6 @@ struct seissol::initializer::LTSImposedSlipRates : public seissol::initializer::
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(imposedSlipDirection1, mask, 1, MEMKIND_STANDARD);
     tree.addVar(imposedSlipDirection2, mask, 1, MEMKIND_STANDARD);
-    tree.addVar(slip2, mask, 1, MEMKIND_STANDARD);
     tree.addVar(onsetTime, mask, 1, MEMKIND_STANDARD);
   }
 };
