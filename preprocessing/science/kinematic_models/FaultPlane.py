@@ -801,7 +801,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                     [lgridded_myData[i]],
                     paraview_readable=True,
                 )
-            writeNetcdf(f"ASAGI_files/{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
+            writeNetcdf(f"ASAGI_files/{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip * cm2m], paraview_readable=True)
         writeNetcdf(f"ASAGI_files/{prefix2}", [self.x_up, self.y_up], ldataName, lgridded_myData)
 
     def compute_affine_vector_map(self):
