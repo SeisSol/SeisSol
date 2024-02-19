@@ -33,7 +33,6 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
   return ITMParameters{
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
-#ifdef USE_DAMAGEDELASTIC
 DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader){
     auto* reader = baseReader -> readSubNode("equations");
     const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0);
@@ -49,14 +48,13 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
     const auto aB3 = reader->readWithDefault<real>("aB3", 0);
     const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 0);
 
-    if(!isModelNonLinear){
+    if(!isModelDamagedElastic){
       reader->markUnused(
           {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "aB0", "aB1", "aB2", "aB3", "scalingvalue"});
     }
     return DamagedElasticParameters{
       epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3, scalingvalue};
 }
-#endif
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -84,9 +82,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
-#ifdef USE_DAMAGEDELASTIC
   const DamagedElasticParameters damagedElasticParameters = readDamagedElasticParameters(baseReader);
-#endif
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 

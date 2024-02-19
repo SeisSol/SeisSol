@@ -48,6 +48,8 @@ class BaseFrictionLaw : public FrictionSolver {
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
+      auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+
 #ifdef USE_DAMAGEDELASTIC
       // TODO: convert from strain to stress
 
@@ -70,7 +72,6 @@ class BaseFrictionLaw : public FrictionSolver {
       real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
-      auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
       real aB0 = damagedElasticParameters.aB0;
       real aB1 = damagedElasticParameters.aB1;

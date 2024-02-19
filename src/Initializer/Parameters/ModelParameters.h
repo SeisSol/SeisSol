@@ -42,7 +42,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-constexpr bool isModelNonLinear(){
+constexpr bool isModelDamagedElastic(){
 #ifdef USE_DAMAGEDELASTIC
   return true;
 #else
@@ -60,7 +60,6 @@ struct ITMParameters {
   ReflectionType itmReflectionType;
 };
 
-#ifdef USE_DAMAGEDELASTIC
 struct DamagedElasticParameters{
   real epsInitxx;
   real epsInityy;
@@ -75,7 +74,6 @@ struct DamagedElasticParameters{
   real aB3;
   real scalingvalue;
 };
-#endif
 
 struct ModelParameters {
   bool hasBoundaryFile;
@@ -88,17 +86,12 @@ struct ModelParameters {
   std::string boundaryFileName;
   std::string materialFileName;
   ITMParameters itmParameters;
-#ifdef USE_DAMAGEDELASTIC
   DamagedElasticParameters damagedElasticParameters;
-#endif
-
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
 ITMParameters readITMParameters(ParameterReader* baseReader);
-#ifdef USE_DAMAGEDELASTIC
 DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader);
-#endif
 } // namespace seissol::initializer::parameters
 
 #endif
