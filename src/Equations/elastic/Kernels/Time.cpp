@@ -221,10 +221,18 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // real epsInityz = -0e-1; // eps_yz0
   // real epsInitzx = -0e-1; // eps_zx0
 
-  // tpv5 45.0 deg
-  real epsInitxx = -7.4861e-4; // eps_xx0
-  real epsInityy = -7.4861e-4; // eps_yy0
-  real epsInitzz = -7.4861e-4; // eps_zz0
+  // // tpv5 45.0 deg
+  // real epsInitxx = -7.4861e-4; // eps_xx0
+  // real epsInityy = -7.4861e-4; // eps_yy0
+  // real epsInitzz = -7.4861e-4; // eps_zz0
+  // real epsInitxy = 1.0909e-3; // eps_xy0
+  // real epsInityz = -0e-1; // eps_yz0
+  // real epsInitzx = -0e-1; // eps_zx0
+
+  // tpv5 45.0 deg, xi 0.77
+  real epsInitxx = -1.0072e-3; // eps_xx0
+  real epsInityy = -1.0383e-3; // eps_yy0
+  real epsInitzz = 3.7986e-4; // eps_zz0
   real epsInitxy = 1.0909e-3; // eps_xy0
   real epsInityz = -0e-1; // eps_yz0
   real epsInitzx = -0e-1; // eps_zx0
