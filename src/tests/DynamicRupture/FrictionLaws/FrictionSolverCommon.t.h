@@ -1,6 +1,7 @@
 #ifndef SEISSOL_FRICTIONSOLVERCOMMON_T_H
 #define SEISSOL_FRICTIONSOLVERCOMMON_T_H
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <numeric>
 
 #include "DynamicRupture/Misc.h"
@@ -79,6 +80,8 @@ TEST_CASE("Friction Solver Common") {
     }
   }
 
+  seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
+
   SUBCASE("Precompute Stress") {
     friction_law::common::precomputeStressFromQInterpolated<
         seissol::dr::friction_law::common::RangeType::CPU>(faultStresses,
@@ -87,7 +90,8 @@ TEST_CASE("Friction Solver Common") {
                                                            qInterpolatedPlus,
                                                            qInterpolatedMinus,
                                                            qStrainInterpolatedMinus,
-                                                           qStrainInterpolatedPlus);
+                                                           qStrainInterpolatedPlus,
+                                                           &damagedElasticParameters);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {
