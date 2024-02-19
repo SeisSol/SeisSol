@@ -100,9 +100,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          boundaryFileName,
                          materialFileName,
                          itmParameters,
-#ifdef USE_DAMAGEDELASTIC
-    damagedElasticParameters
-#endif
+                         damagedElasticParameters
   };
 }
 } // namespace seissol::initializer::parameters
