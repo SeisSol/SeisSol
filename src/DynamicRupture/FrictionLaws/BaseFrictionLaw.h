@@ -18,8 +18,10 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   seissol::SeisSol& seissolInstance;
+
   public:
-  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters, seissol::SeisSol& seissolInstance)
+  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters,
+                           seissol::SeisSol& seissolInstance)
       : FrictionSolver(drParameters), seissolInstance(seissolInstance){};
   /**
    * evaluates the current friction model
@@ -48,7 +50,8 @@ class BaseFrictionLaw : public FrictionSolver {
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
-      auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+      auto damagedElasticParameters =
+          seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
 #ifdef USE_DAMAGEDELASTIC
       // TODO: convert from strain to stress
@@ -81,8 +84,7 @@ class BaseFrictionLaw : public FrictionSolver {
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-          real EspIp = (qIPlus[o][XX][i]) + (qIPlus[o][YY][i]) +
-                       (qIPlus[o][ZZ][i]);
+          real EspIp = (qIPlus[o][XX][i]) + (qIPlus[o][YY][i]) + (qIPlus[o][ZZ][i]);
           real EspIIp = (qIPlus[o][XX][i]) * (qIPlus[o][XX][i]) +
                         (qIPlus[o][YY][i]) * (qIPlus[o][YY][i]) +
                         (qIPlus[o][ZZ][i]) * (qIPlus[o][ZZ][i]) +
@@ -112,22 +114,16 @@ class BaseFrictionLaw : public FrictionSolver {
           real szx_sp = 2 * mu_eff * (qIPlus[o][XZ][i]);
 
           // breakage stress
-          real sxx_bp =
-              (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XX][i]);
-          real syy_bp =
-              (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YY][i]);
-          real szz_bp =
-              (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][ZZ][i]);
+          real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                        (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XX][i]);
+          real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                        (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YY][i]);
+          real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                        (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][ZZ][i]);
 
-          real sxy_bp =
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XY][i]);
-          real syz_bp =
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YZ][i]);
-          real szx_bp =
-              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XZ][i]);
+          real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XY][i]);
+          real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YZ][i]);
+          real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XZ][i]);
 
           qStressIPlus[o][XX][i] = (1 - qIPlus[o][BRE][i]) * sxx_sp + qIPlus[o][BRE][i] * sxx_bp;
 
@@ -141,8 +137,7 @@ class BaseFrictionLaw : public FrictionSolver {
 
           qStressIPlus[o][XZ][i] = (1 - qIPlus[o][BRE][i]) * szx_sp + qIPlus[o][BRE][i] * szx_bp;
 
-          real EspIm = (qIMinus[o][XX][i]) + (qIMinus[o][YY][i]) +
-                       (qIMinus[o][ZZ][i]);
+          real EspIm = (qIMinus[o][XX][i]) + (qIMinus[o][YY][i]) + (qIMinus[o][ZZ][i]);
           real EspIIm = (qIMinus[o][XX][i]) * (qIMinus[o][XX][i]) +
                         (qIMinus[o][YY][i]) * (qIMinus[o][YY][i]) +
                         (qIMinus[o][ZZ][i]) * (qIMinus[o][ZZ][i]) +
@@ -172,22 +167,16 @@ class BaseFrictionLaw : public FrictionSolver {
           real szx_sm = 2 * mu_eff * (qIMinus[o][XZ][i]);
 
           // breakage stress
-          real sxx_bm =
-              (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XX][i]);
-          real syy_bm =
-              (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YY][i]);
-          real szz_bm =
-              (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][ZZ][i]);
+          real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                        (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XX][i]);
+          real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                        (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YY][i]);
+          real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                        (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][ZZ][i]);
 
-          real sxy_bm =
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XY][i]);
-          real syz_bm =
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YZ][i]);
-          real szx_bm =
-              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XZ][i]);
+          real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XY][i]);
+          real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YZ][i]);
+          real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XZ][i]);
 
           qStressIMinus[o][XX][i] = (1 - qIMinus[o][BRE][i]) * sxx_sm + qIMinus[o][BRE][i] * sxx_bm;
 

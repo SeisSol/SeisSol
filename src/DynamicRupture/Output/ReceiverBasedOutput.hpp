@@ -26,11 +26,12 @@ class ReceiverOutput {
   void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
-                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> state,
-                       seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
-                       double time = 0.0);
+  void calcFaultOutput(
+      seissol::initializer::parameters::OutputType outputType,
+      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+      std::shared_ptr<ReceiverOutputData> state,
+      seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
+      double time = 0.0);
 
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};

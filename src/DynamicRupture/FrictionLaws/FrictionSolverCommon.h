@@ -194,10 +194,8 @@ inline void precomputeStressFromQInterpolated(
   real aB3 = damagedElasticParameters.aB3;
 
   real EspIp = (exxP) + (eyyP) + (ezzP);
-  real EspIIp =
-      (exxP) * (exxP) + (eyyP) * (eyyP) +
-      (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
-      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
+  real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
+                2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
   real alphap = damP;
   real xip;
   if (EspIIp > 1e-30) {
@@ -207,10 +205,8 @@ inline void precomputeStressFromQInterpolated(
   }
 
   real EspIm = (exxM) + (eyyM) + (ezzM);
-  real EspIIm =
-      (exxM) * (exxM) + (eyyM) * (eyyM) +
-      (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
-      2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
+  real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
+                2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
   real alpham = damM;
   real xim;
   if (EspIIm > 1e-30) {

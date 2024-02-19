@@ -33,27 +33,47 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
   return ITMParameters{
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
-DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader){
-    auto* reader = baseReader -> readSubNode("equations");
-    const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0);
-    const auto epsInityy = reader->readWithDefault<real>("epsinityy", 0);
-    const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", 0);
-    const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 10);
-    const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
-    const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
-    const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0);
-    const auto aB0 = reader->readWithDefault<real>("aB0", 0);
-    const auto aB1 = reader->readWithDefault<real>("aB1", 0);
-    const auto aB2 = reader->readWithDefault<real>("aB2", 0);
-    const auto aB3 = reader->readWithDefault<real>("aB3", 0);
-    const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 0);
+DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0);
+  const auto epsInityy = reader->readWithDefault<real>("epsinityy", 0);
+  const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", 0);
+  const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 10);
+  const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
+  const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
+  const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0);
+  const auto aB0 = reader->readWithDefault<real>("aB0", 0);
+  const auto aB1 = reader->readWithDefault<real>("aB1", 0);
+  const auto aB2 = reader->readWithDefault<real>("aB2", 0);
+  const auto aB3 = reader->readWithDefault<real>("aB3", 0);
+  const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 0);
 
-    if(!isModelDamagedElastic){
-      reader->markUnused(
-          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "aB0", "aB1", "aB2", "aB3", "scalingvalue"});
-    }
-    return DamagedElasticParameters{
-      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, beta_alpha, aB0, aB1, aB2, aB3, scalingvalue};
+  if (!isModelDamagedElastic) {
+    reader->markUnused({"epsinitxx",
+                        "epsinityy",
+                        "epsinitzz",
+                        "epsinitxy",
+                        "epsinityz",
+                        "epsinitzx",
+                        "betaalpha",
+                        "aB0",
+                        "aB1",
+                        "aB2",
+                        "aB3",
+                        "scalingvalue"});
+  }
+  return DamagedElasticParameters{epsInitxx,
+                                  epsInityy,
+                                  epsInitzz,
+                                  epsInitxy,
+                                  epsInityz,
+                                  epsInitzx,
+                                  beta_alpha,
+                                  aB0,
+                                  aB1,
+                                  aB2,
+                                  aB3,
+                                  scalingvalue};
 }
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
@@ -82,7 +102,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
-  const DamagedElasticParameters damagedElasticParameters = readDamagedElasticParameters(baseReader);
+  const DamagedElasticParameters damagedElasticParameters =
+      readDamagedElasticParameters(baseReader);
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
@@ -96,7 +117,6 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          boundaryFileName,
                          materialFileName,
                          itmParameters,
-                         damagedElasticParameters
-  };
+                         damagedElasticParameters};
 }
 } // namespace seissol::initializer::parameters
