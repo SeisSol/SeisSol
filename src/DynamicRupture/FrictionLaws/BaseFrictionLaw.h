@@ -1,6 +1,7 @@
 #ifndef SEISSOL_BASEFRICTIONLAW_H
 #define SEISSOL_BASEFRICTIONLAW_H
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
@@ -52,6 +53,8 @@ class BaseFrictionLaw : public FrictionSolver {
               {{0.0}};
       auto damagedElasticParameters =
           seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+      seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParametersPtr =
+          &damagedElasticParameters;
 
 #ifdef USE_DAMAGEDELASTIC
       // TODO: convert from strain to stress
@@ -219,7 +222,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                 qStressInterpolatedMinus,
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace],
-                                                damagedElasticParameters);
+                                                damagedElasticParametersPtr);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
