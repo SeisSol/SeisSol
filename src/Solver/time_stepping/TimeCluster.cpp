@@ -109,6 +109,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
+    seissolInstance(seissolInstance),
     m_globalDataOnHost( i_globalData.onHost ),
     m_globalDataOnDevice(i_globalData.onDevice ),
     m_clusterData(i_clusterData),
@@ -129,8 +130,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
-    dynamicRuptureScheduler(dynamicRuptureScheduler),
-    seissolInstance(seissolInstance)
+    dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
