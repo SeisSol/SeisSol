@@ -89,7 +89,8 @@ namespace seissol {
   }
 }
 
-class seissol::kernels::Time : public TimeBase {
+class seissol::kernels::
+Time : public TimeBase {
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
