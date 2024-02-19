@@ -63,6 +63,8 @@ if ext == ".srf":
     mfp = MultiFaultPlane.from_srf(args.filename)
 elif ext == ".param":
     mfp = MultiFaultPlane.from_usgs_param_file(args.filename)
+elif ext == ".txt":
+    mfp = MultiFaultPlane.from_slipnear_param_file(args.filename)
 else:
     raise NotImplementedError(f" unknown extension: {ext}")
 

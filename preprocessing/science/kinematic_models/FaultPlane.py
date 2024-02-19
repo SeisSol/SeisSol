@@ -11,6 +11,7 @@ import xarray as xr
 from writeNetcdf import writeNetcdf
 import os
 
+
 def cosine_taper(npts, p=0.1, freqs=None, flimit=None, halfcosine=True, sactaper=False):
     """
     Cosine Taper. (copied from obspy:
@@ -193,19 +194,6 @@ class MultiFaultPlane:
         import pandas as pd
         from io import StringIO
 
-        """
-        Reading USGS param file
-        Args:
-            fh: THE param file
-            dt: dt of source time function
-            trise_min: min trise time
-            
-        Returns:
-            nseg (int): no. of segments
-            seg_info (list): list of (nx, ny, dx, dy) for each fault segment
-            sources (list): list of dataframe of (Lat. Lon. depth slip rake strike dip t_rup t_ris t_fal mo) for each segments
-            stf (list): list of ndarrays of source time function of each subfault in the segments (normalized stf)
-        """
         header = "lat lon depth slip rake strike dip t_rup t_ris t_fal mo"
         with open(fname, "r") as fid:
             lines = fid.readlines()
@@ -255,6 +243,58 @@ class MultiFaultPlane:
                     fp.t0[j, i] = df["t_rup"][k]
                     fp.tacc[j, i] = df["t_ris"][k]
                     fp.rise_time[j, i] = df["t_ris"][k] + df["t_fal"][k]
+
+        return cls(fault_planes)
+
+    @classmethod
+    def from_slipnear_param_file(cls, fname):
+        import pandas as pd
+
+        """ reading a file from the SLIPNEAR method, Delouis, Géoazur/OCA """
+
+        def read_dx_dy(fname):
+            with open(fname, "r") as fid:
+                lines = fid.readlines()
+
+            if not lines[0].startswith(" RECTANGULAR DISLOCATION MODEL"):
+                raise ValueError("Not a valid slipnear param file.")
+
+            dx = float(lines[2].split()[3])
+            dy = float(lines[3].split()[0])
+            return dx, dy
+
+        print(f"reading {fname}, assuming it is a slipnear file")
+        dx, dy = read_dx_dy(fname)
+        fault_planes = []
+        fault_planes.append(FaultPlane())
+        fp = fault_planes[0]
+        df = pd.read_csv(fname, delim_whitespace=True, skiprows=25, usecols=range(8), comment=":")
+        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[False, True, True])
+        rows_with_same_depth = df[df["depth(km)"] == df.iloc[0]["depth(km)"]]
+        nx = len(rows_with_same_depth)
+        ny = len(df) // nx
+        assert len(df) % nx == 0
+
+        print(f"read {nx} x {ny} fault segments of size {dx} x {dy} km2 in param file")
+        print(df)
+
+        fp.init_spatial_arrays(nx, ny)
+
+        assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
+        for j in range(fp.ny):
+            for i in range(fp.nx):
+                k = j * fp.nx + i
+                fp.lon[j, i] = df["Lon"][k]
+                fp.lat[j, i] = df["Lat"][k]
+                fp.depth[j, i] = df["depth(km)"][k]
+                fp.slip1[j, i] = df["slip(cm)"][k]
+                fp.rake[j, i] = df["rake"][k]
+                fp.strike[j, i] = df["strike"][k]
+                fp.dip[j, i] = df["dip"][k]
+                fp.PSarea_cm2 = dx * dy * 1e10
+                fp.t0[j, i] = df["ontime"][k]
+                fp.tacc[j, i] = 1.0
+                fp.rise_time[j, i] = 2.0
 
         return cls(fault_planes)
 
@@ -371,22 +411,26 @@ class MultiFaultPlane:
                     effective_rise_time:  2e100
 """
         sonset = "0" if instantaneous else """x["rupture_onset"]"""
-        srisetime = "0.1"if instantaneous else """x["effective_rise_time"]"""
-        template_yaml += """    components: !LuaMap
+        srisetime = "0.1" if instantaneous else """x["effective_rise_time"]"""
+        template_yaml += (
+            """    components: !LuaMap
       returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]
       function: |
         function f (x)
           -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
-          return {""" + f"""
+          return {"""
+            + f"""
           strike_slip = -x["strike_slip"],
           dip_slip = -x["dip_slip"],
           rupture_onset = {sonset},
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
-          rupture_rise_time = {srisetime}""" + """
+          rupture_rise_time = {srisetime}"""
+            + """
           }
         end
         """
+        )
 
         fname = "yaml_files/FL33_34_fault.yaml"
         with open(fname, "w") as fid:
