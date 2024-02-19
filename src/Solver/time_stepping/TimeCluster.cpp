@@ -167,6 +167,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_timeKernel.setDamagedElasticParameters(seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_nonlinearInterpolation.V3mTo2n = i_globalData.onHost->faceToNodalMatrices;
   m_nonlSurfIntPrototype.V3mTo2nTWDivM = i_globalData.onHost->nodalFluxMatrices;
+  m_localKernel.setDamageParameters(seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
 #endif
 
   computeFlops();
