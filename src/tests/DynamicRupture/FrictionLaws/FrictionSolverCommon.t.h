@@ -51,6 +51,7 @@ TEST_CASE("Friction Solver Common") {
   impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
   impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
+#ifdef USE_DAMAGEDELASTIC
   impAndEta.lambda0P = 32043759360;
   impAndEta.mu0P = 32038120320;
   impAndEta.gammaRP = 3.72e10;
@@ -61,6 +62,7 @@ TEST_CASE("Friction Solver Common") {
   impAndEta.gammaRM = 0;
   impAndEta.xi0M = 0.75;
   impAndEta.rho0M = 2760;
+#endif
 
   ImpedanceMatrices impMats;
   auto etaView = init::eta::view::create(impMats.eta);

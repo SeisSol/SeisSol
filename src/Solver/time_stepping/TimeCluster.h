@@ -104,14 +104,15 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
+  class SeisSol;
   namespace time_stepping {
     class TimeCluster;
-  }
+  } // namespace time_stepping
 
   namespace kernels {
     class ReceiverCluster;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
