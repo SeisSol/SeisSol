@@ -75,17 +75,16 @@ def Gridto2Dlocal(coords, lengths, myAffineMap, fault_fname, ldataName, ids):
     return mygrid, lgridded_myData
 
 
-def WriteAllNetcdf(mygrid, lgridded_myData, sName, ldataName):
-    """
-    for i, var in enumerate(ldataName):
-        writeNetcdf(
-            f"{sName}_{var}",
-            [mygrid.u, mygrid.v],
-            [var],
-            [lgridded_myData[i]],
-            paraview_readable=True,
-        )
-    """
+def WriteAllNetcdf(mygrid, lgridded_myData, sName, ldataName, write_paraview=False):
+    if write_paraview:
+        for i, var in enumerate(ldataName):
+            writeNetcdf(
+                f"{sName}_{var}",
+                [mygrid.u, mygrid.v],
+                [var],
+                [lgridded_myData[i]],
+                paraview_readable=True,
+            )
     writeNetcdf(
         f"{sName}_TsTdTn",
         [mygrid.u, mygrid.v],
@@ -108,7 +107,7 @@ parser.add_argument(
     nargs=1,
     help="grid smapling",
     type=float,
-    default=([50]),
+    default=([100]),
 )
 parser.add_argument(
     "--taper",
@@ -116,10 +115,17 @@ parser.add_argument(
     help="tapper stress value (MPa)",
     type=float,
 )
+parser.add_argument(
+    "--write_paraview",
+    dest="write_paraview",
+    action="store_true",
+    help="write also netcdf readable by paraview",
+    default=False,
+)
 
 args = parser.parse_args()
 dx = args.dx[0]
-
+write_paraview = args.write_paraview
 if not os.path.exists("ASAGI_files"):
     os.makedirs("ASAGI_files")
 
@@ -185,7 +191,9 @@ for tag in unique_tags:
 
     fn = f"fault{tag}"
     ldataName = ["T_s", "T_d", "T_n"]
-    WriteAllNetcdf(grid, lgridded_myData, f"ASAGI_files/{fn}", ldataName)
+    WriteAllNetcdf(
+        grid, lgridded_myData, f"ASAGI_files/{fn}", ldataName, write_paraview
+    )
 
 fname = "yaml_files/Ts0Td0.yaml"
 with open(fname, "w") as fid:

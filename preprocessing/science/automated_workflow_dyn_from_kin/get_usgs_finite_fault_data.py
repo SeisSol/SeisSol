@@ -84,8 +84,6 @@ for item in basic_inversion:
     with open(f"{eq_code}/tmp/hypocenter.txt", "w") as f:
         jsondata = f.write(f"{hypocenter_x} {hypocenter_y} {hypocenter_z}\n")
     print(code, update_time)
-    fn = "basic_inversion.param"
-    url = (
-        f"https://earthquake.usgs.gov/product/finite-fault/{code}/us/{update_time}/{fn}"
-    )
-    wget_overwrite(url, f"{eq_code}/tmp/{fn}")
+    for fn in ["moment_rate.mr", "basic_inversion.param"]:
+        url = f"https://earthquake.usgs.gov/product/finite-fault/{code}/us/{update_time}/{fn}"
+        wget_overwrite(url, f"{eq_code}/tmp/{fn}")

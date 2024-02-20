@@ -69,11 +69,15 @@ for i, fn in enumerate(energy_files):
     results["B"].append(B)
     results["C"].append(C)
     results["R0"].append(R)
+    label = f"B={B}, C={C}, R={R}"
     ax.plot(
         df.index.values,
         df["seismic_moment_rate"] / 1e19,
         label=f"{label} (Mw={Mw:.2f})",
+        linestyle="--" if C == 0.3 else "-",
     )
+mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+ax.plot(mr_usgs[:, 0], mr_usgs[:, 1] / 1e19, label="usgs", color="black")
 
 result_df = pd.DataFrame(results)
 print(result_df)
@@ -81,7 +85,7 @@ print(result_df)
 selected_rows = result_df[result_df["Mw"] > 6]
 print(selected_rows)
 
-ax.legend(frameon=False, loc="upper right")
+ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
 ax.set_ylim(bottom=0)
 
 ax.spines["top"].set_visible(False)
