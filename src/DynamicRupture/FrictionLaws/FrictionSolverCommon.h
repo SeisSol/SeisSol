@@ -98,7 +98,8 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters = nullptr,
+    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters =
+        nullptr,
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -225,7 +226,7 @@ inline void precomputeStressFromQInterpolated(
 
   auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM) / std::sqrt(EspIIm)) +
              breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM) / std::sqrt(EspIIm));
- if (EspIIm <= 1e-30) {
+  if (EspIIm <= 1e-30) {
     laM = (1 - breM) * la0M + breM * (2.0 * aB2 + 3.0 * aB3 * xim);
   }
 
