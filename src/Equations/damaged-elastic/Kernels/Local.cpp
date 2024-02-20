@@ -175,7 +175,6 @@ void seissol::kernels::Local::computeIntegral(
           data.cellInformation.faceTypes[face] != FaceType::periodic) {
         lfKrnl.execute(face);
 
-
         if (data.cellInformation.faceTypes[face] == FaceType::freeSurface ||
             data.cellInformation.faceTypes[face] == FaceType::outflow) {
           // additional term on free-surface BC to accomodate initial strain

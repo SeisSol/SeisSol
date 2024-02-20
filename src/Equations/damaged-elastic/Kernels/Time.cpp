@@ -183,7 +183,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictor = stp;
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
-#else // USE_STP
+#else  // USE_STP
 
   real epsInitxx = damagedElasticParameters->epsInitxx;
   real epsInityy = damagedElasticParameters->epsInityy;
@@ -192,7 +192,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInityz = damagedElasticParameters->epsInitxx;
   real epsInitzx = damagedElasticParameters->epsInitxx;
 
-  real const damageParameter = data.material.local.Cd; 
+  real const damageParameter = data.material.local.Cd;
   real const breakCoeff = damagedElasticParameters->scalingvalue * damageParameter;
   real const betaAlpha = damagedElasticParameters->beta_alpha;
   kernel::damageConvertToNodal d_converToKrnl;
@@ -266,9 +266,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       if (alpha_ave < 0.9) {
         if (break_ave < 0.85) {
           fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-              (1 - breakNodal[q]) * 1.0 /
-              (std::exp((alphaCRq - alphaNodal[q]) / betaAlpha) + 1.0) * breakCoeff *
-              data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+              (1 - breakNodal[q]) * 1.0 / (std::exp((alphaCRq - alphaNodal[q]) / betaAlpha) + 1.0) *
+              breakCoeff * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
           fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
               (1 - breakNodal[q]) * damageParameter * data.material.local.gammaR * EspII *
               (xi + data.material.local.xi0);
@@ -281,10 +280,12 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
         fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       }
     } else if (alpha_ave > 5e-1) {
-      fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          0.0 * damageParameter * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-      fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          0.0 * damageParameter * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+      fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damageParameter *
+                                                              data.material.local.gammaR * EspII *
+                                                              (xi + data.material.local.xi0);
+      fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damageParameter *
+                                                               data.material.local.gammaR * EspII *
+                                                               (xi + data.material.local.xi0);
     } else {
       fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
