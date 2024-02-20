@@ -52,8 +52,7 @@ class BaseFrictionLaw : public FrictionSolver {
               {{0.0}};
       auto damagedElasticParameters =
           seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-      seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParametersPtr =
-          &damagedElasticParameters;
+      auto* damagedElasticParametersPtr =&seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
 #ifdef USE_DAMAGEDELASTIC
       // TODO: convert from strain to stress
