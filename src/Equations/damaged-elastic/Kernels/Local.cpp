@@ -77,12 +77,9 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-
-#ifdef USE_DAMAGEDELASTIC
   // for initial strain BC
   m_localInitFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localInitFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-#endif
 
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
 
@@ -178,7 +175,7 @@ void seissol::kernels::Local::computeIntegral(
           data.cellInformation.faceTypes[face] != FaceType::periodic) {
         lfKrnl.execute(face);
 
-#ifdef USE_DAMAGEDELASTIC
+
         if (data.cellInformation.faceTypes[face] == FaceType::freeSurface ||
             data.cellInformation.faceTypes[face] == FaceType::outflow) {
           // additional term on free-surface BC to accomodate initial strain
@@ -215,7 +212,6 @@ void seissol::kernels::Local::computeIntegral(
           lfIKrnl.fluxScale = data.localIntegration.fluxScales[face] * timeStepWidth;
           lfIKrnl.execute(face);
         }
-#endif
       }
     }
 
