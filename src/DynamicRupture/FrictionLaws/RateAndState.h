@@ -12,11 +12,9 @@ namespace seissol::dr::friction_law {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters,
-                            seissol::SeisSol& seissolInstance)
-      : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters,
-                                                                              seissolInstance),
-        tpMethod(TPMethod(drParameters)) {}
+  explicit RateAndStateBase(seissol::SeisSol& seissolInstance)
+      : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(seissolInstance),
+        tpMethod(TPMethod(&seissolInstance.getSeisSolParameters().drParameters)) {}
 
   void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
