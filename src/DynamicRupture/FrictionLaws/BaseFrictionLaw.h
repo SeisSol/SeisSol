@@ -51,8 +51,6 @@ class BaseFrictionLaw : public FrictionSolver {
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
-      auto damagedElasticParameters =
-          seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
       auto* damagedElasticParametersPtr =
           &seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
