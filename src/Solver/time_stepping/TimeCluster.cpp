@@ -1349,7 +1349,7 @@ void TimeCluster::correct() {
    *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
    *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
    */
-  double subTimeStart = ct.correctionTime - lastSubTime;
+  const double subTimeStart = ct.correctionTime - lastSubTime;
 
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
