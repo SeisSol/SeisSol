@@ -55,7 +55,7 @@ namespace seissol::kernels {
 
 class seissol::kernels::Local : public LocalBase {
   protected:
-    seissol::initializer::parameters::DamagedElasticParameters m_damagedElasticParameters;
+  seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters;
 
   public:
     void setHostGlobalData(GlobalData const* global);
@@ -88,8 +88,8 @@ class seissol::kernels::Local : public LocalBase {
                         
     unsigned bytesIntegral();
 
-    void setDamageParameters( seissol::initializer::parameters::DamagedElasticParameters const& i_damagedElasticParameters ) {
-      m_damagedElasticParameters = i_damagedElasticParameters;
+    void setDamageParameters( seissol::initializer::parameters::DamagedElasticParameters* iDamagedElasticParameters ) {
+      mDamagedElasticParameters = iDamagedElasticParameters;
     }
 };
 

@@ -206,8 +206,8 @@ inline void precomputeStressFromQInterpolated(
     xip = 0.0;
   }
 
-  real EspIm = (exxM) + (eyyM) + (ezzM);
-  real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
+  const real EspIm = (exxM) + (eyyM) + (ezzM);
+  const real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
                 2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
   real alpham = damM;
   real xim;

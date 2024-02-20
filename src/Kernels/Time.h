@@ -92,7 +92,7 @@ namespace seissol {
 
 class seissol::kernels::Time : public TimeBase {
   protected:
-  seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters;
+  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
 
   public:
     void setHostGlobalData(GlobalData const* global);
@@ -160,8 +160,8 @@ class seissol::kernels::Time : public TimeBase {
 
   unsigned int* getDerivativesOffsets();
 
-  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters i_damagedElasticParameters) {
-      damagedElasticParameters = i_damagedElasticParameters;
+  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* idamagedElasticParameters) {
+      damagedElasticParameters = idamagedElasticParameters;
     }
 };
 

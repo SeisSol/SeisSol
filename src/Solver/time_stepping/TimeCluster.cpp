@@ -116,8 +116,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  dr::output::OutputManager* i_faultOutputManager,
                                                  seissol::SeisSol& seissolInstance,
                                                  LoopStatistics *i_loopStatistics,
-                                                 ActorStateStatistics* actorStateStatistics,
-                                                 const seissol::initializer::parameters::DamagedElasticParameters* damageparameters) :
+                                                 ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
@@ -143,7 +142,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
     seissolInstance(seissolInstance),
-    m_dynamicRuptureKernel(damageparameters)
+    m_dynamicRuptureKernel(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
@@ -164,10 +163,10 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
 
 #ifdef USE_DAMAGEDELASTIC
   m_krnlNonlVolPrototype.kDivM = i_globalData.onHost->stiffnessMatrices;
-  m_timeKernel.setDamagedElasticParameters(seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
+  m_timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_nonlinearInterpolation.V3mTo2n = i_globalData.onHost->faceToNodalMatrices;
   m_nonlSurfIntPrototype.V3mTo2nTWDivM = i_globalData.onHost->nodalFluxMatrices;
-  m_localKernel.setDamageParameters(seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
+  m_localKernel.setDamageParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
 #endif
 
   computeFlops();
@@ -410,10 +409,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     const real epsInityz = damagedElasticParameters.epsInityz; 
     const real epsInitzx = damagedElasticParameters.epsInitzx; 
 
-    real const damage_para1 = data.material.local.Cd;
-    real const scaling_value = damagedElasticParameters.scalingvalue;
-    real const break_coeff = scaling_value*damage_para1;
-    real const beta_alpha = damagedElasticParameters.beta_alpha;
+    real const damageParameter = data.material.local.Cd;
+    real const scalingValue = damagedElasticParameters.scalingvalue;
+    real const breakCoeff = scalingValue*damageParameter;
+    real const betaAlpha = damagedElasticParameters.beta_alpha;
 
     const real aB0 = damagedElasticParameters.aB0;
     const real aB1 = damagedElasticParameters.aB1;
@@ -525,10 +524,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           if (alpha_ave < 0.9 ){
             if (break_ave < 0.85 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/betaAlpha ) + 1.0) * breakCoeff
                   *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
               FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * damage_para1
+                (1 - breakNodal[q]) * damageParameter
                   *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
             } else {
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -540,10 +539,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           }
         } else if (alpha_ave > 5e-1 ) {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damage_para1
+            0.0*damageParameter
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
           FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damage_para1
+            0.0*damageParameter
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
         }
         else {
@@ -1081,7 +1080,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-    auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
     const real epsInitxx = damagedElasticParameters.epsInitxx; 
     const real epsInityy = damagedElasticParameters.epsInityy; 

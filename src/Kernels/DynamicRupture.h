@@ -79,7 +79,6 @@ class seissol::kernels::DynamicRupture {
     std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
 #endif
 
-  // DynamicRupture() {}
   DynamicRupture( const seissol::initializer::parameters::DamagedElasticParameters* damageParameters ) : m_damageParameters(damageParameters) {}
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);

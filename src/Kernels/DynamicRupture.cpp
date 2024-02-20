@@ -173,12 +173,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     
     // TODO(NONLINEAR) What are these numbers?
 
-    const real epsInitxx = m_damageParameters->epsInitxx; // eps_xx0
-    const real epsInityy = m_damageParameters->epsInityy; // eps_yy0
-    const real epsInitzz = m_damageParameters->epsInitzz; // eps_zz0
-    const real epsInitxy = m_damageParameters->epsInitxy; // eps_xy0
-    const real epsInityz = m_damageParameters->epsInityz; // eps_yz0
-    const real epsInitzx = m_damageParameters->epsInitzx; // eps_zx0
+    const real epsInitxx = m_damageParameters->epsInitxx;
+    const real epsInityy = m_damageParameters->epsInityy;
+    const real epsInitzz = m_damageParameters->epsInitzz;
+    const real epsInitxy = m_damageParameters->epsInitxy;
+    const real epsInityz = m_damageParameters->epsInityz;
+    const real epsInitzx = m_damageParameters->epsInitzx;
 
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){

@@ -185,18 +185,16 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.execute();
 #else // USE_STP
 
-#ifdef USE_DAMAGEDELASTIC
+  real epsInitxx = damagedElasticParameters->epsInitxx;
+  real epsInityy = damagedElasticParameters->epsInityy;
+  real epsInitzz = damagedElasticParameters->epsInitzz;
+  real epsInitxy = damagedElasticParameters->epsInitxy;
+  real epsInityz = damagedElasticParameters->epsInitxx;
+  real epsInitzx = damagedElasticParameters->epsInitxx;
 
-  real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
-  real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
-  real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
-  real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
-  real epsInityz = damagedElasticParameters.epsInitxx; // eps_yz0
-  real epsInitzx = damagedElasticParameters.epsInitxx; // eps_zx0
-
-  real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-  real const break_coeff = damagedElasticParameters.scalingvalue * damage_para1;
-  real const beta_alpha = damagedElasticParameters.beta_alpha;
+  real const damageParameter = data.material.local.Cd; 
+  real const breakCoeff = damagedElasticParameters->scalingvalue * damageParameter;
+  real const betaAlpha = damagedElasticParameters->beta_alpha;
   kernel::damageConvertToNodal d_converToKrnl;
   // Compute the nodal solutions
   alignas(PAGESIZE_STACK) real solNData[tensor::QNodal::size()];
@@ -269,10 +267,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
         if (break_ave < 0.85) {
           fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
               (1 - breakNodal[q]) * 1.0 /
-              (std::exp((alphaCRq - alphaNodal[q]) / beta_alpha) + 1.0) * break_coeff *
+              (std::exp((alphaCRq - alphaNodal[q]) / betaAlpha) + 1.0) * breakCoeff *
               data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
           fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-              (1 - breakNodal[q]) * damage_para1 * data.material.local.gammaR * EspII *
+              (1 - breakNodal[q]) * damageParameter * data.material.local.gammaR * EspII *
               (xi + data.material.local.xi0);
         } else {
           fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -284,9 +282,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     } else if (alpha_ave > 5e-1) {
       fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          0.0 * damage_para1 * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+          0.0 * damageParameter * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
       fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          0.0 * damage_para1 * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+          0.0 * damageParameter * data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
     } else {
       fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -304,15 +302,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   // Assign the modal solutions to dQ(1)
 
-#endif
-
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
-#ifdef USE_DAMAGEDELASTIC
   krnl.dQModal = dQModalData;
-#endif
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }

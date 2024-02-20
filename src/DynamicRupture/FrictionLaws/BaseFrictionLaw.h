@@ -110,21 +110,21 @@ class BaseFrictionLaw : public FrictionSolver {
           real szz_sp = lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
                         2 * mu_eff * (qIPlus[o][ZZ][i]);
 
-          real sxy_sp = 2 * mu_eff * (qIPlus[o][XY][i]);
-          real syz_sp = 2 * mu_eff * (qIPlus[o][YZ][i]);
-          real szx_sp = 2 * mu_eff * (qIPlus[o][XZ][i]);
+          const real sxy_sp = 2 * mu_eff * (qIPlus[o][XY][i]);
+          const real syz_sp = 2 * mu_eff * (qIPlus[o][YZ][i]);
+          const real szx_sp = 2 * mu_eff * (qIPlus[o][XZ][i]);
 
           // breakage stress
-          real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          const real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
                         (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XX][i]);
-          real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          const real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
                         (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YY][i]);
-          real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          const real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
                         (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][ZZ][i]);
 
-          real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XY][i]);
-          real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YZ][i]);
-          real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XZ][i]);
+          const real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XY][i]);
+          const real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][YZ][i]);
+          const real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o][XZ][i]);
 
           qStressIPlus[o][XX][i] = (1 - qIPlus[o][BRE][i]) * sxx_sp + qIPlus[o][BRE][i] * sxx_bp;
 
@@ -138,8 +138,8 @@ class BaseFrictionLaw : public FrictionSolver {
 
           qStressIPlus[o][XZ][i] = (1 - qIPlus[o][BRE][i]) * szx_sp + qIPlus[o][BRE][i] * szx_bp;
 
-          real EspIm = (qIMinus[o][XX][i]) + (qIMinus[o][YY][i]) + (qIMinus[o][ZZ][i]);
-          real EspIIm = (qIMinus[o][XX][i]) * (qIMinus[o][XX][i]) +
+          const real EspIm = (qIMinus[o][XX][i]) + (qIMinus[o][YY][i]) + (qIMinus[o][ZZ][i]);
+          const real EspIIm = (qIMinus[o][XX][i]) * (qIMinus[o][XX][i]) +
                         (qIMinus[o][YY][i]) * (qIMinus[o][YY][i]) +
                         (qIMinus[o][ZZ][i]) * (qIMinus[o][ZZ][i]) +
                         2 * (qIMinus[o][XY][i]) * (qIMinus[o][XY][i]) +
@@ -156,28 +156,28 @@ class BaseFrictionLaw : public FrictionSolver {
           // damage stress minus
           mu_eff = mu0M - alpham * impAndEta[ltsFace].gammaRM * impAndEta[ltsFace].xi0M -
                    0.5 * alpham * impAndEta[ltsFace].gammaRM * xim;
-          real sxx_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
+          const real sxx_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
                         2 * mu_eff * (qIMinus[o][XX][i]);
-          real syy_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
+          const real syy_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
                         2 * mu_eff * (qIMinus[o][YY][i]);
-          real szz_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
+          const real szz_sm = lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
                         2 * mu_eff * (qIMinus[o][ZZ][i]);
 
-          real sxy_sm = 2 * mu_eff * (qIMinus[o][XY][i]);
-          real syz_sm = 2 * mu_eff * (qIMinus[o][YZ][i]);
-          real szx_sm = 2 * mu_eff * (qIMinus[o][XZ][i]);
+          const real sxy_sm = 2 * mu_eff * (qIMinus[o][XY][i]);
+          const real syz_sm = 2 * mu_eff * (qIMinus[o][YZ][i]);
+          const real szx_sm = 2 * mu_eff * (qIMinus[o][XZ][i]);
 
           // breakage stress
-          real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          const real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
                         (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XX][i]);
-          real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          const real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
                         (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YY][i]);
-          real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          const real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
                         (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][ZZ][i]);
 
-          real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XY][i]);
-          real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YZ][i]);
-          real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XZ][i]);
+          const real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XY][i]);
+          const real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][YZ][i]);
+          const real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o][XZ][i]);
 
           qStressIMinus[o][XX][i] = (1 - qIMinus[o][BRE][i]) * sxx_sm + qIMinus[o][BRE][i] * sxx_bm;
 
