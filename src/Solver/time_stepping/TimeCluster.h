@@ -377,32 +377,32 @@ private:
             /// Checked that, after reshaping, it still uses the same memory address
             /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
             using namespace seissol::dr::misc::quantity_indices;
-            unsigned DAM = 9;
-            unsigned BRE = 10;
+            const unsigned DAM = 9;
+            const unsigned BRE = 10;
 
             // TODO(NONLINEAR) Write unified reader for these parameters
 
-            real lambda0P = materialData[l_cell].local.lambda0;
-            real mu0P = materialData[l_cell].local.mu0;
-            real rho0P = materialData[l_cell].local.rho;
+            const real lambda0P = materialData[l_cell].local.lambda0;
+            const real mu0P = materialData[l_cell].local.mu0;
+            const real rho0P = materialData[l_cell].local.rho;
 
-            real lambda0M = materialData[l_cell].neighbor[side].lambda0;
-            real mu0M = materialData[l_cell].neighbor[side].mu0;
-            real rho0M = materialData[l_cell].neighbor[side].rho;
+            const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
+            const real mu0M = materialData[l_cell].neighbor[side].mu0;
+            const real rho0M = materialData[l_cell].neighbor[side].rho;
 
-            auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+            const auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
-            real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
-            real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
-            real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
-            real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
-            real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
-            real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
-
-            real aB0 = damagedElasticParameters.aB0;
-            real aB1 = damagedElasticParameters.aB1;
-            real aB2 = damagedElasticParameters.aB2;
-            real aB3 = damagedElasticParameters.aB3;
+            const real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
+            const real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
+            const real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
+            const real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
+            const real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
+            const real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
+ 
+            const real aB0 = damagedElasticParameters.aB0;
+            const real aB1 = damagedElasticParameters.aB1;
+            const real aB2 = damagedElasticParameters.aB2;
+            const real aB3 = damagedElasticParameters.aB3;
             
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
@@ -900,7 +900,7 @@ public:
       seissol::SeisSol& seissolInstance,
       LoopStatistics* i_loopStatistics,
       ActorStateStatistics* actorStateStatistics,
-      seissol::initializer::parameters::DamagedElasticParameters* damageparameters);
+      const seissol::initializer::parameters::DamagedElasticParameters* damageparameters);
 
   /**
    * Destructor of a LTS cluster.

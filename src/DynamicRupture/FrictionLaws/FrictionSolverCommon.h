@@ -188,15 +188,15 @@ inline void precomputeStressFromQInterpolated(
 
   // TODO(NONLINEAR) what are these numbers?
 
-  real aB0 = damagedElasticParameters->aB0;
-  real aB1 = damagedElasticParameters->aB1;
-  real aB2 = damagedElasticParameters->aB2;
-  real aB3 = damagedElasticParameters->aB3;
+  const real aB0 = damagedElasticParameters->aB0;
+  const real aB1 = damagedElasticParameters->aB1;
+  const real aB2 = damagedElasticParameters->aB2;
+  const real aB3 = damagedElasticParameters->aB3;
 
-  real EspIp = (exxP) + (eyyP) + (ezzP);
-  real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
-                2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
-  real alphap = damP;
+  const real EspIp = (exxP) + (eyyP) + (ezzP);
+  const real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
+                      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
+  const real alphap = damP;
   real xip;
   if (EspIIp > 1e-30) {
     xip = EspIp / std::sqrt(EspIIp);

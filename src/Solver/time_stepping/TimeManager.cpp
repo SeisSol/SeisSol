@@ -79,7 +79,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   bool foundDynamicRuptureCluster = false;
 
-  auto damagedelasticparameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+  const auto damagedelasticparameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {

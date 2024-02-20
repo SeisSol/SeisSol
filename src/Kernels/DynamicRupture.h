@@ -62,7 +62,7 @@ namespace seissol {
 }
 
 class seissol::kernels::DynamicRupture {
-  seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;  
+  const seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;  
   private:
     dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
@@ -80,7 +80,7 @@ class seissol::kernels::DynamicRupture {
 #endif
 
   // DynamicRupture() {}
-  DynamicRupture( seissol::initializer::parameters::DamagedElasticParameters* damageParameters ) : m_damageParameters(damageParameters) {}
+  DynamicRupture( const seissol::initializer::parameters::DamagedElasticParameters* damageParameters ) : m_damageParameters(damageParameters) {}
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     void setHostGlobalData(GlobalData const* global);
