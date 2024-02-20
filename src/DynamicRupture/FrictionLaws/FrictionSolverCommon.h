@@ -160,9 +160,7 @@ inline void precomputeStressFromQInterpolated(
   damM = 0;
 
   using Range = typename NumPoints<Type>::Range;
-#ifndef ACL_DEVICE
-#pragma omp simd
-  /// TODO: test if reduction would work here
+#ifndef ACL_DEVICEprecomputeStressFromQInterpolated
   // reduction(+:exxP,eyyP,ezzP,exyP,eyzP,ezxP,damP,exxM,eyyM,ezzM,exyM,eyzM,ezxM,damM)
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
@@ -224,8 +222,12 @@ inline void precomputeStressFromQInterpolated(
 
   auto muM = (1 - breM) * (mu0M - alpham * xi0M * gaRM - 0.5 * alpham * gaRM * xim) +
              breM * ((aB0 + 0.5 * aB1 * xim - 0.5 * aB3 * xim * xim * xim));
+
   auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM) / std::sqrt(EspIIm)) +
              breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM) / std::sqrt(EspIIm));
+ if (EspIIm <= 1e-30) {
+    laM = (1 - breM) * la0M + breM * (2.0 * aB2 + 3.0 * aB3 * xim);
+  }
 
   invZp = 1.0 / std::sqrt(rhoP * (laP + 2 * muP));
   invZpNeig = 1.0 / std::sqrt(rhoM * (laM + 2 * muM));
