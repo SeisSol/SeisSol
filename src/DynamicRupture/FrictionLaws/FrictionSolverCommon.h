@@ -161,7 +161,9 @@ inline void precomputeStressFromQInterpolated(
   damM = 0;
 
   using Range = typename NumPoints<Type>::Range;
-#ifndef ACL_DEVICEprecomputeStressFromQInterpolated
+#ifndef ACL_DEVICE
+#pragma omp simd
+  /// TODO: test if reduction would work here
   // reduction(+:exxP,eyyP,ezzP,exyP,eyzP,ezxP,damP,exxM,eyyM,ezzM,exyM,eyzM,ezxM,damM)
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
