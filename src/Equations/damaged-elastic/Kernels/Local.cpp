@@ -145,7 +145,6 @@ void seissol::kernels::Local::computeIntegral(
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
-#ifndef USE_DAMAGEDELASTIC
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
@@ -155,7 +154,6 @@ void seissol::kernels::Local::computeIntegral(
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
-#endif
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
@@ -163,9 +161,7 @@ void seissol::kernels::Local::computeIntegral(
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
 
-#ifndef USE_DAMAGEDELASTIC
   volKrnl.execute();
-#endif
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
