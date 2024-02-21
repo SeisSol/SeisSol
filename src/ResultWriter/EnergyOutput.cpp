@@ -50,8 +50,8 @@ void EnergyOutput::init(
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
-  maxTimeFromRuptureEnd = parameters.maxTimeFromRuptureEnd;
-  isCheckAbortCriteraEnabled = std::isfinite(maxTimeFromRuptureEnd);
+  terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
+  isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -568,14 +568,16 @@ void EnergyOutput::checkAbortCriterion() {
   if (rank == 0) {
     if ((minTimeSinceSlipRateBelowThreshold > 0) and
         (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
-      if (minTimeSinceSlipRateBelowThreshold < maxTimeFromRuptureEnd) {
+      if (minTimeSinceSlipRateBelowThreshold < terminatorMaxTimePostRupture) {
         logInfo(rank) << "all slip rates are below threshold since"
                       << minTimeSinceSlipRateBelowThreshold
-                      << "s (lower than the abort criteria: " << maxTimeFromRuptureEnd << "s)";
+                      << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
       } else {
         logInfo(rank) << "all slip rates are below threshold since"
                       << minTimeSinceSlipRateBelowThreshold
-                      << "s (greater than the abort criteria: " << maxTimeFromRuptureEnd << "s)";
+                      << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
         logInfo(rank) << "aborting...";
         abort = true;
       }

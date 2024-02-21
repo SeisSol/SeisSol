@@ -114,6 +114,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -140,6 +142,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 devRuptureTimePending[ltsFace],
                 devEnergyData[ltsFace],
                 devSumDt,
+                devTerminatorSlipRateThreshold,
                 pointIndex);
 
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],

@@ -82,6 +82,10 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   auto* outputReader = baseReader->readSubNode("output");
   bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
+  auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
+  const auto terminatorSlipRateThreshold =
+      static_cast<real>(reader->readWithDefault("terminatorslipratethreshold", 0.25));
+
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
 
@@ -109,6 +113,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName,
-                      referencePoint};
+                      referencePoint,
+                      terminatorSlipRateThreshold};
 }
 } // namespace seissol::initializer::parameters

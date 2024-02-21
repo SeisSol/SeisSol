@@ -114,7 +114,7 @@ class EnergyOutput : public Module {
 
   EnergiesStorage energiesStorage{};
   double minTimeSinceSlipRateBelowThreshold;
-  double maxTimeFromRuptureEnd;
+  double terminatorMaxTimePostRupture;
 };
 
 } // namespace writer

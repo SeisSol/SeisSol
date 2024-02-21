@@ -65,6 +65,7 @@ struct DRParameters {
   real prakashLength{0.0};
   std::string faultFileName{""};
   Eigen::Vector3d referencePoint;
+  real terminatorSlipRateThreshold{0.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

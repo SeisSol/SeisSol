@@ -466,6 +466,7 @@ inline void
                                           // NOLINTNEXTLINE
                                           DREnergyOutput& energyData,
                                           const real sumDt,
+                                          const real slipRateThreshold,
                                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -476,7 +477,6 @@ inline void
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto pointIndex{startIndex + index};
-    constexpr real slipRateThreshold = 0.4;
     if (not ruptureTimePending[pointIndex]) {
       if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
         timeSinceSlipRateBelowThreshold[pointIndex] += sumDt;
