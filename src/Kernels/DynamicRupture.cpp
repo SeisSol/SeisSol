@@ -220,8 +220,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
       dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressMinus[tensor::Q::size()]{};
 
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
