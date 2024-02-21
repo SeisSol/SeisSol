@@ -135,7 +135,6 @@ namespace seissol {
       }
 
     private:
-      seissol::SeisSol& seissolInstance;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;
@@ -144,6 +143,7 @@ namespace seissol {
       double m_samplingInterval;
       double m_syncPointInterval;
       bool m_computeRotation;
+      seissol::SeisSol& seissolInstance;
 
     };
   }

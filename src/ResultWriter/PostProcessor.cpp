@@ -52,13 +52,11 @@ void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep
 }
 
 void seissol::writer::PostProcessor::setIntegrationMask(const std::array<bool, 9>& i_integrationMask) {
-	unsigned int nextId = 0;
 	for (int i = 0; i < 9; i++) {
 		m_integrationMask[i] = i_integrationMask[i];
 		if (m_integrationMask[i]) {
 			m_integerMap.push_back(i);
 			m_numberOfVariables++;
-			nextId++;
 		}
 	}
 	m_integrals.count = m_numberOfVariables;
