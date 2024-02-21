@@ -6,6 +6,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
 
 #include <memory>
@@ -25,10 +26,12 @@ class ReceiverOutput {
   void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
-                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> state,
-                       double time = 0.0);
+  void calcFaultOutput(
+      seissol::initializer::parameters::OutputType outputType,
+      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+      std::shared_ptr<ReceiverOutputData> state,
+      seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
+      double time = 0.0);
 
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};

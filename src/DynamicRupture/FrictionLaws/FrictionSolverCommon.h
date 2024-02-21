@@ -98,6 +98,8 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters =
+        nullptr,
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -113,6 +115,7 @@ inline void precomputeStressFromQInterpolated(
 
 // TODO(NONLINEAR): unify
 #ifdef USE_DAMAGEDELASTIC
+  assert(damagedElasticParameters != nullptr);
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
@@ -185,25 +188,17 @@ inline void precomputeStressFromQInterpolated(
     breM += qStrainIMinus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
-  real epsInitxx = 0.0e-4; // eps_xx0
-  real epsInityy = 0.0e-3; // eps_yy0
-  real epsInitzz = 0.0e-4; // eps_zz0
-  real epsInitxy = 0.0e-3; // eps_xx0
-  real epsInityz = -0e-1;  // eps_yy0
-  real epsInitzx = -0e-1;  // eps_zz0
-
   // TODO(NONLINEAR) what are these numbers?
-  real aB0 = 7.43e9;
-  real aB1 = -12.14e9;
-  real aB2 = 18.93e9;
-  real aB3 = -5.067e9;
 
-  real EspIp = (exxP + epsInitxx) + (eyyP + epsInityy) + (ezzP + epsInitzz);
-  real EspIIp =
-      (exxP + epsInitxx) * (exxP + epsInitxx) + (eyyP + epsInityy) * (eyyP + epsInityy) +
-      (ezzP + epsInitzz) * (ezzP + epsInitzz) + 2 * (exyP + epsInitxy) * (exyP + epsInitxy) +
-      2 * (eyzP + epsInityz) * (eyzP + epsInityz) + 2 * (ezxP + epsInitzx) * (ezxP + epsInitzx);
-  real alphap = damP;
+  const real aB0 = damagedElasticParameters->aB0;
+  const real aB1 = damagedElasticParameters->aB1;
+  const real aB2 = damagedElasticParameters->aB2;
+  const real aB3 = damagedElasticParameters->aB3;
+
+  const real EspIp = (exxP) + (eyyP) + (ezzP);
+  const real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
+                      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
+  const real alphap = damP;
   real xip;
   if (EspIIp > 1e-30) {
     xip = EspIp / std::sqrt(EspIIp);
@@ -211,11 +206,9 @@ inline void precomputeStressFromQInterpolated(
     xip = 0.0;
   }
 
-  real EspIm = (exxM + epsInitxx) + (eyyM + epsInityy) + (ezzM + epsInitzz);
-  real EspIIm =
-      (exxM + epsInitxx) * (exxM + epsInitxx) + (eyyM + epsInityy) * (eyyM + epsInityy) +
-      (ezzM + epsInitzz) * (ezzM + epsInitzz) + 2 * (exyM + epsInitxy) * (exyM + epsInitxy) +
-      2 * (eyzM + epsInityz) * (eyzM + epsInityz) + 2 * (ezxM + epsInitzx) * (ezxM + epsInitzx);
+  const real EspIm = (exxM) + (eyyM) + (ezzM);
+  const real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
+                      2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
   real alpham = damM;
   real xim;
   if (EspIIm > 1e-30) {
@@ -227,13 +220,17 @@ inline void precomputeStressFromQInterpolated(
   // compute laP, muP, laM and muM
   auto muP = (1 - breP) * (mu0P - alphap * xi0P * gaRP - 0.5 * alphap * gaRP * xip) +
              breP * ((aB0 + 0.5 * aB1 * xip - 0.5 * aB3 * xip * xip * xip));
-  auto laP = (1 - breP) * (la0P - alphap * gaRP * (eyyP + epsInityy) / std::sqrt(EspIIp)) +
-             breP * ((2.0 * aB2 + 3.0 * aB3 * xip) + aB1 * (eyyP + epsInityy) / std::sqrt(EspIIp));
+  auto laP = (1 - breP) * (la0P - alphap * gaRP * (eyyP) / std::sqrt(EspIIp)) +
+             breP * ((2.0 * aB2 + 3.0 * aB3 * xip) + aB1 * (eyyP) / std::sqrt(EspIIp));
 
   auto muM = (1 - breM) * (mu0M - alpham * xi0M * gaRM - 0.5 * alpham * gaRM * xim) +
              breM * ((aB0 + 0.5 * aB1 * xim - 0.5 * aB3 * xim * xim * xim));
-  auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM + epsInityy) / std::sqrt(EspIIm)) +
-             breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM + epsInityy) / std::sqrt(EspIIm));
+
+  auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM) / std::sqrt(EspIIm)) +
+             breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM) / std::sqrt(EspIIm));
+  if (EspIIm <= 1e-30) {
+    laM = (1 - breM) * la0M + breM * (2.0 * aB2 + 3.0 * aB3 * xim);
+  }
 
   invZp = 1.0 / std::sqrt(rhoP * (laP + 2 * muP));
   invZpNeig = 1.0 / std::sqrt(rhoM * (laM + 2 * muM));

@@ -104,14 +104,15 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
+  class SeisSol;
   namespace time_stepping {
     class TimeCluster;
-  }
+  } // namespace time_stepping
 
   namespace kernels {
     class ReceiverCluster;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
@@ -376,30 +377,33 @@ private:
             /// Checked that, after reshaping, it still uses the same memory address
             /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
             using namespace seissol::dr::misc::quantity_indices;
-            unsigned DAM = 9;
-            unsigned BRE = 10;
+            const unsigned DAM = 9;
+            const unsigned BRE = 10;
 
             // TODO(NONLINEAR) Write unified reader for these parameters
 
-            real epsInitxx = 3.7986e-4; // eps_xx0
-            real epsInityy = -1.0383e-3; // eps_yy0
-            real epsInitzz = -1.0072e-3; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
-            real epsInityz = -0e-1; // eps_yz0
-            real epsInitzx = -0e-1; // eps_zx0
+            const real lambda0P = materialData[l_cell].local.lambda0;
+            const real mu0P = materialData[l_cell].local.mu0;
+            const real rho0P = materialData[l_cell].local.rho;
 
-            real lambda0P = materialData[l_cell].local.lambda0;
-            real mu0P = materialData[l_cell].local.mu0;
-            real rho0P = materialData[l_cell].local.rho;
+            const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
+            const real mu0M = materialData[l_cell].neighbor[side].mu0;
+            const real rho0M = materialData[l_cell].neighbor[side].rho;
 
-            real lambda0M = materialData[l_cell].neighbor[side].lambda0;
-            real mu0M = materialData[l_cell].neighbor[side].mu0;
-            real rho0M = materialData[l_cell].neighbor[side].rho;
+            const auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
-            real aB0 = 7.43e9;
-            real aB1 = -12.14e9;
-            real aB2 = 18.93e9;
-            real aB3 = -5.067e9;
+            const real epsInitxx = damagedElasticParameters.epsInitxx;
+            const real epsInityy = damagedElasticParameters.epsInityy;
+            const real epsInitzz = damagedElasticParameters.epsInitzz;
+            const real epsInitxy = damagedElasticParameters.epsInitxy;
+            const real epsInityz = damagedElasticParameters.epsInityz;
+            const real epsInitzx = damagedElasticParameters.epsInitzx;
+ 
+            const real aB0 = damagedElasticParameters.aB0;
+            const real aB1 = damagedElasticParameters.aB1;
+            const real aB2 = damagedElasticParameters.aB2;
+            const real aB3 = damagedElasticParameters.aB3;
+            
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -54,47 +55,46 @@
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class LocalBase;
-  }
+namespace kernels {
+class LocalBase;
 }
+} // namespace seissol
 struct GlobalData;
 
 class seissol::kernels::LocalBase {
   protected:
-    double gravitationalAcceleration;
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
-    kernel::volume m_volumeKernelPrototype;
-    kernel::localFlux m_localFluxKernelPrototype;
-    kernel::localFluxNodal m_nodalLfKrnlPrototype;
+  double gravitationalAcceleration;
+  static void checkGlobalData(GlobalData const* global, size_t alignment);
+  kernel::volume m_volumeKernelPrototype;
+  kernel::localFlux m_localFluxKernelPrototype;
+  kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
-    kernel::projectToNodalBoundary m_projectKrnlPrototype;
-    kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+  // Added for initial strain
+  kernel::localInitFlux m_localInitFluxKernelPrototype;
 
-    kernels::DirichletBoundary dirichletBoundary;
+  kernel::projectToNodalBoundary m_projectKrnlPrototype;
+  kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+
+  kernels::DirichletBoundary dirichletBoundary;
 
 #ifdef ACL_DEVICE
-    kernel::gpu_volume deviceVolumeKernelPrototype;
-    kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
-    kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
-    kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  kernel::gpu_volume deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
+  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
-    const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
-public:
-    virtual void setInitConds(decltype(initConds) initConds) {
-      this->initConds = initConds;
-    }
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
 
-    void setGravitationalAcceleration(double g) {
-      gravitationalAcceleration = g;
-    }
+  public:
+  virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
 
-    physics::InitialField* getInitCond(size_t index) {
-      const auto& condition = this->initConds->at(index);
-      return condition.get();
-    }
+  void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
+
+  physics::InitialField* getInitCond(size_t index) {
+    const auto& condition = this->initConds->at(index);
+    return condition.get();
+  }
 };
 #endif
-

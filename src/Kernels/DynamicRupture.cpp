@@ -154,6 +154,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
         // Derive stress solutions from strain
     alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
+
+    real dofsStressPlus[tensor::Q::size()]{};
+    real dofsStressMinus[tensor::Q::size()]{};
+
 #ifdef USE_DAMAGEDELASTIC
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
@@ -164,18 +168,18 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_converToKrnl.QNodal = dofsNMinus;
     d_converToKrnl.Q = degreesOfFreedomMinus;
     d_converToKrnl.execute();
-#endif
-
     alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
     
     // TODO(NONLINEAR) What are these numbers?
-    real epsInitxx = 3.7986e-4; // eps_xx0
-    real epsInityy = -1.0383e-3; // eps_yy0
-    real epsInitzz = -1.0072e-3; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+
+    const real epsInitxx = m_damageParameters->epsInitxx;
+    const real epsInityy = m_damageParameters->epsInityy;
+    const real epsInitzz = m_damageParameters->epsInitzz;
+    const real epsInitxy = m_damageParameters->epsInitxy;
+    const real epsInityz = m_damageParameters->epsInityz;
+    const real epsInitzx = m_damageParameters->epsInitzx;
+
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
@@ -227,10 +231,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
       dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
-
-#ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;

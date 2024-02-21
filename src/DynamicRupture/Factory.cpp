@@ -46,7 +46,7 @@ std::unique_ptr<AbstractFactory>
 DynamicRuptureTuple NoFaultFactory::produce() {
   return {std::make_unique<seissol::initializer::DynamicRupture>(),
           std::make_unique<initializer::NoFaultInitializer>(drParameters, seissolInstance),
-          std::make_unique<friction_law::NoFault>(drParameters.get()),
+          std::make_unique<friction_law::NoFault>(seissolInstance),
           std::make_unique<output::OutputManager>(std::make_unique<output::NoFault>(),
                                                   seissolInstance)};
 }
@@ -57,7 +57,7 @@ DynamicRuptureTuple LinearSlipWeakeningFactory::produce() {
       std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters, seissolInstance),
       std::make_unique<
           friction_law_impl::LinearSlipWeakeningLaw<friction_law_impl::NoSpecialization>>(
-          drParameters.get()),
+          seissolInstance),
       std::make_unique<output::OutputManager>(std::make_unique<output::LinearSlipWeakening>(),
                                               seissolInstance)};
 }
@@ -67,16 +67,15 @@ DynamicRuptureTuple RateAndStateAgingFactory::produce() {
     return {std::make_unique<seissol::initializer::LTSRateAndState>(),
             std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
             std::make_unique<friction_law::AgingLaw<friction_law::ThermalPressurization>>(
-                drParameters.get()),
+                seissolInstance),
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
   } else {
-    return {
-        std::make_unique<seissol::initializer::LTSRateAndState>(),
-        std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
-        std::make_unique<friction_law_impl::AgingLaw<friction_law_impl::NoTP>>(drParameters.get()),
-        std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
-                                                seissolInstance)};
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law_impl::AgingLaw<friction_law_impl::NoTP>>(seissolInstance),
+            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
+                                                    seissolInstance)};
   }
 }
 
@@ -85,16 +84,15 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
     return {std::make_unique<seissol::initializer::LTSRateAndState>(),
             std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
             std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(
-                drParameters.get()),
+                seissolInstance),
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
   } else {
-    return {
-        std::make_unique<seissol::initializer::LTSRateAndState>(),
-        std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
-        std::make_unique<friction_law_impl::SlipLaw<friction_law_impl::NoTP>>(drParameters.get()),
-        std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
-                                                seissolInstance)};
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law_impl::SlipLaw<friction_law_impl::NoTP>>(seissolInstance),
+            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
+                                                    seissolInstance)};
   }
 }
 
@@ -105,29 +103,28 @@ DynamicRuptureTuple LinearSlipWeakeningBimaterialFactory::produce() {
   return {std::make_unique<seissol::initializer::LTSLinearSlipWeakeningBimaterial>(),
           std::make_unique<initializer::LinearSlipWeakeningBimaterialInitializer>(drParameters,
                                                                                   seissolInstance),
-          std::make_unique<FrictionLawType>(drParameters.get()),
+          std::make_unique<FrictionLawType>(seissolInstance),
           std::make_unique<output::OutputManager>(
               std::make_unique<output::LinearSlipWeakeningBimaterial>(), seissolInstance)};
 }
 
 DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {
-  return {
-      std::make_unique<seissol::initializer::LTSImposedSlipRatesYoffe>(),
-      std::make_unique<initializer::ImposedSlipRatesYoffeInitializer>(drParameters,
-                                                                      seissolInstance),
-      std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
-      std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
-                                              seissolInstance)};
+  return {std::make_unique<seissol::initializer::LTSImposedSlipRatesYoffe>(),
+          std::make_unique<initializer::ImposedSlipRatesYoffeInitializer>(drParameters,
+                                                                          seissolInstance),
+          std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(seissolInstance),
+          std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
+                                                  seissolInstance)};
 }
 
 DynamicRuptureTuple ImposedSlipRatesGaussianFactory::produce() {
-  return {std::make_unique<seissol::initializer::LTSImposedSlipRatesGaussian>(),
-          std::make_unique<initializer::ImposedSlipRatesGaussianInitializer>(drParameters,
-                                                                             seissolInstance),
-          std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(
-              drParameters.get()),
-          std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
-                                                  seissolInstance)};
+  return {
+      std::make_unique<seissol::initializer::LTSImposedSlipRatesGaussian>(),
+      std::make_unique<initializer::ImposedSlipRatesGaussianInitializer>(drParameters,
+                                                                         seissolInstance),
+      std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(seissolInstance),
+      std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
+                                              seissolInstance)};
 }
 
 DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
@@ -137,7 +134,7 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
                 drParameters, seissolInstance),
             std::make_unique<
                 friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
-                drParameters.get()),
+                seissolInstance),
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
   } else {
@@ -145,7 +142,7 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
             std::make_unique<initializer::RateAndStateFastVelocityInitializer>(drParameters,
                                                                                seissolInstance),
             std::make_unique<friction_law_impl::FastVelocityWeakeningLaw<friction_law_impl::NoTP>>(
-                drParameters.get()),
+                seissolInstance),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
                                                     seissolInstance)};
   }

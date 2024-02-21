@@ -14,9 +14,9 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
-        specialization(drParameters) {}
+  explicit LinearSlipWeakeningLaw(seissol::SeisSol& seissolInstance)
+      : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(seissolInstance),
+        specialization(&seissolInstance.getSeisSolParameters().drParameters) {}
 
   void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
