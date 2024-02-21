@@ -77,10 +77,10 @@ class BaseFrictionLaw : public FrictionSolver {
 
       // TODO(NONLINEAR) What are these values?
 
-      const real aB0 = damagedElasticParameters.aB0;
-      const real aB1 = damagedElasticParameters.aB1;
-      const real aB2 = damagedElasticParameters.aB2;
-      const real aB3 = damagedElasticParameters.aB3;
+      const real aB0 = damagedElasticParametersPtr->aB0;
+      const real aB1 = damagedElasticParametersPtr->aB1;
+      const real aB2 = damagedElasticParametersPtr->aB2;
+      const real aB3 = damagedElasticParametersPtr->aB3;
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
