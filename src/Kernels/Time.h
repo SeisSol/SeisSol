@@ -32,7 +32,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -85,70 +86,71 @@
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class Time;
-  }
+namespace kernels {
+class Time;
 }
+} // namespace seissol
 
 class seissol::kernels::Time : public TimeBase {
   protected:
   seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
 
   public:
-    void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const CompoundGlobalData& global);
+  void setHostGlobalData(GlobalData const* global);
+  void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder(double i_timeStepWidth,
-                     LocalData& data,
-                     LocalTmp& tmp,
-                     real o_timeIntegrated[tensor::I::size()],
-                     real* o_timeDerivatives = nullptr,
-                     bool updateDisplacement = false);
+  void computeAder(double i_timeStepWidth,
+                   LocalData& data,
+                   LocalTmp& tmp,
+                   real o_timeIntegrated[tensor::I::size()],
+                   real* o_timeDerivatives = nullptr,
+                   bool updateDisplacement = false);
 
 #ifdef USE_STP
-    void executeSTP( double     i_timeStepWidth,
-                     LocalData& data,
-                     real       o_timeIntegrated[tensor::I::size()],
-                     real*      stp );
-    void evaluateAtTime(std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions, real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]);
-    void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
+  void executeSTP(double i_timeStepWidth,
+                  LocalData& data,
+                  real o_timeIntegrated[tensor::I::size()],
+                  real* stp);
+  void evaluateAtTime(
+      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
+      real const* timeDerivatives,
+      real timeEvaluated[tensor::Q::size()]);
+  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
 
 #endif
-    void computeBatchedAder(double i_timeStepWidth,
-                            LocalTmp& tmp,
-                            ConditionalPointersToRealsTable &dataTable,
-                            ConditionalMaterialTable &materialTable,
-                            bool updateDisplacement = false);
+  void computeBatchedAder(double i_timeStepWidth,
+                          LocalTmp& tmp,
+                          ConditionalPointersToRealsTable& dataTable,
+                          ConditionalMaterialTable& materialTable,
+                          bool updateDisplacement = false);
 
-    void flopsAder( unsigned int &o_nonZeroFlops,
-                    unsigned int &o_hardwareFlops );
+  void flopsAder(unsigned int& o_nonZeroFlops, unsigned int& o_hardwareFlops);
 
-    unsigned bytesAder();
+  unsigned bytesAder();
 
-    void computeIntegral( double                                      i_expansionPoint,
-                          double                                      i_integrationStart,
-                          double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::I::size()] );
+  void computeIntegral(double i_expansionPoint,
+                       double i_integrationStart,
+                       double i_integrationEnd,
+                       real const* i_timeDerivatives,
+                       real o_timeIntegrated[tensor::I::size()]);
 
-    void computeBatchedIntegral(double i_expansionPoint,
-                                double i_integrationStart,
-                                double i_integrationEnd,
-                                const real** i_timeDerivatives,
-                                real ** o_timeIntegratedDofs,
-                                unsigned numElements);
+  void computeBatchedIntegral(double i_expansionPoint,
+                              double i_integrationStart,
+                              double i_integrationEnd,
+                              const real** i_timeDerivatives,
+                              real** o_timeIntegratedDofs,
+                              unsigned numElements);
 
-    void computeTaylorExpansion( real         time,
-                                 real         expansionPoint,
-                                 real const*  timeDerivatives,
-                                 real         timeEvaluated[tensor::Q::size()] );
+  void computeTaylorExpansion(real time,
+                              real expansionPoint,
+                              real const* timeDerivatives,
+                              real timeEvaluated[tensor::Q::size()]);
 
-    void computeDerivativeTaylorExpansion(real time,
-                                          real expansionPoint,
-                                          real const*  timeDerivatives,
-                                          real timeEvaluated[tensor::Q::size()],
-                                          unsigned derivativeOrder);
-
+  void computeDerivativeTaylorExpansion(real time,
+                                        real expansionPoint,
+                                        real const* timeDerivatives,
+                                        real timeEvaluated[tensor::Q::size()],
+                                        unsigned derivativeOrder);
 
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
@@ -160,10 +162,34 @@ class seissol::kernels::Time : public TimeBase {
 
   unsigned int* getDerivativesOffsets();
 
-  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* idamagedElasticParameters) {
-      damagedElasticParameters = idamagedElasticParameters;
+  void setDamagedElasticParameters(
+      seissol::initializer::parameters::DamagedElasticParameters* idamagedElasticParameters) {
+    damagedElasticParameters = idamagedElasticParameters;
+  }
+#ifdef USE_DAMAGEDELASTIC
+  void calculateEps(const real* exxNodal, const real* eyyNodal, const real* ezzNodal, const real* exyNodal,
+      const real* eyzNodal, const real* ezxNodal,const unsigned int& q, real& EspI, real& EspII, real&xi) {
+    const real epsInitxx = damagedElasticParameters->epsInitxx;
+    const real epsInityy = damagedElasticParameters->epsInityy;
+    const real epsInitzz = damagedElasticParameters->epsInitzz;
+    const real epsInitxy = damagedElasticParameters->epsInitxy;
+    const real epsInityz = damagedElasticParameters->epsInitxx;
+    const real epsInitzx = damagedElasticParameters->epsInitxx;
+
+    EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
+    EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
+                 (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
+                 (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
+                 2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
+                 2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
+                 2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
+    if (EspII > 1e-30) {
+      xi = EspI / std::sqrt(EspII);
+    } else {
+      xi = 0.0;
     }
+  }
+#endif
 };
 
 #endif
-
