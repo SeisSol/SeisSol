@@ -380,8 +380,6 @@ private:
             const unsigned DAM = 9;
             const unsigned BRE = 10;
 
-            // TODO(NONLINEAR) Write unified reader for these parameters
-
             const real lambda0P = materialData[l_cell].local.lambda0;
             const real mu0P = materialData[l_cell].local.mu0;
             const real rho0P = materialData[l_cell].local.rho;
@@ -390,7 +388,7 @@ private:
             const real mu0M = materialData[l_cell].neighbor[side].mu0;
             const real rho0M = materialData[l_cell].neighbor[side].rho;
 
-            const auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+            const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
             const real epsInitxx = damagedElasticParameters.epsInitxx;
             const real epsInityy = damagedElasticParameters.epsInityy;
