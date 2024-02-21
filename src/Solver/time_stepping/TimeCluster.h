@@ -320,6 +320,18 @@ private:
         // TODO: Check if it works for periodic BCs.
         // Here, plus side is actually minus (or local solution side),
         // minus side is neighbor solution side.
+        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
+        data.cellInformation.ltsSetup,
+        data.cellInformation.faceTypes,
+        subTimeStart,
+        timeStepSize(),
+        faceNeighbors[l_cell],
+#ifdef _OPENMP //okay
+                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+#else // _OPENMP
+            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
+#endif // _OPENMP        
+          l_timeIntegrated);
         for (unsigned int side = 0; side < 4; side++ ){
           if (cellInformation[l_cell].faceTypes[side] == FaceType::regular
           || cellInformation[l_cell].faceTypes[side] == FaceType::periodic){
