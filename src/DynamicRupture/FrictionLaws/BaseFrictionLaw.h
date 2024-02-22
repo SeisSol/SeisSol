@@ -119,13 +119,14 @@ class BaseFrictionLaw : public FrictionSolver {
 
       if (this->drParameters->isFrictionEnergyRequired) {
 
-        common::updateTimeSinceSlipRateBelowThreshold(
-            slipRateMagnitude[ltsFace],
-            ruptureTimePending[ltsFace],
-            energyData[ltsFace],
-            this->sumDt,
-            this->drParameters->terminatorSlipRateThreshold);
-
+        if (this->drParameters->isCheckAbortCriteraEnabled) {
+          common::updateTimeSinceSlipRateBelowThreshold(
+              slipRateMagnitude[ltsFace],
+              ruptureTimePending[ltsFace],
+              energyData[ltsFace],
+              this->sumDt,
+              this->drParameters->terminatorSlipRateThreshold);
+        }
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

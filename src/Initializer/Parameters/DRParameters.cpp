@@ -84,7 +84,10 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold =
-      static_cast<real>(reader->readWithDefault("terminatorslipratethreshold", 0.25));
+      static_cast<real>(abortCriteriaReader->readWithDefault("terminatorslipratethreshold", 0.5));
+  const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+  bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
@@ -94,6 +97,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
+                      isCheckAbortCriteraEnabled,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,

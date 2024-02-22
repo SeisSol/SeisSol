@@ -113,7 +113,7 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  double minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceSlipRateBelowThreshold;
   double terminatorMaxTimePostRupture;
 };
 

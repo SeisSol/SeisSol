@@ -45,6 +45,7 @@ struct DRParameters {
   bool isDynamicRuptureEnabled{true};
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
+  bool isCheckAbortCriteraEnabled{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};

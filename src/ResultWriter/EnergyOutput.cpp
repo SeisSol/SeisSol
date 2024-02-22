@@ -76,7 +76,9 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
-  reduceMinTimeSinceSlipRateBelowThreshold();
+  if (isCheckAbortCriteraEnabled) {
+    reduceMinTimeSinceSlipRateBelowThreshold();
+  }
   if (isTerminalOutputEnabled) {
     printEnergies();
   }
@@ -259,7 +261,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min : minTimeSinceSlipRateBelowThreshold) default(none)         \
+#pragma omp parallel for reduction(min                                                             \
+                                   : minTimeSinceSlipRateBelowThreshold) default(none)             \
     shared(it, drEnergyOutput, faceInformation)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
@@ -490,12 +493,12 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
   const auto& comm = MPI::mpi.comm();
 
   if (rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold, 1, MPI_C_REAL, MPI_MIN, 0, comm);
   } else {
     MPI_Reduce(&minTimeSinceSlipRateBelowThreshold,
                &minTimeSinceSlipRateBelowThreshold,
                1,
-               MPI_DOUBLE,
+               MPI_C_REAL,
                MPI_MIN,
                0,
                comm);
@@ -568,7 +571,7 @@ void EnergyOutput::checkAbortCriterion() {
   if (rank == 0) {
     if ((minTimeSinceSlipRateBelowThreshold > 0) and
         (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
-      if (minTimeSinceSlipRateBelowThreshold < terminatorMaxTimePostRupture) {
+      if (static_cast<double>(minTimeSinceSlipRateBelowThreshold) < terminatorMaxTimePostRupture) {
         logInfo(rank) << "all slip rates are below threshold since"
                       << minTimeSinceSlipRateBelowThreshold
                       << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture

@@ -114,6 +114,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
       auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
 
       this->queue.submit([&](sycl::handler& cgh) {
@@ -137,13 +138,15 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
           if (isFrictionEnergyRequired) {
 
-            common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
-                devSlipRateMagnitude[ltsFace],
-                devRuptureTimePending[ltsFace],
-                devEnergyData[ltsFace],
-                devSumDt,
-                devTerminatorSlipRateThreshold,
-                pointIndex);
+            if (isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                  devSlipRateMagnitude[ltsFace],
+                  devRuptureTimePending[ltsFace],
+                  devEnergyData[ltsFace],
+                  devSumDt,
+                  devTerminatorSlipRateThreshold,
+                  pointIndex);
+            }
 
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
