@@ -13,7 +13,7 @@ void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
   }
   // to fill last segment of Gaussian integration
   deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
-  sumDt += deltaT[CONVERGENCE_ORDER - 1];
+  sumDt += deltaT[0];
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
