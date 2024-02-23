@@ -153,6 +153,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       strength[pointIndex] =
           specialization.strengthHook(strength[pointIndex],
                                       this->slipRateMagnitude[ltsFace][pointIndex],
+                                      this->dC[ltsFace][pointIndex],
                                       this->deltaT[timeIndex],
                                       ltsFace,
                                       pointIndex);
@@ -222,6 +223,7 @@ class NoSpecialization {
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
+                    real dC,
                     real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex) {
@@ -252,6 +254,7 @@ class BiMaterialFault {
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
+                    real dC,
                     real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
@@ -259,6 +262,36 @@ class BiMaterialFault {
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
+};
+
+/**
+ * Modified LSW friction as discussed in github issue #1058
+ */
+class NameTBD {
+  public:
+  explicit NameTBD(seissol::initializer::parameters::DRParameters* parameters)
+      : drParameters(parameters){};
+
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
+                          real fullUpdateTime) {}
+  /**
+   * Use a simple copy for now, maybe use proper resampling later
+   */
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
+    std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
+  };
+#pragma omp declare simd
+  real strengthHook(real strength,
+                    real localSlipRate,
+                    real dC,
+                    real deltaT,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex);
+
+  protected:
+  seissol::initializer::parameters::DRParameters* drParameters;
 };
 
 } // namespace seissol::dr::friction_law

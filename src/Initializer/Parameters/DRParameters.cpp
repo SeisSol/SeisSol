@@ -27,6 +27,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       {FrictionLawType::NoFault,
        FrictionLawType::LinearSlipWeakening,
        FrictionLawType::LinearSlipWeakeningBimaterial,
+       FrictionLawType::LinearSlipWeakeningNameTBD,
        FrictionLawType::RateAndStateAgingLaw,
        FrictionLawType::RateAndStateSlipLaw,
        FrictionLawType::RateAndStateFastVelocityWeakening,

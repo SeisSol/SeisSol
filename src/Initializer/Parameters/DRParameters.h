@@ -18,6 +18,7 @@ enum class FrictionLawType : unsigned int {
   NoFault = 0,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
+  LinearSlipWeakeningNameTBD = 1058,
   RateAndStateAgingLaw = 3,
   RateAndStateSlipLaw = 4,
   RateAndStateFastVelocityWeakening = 103,

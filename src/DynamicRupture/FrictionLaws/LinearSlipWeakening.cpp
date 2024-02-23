@@ -21,6 +21,7 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 #pragma omp declare simd
 real BiMaterialFault::strengthHook(real faultStrength,
                                    real localSlipRate,
+                                   real dC,
                                    real deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
@@ -32,6 +33,20 @@ real BiMaterialFault::strengthHook(real faultStrength,
   const real newStrength =
       regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
   regularisedStrength[ltsFace][pointIndex] = newStrength;
+  return newStrength;
+}
+
+#pragma omp declare simd
+real NameTBD::strengthHook(real faultStrength,
+                           real localSlipRate,
+                           real dC,
+                           real deltaT,
+                           unsigned int ltsFace,
+                           unsigned int pointIndex) {
+  // modify strength according to Alice's suggestion on github issue #1058
+  const real factor = (1 + localSlipRate / dC);
+  const real cbrt = std::cbrt(factor);
+  const real newStrength = faultStrength / cbrt;
   return newStrength;
 }
 
