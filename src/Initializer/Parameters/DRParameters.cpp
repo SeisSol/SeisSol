@@ -82,6 +82,13 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   auto* outputReader = baseReader->readSubNode("output");
   bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
+  auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
+  const auto terminatorSlipRateThreshold =
+      static_cast<real>(abortCriteriaReader->readWithDefault("terminatorslipratethreshold", 0.5));
+  const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+  bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
 
@@ -90,6 +97,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
+                      isCheckAbortCriteraEnabled,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,
@@ -109,6 +117,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName,
-                      referencePoint};
+                      referencePoint,
+                      terminatorSlipRateThreshold};
 }
 } // namespace seissol::initializer::parameters

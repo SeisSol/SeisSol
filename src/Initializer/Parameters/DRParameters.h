@@ -45,6 +45,7 @@ struct DRParameters {
   bool isDynamicRuptureEnabled{true};
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
+  bool isCheckAbortCriteraEnabled{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
@@ -65,6 +66,7 @@ struct DRParameters {
   real prakashLength{0.0};
   std::string faultFileName{""};
   Eigen::Vector3d referencePoint;
+  real terminatorSlipRateThreshold{0.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);
