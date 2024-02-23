@@ -37,7 +37,7 @@ real BiMaterialFault::strengthHook(real faultStrength,
 }
 
 #pragma omp declare simd
-real NameTBD::strengthHook(real faultStrength,
+real TPApprox::strengthHook(real faultStrength,
                            real localSlipRate,
                            real dC,
                            real deltaT,

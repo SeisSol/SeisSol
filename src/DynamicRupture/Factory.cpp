@@ -24,8 +24,8 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningBimaterial:
     return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters, seissolInstance);
-  case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningNameTBD:
-    return std::make_unique<LinearSlipWeakeningNameTBDFactory>(drParameters, seissolInstance);
+  case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningTPApprox:
+    return std::make_unique<LinearSlipWeakeningTPApproxFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingLaw:
     return std::make_unique<RateAndStateAgingFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateSlipLaw:
@@ -112,16 +112,16 @@ DynamicRuptureTuple LinearSlipWeakeningBimaterialFactory::produce() {
               std::make_unique<output::LinearSlipWeakeningBimaterial>(), seissolInstance)};
 }
 
-DynamicRuptureTuple LinearSlipWeakeningNameTBDFactory::produce() {
-  using Specialization = friction_law_impl::NameTBD;
+DynamicRuptureTuple LinearSlipWeakeningTPApproxFactory::produce() {
+  using Specialization = friction_law_impl::TPApprox;
   using FrictionLawType = friction_law_impl::LinearSlipWeakeningLaw<Specialization>;
 
-  return {std::make_unique<seissol::initializer::LTSLinearSlipWeakening>(),
-    std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters,
-        seissolInstance),
+  return {
+    std::make_unique<seissol::initializer::LTSLinearSlipWeakening>(),
+    std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters, seissolInstance),
     std::make_unique<FrictionLawType>(drParameters.get()),
-    std::make_unique<output::OutputManager>(
-        std::make_unique<output::LinearSlipWeakening>(), seissolInstance)};
+    std::make_unique<output::OutputManager>(std::make_unique<output::LinearSlipWeakening>(), 
+                                            seissolInstance)};
 }
 
 DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {

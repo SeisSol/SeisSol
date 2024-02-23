@@ -69,7 +69,7 @@ class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
-class LinearSlipWeakeningNameTBDFactory : public AbstractFactory {
+class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override;

@@ -267,9 +267,9 @@ class BiMaterialFault {
 /**
  * Modified LSW friction as discussed in github issue #1058
  */
-class NameTBD {
+class TPApprox {
   public:
-  explicit NameTBD(seissol::initializer::parameters::DRParameters* parameters)
+  explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
