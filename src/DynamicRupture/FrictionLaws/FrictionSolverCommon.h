@@ -1,13 +1,14 @@
 #ifndef SEISSOL_FRICTIONSOLVER_COMMON_H
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
+#include <limits>
+#include <type_traits>
+
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
-#include <type_traits>
-#include <limits>
 
 /**
  * Contains common functions required both for CPU and GPU impl.
