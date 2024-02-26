@@ -50,7 +50,7 @@ namespace seissol {
 
 using GlobalElemId = size_t;
 using LocalElemId = int32_t;
-using LocalVertexId = size_t;
+using LocalVertexId = int32_t;
 using SideId = int8_t;
 
 using ElemVertices = LocalVertexId[4];
