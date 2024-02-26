@@ -2,8 +2,8 @@
 #define SEISSOL_FRICTIONSOLVER_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
 
 namespace seissol::dr::friction_law {
@@ -16,15 +16,16 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
+  explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
+      : drParameters(userDRParameters) {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
               &init::quadweights::Values[init::quadweights::Stop[0]],
               &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializers::Layer& layerData,
-                        seissol::initializers::DynamicRupture const* const dynRup,
+  virtual void evaluate(seissol::initializer::Layer& layerData,
+                        seissol::initializer::DynamicRupture const* const dynRup,
                         real fullUpdateTime,
                         const double timeWeights[CONVERGENCE_ORDER]) = 0;
 
@@ -37,8 +38,8 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   protected:
@@ -47,8 +48,9 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT[CONVERGENCE_ORDER] = {};
+  real sumDt;
 
-  dr::DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
   ImpedanceMatrices* impedanceMatrices;
   real mFullUpdateTime;

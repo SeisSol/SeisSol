@@ -73,7 +73,7 @@ void Pinning::checkEnvVariables() {
 
       bool isMaskGood{true};
       const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
-      if (numLocalProcesses > parsedFreeCPUsMask.size()) {
+      if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
         logInfo(rank) << "There are more communication (and/or output-writing) threads"
                       << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
@@ -81,7 +81,7 @@ void Pinning::checkEnvVariables() {
       }
       else {
         const auto maxCpuId = get_nprocs();
-        for (auto localProcessId = 0; localProcessId < parsedFreeCPUsMask.size(); ++localProcessId) {
+        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask.size()); ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
             if (cpu > maxCpuId) {
               logInfo(rank) << "Free cpu mask of the local process"

@@ -28,8 +28,10 @@ The energy output computes the energy of the simulation. It is divided into mult
     - Radiated energy can then be computed with:
         :math:`E_\mathrm{r} = W_\mathrm{total} - W_\mathrm{static}` (see eq. 5 in Ma and Archuleta, 2006).
 
+- Potency
+        :math:`\int_{\Sigma} \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
 - Seismic moment
-        :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
+        :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient.
 - Plastic moment 
     :math:`\int_{\Omega_e} \mu \eta  \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and \eta a scalar quantity measuring the accumulated material damage.
 

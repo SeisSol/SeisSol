@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
@@ -39,11 +39,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -212,10 +212,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(DRParameters* parameters){};
+  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime){};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
@@ -240,10 +240,11 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
+  explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
+      : drParameters(parameters){};
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
@@ -262,7 +263,7 @@ class BiMaterialFault {
                     unsigned int pointIndex);
 
   protected:
-  DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
 

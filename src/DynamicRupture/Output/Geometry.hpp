@@ -97,6 +97,7 @@ struct ReceiverPoint {
   int globalReceiverIndex{-1};  // receiver index of global list
   bool isInside{false};         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
+  int faultTag{-1};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,

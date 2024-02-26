@@ -47,6 +47,7 @@ public:
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
+  virtual void finalize();
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
@@ -64,6 +65,23 @@ public:
   void setCorrectionTime(double time);
 
   long getTimeStepRate();
+
+  /**
+   * @brief Returns the time step size of the cluster.
+   * @return the time step size of the cluster.
+   */
+  double getClusterTimes();
+  /**
+   * @brief Sets the time step size of the cluster.
+   * @param newTimeStepSize
+   */
+  void setClusterTimes(double newTimeStepSize);
+
+  /**
+   * @brief Returns the neighbor clusters of the cluster.
+   * @return the pointer to the vector of neighbor clusters.
+   */
+  std::vector<NeighborCluster>* getNeighborClusters();
 
 };
 
