@@ -50,6 +50,7 @@ struct DRParameters {
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
+  real healingThreshold{-1.0};
   real t0{0.0};
   real rsF0{0.0};
   real rsB{0.0};

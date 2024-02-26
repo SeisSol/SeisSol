@@ -48,6 +48,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   }
   const auto backgroundType = reader->readWithDefault("backgroundtype", 0);
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
+  const auto healingThreshold =
+      static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
   const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
 
   const bool isRateAndState =
@@ -102,6 +104,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       refPointMethod,
                       slipRateOutputType,
                       frictionLawType,
+                      healingThreshold,
                       t0,
                       rsF0,
                       rsB,
