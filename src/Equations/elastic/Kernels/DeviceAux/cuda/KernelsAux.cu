@@ -446,9 +446,12 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        sourcePtrs[j] = source[block * Blocksize + j] + offset;
-        if (sourcePtrs[j] != nullptr) {
-          sourcePtrs[j] += offset;
+        sourcePtrs[j] = nullptr;
+        if (block * Blocksize + j < count) {
+          sourcePtrs[j] = source[block * Blocksize + j] + offset;
+          if (sourcePtrs[j] != nullptr) {
+            sourcePtrs[j] += offset;
+          }
         }
         notZero |= sourcePtrs[j] != nullptr;
       }
@@ -456,14 +459,14 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
         for (size_t j = 0; j < paddedsize; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && sourcePtrs[i] != nullptr) {
+              if (j + threadIdx.x < paddedsize && sourcePtrs[i] != nullptr) {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = sourcePtrs[i][j + threadIdx.x];
               }
               else {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
               }
             }
-            __syncwarp();
+            __syncthreads();
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
@@ -472,6 +475,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
                 target[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
             }
+            __syncthreads();
         }
       }
     }
@@ -487,9 +491,12 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        targetPtrs[j] = target[block * Blocksize + j];
-        if (targetPtrs[j] != nullptr) {
-          targetPtrs[j] += offset;
+        targetPtrs[j] = nullptr;
+        if (block * Blocksize + j < count) {
+          targetPtrs[j] = target[block * Blocksize + j];
+          if (targetPtrs[j] != nullptr) {
+            targetPtrs[j] += offset;
+          }
         }
         notZero |= targetPtrs[j] != nullptr;
       }
@@ -506,13 +513,14 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
               }
             }
-            __syncwarp();
+            __syncthreads();
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
-              if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && targetPtrs[i] != nullptr) {
+              if (j + threadIdx.x < paddedsize && targetPtrs[i] != nullptr) {
                 targetPtrs[i][j + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
               }
             }
+            __syncthreads();
         }
       }
     }
