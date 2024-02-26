@@ -171,7 +171,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   logInfo(commRank) << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<seissol::PRE_MESH>();
+  seissol::Modules::callHook<ModuleHook::PreMesh>();
 
   const auto meshFormat = seissolParams.mesh.meshFormat;
 
@@ -213,7 +213,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   watch.printTime("Mesh initialized in:");
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<seissol::POST_MESH>();
+  seissol::Modules::callHook<ModuleHook::PostMesh>();
 
   logInfo(commRank) << "End init mesh.";
 

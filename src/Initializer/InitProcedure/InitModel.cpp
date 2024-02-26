@@ -348,7 +348,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo(seissol::MPI::mpi.rank()) << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<seissol::PRE_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -378,7 +378,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   watch.printTime("Model initialized in:");
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<seissol::POST_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PostModel>();
 
   logInfo(seissol::MPI::mpi.rank()) << "End init model.";
 }
