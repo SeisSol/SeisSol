@@ -144,11 +144,11 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 }
 
 LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-    : m_velocityModel(config.velocityModel), m_rate(config.rate),
+    : seissolInstance(seissolInstance), m_velocityModel(config.velocityModel), m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat(config.boundaryFormat), seissolInstance(seissolInstance) { }
+      boundaryFormat(config.boundaryFormat) { }
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
