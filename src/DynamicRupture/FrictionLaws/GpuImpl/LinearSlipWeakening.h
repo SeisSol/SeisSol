@@ -99,6 +99,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
+    auto* devSlipRateMagnitude{this->slipRateMagnitude};
+    auto* devPeakSlipaRate{this->peakSlipRate};
+    auto* devHealingThreshold{this->healingThreshold};
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -110,6 +113,12 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         devMu[ltsFace][pointIndex] =
             devMuS[ltsFace][pointIndex] -
             (devMuS[ltsFace][pointIndex] - devMuD[ltsFace][pointIndex]) * stateVariable[pointIndex];
+        // instantaneous healing
+        if ((devPeakSlipRate[ltsFace][pointIndex] > devHealingThreshold) &&
+            (devSlipRateMagnitude[ltsFace][pointIndex] < devHealingThreshold)) {
+          devMu[ltsFace][pointIndex] = devMuS[ltsFace][pointIndex];
+          stateVariableBuffer[pointIndex] = 0.0;
+        }
       });
     });
   }
