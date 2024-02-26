@@ -49,15 +49,15 @@
 namespace seissol {
 
 using GlobalElemId = size_t;
-using LocalElemId = int32_t;
-using LocalVertexId = int32_t;
-using SideId = int8_t;
+using LocalElemId = int; // TODO(David): size_t, maybe, once the Netcdf Reader is gone
+using LocalVertexId = int; // TODO(David): size_t, maybe, once the Netcdf Reader is gone
+using SideId = int; // TODO(David): int8_t , once the Netcdf Reader is gone
 
 using ElemVertices = LocalVertexId[4];
 using ElemNeighbors = LocalElemId[4];
 using ElemNeighborSides = SideId[4];
-using ElemSideOrientations = int8_t[4];
-using ElemBoundaries = int8_t[4];
+using ElemSideOrientations = int[4];
+using ElemBoundaries = int[4];
 using ElemNeighborRanks = int[4]; // type prescribed by MPI
 /** The index of this element (side) in the communication array */
 using ElemMPIIndices = int[4];
