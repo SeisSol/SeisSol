@@ -249,7 +249,7 @@ namespace seissol::kernels {
                                                 double timeStepWidth,
                                                 double T_v,
                                                 GlobalData const *global,
-                                                initializers::recording::ConditionalPointersToRealsTable &table,
+                                                initializer::recording::ConditionalPointersToRealsTable &table,
                                                 PlasticityData *plasticityData) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],

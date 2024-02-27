@@ -48,6 +48,7 @@
 #include <cassert>
 #include <stdint.h>
 #include "GravitationalFreeSurfaceBC.h"
+#include "SeisSol.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -184,13 +185,15 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(materialData != nullptr);
         auto* displ = tmp.nodalAvgDisplacements[face].data();
         auto displacement = init::averageNormalDisplacement::view::create(displ);
-        auto applyFreeSurfaceBc = [&displacement, &materialData](
+        // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
+        const auto localG = gravitationalAcceleration;
+        auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
-            const double g = getGravitationalAcceleration(); // [m/s^2]
-            const double pressureAtBnd = -1 * rho * g * displacement(i);
+            assert(localG > 0);
+            const double pressureAtBnd = -1 * rho * localG * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
             boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
@@ -327,7 +330,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
       auto nodalAvgDisplacements = dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
-      freeSurfaceGravityBc.g = getGravitationalAcceleration();
+      freeSurfaceGravityBc.g = gravitationalAcceleration;
       freeSurfaceGravityBc.rhos = rhos;
       freeSurfaceGravityBc.displacementDataPtrs = nodalAvgDisplacements;
       dirichletBoundary.evaluateOnDevice(face,

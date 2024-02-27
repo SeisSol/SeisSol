@@ -45,12 +45,12 @@
 #include "Layer.hpp"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class LTSInternalNode;
   }
 }
 
-class seissol::initializers::LTSInternalNode : public seissol::initializers::Node {
+class seissol::initializer::LTSInternalNode : public seissol::initializer::Node {
 public:  
   class leaf_iterator : public iterator {
     friend class LTSInternalNode;

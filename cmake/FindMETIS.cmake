@@ -13,6 +13,9 @@
 #  METIS_INCDIR          - Where to find the header files
 #  METIS_LIBDIR          - Where to find the library files
 
+# enforce including GKlib, if it's linked dynamically
+find_package(GKlib QUIET)
+
 find_path(METIS_INCLUDE_DIR metis.h
   HINTS ${METIS_INCLUDE_DIR} 
         ENV METIS_INCLUDE_DIR 

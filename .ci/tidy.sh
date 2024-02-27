@@ -11,11 +11,15 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Initializers/Parameters
+        src/Modules
+        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/main.cpp
+        src/SeisSol.cpp
         "
 
     local SEISSOL_SOURCE_DIR="${1}"
@@ -42,7 +46,7 @@ format() {
         FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
 
-    python3 ${SEISSOL_SOURCE_DIR}/.ci/run-clang-tidy.py -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
+    python3 ${SEISSOL_SOURCE_DIR}/.ci/run-clang-tidy.py -use-color -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
 }
 
 format $@

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -47,70 +48,60 @@
 #include <iomanip>
 #include <time.h>
 #include <vector>
-
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
+#include "Parallel/MPI.h"
 
 namespace seissol {
 class LoopStatistics {
-public:
-  void addRegion(std::string const& name, bool includeInSummary = true) {
-    m_regions.push_back(name);
-    m_begin.push_back(timespec{});
-    m_times.emplace_back();
-    m_includeInSummary.push_back(includeInSummary);
-  }
-  
-  unsigned getRegion(std::string const& name) {
-    auto first = m_regions.cbegin();
-    auto it = std::find(first, m_regions.cend(), name);
-    assert(it != m_regions.end());
-    return std::distance(first, it);
-  }
-  
-  void begin(unsigned region) {
-    clock_gettime(CLOCK_MONOTONIC, &m_begin[region]);
-  }
-  
-  void end(unsigned region, unsigned numIterations, unsigned subRegion) {
-    Sample sample;
-    clock_gettime(CLOCK_MONOTONIC, &sample.end);
-    sample.begin = m_begin[region];
-    sample.numIters = numIterations;
-    sample.subRegion = subRegion;
-    m_times[region].push_back(sample);
-  }
+  public:
+  void enableSampleOutput(bool enabled);
 
-  void addSample(unsigned region, unsigned numIters, unsigned subRegion,
-                 timespec begin, timespec end) {
-    Sample sample;
-    sample.begin = std::move(begin);
-    sample.end = std::move(end);
-    sample.numIters = numIters;
-    sample.subRegion = subRegion;
-    m_times[region].push_back(sample);
-  }
+  void addRegion(std::string const& name, bool includeInSummary = true);
 
-#ifdef USE_MPI  
+  unsigned getRegion(std::string const& name) const;
+
+  void begin(unsigned region);
+
+  void end(unsigned region, unsigned numIterations, unsigned subRegion);
+
+  void addSample(
+      unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end);
+
+  void reset();
+
   void printSummary(MPI_Comm comm);
-#endif
 
   void writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
-  
-private:
+
+  private:
   struct Sample {
     timespec begin;
     timespec end;
     unsigned numIters;
     unsigned subRegion;
   };
-  
-  std::vector<timespec> m_begin;
-  std::vector<std::string> m_regions;
-  std::vector<std::vector<Sample>> m_times;
-  std::vector<bool> m_includeInSummary;
+
+  struct StatisticVariables {
+    double x = 0;
+    double x2 = 0;
+    double xy = 0;
+    double y = 0;
+    double y2 = 0;
+    unsigned long long n = 0;
+  };
+
+  struct Region {
+    std::string name;
+    std::vector<Sample> times;
+    bool includeInSummary;
+    timespec begin;
+    StatisticVariables variables;
+
+    Region(const std::string& name, bool includeInSummary);
+  };
+
+  std::vector<Region> regions;
+  bool outputSamples = false;
 };
-}
+} // namespace seissol
 
 #endif // MONITORING_LOOPSTATISTICS_H_

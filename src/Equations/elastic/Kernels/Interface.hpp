@@ -47,7 +47,8 @@
 namespace seissol::kernels {
     struct LocalTmp {
         alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
-        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
+        LocalTmp(double graviationalAcceleration) : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
     };
 #ifndef ACL_DEVICE
     LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
