@@ -299,19 +299,9 @@ private:
       real** derivatives = i_layerData.var(m_lts->derivatives);
       LocalIntegrationData* localIntegration = i_layerData.var(m_lts->localIntegration);
       CellMaterialData* materialData = i_layerData.var(m_lts->material);
-
-      double timePoints[CONVERGENCE_ORDER];
-      double timeWeights[CONVERGENCE_ORDER];
-
-      seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
-      for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
-        timePoints[point] = 0.5 * (timeStepSize() * timePoints[point] + timeStepSize());
-        timeWeights[point] = 0.5 * timeStepSize() * timeWeights[point];
-      }
-
       
       #ifdef _OPENMP // okay
-      #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared( materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart, timePoints, timeWeights) reduction(+:numberOTetsWithPlasticYielding)
+      #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared( materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
       #endif // _OPENMP
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
@@ -332,82 +322,8 @@ private:
             *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif // _OPENMP        
           l_timeIntegrated);
-        for (unsigned int side = 0; side < 4; side++ ){
-          if (cellInformation[l_cell].faceTypes[side] == FaceType::regular
-          || cellInformation[l_cell].faceTypes[side] == FaceType::periodic){
-            // Compute local integrals with derivatives and Rusanov flux
-            /// S1: compute the space-time interpolated Q on both side of 4 faces
-            /// S2: at the same time rotate the field to face-aligned coord.
-            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
-            alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
-
-            for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-              real degreesOfFreedomPlus[tensor::Q::size()];
-              real degreesOfFreedomMinus[tensor::Q::size()];
-
-              for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
-                degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
-                degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
-              }
-
-              // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
-              m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-              m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-
-              // Prototype is necessary for openmp
-              kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
-                = m_nonlinearInterpolation;
-
-              m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
-              m_nonLinInter.Q = degreesOfFreedomPlus;
-              m_nonLinInter.execute(side, 0);
-
-              m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
-              m_nonLinInter.Q = degreesOfFreedomMinus;
-              m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0]
-                            , cellInformation[l_cell].faceRelations[side][1]+1);
-            }
-
-            // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
-            // Reshape the interpolated results
-            using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
-
-            auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
-            auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
-
-            // The arrays to store time integrated flux
-            alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
-            // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
-
-            for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
-              rusanovFluxPlus[i_f] = static_cast<real>(0.0);
-            }
-
-            using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
-            auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
-            
-            // S4: Compute the Rusanov flux
-            m_timeKernel.computeNonLinearRusanovFlux(materialData, l_cell, side, timeWeights, *qIPlus[0], *qIMinus[0], *rusanovFluxP, localIntegration);
-
-            /// S5: Integrate in space using quadrature.
-            kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-            m_surfIntegral.Q = data.dofs;
-            m_surfIntegral.Flux = rusanovFluxPlus;
-            m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            m_surfIntegral.execute(side, 0);
-          }
-          else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
-            // No neighboring cell contribution, interior bc.
-            assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
-
-            kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
-            m_drIntegral.Q = data.dofs;
-            m_drIntegral.Flux = drMapping[l_cell][side].godunov;
-            m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            m_drIntegral.execute(side, drMapping[l_cell][side].faceRelation);
-
-          } // if (faceTypes)
-        } // for (side)
+          m_timeKernel.computeNonLinearIntegralCorrection(cellInformation, l_cell, derivatives, faceNeighbors, materialData, localIntegration, data, drMapping, m_nonlSurfIntPrototype, timeStepSize(),
+          m_nonlinearInterpolation);
       }
 
       const long long nonZeroFlopsPlasticity =
