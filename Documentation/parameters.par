@@ -152,4 +152,7 @@ LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produ
            
 &AbortCriteria
 EndTime = 15.0
+terminatorMaxTimePostRupture = 5.0 ! Stops SeisSol x sec after slip rate is below threshold everywhere on the fault
+terminatorSlipRateThreshold = 0.5  ! Slip rate threshold for the above criteria (the proposed value should filter out locally high SR
+                                   ! in "creeping" fronts (numerical artifacts when rupture dies out).
 /

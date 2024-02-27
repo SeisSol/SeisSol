@@ -333,7 +333,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
     displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
   }
-  locationFlags = std::vector<double>(totalNumberOfTriangles, 0.0);
+  locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 
   /// @ yateto_todo
   baseLtsId = 0;
@@ -368,7 +368,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
             surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
 
             for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
-              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<double>(getLocationFlag(
+              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<unsigned int>(getLocationFlag(
                   cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
             }
             ++surfaceCell;

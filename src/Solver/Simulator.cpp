@@ -103,7 +103,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
-    Modules::callHook<SIMULATION_START>();
+    Modules::callHook<ModuleHook::SimulationStart>();
   }
 
   // intialize wave field and checkpoint time
@@ -175,6 +175,8 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
   ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
+
+  Modules::callHook<ModuleHook::SimulationEnd>();
 
   const auto& memoryManager = seissolInstance.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();

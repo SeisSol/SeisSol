@@ -291,4 +291,13 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 #endif
   }
 }
+
+void ReceiverBasedOutputBuilder::assignFaultTags() {
+  auto& geoPoints = outputData->receiverPoints;
+  const auto& faultInfo = meshReader->getFault();
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+  }
+}
+
 } // namespace seissol::dr::output

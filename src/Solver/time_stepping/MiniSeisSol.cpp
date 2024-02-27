@@ -288,7 +288,7 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
 
   Stopwatch stopwatch;
   stopwatch.start();
-  for (unsigned t = 0; t < config.numRepeats; ++t) {
+  for (int t = 0; t < config.numRepeats; ++t) {
     runBenchmark();
   }
   syncBenchmark();
