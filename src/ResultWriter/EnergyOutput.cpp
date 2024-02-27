@@ -259,23 +259,24 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         seismicMoment += potencyIncrease * mu;
       }
     }
+    real localMin = std::numeric_limits<real>::max();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min                                                             \
-                                   : minTimeSinceSlipRateBelowThreshold) default(none)             \
-    shared(it, drEnergyOutput, faceInformation)
+                                   : localMin) default(none)                                       \
+    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
           if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] <
               minTimeSinceSlipRateBelowThreshold) {
-            minTimeSinceSlipRateBelowThreshold =
-                drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
+            localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
           }
         }
       }
     }
+    minTimeSinceSlipRateBelowThreshold = localMin;
   }
 #ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
