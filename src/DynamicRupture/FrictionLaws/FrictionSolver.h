@@ -48,6 +48,7 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT[CONVERGENCE_ORDER] = {};
+  real sumDt;
 
   seissol::initializer::parameters::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
