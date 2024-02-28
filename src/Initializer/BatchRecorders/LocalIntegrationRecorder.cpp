@@ -206,7 +206,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
       for (unsigned face = 0; face < 4; ++face) {
         if (data.cellInformation().faceTypes[face] == FaceType::freeSurfaceGravity) {
-          assert(data.faceDisplacements[face] != nullptr);
+          assert(data.faceDisplacements()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
@@ -278,7 +278,8 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           aminusTPtrs[face].push_back(data.neighIntegrationOnDevice().nAmNm1[face]);
 
           easiBoundaryMapPtrs[face].push_back(data.boundaryMapping()[face].easiBoundaryMap);
-          easiBoundaryConstantPtrs[face].push_back(data.boundaryMapping()[face].easiBoundaryConstant);
+          easiBoundaryConstantPtrs[face].push_back(
+              data.boundaryMapping()[face].easiBoundaryConstant);
         }
       }
     }

@@ -44,7 +44,8 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
             if (data.cellInformation().faceTypes[face] != FaceType::outflow &&
                 data.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
 
-              bool isNeighbProvidesDerivatives = ((data.cellInformation().ltsSetup >> face) % 2) == 1;
+              bool isNeighbProvidesDerivatives =
+                  ((data.cellInformation().ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
                 real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
