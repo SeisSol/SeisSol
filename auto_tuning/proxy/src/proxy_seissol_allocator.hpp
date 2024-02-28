@@ -88,7 +88,6 @@ seissol::kernels::Neighbor  m_neighborKernel;
 
 seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;
 seissol::kernels::DynamicRupture m_dynRupKernel(m_damageParameters);
-
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 
 namespace tensor = seissol::tensor;
@@ -111,6 +110,7 @@ void initGlobalData() {
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
+  m_timeKernel.setDamagedElasticParameters(m_damageParameters);
 }
 
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
