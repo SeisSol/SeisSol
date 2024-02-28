@@ -275,7 +275,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         }
       }
     }
-    minTimeSinceSlipRateBelowThreshold = localMin;
+    minTimeSinceSlipRateBelowThreshold = std::min(localMin, minTimeSinceSlipRateBelowThreshold);
   }
 #ifdef ACL_DEVICE
   device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
