@@ -95,7 +95,7 @@ class Time;
 
 class seissol::kernels::Time : public TimeBase {
   protected:
-  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
+  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters = nullptr;
 
   public:
   void setHostGlobalData(GlobalData const* global);
