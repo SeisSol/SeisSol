@@ -373,7 +373,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
                                 real t0,
                                 real dt,
                                 unsigned startIndex = 0) {
-  const real t02 = 100.0;
+  const real t02 = 20.0;
   if ((fullUpdateTime <= t0) or (abs(fullUpdateTime - (t02 + 0.5 * t0)) <= 0.5 * t0)) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
