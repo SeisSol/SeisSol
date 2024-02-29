@@ -42,10 +42,10 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
   const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
   const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
   const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0);
-  const auto aB0 = reader->readWithDefault<real>("aB0", 0);
-  const auto aB1 = reader->readWithDefault<real>("aB1", 0);
-  const auto aB2 = reader->readWithDefault<real>("aB2", 0);
-  const auto aB3 = reader->readWithDefault<real>("aB3", 0);
+  const auto aB0 = reader->readWithDefault<real>("ab0", 0);
+  const auto aB1 = reader->readWithDefault<real>("ab1", 0);
+  const auto aB2 = reader->readWithDefault<real>("ab2", 0);
+  const auto aB3 = reader->readWithDefault<real>("ab3", 0);
   const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 0);
 
   if (!isModelDamagedElastic()) {
