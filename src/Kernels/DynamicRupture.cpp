@@ -152,11 +152,11 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 #endif
 
         // Derive stress solutions from strain
-    alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
-    alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsNMinus[tensor::Q::size()]{};
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
 
 #ifdef USE_DAMAGEDELASTIC
     kernel::damageConvertToNodal d_converToKrnl;
@@ -168,8 +168,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_converToKrnl.QNodal = dofsNMinus;
     d_converToKrnl.Q = degreesOfFreedomMinus;
     d_converToKrnl.execute();
-    alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
-    alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
     
     // TODO(NONLINEAR) What are these numbers?
 
