@@ -86,8 +86,8 @@ seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
 seissol::kernels::Neighbor  m_neighborKernel;
 
-seissol::initializer::parameters::DamagedElasticParameters* m_damageParameters = nullptr;
-seissol::kernels::DynamicRupture m_dynRupKernel(m_damageParameters);
+seissol::initializer::parameters::DamagedElasticParameters m_damageParameters = {};
+seissol::kernels::DynamicRupture m_dynRupKernel(&m_damageParameters);
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 
@@ -108,6 +108,7 @@ void initGlobalData() {
     globalData.onDevice = &m_globalDataOnDevice;
   }
   m_timeKernel.setGlobalData(globalData);
+  m_timeKernel.setDamagedElasticParameters(&m_damageParameters);
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
