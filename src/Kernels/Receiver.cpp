@@ -47,6 +47,21 @@
 #include <Monitoring/FlopCounter.hpp>
 #include <generated_code/kernel.h>
 
+seissol::kernels::ReceiverCluster::ReceiverCluster(  GlobalData const*             global,
+                                                     std::vector<unsigned> const&  quantities,
+                                                     double                        samplingInterval,
+                                                     double                        syncPointInterval,
+                                                     bool                          computeRotation,
+                                                     seissol::SeisSol&             seissolInstance) : m_quantities(quantities),
+  m_samplingInterval(samplingInterval),
+  m_syncPointInterval(syncPointInterval),
+  m_computeRotation(computeRotation),
+  seissolInstance(seissolInstance) {
+    m_timeKernel.setHostGlobalData(global);
+    m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
+    m_timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
+}
+
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
                                                       Eigen::Vector3d const&            point,
