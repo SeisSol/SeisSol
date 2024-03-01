@@ -68,10 +68,8 @@ foreach(component ${_GEMM_TOOLS_LIST})
         # already included by default!
 
     elseif ("${component}" STREQUAL "KernelForge")
-        execute_process(COMMAND python3 -c "import kernelforge.support; kernelforge.support.print_cmake_path()"
-                        OUTPUT_VARIABLE KERNELFORGE_PATH)
-        set(CMAKE_PREFIX_PATH "${KERNELFORGE_PATH}" ${CMAKE_MODULE_PATH})
-        find_package(KernelForge 0.0.1 REQUIRED)
+        set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/submodules/TensorForge/kernelforge/share/cmake" ${CMAKE_MODULE_PATH})
+        find_package(KernelForge REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${KernelForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${KernelForge_INCLUDE_DIRS})
 
