@@ -100,6 +100,7 @@ void seissol::localIntegration(GlobalData* globalData,
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
   timeKernel.setHostGlobalData(globalData);
+  timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
 
   real**                buffers                       = layer.var(lts.buffers);
 
