@@ -84,8 +84,8 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "auto" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
-        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
+set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen"
+        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -162,8 +162,8 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
 endif()
 
 if (NOT ${DEVICE_BACKEND} STREQUAL "none")
-    message(STATUS "GPUs are enabled, adding GemmForge (and ChainForge, if available)")
-    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
+    message(STATUS "GPUs are enabled, adding KernelForge for GPU kernels")
+    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},KernelForge")
     set(WITH_GPU on)
     # note: GPU builds currently don't support CPU-only execution (hence the following message)
     message(STATUS "Compiling SeisSol for GPU")
