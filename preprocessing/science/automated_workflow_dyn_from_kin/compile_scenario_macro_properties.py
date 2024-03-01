@@ -7,13 +7,14 @@ import matplotlib
 import os
 import glob
 import re
+from obspy.signal.cross_correlation import correlate, correlate_template, xcorr_max
 
 
 def computeMw(label, time, moment_rate):
     M0 = np.trapz(moment_rate[:], x=time[:])
     Mw = 2.0 * np.log10(M0) / 3.0 - 6.07
     # print(f"{label} moment magnitude: {Mw:.2} (M0 = {M0:.4e})")
-    return Mw
+    return M0, Mw
 
 
 def extractBCR(fname):
@@ -54,34 +55,62 @@ ax = fig.add_subplot(111)
 
 
 energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
-results = {"B": [], "C": [], "R0": [], "Mw": []}
+results = {"B": [], "C": [], "R0": [], "Mw": [], "ccmax": [], "M0mis": []}
+
+mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+# Create a new time array with the desired time step
+dt = 0.25
+new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
+# Use numpy's interp function to interpolate values at the new time points
+mr_usgs_interp = np.interp(new_time, mr_usgs[:, 0], mr_usgs[:, 1])
 
 for i, fn in enumerate(energy_files):
     if "fl33" in fn:
         continue
     df = pd.read_csv(fn)
     df = df.pivot_table(index="time", columns="variable", values="measurement")
-    df["seismic_moment_rate"] = np.gradient(
-        df["seismic_moment"], df.index[1] - df.index[0]
-    )
+    dt = df.index[1] - df.index[0]
+    assert dt == 0.25
+    df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
     label = os.path.basename(fn)
     B, C, R = extractBCR(fn)
-    Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
+    M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
     results["Mw"].append(Mw)
     results["B"].append(B)
     results["C"].append(C)
     results["R0"].append(R)
+
+    cc = correlate_template(
+        mr_usgs_interp, df["seismic_moment_rate"], mode="same", normalize="naive"
+    )
+    # cc = correlate(stcc[i], stcc[j], shift=100)
+    shift, ccmax = xcorr_max(cc, abs_max=False)
+    results["ccmax"].append(ccmax)
+    M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
+    results["M0mis"].append(M0_gof)
+
     label = f"B={B}, C={C}, R={R}"
     if Mw < 6.0:
         continue
+    overall_gof = M0_gof * ccmax
+    if overall_gof > 0.6:
+        labelargs = {"label": f"{label} (Mw={Mw:.2f}, gof={overall_gof:.2})"}
+        alpha = 1.0
+    else:
+        labelargs = {"color": "lightgrey", "zorder": 1}
+        alpha = 0.5
+
     ax.plot(
         df.index.values,
         df["seismic_moment_rate"] / 1e19,
-        label=f"{label} (Mw={Mw:.2f})",
+        alpha=alpha,
         linestyle="--" if C == 0.3 else "-",
+        **labelargs,
     )
-mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
-ax.plot(mr_usgs[:, 0], mr_usgs[:, 1] / 1e19, label="usgs", color="black")
+ax.plot(
+    mr_usgs[:, 0], mr_usgs[:, 1] / 1e19, label=f"usgs (Mw={Mwusgs:.2f})", color="black"
+)
 
 result_df = pd.DataFrame(results)
 print(result_df)
@@ -91,6 +120,7 @@ print(selected_rows)
 
 ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
 ax.set_ylim(bottom=0)
+ax.set_xlim(left=0)
 
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
