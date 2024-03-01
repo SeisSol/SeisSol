@@ -25,3 +25,6 @@
 [submodule "submodules/fty"]
 	path = submodules/fty
 	url = ../../ravil-mobile/fty.git
+[submodule "submodules/TensorForge"]
+	path = submodules/TensorForge
+	url = ../../SeisSol/TensorForge.git
