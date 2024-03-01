@@ -187,6 +187,9 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
 class MultiFaultPlane:
     def __init__(self, fault_planes):
         self.fault_planes = fault_planes
+        self.max_slip = 0.0
+        for fp in fault_planes:
+            self.max_slip = max(self.max_slip, np.amax(fp.slip1))
 
     @classmethod
     def from_usgs_param_file(cls, fname):
@@ -243,7 +246,6 @@ class MultiFaultPlane:
                     fp.t0[j, i] = df["t_rup"][k]
                     fp.tacc[j, i] = df["t_ris"][k]
                     fp.rise_time[j, i] = df["t_ris"][k] + df["t_fal"][k]
-
         return cls(fault_planes)
 
     @classmethod
@@ -754,7 +756,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
             my_array = best
         return my_array
 
-    def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview):
+    def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview, slip_cutoff):
         "generate netcdf files to be used with SeisSol friction law 33"
 
         if not os.path.exists("ASAGI_files"):
@@ -766,15 +768,17 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
         cslip = self.compute_corrected_slip_for_differing_area(proj)
+        print(f"applying a {slip_cutoff:.1f} cm cutoff to fault slip")
         self.compute_1d_dimension_arrays(spatial_zoom)
 
         upsampled_arrays = []
 
         slip = self.upsample_quantity_RGInterpolator(cslip, method, is_slip=True)
-        for arr in [cslip, self.t0, self.rake, self.rise_time, self.tacc]:
+        slip[slip<slip_cutoff] = 0.0
+        for arr in [self.t0, self.rake, self.rise_time, self.tacc]:
             upsampled_arrays.append(self.upsample_quantity_RGInterpolator(arr, method))
 
-        slip, rupttime, rake, rise_time, tacc = upsampled_arrays
+        rupttime, rake, rise_time, tacc = upsampled_arrays
 
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
         # at least rise_time could lead to a non-causal kinematic model

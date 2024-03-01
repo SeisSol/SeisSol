@@ -57,6 +57,8 @@ energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
 results = {"B": [], "C": [], "R0": [], "Mw": []}
 
 for i, fn in enumerate(energy_files):
+    if "fl33" in fn:
+        continue
     df = pd.read_csv(fn)
     df = df.pivot_table(index="time", columns="variable", values="measurement")
     df["seismic_moment_rate"] = np.gradient(
@@ -70,6 +72,8 @@ for i, fn in enumerate(energy_files):
     results["C"].append(C)
     results["R0"].append(R)
     label = f"B={B}, C={C}, R={R}"
+    if Mw < 6.0:
+        continue
     ax.plot(
         df.index.values,
         df["seismic_moment_rate"] / 1e19,

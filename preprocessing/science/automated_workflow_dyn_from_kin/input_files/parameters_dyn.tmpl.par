@@ -17,7 +17,7 @@ XRef = 0.0
 YRef = 0.0
 ZRef = -1.0
 refPointMethod = 1
-
+t0=0.5
 OutputPointType = 4                            ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
@@ -82,7 +82,9 @@ EnergyOutputInterval = 0.25
 
 &AbortCriteria
 EndTime = {{ end_time }}
-maxTimeFromRuptureEnd = 5
+terminatorMaxTimePostRupture = 4.0 ! Stops SeisSol x sec after slip rate is below threshold everywhere on the fault
+terminatorSlipRateThreshold = 0.5  ! Slip rate threshold for the above criteria (the proposed value should filter out locally high SR
+                                   ! in "creeping" fronts (numerical artifacts when rupture dies out).
 /
 
 &Analysis

@@ -78,6 +78,7 @@ for p, p1 in enumerate(mfp.fault_planes):
         spatial_zoom=args.spatial_zoom[0],
         proj=args.generate_ts_yaml[0],
         write_paraview=args.write_paraview,
+        slip_cutoff=min(0.1*mfp.max_slip, 100.0)
     )
 
 if args.generate_ts_yaml:
