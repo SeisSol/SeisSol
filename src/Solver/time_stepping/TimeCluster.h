@@ -326,12 +326,12 @@ private:
             // Compute local integrals with derivatives and Rusanov flux
             /// S1: compute the space-time interpolated Q on both side of 4 faces
             /// S2: at the same time rotate the field to face-aligned coord.
-            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
-            alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+            alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+            alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
             for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-              real degreesOfFreedomPlus[tensor::Q::size()];
-              real degreesOfFreedomMinus[tensor::Q::size()];
+              alignas(ALIGNMENT) real degreesOfFreedomPlus[tensor::Q::size()];
+              alignas(ALIGNMENT) real degreesOfFreedomMinus[tensor::Q::size()];
 
               for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
                 degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
