@@ -86,6 +86,12 @@ parser.add_argument(
     nargs=1,
     help="reference vector (see seissol parameter file) used to choose fault normal (coma separated string)",
 )
+parser.add_argument(
+    "--output_file",
+    help="path and prefix of the output file",
+    nargs=1,
+    default=["initial-stress-fault"],
+)
 args = parser.parse_args()
 
 sx = seissolxdmfExtended(args.fault_filename)
@@ -117,7 +123,7 @@ else:
     out = easi.evaluate_model(centers, tags, parameters, args.yaml_filename)
 
 sxw.write(
-    "initial-stress-fault",
+    args.output_file[0],
     sx.xyz,
     sx.connect,
     out,
