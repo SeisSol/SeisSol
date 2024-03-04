@@ -287,13 +287,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
     streamRuntime.wait();
-    streamRuntime.enqueueHost([=, &layerData]() {
-      frictionSolver->evaluate(layerData,
-                              m_dynRup,
-                              ct.correctionTime,
-                              m_dynamicRuptureKernel.timeWeights);
-    });
-    streamRuntime.wait();
+    frictionSolver->evaluate(layerData,
+                            m_dynRup,
+                            ct.correctionTime,
+                            m_dynamicRuptureKernel.timeWeights);
     device.api->popLastProfilingMark();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
