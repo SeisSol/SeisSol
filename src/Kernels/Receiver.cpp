@@ -45,10 +45,12 @@
 #include <Parallel/DataCollector.h>
 #include <Parallel/MPI.h>
 #include <SeisSol.h>
-#include <device.h>
 #include <generated_code/kernel.h>
-#include <optional>
 #include <unordered_map>
+
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
