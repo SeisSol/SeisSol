@@ -49,7 +49,9 @@
 #include <Kernels/Time.h>
 #include <Numerical_aux/BasisFunction.h>
 #include <Numerical_aux/Transformation.h>
+#include <Parallel/DataCollector.h>
 #include <generated_code/init.h>
+#include <optional>
 #include <vector>
 
 struct GlobalData;
@@ -135,6 +137,7 @@ namespace seissol {
       }
 
     private:
+      std::optional<parallel::DataCollector> deviceCollector;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;

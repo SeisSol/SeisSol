@@ -37,19 +37,17 @@
  * @section DESCRIPTION
  **/
 
-#include "Receiver.h"
-#include <SeisSol.h>
 #include "Numerical_aux/BasisFunction.h"
-
+#include "Receiver.h"
 #include <Initializer/PointMapper.h>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/MPI.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <Numerical_aux/Transformation.h>
+#include <Parallel/DataCollector.h>
+#include <Parallel/MPI.h>
+#include <SeisSol.h>
+#include <device.h>
 #include <generated_code/kernel.h>
-
-#ifdef ACL_DEVICE
-#include <Parallel/AcceleratorDevice.h>
-#endif
+#include <optional>
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
@@ -82,8 +80,13 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef ACL_DEVICE
-  constexpr size_t dofsHostCopySize = tensor::Q::size();
-  alignas(ALIGNMENT) real dofsHostCopy[ dofsHostCopySize ];
+  if (!deviceCollector.has_value()) {
+    std::vector<real*> dofs(m_receivers.size());
+    for (size_t i = 0; i < m_receivers.size(); ++i) {
+      dofs[i] = m_receivers[i].data.dofs();
+    }
+    deviceCollector.emplace(dofs, tensor::Q::size());
+  }
 #endif
 
 
@@ -111,18 +114,22 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
+#ifdef ACL_DEVICE
+  deviceCollector.value().gather(device::DeviceInstance::getInstance().api->getDefaultStream());
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
+
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    for (auto& receiver : m_receivers) {
+    for (size_t i = 0; i < m_receivers.size(); ++i) {
+      auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
       // Copy DOFs from device to host.
       LocalData tmpReceiverData { receiver.data };
 #ifdef ACL_DEVICE
-      tmpReceiverData.dofs_ptr = &dofsHostCopy;
-      auto& q = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
-      q.memcpy( dofsHostCopy, receiver.data.dofs(), sizeof(real)*dofsHostCopySize ).wait();
+      tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector.value().get(i));
 #endif
       
 
