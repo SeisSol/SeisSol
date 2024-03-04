@@ -12,6 +12,7 @@
 namespace seissol::parallel::runtime {
 
 class StreamRuntime {
+#ifdef ACL_DEVICE
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
 
@@ -102,6 +103,7 @@ class StreamRuntime {
   std::vector<void*> allStreams;
   std::vector<void*> forkEvents;
   std::vector<void*> joinEvents;
+#endif
 };
 
 } // namespace seissol::parallel::runtime
