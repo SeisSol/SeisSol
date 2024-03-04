@@ -254,7 +254,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,
                                                 ConditionalMaterialTable &materialTable,
-                                                bool updateDisplacement) {
+                                                bool updateDisplacement,
+                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
   kernel::gpu_derivativeTaylorExpansion intKrnl;
@@ -292,25 +293,25 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
                                         tensor::Q::Size,
                                         derivativesKrnl.numElements,
-                                        device.api->getDefaultStream());
+                                        runtime.stream());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
     intKrnl.power = i_timeStepWidth;
     intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
+    intKrnl.streamPtr = runtime.stream();
     intKrnl.execute0();
 
     for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
       derivativesKrnl.linearAllocator.initialize(tmpMem);
-      derivativesKrnl.streamPtr = device.api->getDefaultStream();
+      derivativesKrnl.streamPtr = runtime.stream();
       derivativesKrnl.execute(Der);
 
       // update scalar for this derivative
       intKrnl.power *= i_timeStepWidth / real(Der + 1);
       intKrnl.linearAllocator.initialize(tmpMem);
-      intKrnl.streamPtr = device.api->getDefaultStream();
+      intKrnl.streamPtr = runtime.stream();
       intKrnl.execute(Der);
     }
     device.api->popStackMemory();
@@ -325,7 +326,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                           dataTable,
                           materialTable,
                           i_timeStepWidth,
-                          device);
+                          device,
+                          runtime);
     }
   }
 #else
@@ -420,7 +422,8 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
                                                     double i_integrationEnd,
                                                     const real** i_timeDerivatives,
                                                     real ** o_timeIntegratedDofs,
-                                                    unsigned numElements) {
+                                                    unsigned numElements,
+                                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // assert that this is a forwared integration in time
   assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
@@ -460,7 +463,7 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
     intKrnl.power = firstTerm - secondTerm;
     intKrnl.power /= factorial;
     intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
+    intKrnl.streamPtr = runtime.stream();
     intKrnl.execute(der);
   }
   device.api->popStackMemory();
@@ -504,7 +507,8 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
                                                            real expansionPoint,
                                                            real** timeDerivatives,
                                                            real** timeEvaluated,
-                                                           size_t numElements) {
+                                                           size_t numElements,
+                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert( timeDerivatives != nullptr );
   assert( timeEvaluated != nullptr );
@@ -524,7 +528,7 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
   const real deltaT = time - expansionPoint;
   intKrnl.power = 1.0;
   for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.streamPtr = device.api->getDefaultStream();
+    intKrnl.streamPtr = runtime.stream();
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
   }

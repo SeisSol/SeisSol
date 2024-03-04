@@ -147,6 +147,8 @@ private:
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
+    seissol::parallel::runtime::StreamRuntime streamRuntime;
+
   /*
    * global data
    */

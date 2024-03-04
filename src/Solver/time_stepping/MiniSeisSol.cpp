@@ -44,6 +44,7 @@
 #include <Kernels/Local.h>
 #include <Kernels/Touch.h>
 #include <Monitoring/Stopwatch.h>
+#include <Parallel/Runtime/Stream.hpp>
 #include "utils/env.h"
 #include "SeisSol.h"
 
@@ -130,7 +131,8 @@ void seissol::localIntegration(GlobalData* globalData,
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        initializer::LTS& lts,
                                        initializer::Layer& layer,
-                                       seissol::SeisSol& seissolInstance) {
+                                       seissol::SeisSol& seissolInstance,
+                                       seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
@@ -148,8 +150,8 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false);
-  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0);
+  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false, runtime);
+  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
 #endif
 }
 
@@ -243,6 +245,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
+  seissol::parallel::runtime::StreamRuntime runtime;
+
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
@@ -253,8 +257,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   ltsTree.allocateScratchPads();
 
   auto globalData = memoryManager.getGlobalData();
-  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance]() {
-    localIntegrationOnDevice(globalData, lts, layer, seissolInstance);
+  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance, &runtime]() {
+    localIntegrationOnDevice(globalData, lts, layer, seissolInstance, runtime);
   };
 
   const auto &device = device::DeviceInstance::getInstance();

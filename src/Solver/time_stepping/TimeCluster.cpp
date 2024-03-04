@@ -191,7 +191,11 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   // are no point sources on this rank.
   if (m_sourceCluster) {
     m_loopStatistics->begin(m_regionComputePointSources);
-    m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSize());
+    auto timeStepSizeLocal = timeStepSize();
+    streamRuntime.enqueueHost([=]() {
+      m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSizeLocal);
+    });
+    streamRuntime.wait();
     m_loopStatistics->end(m_regionComputePointSources, m_sourceCluster->size(), m_profilingId);
   }
 #ifdef ACL_DEVICE
@@ -270,39 +274,26 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     const double stepSizeWidth = timeStepSize();
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
-    auto computeGraphHandle = layerData.getDeviceComputeGraphHandle(computeGraphKey);
-
-    auto& table = layerData.getConditionalTable<inner_keys::Dr>();
-    m_dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
-
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    if (!computeGraphHandle) {
-      device.api->streamBeginCapture();
-
-      m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
-      assert(device.api->isCircularStreamsJoinedWithDefault() &&
-             "circular streams must be joined with the default stream");
-
-      device.api->streamEndCapture();
-
-      computeGraphHandle = device.api->getLastGraphHandle();
-      layerData.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-      device.api->syncDefaultStreamWithHost();
-    }
-
-    if (computeGraphHandle.isInitialized()) {
-      device.api->launchGraph(computeGraphHandle);
-      device.api->syncGraph(computeGraphHandle);
-    }
+    auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
+    streamRuntime.runGraph(computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+      auto& table = layerData.getConditionalTable<inner_keys::Dr>();
+      m_dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
+      m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
+    });
     device.api->popLastProfilingMark();
+    streamRuntime.wait();
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
-    frictionSolver->evaluate(layerData,
-                             m_dynRup,
-                             ct.correctionTime,
-                             m_dynamicRuptureKernel.timeWeights);
+    streamRuntime.wait();
+    streamRuntime.enqueueHost([=, &layerData]() {
+      frictionSolver->evaluate(layerData,
+                              m_dynRup,
+                              ct.correctionTime,
+                              m_dynamicRuptureKernel.timeWeights);
+    });
+    streamRuntime.wait();
     device.api->popLastProfilingMark();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
@@ -441,55 +432,38 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
 
   ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
-  auto computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
-
-  if (!computeGraphHandle) {
-    device.api->streamBeginCapture();
-
+  streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     m_timeKernel.computeBatchedAder(timeStepWidth,
                                     tmp,
                                     dataTable,
                                     materialTable,
-                                    true);
-    assert(device.api->isCircularStreamsJoinedWithDefault() &&
-           "circular streams must be joined with the default stream");
+                                    true,
+                                    streamRuntime);
 
     m_localKernel.computeBatchedIntegral(dataTable,
                                          materialTable,
                                          indicesTable,
                                          loader,
                                          tmp,
-                                         timeStepWidth);
-    assert(device.api->isCircularStreamsJoinedWithDefault() &&
-           "circular streams must be joined with the default stream");
+                                         timeStepWidth,
+                                         streamRuntime);
+  });
 
-    device.api->streamEndCapture();
-
-    computeGraphHandle = device.api->getLastGraphHandle();
-    i_layerData.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-    device.api->syncDefaultStreamWithHost();
-  }
-
-  if (computeGraphHandle.isInitialized()) {
-    device.api->launchGraph(computeGraphHandle);
-    device.api->syncGraph(computeGraphHandle);
-  }
+  streamRuntime.wait();
 
   m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                loader,
                                                ct.correctionTime,
-                                               timeStepWidth);
+                                               timeStepWidth,
+                                               streamRuntime);
+
+  streamRuntime.wait();
 
   graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   computeGraphKey = initializer::GraphKey(graphType);
-  computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
-  if (!computeGraphHandle) {
-    device.api->streamBeginCapture();
-
-    auto defaultStream = device.api->getDefaultStream();
-
+  streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     for (unsigned face = 0; face < 4; ++face) {
       ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       if (dataTable.find(key) != dataTable.end()) {
@@ -504,7 +478,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
 
         // Note: this kernel doesn't require tmp. memory
         displacementKrnl.numElements = entry.get(inner_keys::Wp::Id::FaceDisplacement)->getSize();
-        displacementKrnl.streamPtr = defaultStream;
+        displacementKrnl.streamPtr = streamRuntime.stream();
         displacementKrnl.execute(face);
       }
     }
@@ -519,28 +493,19 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-            defaultStream);
+            streamRuntime.stream());
       } else {
         device.algorithms.accumulateBatchedData(
             (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-            defaultStream);
+            streamRuntime.stream());
       }
     }
+  });
 
-    device.api->streamEndCapture();
-
-    computeGraphHandle = device.api->getLastGraphHandle();
-    i_layerData.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-    device.api->syncDefaultStreamWithHost();
-  }
-
-  if (computeGraphHandle.isInitialized()) {
-    device.api->launchGraph(computeGraphHandle);
-    device.api->syncGraph(computeGraphHandle);
-  }
+  streamRuntime.wait();
 
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
   device.api->popLastProfilingMark();
@@ -569,35 +534,19 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                         subTimeStart,
                                                         timeStepWidth,
-                                                        table);
-  assert(device.api->isCircularStreamsJoinedWithDefault() &&
-         "circular streams must be joined with the default stream");
+                                                        table,
+                                                        streamRuntime);
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
-  auto computeGraphHandle = i_layerData.getDeviceComputeGraphHandle(computeGraphKey);
 
-  if (!computeGraphHandle) {
-    device.api->streamBeginCapture();
+  streamRuntime.wait();
 
-    m_neighborKernel.computeBatchedNeighborsIntegral(table);
-    assert(device.api->isCircularStreamsJoinedWithDefault() &&
-           "circular streams must be joined with the default stream");
+  streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+    m_neighborKernel.computeBatchedNeighborsIntegral(table, streamRuntime);
+  });
 
-    device.api->streamEndCapture();
-
-    computeGraphHandle = device.api->getLastGraphHandle();
-    i_layerData.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-    device.api->syncDefaultStreamWithHost();
-  }
-
-  if (computeGraphHandle.isInitialized()) {
-    // Note: graph stream needs to wait the default stream
-    // (used in `computeBatchedIntegrals`)
-    device.api->syncDefaultStreamWithHost();
-    device.api->launchGraph(computeGraphHandle);
-    device.api->syncGraph(computeGraphHandle);
-  }
+  streamRuntime.wait();
 
   if (usePlasticity) {
     updateRelaxTime();
@@ -607,7 +556,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                                                       m_tv,
                                                                                       m_globalDataOnDevice,
                                                                                       table,
-                                                                                      plasticity);
+                                                                                      plasticity,
+                                                                                      streamRuntime);
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
         i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
@@ -617,8 +567,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
         + numAdjustedDofs * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)]);
   }
 
-  device.api->syncDefaultStreamWithHost();
   device.api->popLastProfilingMark();
+  streamRuntime.wait();
   m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 }
 #endif // ACL_DEVICE
