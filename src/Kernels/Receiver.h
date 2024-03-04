@@ -137,7 +137,8 @@ namespace seissol {
       }
 
     private:
-      std::optional<parallel::DataCollector> deviceCollector;
+      std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+      std::vector<size_t> deviceIndices;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;

@@ -48,6 +48,7 @@
 #include <device.h>
 #include <generated_code/kernel.h>
 #include <optional>
+#include <unordered_map>
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
@@ -80,12 +81,19 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef ACL_DEVICE
-  if (!deviceCollector.has_value()) {
+  if (deviceCollector.get() == nullptr) {
+    deviceIndices.resize(m_receivers.size());
     std::vector<real*> dofs(m_receivers.size());
+    std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < m_receivers.size(); ++i) {
-      dofs[i] = m_receivers[i].data.dofs();
+      real* currentDofs = m_receivers[i].data.dofs();
+      if (indexMap.find(currentDofs) == indexMap.end()) {
+        indexMap[currentDofs] = dofs.size();
+        dofs.push_back(currentDofs);
+      }
+      deviceIndices[i] = indexMap.at(currentDofs);
     }
-    deviceCollector.emplace(dofs, tensor::Q::size());
+    deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size());
   }
 #endif
 
@@ -115,7 +123,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
 #ifdef ACL_DEVICE
-  deviceCollector.value().gather(device::DeviceInstance::getInstance().api->getDefaultStream());
+  deviceCollector->gather(device::DeviceInstance::getInstance().api->getDefaultStream());
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
@@ -129,7 +137,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       // Copy DOFs from device to host.
       LocalData tmpReceiverData { receiver.data };
 #ifdef ACL_DEVICE
-      tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector.value().get(i));
+      tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector->get(deviceIndices[i]));
 #endif
       
 
