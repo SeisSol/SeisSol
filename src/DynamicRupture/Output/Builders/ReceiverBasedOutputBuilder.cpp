@@ -1,4 +1,6 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
+#include <Parallel/DataCollector.h>
+#include <memory>
 #include <unordered_map>
 
 namespace seissol::dr::output {
@@ -106,12 +108,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
 #ifdef ACL_DEVICE
-  real** preDofPtr =
-      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-          sizeof(real*) * outputData->cellCount));
-  outputData->deviceDataPtr =
-      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocGlobMem(
-          sizeof(real*) * outputData->cellCount));
+  std::vector<real*> preDofPtr(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
     preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
@@ -124,9 +121,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     assert(preDofPtr[arrayIndex] != nullptr);
   }
 
-  device::DeviceInstance::getInstance().api->copyTo(
-      outputData->deviceDataPtr, preDofPtr, sizeof(real*) * outputData->cellCount);
-  device::DeviceInstance::getInstance().api->freePinnedMem(preDofPtr);
+  outputData->deviceDataCollector =
+      std::make_unique<seissol::parallel::DataCollector>(preDofPtr, seissol::tensor::Q::size());
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);
