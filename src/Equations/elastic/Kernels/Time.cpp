@@ -303,7 +303,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
     if (xi + data.material.local.xi0 > 0) {
       if (alpha_ave < 0.9){
-        if (break_ave < 0.9){
+        if (break_ave < 1.0){
           fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
