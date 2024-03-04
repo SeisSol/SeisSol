@@ -85,7 +85,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef ACL_DEVICE
   if (deviceCollector.get() == nullptr) {
     deviceIndices.resize(m_receivers.size());
-    std::vector<real*> dofs(m_receivers.size());
+    std::vector<real*> dofs;
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < m_receivers.size(); ++i) {
       real* currentDofs = m_receivers[i].data.dofs();
