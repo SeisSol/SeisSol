@@ -19,7 +19,7 @@ class StreamRuntime {
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime() {
+  StreamRuntime() : disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
     forkEvents.resize(RingbufferSize);
@@ -37,14 +37,19 @@ class StreamRuntime {
     }
   }
 
-  ~StreamRuntime() {
-    device().api->destroyGenericStream(streamPtr);
-    for (size_t i = 0; i < RingbufferSize; ++i) {
-      device().api->destroyGenericStream(ringbufferPtr[i]);
-      device().api->destroyEvent(forkEvents[i]);
-      device().api->destroyEvent(joinEvents[i]);
+  void dispose() {
+    if (!disposed) {
+      device().api->destroyGenericStream(streamPtr);
+      for (size_t i = 0; i < RingbufferSize; ++i) {
+        device().api->destroyGenericStream(ringbufferPtr[i]);
+        device().api->destroyEvent(forkEvents[i]);
+        device().api->destroyEvent(joinEvents[i]);
+      }
+      disposed = true;
     }
   }
+
+  ~StreamRuntime() { dispose(); }
 
   template <typename F>
   void env(F&& handler) {
@@ -98,6 +103,7 @@ class StreamRuntime {
   }
 
   private:
+  bool disposed;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;

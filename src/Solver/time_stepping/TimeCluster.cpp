@@ -802,5 +802,9 @@ void TimeCluster::setReceiverTime(double receiverTime) {
   m_receiverTime = receiverTime;
 }
 
+void TimeCluster::finalize() {
+  streamRuntime.dispose();
 }
+
+} // namespace seissol::time_stepping
 

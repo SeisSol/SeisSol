@@ -449,6 +449,8 @@ public:
 
   void reset() override;
 
+  void finalize() override;
+
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
