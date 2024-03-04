@@ -19,7 +19,7 @@ class DataCollector {
 #ifndef ACL_DEVICE
     hostAccessible = true;
 #endif
-    if (!hostAccessible) {
+    if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       indexDataDevice = reinterpret_cast<real**>(
           device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(real*) * indexCount));
@@ -35,7 +35,7 @@ class DataCollector {
   DataCollector(const DataCollector&) = delete;
 
   ~DataCollector() {
-    if (!hostAccessible) {
+    if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().api->freeMem(indexDataDevice);
       device::DeviceInstance::getInstance().api->freePinnedMem(copiedData);
@@ -44,7 +44,7 @@ class DataCollector {
   }
 
   void gather(void* stream) {
-    if (!hostAccessible) {
+    if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           indexDataDevice, copiedData, elemSize, elemSize, indexCount, stream);
@@ -53,7 +53,7 @@ class DataCollector {
   }
 
   void scatter(void* stream) {
-    if (!hostAccessible) {
+    if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyUniformToScatter(
           copiedData, indexDataDevice, elemSize, elemSize, indexCount, stream);
