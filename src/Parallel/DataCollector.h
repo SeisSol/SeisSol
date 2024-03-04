@@ -5,7 +5,10 @@
 #include <vector>
 
 #include "Kernels/precision.hpp"
+
+#ifdef ACL_DEVICE
 #include "device.h"
+#endif
 
 namespace seissol::parallel {
 
