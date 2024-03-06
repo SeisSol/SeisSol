@@ -71,7 +71,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
 		outputName += "-surface";
 
-                m_numVariables = LABELS.size();
+        m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS;
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
                       variables.push_back(LABELS.at(i).c_str());
@@ -86,8 +86,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
 		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
-		std::string extraIntVarName = "locationFlag";
-
+		std::string extraIntVarName = LABELS[6];
 		m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str());
 		m_xdmfWriter->setMesh(nCells,
 		                      static_cast<const unsigned int*>(info.buffer(CELLS)),
