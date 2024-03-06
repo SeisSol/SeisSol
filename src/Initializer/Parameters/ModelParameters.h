@@ -4,6 +4,7 @@
 #include <string>
 
 #include "ParameterReader.h"
+#include "Kernels/precision.hpp"
 
 namespace seissol::initializer::parameters {
 
@@ -41,6 +42,14 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
+constexpr bool isModelNonLinear(){
+#ifdef USE_DAMAGEDELASTIC
+  return true;
+#else
+  return false;
+#endif
+}
+
 enum class ReflectionType { BothWaves, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
@@ -49,6 +58,20 @@ struct ITMParameters {
   double itmDuration;
   double itmVelocityScalingFactor;
   ReflectionType itmReflectionType;
+};
+
+struct DamagedElasticParameters{
+  real epsInitxx;
+  real epsInityy;
+  real epsInitzz;
+  real epsInitxy;
+  real epsInityz;
+  real epsInitzx;
+  real beta_alpha;
+  real aB0;
+  real aB1;
+  real aB2;
+  real aB3;
 };
 
 struct ModelParameters {
@@ -62,6 +85,7 @@ struct ModelParameters {
   std::string boundaryFileName;
   std::string materialFileName;
   ITMParameters itmParameters;
+  DamagedElasticParameters damagedElasticParameters;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
