@@ -192,10 +192,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   if (m_sourceCluster) {
     m_loopStatistics->begin(m_regionComputePointSources);
     auto timeStepSizeLocal = timeStepSize();
-    streamRuntime.enqueueHost([=]() {
-      m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSizeLocal);
-    });
-    streamRuntime.wait();
+    m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSizeLocal);
     m_loopStatistics->end(m_regionComputePointSources, m_sourceCluster->size(), m_profilingId);
   }
 #ifdef ACL_DEVICE
@@ -286,7 +283,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
-    streamRuntime.wait();
     frictionSolver->evaluate(layerData,
                             m_dynRup,
                             ct.correctionTime,
@@ -446,16 +442,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
                                          streamRuntime);
   });
 
-  streamRuntime.wait();
-
   m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                loader,
                                                ct.correctionTime,
                                                timeStepWidth,
                                                streamRuntime);
-
-  streamRuntime.wait();
 
   graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   computeGraphKey = initializer::GraphKey(graphType);
@@ -537,13 +529,9 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
 
-  streamRuntime.wait();
-
   streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     m_neighborKernel.computeBatchedNeighborsIntegral(table, streamRuntime);
   });
-
-  streamRuntime.wait();
 
   if (usePlasticity) {
     updateRelaxTime();
