@@ -37,19 +37,16 @@
  * @section DESCRIPTION
  **/
 
+#include "Monitoring/FlopCounter.hpp"
 #include "Numerical_aux/BasisFunction.h"
+#include "Parallel/DataCollector.h"
 #include "Receiver.h"
-#include <Initializer/PointMapper.h>
-#include <Monitoring/FlopCounter.hpp>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/DataCollector.h>
-#include <Parallel/MPI.h>
-#include <SeisSol.h>
-#include <generated_code/kernel.h>
+#include "SeisSol.h"
+#include "generated_code/kernel.h"
 #include <unordered_map>
 
 #ifdef ACL_DEVICE
-#include <device.h>
+#include "device.h"
 #endif
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
@@ -82,24 +79,6 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
-#ifdef ACL_DEVICE
-  if (deviceCollector.get() == nullptr) {
-    deviceIndices.resize(m_receivers.size());
-    std::vector<real*> dofs;
-    std::unordered_map<real*, size_t> indexMap;
-    for (size_t i = 0; i < m_receivers.size(); ++i) {
-      real* currentDofs = m_receivers[i].data.dofs();
-      if (indexMap.find(currentDofs) == indexMap.end()) {
-        indexMap[currentDofs] = dofs.size();
-        dofs.push_back(currentDofs);
-      }
-      deviceIndices[i] = indexMap.at(currentDofs);
-    }
-    deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size());
-  }
-#endif
-
-
 #ifdef USE_STP
   alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
@@ -125,7 +104,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
 #ifdef ACL_DEVICE
-  deviceCollector->gather(device::DeviceInstance::getInstance().api->getDefaultStream());
+  deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
@@ -216,3 +195,26 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   return receiverTime;
 }
 
+void seissol::kernels::ReceiverCluster::allocateData() {
+#ifdef ACL_DEVICE
+  // collect all data pointers to transfer. If we have multiple receivers on the same cell, we make sure to only transfer the related data once (hence, we use the `indexMap` here)
+  deviceIndices.resize(m_receivers.size());
+  std::vector<real*> dofs;
+  std::unordered_map<real*, size_t> indexMap;
+  for (size_t i = 0; i < m_receivers.size(); ++i) {
+    real* currentDofs = m_receivers[i].data.dofs();
+    if (indexMap.find(currentDofs) == indexMap.end()) {
+      // point to the current array end
+      indexMap[currentDofs] = dofs.size();
+      dofs.push_back(currentDofs);
+    }
+    deviceIndices[i] = indexMap.at(currentDofs);
+  }
+  deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size());
+#endif
+}
+void seissol::kernels::ReceiverCluster::freeData() {
+#ifdef ACL_DEVICE
+  deviceCollector.reset(nullptr);
+#endif
+}

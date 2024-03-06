@@ -59,7 +59,7 @@ void ReceiverOutput::calcFaultOutput(
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  outputData->deviceDataCollector->gather(stream);
+  outputData->deviceDataCollector->gatherToHost(stream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 

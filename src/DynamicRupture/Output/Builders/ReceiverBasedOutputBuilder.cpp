@@ -108,21 +108,21 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
 #ifdef ACL_DEVICE
-  std::vector<real*> preDofPtr(outputData->cellCount);
+  std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
-    assert(preDofPtr[arrayIndex] != nullptr);
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
-    assert(preDofPtr[arrayIndex] != nullptr);
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    assert(indexPtrs[arrayIndex] != nullptr);
   }
 
   outputData->deviceDataCollector =
-      std::make_unique<seissol::parallel::DataCollector>(preDofPtr, seissol::tensor::Q::size());
+      std::make_unique<seissol::parallel::DataCollector>(indexPtrs, seissol::tensor::Q::size());
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);

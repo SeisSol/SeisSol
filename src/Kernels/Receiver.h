@@ -136,6 +136,9 @@ namespace seissol {
         return 1 + ncols;
       }
 
+      void allocateData();
+      void freeData();
+
     private:
       std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
       std::vector<size_t> deviceIndices;

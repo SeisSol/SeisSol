@@ -12,6 +12,7 @@
 
 namespace seissol::parallel {
 
+// wrapper class for sparse device-to-host transfers (e.g. needed for receivers)
 class DataCollector {
   public:
   DataCollector(const std::vector<real*>& indexDataHost,
@@ -20,9 +21,10 @@ class DataCollector {
       : indexCount(indexDataHost.size()), indexDataHost(indexDataHost), elemSize(elemSize),
         hostAccessible(hostAccessible) {
 #ifndef ACL_DEVICE
-    hostAccessible = true;
+    // in case we want to use this class in a host-only scenario
+    this->hostAccessible = true;
 #endif
-    if (!hostAccessible && indexCount > 0) {
+    if (!this->hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       indexDataDevice = reinterpret_cast<real**>(
           device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(real*) * indexCount));
@@ -46,7 +48,8 @@ class DataCollector {
     }
   }
 
-  void gather(void* stream) {
+  // gathers and sends data to the device to the host
+  void gatherToHost(void* stream) {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
@@ -55,7 +58,8 @@ class DataCollector {
     }
   }
 
-  void scatter(void* stream) {
+  // sends and scatters data from the host to the device
+  void scatterFromHost(void* stream) {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyUniformToScatter(
