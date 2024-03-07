@@ -99,7 +99,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
-  CellDRMapping(*drMapping)[4] = currentLayer->var(currentHandler->drMapping);
+  CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
@@ -134,12 +134,12 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         break;
       }
       case FaceType::dynamicRupture: {
-        unsigned faceRelation = drMapping[cell][face].side + 4 * drMapping[cell][face].faceRelation;
+        unsigned faceRelation = drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
-        drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
-        drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
+        drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
+        drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
 
         break;
       }
