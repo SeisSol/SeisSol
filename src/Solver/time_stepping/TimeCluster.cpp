@@ -273,9 +273,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
+    auto& table = layerData.getConditionalTable<inner_keys::Dr>();
+    m_dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
     streamRuntime.runGraph(computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-      auto& table = layerData.getConditionalTable<inner_keys::Dr>();
-      m_dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
       m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
     });
     device.api->popLastProfilingMark();
