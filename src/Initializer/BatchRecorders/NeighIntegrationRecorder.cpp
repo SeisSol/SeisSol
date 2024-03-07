@@ -134,7 +134,8 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         break;
       }
       case FaceType::dynamicRupture: {
-        unsigned faceRelation = drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
+        unsigned faceRelation =
+            drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
