@@ -343,7 +343,6 @@ class BiMaterialFault {
                            size_t pointIndex) {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
-    assert(regularisedStrength != nullptr && "regularisedStrength is not initialized");
 
     const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                    deltaT / prakashLength);
