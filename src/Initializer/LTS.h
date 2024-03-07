@@ -110,11 +110,14 @@ struct seissol::initializer::LTS {
   Bucket                                  buffersDerivatives;
   Bucket                                  faceDisplacementsBuffer;
 
-#ifdef ACL_DEVICE
   Variable<real*>                         buffersDevice;
   Variable<real*>                         derivativesDevice;
   Variable<real*[4]>                      faceDisplacementsDevice;
   Variable<real*[4]>                      faceNeighborsDevice;
+  Variable<CellDRMapping[4]>              drMappingDevice;
+  Variable<CellBoundaryMapping[4]>        boundaryMappingDevice;
+
+#ifdef ACL_DEVICE
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
@@ -149,11 +152,14 @@ struct seissol::initializer::LTS {
     tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEBUCKET );
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
-#ifdef ACL_DEVICE
     tree.addVar(   buffersDevice, LayerMask(),     1,      AllocationMode::HostOnly );
     tree.addVar(   derivativesDevice, LayerMask(),     1,      AllocationMode::HostOnly );
     tree.addVar(   faceDisplacementsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
     tree.addVar(   faceNeighborsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+    tree.addVar(   drMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+    tree.addVar(   boundaryMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+
+#ifdef ACL_DEVICE
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch,                  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      AllocationMode::DeviceOnly);

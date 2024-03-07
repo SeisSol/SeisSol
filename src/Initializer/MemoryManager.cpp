@@ -598,11 +598,9 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
        ++layer, ++boundaryLayer) {
     auto* cellInformation = layer->var(m_lts.cellInformation);
     auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
-#ifdef ACL_DEVICE
-    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Device);
-#else
+    auto* boundaryMappingDevice = layer->var(m_lts.boundaryMappingDevice);
     auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Host);
-#endif
+    auto* faceInformationDevice = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Device);
 
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
@@ -613,6 +611,11 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
           boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
           boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
           boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
+          boundaryMappingDevice[cell][face].nodes = faceInformationDevice[boundaryFace].nodes;
+          boundaryMappingDevice[cell][face].TData = faceInformationDevice[boundaryFace].TData;
+          boundaryMappingDevice[cell][face].TinvData = faceInformationDevice[boundaryFace].TinvData;
+          boundaryMappingDevice[cell][face].easiBoundaryMap = faceInformationDevice[boundaryFace].easiBoundaryMap;
+          boundaryMappingDevice[cell][face].easiBoundaryConstant = faceInformationDevice[boundaryFace].easiBoundaryConstant;
           ++boundaryFace;
         } else {
           boundaryMapping[cell][face].nodes = nullptr;
@@ -620,6 +623,11 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
           boundaryMapping[cell][face].TinvData = nullptr;
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
+          boundaryMappingDevice[cell][face].nodes = nullptr;
+          boundaryMappingDevice[cell][face].TData = nullptr;
+          boundaryMappingDevice[cell][face].TinvData = nullptr;
+          boundaryMappingDevice[cell][face].easiBoundaryMap = nullptr;
+          boundaryMappingDevice[cell][face].easiBoundaryConstant = nullptr;
         }
       }
     }
