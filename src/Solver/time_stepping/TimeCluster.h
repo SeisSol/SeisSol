@@ -281,8 +281,8 @@ private:
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.cellInformation.ltsSetup,
-                                                       data.cellInformation.faceTypes,
+                                                       data.cellInformation().ltsSetup,
+                                                       data.cellInformation().faceTypes,
                                                        subTimeStart,
                                                        timeStepSize(),
                                                        faceNeighbors[l_cell],
@@ -324,7 +324,7 @@ private:
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,
                                                                                              &plasticity[l_cell],
-                                                                                             data.dofs,
+                                                                                             data.dofs(),
                                                                                              pstrain[l_cell] );
         }
 #ifdef INTEGRATE_QUANTITIES
