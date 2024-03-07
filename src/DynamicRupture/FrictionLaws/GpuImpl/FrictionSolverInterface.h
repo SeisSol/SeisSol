@@ -18,6 +18,10 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   virtual void allocateAuxiliaryMemory() = 0;
   virtual void copyStaticDataToDevice() = 0;
 
+  seissol::initializer::AllocationPlace allocationPlace() override {
+    return seissol::initializer::AllocationPlace::Device;
+  }
+
   protected:
   size_t maxClusterSize{};
 };

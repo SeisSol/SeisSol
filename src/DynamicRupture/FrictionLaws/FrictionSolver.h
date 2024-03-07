@@ -41,6 +41,8 @@ class FrictionSolver {
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
+  
+  virtual seissol::initializer::AllocationPlace allocationPlace();
 
   protected:
   /**
