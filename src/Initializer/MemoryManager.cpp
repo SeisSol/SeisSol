@@ -880,7 +880,7 @@ void seissol::initializer::MemoryManager::initFrictionData() {
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLaw.get())) {
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
       impl->initSyclQueue();
 
       LayerMask mask = seissol::initializer::LayerMask(Ghost);
