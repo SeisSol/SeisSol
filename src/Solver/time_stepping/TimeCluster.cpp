@@ -451,7 +451,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
-  real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
   auto& dataTable = i_layerData.getConditionalTable<inner_keys::Wp>();
   auto& materialTable = i_layerData.getConditionalTable<inner_keys::Material>();
   auto& indicesTable = i_layerData.getConditionalTable<inner_keys::Indices>();

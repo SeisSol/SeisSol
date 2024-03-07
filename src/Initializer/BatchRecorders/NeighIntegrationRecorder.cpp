@@ -8,9 +8,10 @@ using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
 void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
-  kernels::NeighborData::Loader loader;
-  loader.load(handler, layer);
-  setUpContext(handler, layer, loader);
+  kernels::NeighborData::Loader loader, loaderHost;
+  loader.load(handler, layer, AllocationPlace::Device);
+  loaderHost.load(handler, layer, AllocationPlace::Host);
+  setUpContext(handler, layer, loader, loaderHost);
   idofsAddressRegistry.clear();
 
   recordDofsTimeEvaluation();
@@ -18,9 +19,9 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
-  real* integratedDofsScratch =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
+  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
+  real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->integratedDofsScratch, AllocationPlace::Device));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
@@ -30,27 +31,26 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsIDofsPtrs{};
 
     for (unsigned cell = 0; cell < size; ++cell) {
-      auto data = currentLoader->entry(cell);
+      auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        real* neighbourBuffer = faceNeighbors[cell][face];
+        real* neighbourBuffer = faceNeighborsDevice[cell][face];
 
         // check whether a neighbour element idofs has not been counted twice
         if ((idofsAddressRegistry.find(neighbourBuffer) == idofsAddressRegistry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighbourBuffer != nullptr) {
-
-            if (data.cellInformation().faceTypes[face] != FaceType::outflow &&
-                data.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
+            if (dataHost.cellInformation().faceTypes[face] != FaceType::outflow &&
+                dataHost.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
 
               bool isNeighbProvidesDerivatives =
-                  ((data.cellInformation().ltsSetup >> face) % 2) == 1;
+                  ((dataHost.cellInformation().ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
                 real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                bool isGtsNeigbour = ((data.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
+                bool isGtsNeigbour = ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {
 
                   idofsAddressRegistry[neighbourBuffer] = NextTempIDofsPtr;
@@ -89,7 +89,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 }
 
 void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
-  real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
+  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
@@ -104,18 +104,20 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
+    auto dataHost = currentLoaderHost->entry(cell);
+
     for (unsigned int face = 0; face < 4; face++) {
-      switch (data.cellInformation().faceTypes[face]) {
+      switch (dataHost.cellInformation().faceTypes[face]) {
       case FaceType::regular:
         [[fallthrough]];
       case FaceType::periodic: {
         // compute face type relation
 
-        real* neighbourBufferPtr = faceNeighbors[cell][face];
+        real* neighbourBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighbourBufferPtr != nullptr) {
-          unsigned faceRelation = data.cellInformation().faceRelations[face][1] +
-                                  3 * data.cellInformation().faceRelations[face][0] + 12 * face;
+          unsigned faceRelation = dataHost.cellInformation().faceRelations[face][1] +
+                                  3 * dataHost.cellInformation().faceRelations[face][0] + 12 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
@@ -124,7 +126,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighbourBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighIntegrationOnDevice().nAmNm1[face]));
+              static_cast<real*>(data.neighboringIntegration().nAmNm1[face]));
         }
         break;
       }
@@ -155,7 +157,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
       }
       default: {
         logError() << "unknown boundary condition type: "
-                   << static_cast<int>(data.cellInformation().faceTypes[face]);
+                   << static_cast<int>(dataHost.cellInformation().faceTypes[face]);
       }
       }
     }
