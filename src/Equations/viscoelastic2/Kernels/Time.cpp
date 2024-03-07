@@ -77,7 +77,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs()) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives) % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
@@ -92,10 +92,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   kernel::derivative krnl = m_krnlPrototype;
   kernel::derivativeTaylorExpansion intKrnl;
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
-  intKrnl.dQ(0) = data.dofs;
+  krnl.dQ(0) = const_cast<real*>(data.dofs());
+  intKrnl.dQ(0) = data.dofs();
   if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+    streamstore(tensor::dQ::size(0), data.dofs(), o_timeDerivatives);
     real* derOut = o_timeDerivatives;
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derOut += tensor::dQ::size(i-1);
@@ -109,8 +109,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     }
   }
 
-  krnl.dQane(0) = const_cast<real*>(data.dofsAne);
-  intKrnl.dQane(0) = const_cast<real*>(data.dofsAne);
+  krnl.dQane(0) = const_cast<real*>(data.dofsAne());
+  intKrnl.dQane(0) = const_cast<real*>(data.dofsAne());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQane(i) = temporaryBufferAne[i%2];
     intKrnl.dQane(i) = temporaryBufferAne[i%2];
@@ -121,11 +121,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   intKrnl.Iane = tmp.timeIntegratedAne;
 
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = data.localIntegration().starMatrices[i];
   }
-  krnl.w = data.localIntegration.specific.w;
-  krnl.W = data.localIntegration.specific.W;
-  krnl.E = data.localIntegration.specific.E;
+  krnl.w = data.localIntegration().specific.w;
+  krnl.W = data.localIntegration().specific.W;
+  krnl.E = data.localIntegration().specific.E;
   
   // powers in the taylor-series expansion
   intKrnl.power = i_timeStepWidth;

@@ -50,8 +50,8 @@
 #include "Parallel/Helper.hpp"
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
-  seissolInstance(seissolInstance),
-  m_logUpdates(std::numeric_limits<unsigned int>::max()), actorStateStatisticsManager(m_loopStatistics)
+  m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
+   actorStateStatisticsManager(m_loopStatistics)
 {
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");

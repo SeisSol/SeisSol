@@ -27,7 +27,6 @@ class ActorStateStatistics {
   };
 
   Sample currentSample;
-  bool started = false;
 
   unsigned globalClusterId;
   LoopStatistics& loopStatistics;

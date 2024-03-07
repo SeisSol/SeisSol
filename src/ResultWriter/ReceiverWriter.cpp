@@ -179,7 +179,7 @@ void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, do
   m_samplingInterval = parameters.samplingInterval;
   m_computeRotation = parameters.computeRotation;
   setSyncInterval(std::min(endTime, parameters.interval));
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,

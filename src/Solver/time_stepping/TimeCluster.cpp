@@ -113,6 +113,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
+    seissolInstance(seissolInstance),
     m_globalDataOnHost( i_globalData.onHost ),
     m_globalDataOnDevice(i_globalData.onDevice ),
     m_clusterData(i_clusterData),
@@ -135,7 +136,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
-    seissolInstance(seissolInstance),
     executor(
 #ifdef ACL_DEVICE
       Executor::Device
@@ -381,8 +381,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // needed by some other time cluster.
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
-    const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
-    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
+    const bool buffersProvided = (data.cellInformation().ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation().ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
     if (resetMyBuffers) {
       // assert presence of the buffer
@@ -413,15 +413,15 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     );
 
     for (unsigned face = 0; face < 4; ++face) {
-      auto& curFaceDisplacements = data.faceDisplacements[face];
+      auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
         addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
-        addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements()[face];
         addVelocityKrnl.I = l_bufferPointer;
         addVelocityKrnl.execute(face);
       }
@@ -941,15 +941,15 @@ template<bool usePlasticity>
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.cellInformation.ltsSetup,
-                                                       data.cellInformation.faceTypes,
+                                                       data.cellInformation().ltsSetup,
+                                                       data.cellInformation().faceTypes,
                                                        subTimeStart,
                                                        timeStepSize(),
                                                        faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                        *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
-            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalDataOnHost->integrationBufferLTS),
+            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalDataOnHost->integrationBufferLTS[0]),
 #endif
                                                        l_timeIntegrated);
 
@@ -984,7 +984,7 @@ template<bool usePlasticity>
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,
                                                                                              &plasticity[l_cell],
-                                                                                             data.dofs,
+                                                                                             data.dofs(),
                                                                                              pstrain[l_cell] );
         }
 #ifdef INTEGRATE_QUANTITIES
