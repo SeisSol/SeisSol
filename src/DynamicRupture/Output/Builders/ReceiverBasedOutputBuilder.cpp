@@ -120,7 +120,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+    preDofPtr[arrayIndex] =
+        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(preDofPtr[arrayIndex] != nullptr);
   }
 
