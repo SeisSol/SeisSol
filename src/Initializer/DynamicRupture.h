@@ -77,6 +77,8 @@ public:
   virtual ~DynamicRupture() = default;
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
+  Variable<real*>                                                   timeDerivativePlusDevice;
+  Variable<real*>                                                   timeDerivativeMinusDevice;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStateMinus;
   Variable<DRGodunovData>                                           godunovData;
@@ -122,6 +124,8 @@ public:
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      AllocationMode::HostOnly );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      AllocationMode::HostOnly );
+    tree.addVar(      timeDerivativePlusDevice,       mask,                 1,      AllocationMode::HostOnly );
+    tree.addVar(     timeDerivativeMinusDevice,       mask,                 1,      AllocationMode::HostOnly );
     tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
     tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
     tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );

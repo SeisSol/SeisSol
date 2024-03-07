@@ -741,15 +741,8 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
     }
     real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
     real* bucket = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer));
-
-#ifdef ACL_DEVICE
     real* (*displacementsDevice)[4] = layer->var(m_lts.faceDisplacementsDevice);
     real* bucketDevice = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
-#else
-    // to make the OpenMP directive happy
-    real* (*displacementsDevice)[4];
-    real* bucketDevice;
-#endif
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
@@ -763,9 +756,7 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
           // somewhere in the bucket.
           auto offset = ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
           displacements[cell][face] = bucket + offset;
-#ifdef ACL_DEVICE
           displacementsDevice[cell][face] = bucketDevice + offset;
-#endif
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
             // zero displacements
             displacements[cell][face][dof] = static_cast<real>(0.0);
@@ -835,13 +826,12 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     }
   }
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-#else
+#endif
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
     real** buffers = it->var(m_lts.buffers);
     real** derivatives = it->var(m_lts.derivatives);
     kernels::touchBuffersDerivatives(buffers, derivatives, it->getNumberOfCells());
   }
-#endif
 
 #ifdef USE_MPI
   // initialize the communication structure
