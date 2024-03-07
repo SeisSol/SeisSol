@@ -51,12 +51,12 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       // dofs
-      dofsPtrs[cell] = static_cast<real*>(data.dofs);
+      dofsPtrs[cell] = static_cast<real*>(data.dofs());
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
-      bool isBuffersProvided = ((dataHost.cellInformation.ltsSetup >> 8) % 2) == 1;
-      bool isLtsBuffers = ((dataHost.cellInformation.ltsSetup >> 10) % 2) == 1;
+      bool isBuffersProvided = ((dataHost.cellInformation().ltsSetup >> 8) % 2) == 1;
+      bool isLtsBuffers = ((dataHost.cellInformation().ltsSetup >> 10) % 2) == 1;
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {
@@ -80,10 +80,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       }
 
       // stars
-      starPtrs[cell] = static_cast<real*>(data.localIntegration.starMatrices[0]);
+      starPtrs[cell] = static_cast<real*>(data.localIntegration().starMatrices[0]);
 
       // derivatives
-      bool isDerivativesProvided = ((dataHost.cellInformation.ltsSetup >> 9) % 2) == 1;
+      bool isDerivativesProvided = ((dataHost.cellInformation().ltsSetup >> 9) % 2) == 1;
       if (isDerivativesProvided) {
         dQPtrs[cell] = derivatives[cell];
 
@@ -128,10 +128,10 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
-      if (dataHost.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
+      if (dataHost.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
-        dofsPtrs.push_back(static_cast<real*>(data.dofs));
-        aplusTPtrs.push_back(static_cast<real*>(data.localIntegration.nApNm1[face]));
+        dofsPtrs.push_back(static_cast<real*>(data.dofs()));
+        aplusTPtrs.push_back(static_cast<real*>(data.localIntegration().nApNm1[face]));
       }
     }
 
@@ -158,7 +158,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
     for (unsigned face = 0; face < 4; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
       auto notFreeSurfaceGravity =
-          dataHost.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity;
+          dataHost.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
         auto Iview = init::I::view::create(idofsAddressRegistry[cell]);
@@ -209,21 +209,21 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-          assert(data.faceDisplacements[face] != nullptr);
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::freeSurfaceGravity) {
+          assert(data.faceDisplacements()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
-          dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
+          dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          aminusTPtrs[face].push_back(data.neighboringIntegration.nAmNm1[face]);
-          displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice[face]);
-          T[face].push_back(data.boundaryMapping[face].TData);
-          Tinv[face].push_back(data.boundaryMapping[face].TinvData);
+          aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
+          displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice()[face]);
+          T[face].push_back(data.boundaryMapping()[face].TData);
+          Tinv[face].push_back(data.boundaryMapping()[face].TinvData);
 
-          rhos[face].push_back(dataHost.material.local.rho);
-          lambdas[face].push_back(dataHost.material.local.lambda);
+          rhos[face].push_back(dataHost.material().local.rho);
+          lambdas[face].push_back(dataHost.material().local.lambda);
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
@@ -274,16 +274,17 @@ void LocalIntegrationRecorder::recordDirichletBc() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation.faceTypes[face] == FaceType::dirichlet) {
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::dirichlet) {
 
-          dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
+          dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          Tinv[face].push_back(data.boundaryMapping[face].TinvData);
-          aminusTPtrs[face].push_back(data.neighboringIntegration.nAmNm1[face]);
+          Tinv[face].push_back(data.boundaryMapping()[face].TinvData);
+          aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
 
-          easiBoundaryMapPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryMap);
-          easiBoundaryConstantPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryConstant);
+          easiBoundaryMapPtrs[face].push_back(data.boundaryMapping()[face].easiBoundaryMap);
+          easiBoundaryConstantPtrs[face].push_back(
+              data.boundaryMapping()[face].easiBoundaryConstant);
         }
       }
     }
@@ -315,7 +316,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation.faceTypes[face] == FaceType::analytical) {
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::analytical) {
           cellIndices[face].push_back(cell);
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
         }
