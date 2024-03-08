@@ -398,7 +398,10 @@ else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
 
-set_target_properties(SeisSol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
+if (SHARED)
+  set_target_properties(SeisSol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
+  install(TARGETS SeisSol-lib LIBRARY)
+endif()
 
 if (WITH_GPU)
   # set SeisSol GPU definitions
