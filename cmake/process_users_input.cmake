@@ -72,6 +72,8 @@ set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
+option(SHARED "Build SeisSol as shared library" OFF)
+
 option(BUILD_EXECUTABLE "Build SeisSol" ON)
 
 option(BUILD_PROXY "Build the SeisSol proxy" ON)

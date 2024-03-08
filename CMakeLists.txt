@@ -41,7 +41,7 @@ endif()
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, BUILD_PROXY, BUILD_EXECUTABLE
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, BUILD_PROXY, BUILD_EXECUTABLE, SHARED
 #
 #       user input:   HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -397,6 +397,8 @@ if ("${DEVICE_ARCH_STR}" STREQUAL "none")
 else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
+
+set_target_properties(SeisSol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
 
 if (WITH_GPU)
   # set SeisSol GPU definitions

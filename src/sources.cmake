@@ -66,7 +66,13 @@ src/SourceTerm/PointSource.cpp
 # target_link_options(SeisSol-common-lib PUBLIC SeisSol-kernel-lib)
 target_compile_options(SeisSol-common-lib PRIVATE -fPIC)
 
-add_library(SeisSol-lib
+if (SHARED)
+add_library(SeisSol-lib SHARED)
+else()
+add_library(SeisSol-lib STATIC)
+endif()
+
+target_sources(SeisSol-lib PRIVATE
 src/Checkpoint/Backend.cpp
 src/Checkpoint/Fault.cpp
 src/Checkpoint/Manager.cpp
