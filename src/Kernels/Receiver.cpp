@@ -210,7 +210,7 @@ void seissol::kernels::ReceiverCluster::allocateData() {
     }
     deviceIndices[i] = indexMap.at(currentDofs);
   }
-  deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size());
+  deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), useUSM());
 #endif
 }
 void seissol::kernels::ReceiverCluster::freeData() {

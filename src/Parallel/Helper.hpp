@@ -3,6 +3,10 @@
 
 #include "utils/env.h"
 
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
+
 namespace seissol {
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic) {
@@ -34,7 +38,8 @@ void printPersistentMpiInfo(const T& mpiBasic) {
   }
 }
 
-inline bool useUSM() { return utils::Env::get<bool>("SEISSOL_USM", false); }
+#ifdef ACL_DEVICE
+inline bool useUSM() { return utils::Env::get<bool>("SEISSOL_USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault()); }
 
 template <typename T>
 void printUSMInfo(const T& mpiBasic) {
@@ -45,7 +50,7 @@ void printUSMInfo(const T& mpiBasic) {
   }
 }
 
-inline bool useMPIUSM() { return utils::Env::get<bool>("SEISSOL_USM", false); }
+inline bool useMPIUSM() { return utils::Env::get<bool>("SEISSOL_USM_MPI", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault()); }
 
 template <typename T>
 void printMPIUSMInfo(const T& mpiBasic) {
@@ -63,6 +68,7 @@ void printDeviceHostSwitch(const T& mpiBasic) {
   logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch()
                            << "or more cells on the GPU (and on the CPU otherwise)";
 }
+#endif
 
 } // namespace seissol
 

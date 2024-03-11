@@ -123,7 +123,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   }
 
   outputData->deviceDataCollector =
-      std::make_unique<seissol::parallel::DataCollector>(indexPtrs, seissol::tensor::Q::size());
+      std::make_unique<seissol::parallel::DataCollector>(indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);
