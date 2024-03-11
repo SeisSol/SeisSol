@@ -43,10 +43,10 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
     const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
     const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
     const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0.05);
-    const auto aB0 = reader->readWithDefault<real>("aB0", 7.43e9);
-    const auto aB1 = reader->readWithDefault<real>("aB1", -12.14e9);
-    const auto aB2 = reader->readWithDefault<real>("aB2", 18.93e9);
-    const auto aB3 = reader->readWithDefault<real>("aB3", -5.067e9);
+    const auto aB0 = reader->readWithDefault<real>("ab0", 7.43e9);
+    const auto aB1 = reader->readWithDefault<real>("ab1", -12.14e9);
+    const auto aB2 = reader->readWithDefault<real>("ab2", 18.93e9);
+    const auto aB3 = reader->readWithDefault<real>("ab3", -5.067e9);
 
     if(!isModelNonLinear){
       reader->markUnused(
