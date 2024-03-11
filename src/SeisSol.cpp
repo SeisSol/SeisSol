@@ -95,6 +95,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
   printUSMInfo(MPI::mpi);
   printMPIUSMInfo(MPI::mpi);
+  printDeviceHostSwitch(MPI::mpi);
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();

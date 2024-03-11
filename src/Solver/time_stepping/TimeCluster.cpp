@@ -110,7 +110,13 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::SeisSol& seissolInstance,
                                                  LoopStatistics *i_loopStatistics,
                                                  ActorStateStatistics* actorStateStatistics) :
-    AbstractTimeCluster(maxTimeStepSize, timeStepRate),
+    AbstractTimeCluster(maxTimeStepSize, timeStepRate,
+#ifdef ACL_DEVICE
+      i_clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device : Executor::Host
+#else
+      Executor::Host
+#endif
+    ),
     // cluster ids
     usePlasticity(usePlasticity),
     seissolInstance(seissolInstance),
@@ -135,14 +141,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
-    dynamicRuptureScheduler(dynamicRuptureScheduler),
-    executor(
-#ifdef ACL_DEVICE
-      Executor::Device
-#else
-      Executor::Host
-#endif
-    )
+    dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
@@ -741,6 +740,13 @@ void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
 void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
   if (m_clusterData->getNumberOfCells() == 0) return;
+#ifdef ACL_DEVICE
+  if (hasDifferentExecutorNeighbor()) {
+    auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
+    m_clusterData->synchronizeTo(place, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
+  }
+#endif
 
   bool resetBuffers = true;
   for (auto& neighbor : neighbors) {
@@ -768,9 +774,25 @@ void TimeCluster::predict() {
 
   seissolInstance.flopCounter().incrementNonZeroFlopsLocal(m_flops_nonZero[static_cast<int>(ComputePart::Local)]);
   seissolInstance.flopCounter().incrementHardwareFlopsLocal(m_flops_hardware[static_cast<int>(ComputePart::Local)]);
+#ifdef ACL_DEVICE
+  if (hasDifferentExecutorNeighbor()) {
+    auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
+    m_clusterData->synchronizeTo(other, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
+  }
+#endif
 }
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
+#ifdef ACL_DEVICE
+  if (hasDifferentExecutorNeighbor()) {
+    auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
+    m_clusterData->synchronizeTo(place, device.api->getDefaultStream());
+    dynRupInteriorData->synchronizeTo(place, device.api->getDefaultStream());
+    dynRupCopyData->synchronizeTo(place, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
+  }
+#endif
 
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
    * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time
@@ -866,6 +888,15 @@ void TimeCluster::correct() {
       }
   }
 
+#ifdef ACL_DEVICE
+  if (hasDifferentExecutorNeighbor()) {
+    auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
+    m_clusterData->synchronizeTo(other, device.api->getDefaultStream());
+    dynRupInteriorData->synchronizeTo(other, device.api->getDefaultStream());
+    dynRupCopyData->synchronizeTo(other, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
+  }
+#endif
 }
 
 void TimeCluster::reset() {

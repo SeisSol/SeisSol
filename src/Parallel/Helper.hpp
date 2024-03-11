@@ -56,6 +56,13 @@ void printMPIUSMInfo(const T& mpiBasic) {
   }
 }
 
+inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
+
+template <typename T>
+void printDeviceHostSwitch(const T& mpiBasic) {
+  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch() << "or more cells on the GPU (and on the CPU otherwise)";
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_PARALLEL_HELPER_HPP_

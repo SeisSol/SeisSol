@@ -120,7 +120,6 @@ namespace seissol {
 class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster
 {
 private:
-    Executor executor;
     // Last correction time of the neighboring cluster with higher dt
     double lastSubTime;
 
