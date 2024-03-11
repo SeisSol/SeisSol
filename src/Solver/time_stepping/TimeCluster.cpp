@@ -675,13 +675,6 @@ void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
 void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
   if (m_clusterData->getNumberOfCells() == 0) return;
-#ifdef ACL_DEVICE
-  if (hasDifferentExecutorNeighbor()) {
-    auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
-    m_clusterData->synchronizeTo(place, streamRuntime.stream());
-    streamRuntime.wait();
-  }
-#endif
 
   bool resetBuffers = true;
   for (auto& neighbor : neighbors) {
@@ -712,23 +705,13 @@ void TimeCluster::predict() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->synchronizeTo(other, streamRuntime.stream());
+    m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, other, streamRuntime.stream());
     streamRuntime.wait();
   }
 #endif
 }
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
-#ifdef ACL_DEVICE
-  if (hasDifferentExecutorNeighbor()) {
-    auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
-    m_clusterData->synchronizeTo(place, streamRuntime.stream());
-    dynRupInteriorData->synchronizeTo(place, streamRuntime.stream());
-    dynRupCopyData->synchronizeTo(place, streamRuntime.stream());
-    streamRuntime.wait();
-  }
-#endif
-
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
    * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time
    * refers to the derivation of the surrounding time derivatives, which coincides with the last
@@ -822,16 +805,6 @@ void TimeCluster::correct() {
 
       }
   }
-
-#ifdef ACL_DEVICE
-  if (hasDifferentExecutorNeighbor()) {
-    auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->synchronizeTo(other, streamRuntime.stream());
-    dynRupInteriorData->synchronizeTo(other, streamRuntime.stream());
-    dynRupCopyData->synchronizeTo(other, streamRuntime.stream());
-    streamRuntime.wait();
-  }
-#endif
 }
 
 void TimeCluster::reset() {
