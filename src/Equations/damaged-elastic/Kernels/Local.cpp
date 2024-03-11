@@ -150,7 +150,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
-  #ifndef USE_DAMAGEDELASTIC
+  #ifdef USE_DAMAGEDELASTIC
+  #else
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
@@ -168,7 +169,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
 
-  #ifndef USE_DAMAGEDELASTIC
+  #ifdef USE_DAMAGEDELASTIC
+  #else
   volKrnl.execute();
   #endif
 
@@ -193,10 +195,24 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           real* eyzNodal = (QInitialNodal + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           real* ezxNodal = (QInitialNodal + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-            // TODO(NONLINEAR) What are these numbers?
-            exxNodal[q] = 3.7986e-4; // eps_xx0
-            eyyNodal[q] = -1.0383e-3; // eps_yy0
-            ezzNodal[q] = -1.0072e-3; // eps_zz0
+            // exxNodal[q] = 4.63e-4;
+            // eyyNodal[q] = -1.85e-3;
+            // ezzNodal[q] = 4.63e-4;
+            // exyNodal[q] = 1.11e-3;
+            // eyzNodal[q] = -0e-3;
+            // ezxNodal[q] = -0e-3;
+
+            // exxNodal[q] = -9.26e-4;
+            // eyyNodal[q] = -9.26e-4;
+            // ezzNodal[q] = -9.26e-4;
+            // exyNodal[q] = 1.11e-3;
+            // eyzNodal[q] = -0e-3;
+            // ezxNodal[q] = -0e-3;
+
+            // tpv 5
+            exxNodal[q] = -1.8738e-4; // eps_xx0
+            eyyNodal[q] = -1.1225e-3; // eps_yy0
+            ezzNodal[q] = -1.8738e-4; // eps_zz0
             exyNodal[q] = 1.0909e-3; // eps_xx0
             eyzNodal[q] = -0e-1; // eps_yy0
             ezxNodal[q] = -0e-1; // eps_zz0
@@ -237,15 +253,13 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(materialData != nullptr);
         auto* displ = tmp.nodalAvgDisplacements[face].data();
         auto displacement = init::averageNormalDisplacement::view::create(displ);
-        // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-        const auto localG = gravitationalAcceleration;
-        auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
+        auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
-            assert(localG > 0);
-            const double pressureAtBnd = -1 * rho * localG * displacement(i);
+            const double g = 9.8; // [m/s^2]
+            const double pressureAtBnd = -1 * rho * g * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
             boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
