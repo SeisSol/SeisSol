@@ -110,6 +110,7 @@ class StreamRuntime {
   std::vector<void*> forkEvents;
   std::vector<void*> joinEvents;
 #else
+  public:
   void dispose() {}
 #endif
 };
