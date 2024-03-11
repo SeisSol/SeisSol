@@ -98,6 +98,7 @@ void seissol::localIntegration(GlobalData* globalData,
                                seissol::SeisSol& seissolInstance) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
+  localKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   kernels::Time  timeKernel;
   timeKernel.setHostGlobalData(globalData);
 

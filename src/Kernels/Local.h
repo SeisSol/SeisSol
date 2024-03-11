@@ -41,6 +41,7 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
 #include <cassert>
 #include <Kernels/common.hpp>
@@ -53,6 +54,9 @@ namespace seissol::kernels {
 }
 
 class seissol::kernels::Local : public LocalBase {
+  protected:
+  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
+
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -76,13 +80,17 @@ class seissol::kernels::Local : public LocalBase {
                                         ConditionalIndicesTable& indicesTable,
                                         kernels::LocalData::Loader& loader,
                                         double time,
-                                        double timeStepWidt);
+                                        double timeStepWidth);
 
     void flopsIntegral(FaceType const i_faceTypes[4],
                        unsigned int &o_nonZeroFlops,
                        unsigned int &o_hardwareFlops );
                         
     unsigned bytesIntegral();
+
+    void const setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters){
+      damagedElasticParameters = mDamagedElasticParameters;
+    };
 };
 
 #endif

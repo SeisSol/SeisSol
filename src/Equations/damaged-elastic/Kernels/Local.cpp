@@ -194,12 +194,13 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           real* ezxNodal = (QInitialNodal + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
             // TODO(NONLINEAR) What are these numbers?
-            exxNodal[q] = -1.8738e-4; // eps_xx0
-            eyyNodal[q] = -1.1225e-3; // eps_yy0
-            ezzNodal[q] = -1.8738e-4; // eps_zz0
-            exyNodal[q] = 1.0909e-3; // eps_xx0
-            eyzNodal[q] = -0e-1; // eps_yy0
-            ezxNodal[q] = -0e-1; // eps_zz0
+            exxNodal[q] = damagedElasticParameters->epsInitxx; // eps_xx0
+            eyyNodal[q] = damagedElasticParameters->epsInityy; // eps_yy0
+            ezzNodal[q] = damagedElasticParameters->epsInitzz; // eps_zz0
+            exyNodal[q] = damagedElasticParameters->epsInitxy; // eps_xy0
+            eyzNodal[q] = damagedElasticParameters->epsInityz; // eps_yz0
+            ezxNodal[q] = damagedElasticParameters->epsInitzx; // eps_zx0
+
           }
           kernel::damageAssignFToDQ d_convertInitialToModal;
           d_convertInitialToModal.dQModal = QInitialModal;

@@ -156,6 +156,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
+  m_localKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
