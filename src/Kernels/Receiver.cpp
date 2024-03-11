@@ -109,12 +109,12 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
-  if (executor == Executor::Device) {
 #ifdef ACL_DEVICE
+  if (executor == Executor::Device) {
     deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-#endif
   }
+#endif
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
@@ -124,18 +124,12 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
       // Copy DOFs from device to host.
-      LocalData tmpReceiverData = [&]() {
-        if (executor == Executor::Device) {
-          LocalData deviceReceiverData { receiver.dataDevice };
+      LocalData tmpReceiverData { receiver.dataHost };
 #ifdef ACL_DEVICE
-          deviceReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector->get(deviceIndices[i]));
+      if (executor == Executor::Device) {
+        tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector->get(deviceIndices[i]));
+      }
 #endif
-          return deviceReceiverData;
-        }
-        else {
-          return receiver.dataHost;
-        }
-      }();
 
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
