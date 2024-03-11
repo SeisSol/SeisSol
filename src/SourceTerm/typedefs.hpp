@@ -45,6 +45,7 @@
 
 #include <cstdlib>
 #include <array>
+#include <memory>
 #include <vector>
 #include <Kernels/precision.hpp>
 #include <generated_code/tensor.h>
@@ -54,7 +55,16 @@
 #include "Device/UsmAllocator.h"
 #endif
 
+namespace seissol::kernels {
+class PointSourceCluster;
+} // namespace seissol::kernels
+
 namespace seissol::sourceterm {
+struct PointSourceClusterPair {
+  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
+};
+
 #ifdef ACL_DEVICE
 using AllocatorT = device::UsmAllocator<real>;
 #else

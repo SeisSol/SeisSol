@@ -111,13 +111,13 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 

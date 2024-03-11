@@ -42,6 +42,8 @@ class FrictionSolver {
                           seissol::initializer::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
+  virtual seissol::initializer::AllocationPlace allocationPlace();
+
   protected:
   /**
    * Adjust initial stress by adding nucleation stress * nucleation function

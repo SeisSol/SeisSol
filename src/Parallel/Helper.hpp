@@ -34,6 +34,35 @@ void printPersistentMpiInfo(const T& mpiBasic) {
   }
 }
 
+inline bool useUSM() { return utils::Env::get<bool>("SEISSOL_USM", false); }
+
+template <typename T>
+void printUSMInfo(const T& mpiBasic) {
+  if (useUSM()) {
+    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU data.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU data.";
+  }
+}
+
+inline bool useMPIUSM() { return utils::Env::get<bool>("SEISSOL_USM", false); }
+
+template <typename T>
+void printMPIUSMInfo(const T& mpiBasic) {
+  if (useMPIUSM()) {
+    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU MPI data.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU MPI data.";
+  }
+}
+
+inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
+
+template <typename T>
+void printDeviceHostSwitch(const T& mpiBasic) {
+  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch() << "or more cells on the GPU (and on the CPU otherwise)";
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_PARALLEL_HELPER_HPP_
