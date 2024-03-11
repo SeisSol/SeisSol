@@ -380,31 +380,20 @@ inline void postcomputeImposedStateFromNewStress(
     const double timeWeights[CONVERGENCE_ORDER],
     unsigned startIndex = 0) {
 
-  // set imposed state to zero
-  real interPlus[tensor::QInterpolated::size()];
-  real interMinus[tensor::QInterpolated::size()];
-
   using QInterpolatedRange = typename QInterpolated<Type>::Range;
   for (auto index = QInterpolatedRange::start; index < QInterpolatedRange::end;
        index += QInterpolatedRange::step) {
     auto i{startIndex + index};
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
-    interPlus[i] = static_cast<real>(0.0);
-    interMinus[i] = static_cast<real>(0.0);
   }
-
+#ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
   const auto invZp = impAndEta.invZp;
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
-  const auto csOcpTZsOZp = impAndEta.csOcpTZsOZp;
-  const auto csOcpTZsOZpNeig = impAndEta.csOcpTZsOZpNeig;
-
   using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
-  auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
-  auto* interM = reinterpret_cast<ImposedStateShapeT>(interMinus);
 
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
@@ -414,7 +403,6 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-  unsigned DAM = 9;
 
 #ifndef ACL_DEVICE
   checkAlignmentPostCompute(
@@ -426,7 +414,7 @@ inline void postcomputeImposedStateFromNewStress(
 
     using NumPointsRange = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-    #pragma omp simd
+#pragma omp simd
 #endif
     for (auto index = NumPointsRange::start; index < NumPointsRange::end;
          index += NumPointsRange::step) {
@@ -436,192 +424,162 @@ inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      interM[N][i] += weight * normalStress;
-      interM[T1][i] += weight * traction1;
-      interM[T2][i] += weight * traction2;
-      interM[U][i] +=
+      imposedStateM[N][i] += weight * normalStress;
+      imposedStateM[T1][i] += weight * traction1;
+      imposedStateM[T2][i] += weight * traction2;
+      imposedStateM[U][i] +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      interM[V][i] +=
+      imposedStateM[V][i] +=
           weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      interM[W][i] +=
+      imposedStateM[W][i] +=
           weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      interP[N][i] += weight * normalStress;
-      interP[T1][i] += weight * traction1;
-      interP[T2][i] += weight * traction2;
-      interP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      interP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      interP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
-
-      #if defined USE_DAMAGEDELASTIC
-      // interP[YY][i] += weight * ( qIPlus[o][YY][i] +
-      //     (1.0 - 2.0*csOcpTZsOZp) * (normalStress - qIPlus[o][N][i]) );
-      // interM[YY][i] += weight * ( qIMinus[o][YY][i] -
-      //     (1.0 - 2.0*csOcpTZsOZpNeig) * (normalStress - qIMinus[o][N][i]) );
-
-      // interP[ZZ][i] += weight * ( qIPlus[o][YY][i] +
-      //     (1.0 - 2.0*csOcpTZsOZp) * (normalStress - qIPlus[o][N][i]) );
-      // interM[ZZ][i] += weight * ( qIMinus[o][YY][i] -
-      //     (1.0 - 2.0*csOcpTZsOZpNeig) * (normalStress - qIMinus[o][N][i]) );
-
-      // interP[YZ][i] += weight * ( qIPlus[o][YZ][i] );
-      // interM[YZ][i] += weight * ( qIMinus[o][YZ][i] );
-
-      // interP[DAM][i] += weight * ( qIPlus[o][DAM][i] );
-      // interM[DAM][i] += weight * ( qIMinus[o][DAM][i] );
-
-      /// TODO: Test if I can do this inside this loop
-      // // Fill in nonlinear Flux term at the end time integratoon point.
-      // if (o == (CONVERGENCE_ORDER-1)){
-      //   real vx, vy ,vz; // In global coord.
-      //   vx = impAndEta.faultN[0]*interP[U][i] +
-      //   impAndEta.faultT1[0]*interP[V][i] + impAndEta.faultT2[0]*interP[W][i];
-      //   vy = impAndEta.faultN[1]*interP[U][i] +
-      //   impAndEta.faultT1[1]*interP[V][i] + impAndEta.faultT2[1]*interP[W][i];
-      //   vz = impAndEta.faultN[2]*interP[U][i] +
-      //   impAndEta.faultT1[2]*interP[V][i] + impAndEta.faultT2[2]*interP[W][i];
-      //   imposedStateP[0][i] = - vx * impAndEta.faultN[0]; // minus sign from conservation laws
-      //   imposedStateP[1][i] = - vy * impAndEta.faultN[1];
-      //   imposedStateP[2][i] = - vz * impAndEta.faultN[2];
-
-      //   imposedStateP[3][i] = - 0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]);
-      //   imposedStateP[4][i] = - 0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]);
-      //   imposedStateP[5][i] = - 0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]);
-
-      //   // Also need to project traction (N, T1, T2) in rotated coord, back to
-      //   // global coords.
-      //   real trac_x, trac_y ,trac_z; // In global coord.
-      //   trac_x = impAndEta.faultN[0]*interP[N][i] +
-      //   impAndEta.faultT1[0]*interP[T1][i] + impAndEta.faultT2[0]*interP[T2][i];
-      //   trac_y = impAndEta.faultN[1]*interP[N][i] +
-      //   impAndEta.faultT1[1]*interP[T1][i] + impAndEta.faultT2[1]*interP[T2][i];
-      //   trac_z = impAndEta.faultN[2]*interP[N][i] +
-      //   impAndEta.faultT1[2]*interP[T1][i] + impAndEta.faultT2[2]*interP[T2][i];
-
-      //   // minus sign from conservation laws.
-      //   imposedStateP[6][i] = - trac_x / impAndEta.rho0P;
-      //   imposedStateP[7][i] = - trac_y / impAndEta.rho0P;
-      //   imposedStateP[8][i] = - trac_z / impAndEta.rho0P;
-      //   imposedStateP[9][i] = 0.0;
-
-      //   vx = (impAndEta.faultN[0]*interM[U][i] +
-      //   impAndEta.faultT1[0]*interM[V][i] + impAndEta.faultT2[0]*interM[W][i]);
-      //   vy = (impAndEta.faultN[1]*interM[U][i] +
-      //   impAndEta.faultT1[1]*interM[V][i] + impAndEta.faultT2[1]*interM[W][i]);
-      //   vz = (impAndEta.faultN[2]*interM[U][i] +
-      //   impAndEta.faultT1[2]*interM[V][i] + impAndEta.faultT2[2]*interM[W][i]);
-      //   // additional minus sign due to projected face-normal coords
-      //   // are opposite to face normal of the cell "M".
-      //   imposedStateM[0][i] = -1.0*(- vx * impAndEta.faultN[0]);
-      //   imposedStateM[1][i] = -1.0*(- vy * impAndEta.faultN[1]);
-      //   imposedStateM[2][i] = -1.0*(- vz * impAndEta.faultN[2]);
-
-      //   imposedStateM[3][i] = -1.0*(-0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]));
-      //   imposedStateM[4][i] = -1.0*(-0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]));
-      //   imposedStateM[5][i] = -1.0*(-0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]));
-
-      //   // minus sign due to traction needs to time (-1,0,0) in roated coords for cell "M"
-      //   trac_x = - (impAndEta.faultN[0]*interM[N][i] +
-      //   impAndEta.faultT1[0]*interM[T1][i] + impAndEta.faultT2[0]*interM[T2][i]);
-      //   trac_y = - (impAndEta.faultN[1]*interM[N][i] +
-      //   impAndEta.faultT1[1]*interM[T1][i] + impAndEta.faultT2[1]*interM[T2][i]);
-      //   trac_z = - (impAndEta.faultN[2]*interM[N][i] +
-      //   impAndEta.faultT1[2]*interM[T1][i] + impAndEta.faultT2[2]*interM[T2][i]);
-
-      //   // minus sign from conservation laws.
-      //   imposedStateM[6][i] = - trac_x / impAndEta.rho0M;
-      //   imposedStateM[7][i] = - trac_y / impAndEta.rho0M;
-      //   imposedStateM[8][i] = - trac_z / impAndEta.rho0M;
-      //   imposedStateM[9][i] = 0.0;
-
-      //   // imposedStateM[6][i] = -1.0*(interM[N][i] / impAndEta.rho0M);
-      //   // imposedStateM[7][i] = -1.0*(interM[T1][i] / impAndEta.rho0M);
-      //   // imposedStateM[8][i] = -1.0*(interM[T2][i] / impAndEta.rho0M);
-      //   // imposedStateM[9][i] = 0.0;
-
-      //   // std::cout << o << " " << impAndEta.faultN[0]*impAndEta.faultN[1]
-      //   // + impAndEta.faultT1[0]*impAndEta.faultT1[1]
-      //   // + impAndEta.faultT2[0]*impAndEta.faultT2[1] << "\n";
-
-      // }
-      #endif
+      imposedStateP[N][i] += weight * normalStress;
+      imposedStateP[T1][i] += weight * traction1;
+      imposedStateP[T2][i] += weight * traction2;
+      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
-  // Fill in nonlinear Flux term at the end time integratoon point.
-  for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
-        i ++) {
-    real vx, vy ,vz; // In global coord.
-    vx = impAndEta.faultN[0]*interP[U][i] +
-    impAndEta.faultT1[0]*interP[V][i] + impAndEta.faultT2[0]*interP[W][i];
-    vy = impAndEta.faultN[1]*interP[U][i] +
-    impAndEta.faultT1[1]*interP[V][i] + impAndEta.faultT2[1]*interP[W][i];
-    vz = impAndEta.faultN[2]*interP[U][i] +
-    impAndEta.faultT1[2]*interP[V][i] + impAndEta.faultT2[2]*interP[W][i];
-    imposedStateP[0][i] = - vx * impAndEta.faultN[0]; // minus sign from conservation laws
-    imposedStateP[1][i] = - vy * impAndEta.faultN[1];
-    imposedStateP[2][i] = - vz * impAndEta.faultN[2];
+#ifdef USE_DAMAGEDELASTIC
+  const auto csOcpTZsOZp = impAndEta.csOcpTZsOZp;
+  const auto csOcpTZsOZpNeig = impAndEta.csOcpTZsOZpNeig;
 
-    imposedStateP[3][i] = - 0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]);
-    imposedStateP[4][i] = - 0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]);
-    imposedStateP[5][i] = - 0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]);
+  real interPlus[tensor::QInterpolated::size()];
+  real interMinus[tensor::QInterpolated::size()];
+  auto* interP = reinterpret_cast<ImposedStateShapeT>(interPlus);
+  auto* interM = reinterpret_cast<ImposedStateShapeT>(interMinus);
+  using NumPointsRange = typename NumPoints<Type>::Range;
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
+       index += NumPointsRange::step) {
+    auto i{startIndex + index};
+    interM[N][i] = imposedStateM[N][i];
+    interM[T1][i] = imposedStateM[T1][i];
+    interM[T2][i] = imposedStateM[T2][i];
+    interM[U][i] = imposedStateM[U][i];
+    interM[V][i] = imposedStateM[V][i];
+    interM[W][i] = imposedStateM[W][i];
+
+    interP[N][i] = imposedStateP[N][i];
+    interP[T1][i] = imposedStateP[T1][i];
+    interP[T2][i] = imposedStateP[T2][i];
+    interP[U][i] = imposedStateP[U][i];
+    interP[V][i] = imposedStateP[V][i];
+    interP[W][i] = imposedStateP[W][i];
+  }
+
+  // Fill in nonlinear Flux term at the end time integratoon point.
+  for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
+    real vx, vy, vz; // In global coord.
+    vx = impAndEta.faultN[0] * interP[U][i] + impAndEta.faultT1[0] * interP[V][i] +
+         impAndEta.faultT2[0] * interP[W][i];
+    vy = impAndEta.faultN[1] * interP[U][i] + impAndEta.faultT1[1] * interP[V][i] +
+         impAndEta.faultT2[1] * interP[W][i];
+    vz = impAndEta.faultN[2] * interP[U][i] + impAndEta.faultT1[2] * interP[V][i] +
+         impAndEta.faultT2[2] * interP[W][i];
+    imposedStateP[0][i] = -vx * impAndEta.faultN[0]; // minus sign from conservation laws
+    imposedStateP[1][i] = -vy * impAndEta.faultN[1];
+    imposedStateP[2][i] = -vz * impAndEta.faultN[2];
+
+    imposedStateP[3][i] = -0.5 * (vx * impAndEta.faultN[1] + vy * impAndEta.faultN[0]);
+    imposedStateP[4][i] = -0.5 * (vy * impAndEta.faultN[2] + vz * impAndEta.faultN[1]);
+    imposedStateP[5][i] = -0.5 * (vx * impAndEta.faultN[2] + vz * impAndEta.faultN[0]);
 
     // Also need to project traction (N, T1, T2) in rotated coord, back to
     // global coords.
-    real trac_x, trac_y ,trac_z; // In global coord.
-    trac_x = impAndEta.faultN[0]*interP[N][i] +
-    impAndEta.faultT1[0]*interP[T1][i] + impAndEta.faultT2[0]*interP[T2][i];
-    trac_y = impAndEta.faultN[1]*interP[N][i] +
-    impAndEta.faultT1[1]*interP[T1][i] + impAndEta.faultT2[1]*interP[T2][i];
-    trac_z = impAndEta.faultN[2]*interP[N][i] +
-    impAndEta.faultT1[2]*interP[T1][i] + impAndEta.faultT2[2]*interP[T2][i];
+    real trac_x, trac_y, trac_z; // In global coord.
+    trac_x = impAndEta.faultN[0] * interP[N][i] + impAndEta.faultT1[0] * interP[T1][i] +
+             impAndEta.faultT2[0] * interP[T2][i];
+    trac_y = impAndEta.faultN[1] * interP[N][i] + impAndEta.faultT1[1] * interP[T1][i] +
+             impAndEta.faultT2[1] * interP[T2][i];
+    trac_z = impAndEta.faultN[2] * interP[N][i] + impAndEta.faultT1[2] * interP[T1][i] +
+             impAndEta.faultT2[2] * interP[T2][i];
 
     // minus sign from conservation laws.
-    imposedStateP[6][i] = - trac_x / impAndEta.rho0P;
-    imposedStateP[7][i] = - trac_y / impAndEta.rho0P;
-    imposedStateP[8][i] = - trac_z / impAndEta.rho0P;
+    imposedStateP[6][i] = -trac_x / impAndEta.rho0P;
+    imposedStateP[7][i] = -trac_y / impAndEta.rho0P;
+    imposedStateP[8][i] = -trac_z / impAndEta.rho0P;
     imposedStateP[9][i] = 0.0;
     imposedStateP[10][i] = 0.0;
 
-    vx = (impAndEta.faultN[0]*interM[U][i] +
-    impAndEta.faultT1[0]*interM[V][i] + impAndEta.faultT2[0]*interM[W][i]);
-    vy = (impAndEta.faultN[1]*interM[U][i] +
-    impAndEta.faultT1[1]*interM[V][i] + impAndEta.faultT2[1]*interM[W][i]);
-    vz = (impAndEta.faultN[2]*interM[U][i] +
-    impAndEta.faultT1[2]*interM[V][i] + impAndEta.faultT2[2]*interM[W][i]);
+    vx = (impAndEta.faultN[0] * interM[U][i] + impAndEta.faultT1[0] * interM[V][i] +
+          impAndEta.faultT2[0] * interM[W][i]);
+    vy = (impAndEta.faultN[1] * interM[U][i] + impAndEta.faultT1[1] * interM[V][i] +
+          impAndEta.faultT2[1] * interM[W][i]);
+    vz = (impAndEta.faultN[2] * interM[U][i] + impAndEta.faultT1[2] * interM[V][i] +
+          impAndEta.faultT2[2] * interM[W][i]);
     // additional minus sign due to projected face-normal coords
     // are opposite to face normal of the cell "M".
-    imposedStateM[0][i] = -1.0*(- vx * impAndEta.faultN[0]);
-    imposedStateM[1][i] = -1.0*(- vy * impAndEta.faultN[1]);
-    imposedStateM[2][i] = -1.0*(- vz * impAndEta.faultN[2]);
+    imposedStateM[0][i] = -1.0 * (-vx * impAndEta.faultN[0]);
+    imposedStateM[1][i] = -1.0 * (-vy * impAndEta.faultN[1]);
+    imposedStateM[2][i] = -1.0 * (-vz * impAndEta.faultN[2]);
 
-    imposedStateM[3][i] = -1.0*(-0.5*(vx*impAndEta.faultN[1] + vy*impAndEta.faultN[0]));
-    imposedStateM[4][i] = -1.0*(-0.5*(vy*impAndEta.faultN[2] + vz*impAndEta.faultN[1]));
-    imposedStateM[5][i] = -1.0*(-0.5*(vx*impAndEta.faultN[2] + vz*impAndEta.faultN[0]));
+    imposedStateM[3][i] = -1.0 * (-0.5 * (vx * impAndEta.faultN[1] + vy * impAndEta.faultN[0]));
+    imposedStateM[4][i] = -1.0 * (-0.5 * (vy * impAndEta.faultN[2] + vz * impAndEta.faultN[1]));
+    imposedStateM[5][i] = -1.0 * (-0.5 * (vx * impAndEta.faultN[2] + vz * impAndEta.faultN[0]));
 
     // minus sign due to traction needs to time (-1,0,0) in roated coords for cell "M"
-    trac_x = - (impAndEta.faultN[0]*interM[N][i] +
-    impAndEta.faultT1[0]*interM[T1][i] + impAndEta.faultT2[0]*interM[T2][i]);
-    trac_y = - (impAndEta.faultN[1]*interM[N][i] +
-    impAndEta.faultT1[1]*interM[T1][i] + impAndEta.faultT2[1]*interM[T2][i]);
-    trac_z = - (impAndEta.faultN[2]*interM[N][i] +
-    impAndEta.faultT1[2]*interM[T1][i] + impAndEta.faultT2[2]*interM[T2][i]);
+    trac_x = -(impAndEta.faultN[0] * interM[N][i] + impAndEta.faultT1[0] * interM[T1][i] +
+               impAndEta.faultT2[0] * interM[T2][i]);
+    trac_y = -(impAndEta.faultN[1] * interM[N][i] + impAndEta.faultT1[1] * interM[T1][i] +
+               impAndEta.faultT2[1] * interM[T2][i]);
+    trac_z = -(impAndEta.faultN[2] * interM[N][i] + impAndEta.faultT1[2] * interM[T1][i] +
+               impAndEta.faultT2[2] * interM[T2][i]);
 
     // minus sign from conservation laws.
-    imposedStateM[6][i] = - trac_x / impAndEta.rho0M;
-    imposedStateM[7][i] = - trac_y / impAndEta.rho0M;
-    imposedStateM[8][i] = - trac_z / impAndEta.rho0M;
+    imposedStateM[6][i] = -trac_x / impAndEta.rho0M;
+    imposedStateM[7][i] = -trac_y / impAndEta.rho0M;
+    imposedStateM[8][i] = -trac_z / impAndEta.rho0M;
     imposedStateM[9][i] = 0.0;
     imposedStateM[10][i] = 0.0;
-
-    // imposedStateM[6][i] = -1.0*(interM[N][i] / impAndEta.rho0M);
-    // imposedStateM[7][i] = -1.0*(interM[T1][i] / impAndEta.rho0M);
-    // imposedStateM[8][i] = -1.0*(interM[T2][i] / impAndEta.rho0M);
-    // imposedStateM[9][i] = 0.0;
-
-    // std::cout << o << " " << impAndEta.faultN[0]*impAndEta.faultN[1]
-    // + impAndEta.faultT1[0]*impAndEta.faultT1[1]
-    // + impAndEta.faultT2[0]*impAndEta.faultT2[1] << "\n";
   }
+#endif
+#else // USE_POROELASTIC
+  // setup kernel
+  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
+  krnlM.extractVelocities = init::extractVelocities::Values;
+  krnlM.extractTractions = init::extractTractions::Values;
+  krnlM.mapToVelocities = init::mapToVelocities::Values;
+  krnlM.mapToTractions = init::mapToTractions::Values;
+  krnlM.Zminus = impedanceMatrices.impedanceNeig;
+  krnlM.imposedState = imposedStateMinus;
+
+  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
+  krnlP.extractVelocities = init::extractVelocities::Values;
+  krnlP.extractTractions = init::extractTractions::Values;
+  krnlP.mapToVelocities = init::mapToVelocities::Values;
+  krnlP.mapToTractions = init::mapToTractions::Values;
+  krnlP.Zplus = impedanceMatrices.impedance;
+  krnlP.imposedState = imposedStatePlus;
+
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  auto thetaView = init::theta::view::create(thetaBuffer);
+  krnlM.theta = thetaBuffer;
+  krnlP.theta = thetaBuffer;
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    auto weight = timeWeights[o];
+    // copy values to yateto dataformat
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      thetaView(i, 0) = faultStresses.normalStress[o][i];
+      thetaView(i, 1) = tractionResults.traction1[o][i];
+      thetaView(i, 2) = tractionResults.traction2[o][i];
+      thetaView(i, 3) = faultStresses.fluidPressure[o][i];
+    }
+    // execute kernel (and hence update imposedStatePlus/Minus)
+    krnlM.Qminus = qInterpolatedMinus[o];
+    krnlM.weight = weight;
+    krnlM.execute();
+
+    krnlP.Qplus = qInterpolatedPlus[o];
+    krnlP.weight = weight;
+    krnlP.execute();
+  }
+#endif
 }
 
 /**
