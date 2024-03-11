@@ -184,17 +184,17 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else //USE_STP
 
   #ifdef USE_DAMAGEDELASTIC
-  real epsInitxx = -1.8738e-4; // eps_xx0
-  real epsInityy = -1.1225e-3; // eps_yy0
-  real epsInitzz = -1.8738e-4; // eps_zz0
-  real epsInitxy = 1.0909e-3; // eps_xy0
-  real epsInityz = -0e-1; // eps_yz0
-  real epsInitzx = -0e-1; // eps_zx0
+  const real epsInitxx = damagedElasticParameters->epsInitxx; // eps_xx0
+  const real epsInityy = damagedElasticParameters->epsInityy; // eps_yy0
+  const real epsInitzz = damagedElasticParameters->epsInitzz; // eps_zz0
+  const real epsInitxy = damagedElasticParameters->epsInitxy; // eps_xy0
+  const real epsInityz = damagedElasticParameters->epsInityz; // eps_yz0
+  const real epsInitzx = damagedElasticParameters->epsInitzx; // eps_zx0
 
-  real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
-
-  real const break_coeff = 1e2*damage_para1;
-  real const beta_alpha = 0.05;
+  real const damagedParameter = data.material.local.Cd; // 1.2e-4*2;
+  const real scalingValue = damagedElasticParameters->scalingValue;
+  real const breakCoefficient = scalingValue*damagedParameter;
+  real const betaAlpha = damagedElasticParameters->betaAlpha;
   
   kernel::damageConvertToNodal d_converToKrnl;
   // Compute the nodal solutions
@@ -265,10 +265,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       if (alpha_ave < 0.9){
         if (break_ave < 0.85){
           fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+            (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/betaAlpha ) + 1.0) * breakCoefficient
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
           fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            (1 - breakNodal[q]) * damage_para1
+            (1 - breakNodal[q]) * damagedParameter
               *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
         }
         else{
@@ -282,10 +282,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     } else if (alpha_ave > 5e-1) {
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        0.0 * damage_para1
+        0.0 * damagedParameter
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
       fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        0.0 * damage_para1
+        0.0 * damagedParameter
           *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
     }
     else {

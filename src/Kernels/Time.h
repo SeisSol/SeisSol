@@ -71,13 +71,14 @@
 #ifndef TIME_H_
 #define TIME_H_
 
-#include <cassert>
-#include <limits>
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
 #include <Kernels/Interface.hpp>
 #include <Kernels/TimeBase.h>
+#include <Kernels/common.hpp>
+#include <cassert>
 #include <generated_code/tensor.h>
+#include <limits>
 #ifdef USE_STP
 #include <Numerical_aux/BasisFunction.h>
 #include <memory>
@@ -90,6 +91,8 @@ namespace seissol {
 }
 
 class seissol::kernels::Time : public TimeBase {
+  protected:
+    seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -155,6 +158,9 @@ class seissol::kernels::Time : public TimeBase {
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
   unsigned int* getDerivativesOffsets();
+  void const setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters){
+    damagedElasticParameters = mDamagedElasticParameters;
+  };
 };
 
 #endif
