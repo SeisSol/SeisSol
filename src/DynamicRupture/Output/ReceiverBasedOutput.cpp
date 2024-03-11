@@ -74,6 +74,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
+    seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -161,23 +162,23 @@ void ReceiverOutput::calcFaultOutput(
 
     real dofsStressNPlus[tensor::Q::size()]{};
     real dofsStressNMinus[tensor::Q::size()]{};
-    // TODO(NONLINEAR) What are these numbers?
-    real epsInitxx = -1.8738e-4; // eps_xx0
-    real epsInityy = -1.1225e-3; // eps_yy0
-    real epsInitzz = -1.8738e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
 
     real lambda0P = impAndEtaGet->lambda0P;
     real mu0P = impAndEtaGet->mu0P;
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
-    real aB0 = 7.43e9;
-    real aB1 = -12.14e9;
-    real aB2 = 18.93e9;
-    real aB3 = -5.067e9;
+    const real aB0 = damagedElasticParameters.aB0;
+    const real aB1 = damagedElasticParameters.aB1;
+    const real aB2 = damagedElasticParameters.aB2;
+    const real aB3 = damagedElasticParameters.aB3;
     
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
       real EspIp = (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
