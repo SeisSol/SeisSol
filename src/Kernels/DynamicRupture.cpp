@@ -127,7 +127,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
                                                                 real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
                                                                 real const*                 timeDerivativePlus_prefetch,
                                                                 real const*                 timeDerivativeMinus_prefetch ) {
-  // assert alignments
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
   assert( timeDerivativeMinus != nullptr );
@@ -143,18 +142,13 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-#ifdef USE_STP
-    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
-#else
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
-#endif
 
         // Derive stress solutions from strain
     alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
-#ifdef USE_DAMAGEDELASTIC
+
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
     d_converToKrnl.QNodal = dofsNPlus;
@@ -164,19 +158,38 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_converToKrnl.QNodal = dofsNMinus;
     d_converToKrnl.Q = degreesOfFreedomMinus;
     d_converToKrnl.execute();
-#endif
 
     alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
-    
-    // TODO(NONLINEAR) What are these numbers?
+
+    // real epsInitxx = 4.63e-4; // eps_xx0
+    // real epsInityy = -1.85e-3; // eps_yy0
+    // real epsInitzz = 4.63e-4; // eps_zz0
+    // real epsInitxy = 1.11e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+
+    // real epsInitxx = -9.26e-4; // eps_xx0
+    // real epsInityy = -9.26e-4; // eps_yy0
+    // real epsInitzz = -9.26e-4; // eps_zz0
+    // real epsInitxy = 1.11e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+
+    // tpv 5
+    // real epsInitxx = 3.73854e-4; // eps_xx0
+    // real epsInityy = -1.4963e-3; // eps_yy0
+    // real epsInitzz = 3.73854e-4; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xx0
+    // real epsInityz = -0e-1; // eps_yy0
+    // real epsInitzx = -0e-1; // eps_zz0
+
     real epsInitxx = -1.8738e-4; // eps_xx0
     real epsInityy = -1.1225e-3; // eps_yy0
     real epsInitzz = -1.8738e-4; // eps_zz0
     real epsInitxy = 1.0909e-3; // eps_xy0
     real epsInityz = -0e-1; // eps_yz0
     real epsInitzx = -0e-1; // eps_zx0
-
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
         (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
@@ -230,7 +243,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     real dofsStressPlus[tensor::Q::size()]{};
     real dofsStressMinus[tensor::Q::size()]{};
 
-#ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
@@ -240,7 +252,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_convertBackKrnl.FNodal = dofsStressNMinus;
     d_convertBackKrnl.dQModal = dofsStressMinus;
     d_convertBackKrnl.execute();
-#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
