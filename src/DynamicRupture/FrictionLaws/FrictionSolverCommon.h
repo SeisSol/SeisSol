@@ -99,11 +99,9 @@ inline void precomputeStressFromQInterpolated(
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
-
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
-#ifndef USE_POROELASTIC
   auto etaP = impAndEta.etaP;
   auto etaS = impAndEta.etaS;
   auto invZp = impAndEta.invZp;
@@ -111,8 +109,6 @@ inline void precomputeStressFromQInterpolated(
   auto invZpNeig = impAndEta.invZpNeig;
   auto invZsNeig = impAndEta.invZsNeig;
 
-// TODO(NONLINEAR): unify
-#ifdef USE_DAMAGEDELASTIC
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
@@ -123,118 +119,137 @@ inline void precomputeStressFromQInterpolated(
   auto gaRM = impAndEta.gammaRM;
   auto xi0M = impAndEta.xi0M;
   auto rhoM = impAndEta.rho0M;
-#endif
 
   using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
+  auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
+  unsigned DAM = 9;
+  unsigned BRE = 10;
 
 #ifndef ACL_DEVICE
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-#ifdef USE_DAMAGEDELASTIC
-  auto* qStrainIPlus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedPlus));
-  auto* qStrainIMinus = (reinterpret_cast<QInterpolatedShapeT>(qStrainInterpolatedMinus));
   // Derive averaged field and material properties at t0 of each time step
   real exxP, eyyP, ezzP, exyP, eyzP, ezxP, damP, breP;
   real exxM, eyyM, ezzM, exyM, eyzM, ezxM, damM, breM;
 
-  exxP = 0;
-  eyyP = 0;
-  ezzP = 0;
-  exyP = 0;
-  eyzP = 0;
-  ezxP = 0;
-  damP = 0;
-  exxM = 0;
-  eyyM = 0;
-  ezzM = 0;
-  exyM = 0;
-  eyzM = 0;
-  ezxM = 0;
-  damM = 0;
+  exxP = 0; eyyP = 0; ezzP = 0; exyP = 0; eyzP = 0; ezxP = 0; damP = 0;
+  exxM = 0; eyyM = 0; ezzM = 0; exyM = 0; eyzM = 0; ezxM = 0; damM = 0;
 
   using Range = typename NumPoints<Type>::Range;
 #ifndef ACL_DEVICE
-#pragma omp simd
+  #pragma omp simd
   /// TODO: test if reduction would work here
   // reduction(+:exxP,eyyP,ezzP,exyP,eyzP,ezxP,damP,exxM,eyyM,ezzM,exyM,eyzM,ezxM,damM)
 #endif
   for (auto index = Range::start; index < Range::end; index += Range::step) {
     auto i{startLoopIndex + index};
 
-    exxP += qStrainIPlus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyyP += qStrainIPlus[0][YY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezzP += qStrainIPlus[0][ZZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    exyP += qStrainIPlus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyzP += qStrainIPlus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezxP += qStrainIPlus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damP += qStrainIPlus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    breP += qStrainIPlus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exxP += qStrainIPlus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyP += qStrainIPlus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzP += qStrainIPlus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyP += qStrainIPlus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzP += qStrainIPlus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxP += qStrainIPlus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damP += qStrainIPlus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breP += qStrainIPlus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
 
-    exxM += qStrainIMinus[0][XX][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyyM += qStrainIMinus[0][YY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezzM += qStrainIMinus[0][ZZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    exyM += qStrainIMinus[0][XY][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    eyzM += qStrainIMinus[0][YZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    ezxM += qStrainIMinus[0][XZ][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    damM += qStrainIMinus[0][DAM][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
-    breM += qStrainIMinus[0][BRE][i] * 1.0 / seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exxM += qStrainIMinus[0][XX][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyyM += qStrainIMinus[0][YY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezzM += qStrainIMinus[0][ZZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    exyM += qStrainIMinus[0][XY][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    eyzM += qStrainIMinus[0][YZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    ezxM += qStrainIMinus[0][XZ][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    damM += qStrainIMinus[0][DAM][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
+    breM += qStrainIMinus[0][BRE][i] * 1.0/seissol::dr::misc::numberOfBoundaryGaussPoints;
   }
 
-  // TODO(NONLINEAR) what are these numbers?
+  // real epsInitxx = 4.63e-4; // eps_xx0
+  // real epsInityy = -1.85e-3; // eps_yy0
+  // real epsInitzz = 4.63e-4; // eps_zz0
+  // real epsInitxy = 1.11e-3; // eps_xx0
+  // real epsInityz = -0e-1; // eps_yy0
+  // real epsInitzx = -0e-1; // eps_zz0
+
+  real epsInitxx = 0.0e-4; // eps_xx0
+  real epsInityy = 0.0e-3; // eps_yy0
+  real epsInitzz = 0.0e-4; // eps_zz0
+  real epsInitxy = 0.0e-3; // eps_xx0
+  real epsInityz = -0e-1; // eps_yy0
+  real epsInitzx = -0e-1; // eps_zz0
+
   real aB0 = 7.43e9;
   real aB1 = -12.14e9;
   real aB2 = 18.93e9;
   real aB3 = -5.067e9;
 
-  real EspIp = (exxP) + (eyyP) + (ezzP);
-  real EspIIp =
-      (exxP) * (exxP) + (eyyP) * (eyyP) +
-      (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
-      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
+  real EspIp = (exxP+epsInitxx) + (eyyP+epsInityy) + (ezzP+epsInitzz);
+  real EspIIp = (exxP+epsInitxx)*(exxP+epsInitxx)
+    + (eyyP+epsInityy)*(eyyP+epsInityy)
+    + (ezzP+epsInitzz)*(ezzP+epsInitzz)
+    + 2*(exyP+epsInitxy)*(exyP+epsInitxy)
+    + 2*(eyzP+epsInityz)*(eyzP+epsInityz)
+    + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
   real alphap = damP;
   real xip;
-  if (EspIIp > 1e-30) {
+  if (EspIIp > 1e-30){
     xip = EspIp / std::sqrt(EspIIp);
-  } else {
+  } else{
     xip = 0.0;
   }
 
-  real EspIm = (exxM) + (eyyM) + (ezzM);
-  real EspIIm =
-      (exxM) * (exxM) + (eyyM) * (eyyM) +
-      (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
-      2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
+  real EspIm = (exxM+epsInitxx) + (eyyM+epsInityy) + (ezzM+epsInitzz);
+  real EspIIm = (exxM+epsInitxx)*(exxM+epsInitxx)
+    + (eyyM+epsInityy)*(eyyM+epsInityy)
+    + (ezzM+epsInitzz)*(ezzM+epsInitzz)
+    + 2*(exyM+epsInitxy)*(exyM+epsInitxy)
+    + 2*(eyzM+epsInityz)*(eyzM+epsInityz)
+    + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
   real alpham = damM;
   real xim;
-  if (EspIIm > 1e-30) {
+  if (EspIIm > 1e-30){
     xim = EspIm / std::sqrt(EspIIm);
-  } else {
+  } else{
     xim = 0.0;
   }
 
   // compute laP, muP, laM and muM
-  auto muP = (1 - breP) * (mu0P - alphap * xi0P * gaRP - 0.5 * alphap * gaRP * xip) +
-             breP * ((aB0 + 0.5 * aB1 * xip - 0.5 * aB3 * xip * xip * xip));
-  auto laP = (1 - breP) * (la0P - alphap * gaRP * (eyyP) / std::sqrt(EspIIp)) +
-             breP * ((2.0 * aB2 + 3.0 * aB3 * xip) + aB1 * (eyyP) / std::sqrt(EspIIp));
+  auto muP = (1-breP) * (mu0P
+    - alphap*xi0P*gaRP
+    - 0.5*alphap*gaRP*xip)
+    + breP * (
+      (aB0 + 0.5*aB1*xip - 0.5*aB3*xip*xip*xip)
+    );
+  auto laP = (1-breP) * (la0P
+  - alphap*gaRP*(eyyP+epsInityy)/std::sqrt(EspIIp))
+  + breP * (
+    (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
+  );
 
-  auto muM = (1 - breM) * (mu0M - alpham * xi0M * gaRM - 0.5 * alpham * gaRM * xim) +
-             breM * ((aB0 + 0.5 * aB1 * xim - 0.5 * aB3 * xim * xim * xim));
-  auto laM = (1 - breM) * (la0M - alpham * gaRM * (eyyM) / std::sqrt(EspIIm)) +
-             breM * ((2.0 * aB2 + 3.0 * aB3 * xim) + aB1 * (eyyM) / std::sqrt(EspIIm));
+  auto muM = (1-breM) * (mu0M
+    - alpham*xi0M*gaRM
+    - 0.5*alpham*gaRM*xim)
+    + breM * (
+      (aB0 + 0.5*aB1*xim - 0.5*aB3*xim*xim*xim)
+    );
+  auto laM = (1-breM) * (la0M
+  - alpham*gaRM*(eyyM+epsInityy)/std::sqrt(EspIIm))
+  + breM * (
+    (2.0*aB2 + 3.0*aB3*xim) + aB1*(eyyM+epsInityy)/std::sqrt(EspIIm)
+  );
 
-  invZp = 1.0 / std::sqrt(rhoP * (laP + 2 * muP));
-  invZpNeig = 1.0 / std::sqrt(rhoM * (laM + 2 * muM));
-  invZs = 1.0 / std::sqrt(rhoP * (muP));
-  invZsNeig = 1.0 / std::sqrt(rhoM * (muM));
+  invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
+  invZpNeig = 1.0/std::sqrt( rhoM*(laM+2*muM) );
+  invZs = 1.0/std::sqrt( rhoP*(muP) );
+  invZsNeig = 1.0/std::sqrt( rhoM*(muM) );
 
-  etaP = 1.0 / (invZp + invZpNeig);
-  etaS = 1.0 / (invZs + invZsNeig);
+  etaP = 1.0/(invZp + invZpNeig);
+  etaS = 1.0/(invZs + invZsNeig);
 
   // Change the values in impAndEta so that they can be used in later calculation
   // of "hat" variables.
@@ -251,16 +266,16 @@ inline void precomputeStressFromQInterpolated(
   impAndEta.zpNeig = 1.0 / invZpNeig;
   impAndEta.zsNeig = 1.0 / invZsNeig;
 
-  impAndEta.csOcpTZsOZp =
-      std::sqrt((muP) / rhoP) / std::sqrt((laP + 2 * muP) / rhoP) * impAndEta.zs / impAndEta.zp;
-  impAndEta.csOcpTZsOZpNeig = std::sqrt((muM) / rhoM) / std::sqrt((laM + 2 * muM) / rhoM) *
-                              impAndEta.zsNeig / impAndEta.zpNeig;
-#endif // USE_DAMAGEDELASTIC
+  impAndEta.csOcpTZsOZp = std::sqrt( (muP)/rhoP ) / std::sqrt( (laP+2*muP)/rhoP )
+                          * impAndEta.zs / impAndEta.zp;
+  impAndEta.csOcpTZsOZpNeig = std::sqrt( (muM)/rhoM ) / std::sqrt( (laM+2*muM)/rhoM )
+                          * impAndEta.zsNeig / impAndEta.zpNeig;
+
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
-#pragma omp simd
+    #pragma omp simd
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto i{startLoopIndex + index};
@@ -277,33 +292,6 @@ inline void precomputeStressFromQInterpolated(
                   qIMinus[o][T2][i] * invZsNeig);
     }
   }
-#else
-  seissol::dynamicRupture::kernel::computeTheta krnl;
-  krnl.extractVelocities = init::extractVelocities::Values;
-  krnl.extractTractions = init::extractTractions::Values;
-
-  // Compute Theta from eq (4.53) in Carsten's thesis
-  krnl.Zplus = impedanceMatrices.impedance;
-  krnl.Zminus = impedanceMatrices.impedanceNeig;
-  krnl.eta = impedanceMatrices.eta;
-
-  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
-  krnl.theta = thetaBuffer;
-  auto thetaView = init::theta::view::create(thetaBuffer);
-
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    krnl.Qplus = qInterpolatedPlus[o];
-    krnl.Qminus = qInterpolatedMinus[o];
-    krnl.execute();
-
-    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
-      faultStresses.normalStress[o][i] = thetaView(i, 0);
-      faultStresses.traction1[o][i] = thetaView(i, 1);
-      faultStresses.traction2[o][i] = thetaView(i, 2);
-      faultStresses.fluidPressure[o][i] = thetaView(i, 3);
-    }
-  }
-#endif
 }
 
 /**
