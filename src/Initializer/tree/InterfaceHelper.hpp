@@ -72,13 +72,13 @@ namespace seissol {
 #define _LTSTREE_INIT_MEMBER_PTRREF(HANDLE_STRUCT, X) X ##_ptr(&X)
 #define _LTSTREE_ACCESS(HANDLE_STRUCT, X) X[index]
 #define _LTSTREE_PTR_ACCESS(HANDLE_STRUCT, X) X + index
-#define _LTSTREE_LOOKUP(HANDLE_STRUCT, X) lut.lookup(handleStruct.X, meshId)
+#define _LTSTREE_LOOKUP(HANDLE_STRUCT, X) lut.lookup(handleStruct.X, meshId, place)
 #define LTSTREE_GENERATE_INTERFACE(NAME, HANDLE_STRUCT, ...)  struct NAME { \
                                                                 MAGIC_FOR_EACH(_LTSTREE_MEMBER_REF, HANDLE_STRUCT, __VA_ARGS__) \
                                                                 NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_MEMBER_REF_CS, HANDLE_STRUCT, __VA_ARGS__)) \
                                                                   : MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_INIT_MEMBER, HANDLE_STRUCT, __VA_ARGS__) {} \
                                                                   template<typename T> \
-                                                                  static NAME lookup(HANDLE_STRUCT const& handleStruct, T const& lut, unsigned meshId) { \
+                                                                  static NAME lookup(HANDLE_STRUCT const& handleStruct, T const& lut, unsigned meshId, seissol::initializer::AllocationPlace place = seissol::initializer::AllocationPlace::Host) { \
                                                                     return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_LOOKUP, HANDLE_STRUCT, __VA_ARGS__)); \
                                                                   } \
                                                                 struct Loader { \
@@ -100,7 +100,7 @@ namespace seissol {
                                                                 NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_MEMBER_REF_CS, HANDLE_STRUCT, __VA_ARGS__)) \
                                                                   : MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_INIT_MEMBER_PTRREF, HANDLE_STRUCT, __VA_ARGS__) {} \
                                                                   template<typename T> \
-                                                                  static NAME lookup(HANDLE_STRUCT const& handleStruct, T const& lut, unsigned meshId) { \
+                                                                  static NAME lookup(HANDLE_STRUCT const& handleStruct, T const& lut, unsigned meshId, seissol::initializer::AllocationPlace place = seissol::initializer::AllocationPlace::Host) { \
                                                                     return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_LOOKUP, HANDLE_STRUCT, __VA_ARGS__)); \
                                                                   } \
                                                                 struct Loader { \

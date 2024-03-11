@@ -43,6 +43,8 @@
 #include "Receiver.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
+#include <Initializer/tree/Layer.hpp>
+#include <Kernels/common.hpp>
 #include <unordered_map>
 
 #ifdef ACL_DEVICE
@@ -68,7 +70,7 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
   m_receivers.emplace_back( pointId,
                             point,
                             coords,
-                            kernels::LocalData::lookup(lts, ltsLut, meshId),
+                            kernels::LocalData::lookup(lts, ltsLut, meshId, isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host),
                             reserved);
 }
 
