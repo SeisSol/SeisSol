@@ -243,10 +243,23 @@ public:
     return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
+  template<typename T>
+  T varSynchronizeTo(Variable<T> const& handle, AllocationPlace place, void* stream) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
+    assert(m_vars.size() > handle.index);
+    m_vars[handle.index].synchronizeTo(place, stream);
+  }
+
   void* bucket(Bucket const& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_buckets.size() > handle.index);
     return m_buckets[handle.index].get(place);
+  }
+
+  void bucketSynchronizeTo(Bucket const& handle, AllocationPlace place, void* stream) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
+    assert(m_buckets.size() > handle.index);
+    m_buckets[handle.index].synchronizeTo(place, stream);
   }
 
 #ifdef ACL_DEVICE
