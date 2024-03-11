@@ -678,8 +678,8 @@ void TimeCluster::predict() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
-    m_clusterData->synchronizeTo(place, device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+    m_clusterData->synchronizeTo(place, streamRuntime.stream());
+    streamRuntime.wait();
   }
 #endif
 
@@ -712,8 +712,8 @@ void TimeCluster::predict() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->synchronizeTo(other, device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+    m_clusterData->synchronizeTo(other, streamRuntime.stream());
+    streamRuntime.wait();
   }
 #endif
 }
@@ -722,10 +722,10 @@ void TimeCluster::correct() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto place = executor == Executor::Device ? seissol::initializer::AllocationPlace::Device : seissol::initializer::AllocationPlace::Host;
-    m_clusterData->synchronizeTo(place, device.api->getDefaultStream());
-    dynRupInteriorData->synchronizeTo(place, device.api->getDefaultStream());
-    dynRupCopyData->synchronizeTo(place, device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+    m_clusterData->synchronizeTo(place, streamRuntime.stream());
+    dynRupInteriorData->synchronizeTo(place, streamRuntime.stream());
+    dynRupCopyData->synchronizeTo(place, streamRuntime.stream());
+    streamRuntime.wait();
   }
 #endif
 
@@ -826,10 +826,10 @@ void TimeCluster::correct() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->synchronizeTo(other, device.api->getDefaultStream());
-    dynRupInteriorData->synchronizeTo(other, device.api->getDefaultStream());
-    dynRupCopyData->synchronizeTo(other, device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+    m_clusterData->synchronizeTo(other, streamRuntime.stream());
+    dynRupInteriorData->synchronizeTo(other, streamRuntime.stream());
+    dynRupCopyData->synchronizeTo(other, streamRuntime.stream());
+    streamRuntime.wait();
   }
 #endif
 }
