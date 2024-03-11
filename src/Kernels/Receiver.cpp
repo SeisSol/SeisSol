@@ -120,7 +120,6 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef ACL_DEVICE
       tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector->get(deviceIndices[i]));
 #endif
-      
 
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);

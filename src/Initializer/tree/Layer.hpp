@@ -138,7 +138,7 @@ namespace seissol {
 
       void synchronizeTo(AllocationPlace place, void* stream) {
 #ifdef ACL_DEVICE
-        if (allocationMode == AllocationMode::HostDeviceSplit) {
+        if (allocationMode == AllocationMode::HostDeviceSplit || allocationMode == AllocationMode::HostDeviceSplitPinned) {
           if (place == AllocationPlace::Host) {
             device::DeviceInstance::getInstance().api->copyFromAsync(host, device, allocationSize, stream);
           }
