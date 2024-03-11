@@ -125,6 +125,8 @@ inline std::string bcToString(int id) {
  */
 inline bool checkMeshCorrectnessLocally(
     PUML::TETPUML::face_t face, int* cellNeighbors, int side, int sideBC, uint64_t cellIdAsInFile) {
+  // all of these will only issue warnings here -- the "logError()" is supposed to come later, after all warning have been logged
+
   // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
   if (bcToType(sideBC) == BCType::internal) {
     if (cellNeighbors[side] < 0 && !face.isShared()) {
@@ -139,14 +141,14 @@ inline bool checkMeshCorrectnessLocally(
     if (cellNeighbors[side] >= 0 || face.isShared()) {
       logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
                    << bcToString(sideBC)
-                   << "boundary condition, but the neighboring element is not flagged -1";
+                   << "boundary condition, but a neighboring element exists";
       return false;
     }
   }
   // ignore unknown boundary conditions and warn
   else {
     logWarning() << "Element" << cellIdAsInFile << ", side" << side
-                 << " has a boundary condition, which I don't understand" << sideBC;
+                 << " has a boundary condition (" << sideBC << ") which is not understood by this version of SeisSol";
     return true;
   }
   return true;

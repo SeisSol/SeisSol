@@ -17,8 +17,9 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
       reader->readWithDefault("partitioninglib", std::string("Default"));
   const BoundaryFormat pumlBoundaryFormat =
       reader->readWithDefaultStringEnum<BoundaryFormat>("pumlboundaryformat",
-                                                        "i32",
+                                                        "auto",
                                                         {
+                                                            {"auto", BoundaryFormat::Auto},
                                                             {"i32", BoundaryFormat::I32},
                                                             {"i64", BoundaryFormat::I64},
                                                             {"i32x4", BoundaryFormat::I32x4},

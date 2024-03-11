@@ -11,7 +11,7 @@ namespace seissol::initializer::parameters {
 
 enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
 
-enum class BoundaryFormat : int { I32, I64, I32x4 };
+enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
 
 struct MeshParameters {
   bool showEdgeCutStatistics;
