@@ -117,7 +117,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+    indexPtrs[arrayIndex] =
+        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 

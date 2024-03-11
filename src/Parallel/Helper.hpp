@@ -60,7 +60,8 @@ inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST
 
 template <typename T>
 void printDeviceHostSwitch(const T& mpiBasic) {
-  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch() << "or more cells on the GPU (and on the CPU otherwise)";
+  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch()
+                           << "or more cells on the GPU (and on the CPU otherwise)";
 }
 
 } // namespace seissol
