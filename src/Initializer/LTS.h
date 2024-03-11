@@ -78,7 +78,7 @@
 # define MEMKIND_TIMEDOFS_CONSTANT AllocationMode::HostOnly
 #	define MEMKIND_DOFS     useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #	define MEMKIND_TIMEDOFS useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
-#	define MEMKIND_TIMEBUCKET useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#	define MEMKIND_TIMEBUCKET useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned
 # define MEMKIND_UNIFIED  useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif // ACL_DEVICE
 
