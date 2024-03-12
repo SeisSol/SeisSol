@@ -24,18 +24,6 @@
 #include <sstream>
 #include <string>
 
-
-//TODO: delete!
-#include <set>
-#include <iterator>
-
-//TODO: delete
-template<typename T>
-std::vector<T> to_vec(T arr[], size_t length) {
-  std::vector<T> v(arr, arr + length);
-  return v;
-}
-
 namespace {
 using t_vertex = int[3];
 
@@ -284,7 +272,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     MPI_Comm_rank(commMaster, &masterRank);
     checkNcError(nc_open_par(meshFile.c_str(), NC_NETCDF4 | NC_MPIIO, commMaster, MPI_INFO_NULL, &ncFile));
   }
-  logInfo(rank) << masterRank;
 #else  // USE_MPI
   masterRank = rank; // = 0;
   checkNcError(nc_open(meshFile, NC_NETCDF4, &ncFile));
@@ -494,18 +481,12 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     // Elements
     sizes = new int[groupSize];
 
-    //TODO: delete!
-    logInfo(rank) << "---------- check creation/calculation of 'sizes' array, groupSize=" << groupSize;
-
     for (int i = groupSize - 1; i >= 0; i--) {
       size_t start = static_cast<size_t>(i + rank);
 
       // TODO: remove numPartitions[3] -> every MPI process calls CubeGenerator with its corresponding rank
       int size = numElemPerPart[3]; // * numPartitions[3]; // TODO: see nc var decls
       //checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, &start, &size));
-
-      //TODO: delete!
-      logInfo(rank) << "For i=" << i << " the size from the ncFile is size=" << size;
 
       sizes[i] = size;
       if (i != 0) {
@@ -533,7 +514,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
 #ifdef USE_MPI
   // Broadcast group information
-  // TODO: delete!
+  // TODO: delete?
   int iHasGroup = hasGroup;
   MPI_Bcast(&iHasGroup, 1, MPI_INT, 0, seissol::MPI::mpi.comm());
   hasGroup = iHasGroup != 0;
@@ -542,9 +523,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int writes_done = 0;
   loadBar(writes_done, netcdf_writes);
 
-  //TODO:delete!
-  logInfo(rank) << "sizes[0] =" << sizes[0] << "numElemPerPart[3] =" << numElemPerPart[3]; 
- 
   m_elements.resize(sizes[0]);
 
   // TODO: delete?
@@ -591,10 +569,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
-  //TODO: delete!
-  //logInfo(rank) << "----- check elemVertices directly after creation and compare with NetcdfReader directly after reading";
-  //logInfo(rank) << std::vector<int>(elemVertices, elemVertices + (numElemPerPart[3]*4));
-
 /*  for (unsigned int i = 0; i < numPartitions[3]; i++) {
     size_t start[3] = {i, 0, 0};
     size_t count[3] = {1, numElemPerPart[3], 4};
@@ -606,14 +580,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   writes_done += numPartitions[3];
   loadBar(writes_done, netcdf_writes);
 
-  // TODO: memcpy contents of elemVertices into m_elements.elemVertices
-  //ElemVertices* elemVertices = new ElemVertices[maxSize];
-/*  ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
-  for (int i = 0; i < sizes[0]; i++) {
-    m_elements[i].localId = i;
-    memcpy(m_elements[i].vertices, &elemVerticesCast[i], sizeof(elemVerticesCast));
-  }
-*/
 //  delete[] elemVertices;
 
   int* elemNeighbors = new int[numElemPerPart[3] * 4];
@@ -957,8 +923,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, 0, 0};
         size_t count[3] = {1, numElemPerPart[3], 4};
 
-        logInfo() << "rank:" << rank << "x, y, z:" << x << y << z << "elemBoundaries:" << to_vec(elemBoundaries,
-        numElemPerPart[3]*4);
         ElemNeighbors* elemBoundariesCast = reinterpret_cast<ElemBoundaries*>(elemBoundaries); 
         for (int i = 0; i < sizes[0]; i++) {
           memcpy(m_elements[i].boundaries, &elemBoundariesCast[i], sizeof(ElemBoundaries));
@@ -1477,9 +1441,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, 0, 0};
         size_t count[3] = {1, numElemPerPart[3], 4};
 
-        logInfo() << "rank:" << rank << "x,y,z =" << x << y << z << "elemNeighborRanks:" << to_vec(elemNeighborRanks,
-        numElemPerPart[3]*4);
-
         ElemNeighborRanks* elemNeighborRanksCast = reinterpret_cast<ElemNeighborRanks*>(elemNeighborRanks); 
         for (int i = 0; i < sizes[0]; i++) {
           memcpy(m_elements[i].neighborRanks, &elemNeighborRanksCast[i], sizeof(ElemNeighborRanks));
@@ -1497,29 +1458,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
 //  delete[] elemNeighborRanks;
 
-  //TODO: delete!
-  logInfo() << "rank:" << rank << "bndLocalIds size:" << *std::max_element(numBndElements, numBndElements + 3);
-  logInfo() << "rank:" << rank << "elemNeighborRanks =" << to_vec(elemNeighborRanks, numElemPerPart[3]*4);
   int* elemMPIIndices = new int[numElemPerPart[3] * 4];
   int* bndLocalIds = new int[*std::max_element(numBndElements, numBndElements + 3)];
 
   // TODO: set bndSize outside of loop to 0 so we can access the result at a later stage
   size_t* bndSizePtr = new size_t[numPartitions[3]];
-
-/*  size_t** bndElemSizePtr = new size_t*[numPartitions[3]];
-  size_t** bndElemRankPtr = new size_t*[numPartitions[3]];
-  size_t** bndElemLocalIdsPtr = new size_t[numPartitions[3]];
-  size_t** elemMPIIndicesPtr = new size_t*[numElemPerPart[3]];
-
-  for (int k = 0; k < numPartitions[3]; ++k) {
-    bndElemSizePtr[k] = new size_t[bndSize];
-    bndElemRankPtr[k] = new size_t[bndSize];
-    bndElemLocalIdsPtr[k] = new size_t[bndSize];
-  }
-  for (int k = 0; k < numElemPerPart[3]; ++k) {
-    elemMPIIndicesPtr[k] = new size_t[4]; 
-  }
-*/
 
   //TODO: int or size_t?
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
@@ -1672,7 +1615,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                  sizeof(int)*count[2]);
 
           bndSize++;
-          logInfo(rank) << "nextMPIIndex at end of boundaryMinx == 6:" << nextMPIIndex;
         }
         if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
             x != numPartitions[0] - 1) { // last partition in x dimension
@@ -1738,7 +1680,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                  sizeof(int)*count[2]);
 
           bndSize++;
-          logInfo(rank) << "nextMPIIndex at end of boundaryMaxx == 6:" << nextMPIIndex;
         }
         if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
             y != numPartitions[1] - 1) { // last partition in y dimension
@@ -1855,9 +1796,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
           bndSize++;
         }
-        //TODO: delete!
-        logInfo(rank) << "(z * numPartitions[1] + y) * numPartitions[0] + x =" << (z * numPartitions[1] + y) *
-        numPartitions[0] + x;
 
         size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, 0, 0};
         size_t count[3] = {1, numElemPerPart[3], 4};
@@ -1867,8 +1805,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         //}
 
         //elemMPIIndicesPtr[numElemPerPart[3] * 4] ->  numElemPerPart[i] = numCubesPerPart[i] * 5 -> numCubes[i] / numPartitions[i] * 5
-        //TODO: WHY IS THIS COMMENTED OUT?
-        //TODO: BECAUSE WE DONT NEED IT LOL
         //memcpy(&elemMPIIndicesPtr[start[0]], elemMPIIndices, sizeof(*elemMPIIndices)/**count[1]*count[2]*/);
         
         // checkNcError(nc_put_var1_uint(ncFile, ncVarBndSize, &start[0], &bndSize));
@@ -1879,11 +1815,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
-  logInfo(rank) << "bndElemLocalIdsPtr to vector:" << to_vec(bndElemLocalIdsPtr,numPartitions[3] * bndSize * bndElemSize);
-
   //TODO: elemMPIIndices    = new int[                 numElemPerPart[3]*4]
   //      elemMPIIndicesPtr = new int[numPartitions[3]*numElemPerPart[3]*4]
-  // -> 
 
   writes_done += numPartitions[3];
   loadBar(writes_done, netcdf_writes);
@@ -1901,7 +1834,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 //  delete[] elemGroup;
 
   // TODO: use smart pointers to avoid delete[] calls? if this doesnt work, switch back to pointers
-  // TODO: instead of maxSize, use numElemPerPart[3] * 4
   ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
   ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors); 
   ElemNeighborSides* elemNeighborSidesCast = reinterpret_cast<ElemNeighborSides*>(elemNeighborSides); 
@@ -1918,29 +1850,12 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     memcpy(m_elements[i].neighbors, &elemNeighborsCast[i], sizeof(ElemNeighbors));
     memcpy(m_elements[i].neighborSides, &elemNeighborSidesCast[i], sizeof(ElemNeighborSides));
     memcpy(m_elements[i].sideOrientations, &elemSideOrientationsCast[i], sizeof(ElemSideOrientations));
+    // TODO: the following 2 memcpys are done in their respective loops above
 //    memcpy(m_elements[i].boundaries, &elemBoundariesCast[i], sizeof(ElemBoundaries));
 //    memcpy(m_elements[i].neighborRanks, &elemNeighborRanksCast[i], sizeof(ElemNeighborRanks));
     memcpy(m_elements[i].mpiIndices, &elemMPIIndicesCast[i], sizeof(ElemMPIIndices));
     m_elements[i].group = elemGroupCast[i];
-
-  //TODO: delete
-  //logInfo(rank) << "----- maxSize =" << maxSize << "and numElemPerPart[3]*4 =" << numElemPerPart[3]*4;
-/*  std::string d = (std::set<int>(m_elements[i].vertices, m_elements[i].vertices + 4).size() == 4) ? "" : " found duplicates here";
-  logInfo() << "rank:" << rank << "m_elements[" << i << "].vertices:" << std::vector<int>(m_elements[i].vertices, m_elements[i].vertices + 4) << d.c_str();
-//  logInfo(rank) << std::vector<int>(elemVerticesCast[i], elemVerticesCast[i] + 4) ;
-  logInfo() << "rank:" << rank << "m_elements[" << i << "].neighbors:" << std::vector<int>(m_elements[i].neighbors, m_elements[i].neighbors + 4);
-  logInfo() << "rank:" << rank << "m_elements[" << i << "].neighborSides:" << std::vector<int>(m_elements[i].neighborSides, m_elements[i].neighborSides + 4);
-  logInfo() << "rank:" << rank << "m_elements[" << i << "].sideOrientations:" << std::vector<int>(m_elements[i].sideOrientations, m_elements[i].sideOrientations + 4);
-*/  logInfo() << "rank:" << rank << "m_elements[" << i << "].boundaries:" << std::vector<int>(m_elements[i].boundaries, m_elements[i].boundaries + 4);
-/*  logInfo() << "rank:" << rank << "m_elements[" << i << "].neighborRanks:" << std::vector<int>(m_elements[i].neighborRanks, m_elements[i].neighborRanks + 4);
-  logInfo() << "rank:" << rank << "m_elements[" << i << "].mpiIndices:" << std::vector<int>(m_elements[i].mpiIndices, m_elements[i].mpiIndices + 4);
-  logInfo(rank) << "m_elements[" << i << "].group:" << m_elements[i].group;
-*/
  }
-
-// logInfo(rank) << std::vector<int>(elemVertices, elemVertices + (numElemPerPart[3]*4));
-
-
 
   delete[] elemVerticesCast;
   delete[] elemNeighborsCast;
@@ -1967,11 +1882,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     loadBar(writes_done, netcdf_writes);
   */
 
-  m_vertices.resize(uniqueVertices.size()/*sizes[0]*/);
+  m_vertices.resize(uniqueVertices.size());
 
-  //TODO: delete!
-  logInfo(rank) << "------ siuze of unique vertices:" << uniqueVertices.size();
-  logInfo(rank) << "------ size of size[0]:" << sizes[0];
   double* vrtxCoords = new double[uniqueVertices.size() * 3];
 
   double halfWidthX = scaleX / 2.0;
@@ -2051,20 +1963,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   VrtxCoords* vrtxCoordsCast = reinterpret_cast<VrtxCoords*>(vrtxCoords); 
   // Copy buffers to vertices
-  std::vector<double> vrtxVec;
   int vrtxSize = sizes[0]; 
   for (int i = 0; i < /*sizes[0]*/uniqueVertices.size(); i++) {
     memcpy(m_vertices[i].coords, &vrtxCoordsCast[i], sizeof(VrtxCoords));
-//    vrtxVec.push_back(*(vrtxCoordsCast[i]));
-//    vrtxVec.push_back(*(vrtxCoordsCast[i]+1));
-//    vrtxVec.push_back(*(vrtxCoordsCast[i]+2));
   }
 
-  //TODO: delete!
-  logInfo(rank) << "----- comparing vrtxCoords, do the same for Netcdf";
-  //logInfo(rank) << vrtxVec;
-
-  // points to same piece of memory?
   // delete[] vrtxCoords;
   delete[] vrtxCoordsCast;
 
@@ -2076,16 +1979,9 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
       int size; // TODO: size = bndSize, see nc_put(ncVarBndSize above)
       //checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
-      //TODO: is start always a correct index?
       size = bndSizePtr[start];
 
-      //TODO: delete!
-      logInfo() << "bndSizePtr:" << to_vec(bndSizePtr, numPartitions[3]);
-      logInfo() << "----------recalc. of sizes[i], here we get_var1 from ncFile: size=" << size;
-
       sizes[i] = size;
-
-      logInfo() << "----- sizes[" << i << "] =" << sizes[i];
 
       if (i != 0) {
 #ifdef USE_MPI
@@ -2104,16 +2000,10 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   }
 
 
-  //TODO: delete!
-  logInfo(rank) << "---------- bndSize/maxNeighbors = " << bndSize << ", important for following loop";
-
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   int maxNeighbors = bndSize;
   // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
-
-  //TODO: delete!
-  logInfo(rank) << "bndElemSize=" << bndElemSize;
 
   //        SCOREP_USER_REGION_DEFINE( r_read_boundaries );
   //        SCOREP_USER_REGION_BEGIN( r_read_boundaries, "read_boundaries",
@@ -2131,52 +2021,25 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         int bndRank;
         //checkNcError(nc_get_var1_int(ncFile, ncVarBndElemRank, bndStart, &bndRank));
         // TODO: was bndStart[0]*numPartitions[3] + bndStart[1]
-        bndRank = bndElemRankPtr[bndStart[0]*bndSize + bndStart[1]];// + bndStart[1]];
+        bndRank = bndElemRankPtr[bndStart[0]*bndSize + bndStart[1]];
 
         // Read size of this boundary from netcdf
         int elemSize;
         //checkNcError(nc_get_var1_int(ncFile, ncVarBndElemSize, bndStart, &elemSize)); 
         //TODO: VarBndElemSize has dims [groupSize - 1 + rank][bndSize]
-        elemSize = bndElemSizePtr[bndStart[0]*bndSize + bndStart[1]];// + bndStart[1]];
+        elemSize = bndElemSizePtr[bndStart[0]*bndSize + bndStart[1]];
 
         size_t bndCount[3] = {1, 1, bndElemSize};
         //checkNcError(
         //    nc_get_vara_int(ncFile, ncVarBndElemLocalIds, bndStart, bndCount, bndElemLocalIds));
         // TODO: size_t* bndElemLocalIdsPtr[numPartitions[3] * bndSize * bndElemSize]
-        //TODO: delete!
-//        logInfo() << "rank: " << rank << "bndRank:" << to_vec(bndElemRankPtr, numPartitions[3]*bndSize) <<
-//        "bndElemSizePtr: " << to_vec(bndElemSizePtr, numPartitions[3]*bndSize);
-//        logInfo() << "rank: " << rank << "bndRank, elemSize = " << bndRank << elemSize;
-//        logInfo(rank) << "bndStart[0], bndStart[1], access to bndLocalElemIdsPtr, bndSize, bndElemSize: " 
-//                      << bndStart[0] << bndStart[1] << (bndStart[0]*bndSize+bndStart[1])*bndElemSize 
-//                      << bndSize << bndElemSize << bndCount[2];
-        //memcpy(bndElemLocalIds, &bndElemLocalIdsPtr[(bndStart[0]/*numPartitions[3]*/*bndSize + bndStart[1])*bndElemSize],
-        //memcpy(bndElemLocalIds, &bndElemLocalIdsPtr[(bndStart[0]/*numPartitions[3]*/*bndElemSize + bndStart[1])*bndSize],
-//        logInfo() << "rank:" << rank << "=== bndElemLocalIdsPtr[(bndStart[0]*bndSize + bndStart[1])*bndElemSize]=" << to_vec(bndElemLocalIdsPtr, numPartitions[3]*bndElemSize*bndSize);
-//        memcpy(bndElemLocalIds, bndLocalIds, sizeof(int)*bndCount[2]);
-        memcpy(bndElemLocalIds, &bndElemLocalIdsPtr[(bndStart[0]/*numPartitions[3]*/*bndSize + bndStart[1])*bndElemSize], sizeof(int)*bndCount[2]);
-        logInfo() << "rank:" << rank << "access to bndElemLocalIdsPtr:" <<
-        (bndStart[0]/*numPartitions[3]*/*bndSize + bndStart[1])*bndElemSize;
-        logInfo() << "rank:" << rank << "===== bndElemLocalIds" << to_vec(bndElemLocalIds, bndCount[2]);
-
-        //TODO: delete!
-        logInfo(rank) << "---------- i=" << i << ", sizes[j]=" << sizes[j] << "j=" << j << " => i<sizes[j]?";
+        memcpy(bndElemLocalIds, &bndElemLocalIdsPtr[(bndStart[0]*bndSize + bndStart[1])*bndElemSize], sizeof(int)*bndCount[2]);
 
         if (i < sizes[j]) {
-
-          //TODO: delete!
-          logInfo(rank) << "---------- Entered if(i < sizes[j])";
-
           if (j == 0) {
-            //TODO: delete!
-            logInfo(rank) << "---------- Entered if(j == 0)";
- 
             addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
           } else {
 #ifdef USE_MPI
-
-            //TODO: delete
-            logInfo(rank) << "----------entered j > 0, Send part";
             MPI_Send(&bndRank, 1, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
             MPI_Send(&elemSize, 1, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
             MPI_Send(bndElemLocalIds, elemSize, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
@@ -2189,9 +2052,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     } else {
       if (i < sizes[0]) {
 #ifdef USE_MPI
-
-        //TODO: delete!
-        logInfo() << "---------- Entered if(i < sizes[0])";
 
         int bndRank;
         MPI_Recv(&bndRank, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
@@ -2221,18 +2081,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   delete[] sizes;
 
-  // TODO: delete all extra pointers
+  // delete all extra pointers
   delete[] bndSizePtr;
-/*
-  for (int i = 0; i < numPartitions[3]; ++i) {
-    delete[] bndElemSizePtr[i];
-    delete[] bndElemRankPtr[i];
-    delete[] bndElemLocalIdsPtr[i];
-  }
-  for (int i = 0; i < numElemPerPart[3]; ++i) {
-    delete[] elemMPIIndicesPtr[i];
-  }
-*/
   delete[] bndElemSizePtr;
   delete[] bndElemRankPtr;
   delete[] bndElemLocalIdsPtr;
@@ -2249,17 +2099,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // Recompute additional information
   findElementsPerVertex();
 
-  //TODO: delete!
-  logInfo(rank) << "----- comparing vrtxElements, do the same for Netcdf";
-  logInfo(rank) << "----- vrtxSize =" << vrtxSize << "and m_vertices has size =" << uniqueVertices.size();
-/*  std::vector<int> elementsVec;
-  for (int k = 0; k < uniqueVertices.size(); ++k) {
-    for (int e : m_vertices[k].elements)
-      elementsVec.push_back(e);
-  }
-  logInfo(rank) << elementsVec;
-*/
-
   logInfo(rank) << "Finished";
 }
 
@@ -2269,8 +2108,6 @@ void seissol::geometry::CubeGenerator::findElementsPerVertex() {
   for (std::vector<Element>::const_iterator i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
-      //TODO: delete!
-      //logInfo() << i->vertices[j];
       m_vertices[i->vertices[j]].elements.push_back(i->localId);
     }
   }
@@ -2287,18 +2124,12 @@ void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
                     int elemSize,
                     const int* bndElemLocalIds) {
 
-  //TODO: delete!
-  logInfo() << "---------- CubeGenerator::addMPINeighbor";
-  //TODO: delete
-  logInfo() << "rank: " << rank << "---------- elemSize=" << elemSize << "bndRank=" << bndRank << "localID=" << localID;
-
   MPINeighbor neighbor;
   neighbor.localID = localID;
 
   neighbor.elements.resize(elemSize);
 
   for (int i = 0; i < elemSize; i++) {
-    logInfo() << "rank:" << rank << "---------- bndElemLocalIds[i]=" << bndElemLocalIds[i];
     neighbor.elements[i].localElement = bndElemLocalIds[i];
   }
 

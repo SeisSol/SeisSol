@@ -82,14 +82,10 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 }
 
 void seissol::Simulator::simulate() {
-  //TODO: delete all debug logging in this function
-
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
-
-  logInfo(0) << "After getFaultOutputManager();";
 
   Stopwatch stopwatch;
   stopwatch.start();
@@ -99,20 +95,14 @@ void seissol::Simulator::simulate() {
 
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
-  logInfo(0) << "After getTimeTolerance()";
-
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
     Modules::callHook<SIMULATION_START>();
   }
 
-  logInfo(0) << "After callHook<SIMULATION_START>()";
-
   // intialize wave field and checkpoint time
   m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
-
-  logInfo(0) << "After setSimulationStartTime(m_currentTime)";
 
   // derive next synchronization time
   double upcomingTime = m_finalTime;
@@ -122,29 +112,21 @@ void seissol::Simulator::simulate() {
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
   upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
-  logInfo(0) << "Entering while loop...";
-
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
-    logInfo(0) << "Start of loop...";
     if (upcomingTime < m_currentTime + l_timeTolerance)
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
 
     // update the DOFs
-    logInfo(0) << "Before advanceInTime( upcomingTime );";
     seissol::SeisSol::main.timeManager().advanceInTime( upcomingTime );
-    logInfo(0) << "<===> After seissol::SeisSol::main.timeManager().advanceInTime( upcomingTime )";
 
     // update current time
     m_currentTime = upcomingTime;
-    logInfo(0) << "<===> After m_currentTime = upcomingTime";
 
     // Set new upcoming time (might by overwritten by any of the modules)
     upcomingTime = m_finalTime;
-    logInfo(0) << "<===> After upcomingTime = m_finalTime";
 
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
-    logInfo(0) << "<===> After upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance))";
 
     // write checkpoint if required
     if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
@@ -152,20 +134,13 @@ void seissol::Simulator::simulate() {
       seissol::SeisSol::main.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
-    logInfo(0) << "After write checkPoint...";
 
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
-    logInfo(0) << "<===> After upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval)";
 
     seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
-    logInfo(0) << "<===> After seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split())";
   }
 
-  logInfo(0) << "Exited while loop!";
-
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
-
-  logInfo(0) << "After callSyncHook(m_currentTime, l_timeTolerance, true)";
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";

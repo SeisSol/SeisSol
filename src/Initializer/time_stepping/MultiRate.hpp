@@ -182,21 +182,9 @@ class seissol::initializers::time_stepping::MultiRate {
                                       unsigned int  &o_numberOfClusters,
                                       double       *&o_clusterTimeStepWidths,
                                       unsigned int *&o_timeStepRates ) {
-
-       logInfo(0) << "========== i_minimumTimeStepWidth = " << i_minimumTimeStepWidth;
-       logInfo(0) << "========== i_maximumTimeStepWidth = " << i_maximumTimeStepWidth;
-       logInfo(0) << "========== i_multiRate = " << i_multiRate;
-       logInfo(0) << "========== o_numberOfClusters = " << o_numberOfClusters;
-       logInfo(0) << "========== o_clusterTimeStepWidths = " << o_clusterTimeStepWidths;
-       logInfo(0) << "========== o_timeStepRates = " << o_timeStepRates;
-
        const double wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
        double l_currentMaximumTime = wiggleFactor * i_minimumTimeStepWidth;
        l_currentMaximumTime *= i_multiRate;
-
-       // TODO: delete!
-       logInfo(0) << "========== wiggleFactor=" << wiggleFactor
-                  << ", l_currentMaximumTime=" << l_currentMaximumTime;
 
        for( o_numberOfClusters = 1; l_currentMaximumTime <= i_maximumTimeStepWidth; o_numberOfClusters++ ) {
          l_currentMaximumTime *= i_multiRate;
@@ -208,13 +196,9 @@ class seissol::initializers::time_stepping::MultiRate {
        );
        assert(o_numberOfClusters > 0);
 
-       logInfo(0) << "after assert(o_numberOfClusters > 0)";
-
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
        o_timeStepRates         = new unsigned int [ o_numberOfClusters ];
-
-       logInfo(0) << "After \"allocate memory\"";     
 
        // set the time step widths
        o_clusterTimeStepWidths[0] = wiggleFactor * i_minimumTimeStepWidth;
@@ -222,15 +206,11 @@ class seissol::initializers::time_stepping::MultiRate {
          o_clusterTimeStepWidths[l_cluster] = o_clusterTimeStepWidths[l_cluster-1] * i_multiRate;
        }
 
-       logInfo(0) << "After \"set time step widths\"";     
-
        // set time step rates
        o_timeStepRates[o_numberOfClusters-1] = 1; // last cluster has a rate of 1 (resets buffers in every time step)
        for( unsigned int l_cluster = 0; l_cluster < o_numberOfClusters-1; l_cluster++ ) {
          o_timeStepRates[l_cluster] = i_multiRate; // constant time step rate for the rest
-       }
-
-       logInfo(0) << "End of deriveGlobalClusters";     
+       }     
      }
 
 
@@ -253,38 +233,29 @@ class seissol::initializers::time_stepping::MultiRate {
                                   unsigned int  &o_numberOfGlobalClusters,
                                   double       *&o_globalTimeStepWidths,
                                   unsigned int *&o_globalTimeStepRates ) {
-      // TODO: remove Debug prints
-      logInfo(0) << "----------Entered deriveClusterIds----------";
-
       double l_minimumTimeStepWidth = 0, l_maximumTimeStepWidth = 0; // TODO check if 0 is current in serial version
 
       // derive global minimum and maximum
-      logInfo(0) << "----------Before deriveTimeStepWidthLimits----------";
       deriveTimeStepWidthLimits( i_numberOfCells,
                                  i_timeStepWidths,
                                  l_minimumTimeStepWidth,
                                  l_maximumTimeStepWidth );
-      logInfo(0) << "----------After deriveTimeStepWidthLimits----------";
       // Note: l_minimumTimeStepWidth and l_maximumTimeStepWidth do not consider the wiggle factor!
 
       // derive the number and time step widths of the global clusters
-      logInfo(0) << "----------Before deriveGlobalClusters----------";
       deriveGlobalClusters( l_minimumTimeStepWidth,
                             l_maximumTimeStepWidth,
                             i_multiRate,
                             o_numberOfGlobalClusters,
                             o_globalTimeStepWidths,
                             o_globalTimeStepRates );
-      logInfo(0) << "----------After deriveGlobalClusters----------";
 
       // derive cluster ids of the cells
-      logInfo(0) << "----------Before deriveCellIds----------";
       deriveCellIds( l_minimumTimeStepWidth,
                      i_multiRate,
                      i_numberOfCells,
                      i_timeStepWidths,
                      o_cellClusterIds );
-      logInfo(0) << "----------After deriveCellIds----------";
     }
 };
 

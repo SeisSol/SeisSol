@@ -73,20 +73,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
-
-  //TODO: delete
-  int maxSize = elements.size();
-  for (int i = 0; i < maxSize; ++i) {
-    logInfo(0) << "m_elements[" << i << "].vertices:" << std::vector<int>(elements[i].vertices, elements[i].vertices + 4);
-/*    logInfo(0) << "m_elements[" << i << "].neighbors:" << std::vector<int>(elements[i].neighbors, elements[i].neighbors + 4); 
-    logInfo(0) << "m_elements[" << i << "].neighborSides:" << std::vector<int>(elements[i].neighborSides, elements[i].neighborSides + 4);
-    logInfo(0) << "m_elements[" << i << "].sideOrientations:" << std::vector<int>(elements[i].sideOrientations, elements[i].sideOrientations + 4);
-    logInfo(0) << "m_elements[" << i << "].boundaries:" << std::vector<int>(elements[i].boundaries, elements[i].boundaries + 4);
-    logInfo(0) << "m_elements[" << i << "].neighborRanks:" << std::vector<int>(elements[i].neighborRanks, elements[i].neighborRanks + 4);
-    logInfo(0) << "m_elements[" << i << "].mpiIndices:" << std::vector<int>(elements[i].mpiIndices, elements[i].mpiIndices + 4);
-    logInfo(0) << "m_elements[" << i << "].group:" <<  elements[i].group;*/
-  }
-
+ 
   return CellToVertexArray(
       elements.size(),
       [&](size_t index) {
