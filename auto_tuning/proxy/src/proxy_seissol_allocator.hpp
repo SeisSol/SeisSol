@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Solver/time_stepping/MiniSeisSol.cpp>
 #include <yateto.h>
 #include <unordered_set>
+#include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -88,6 +89,8 @@ seissol::kernels::Neighbor  m_neighborKernel;
 seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
+
+seissol::parallel::runtime::StreamRuntime* runtime;
 
 namespace tensor = seissol::tensor;
 

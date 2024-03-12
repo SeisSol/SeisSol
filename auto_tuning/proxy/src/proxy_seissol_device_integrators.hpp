@@ -28,15 +28,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
 #define SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
 
-#include <Parallel/Runtime/Stream.hpp>
 #include <generated_code/tensor.h>
 #include <device.h>
 #include <stdio.h>
 
 namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
-
-seissol::parallel::runtime::StreamRuntime* runtime;
 
 namespace proxy::device {
   using deviceType = ::device::DeviceInstance;
