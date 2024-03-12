@@ -40,6 +40,11 @@ def get_value_by_key(data, target_key):
     return current_data
 
 
+def get_value_from_usgs_data(jsondata, key):
+    item = find_key_recursive(jsondata, key)[0]
+    return get_value_by_key(jsondata, item)
+
+
 def wget_overwrite(url, out_fname=None):
     fn = out_fname if out_fname else os.path.basename(url)
     if os.path.exists(fn):
@@ -66,34 +71,18 @@ wget_overwrite(url, fn_json)
 with open(fn_json) as f:
     jsondata = json.load(f)
 
-properties = find_key_recursive(jsondata, "mag")
-for item in properties:
-    subjsondata = get_value_by_key(jsondata, item)
-    mag = subjsondata
-    break
-
-properties = find_key_recursive(jsondata, "place")
-for item in properties:
-    subjsondata = get_value_by_key(jsondata, item)
-    place = subjsondata
-    break
-
-properties = find_key_recursive(jsondata, "dyfi")
-for item in properties:
-    subjsondata = get_value_by_key(jsondata, item)[0]
-    eventtime = subjsondata["properties"]["eventtime"]
-    break
+mag = get_value_from_usgs_data(jsondata, "mag")
+place = get_value_from_usgs_data(jsondata, "place")
+dyfi = get_value_from_usgs_data(jsondata, "dyfi")[0]
+eventtime = dyfi["properties"]["eventtime"]
 day = eventtime.split("T")[0]
 descr = "_".join(place.split(",")[-1].split())
-
-basic_inversion = find_key_recursive(jsondata, "finite-fault")
-for item in basic_inversion:
-    subjsondata = get_value_by_key(jsondata, item)[0]
-    code_finite_fault = subjsondata["code"]
-    update_time = subjsondata["updateTime"]
-    hypocenter_x = subjsondata["properties"]["longitude"]
-    hypocenter_y = subjsondata["properties"]["latitude"]
-    hypocenter_z = subjsondata["properties"]["depth"]
+finite_fault = get_value_from_usgs_data(jsondata, "finite-fault")[0]
+code_finite_fault = finite_fault["code"]
+update_time = finite_fault["updateTime"]
+hypocenter_x = finite_fault["properties"]["longitude"]
+hypocenter_y = finite_fault["properties"]["latitude"]
+hypocenter_z = finite_fault["properties"]["depth"]
 
 folder_name = f"{day}_Mw{mag}_{descr[:20]}_{code_finite_fault}"
 
