@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -41,14 +42,12 @@
 #include "Lut.hpp"
 
 seissol::initializer::Lut::LutsForMask::LutsForMask()
-  : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0)
-{
+    : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0) {
   for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
     meshToLts[dup] = NULL;
   }
 }
-seissol::initializer::Lut::LutsForMask::~LutsForMask()
-{
+seissol::initializer::Lut::LutsForMask::~LutsForMask() {
   delete[] duplicatedMeshIds;
   for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
     delete[] meshToLts[dup];
@@ -56,14 +55,13 @@ seissol::initializer::Lut::LutsForMask::~LutsForMask()
   delete[] ltsToMesh;
 }
 
-void seissol::initializer::Lut::LutsForMask::createLut(  LayerMask mask,
-                                                          LTSTree*  ltsTree,
-                                                          unsigned* globalLtsToMesh,
-                                                          unsigned  numberOfMeshIds )
-{
+void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
+                                                       LTSTree* ltsTree,
+                                                       unsigned* globalLtsToMesh,
+                                                       unsigned numberOfMeshIds) {
   unsigned numberOfLtsIds = ltsTree->getNumberOfCells(mask);
   ltsToMesh = new unsigned[numberOfLtsIds];
-  
+
   // ltsToMesh
   unsigned globalLtsId = 0;
   unsigned offset = 0;
@@ -81,7 +79,8 @@ void seissol::initializer::Lut::LutsForMask::createLut(  LayerMask mask,
   // meshToLts
   for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
     meshToLts[dup] = new unsigned[numberOfMeshIds];
-    std::fill(meshToLts[dup], meshToLts[dup] + numberOfMeshIds, std::numeric_limits<unsigned>::max());
+    std::fill(
+        meshToLts[dup], meshToLts[dup] + numberOfMeshIds, std::numeric_limits<unsigned>::max());
   }
 
   unsigned* numDuplicates = new unsigned[numberOfMeshIds];
@@ -90,71 +89,65 @@ void seissol::initializer::Lut::LutsForMask::createLut(  LayerMask mask,
   for (unsigned ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
     unsigned meshId = ltsToMesh[ltsId];
     if (meshId != std::numeric_limits<unsigned int>::max()) {
-      assert( numDuplicates[meshId] < MaxDuplicates);
-      meshToLts[ numDuplicates[meshId]++ ][meshId] = ltsId;
+      assert(numDuplicates[meshId] < MaxDuplicates);
+      meshToLts[numDuplicates[meshId]++][meshId] = ltsId;
     }
   }
-  
+
   numberOfDuplicatedMeshIds = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       ++numberOfDuplicatedMeshIds;
     }
   }
-  
+
   duplicatedMeshIds = new unsigned[numberOfDuplicatedMeshIds];
-  
+
   unsigned dupId = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       duplicatedMeshIds[dupId++] = meshId;
     }
   }
-  
+
   delete[] numDuplicates;
 }
 
-seissol::initializer::Lut::Lut()
-  : m_ltsTree(NULL), m_meshToClusters(NULL)
-{
-}
+seissol::initializer::Lut::Lut() : m_ltsTree(NULL), m_meshToClusters(NULL) {}
 
-seissol::initializer::Lut::~Lut()
-{
-  delete[] m_meshToClusters;
-}
+seissol::initializer::Lut::~Lut() { delete[] m_meshToClusters; }
 
-void seissol::initializer::Lut::createLuts(  LTSTree*        ltsTree,
-                                              unsigned*       ltsToMesh,
-                                              unsigned        numberOfMeshIds )
-{
+void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
+                                           unsigned* ltsToMesh,
+                                           unsigned numberOfMeshIds) {
   unsigned numberOfCells = ltsTree->getNumberOfCells();
 
   m_ltsTree = ltsTree;
 
   for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
-    LayerMask mask = m_ltsTree->info(var).mask;    
+    LayerMask mask = m_ltsTree->info(var).mask;
     LutsForMask& maskedLut = maskedLuts[mask.to_ulong()];
     if (maskedLut.ltsToMesh == NULL) {
-      maskedLut.createLut(mask, m_ltsTree, ltsToMesh, numberOfMeshIds );
+      maskedLut.createLut(mask, m_ltsTree, ltsToMesh, numberOfMeshIds);
     }
   }
 
   struct LayerOffset {
-      unsigned offsetGhost;
-      unsigned offsetCopy;
-      unsigned offsetInterior;
+    unsigned offsetGhost;
+    unsigned offsetCopy;
+    unsigned offsetInterior;
   };
 
-  auto* clusters = new unsigned[m_ltsTree->numChildren()+1];
+  auto* clusters = new unsigned[m_ltsTree->numChildren() + 1];
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
   auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
   clusters[0] = 0;
   for (unsigned tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
     auto& cluster = m_ltsTree->child(tc);
-    clusters[tc+1] = clusters[tc] + cluster.getNumberOfCells();
-    // For each cluster, we first store the Ghost cells, then the Copy cells and finally the Interior cells.
+    clusters[tc + 1] = clusters[tc] + cluster.getNumberOfCells();
+    // For each cluster, we first store the Ghost cells, then the Copy cells and finally the
+    // Interior cells.
     auto offsetGhost = 0U;
     auto offsetCopy = cluster.child<Ghost>().getNumberOfCells();
     auto offsetInterior = offsetCopy + cluster.child<Copy>().getNumberOfCells();
@@ -166,7 +159,7 @@ void seissol::initializer::Lut::createLuts(  LTSTree*        ltsTree,
   unsigned cluster = 0;
   unsigned curClusterElements = 0;
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
-    if (cell >= clusters[cluster+1]) {
+    if (cell >= clusters[cluster + 1]) {
       curClusterElements = 0;
       ++cluster;
       assert(cluster <= ltsTree->numChildren());
@@ -178,16 +171,16 @@ void seissol::initializer::Lut::createLuts(  LTSTree*        ltsTree,
       m_meshToClusters[meshId] = cluster;
       const auto& layerOffsets = clustersLayerOffset[cluster];
       if (curClusterElements >= layerOffsets.offsetInterior) {
-          m_meshToLayer[meshId] = Interior;
+        m_meshToLayer[meshId] = Interior;
       } else if (curClusterElements >= layerOffsets.offsetCopy) {
-          m_meshToLayer[meshId] = Copy;
+        m_meshToLayer[meshId] = Copy;
       } else if (curClusterElements >= layerOffsets.offsetGhost) {
-          m_meshToLayer[meshId] = Ghost;
+        m_meshToLayer[meshId] = Ghost;
       } else {
-          throw std::logic_error("Can't tell which layer the meshid belongs.");
+        throw std::logic_error("Can't tell which layer the meshid belongs.");
       }
     }
   }
-  
+
   delete[] clusters;
 }

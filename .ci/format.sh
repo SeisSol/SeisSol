@@ -10,12 +10,13 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Initializer/BatchRecorders
+        src/Initializer/InitProcedure
         src/Initializer/Parameters
+        src/Initializer/tree
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
-        src/Initializer/BatchRecorders
-        src/Initializer/InitProcedure
         src/Modules
         src/Monitoring
         src/Parallel
@@ -33,7 +34,6 @@ format() {
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceClusterOnHost.h
@@ -42,7 +42,6 @@ format() {
         src/Kernels/PointSourceClusterOnDevice.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
         src/Geometry/NetcdfReader.h
