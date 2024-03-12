@@ -14,8 +14,8 @@ if ! which pumgen > /dev/null; then
     exit 1
 fi
 
-$2/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $event_id
-cd $event_id
+folder_name=$($2/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $event_id)
+cd $folder_name
 read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
 echo $proj

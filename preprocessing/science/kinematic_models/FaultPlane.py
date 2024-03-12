@@ -423,7 +423,7 @@ class MultiFaultPlane:
           return {"""
             + f"""
           strike_slip = -x["strike_slip"],
-          dip_slip = -x["dip_slip"],
+          dip_slip = x["dip_slip"],
           rupture_onset = {sonset},
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,

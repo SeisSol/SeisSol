@@ -3,6 +3,7 @@ import json
 import os
 import wget
 import argparse
+import shutil
 
 
 def find_key_recursive(data, target_key, current_path=None):
@@ -30,7 +31,6 @@ def get_value_by_key(data, target_key):
     current_data = data
 
     for key in keys:
-        print(key)
         if isinstance(current_data, dict) and key in current_data:
             current_data = current_data[key]
         else:
@@ -41,11 +41,10 @@ def get_value_by_key(data, target_key):
 
 
 def wget_overwrite(url, out_fname=None):
-    print(url)
     fn = out_fname if out_fname else os.path.basename(url)
     if os.path.exists(fn):
         os.remove(fn)
-    filename = wget.download(url, out=out_fname)
+    filename = wget.download(url, out=out_fname, bar=None)
 
 
 parser = argparse.ArgumentParser(
@@ -60,30 +59,56 @@ args = parser.parse_args()
 
 eq_code = args.eq_code
 minM = args.min_magnitude[0]
-if not os.path.exists(eq_code):
-    os.makedirs(eq_code)
-if not os.path.exists(f"{eq_code}/tmp"):
-    os.makedirs(f"{eq_code}/tmp")
-
 url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&&minmagnitude={minM}&eventid={eq_code}"
-fn_json = f"{eq_code}/tmp/{eq_code}.json"
+fn_json = f"{eq_code}.json"
 wget_overwrite(url, fn_json)
 
 with open(fn_json) as f:
     jsondata = json.load(f)
 
-# basic_inversion = find_key_recursive(jsondata, 'basic_inversion.param')
+properties = find_key_recursive(jsondata, "mag")
+for item in properties:
+    subjsondata = get_value_by_key(jsondata, item)
+    mag = subjsondata
+    break
+
+properties = find_key_recursive(jsondata, "place")
+for item in properties:
+    subjsondata = get_value_by_key(jsondata, item)
+    place = subjsondata
+    break
+
+properties = find_key_recursive(jsondata, "dyfi")
+for item in properties:
+    subjsondata = get_value_by_key(jsondata, item)[0]
+    eventtime = subjsondata["properties"]["eventtime"]
+    break
+day = eventtime.split("T")[0]
+descr = "_".join(place.split(",")[-1].split())
+
 basic_inversion = find_key_recursive(jsondata, "finite-fault")
 for item in basic_inversion:
     subjsondata = get_value_by_key(jsondata, item)[0]
-    code = subjsondata["code"]
+    code_finite_fault = subjsondata["code"]
     update_time = subjsondata["updateTime"]
     hypocenter_x = subjsondata["properties"]["longitude"]
     hypocenter_y = subjsondata["properties"]["latitude"]
     hypocenter_z = subjsondata["properties"]["depth"]
-    with open(f"{eq_code}/tmp/hypocenter.txt", "w") as f:
-        jsondata = f.write(f"{hypocenter_x} {hypocenter_y} {hypocenter_z}\n")
-    print(code, update_time)
-    for fn in ["moment_rate.mr", "basic_inversion.param"]:
-        url = f"https://earthquake.usgs.gov/product/finite-fault/{code}/us/{update_time}/{fn}"
-        wget_overwrite(url, f"{eq_code}/tmp/{fn}")
+
+folder_name = f"{day}_Mw{mag}_{descr[:20]}_{code_finite_fault}"
+
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
+if not os.path.exists(f"{folder_name}/tmp"):
+    os.makedirs(f"{folder_name}/tmp")
+
+
+with open(f"{folder_name}/tmp/hypocenter.txt", "w") as f:
+    jsondata = f.write(f"{hypocenter_x} {hypocenter_y} {hypocenter_z}\n")
+
+for fn in ["moment_rate.mr", "basic_inversion.param"]:
+    url = f"https://earthquake.usgs.gov/product/finite-fault/{code_finite_fault}/us/{update_time}/{fn}"
+    wget_overwrite(url, f"{folder_name}/tmp/{fn}")
+
+shutil.move(fn_json, f"{folder_name}/tmp/{fn_json}")
+print(folder_name)
