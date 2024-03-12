@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2019, SeisSol Group
@@ -55,8 +56,7 @@
 #endif // __APPLE__
 
 namespace seissol::parallel {
-  using namespace async::as;
-
+using namespace async::as;
 
 Pinning::Pinning() {
   // Affinity mask for the OpenMP workers
@@ -78,16 +78,14 @@ void Pinning::checkEnvVariables() {
                       << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
-      }
-      else {
+      } else {
         const auto maxCpuId = get_nprocs();
-        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask.size()); ++localProcessId) {
+        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask.size());
+             ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
             if (cpu > maxCpuId) {
-              logInfo(rank) << "Free cpu mask of the local process"
-                            << localProcessId
-                            << "is out of bounds. CPU/core id"
-                            << cpu << "exceeds max. value"
+              logInfo(rank) << "Free cpu mask of the local process" << localProcessId
+                            << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
                             << maxCpuId;
               isMaskGood = false;
               break;
@@ -98,15 +96,13 @@ void Pinning::checkEnvVariables() {
 
       if (isMaskGood) {
         logInfo(rank) << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
-      }
-      else {
+      } else {
         logWarning(rank) << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
         logWarning(rank) << "`SEISSOL_FREE_CPUS_MASK` Format:"
                          << "(<int>|<range: int-int>|<list: {int,+}>),+";
         parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
       }
-    }
-    else {
+    } else {
       logWarning(rank) << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
     }
   }
@@ -124,9 +120,7 @@ CpuMask Pinning::getWorkerUnionMask() const {
     CPU_ZERO(&worker);
     sched_getaffinity(0, sizeof(cpu_set_t), &worker);
 #pragma omp critical
-    {
-      CPU_OR(&workerUnion, &workerUnion, &worker);
-    }
+    { CPU_OR(&workerUnion, &workerUnion, &worker); }
   }
 #else
   sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
@@ -176,14 +170,14 @@ CpuMask Pinning::getFreeCPUsMask() const {
   }
 #else
   // Set now contains all unused cores on the machine.
-  // Note that pinning of the communication thread is then not Numa-aware if there's more than one rank per node!
+  // Note that pinning of the communication thread is then not Numa-aware if there's more than one
+  // rank per node!
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
     if (!CPU_ISSET(cpu, &(nodeOpenMpMask.set))) {
       CPU_SET(cpu, &freeMask);
     }
   }
 #endif // USE_NUMA_AWARE_PINNING
-
 
   return CpuMask{freeMask};
 #else
@@ -211,7 +205,7 @@ std::string Pinning::maskToString(const CpuMask& mask) {
   const auto& set = mask.set;
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
-    if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs()-1) {
+    if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs() - 1) {
       st << '|';
     }
     if (CPU_ISSET(cpu, &set)) {
@@ -232,12 +226,17 @@ CpuMask Pinning::getNodeMask() const {
   const auto workerMask = getWorkerUnionMask().set;
 
   // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>( get_nprocs(), 0);
+  auto workerMaskArray = std::vector<char>(get_nprocs(), 0);
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, workerMaskArray.data(), workerMaskArray.size(), MPI_CHAR, MPI_BOR, MPI::mpi.sharedMemComm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                workerMaskArray.data(),
+                workerMaskArray.size(),
+                MPI_CHAR,
+                MPI_BOR,
+                MPI::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);

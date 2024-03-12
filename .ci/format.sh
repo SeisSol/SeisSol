@@ -18,7 +18,7 @@ format() {
         src/Initializer/InitProcedure
         src/Modules
         src/Monitoring
-        src/Parallel/Runtime
+        src/Parallel
         src/Physics
         src/SourceTerm
         src/Reader
@@ -53,10 +53,6 @@ format() {
         src/Geometry/PartitioningLib.cpp
         src/Geometry/CubeGenerator.h
         src/Geometry/CubeGenerator.cpp
-        src/Parallel/AcceleratorDevice.h
-        src/Parallel/AcceleratorDevice.cpp
-        src/Parallel/DataCollector.h
-        src/Parallel/Helper.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

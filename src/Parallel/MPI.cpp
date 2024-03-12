@@ -125,7 +125,7 @@ void seissol::MPI::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-      logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
   }
 }
 

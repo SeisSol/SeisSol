@@ -122,8 +122,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 
-  outputData->deviceDataCollector =
-      std::make_unique<seissol::parallel::DataCollector>(indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+  outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector>(
+      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);
