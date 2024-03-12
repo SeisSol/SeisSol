@@ -181,12 +181,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
 
     // TODO(NONLINEAR) What are these numbers?
-    real epsInitxx = -1.8738e-4; // eps_xx0
-    real epsInityy = -1.1225e-3; // eps_yy0
-    real epsInitzz = -1.8738e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3;  // eps_xy0
-    real epsInityz = -0e-1;      // eps_yz0
-    real epsInitzx = -0e-1;      // eps_zx0
+    const real epsInitxx = damagedElasticParameters->epsInitxx; // eps_xx0
+    const real epsInityy = damagedElasticParameters->epsInityy; // eps_yy0
+    const real epsInitzz = damagedElasticParameters->epsInitzz; // eps_zz0
+    const real epsInitxy = damagedElasticParameters->epsInitxy;  // eps_xy0
+    const real epsInityz = damagedElasticParameters->epsInityz;  // eps_yz0
+    const real epsInitzx = damagedElasticParameters->epsInitzx;  // eps_zx0
 
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
       dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
