@@ -51,10 +51,10 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
 
     if(!isDamagedElastic()){
       reader->markUnused(
-          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "ab0", "ab1", "ab2", "ab3"});
+          {"epsinitxx", "epsinityy", "epsinitzz", "epsinitxy", "epsinityz", "epsinitzx", "betaalpha", "ab0", "ab1", "ab2", "ab3", "scalingvalue"});
     }
     return DamagedElasticParameters{
-      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, betaAlpha, aB0, aB1, aB2, aB3};
+      epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitzx, betaAlpha, aB0, aB1, aB2, aB3, scalingValue};
 }
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {
