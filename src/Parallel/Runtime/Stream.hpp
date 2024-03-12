@@ -111,6 +111,7 @@ class StreamRuntime {
   std::vector<void*> joinEvents;
 #else
   public:
+  void wait() {}
   void dispose() {}
 #endif
 };

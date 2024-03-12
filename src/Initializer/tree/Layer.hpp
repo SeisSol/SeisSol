@@ -147,11 +147,12 @@ namespace seissol {
           }
         }
         if (allocationMode == AllocationMode::HostDeviceUnified) {
+          // currently broken (?)
           if (place == AllocationPlace::Host) {
-            device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::Host, host, allocationSize, stream);
+            // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::Host, host, allocationSize, stream);
           }
           else {
-            device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::CurrentDevice, device, allocationSize, stream);
+            // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::CurrentDevice, device, allocationSize, stream);
           }
         }
 #endif
