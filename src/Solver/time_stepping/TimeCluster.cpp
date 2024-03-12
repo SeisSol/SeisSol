@@ -140,7 +140,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
-    seissolInstance(seissolInstance)
+    seissolInstance(seissolInstance),
+    m_dynamicRuptureKernel(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
@@ -153,6 +154,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_receiverTime                  = 0;
 
   m_timeKernel.setGlobalData(i_globalData);
+  m_timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);

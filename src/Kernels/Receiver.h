@@ -88,20 +88,12 @@ namespace seissol {
           seissolInstance(seissolInstance)
       {}
 
-      ReceiverCluster(  GlobalData const*             global,
+ReceiverCluster(  GlobalData const*             global,
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
                         double                        syncPointInterval,
                         bool                          computeRotation,
-                        seissol::SeisSol&             seissolInstance)
-        : m_quantities(quantities),
-          m_samplingInterval(samplingInterval),
-          m_syncPointInterval(syncPointInterval),
-          m_computeRotation(computeRotation),
-          seissolInstance(seissolInstance) {
-        m_timeKernel.setHostGlobalData(global);
-        m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
-      }
+                        seissol::SeisSol&             seissolInstance);
 
       void addReceiver( unsigned          meshId,
                         unsigned          pointId,

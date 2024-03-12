@@ -63,6 +63,7 @@ class seissol::kernels::DynamicRupture {
   private:
     dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
+    seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
 #ifdef ACL_DEVICE
     dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints m_gpuKrnlPrototype;
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -76,7 +77,7 @@ class seissol::kernels::DynamicRupture {
     std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
 #endif
 
-  DynamicRupture() {}
+  DynamicRupture(seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters);
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     void setHostGlobalData(GlobalData const* global);
@@ -97,7 +98,7 @@ class seissol::kernels::DynamicRupture {
 
   void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table);
 
-    void flopsGodunovState( DRFaceInformation const&  faceInfo,
+  void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,
                             long long&                o_hardwareFlops );
 };

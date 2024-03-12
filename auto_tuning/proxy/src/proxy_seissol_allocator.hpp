@@ -84,11 +84,12 @@ real* m_fakeDerivatives = nullptr;
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
 seissol::kernels::Neighbor  m_neighborKernel;
-seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 
 namespace tensor = seissol::tensor;
+seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
+seissol::kernels::DynamicRupture m_dynRupKernel(&damagedElasticParameters);
 
 void initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(m_globalDataOnHost,
@@ -105,7 +106,9 @@ void initGlobalData() {
     globalData.onDevice = &m_globalDataOnDevice;
   }
   m_timeKernel.setGlobalData(globalData);
+  m_timeKernel.setDamagedElasticParameters(&damagedElasticParameters);
   m_localKernel.setGlobalData(globalData);
+  m_localKernel.setDamagedElasticParameters(&damagedElasticParameters);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
 }

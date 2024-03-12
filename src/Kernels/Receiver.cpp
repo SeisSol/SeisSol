@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2019, SeisSol Group
@@ -47,32 +48,44 @@
 #include <Monitoring/FlopCounter.hpp>
 #include <generated_code/kernel.h>
 
-void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
-                                                      unsigned                          pointId,
-                                                      Eigen::Vector3d const&            point,
-                                                      seissol::geometry::MeshReader const&                 mesh,
-                                                      seissol::initializer::Lut const& ltsLut,
-                                                      seissol::initializer::LTS const& lts ) {
+seissol::kernels::ReceiverCluster::ReceiverCluster(GlobalData const* global,
+                                                   std::vector<unsigned> const& quantities,
+                                                   double samplingInterval,
+                                                   double syncPointInterval,
+                                                   bool computeRotation,
+                                                   seissol::SeisSol& seissolInstance)
+    : m_quantities(quantities), m_samplingInterval(samplingInterval),
+      m_syncPointInterval(syncPointInterval), m_computeRotation(computeRotation),
+      seissolInstance(seissolInstance) {
+  m_timeKernel.setHostGlobalData(global);
+  m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
+  m_timeKernel.setDamagedElasticParameters(
+      &seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
+}
+
+void seissol::kernels::ReceiverCluster::addReceiver(unsigned meshId,
+                                                    unsigned pointId,
+                                                    Eigen::Vector3d const& point,
+                                                    seissol::geometry::MeshReader const& mesh,
+                                                    seissol::initializer::Lut const& ltsLut,
+                                                    seissol::initializer::LTS const& lts) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
   double const* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
-    coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
+    coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
 
   // (time + number of quantities) * number of samples until sync point
   size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  m_receivers.emplace_back( pointId,
-                            point,
-                            coords,
-                            kernels::LocalData::lookup(lts, ltsLut, meshId),
-                            reserved);
+  m_receivers.emplace_back(
+      pointId, point, coords, kernels::LocalData::lookup(lts, ltsLut, meshId), reserved);
 }
 
-double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
-                                                          double expansionPoint,
-                                                          double timeStepWidth ) {
+double seissol::kernels::ReceiverCluster::calcReceivers(double time,
+                                                        double expansionPoint,
+                                                        double timeStepWidth) {
   alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
@@ -96,7 +109,6 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   derivativeKrnl.Q = timeEvaluated;
 #endif
 
-
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
@@ -104,16 +116,17 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
-      derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
+      derivativeKrnl.basisFunctionDerivativesAtPoint =
+          receiver.basisFunctionDerivatives.m_data.data();
 
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
 #else
-      m_timeKernel.computeAder( timeStepWidth,
-                                receiver.data,
-                                tmp,
-                                timeEvaluated, // useless but the interface requires it
-                                timeDerivatives );
+      m_timeKernel.computeAder(timeStepWidth,
+                               receiver.data,
+                               tmp,
+                               timeEvaluated, // useless but the interface requires it
+                               timeDerivatives);
 #endif
       seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
       seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
@@ -121,13 +134,15 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
-        //eval time basis
+        // eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(
+            CONVERGENCE_ORDER, tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
 #else
-        m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+        m_timeKernel.computeTaylorExpansion(
+            receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
 #endif
 
         krnl.execute();
@@ -137,31 +152,28 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
-           if (!std::isfinite(qAtPoint(sim, quantity))) {
-             logError()
-                 << "Detected Inf/NaN in receiver output at"
-                 << receiver.coordinates[0] << ","
-                 << receiver.coordinates[1] << ","
-                 << receiver.coordinates[2] << "."
-                 << "Aborting.";
-          }
+            if (!std::isfinite(qAtPoint(sim, quantity))) {
+              logError() << "Detected Inf/NaN in receiver output at" << receiver.coordinates[0]
+                         << "," << receiver.coordinates[1] << "," << receiver.coordinates[2] << "."
+                         << "Aborting.";
+            }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
           if (m_computeRotation) {
-            receiver.output.push_back(qDerivativeAtPoint(sim, 8, 1) - qDerivativeAtPoint(sim, 7, 2));
-            receiver.output.push_back(qDerivativeAtPoint(sim, 6, 2) - qDerivativeAtPoint(sim, 8, 0));
-            receiver.output.push_back(qDerivativeAtPoint(sim, 7, 0) - qDerivativeAtPoint(sim, 6, 1));
+            receiver.output.push_back(qDerivativeAtPoint(sim, 8, 1) -
+                                      qDerivativeAtPoint(sim, 7, 2));
+            receiver.output.push_back(qDerivativeAtPoint(sim, 6, 2) -
+                                      qDerivativeAtPoint(sim, 8, 0));
+            receiver.output.push_back(qDerivativeAtPoint(sim, 7, 0) -
+                                      qDerivativeAtPoint(sim, 6, 1));
           }
         }
-#else //MULTIPLE_SIMULATIONS
+#else  // MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           if (!std::isfinite(qAtPoint(quantity))) {
-            logError()
-                << "Detected Inf/NaN in receiver output at"
-                << receiver.position[0] << ","
-                << receiver.position[1] << ","
-                << receiver.position[2] << "."
-                << "Aborting.";
+            logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
+                       << receiver.position[1] << "," << receiver.position[2] << "."
+                       << "Aborting.";
           }
           receiver.output.push_back(qAtPoint(quantity));
         }
@@ -170,7 +182,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
           receiver.output.push_back(qDerivativeAtPoint(6, 2) - qDerivativeAtPoint(8, 0));
           receiver.output.push_back(qDerivativeAtPoint(7, 0) - qDerivativeAtPoint(6, 1));
         }
-#endif //MULTITPLE_SIMULATIONS
+#endif // MULTITPLE_SIMULATIONS
 
         receiverTime += m_samplingInterval;
       }
@@ -178,4 +190,3 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   }
   return receiverTime;
 }
-

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -53,11 +54,17 @@
 #endif
 #include <yateto.h>
 
+seissol::kernels::DynamicRupture::DynamicRupture(
+    seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters)
+    : damagedElasticParameters(mDamagedElasticParameters) {
+  m_timeKernel.setDamagedElasticParameters(damagedElasticParameters);
+}
+
 void seissol::kernels::DynamicRupture::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned h = 0; h < 4; ++h) {
-      assert( ((uintptr_t const)global->faceToNodalMatrices(face, h)) % alignment == 0 );
+      assert(((uintptr_t const)global->faceToNodalMatrices(face, h)) % alignment == 0);
     }
   }
 #endif
@@ -68,7 +75,6 @@ void seissol::kernels::DynamicRupture::setHostGlobalData(GlobalData const* globa
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
   m_timeKernel.setHostGlobalData(global);
 }
-
 
 void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   this->setHostGlobalData(global.onHost);
@@ -81,9 +87,7 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
 #endif
 }
 
-
-void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
-{
+void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep) {
 #ifdef USE_DR_CELLAVERAGE
   static_assert(false, "Cell average currently not supported");
   /*double subIntervalWidth = timestep / CONVERGENCE_ORDER;
@@ -109,7 +113,9 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
 #ifdef USE_STP
     double tau = timePoints[point];
-    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER, tau);
+    timeBasisFunctions[point] =
+        std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER,
+                                                                                  tau);
 #endif
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
@@ -117,41 +123,46 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 #endif
 }
 
-void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
-                                                                GlobalData const*           global,
-                                                                DRGodunovData const*        godunovData,
-                                                                DREnergyOutput*             drEnergyOutput,
-                                                                real const*                 timeDerivativePlus,
-                                                                real const*                 timeDerivativeMinus,
-                                                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                                real const*                 timeDerivativePlus_prefetch,
-                                                                real const*                 timeDerivativeMinus_prefetch ) {
+void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
+    DRFaceInformation const& faceInfo,
+    GlobalData const* global,
+    DRGodunovData const* godunovData,
+    DREnergyOutput* drEnergyOutput,
+    real const* timeDerivativePlus,
+    real const* timeDerivativeMinus,
+    real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+    real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+    real const* timeDerivativePlus_prefetch,
+    real const* timeDerivativeMinus_prefetch) {
   // assert alignments
 #ifndef NDEBUG
-  assert( timeDerivativePlus != nullptr );
-  assert( timeDerivativeMinus != nullptr );
-  assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0 );
-  assert( tensor::Q::size() == tensor::I::size() );
+  assert(timeDerivativePlus != nullptr);
+  assert(timeDerivativeMinus != nullptr);
+  assert(((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0);
+  assert(((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0);
+  assert(((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0);
+  assert(((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0);
+  assert(tensor::Q::size() == tensor::I::size());
 #endif
 
-  alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
+  alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
 #ifdef USE_STP
-    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
+    m_timeKernel.evaluateAtTime(
+        timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.evaluateAtTime(
+        timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
 #else
-    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+    m_timeKernel.computeTaylorExpansion(
+        timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.computeTaylorExpansion(
+        timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 #endif
 
-        // Derive stress solutions from strain
+    // Derive stress solutions from strain
     alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
 #ifdef USE_DAMAGEDELASTIC
@@ -168,63 +179,73 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
     alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
-    
+
     // TODO(NONLINEAR) What are these numbers?
     real epsInitxx = -1.8738e-4; // eps_xx0
     real epsInityy = -1.1225e-3; // eps_yy0
     real epsInitzz = -1.8738e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    real epsInitxy = 1.0909e-3;  // eps_xy0
+    real epsInityz = -0e-1;      // eps_yz0
+    real epsInitzx = -0e-1;      // eps_zx0
 
-    for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
-      dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+    for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
+      dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
 
-      dofsStressNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+      dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
 
-      dofsStressNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
 
-      dofsStressNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
 
-      dofsStressNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
 
-      dofsStressNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
 
-      dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+      dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
 
-      dofsStressNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+      dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
 
-      dofsStressNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
 
-      dofsStressNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
 
-      dofsStressNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
 
-      dofsStressNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
-        (dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
 
-      dofsStressNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
 
-      dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
-      dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
     }
 
     real dofsStressPlus[tensor::Q::size()]{};
@@ -242,8 +263,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     d_convertBackKrnl.execute();
 #endif
 
-    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
+    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER - 1)
+                                   ? &QInterpolatedPlus[timeInterval + 1][0]
+                                   : timeDerivativePlus_prefetch;
+    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER - 1)
+                                    ? &QInterpolatedMinus[timeInterval + 1][0]
+                                    : timeDerivativeMinus_prefetch;
 
     krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0];
     krnl.Q = dofsStressPlus;
@@ -259,7 +284,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   }
 }
 
-void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table) {
+void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(
+    DrConditionalPointersToRealsTable& table) {
 #ifdef ACL_DEVICE
 
   real** degreesOfFreedomPlus{nullptr};
@@ -277,19 +303,18 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
-      auto &entry = table[timeIntegrationKey];
+      auto& entry = table[timeIntegrationKey];
 
       unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
-      real** timeDerivativePlus = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      real** timeDerivativePlus =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
 
-      m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
-                                                 0.0,
-                                                 timeDerivativePlus,
-                                                 degreesOfFreedomPlus,
-                                                 maxNumElements);
+      m_timeKernel.computeBatchedTaylorExpansion(
+          timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus, maxNumElements);
 
-      real** timeDerivativeMinus = (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+      real** timeDerivativeMinus =
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
@@ -308,7 +333,8 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
         const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
         auto krnl = m_gpuKrnlPrototype;
-        real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+        real* tmpMem =
+            (real*)(device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
         ++streamCounter;
         krnl.linearAllocator.initialize(tmpMem);
         krnl.streamPtr = device.api->getNextCircularStream();
@@ -316,28 +342,34 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
 
         krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
         krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-        krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-        krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+        krnl.Q = const_cast<real const**>(
+            (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
+        krnl.TinvT =
+            const_cast<real const**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
         krnl.execute(side, 0);
       }
 
       for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
         ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
         if (table.find(minusSideKey) != table.end()) {
-          auto &entry = table[minusSideKey];
+          auto& entry = table[minusSideKey];
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
           auto krnl = m_gpuKrnlPrototype;
-          real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+          real* tmpMem =
+              (real*)(device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
           krnl.streamPtr = device.api->getNextCircularStream();
           krnl.numElements = numElements;
 
-          krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
+          krnl.QInterpolated =
+              (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+          krnl.Q = const_cast<real const**>(
+              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
+          krnl.TinvT =
+              const_cast<real const**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
         }
       }
@@ -349,21 +381,24 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
 #endif
 }
 
-void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation const&  faceInfo,
-                                                          long long&                o_nonZeroFlops,
-                                                          long long&                o_hardwareFlops )
-{
+void seissol::kernels::DynamicRupture::flopsGodunovState(DRFaceInformation const& faceInfo,
+                                                         long long& o_nonZeroFlops,
+                                                         long long& o_hardwareFlops) {
   m_timeKernel.flopsTaylorExpansion(o_nonZeroFlops, o_hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   o_nonZeroFlops *= 2;
   o_hardwareFlops *= 2;
 
-  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.plusSide, 0);
-  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.plusSide, 0);
+  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
+      faceInfo.plusSide, 0);
+  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
+      faceInfo.plusSide, 0);
 
-  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
-  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
+      faceInfo.minusSide, faceInfo.faceRelation);
+  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
+      faceInfo.minusSide, faceInfo.faceRelation);
 
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;
