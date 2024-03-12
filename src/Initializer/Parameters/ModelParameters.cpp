@@ -47,7 +47,7 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
     const auto aB1 = reader->readWithDefault<real>("ab1", -12.14e9);
     const auto aB2 = reader->readWithDefault<real>("ab2", 18.93e9);
     const auto aB3 = reader->readWithDefault<real>("ab3", -5.067e9);
-    const auto scalingValue = reader->readWithDefault("scalingValue", 1e2);
+    const auto scalingValue = reader->readWithDefault("scalingvalue", 1e2);
 
     if(!isDamagedElastic()){
       reader->markUnused(

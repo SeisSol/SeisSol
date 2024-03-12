@@ -393,13 +393,6 @@ private:
             const real aB2 = damagedElasticParameters.aB2;
             const real aB3 = damagedElasticParameters.aB3;
 
-            // real epsInitxx = -1.8738e-4; // eps_xx0
-            // real epsInityy = -1.1225e-3; // eps_yy0
-            // real epsInitzz = -1.8738e-4; // eps_zz0
-            // real epsInitxy = 1.0909e-3; // eps_xy0
-            // real epsInityz = -0e-1; // eps_yz0
-            // real epsInitzx = -0e-1; // eps_zx0
-
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
             real rho0P = materialData[l_cell].local.rho;
@@ -407,11 +400,6 @@ private:
             real lambda0M = materialData[l_cell].neighbor[side].lambda0;
             real mu0M = materialData[l_cell].neighbor[side].mu0;
             real rho0M = materialData[l_cell].neighbor[side].rho;
-
-            // real aB0 = 7.43e9;
-            // real aB1 = -12.14e9;
-            // real aB2 = 18.93e9;
-            // real aB3 = -5.067e9;
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP
