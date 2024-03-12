@@ -62,26 +62,13 @@ Note also that if a face is tagged twice, only the first tag will be considered.
 Using more than 189 dynamic rupture tags
 ----------------------------------------
 
-To handle more than 189 dynamic rupture tags (i.e. more than 255 fault tags), you will need to adjust the boundary format to at least i64 (or i32x4).
+To handle more than 189 dynamic rupture tags (i.e. more than 255 boundary condition types), you will need to adjust the boundary format to i64 (or i32x4, see hereafter).
 
 That is, build your mesh in PUMgen with the option ``--boundarytype=int64``.
 Next, specify ``pumlboundaryformat = 'i64'`` in the ``&meshnml`` section of your SeisSol parameter file.
 
-The i64 boundary format has an upper limit of 65469 dynamic rupture tags (65535 fault tags).
-For an even larger tag space, you will need to resort to the i32x4 format. For that, proceed
-as before, replacing ``i64`` by ``i32x4``.
+The i64 boundary format has an upper limit of 65469 dynamic rupture tags (65535 boundary condition types).
+For an even larger tag space, you will need to resort to the i32x4 format.
 
 To see which boundary format you have built your mesh for, you can use ``h5dump -H <yourmeshfile>.puml.h5``,
 and look at the datatype and the shape of the ``boundary`` dataset.
-
-In PUMgen, meshes with more than 255 tags can be created using ``pumgen -xml`` option, e.g. :
-
-.. code-block:: xml
-
-   <boundaryCondition tag="3">13245</boundaryCondition>
-   .
-   .
-   .
-   <boundaryCondition tag="900">12345,14325</boundaryCondition>
-
-

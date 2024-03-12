@@ -42,7 +42,6 @@
 #include <mpi.h>
 #include <numeric>
 #include <string>
-#include <unordered_map>
 
 #include "PUMLReader.h"
 #include "PartitioningLib.h"
@@ -61,7 +60,6 @@
 #include <hdf5.h>
 #include <sstream>
 #include <fstream>
-#include <string_view>
 
 namespace {
 /*
@@ -125,7 +123,8 @@ inline std::string bcToString(int id) {
  */
 inline bool checkMeshCorrectnessLocally(
     PUML::TETPUML::face_t face, int* cellNeighbors, int side, int sideBC, uint64_t cellIdAsInFile) {
-  // all of these will only issue warnings here -- the "logError()" is supposed to come later, after all warning have been logged
+  // all of these will only issue warnings here -- the "logError()" is supposed to come later, after
+  // all warning have been logged
 
   // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
   if (bcToType(sideBC) == BCType::internal) {
@@ -140,31 +139,34 @@ inline bool checkMeshCorrectnessLocally(
   else if (bcToType(sideBC) == BCType::external) {
     if (cellNeighbors[side] >= 0 || face.isShared()) {
       logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                   << bcToString(sideBC)
-                   << "boundary condition, but a neighboring element exists";
+                   << bcToString(sideBC) << "boundary condition, but a neighboring element exists";
       return false;
     }
   }
   // ignore unknown boundary conditions and warn
   else {
-    logWarning() << "Element" << cellIdAsInFile << ", side" << side
-                 << " has a boundary condition (" << sideBC << ") which is not understood by this version of SeisSol";
+    logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a boundary condition ("
+                 << sideBC << ") which is not understood by this version of SeisSol";
     return true;
   }
   return true;
 }
 
+// helper arrays
+
+// converts the PUML vertex indexing to the internal SeisSol indexing
 const int PumlFaceToSeisSol[4] = {0, 1, 3, 2};
 
+// indexes the vertices on each face i (or FaceVertexToOrientation[i][j] == -1 to indicate that the
+// vertex does not lie on it)
 const int FaceVertexToOrientation[4][4] = {
     {0, 2, 1, -1}, {0, 1, -1, 2}, {0, -1, 2, 1}, {-1, 0, 1, 2}};
 
+// the first vertex on the face (i.e. FirstFaceVertex[i] == j, where j is the lowest index in
+// FaceVertexToOrientation[i] to not be -1)
 const int FirstFaceVertex[4] = {0, 0, 0, 1};
 } // namespace
 
-/**
- * @todo Cleanup this code
- */
 seissol::geometry::PUMLReader::PUMLReader(
     const char* meshFile,
     const char* partitioningLib,

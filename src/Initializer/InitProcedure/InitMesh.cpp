@@ -30,12 +30,11 @@
 
 namespace {
 
-template<typename TT>
-static TT _checkH5Err(TT&& status, const char* file, int line, int rank)
-{
+template <typename TT>
+static TT _checkH5Err(TT&& status, const char* file, int line, int rank) {
   if (status < 0) {
-    logError() << utils::nospace << "An HDF5 error occurred in PUML ("
-      << file << ": " << line << ") on rank " << rank;
+    logError() << utils::nospace << "An HDF5 error occurred in PUML (" << file << ": " << line
+               << ") on rank " << rank;
   }
   return std::forward<TT>(status);
 }
@@ -101,13 +100,13 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 
   auto boundaryFormat = seissolParams.mesh.pumlBoundaryFormat;
 
-  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto)
-  {    
+  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
     logInfo(rank) << "Inferring boundary format.";
     MPI_Info info = MPI_INFO_NULL;
     hid_t plist_id = _eh(H5Pcreate(H5P_FILE_ACCESS));
     _eh(H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info));
-    hid_t dataFile = _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plist_id));
+    hid_t dataFile =
+        _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plist_id));
     hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
     hid_t boundaryType = _eh(H5Dget_type(boundaryDataset));
     hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
@@ -122,11 +121,9 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 
     if (boundaryTypeRank == 2) {
       boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-    }
-    else if (boundaryTypeSize > 4) {
+    } else if (boundaryTypeSize > 4) {
       boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-    }
-    else {
+    } else {
       boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
     }
   }

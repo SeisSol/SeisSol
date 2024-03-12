@@ -41,8 +41,8 @@
 
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
-#include <Initializer/Parameters/MeshParameters.h>
-#include <PUML/PUML.h>
+#include "Initializer/Parameters/MeshParameters.h"
+#include "PUML/PUML.h"
 
 namespace seissol::initializer::time_stepping {
 class LtsWeights;
