@@ -98,6 +98,7 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+        const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -113,6 +114,7 @@ inline void precomputeStressFromQInterpolated(
 
 // TODO(NONLINEAR): unify
 #ifdef USE_DAMAGEDELASTIC
+  assert(damagedElasticParameters != nullptr);
   auto la0P = impAndEta.lambda0P;
   auto mu0P = impAndEta.mu0P;
   auto gaRP = impAndEta.gammaRP;
@@ -186,10 +188,11 @@ inline void precomputeStressFromQInterpolated(
   }
 
   // TODO(NONLINEAR) what are these numbers?
-  real aB0 = 7.43e9;
-  real aB1 = -12.14e9;
-  real aB2 = 18.93e9;
-  real aB3 = -5.067e9;
+
+  const real aB0 = damagedElasticParameters->aB0;
+  const real aB1 = damagedElasticParameters->aB1;
+  const real aB2 = damagedElasticParameters->aB2;
+  const real aB3 = damagedElasticParameters->aB3;
 
   real EspIp = (exxP) + (eyyP) + (ezzP);
   real EspIIp =

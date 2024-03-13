@@ -6,6 +6,8 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "tests/TestHelper.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "SeisSol.h"
 
 namespace seissol::unit_test::dr {
 
@@ -16,6 +18,8 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses faultStresses{};
   TractionResults tractionResults{};
   ImpedancesAndEta impAndEta;
+  //TODO(NONLINEAR) Need to initialise the parameters to the test case parameters
+  seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
   alignas(ALIGNMENT)
       real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};
   alignas(ALIGNMENT)
@@ -87,7 +91,8 @@ TEST_CASE("Friction Solver Common") {
                                                            qInterpolatedPlus,
                                                            qInterpolatedMinus,
                                                            qStrainInterpolatedMinus,
-                                                           qStrainInterpolatedPlus);
+                                                           qStrainInterpolatedPlus,
+                                                           &damagedElasticParameters);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {

@@ -720,7 +720,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
-
+  
   const double timeStepWidth = timeStepSize();
 
   ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
