@@ -13,8 +13,6 @@ with CUDA as device backend. For the SYCL parts, we use AdaptiveCpp (formerly kn
 Build Instructions (without spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**NOTE: THE FOLLOWING INSTRUCTIONS ARE STILL SUBOPTIMAL. TO CHANGE: MANUALLY INSTALL METIS+PARMETIS FOR INT64 DATATYPES. Also, the versions may need to be fixed**
-
 Here, we go for a build using gcc and AdaptiveCpp. We begin by setting up an environment. Firstly, choose a folder you want to install SeisSol to and navigate to it.
 Run ``pwd`` and copy the path there.
 
@@ -22,7 +20,7 @@ Run ``pwd`` and copy the path there.
 
     export SEISSOL_BASE=$(pwd)
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
-    export CMAKE_PREFIX_PATH=SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
 
     mkdir -p $SEISSOL_PREFIX
 
@@ -31,8 +29,6 @@ We load GCC explicitly, so that the environment variables for ``CC``, ``CXX``, e
 
 .. code-block:: bash
 
-    source ./launch.sh
-
     module load python/3.10.8--gcc--11.3.0
     module load cuda/11.8
     module load openmpi/4.1.4--gcc--11.3.0-cuda-11.8
@@ -40,8 +36,6 @@ We load GCC explicitly, so that the environment variables for ``CC``, ``CXX``, e
     module load ninja
     module load hdf5/1.12.2--openmpi--4.1.4--gcc--11.3.0
     module load netcdf-c/4.9.0--openmpi--4.1.4--gcc--11.3.0
-    module load metis/5.1.0--gcc--11.3.0
-    module load parmetis/4.0.3--openmpi--4.1.4--gcc--11.3.0
 
 It can be useful to place these module loads into a script of their own for running jobs later-on.
 
@@ -57,6 +51,7 @@ Unforunately, we need to compile LLVM ourselves, as the given LLVM module does n
     cd llvm-project-llvmorg-16.0.6/build
     cmake ../llvm -GNinja -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;compiler-rt;openmp;polly" -DGCC_INSTALL_PREFIX="${GCC_ROOT}" -DCUDA_TOOLKIT_ROOT_DIR="${CUDA_ROOT}" -DLLVM_TARGETS_TO_BUILD="X86;NVPTX"
     ninja install
+    cd ../..
 
 We need to install Boost manually as well, since the necessary components (fiber, context) are not included in the supplied Leonardo modules.
 (note that atomic and filesystem are required for the fiber module to work—not specifying them during the b2 command will lead to the cmake files not being generated)
@@ -77,7 +72,7 @@ For AdaptiveCpp itself, you can then do:
 
 .. code-block:: bash
 
-    git clone https://github.com/AdaptiveCpp/AdaptiveCpp.git
+    git clone --branch v23.10.0 --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp.git
     mkdir -p AdaptiveCpp/build
     cd AdaptiveCpp/build
     cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=OFF -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=ON -DDEFAULT_TARGETS=cuda:sm_80
@@ -85,22 +80,38 @@ For AdaptiveCpp itself, you can then do:
     cd ../..
 
 With all these packages and AdaptiveCpp at hand, you are left to install easi (optionally with Lua and ASAGI), Eigen, as well as the code generators libxsmm, PSpaMM, gemmforge and chainforge.
-You can find the install instructions for these packages under TODO. For completeness, we give them here as well.
+
+METIS/ParMETIS:
+
+.. code-block:: bash
+
+    wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+    tar -xvf parmetis-4.0.3.tar.gz
+    cd parmetis-4.0.3
+    sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
+    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX 
+    make install
+    cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
+    cp metis/include/metis.h $SEISSOL_PREFIX/include
+    cd ..
 
 YAML-CPP can be installed as follows:
 
 .. code-block:: bash
+
     wget https://github.com/jbeder/yaml-cpp/archive/refs/tags/0.8.0.tar.gz
     tar -xf 0.8.0.tar.gz
     mkdir -p yaml-cpp-0.8.0/build
     cd yaml-cpp-0.8.0/build
     cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja
+    cd ../..
 
 For easi, Eigen and libxsmm, the default instructions suffice.
 
 For ASAGI:
 
 .. code-block:: bash
+
     git clone --recursive --depth 1 https://github.com/TUM-I5/ASAGI
     mkdir -p ASAGI/build
     cd ASAGI/build
@@ -111,6 +122,7 @@ For ASAGI:
 For LUA:
 
 .. code-block:: bash
+
     wget https://www.lua.org/ftp/lua-5.4.6.tar.gz
     tar -xf lua-5.4.6.tar.gz
     cd lua-5.4.6
@@ -120,6 +132,7 @@ For LUA:
 For easi (depending on the former two):
 
 .. code-block:: bash
+
     git clone --recursive --depth 1 https://github.com/seissol/easi
     mkdir -p easi/build
     cd easi/build
