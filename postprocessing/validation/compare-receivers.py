@@ -121,11 +121,12 @@ def get_number_of_fused_sims(columns):
     relevant_columns = columns[1:]
     try:
         max_index = 0
-        for c in columns:
+        for c in relevant_columns:
             current_index = int(c[-1])
             max_index = current_index if current_index > max_index else max_index
         return max_index + 1
-    except:
+    except Exception as e:
+        print(e)
         return -1
 
 
