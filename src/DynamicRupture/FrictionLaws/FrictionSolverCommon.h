@@ -98,7 +98,8 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qStrainInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-        const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
+    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters =
+        nullptr,
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -194,12 +195,10 @@ inline void precomputeStressFromQInterpolated(
   const real aB2 = damagedElasticParameters->aB2;
   const real aB3 = damagedElasticParameters->aB3;
 
-  real EspIp = (exxP) + (eyyP) + (ezzP);
-  real EspIIp =
-      (exxP) * (exxP) + (eyyP) * (eyyP) +
-      (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
-      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
-  real alphap = damP;
+  const real EspIp = (exxP) + (eyyP) + (ezzP);
+  const real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
+                      2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
+  const real alphap = damP;
   real xip;
   if (EspIIp > 1e-30) {
     xip = EspIp / std::sqrt(EspIIp);
@@ -207,11 +206,9 @@ inline void precomputeStressFromQInterpolated(
     xip = 0.0;
   }
 
-  real EspIm = (exxM) + (eyyM) + (ezzM);
-  real EspIIm =
-      (exxM) * (exxM) + (eyyM) * (eyyM) +
-      (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
-      2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
+  const real EspIm = (exxM) + (eyyM) + (ezzM);
+  const real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
+                      2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
   real alpham = damM;
   real xim;
   if (EspIIm > 1e-30) {

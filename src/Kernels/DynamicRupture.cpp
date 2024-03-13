@@ -162,9 +162,13 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
         timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 #endif
 
-    // Derive stress solutions from strain
-    alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
-    alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
+        // Derive stress solutions from strain
+    alignas(ALIGNMENT) real dofsNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsNMinus[tensor::Q::size()]{};
+
+    alignas(ALIGNMENT) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
+
 #ifdef USE_DAMAGEDELASTIC
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
@@ -176,9 +180,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     d_converToKrnl.Q = degreesOfFreedomMinus;
     d_converToKrnl.execute();
 #endif
-
-    alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
-    alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
     // TODO(NONLINEAR) What are these numbers?
     const real epsInitxx = damagedElasticParameters->epsInitxx; // eps_xx0
@@ -248,10 +251,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
           dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
-
-#ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
@@ -261,7 +260,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     d_convertBackKrnl.FNodal = dofsStressNMinus;
     d_convertBackKrnl.dQModal = dofsStressMinus;
     d_convertBackKrnl.execute();
-#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER - 1)
                                    ? &QInterpolatedPlus[timeInterval + 1][0]

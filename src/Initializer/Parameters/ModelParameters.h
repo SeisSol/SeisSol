@@ -42,7 +42,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-constexpr bool isDamagedElastic(){
+constexpr bool isModelDamagedElastic(){
 #ifdef USE_DAMAGEDELASTIC
   return true;
 #else

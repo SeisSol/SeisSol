@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>

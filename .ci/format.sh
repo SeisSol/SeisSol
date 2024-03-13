@@ -80,7 +80,7 @@ format() {
 
     for dir in ${allowlist_dir}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
-        files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
+        files=$(find ${path} -type f \( -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu \) )
         for file in ${files}; do
             ${formatter} -i -style=file $file
         done

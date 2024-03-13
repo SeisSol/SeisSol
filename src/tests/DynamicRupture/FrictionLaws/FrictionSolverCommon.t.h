@@ -1,7 +1,9 @@
 #ifndef SEISSOL_FRICTIONSOLVERCOMMON_T_H
 #define SEISSOL_FRICTIONSOLVERCOMMON_T_H
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <numeric>
+#include <utils/logger.h>
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
@@ -53,6 +55,19 @@ TEST_CASE("Friction Solver Common") {
   impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
   impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
+#ifdef USE_DAMAGEDELASTIC
+  impAndEta.lambda0P = 32043759360;
+  impAndEta.mu0P = 32038120320;
+  impAndEta.gammaRP = 3.72e10;
+  impAndEta.xi0P = 0.75;
+  impAndEta.rho0P = 2760;
+  impAndEta.lambda0M = 32043759360;
+  impAndEta.mu0M = 32038120320;
+  impAndEta.gammaRM = 0;
+  impAndEta.xi0M = 0.75;
+  impAndEta.rho0M = 2760;
+#endif
+
   ImpedanceMatrices impMats;
   auto etaView = init::eta::view::create(impMats.eta);
   etaView(0, 0) = impAndEta.etaP;
@@ -82,6 +97,8 @@ TEST_CASE("Friction Solver Common") {
       tractionResults.traction2[o][p] = t2(o, p);
     }
   }
+
+  seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
 
   SUBCASE("Precompute Stress") {
     friction_law::common::precomputeStressFromQInterpolated<

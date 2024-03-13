@@ -104,14 +104,15 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
+  class SeisSol;
   namespace time_stepping {
     class TimeCluster;
-  }
+  } // namespace time_stepping
 
   namespace kernels {
     class ReceiverCluster;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
@@ -325,12 +326,12 @@ private:
             // Compute local integrals with derivatives and Rusanov flux
             /// S1: compute the space-time interpolated Q on both side of 4 faces
             /// S2: at the same time rotate the field to face-aligned coord.
-            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
-            alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+            alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+            alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
             for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-              real degreesOfFreedomPlus[tensor::Q::size()];
-              real degreesOfFreedomMinus[tensor::Q::size()];
+              alignas(ALIGNMENT) real degreesOfFreedomPlus[tensor::Q::size()];
+              alignas(ALIGNMENT) real degreesOfFreedomMinus[tensor::Q::size()];
 
               for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
                 degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
@@ -376,22 +377,18 @@ private:
             /// Checked that, after reshaping, it still uses the same memory address
             /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
             using namespace seissol::dr::misc::quantity_indices;
-            unsigned DAM = 9;
-            unsigned BRE = 10;
+            const unsigned DAM = 9;
+            const unsigned BRE = 10;
 
             // TODO(NONLINEAR) Write unified reader for these parameters
-
-            const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-            const real epsInitxx = damagedElasticParameters.epsInitxx;
-            const real epsInityy = damagedElasticParameters.epsInityy;
-            const real epsInitzz = damagedElasticParameters.epsInitzz;
-            const real epsInitxy = damagedElasticParameters.epsInitxy;
-            const real epsInityz = damagedElasticParameters.epsInityz;
-            const real epsInitzx = damagedElasticParameters.epsInitzx;
-            const real aB0 = damagedElasticParameters.aB0;
-            const real aB1 = damagedElasticParameters.aB1;
-            const real aB2 = damagedElasticParameters.aB2;
-            const real aB3 = damagedElasticParameters.aB3;
+    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+    
+    const real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
+    const real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
+    const real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
+    const real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
+    const real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
+    const real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
 
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
@@ -400,6 +397,11 @@ private:
             real lambda0M = materialData[l_cell].neighbor[side].lambda0;
             real mu0M = materialData[l_cell].neighbor[side].mu0;
             real rho0M = materialData[l_cell].neighbor[side].rho;
+    const real aB0 = damagedElasticParameters.aB0;
+    const real aB1 = damagedElasticParameters.aB1;
+    const real aB2 = damagedElasticParameters.aB2;
+    const real aB3 = damagedElasticParameters.aB3;
+
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP

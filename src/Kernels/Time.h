@@ -158,6 +158,9 @@ class seissol::kernels::Time : public TimeBase {
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
   unsigned int* getDerivativesOffsets();
+  /**
+   * sets the damaged elastic parameters pointer
+  */
   void const setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters){
     damagedElasticParameters = mDamagedElasticParameters;
   };

@@ -4,6 +4,7 @@
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Initializer/Parameters/ModelParameters.h>
 #include <cstring>
 
 using namespace seissol::dr::misc::quantity_indices;
@@ -140,15 +141,15 @@ void ReceiverOutput::calcFaultOutput(
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
 #ifdef USE_DAMAGEDELASTIC
     seissol::dr::ImpedancesAndEta* impAndEtaGet =
         &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
     // Derive stress solutions from strain
-    real dofsNPlus[tensor::Q::size()]{};
-    real dofsNMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsNMinus[tensor::Q::size()]{};
 
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
