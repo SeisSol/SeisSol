@@ -98,8 +98,6 @@ TEST_CASE("Friction Solver Common") {
     }
   }
 
-  seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
-
   SUBCASE("Precompute Stress") {
     friction_law::common::precomputeStressFromQInterpolated<
         seissol::dr::friction_law::common::RangeType::CPU>(faultStresses,

@@ -250,7 +250,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
       dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
           dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
     }
-
+#ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
@@ -260,6 +260,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     d_convertBackKrnl.FNodal = dofsStressNMinus;
     d_convertBackKrnl.dQModal = dofsStressMinus;
     d_convertBackKrnl.execute();
+#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER - 1)
                                    ? &QInterpolatedPlus[timeInterval + 1][0]
