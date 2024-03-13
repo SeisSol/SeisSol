@@ -26,7 +26,7 @@ SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
 ! parameterize paraview file output
 &Elementwise
-printtimeinterval_sec = 1.00                   ! Time interval at which output will be written
+printtimeinterval_sec = 0.5                    ! Time interval at which output will be written
 OutputMask = 1 1 0 1 1 1 1 1 1 1 1             ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 0
@@ -67,9 +67,9 @@ TimeInterval =  5.                           ! Index of printed info at time
 refinement = 1
 
 ! Free surface output
-SurfaceOutput = 0
+SurfaceOutput = 1
 SurfaceOutputRefinement = 1
-SurfaceOutputInterval = 0.5
+SurfaceOutputInterval = 5.0
 
 xdmfWriterBackend = 'hdf5' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with

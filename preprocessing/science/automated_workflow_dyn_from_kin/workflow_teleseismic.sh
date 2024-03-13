@@ -13,7 +13,7 @@ proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
 for faultoutput in output/dyn*-fault.xdmf; do
    echo $faultoutput
    #todo change to easi
-   $2/compute_multi_cmt.py spatial $faultoutput  0 30e9 --DH 10 --proj "${proj}"
+   $2/compute_multi_cmt.py spatial $faultoutput  1 $1/preprocessing/science/automated_workflow_dyn_from_kin/input_files/smooth_PREM.txt --DH 10 --proj "${proj}"
 done
 mv PointSource* tmp
 # todo: adapt duration Tmin and Tmax

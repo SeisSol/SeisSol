@@ -132,7 +132,7 @@ def compute_critical_nucleation(
             ids = points_in_sphere(centers, center, rad)
             estimatedR = np.median(L[ids])
             if rad > 2.0 * estimatedR:
-                ratio_slip_area = 100 * np.pi * rad**2 / sum_slip_area
+                ratio_slip_area = 100 * np.pi * rad**2 / slip_area
                 print(
                     "selected_radius, estimated_radius, std, nuc_area/slip_area (%) :"
                     f" {rad:.0f} {estimatedR:.0f} {np.std(L[ids]):.0f}"
