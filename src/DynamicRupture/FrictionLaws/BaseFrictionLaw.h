@@ -8,6 +8,8 @@
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Monitoring/instrumentation.hpp"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "SeisSol.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -17,8 +19,8 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(seissol::SeisSol& seissolInstance)
+      : FrictionSolver(&seissolInstance.getSeisSolParameters().drParameters, &seissolInstance.getSeisSolParameters().model.damagedElasticParameters){};
 
   /**
    * evaluates the current friction model
@@ -69,10 +71,10 @@ class BaseFrictionLaw : public FrictionSolver {
       real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
-      real aB0 = 7.43e9;
-      real aB1 = -12.14e9;
-      real aB2 = 18.93e9;
-      real aB3 = -5.067e9;
+      const real aB0 = damagedElasticParameters->aB0;
+      const real aB1 = damagedElasticParameters->aB1;
+      const real aB2 = damagedElasticParameters->aB2;
+      const real aB3 = damagedElasticParameters->aB3;
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
