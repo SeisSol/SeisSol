@@ -4,8 +4,9 @@ Leonardo
 Website: https://leonardo-supercomputer.cineca.eu/
 
 We will focus here on the Booster module of Leonardo, i.e. we use GPUs. That is, one node consists of:
-* 1× Intel Xeon Platinum 8358 (Sapphire Rapids) CPU @ 2 sockets × 32 cores × 2 HT
-* 4× Nvidia A100 SXM6 GPUs
+
+- 1× Intel Xeon Platinum 8358 (Sapphire Rapids) CPU @ 2 sockets × 32 cores × 2 HT
+- 4× Nvidia A100 SXM6 GPUs
 
 Thus, we will run SeisSol with 4 ranks per node. As architectures, we compile for the host/CPU architecture ``skx``, and use ``sm_80`` as architecture for the GPUs, together
 with CUDA as device backend. For the SYCL parts, we use AdaptiveCpp (formerly known as hipSYCL or Open SYCL).
@@ -14,7 +15,7 @@ Build Instructions (without spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Here, we go for a build using gcc and AdaptiveCpp. We begin by setting up an environment. Firstly, choose a folder you want to install SeisSol to and navigate to it.
-Run ``pwd`` and copy the path there.
+Run ``pwd`` and copy the path there. Run the following script there.
 
 .. code-block:: bash
 
