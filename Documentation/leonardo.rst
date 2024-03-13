@@ -184,6 +184,7 @@ Finally, it's time to clone SeisSol and build it.
     mkdir -p seissol/build
     cd seissol/build
     cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=skx -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
 
