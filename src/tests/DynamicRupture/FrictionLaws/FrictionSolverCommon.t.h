@@ -20,7 +20,7 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses faultStresses{};
   TractionResults tractionResults{};
   ImpedancesAndEta impAndEta;
-  //TODO(NONLINEAR) Need to initialise the parameters to the test case parameters
+  // TODO(NONLINEAR) Need to initialise the parameters to the test case parameters
   seissol::initializer::parameters::DamagedElasticParameters damagedElasticParameters{};
   alignas(ALIGNMENT)
       real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};

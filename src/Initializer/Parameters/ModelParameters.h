@@ -42,7 +42,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-constexpr bool isModelDamagedElastic(){
+constexpr bool isModelDamagedElastic() {
 #ifdef USE_DAMAGEDELASTIC
   return true;
 #else
@@ -60,7 +60,7 @@ struct ITMParameters {
   ReflectionType itmReflectionType;
 };
 
-struct DamagedElasticParameters{
+struct DamagedElasticParameters {
   real epsInitxx;
   real epsInityy;
   real epsInitzz;

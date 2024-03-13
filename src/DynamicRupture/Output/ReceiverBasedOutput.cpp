@@ -180,7 +180,7 @@ void ReceiverOutput::calcFaultOutput(
     const real aB1 = damagedElasticParameters.aB1;
     const real aB2 = damagedElasticParameters.aB2;
     const real aB3 = damagedElasticParameters.aB3;
-    
+
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
       real EspIp = (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
                    (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) +

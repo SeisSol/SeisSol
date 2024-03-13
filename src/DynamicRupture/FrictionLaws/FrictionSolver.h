@@ -16,8 +16,9 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters,
-                          seissol::initializer::parameters::DamagedElasticParameters* userDamagedElasticParameters)
+  explicit FrictionSolver(
+      seissol::initializer::parameters::DRParameters* userDRParameters,
+      seissol::initializer::parameters::DamagedElasticParameters* userDamagedElasticParameters)
       : drParameters(userDRParameters), damagedElasticParameters(userDamagedElasticParameters) {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
               &init::quadweights::Values[init::quadweights::Stop[0]],

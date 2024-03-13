@@ -32,10 +32,10 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
 
         const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
-        #pragma unroll
+#pragma unroll
         for (int component{0}; component < 3; ++component) {
           elementBoundaryDofs[tid + component * ldINodal] =
-            2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
+              2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
         }
       }
     }
@@ -68,7 +68,8 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   static_assert(INodalDim1 == ConstantDim0, "supposed to be equal");
   static_assert(INodalDim1 == MapDim0, "supposed to be equal");
 
-  using LocalMemoryType = cl::sycl::accessor<real, 2, cl::sycl::access_mode::read_write, cl::sycl::access::target::local>;
+  using LocalMemoryType = cl::sycl::
+      accessor<real, 2, cl::sycl::access_mode::read_write, cl::sycl::access::target::local>;
 
   queue->submit([&](cl::sycl::handler& cgh) {
     LocalMemoryType resultTerm(cl::sycl::range<2>(INodalDim1, INodalDim0), cgh);
@@ -76,7 +77,6 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     LocalMemoryType leftTerm(cl::sycl::range<2>(MapDim0, MapDim2), cgh);
 
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-
       const int tid = item.get_local_id(0);
       const int elementId = item.get_group().get_group_id(0);
 
@@ -93,7 +93,8 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         item.barrier();
 
         for (int i = 0; i < INodalDim1; ++i) {
-          if (tid < INodalDim0) resultTerm[i][tid] = 0.0;
+          if (tid < INodalDim0)
+            resultTerm[i][tid] = 0.0;
         }
         item.barrier();
 
@@ -123,8 +124,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     });
   });
 }
-} // seissol::kernels::local_flux::aux::details
-
+} // namespace seissol::kernels::local_flux::aux::details
 
 namespace seissol::kernels::time::aux {
 void extractRotationMatrices(real** displacementToFaceNormalPtrs,
@@ -159,13 +159,12 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
   });
 }
 
-void initializeTaylorSeriesForGravitationalBoundary(
-  real** prevCoefficientsPtrs,
-  real** integratedDisplacementNodalPtrs,
-  real** rotatedFaceDisplacementPtrs,
-  double deltaTInt,
-  size_t numElements,
-  void* deviceStream) {
+void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
+                                                    real** integratedDisplacementNodalPtrs,
+                                                    real** rotatedFaceDisplacementPtrs,
+                                                    double deltaTInt,
+                                                    size_t numElements,
+                                                    void* deviceStream) {
 
   auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
   const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
@@ -178,7 +177,8 @@ void initializeTaylorSeriesForGravitationalBoundary(
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
       const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-      assert(nodal::tensor::nodes2D::Shape[0] <= yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
+      assert(nodal::tensor::nodes2D::Shape[0] <=
+             yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
 
       const int tid = item.get_local_id(0);
       constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[0];
@@ -190,11 +190,8 @@ void initializeTaylorSeriesForGravitationalBoundary(
   });
 }
 
-void computeInvAcousticImpedance(double* invImpedances,
-                                 double* rhos,
-                                 double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream) {
+void computeInvAcousticImpedance(
+    double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream) {
   constexpr size_t blockSize{256};
   auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
   cl::sycl::nd_range rng{{numElements * blockSize}, {blockSize}};
@@ -246,7 +243,8 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
         const auto rho = rhos[elementId];
         const auto invImpedance = invImpedances[elementId];
 
-        const double curCoeff = uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
+        const double curCoeff =
+            uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
 #else
         const double curCoeff = uInside;
 #endif
@@ -260,7 +258,8 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
         rotatedFaceDisplacement[tid + 1 * ldFaceDisplacement] += factorEvaluated * vInside;
         rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
-        constexpr auto ldIntegratedFaceDisplacement = yateto::leadDim<seissol::init::averageNormalDisplacement>();
+        constexpr auto ldIntegratedFaceDisplacement =
+            yateto::leadDim<seissol::init::averageNormalDisplacement>();
         static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
         real* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];

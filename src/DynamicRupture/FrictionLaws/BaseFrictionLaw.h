@@ -21,7 +21,8 @@ template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
   explicit BaseFrictionLaw(seissol::SeisSol& seissolInstance)
-      : FrictionSolver(&seissolInstance.getSeisSolParameters().drParameters, &seissolInstance.getSeisSolParameters().model.damagedElasticParameters){};
+      : FrictionSolver(&seissolInstance.getSeisSolParameters().drParameters,
+                       &seissolInstance.getSeisSolParameters().model.damagedElasticParameters){};
 
   /**
    * evaluates the current friction model
@@ -81,8 +82,7 @@ class BaseFrictionLaw : public FrictionSolver {
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-          real EspIp = (qIPlus[o][XX][i]) + (qIPlus[o][YY][i]) +
-                       (qIPlus[o][ZZ][i]);
+          real EspIp = (qIPlus[o][XX][i]) + (qIPlus[o][YY][i]) + (qIPlus[o][ZZ][i]);
           real EspIIp = (qIPlus[o][XX][i]) * (qIPlus[o][XX][i]) +
                         (qIPlus[o][YY][i]) * (qIPlus[o][YY][i]) +
                         (qIPlus[o][ZZ][i]) * (qIPlus[o][ZZ][i]) +
