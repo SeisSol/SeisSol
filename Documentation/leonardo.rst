@@ -104,6 +104,7 @@ YAML-CPP can be installed as follows:
     mkdir -p yaml-cpp-0.8.0/build
     cd yaml-cpp-0.8.0/build
     cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja
+    ninja install
     cd ../..
 
 For easi, Eigen and libxsmm, the default instructions suffice.
