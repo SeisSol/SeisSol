@@ -43,6 +43,7 @@ It can be useful to place these module loads into a script of their own for runn
 Unforunately, we need to compile LLVM ourselves, as the given LLVM module does not have an NVPTX backend enabled (note: consider switching your build directory to TMP or SCRATCH, since LLVM can be big).
 
 .. code-block:: bash
+
     export GCC_ROOT=$(dirname $(dirname $(which gcc)))
     export CUDA_ROOT=$(dirname $(dirname $(which nvcc)))
 
