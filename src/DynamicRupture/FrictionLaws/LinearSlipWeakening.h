@@ -2,7 +2,6 @@
 #define SEISSOL_LINEARSLIPWEAKENING_H
 
 #include "BaseFrictionLaw.h"
-#include "SeisSol.h"
 
 #include "utils/logger.h"
 
