@@ -171,6 +171,22 @@ for key in tags.keys():
     gmsh.model.mesh.setSize(gmsh.model.getBoundary(pairs, False, False, True), h)
     gmsh.model.addPhysicalGroup(2, tags[key], key)
 
+
+fault_faces = []
+for key in tags.keys():
+    if key not in [1, 5]:
+        fault_faces.extend(tags[key])
+print(fault_faces)
+
+# Set mesh size based on a distance from faults field
+gmsh.model.mesh.field.add("Distance", 1)
+gmsh.model.mesh.field.setNumbers(1, "SurfacesList", fault_faces)
+gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+gmsh.model.mesh.field.add("MathEval", 2)
+gmsh.model.mesh.field.setString(2, "F", f"0.1*F1 +(F1/5000)^2 + {h_fault}")
+gmsh.model.mesh.field.setAsBackgroundMesh(2)
+gmsh.model.geo.synchronize()
+
 gmsh.model.addPhysicalGroup(3, [1], 1)
 gmsh.model.mesh.generate(3)
 
