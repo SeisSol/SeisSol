@@ -2,6 +2,12 @@
 #include <Numerical_aux/RegularizedYoffe.h>
 #include <cassert>
 
+#ifdef ACL_DEVICE
+using MathFunctions = seissol::functions::SyclStdFunctions;
+#else
+using MathFunctions = seissol::functions::HostStdFunctions;
+#endif
+
 namespace seissol::unit_test {
 /**
  * Yoffe function, see Tinti et al. 2005: eq 1
@@ -65,7 +71,8 @@ TEST_CASE("Regularized Yoffe Function") {
       real tauR = effectiveRiseTime - 2 * tauS;
 
       for (int i = -10; i < 111; i++) {
-        real stfEvaluated = seissol::regularizedYoffe::regularizedYoffe(i * dt, tauS, tauR);
+        real stfEvaluated =
+            seissol::regularizedYoffe::regularizedYoffe<MathFunctions>(i * dt, tauS, tauR);
         real referenceEvaluated = regularizedYoffe(i * dt, tauS, tauR);
         REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(epsilon));
       }

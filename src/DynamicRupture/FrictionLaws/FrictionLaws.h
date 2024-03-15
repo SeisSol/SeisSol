@@ -20,6 +20,7 @@
 #include "GpuImpl/SlipLaw.h"
 #include "GpuImpl/FastVelocityWeakeningLaw.h"
 #include "GpuImpl/ThermalPressurization/NoTP.h"
+#include "GpuImpl/ImposedSlipRates.h"
 #endif
 
 #endif // SEISSOL_FRICTIONLAWS_H
