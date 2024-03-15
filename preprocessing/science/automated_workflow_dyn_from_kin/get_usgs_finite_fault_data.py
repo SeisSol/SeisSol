@@ -4,6 +4,8 @@ import os
 import wget
 import argparse
 import shutil
+import numpy as np
+from obspy import UTCDateTime
 
 
 def find_key_recursive(data, target_key, current_path=None):
@@ -52,20 +54,62 @@ def wget_overwrite(url, out_fname=None):
     filename = wget.download(url, out=out_fname, bar=None)
 
 
+def retrieve_usgs_id_from_dtgeo_dict(fname, min_mag):
+    print("dt-geo event dictionnary detected: retrieving usgs_id")
+    ev = np.load(fname, allow_pickle=True).item()
+
+    origin_time = UTCDateTime(ev["ot"])
+    origin_time_plus_one_day = origin_time + 24 * 3600
+
+    url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
+    url += f"&minmagnitude={min_mag}"
+    url += f"&starttime={origin_time}&endtime={origin_time_plus_one_day}"
+    url += f"&minlatitude={ev['lat']-0.5}&maxlatitude={ev['lat']+0.5}"
+    url += f"&minlongitude={ev['lon']-0.5}&maxlongitude={ev['lon']+0.5}"
+
+    fn_json = "out.json"
+    wget_overwrite(url, fn_json)
+
+    with open(fn_json) as f:
+        jsondata = json.load(f)
+    features = get_value_from_usgs_data(jsondata, "features")
+    if not features:
+
+        def convert(obj):
+            # Convert NumPy arrays to lists before pretty printing
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return obj
+
+        pretty_dict = json.dumps(dict(ev), indent=4, sort_keys=True, default=convert)
+        print(pretty_dict)
+        raise ValueError(f"usgs event_id could not be retrieved from {fname}")
+    usgs_id = features[0]["id"]
+    print(f"retrieved usgs event_id: {usgs_id}")
+    return usgs_id
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="download usgs finite model data for a specific earthquake"
     )
-    parser.add_argument("eq_code", help="usgs earthquake code")
+    parser.add_argument(
+        "usgs_id_or_dtgeo_npy",
+        help="usgs earthquake code or event dictionnary (dtgeo workflow)",
+    )
     parser.add_argument(
         "--min_magnitude", nargs=1, help="min magnitude in eq query", default=[7.0]
     )
     args = parser.parse_args()
-
-    eq_code = args.eq_code
     minM = args.min_magnitude[0]
-    url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&&minmagnitude={minM}&eventid={eq_code}"
-    fn_json = f"{eq_code}.json"
+
+    if args.usgs_id_or_dtgeo_npy[-3:] == "npy":
+        usgs_id = retrieve_usgs_id_from_dtgeo_dict(args.usgs_id_or_dtgeo_npy, minM)
+    else:
+        usgs_id = args.usgs_id_or_dtgeo_npy
+
+    url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&&minmagnitude={minM}&eventid={usgs_id}"
+    fn_json = f"{usgs_id}.json"
     wget_overwrite(url, fn_json)
 
     with open(fn_json) as f:

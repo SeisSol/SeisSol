@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euov pipefail
 
-event_id=$1
+usgs_event_id_or_dtgeo_file=$1
 if [ $# -ne 2 ]
 then
     echo "illegal number of parameters, usage:"
-    echo "./workflow_usgs_finite_model.sh event_id path2seissol"
+    echo "./workflow_usgs_finite_model.sh usgs_event_id_or_dtgeo_file path2seissol"
     exit 1
 fi
 
@@ -14,7 +14,7 @@ if ! which pumgen > /dev/null; then
     exit 1
 fi
 
-folder_name=$($2/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $event_id)
+folder_name=$($2/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $usgs_event_id_or_dtgeo_file)
 cd $folder_name
 read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
