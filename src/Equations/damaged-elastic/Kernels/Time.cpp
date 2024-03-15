@@ -193,9 +193,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   const real epsInityz = m_damagedElasticParameters->epsInityz;
   const real epsInitzx = m_damagedElasticParameters->epsInitzx;
 
-  const real damagedParameter = data.material.local.Cd;
+  const real damageParameter = data.material.local.Cd;
   const real scalingValue = m_damagedElasticParameters->scalingValue;
-  const real breakCoefficient = scalingValue * damagedParameter;
+  const real breakCoefficient = scalingValue * damageParameter;
   const real betaAlpha = m_damagedElasticParameters->betaAlpha;
 
   kernel::damageConvertToNodal d_converToKrnl;
@@ -273,7 +273,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
               breakCoefficient * data.material.local.gammaR * EspII *
               (xi + data.material.local.xi0);
           fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-              (1 - breakNodal[q]) * damagedParameter * data.material.local.gammaR * EspII *
+              (1 - breakNodal[q]) * damageParameter * data.material.local.gammaR * EspII *
               (xi + data.material.local.xi0);
         } else {
           fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -284,10 +284,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
         fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       }
     } else if (alpha_ave > 5e-1) {
-      fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damagedParameter *
+      fNodalData[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damageParameter *
                                                               data.material.local.gammaR * EspII *
                                                               (xi + data.material.local.xi0);
-      fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damagedParameter *
+      fNodalData[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0 * damageParameter *
                                                                data.material.local.gammaR * EspII *
                                                                (xi + data.material.local.xi0);
     } else {
