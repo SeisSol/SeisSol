@@ -11,6 +11,14 @@ parser = argparse.ArgumentParser(
     )
 )
 parser.add_argument("filename", help="filename of the srf file")
+
+parser.add_argument(
+    "--instantaneous",
+    dest="instantaneous",
+    action="store_true",
+    help="apply the slip over 0.1s everywhere",
+    default=False,
+)
 parser.add_argument(
     "--interpolation_method",
     nargs=1,
@@ -18,6 +26,21 @@ parser.add_argument(
     default=["linear"],
     help="interpolation method",
     choices=["linear", "nearest", "slinear", "cubic", "quintic"],
+)
+parser.add_argument(
+    "--proj",
+    metavar=("proj"),
+    nargs=1,
+    help=("proj4 string describing the projection"),
+    required=True,
+)
+parser.add_argument(
+    "--PSRthreshold",
+    help="peak slip rate threshold (0-1) to determine onset time and duration of STF",
+    nargs=1,
+    metavar="PSRthreshold",
+    type=float,
+    default=[0.0],
 )
 parser.add_argument(
     "--spatial_zoom",
@@ -34,26 +57,6 @@ parser.add_argument(
     help="write also netcdf readable by paraview",
     default=False,
 )
-parser.add_argument(
-    "--generate_ts_yaml",
-    metavar=("proj", "instantaneous"),
-    nargs=2,
-    help=(
-        "generate fault yaml file and write fault geometry (ts file). proj: proj4"
-        " string describing the projection. instantaneous: (0 or 1) to apply the slip"
-        " over 0.1s everywhere or not"
-    ),
-)
-
-parser.add_argument(
-    "--PSRthreshold",
-    help="peak slip rate threshold (0-1) to determine onset time and duration of STF",
-    nargs=1,
-    metavar="PSRthreshold",
-    type=float,
-    default=[0.0],
-)
-
 args = parser.parse_args()
 
 prefix, ext = os.path.splitext(args.filename)
@@ -63,6 +66,8 @@ if ext == ".srf":
     mfp = MultiFaultPlane.from_srf(args.filename)
 elif ext == ".param":
     mfp = MultiFaultPlane.from_usgs_param_file(args.filename)
+elif ext == ".fsp":
+    mfp = MultiFaultPlane.from_usgs_fsp_file(args.filename)
 elif ext == ".txt":
     mfp = MultiFaultPlane.from_slipnear_param_file(args.filename)
 else:
@@ -76,16 +81,15 @@ for p, p1 in enumerate(mfp.fault_planes):
         f"{prefix}{p+1}",
         method=args.interpolation_method[0],
         spatial_zoom=args.spatial_zoom[0],
-        proj=args.generate_ts_yaml[0],
+        proj=args.proj[0],
         write_paraview=args.write_paraview,
-        slip_cutoff=min(0.1*mfp.max_slip, 100.0)
+        slip_cutoff=min(0.1 * mfp.max_slip, 100.0),
     )
 
-if args.generate_ts_yaml:
-    mfp.generate_fault_ts_yaml_fl33(
-        prefix,
-        method=args.interpolation_method[0],
-        spatial_zoom=args.spatial_zoom[0],
-        proj=args.generate_ts_yaml[0],
-        instantaneous=True if args.generate_ts_yaml[1] else False,
-    )
+mfp.generate_fault_ts_yaml_fl33(
+    prefix,
+    method=args.interpolation_method[0],
+    spatial_zoom=args.spatial_zoom[0],
+    proj=args.proj[0],
+    instantaneous=args.instantaneous,
+)

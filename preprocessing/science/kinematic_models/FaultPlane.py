@@ -192,6 +192,92 @@ class MultiFaultPlane:
             self.max_slip = max(self.max_slip, np.amax(fp.slip1))
 
     @classmethod
+    def from_usgs_fsp_file(cls, fname):
+        import re
+        import pandas as pd
+        from io import StringIO
+
+        with open(fname, "r") as fid:
+            lines = fid.readlines()
+
+        if "FINITE-SOURCE RUPTURE MODEL" not in lines[0]:
+            raise ValueError("Not a valid USGS fsp file.")
+
+        def read_param(line, name, dtype=int):
+            if name not in line:
+                raise ValueError(f"{name} not found in line: {line}")
+            else:
+                return dtype(line.split(f"{name} =")[1].split()[0])
+
+        def get_to_first_line_starting_with(lines, pattern):
+            for i, line in enumerate(lines):
+                if line.startswith(pattern):
+                    return lines[i:]
+            raise ValueError(f"{pattern} not found")
+
+        lines = get_to_first_line_starting_with(lines, "% Mech :")
+        strike = read_param(lines[0], "STRK", float)
+        dip = read_param(lines[0], "DIP", float)
+        lines = get_to_first_line_starting_with(lines, "% Invs :")
+        nx = read_param(lines[0], "Nx")
+        ny = read_param(lines[0], "Nz")
+        dx = read_param(lines[1], "Dx", float)
+        dy = read_param(lines[1], "Dz", float)
+        nseg = read_param(lines[2], "Nsg")
+        print(f"No. of fault segments in param file: {nseg}")
+
+        lines = get_to_first_line_starting_with(lines, "% VELOCITY-DENSITY")
+        nlayers = read_param(lines[1], "layers")
+        text_file = StringIO("\n".join(lines[3 : 5 + nlayers]))
+        velocity_model_df = pd.read_csv(text_file, sep="\s+").drop(0)
+        print(velocity_model_df)
+
+        fault_planes = []
+        for i_seg in range(nseg):
+            fault_planes.append(FaultPlane())
+            fp = fault_planes[i_seg]
+            if nseg != 1:
+                lines = get_to_first_line_starting_with(lines, "% SEGMENT")
+                strike = read_param(lines[0], "STRIKE", float)
+                dip = read_param(lines[0], "DIP", float)
+                lx = read_param(lines[0], "LEN", float)
+                ly = read_param(lines[0], "WID", float)
+                nx = round(lx / dx)
+                ny = round(ly / dy)
+
+            lines = get_to_first_line_starting_with(lines, "% Nsbfs")
+            nsbfs = read_param(lines[0], "Nsbfs")
+            assert nsbfs == nx * ny
+
+            fp.init_spatial_arrays(nx, ny)
+            lines = get_to_first_line_starting_with(lines, "% LAT LON")
+            column_names = lines[0][1:].split()
+            text_file = StringIO("\n".join(lines[2 : 2 + nsbfs]))
+            df = pd.read_csv(text_file, sep="\s+", header=None, names=column_names)
+
+            assert (
+                df["TRUP"] >= 0
+            ).all(), (
+                "AssertionError: Not all rupture time are greater than or equal to 0."
+            )
+            for j in range(fp.ny):
+                for i in range(fp.nx):
+                    k = j * fp.nx + i
+                    fp.lon[j, i] = df["LON"][k]
+                    fp.lat[j, i] = df["LAT"][k]
+                    fp.depth[j, i] = df["Z"][k]
+                    fp.slip1[j, i] = df["SLIP"][k]
+                    fp.rake[j, i] = df["RAKE"][k]
+                    fp.strike[j, i] = strike
+                    fp.dip[j, i] = dip
+                    fp.PSarea_cm2 = dx * dy * 1e10
+                    fp.t0[j, i] = df["TRUP"][k]
+                    # t_fal in not specified in this file (compared with the *.param file)
+                    fp.tacc[j, i] = 0.5 * df["RISE"][k]
+                    fp.rise_time[j, i] = df["RISE"][k]
+        return cls(fault_planes)
+
+    @classmethod
     def from_usgs_param_file(cls, fname):
         import re
         import pandas as pd

@@ -8,7 +8,12 @@ import os
 import glob
 import re
 from obspy.signal.cross_correlation import correlate, correlate_template, xcorr_max
+from scipy import integrate
 
+def infer_duration(time, moment_rate):
+    moment = integrate.cumtrapz(moment_rate, time, initial=0)
+    M0 = np.trapz(moment_rate[:], x=time[:])
+    return np.amax(time[moment<0.99*M0])
 
 def computeMw(label, time, moment_rate):
     M0 = np.trapz(moment_rate[:], x=time[:])
@@ -59,6 +64,8 @@ results = {"B": [], "C": [], "R0": [], "Mw": [], "ccmax": [], "M0mis": []}
 
 mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
 M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
+print(usgs_duration)
 # Create a new time array with the desired time step
 dt = 0.25
 new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
@@ -80,12 +87,18 @@ for i, fn in enumerate(energy_files):
     results["B"].append(B)
     results["C"].append(C)
     results["R0"].append(R)
-
-    cc = correlate_template(
-        mr_usgs_interp, df["seismic_moment_rate"], mode="same", normalize="naive"
-    )
+    if len(mr_usgs_interp)>len(df["seismic_moment_rate"]):
+        cc = correlate_template(
+            mr_usgs_interp, df["seismic_moment_rate"], mode="same", normalize="naive"
+        )
+    else:
+        cc = correlate_template(
+            df["seismic_moment_rate"], mr_usgs_interp, mode="same", normalize="naive"
+        )
     # cc = correlate(stcc[i], stcc[j], shift=100)
     shift, ccmax = xcorr_max(cc, abs_max=False)
+    if abs(shift*dt) > 0.75*usgs_duration:
+        ccmax = 0.0
     results["ccmax"].append(ccmax)
     M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
     results["M0mis"].append(M0_gof)

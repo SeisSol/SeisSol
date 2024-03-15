@@ -12,11 +12,9 @@ read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
 for faultoutput in output/dyn*-fault.xdmf; do
    echo $faultoutput
-   #todo change to easi
-   $2/compute_multi_cmt.py spatial $faultoutput  1 $1/preprocessing/science/automated_workflow_dyn_from_kin/input_files/smooth_PREM.txt --DH 10 --proj "${proj}"
+   $2/compute_multi_cmt.py spatial $faultoutput  1 $1/preprocessing/science/automated_workflow_dyn_from_kin/input_files/smooth_PREM.txt --DH 10 --proj "${proj}" --NZ 3
 done
 mv PointSource* tmp
-# todo: adapt duration Tmin and Tmax
 $1/preprocessing/science/automated_workflow_dyn_from_kin/generate_teleseismic_config_from_usgs.py
-$2/select_stations_azimuthal.py teleseismic_config.ini 6
+$2/select_stations_azimuthal.py teleseismic_config.ini 5
 $2/generate_figure_teleseismic_synthetics.py teleseismic_config.ini
