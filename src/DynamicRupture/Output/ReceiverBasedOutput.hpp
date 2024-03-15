@@ -42,6 +42,7 @@ class ReceiverOutput {
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
+  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters{nullptr};
 
   struct LocalInfo {
     seissol::initializer::Layer* layer{};

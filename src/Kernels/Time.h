@@ -72,13 +72,13 @@
 #define TIME_H_
 
 #include <Initializer/Parameters/ModelParameters.h>
-#include <cassert>
-#include <limits>
 #include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
 #include <Kernels/Interface.hpp>
 #include <Kernels/TimeBase.h>
+#include <Kernels/common.hpp>
+#include <cassert>
 #include <generated_code/tensor.h>
+#include <limits>
 #ifdef USE_STP
 #include <Numerical_aux/BasisFunction.h>
 #include <memory>
@@ -92,8 +92,7 @@ namespace seissol {
 
 class seissol::kernels::Time : public TimeBase {
   protected:
-  seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters;
-
+    seissol::initializer::parameters::DamagedElasticParameters* m_damagedElasticParameters;
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -159,10 +158,12 @@ class seissol::kernels::Time : public TimeBase {
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
   unsigned int* getDerivativesOffsets();
-
-  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* idamagedElasticParameters) {
-      damagedElasticParameters = idamagedElasticParameters;
-    }
+  /**
+   * sets the damaged elastic parameters pointer
+  */
+  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters){
+    m_damagedElasticParameters = damagedElasticParameters;
+  };
 };
 
 #endif

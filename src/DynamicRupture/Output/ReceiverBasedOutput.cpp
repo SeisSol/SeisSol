@@ -163,24 +163,23 @@ void ReceiverOutput::calcFaultOutput(
 
     real dofsStressNPlus[tensor::Q::size()]{};
     real dofsStressNMinus[tensor::Q::size()]{};
-    // TODO(NONLINEAR) What are these numbers?
-    real epsInitxx = damagedElasticParameters.epsInitxx;
-    real epsInityy = damagedElasticParameters.epsInityy;
-    real epsInitzz = damagedElasticParameters.epsInitzz;
-    real epsInitxy = damagedElasticParameters.epsInitxy;
-    real epsInityz = damagedElasticParameters.epsInityz;
-    real epsInitzx = damagedElasticParameters.epsInitzx;
+
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
 
     real lambda0P = impAndEtaGet->lambda0P;
     real mu0P = impAndEtaGet->mu0P;
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
-    // TODO(NONLINEAR) What are these numbers?
-    real aB0 = damagedElasticParameters.aB0;
-    real aB1 = damagedElasticParameters.aB1;
-    real aB2 = damagedElasticParameters.aB2;
-    real aB3 = damagedElasticParameters.aB3;
+    const real aB0 = damagedElasticParameters.aB0;
+    const real aB1 = damagedElasticParameters.aB1;
+    const real aB2 = damagedElasticParameters.aB2;
+    const real aB3 = damagedElasticParameters.aB3;
 
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
       real EspIp = (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +

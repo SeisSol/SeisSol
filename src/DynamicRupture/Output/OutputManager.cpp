@@ -274,8 +274,6 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const auto& damagedElasticParameters =
-      seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
 
@@ -283,7 +281,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
-                            damagedElasticParameters,
+                            seissolParameters.model.damagedElasticParameters,
                             time);
 
       const bool isMaxCacheLevel =
@@ -336,12 +334,10 @@ void OutputManager::flushPickpointDataToFile() {
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-    const auto& damagedElasticParameters =
-        seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
                           ewOutputData,
-                          damagedElasticParameters);
+                          seissolParameters.model.damagedElasticParameters);
   }
 }
 } // namespace seissol::dr::output

@@ -80,9 +80,7 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   // for initial strain BC
   m_localInitFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localInitFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
-
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
@@ -111,9 +109,7 @@ template <typename LocalDataType>
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
       : initCondition(initCondition), localData(data) {}
-
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
-
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
     for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
@@ -144,7 +140,7 @@ void seissol::kernels::Local::computeIntegral(
     double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
-
+#ifndef USE_DAMAGEDELASTIC
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
@@ -154,6 +150,7 @@ void seissol::kernels::Local::computeIntegral(
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+#endif
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
@@ -161,7 +158,9 @@ void seissol::kernels::Local::computeIntegral(
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
 
+#ifndef USE_DAMAGEDELASTIC
   volKrnl.execute();
+#endif
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
@@ -174,8 +173,8 @@ void seissol::kernels::Local::computeIntegral(
         if (data.cellInformation.faceTypes[face] == FaceType::freeSurface ||
             data.cellInformation.faceTypes[face] == FaceType::outflow) {
           // additional term on free-surface BC to accomodate initial strain
-          alignas(PAGESIZE_STACK) real QInitialModal[tensor::Q::size()] = {0.0};
-          alignas(PAGESIZE_STACK) real QInitialNodal[tensor::QNodal::size()] = {0.0};
+          alignas(ALIGNMENT) real QInitialModal[tensor::Q::size()] = {0.0};
+          alignas(ALIGNMENT) real QInitialNodal[tensor::QNodal::size()] = {0.0};
           real* exxNodal = (QInitialNodal + 0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           real* eyyNodal = (QInitialNodal + 1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           real* ezzNodal = (QInitialNodal + 2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
@@ -184,12 +183,12 @@ void seissol::kernels::Local::computeIntegral(
           real* ezxNodal = (QInitialNodal + 5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
             // TODO(NONLINEAR) What are these numbers?
-            exxNodal[q] = mDamagedElasticParameters->epsInitxx; // eps_xx0
-            eyyNodal[q] = mDamagedElasticParameters->epsInityy; // eps_yy0
-            ezzNodal[q] = mDamagedElasticParameters->epsInitzz; // eps_zz0
-            exyNodal[q] = mDamagedElasticParameters->epsInitxy; // eps_xy0
-            eyzNodal[q] = mDamagedElasticParameters->epsInityz; // eps_yz0
-            ezxNodal[q] = mDamagedElasticParameters->epsInitzx; // eps_zx0
+            exxNodal[q] = m_damagedElasticParameters->epsInitxx;
+            eyyNodal[q] = m_damagedElasticParameters->epsInityy;
+            ezzNodal[q] = m_damagedElasticParameters->epsInitzz;
+            exyNodal[q] = m_damagedElasticParameters->epsInitxy;
+            eyzNodal[q] = m_damagedElasticParameters->epsInityz;
+            ezxNodal[q] = m_damagedElasticParameters->epsInitzx;
           }
           kernel::damageAssignFToDQ d_convertInitialToModal;
           d_convertInitialToModal.dQModal = QInitialModal;

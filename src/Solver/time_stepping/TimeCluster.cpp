@@ -155,18 +155,18 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_receiverTime                  = 0;
 
   m_timeKernel.setGlobalData(i_globalData);
+  m_timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
+  m_localKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
 #ifdef USE_DAMAGEDELASTIC
   m_krnlNonlVolPrototype.kDivM = i_globalData.onHost->stiffnessMatrices;
-  m_timeKernel.setDamagedElasticParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
   m_nonlinearInterpolation.V3mTo2n = i_globalData.onHost->faceToNodalMatrices;
   m_nonlSurfIntPrototype.V3mTo2nTWDivM = i_globalData.onHost->nodalFluxMatrices;
-  m_localKernel.setDamageParameters(&seissolInstance.getSeisSolParameters().model.damagedElasticParameters);
 #endif
 
   computeFlops();
@@ -400,20 +400,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     #ifdef USE_DAMAGEDELASTIC
 
-    auto damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-
-    const real epsInitxx = damagedElasticParameters.epsInitxx; 
-    const real epsInityy = damagedElasticParameters.epsInityy; 
-    const real epsInitzz = damagedElasticParameters.epsInitzz; 
-    const real epsInitxy = damagedElasticParameters.epsInitxy; 
-    const real epsInityz = damagedElasticParameters.epsInityz; 
-    const real epsInitzx = damagedElasticParameters.epsInitzx; 
-
-    real const damageParameter = data.material.local.Cd;
-    real const scalingValue = damagedElasticParameters.scalingvalue;
-    real const breakCoeff = scalingValue*damageParameter;
-    real const betaAlpha = damagedElasticParameters.beta_alpha;
-
+    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+    
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
+    const real damageParameter = data.material.local.Cd;
+    const real scalingValue = damagedElasticParameters.scalingValue;
+    const real breakCoefficient = scalingValue*damageParameter;
+    const real betaAlpha = damagedElasticParameters.betaAlpha;
     const real aB0 = damagedElasticParameters.aB0;
     const real aB1 = damagedElasticParameters.aB1;
     const real aB2 = damagedElasticParameters.aB2;
@@ -524,7 +522,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           if (alpha_ave < 0.9 ){
             if (break_ave < 0.85 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/betaAlpha ) + 1.0) * breakCoeff
+                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/betaAlpha ) + 1.0) * breakCoefficient
                   *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
               FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * damageParameter
@@ -721,7 +719,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
-
+  
   const double timeStepWidth = timeStepSize();
 
   ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
@@ -1080,22 +1078,17 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+      const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
-    const real epsInitxx = damagedElasticParameters.epsInitxx; 
-    const real epsInityy = damagedElasticParameters.epsInityy; 
-    const real epsInitzz = damagedElasticParameters.epsInitzz; 
-    const real epsInitxy = damagedElasticParameters.epsInitxy; 
-    const real epsInityz = damagedElasticParameters.epsInityz; 
-    const real epsInitzx = damagedElasticParameters.epsInitzx; 
+      const real epsInitxx = damagedElasticParameters.epsInitxx;
+      const real epsInityy = damagedElasticParameters.epsInityy;
+      const real epsInitzz = damagedElasticParameters.epsInitzz;
+      const real epsInitxy = damagedElasticParameters.epsInitxy;
+      const real epsInityz = damagedElasticParameters.epsInityz;
+      const real epsInitzx = damagedElasticParameters.epsInitzx;
 
-    const real aB0 = damagedElasticParameters.aB0;
-    const real aB1 = damagedElasticParameters.aB1;
-    const real aB2 = damagedElasticParameters.aB2;
-    const real aB3 = damagedElasticParameters.aB3;
-
-    const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
-    const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+      const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
+      const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
         +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
         +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
         +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
@@ -1109,12 +1102,16 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         xi = 0.0;
       }
 
-    const real alphaAve = Q_aveData[9];
-    const real breakAve = Q_aveData[10];
+      const real alphaAve = Q_aveData[9];
+      const real breakAve = Q_aveData[10];
 
-    real lambda0 = materialData[l_cell].local.lambda0;
-    real mu0 = materialData[l_cell].local.mu0;
+      real lambda0 = materialData[l_cell].local.lambda0;
+      real mu0 = materialData[l_cell].local.mu0;
 
+      const real aB0 = damagedElasticParameters.aB0;
+      const real aB1 = damagedElasticParameters.aB1;
+      const real aB2 = damagedElasticParameters.aB2;
+      const real aB3 = damagedElasticParameters.aB3;
 
       materialData[l_cell].local.mu = (1-breakAve) * (mu0
          - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR

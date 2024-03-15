@@ -33,20 +33,21 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
   return ITMParameters{
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
+
 DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
-  const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0);
-  const auto epsInityy = reader->readWithDefault<real>("epsinityy", 0);
-  const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", 0);
-  const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 10);
-  const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
-  const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
-  const auto beta_alpha = reader->readWithDefault<real>("betaalpha", 0);
-  const auto aB0 = reader->readWithDefault<real>("ab0", 0);
-  const auto aB1 = reader->readWithDefault<real>("ab1", 0);
-  const auto aB2 = reader->readWithDefault<real>("ab2", 0);
-  const auto aB3 = reader->readWithDefault<real>("ab3", 0);
-  const auto scalingvalue = reader->readWithDefault<real>("scalingvalue", 0);
+  const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0.0);
+  const auto epsInityy = reader->readWithDefault<real>("epsinityy", 0.0);
+  const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", 0.0);
+  const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 0.0);
+  const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0.0);
+  const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0.0);
+  const auto betaAlpha = reader->readWithDefault<real>("betaalpha", 0.0);
+  const auto aB0 = reader->readWithDefault<real>("ab0", 0.0);
+  const auto aB1 = reader->readWithDefault<real>("ab1", 0.0);
+  const auto aB2 = reader->readWithDefault<real>("ab2", 0.0);
+  const auto aB3 = reader->readWithDefault<real>("ab3", 0.0);
+  const auto scalingValue = reader->readWithDefault("scalingvalue", 1.0);
 
   if (!isModelDamagedElastic()) {
     reader->markUnused({"epsinitxx",
@@ -56,10 +57,10 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
                         "epsinityz",
                         "epsinitzx",
                         "betaalpha",
-                        "aB0",
-                        "aB1",
-                        "aB2",
-                        "aB3",
+                        "ab0",
+                        "ab1",
+                        "ab2",
+                        "ab3",
                         "scalingvalue"});
   }
   return DamagedElasticParameters{epsInitxx,
@@ -68,12 +69,12 @@ DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReade
                                   epsInitxy,
                                   epsInityz,
                                   epsInitzx,
-                                  beta_alpha,
+                                  betaAlpha,
                                   aB0,
                                   aB1,
                                   aB2,
                                   aB3,
-                                  scalingvalue};
+                                  scalingValue};
 }
 
 ModelParameters readModelParameters(ParameterReader* baseReader) {

@@ -67,12 +67,12 @@ struct DamagedElasticParameters {
   real epsInitxy;
   real epsInityz;
   real epsInitzx;
-  real beta_alpha;
+  real betaAlpha;
   real aB0;
   real aB1;
   real aB2;
   real aB3;
-  real scalingvalue;
+  real scalingValue;
 };
 
 struct ModelParameters {

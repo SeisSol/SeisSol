@@ -8,6 +8,7 @@
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Monitoring/instrumentation.hpp"
 #include "SeisSol.h"
 
@@ -18,12 +19,11 @@ namespace seissol::dr::friction_law {
  */
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
-  seissol::SeisSol& seissolInstance;
-
   public:
   explicit BaseFrictionLaw(seissol::SeisSol& seissolInstance)
-      : FrictionSolver(&seissolInstance.getSeisSolParameters().drParameters),
-        seissolInstance(seissolInstance){};
+      : FrictionSolver(&seissolInstance.getSeisSolParameters().drParameters,
+                       &seissolInstance.getSeisSolParameters().model.damagedElasticParameters){};
+
   /**
    * evaluates the current friction model
    */
@@ -51,8 +51,6 @@ class BaseFrictionLaw : public FrictionSolver {
       alignas(PAGESIZE_STACK)
           real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] =
               {{0.0}};
-      auto* damagedElasticParametersPtr =
-          &seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
 #ifdef USE_DAMAGEDELASTIC
       // TODO: convert from strain to stress
@@ -76,11 +74,10 @@ class BaseFrictionLaw : public FrictionSolver {
       real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
-
-      const real aB0 = damagedElasticParametersPtr->aB0;
-      const real aB1 = damagedElasticParametersPtr->aB1;
-      const real aB2 = damagedElasticParametersPtr->aB2;
-      const real aB3 = damagedElasticParametersPtr->aB3;
+      const real aB0 = damagedElasticParameters->aB0;
+      const real aB1 = damagedElasticParameters->aB1;
+      const real aB2 = damagedElasticParameters->aB2;
+      const real aB3 = damagedElasticParameters->aB3;
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
@@ -223,7 +220,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                 qStressInterpolatedMinus,
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace],
-                                                damagedElasticParametersPtr);
+                                                damagedElasticParameters);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
