@@ -9,7 +9,7 @@ import shutil
 from estimate_nucleation_radius import compute_critical_nucleation
 from scipy.stats import qmc
 import random
-
+from compile_scenario_macro_properties import infer_duration
 
 if not os.path.exists("yaml_files"):
     os.makedirs("yaml_files")
@@ -55,6 +55,10 @@ def render_file(template_par, template_fname, out_fname, verbose=True):
 
 hypo_z = np.loadtxt("tmp/hypocenter.txt")[2] * -1e3
 
+mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
+
+
 list_fault_yaml = []
 for i in range(nsample):
     R, B, C = pars[i, :]
@@ -64,7 +68,7 @@ for i in range(nsample):
 
     render_file(template_par, "fault.tmpl.yaml", fn_fault)
 
-    template_par["end_time"] = 60.0
+    template_par["end_time"] = usgs_duration + max(5.0, 0.25 * usgs_duration)
     template_par["fault_fname"] = fn_fault
     template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
 
