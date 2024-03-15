@@ -8,8 +8,8 @@
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Monitoring/instrumentation.hpp"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Monitoring/instrumentation.hpp"
 #include "SeisSol.h"
 
 namespace seissol::dr::friction_law {
