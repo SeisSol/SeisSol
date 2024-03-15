@@ -287,7 +287,7 @@ class MultiFaultPlane:
         with open(fname, "r") as fid:
             lines = fid.readlines()
 
-        if not lines[0].startswith(" #Total number of fault_segments"):
+        if not "#Total number of fault_segments" in lines[0]:
             raise ValueError("Not a valid USGS param file.")
 
         nseg = int(lines[0].split()[-1])  # number of fault segments

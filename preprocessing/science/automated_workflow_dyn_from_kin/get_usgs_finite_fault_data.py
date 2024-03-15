@@ -55,7 +55,6 @@ def wget_overwrite(url, out_fname=None):
 
 
 def retrieve_usgs_id_from_dtgeo_dict(fname, min_mag):
-    print("dt-geo event dictionnary detected: retrieving usgs_id")
     ev = np.load(fname, allow_pickle=True).item()
 
     origin_time = UTCDateTime(ev["ot"])
@@ -85,7 +84,6 @@ def retrieve_usgs_id_from_dtgeo_dict(fname, min_mag):
         print(pretty_dict)
         raise ValueError(f"usgs event_id could not be retrieved from {fname}")
     usgs_id = features[0]["id"]
-    print(f"retrieved usgs event_id: {usgs_id}")
     return usgs_id
 
 
