@@ -400,7 +400,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     #ifdef USE_DAMAGEDELASTIC
 
-    //TODO(NONLINEAR) Where do these numbers come from?
     const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
     
     const real epsInitxx = damagedElasticParameters.epsInitxx;
@@ -1081,7 +1080,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 
       const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
-      // TODO(NONLINEAR) Write generalized reader for these parameters
       const real epsInitxx = damagedElasticParameters.epsInitxx;
       const real epsInityy = damagedElasticParameters.epsInityy;
       const real epsInitzz = damagedElasticParameters.epsInitzz;
@@ -1089,8 +1087,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       const real epsInityz = damagedElasticParameters.epsInityz;
       const real epsInitzx = damagedElasticParameters.epsInitzx;
 
-    const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
-    const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+      const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
+      const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
         +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
         +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
         +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
@@ -1104,8 +1102,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         xi = 0.0;
       }
 
-    const real alphaAve = Q_aveData[9];
-    const real breakAve = Q_aveData[10];
+      const real alphaAve = Q_aveData[9];
+      const real breakAve = Q_aveData[10];
 
       real lambda0 = materialData[l_cell].local.lambda0;
       real mu0 = materialData[l_cell].local.mu0;

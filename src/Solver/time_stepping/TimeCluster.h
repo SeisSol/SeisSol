@@ -380,28 +380,26 @@ private:
             const unsigned DAM = 9;
             const unsigned BRE = 10;
 
-            // TODO(NONLINEAR) Write unified reader for these parameters
-    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-    
-    const real epsInitxx = damagedElasticParameters.epsInitxx;
-    const real epsInityy = damagedElasticParameters.epsInityy;
-    const real epsInitzz = damagedElasticParameters.epsInitzz;
-    const real epsInitxy = damagedElasticParameters.epsInitxy;
-    const real epsInityz = damagedElasticParameters.epsInityz;
-    const real epsInitzx = damagedElasticParameters.epsInitzx;
+            const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
+            
+            const real epsInitxx = damagedElasticParameters.epsInitxx;
+            const real epsInityy = damagedElasticParameters.epsInityy;
+            const real epsInitzz = damagedElasticParameters.epsInitzz;
+            const real epsInitxy = damagedElasticParameters.epsInitxy;
+            const real epsInityz = damagedElasticParameters.epsInityz;
+            const real epsInitzx = damagedElasticParameters.epsInitzx;
 
-    const real lambda0P = materialData[l_cell].local.lambda0;
-    const real mu0P = materialData[l_cell].local.mu0;
-    const real rho0P = materialData[l_cell].local.rho;
-    const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
-    const real mu0M = materialData[l_cell].neighbor[side].mu0;
-    const real rho0M = materialData[l_cell].neighbor[side].rho;
-    
-    const real aB0 = damagedElasticParameters.aB0;
-    const real aB1 = damagedElasticParameters.aB1;
-    const real aB2 = damagedElasticParameters.aB2;
-    const real aB3 = damagedElasticParameters.aB3;
-
+            const real lambda0P = materialData[l_cell].local.lambda0;
+            const real mu0P = materialData[l_cell].local.mu0;
+            const real rho0P = materialData[l_cell].local.rho;
+            const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
+            const real mu0M = materialData[l_cell].neighbor[side].mu0;
+            const real rho0M = materialData[l_cell].neighbor[side].rho;
+            
+            const real aB0 = damagedElasticParameters.aB0;
+            const real aB1 = damagedElasticParameters.aB1;
+            const real aB2 = damagedElasticParameters.aB2;
+            const real aB3 = damagedElasticParameters.aB3;
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP
