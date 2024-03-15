@@ -600,14 +600,16 @@ void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::en
 
 void EnergyOutput::writeEnergies(double time) {
   if (shouldComputeVolumeEnergies()) {
-    out << time << ",gravitational_energy," << energiesStorage.gravitationalEnergy() << "\n"
+    out << std::setprecision(10) << time << ",gravitational_energy,"
+        << energiesStorage.gravitationalEnergy() << "\n"
         << time << ",acoustic_energy," << energiesStorage.acousticEnergy() << "\n"
         << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
         << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
         << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
         << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
   }
-  out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
+  out << std::setprecision(10) << time << ",total_frictional_work,"
+      << energiesStorage.totalFrictionalWork() << "\n"
       << time << ",static_frictional_work," << energiesStorage.staticFrictionalWork() << "\n"
       << time << ",seismic_moment," << energiesStorage.seismicMoment() << "\n"
       << time << ",potency," << energiesStorage.potency() << "\n"
