@@ -36,18 +36,18 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
 
 DamagedElasticParameters readDamagedElasticParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
-  const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", -1.8738e-4);
-  const auto epsInityy = reader->readWithDefault<real>("epsinityy", -1.1225e-3);
-  const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", -1.8738e-4);
-  const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 1.0909e-3);
-  const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0);
-  const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0);
-  const auto betaAlpha = reader->readWithDefault<real>("betaalpha", 0.05);
-  const auto aB0 = reader->readWithDefault<real>("ab0", 7.43e9);
-  const auto aB1 = reader->readWithDefault<real>("ab1", -12.14e9);
-  const auto aB2 = reader->readWithDefault<real>("ab2", 18.93e9);
-  const auto aB3 = reader->readWithDefault<real>("ab3", -5.067e9);
-  const auto scalingValue = reader->readWithDefault("scalingvalue", 1e2);
+  const auto epsInitxx = reader->readWithDefault<real>("epsinitxx", 0.0);
+  const auto epsInityy = reader->readWithDefault<real>("epsinityy", 0.0);
+  const auto epsInitzz = reader->readWithDefault<real>("epsinitzz", 0.0);
+  const auto epsInitxy = reader->readWithDefault<real>("epsinitxy", 0.0);
+  const auto epsInityz = reader->readWithDefault<real>("epsinityz", 0.0);
+  const auto epsInitzx = reader->readWithDefault<real>("epsinitzx", 0.0);
+  const auto betaAlpha = reader->readWithDefault<real>("betaalpha", 0.0);
+  const auto aB0 = reader->readWithDefault<real>("ab0", 0.0);
+  const auto aB1 = reader->readWithDefault<real>("ab1", 0.0);
+  const auto aB2 = reader->readWithDefault<real>("ab2", 0.0);
+  const auto aB3 = reader->readWithDefault<real>("ab3", 0.0);
+  const auto scalingValue = reader->readWithDefault("scalingvalue", 1.0);
 
   if (!isModelDamagedElastic()) {
     reader->markUnused({"epsinitxx",

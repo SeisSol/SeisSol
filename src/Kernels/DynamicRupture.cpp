@@ -55,9 +55,9 @@
 #include <yateto.h>
 
 seissol::kernels::DynamicRupture::DynamicRupture(
-    seissol::initializer::parameters::DamagedElasticParameters* mDamagedElasticParameters)
-    : damagedElasticParameters(mDamagedElasticParameters) {
-  m_timeKernel.setDamagedElasticParameters(damagedElasticParameters);
+    seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters)
+    : m_damagedElasticParameters(damagedElasticParameters) {
+  m_timeKernel.setDamagedElasticParameters(m_damagedElasticParameters);
 }
 
 void seissol::kernels::DynamicRupture::checkGlobalData(GlobalData const* global, size_t alignment) {
@@ -184,12 +184,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
     // TODO(NONLINEAR) What are these numbers?
-    const real epsInitxx = damagedElasticParameters->epsInitxx; // eps_xx0
-    const real epsInityy = damagedElasticParameters->epsInityy; // eps_yy0
-    const real epsInitzz = damagedElasticParameters->epsInitzz; // eps_zz0
-    const real epsInitxy = damagedElasticParameters->epsInitxy;  // eps_xy0
-    const real epsInityz = damagedElasticParameters->epsInityz;  // eps_yz0
-    const real epsInitzx = damagedElasticParameters->epsInitzx;  // eps_zx0
+    const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+    const real epsInityy = m_damagedElasticParameters->epsInityy;
+    const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+    const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+    const real epsInityz = m_damagedElasticParameters->epsInityz;
+    const real epsInitzx = m_damagedElasticParameters->epsInitzx;
 
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
       dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =

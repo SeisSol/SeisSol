@@ -186,17 +186,17 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else // USE_STP
 
 #ifdef USE_DAMAGEDELASTIC
-  const real epsInitxx = damagedElasticParameters->epsInitxx; // eps_xx0
-  const real epsInityy = damagedElasticParameters->epsInityy; // eps_yy0
-  const real epsInitzz = damagedElasticParameters->epsInitzz; // eps_zz0
-  const real epsInitxy = damagedElasticParameters->epsInitxy; // eps_xy0
-  const real epsInityz = damagedElasticParameters->epsInityz; // eps_yz0
-  const real epsInitzx = damagedElasticParameters->epsInitzx; // eps_zx0
+  const real epsInitxx = damagedElasticParameters->epsInitxx;
+  const real epsInityy = damagedElasticParameters->epsInityy;
+  const real epsInitzz = damagedElasticParameters->epsInitzz;
+  const real epsInitxy = damagedElasticParameters->epsInitxy;
+  const real epsInityz = damagedElasticParameters->epsInityz;
+  const real epsInitzx = damagedElasticParameters->epsInitzx;
 
-  real const damagedParameter = data.material.local.Cd; // 1.2e-4*2;
+  const real damagedParameter = data.material.local.Cd;
   const real scalingValue = damagedElasticParameters->scalingValue;
-  real const breakCoefficient = scalingValue * damagedParameter;
-  real const betaAlpha = damagedElasticParameters->betaAlpha;
+  const real breakCoefficient = scalingValue * damagedParameter;
+  const real betaAlpha = damagedElasticParameters->betaAlpha;
 
   kernel::damageConvertToNodal d_converToKrnl;
   // Compute the nodal solutions
@@ -303,9 +303,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   d_assignFToDQ.dQModal = dQModalData;
   d_assignFToDQ.FNodal = fNodalData;
   d_assignFToDQ.execute();
-  // std::cout << " " << dQModalData[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + 2] << std::endl;
-
-  // Assign the modal solutions to dQ(1)
 
 #endif
 

@@ -40,6 +40,8 @@ format() {
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
+	src/Kernels/Receiver.h
+	src/Kernels/Receiver.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
         src/Monitoring/instrumentation.hpp
