@@ -403,16 +403,16 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     //TODO(NONLINEAR) Where do these numbers come from?
     const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
     
-    const real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
-    const real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
-    const real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
-    const real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
-    const real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
-    const real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
-    real const damageParameter = data.material.local.Cd; // 1.2e-4*2;
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
+    const real damageParameter = data.material.local.Cd;
     const real scalingValue = damagedElasticParameters.scalingValue;
-    real const breakCoefficient = scalingValue*damageParameter;
-    real const betaAlpha = damagedElasticParameters.betaAlpha;
+    const real breakCoefficient = scalingValue*damageParameter;
+    const real betaAlpha = damagedElasticParameters.betaAlpha;
     const real aB0 = damagedElasticParameters.aB0;
     const real aB1 = damagedElasticParameters.aB1;
     const real aB2 = damagedElasticParameters.aB2;
@@ -1082,12 +1082,12 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
 
       // TODO(NONLINEAR) Write generalized reader for these parameters
-      const real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
-      const real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
-      const real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
-      const real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
-      const real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
-      const real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
+      const real epsInitxx = damagedElasticParameters.epsInitxx;
+      const real epsInityy = damagedElasticParameters.epsInityy;
+      const real epsInitzz = damagedElasticParameters.epsInitzz;
+      const real epsInitxy = damagedElasticParameters.epsInitxy;
+      const real epsInityz = damagedElasticParameters.epsInityz;
+      const real epsInitzx = damagedElasticParameters.epsInitzx;
 
     const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
     const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
@@ -1110,7 +1110,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       real lambda0 = materialData[l_cell].local.lambda0;
       real mu0 = materialData[l_cell].local.mu0;
 
-      // TODO(NONLINEAR) Write generalized reader for these parameters
       const real aB0 = damagedElasticParameters.aB0;
       const real aB1 = damagedElasticParameters.aB1;
       const real aB2 = damagedElasticParameters.aB2;

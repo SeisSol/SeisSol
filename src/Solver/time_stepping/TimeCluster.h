@@ -383,20 +383,20 @@ private:
             // TODO(NONLINEAR) Write unified reader for these parameters
     const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
     
-    const real epsInitxx = damagedElasticParameters.epsInitxx; // eps_xx0
-    const real epsInityy = damagedElasticParameters.epsInityy; // eps_yy0
-    const real epsInitzz = damagedElasticParameters.epsInitzz; // eps_zz0
-    const real epsInitxy = damagedElasticParameters.epsInitxy; // eps_xy0
-    const real epsInityz = damagedElasticParameters.epsInityz; // eps_yz0
-    const real epsInitzx = damagedElasticParameters.epsInitzx; // eps_zx0
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
 
-            real lambda0P = materialData[l_cell].local.lambda0;
-            real mu0P = materialData[l_cell].local.mu0;
-            real rho0P = materialData[l_cell].local.rho;
-
-            real lambda0M = materialData[l_cell].neighbor[side].lambda0;
-            real mu0M = materialData[l_cell].neighbor[side].mu0;
-            real rho0M = materialData[l_cell].neighbor[side].rho;
+    const real lambda0P = materialData[l_cell].local.lambda0;
+    const real mu0P = materialData[l_cell].local.mu0;
+    const real rho0P = materialData[l_cell].local.rho;
+    const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
+    const real mu0M = materialData[l_cell].neighbor[side].mu0;
+    const real rho0M = materialData[l_cell].neighbor[side].rho;
+    
     const real aB0 = damagedElasticParameters.aB0;
     const real aB1 = damagedElasticParameters.aB1;
     const real aB2 = damagedElasticParameters.aB2;

@@ -186,17 +186,17 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else // USE_STP
 
 #ifdef USE_DAMAGEDELASTIC
-  const real epsInitxx = damagedElasticParameters->epsInitxx;
-  const real epsInityy = damagedElasticParameters->epsInityy;
-  const real epsInitzz = damagedElasticParameters->epsInitzz;
-  const real epsInitxy = damagedElasticParameters->epsInitxy;
-  const real epsInityz = damagedElasticParameters->epsInityz;
-  const real epsInitzx = damagedElasticParameters->epsInitzx;
+  const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+  const real epsInityy = m_damagedElasticParameters->epsInityy;
+  const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+  const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+  const real epsInityz = m_damagedElasticParameters->epsInityz;
+  const real epsInitzx = m_damagedElasticParameters->epsInitzx;
 
   const real damagedParameter = data.material.local.Cd;
-  const real scalingValue = damagedElasticParameters->scalingValue;
+  const real scalingValue = m_damagedElasticParameters->scalingValue;
   const real breakCoefficient = scalingValue * damagedParameter;
-  const real betaAlpha = damagedElasticParameters->betaAlpha;
+  const real betaAlpha = m_damagedElasticParameters->betaAlpha;
 
   kernel::damageConvertToNodal d_converToKrnl;
   // Compute the nodal solutions
