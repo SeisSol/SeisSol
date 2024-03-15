@@ -162,7 +162,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
         timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 #endif
 
-        // Derive stress solutions from strain
+    // Derive stress solutions from strain
     alignas(ALIGNMENT) real dofsNPlus[tensor::Q::size()]{};
     alignas(ALIGNMENT) real dofsNMinus[tensor::Q::size()]{};
 
