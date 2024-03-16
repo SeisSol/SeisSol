@@ -166,6 +166,10 @@ void seissol::physics::TravellingWave::evaluate(double time,
                         + m_phase);
         if(arg.imag() > -0.5*M_PI && arg.imag() < 1.5*M_PI) {
           dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
+          // if(j==m_varField[v]) dofsQp(i,j+6) += (1.0 * m_ampField[v] * std::exp(arg)).real();
+          if(j==9){
+            dofsQp(i,j) += 0.5;
+          }
         }
       }
     }

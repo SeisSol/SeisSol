@@ -471,12 +471,12 @@ private:
             // real epsInitzx = -0e-1; // eps_zx0
 
             // tpv5 45.0 deg, xi 0.77
-            real epsInitxx = -1.0072e-3; // eps_xx0
-            real epsInityy = -1.0383e-3; // eps_yy0
-            real epsInitzz = 3.7986e-4; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
-            real epsInityz = -0e-1; // eps_yz0
-            real epsInitzx = -0e-1; // eps_zx0
+            real epsInitxx = -0.9565e-3; // eps_xx0
+            real epsInityy = -0.0432e-3; // eps_yy0
+            real epsInitzz = -0.0e-4; // eps_zz0
+            real epsInitxy = 0.2034e-3; // eps_xy0
+            real epsInityz = 0.0e-3; // eps_yz0
+            real epsInitzx = 0.0e-3; // eps_zx0
 
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
