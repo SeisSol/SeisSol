@@ -22,11 +22,11 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
   double power = deltaT * deltaT;
   
   for (int der = 0; der < CONVERGENCE_ORDER; ++der) {
-    intKrnl.power = power / factorial;
-    intKrnl.execute(der);
+    intKrnl.power(der) = power / factorial;
 
     factorial *= der + 2.0;
     power *= deltaT;
   }
+  intKrnl.execute();
 }
 
