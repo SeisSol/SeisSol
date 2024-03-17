@@ -45,6 +45,7 @@ from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFr
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.memory import CSCMemoryLayout
+from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 
 from aderdg import ADERDGBase
 from common import generate_kernel_name_prefix
