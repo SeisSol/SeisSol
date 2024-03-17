@@ -173,12 +173,12 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
       neighborFluxExt = lambda h,j,i: self.Qext['kp'] <= self.Qext['kp'] + minusFluxMatrixAccessor(h,j,i) * self.I['lq'] * self.AminusT['qp']
       neighborFluxExtPrefetch = lambda h,j,i: self.I
-      generator.addFamily(f'{name_prefix}neighborFluxExt', simpleParameterSpace(3,4,4), neighborFluxExt, neighborFluxExtPrefetch, tagret=target)
+      generator.addFamily(f'{name_prefix}neighborFluxExt', simpleParameterSpace(3,4,4), neighborFluxExt, neighborFluxExtPrefetch, target=target)
 
       generator.add(f'{name_prefix}neighbor', [
         self.Qane['kpm'] <= self.Qane['kpm'] + self.w['m'] * self.Qext['kq'] * self.selectAne['qp'],
         self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp']
-      ], tagret=target)
+      ], target=target)
 
   def addTime(self, generator, targets):
     power = Scalar('power')
