@@ -167,7 +167,7 @@ class PoroelasticADERDG(LinearADERDG):
       kernels.append( spaceTimePredictorRhs['kpt'] <=  derivativeSum )
     kernels.append( self.I['kp'] <= timestep * spaceTimePredictor['kpt'] * self.db.timeInt['t'] )
 
-    generator.add('spaceTimePredictor', kernels)
+    generator.add('spaceTimePredictor', kernels, target='gpu')
 
     # Test to see if the kernel actually solves the system of equations
     # This part is not used in the time kernel, but for unit testing
