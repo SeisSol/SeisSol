@@ -149,47 +149,48 @@ class PoroelasticADERDG(LinearADERDG):
       stiffnessSpp[:,Bn_1:Bn] = -stiffnessValues[d][:,Bn_1:Bn]
       return Tensor('kDivMTSub({},{})'.format(d,n), fullShape, spp=stiffnessSpp)
 
-    kernels = list()
+    for target in targets:
+      kernels = list()
 
-    kernels.append( spaceTimePredictorRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
-    for n in range(self.order-1,-1,-1):
-      for o in range(self.numberOfQuantities()-1,-1,-1):
-        kernels.append( spaceTimePredictor['kpt'] <= spaceTimePredictor['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * spaceTimePredictorRhs['lqu'] * Zinv(o)['ut'] )
-        #G only has one relevant non-zero entry in each iteration, so we make it a scalar
-        #G[o] = E[o-4, o] * timestep
-        #In addition E only has non-zero entries, if o > 10
-        if o >= 10:
-          kernels.append( spaceTimePredictorRhs['kpt'] <= spaceTimePredictorRhs['kpt'] + G[o] * selectQuantityG(o)['pv'] * selectQuantity(o)['vq'] * selectModes(n)['kl'] * spaceTimePredictor['lqt'] )
-      if n > 0:
-        derivativeSum = spaceTimePredictorRhs['kpt']
-        for d in range(3):
-          derivativeSum += kSub(d,n)['kl'] * spaceTimePredictor['lqt'] * self.starMatrix(d)['qp']
-      kernels.append( spaceTimePredictorRhs['kpt'] <=  derivativeSum )
-    kernels.append( self.I['kp'] <= timestep * spaceTimePredictor['kpt'] * self.db.timeInt['t'] )
+      kernels.append( spaceTimePredictorRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
+      for n in range(self.order-1,-1,-1):
+        for o in range(self.numberOfQuantities()-1,-1,-1):
+          kernels.append( spaceTimePredictor['kpt'] <= spaceTimePredictor['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * spaceTimePredictorRhs['lqu'] * Zinv(o)['ut'] )
+          #G only has one relevant non-zero entry in each iteration, so we make it a scalar
+          #G[o] = E[o-4, o] * timestep
+          #In addition E only has non-zero entries, if o > 10
+          if o >= 10:
+            kernels.append( spaceTimePredictorRhs['kpt'] <= spaceTimePredictorRhs['kpt'] + G[o] * selectQuantityG(o)['pv'] * selectQuantity(o)['vq'] * selectModes(n)['kl'] * spaceTimePredictor['lqt'] )
+        if n > 0:
+          derivativeSum = spaceTimePredictorRhs['kpt']
+          for d in range(3):
+            derivativeSum += kSub(d,n)['kl'] * spaceTimePredictor['lqt'] * self.starMatrix(d)['qp']
+        kernels.append( spaceTimePredictorRhs['kpt'] <=  derivativeSum )
+      kernels.append( self.I['kp'] <= timestep * spaceTimePredictor['kpt'] * self.db.timeInt['t'] )
 
-    generator.add('spaceTimePredictor', kernels, target='gpu')
+      generator.add('spaceTimePredictor', kernels, target=target)
 
-    # Test to see if the kernel actually solves the system of equations
-    # This part is not used in the time kernel, but for unit testing
-    deltaSppLarge = np.eye(self.numberOfQuantities())
-    deltaLarge = Tensor('deltaLarge', deltaSppLarge.shape, spp = deltaSppLarge)
-    deltaSppSmall = np.eye(self.order)
-    deltaSmall = Tensor('deltaSmall', deltaSppSmall.shape, spp = deltaSppSmall)
-    minus = Scalar('minus')
+      # Test to see if the kernel actually solves the system of equations
+      # This part is not used in the time kernel, but for unit testing
+      deltaSppLarge = np.eye(self.numberOfQuantities())
+      deltaLarge = Tensor('deltaLarge', deltaSppLarge.shape, spp = deltaSppLarge)
+      deltaSppSmall = np.eye(self.order)
+      deltaSmall = Tensor('deltaSmall', deltaSppSmall.shape, spp = deltaSppSmall)
+      minus = Scalar('minus')
 
-    lhs = deltaLarge['oq'] * self.db.Z['uk'] * spaceTimePredictor['lqk']
-    lhs += minus * self.sourceMatrix()['qo'] * deltaSmall['uk'] * spaceTimePredictor['lqk']
-    generator.add('stpTestLhs', testLhs['lou'] <= lhs)
+      lhs = deltaLarge['oq'] * self.db.Z['uk'] * spaceTimePredictor['lqk']
+      lhs += minus * self.sourceMatrix()['qo'] * deltaSmall['uk'] * spaceTimePredictor['lqk']
+      generator.add('stpTestLhs', testLhs['lou'] <= lhs, target=target)
 
-    rhs = self.Q['lo'] * self.db.wHat['u']
-    for d in range(3):
-      rhs += minus * self.starMatrix(d)['qo'] * self.db.kDivMT[d]['lm'] * spaceTimePredictor['mqu']
-    generator.add('stpTestRhs', testRhs['lou'] <= rhs)
+      rhs = self.Q['lo'] * self.db.wHat['u']
+      for d in range(3):
+        rhs += minus * self.starMatrix(d)['qo'] * self.db.kDivMT[d]['lm'] * spaceTimePredictor['mqu']
+      generator.add('stpTestRhs', testRhs['lou'] <= rhs, target=target)
 
-    QAtTimeSTP = OptionalDimTensor('QAtTimeSTP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self.Q.shape(), alignStride=True)
-    timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (self.order,))
-    evaluateDOFSAtTimeSTP = QAtTimeSTP['kp'] <= spaceTimePredictor['kpt'] * timeBasisFunctionsAtPoint['t']
-    generator.add('evaluateDOFSAtTimeSTP', evaluateDOFSAtTimeSTP)
+      QAtTimeSTP = OptionalDimTensor('QAtTimeSTP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self.Q.shape(), alignStride=True)
+      timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (self.order,))
+      evaluateDOFSAtTimeSTP = QAtTimeSTP['kp'] <= spaceTimePredictor['kpt'] * timeBasisFunctionsAtPoint['t']
+      generator.add('evaluateDOFSAtTimeSTP', evaluateDOFSAtTimeSTP, target=target)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
