@@ -59,7 +59,11 @@ void seissol::checkpoint::posix::Wavefield::load(real* dofs)
 	checkErr(read(file, header().data(), header().size()), header().size());
 
 	// Skip other processes before this in the group
-	checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
+#ifdef __APPLE__
+	checkErr(lseek(file, groupOffset() * sizeof(real), SEEK_CUR));
+#else
+        checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
+#endif // __APPLE__
 
 	// Convert to char* to do pointer arithmetic
 	char* buffer = reinterpret_cast<char*>(dofs);
@@ -86,7 +90,11 @@ void seissol::checkpoint::posix::Wavefield::write(const void* header, size_t hea
 	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	// Start at the beginning
-	checkErr(lseek64(file(), 0, SEEK_SET));
+#ifdef __APPLE__
+	checkErr(lseek(file(), 0, SEEK_SET));
+#else
+        checkErr(lseek64(file(), 0, SEEK_SET));
+#endif // __APPLE__
 
 	// Write the header
 	EPIK_USER_REG(r_write_header, "checkpoint_write_header");

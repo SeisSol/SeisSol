@@ -72,7 +72,6 @@ class MPI : public MPIBasic {
   public:
   ~MPI() override = default;
 
-#ifdef ACL_DEVICE
   /**
    * @brief Inits Device(s).
    *
@@ -88,7 +87,8 @@ class MPI : public MPIBasic {
    * OMPI_COMM_WORLD_LOCAL_RANK env. variables
    * */
   void bindAcceleratorDevice();
-#endif // ACL_DEVICE
+
+  void printAcceleratorDeviceInfo();
 
   /**
    * Initialize MPI
@@ -207,6 +207,38 @@ class MPI : public MPIBasic {
   }
 
   /**
+   * sends a value to all processors
+   */
+  template <typename T>
+  void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto mpiType = castToMpiType<T>();
+    MPI_Bcast(value, 1, mpiType, root, comm.value());
+  }
+
+  /**
+   * sends a container to all processors
+   */
+  template <typename ContainerType>
+  void broadcastContainer(ContainerType& container,
+                          int root,
+                          std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = typename ContainerType::value_type;
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto size = static_cast<unsigned>(container.size());
+    broadcast(&size, root);
+    if (m_rank != root) {
+      container.resize(size);
+    }
+    auto mpiType = castToMpiType<InternalType>();
+    MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
+  }
+
+  /**
    * @return The main communicator for the application
    */
   MPI_Comm comm() const { return m_comm; }
@@ -232,7 +264,7 @@ class MPI : public MPIBasic {
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutDevice, CopyInCopyOutHost };
+  enum class DataTransferMode { Direct, CopyInCopyOutHost };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */

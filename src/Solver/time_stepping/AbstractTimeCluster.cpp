@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cassert>
+#include "utils/logger.h"
 
 #include "Parallel/MPI.h"
 #include "AbstractTimeCluster.h"
@@ -10,8 +11,8 @@ double AbstractTimeCluster::timeStepSize() const {
 }
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
-    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-      timeOfLastStageChange(std::chrono::steady_clock::now()) {
+    : timeOfLastStageChange(std::chrono::steady_clock::now()),
+      timeStepRate(timeStepRate), numberOfTimeSteps(0) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -246,6 +247,20 @@ void AbstractTimeCluster::setCorrectionTime(double time) {
 
 long AbstractTimeCluster::getTimeStepRate() {
   return timeStepRate;
+}
+
+void AbstractTimeCluster::finalize() {}
+
+double AbstractTimeCluster::getClusterTimes(){
+  return ct.getTimeStepSize();
+}
+
+void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
+  ct.setTimeStepSize(newTimeStepSize);
+}
+
+std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters(){
+  return &neighbors;
 }
 
 }

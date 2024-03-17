@@ -51,7 +51,7 @@
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
   if (isAffinityNecessary()) {
-    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo(seissol::MPI::mpi.rank())
         << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -63,7 +63,7 @@ void seissol::writer::WaveFieldWriter::setUp() {
 
 void seissol::writer::WaveFieldWriter::enable() {
   m_enabled = true;
-  seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
+  seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 seissol::refinement::TetrahedronRefiner<double>*
@@ -106,7 +106,7 @@ unsigned const*
 // buffer We will add the offset later
 #ifdef USE_MPI
   // Add the offset to the cells
-  MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
+  MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
   unsigned int offset = meshRefiner->getNumVertices();
   MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
   offset -= meshRefiner->getNumVertices();
@@ -155,15 +155,16 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
                                             const real* integrals,
                                             unsigned int* map,
                                             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
-                                            xdmfwriter::BackendType backend) {
+                                            xdmfwriter::BackendType backend,
+                                            const std::string& backupTimeStamp) {
   if (!m_enabled)
     return;
 
   // Initialize the asynchronous module
   async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();
 
-  Modules::registerHook(*this, SIMULATION_START);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 
   const int rank = seissol::MPI::mpi.rank();
 
@@ -172,13 +173,14 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   /** All initialization parameters */
   WaveFieldInitParam param{};
 
-  param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
+  param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 
   /** List of all buffer ids */
   param.bufferIds[OUTPUT_PREFIX] =
       addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size() + 1, true);
 
   param.backend = backend;
+  param.backupTimeStamp = backupTimeStamp;
 
   //
   // High order I/O
@@ -326,9 +328,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   m_numCells = meshRefiner->getNumCells();
   // Set up for low order output flags
   m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NUM_LOWVARIABLES];
-  m_numIntegratedVariables = seissol::SeisSol::main.postProcessor().getNumberOfVariables();
+  m_numIntegratedVariables = seissolInstance.postProcessor().getNumberOfVariables();
 
-  seissol::SeisSol::main.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
+  seissolInstance.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
   param.bufferIds[LOW_OUTPUT_FLAGS] = addSyncBuffer(
       m_lowOutputFlags, WaveFieldWriterExecutor::NUM_LOWVARIABLES * sizeof(bool), true);
   //
@@ -500,7 +502,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   call(param);
 
   // Update last time step
-  seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
+  seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
   m_stopwatch.pause();
 

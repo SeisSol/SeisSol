@@ -55,6 +55,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
+std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
 
 real computeTriangleArea(ExtTriangle& triangle);
 
@@ -69,10 +70,5 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
   return intMask;
 }
 } // namespace seissol::dr
-
-namespace seissol::dr::filesystem_aux {
-std::string getTimeStamp();
-void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension);
-} // namespace seissol::dr::filesystem_aux
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

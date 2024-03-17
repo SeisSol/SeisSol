@@ -155,13 +155,13 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          real* o_timeDerivatives,
                                          bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0 );
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &= std::any_of(std::begin(data.cellInformation.faceTypes),
-                                    std::end(data.cellInformation.faceTypes),
+  updateDisplacement &= std::any_of(std::begin(data.cellInformation().faceTypes),
+                                    std::end(data.cellInformation().faceTypes),
                                     [](const FaceType f) {
                                       return f == FaceType::freeSurfaceGravity;
                                     });
@@ -173,9 +173,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()]{};
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = data.localIntegration().starMatrices[i];
   }
-  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.Q = const_cast<real*>(data.dofs());
   krnl.I = o_timeIntegrated;
   krnl.timestep = i_timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -187,13 +187,13 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = data.localIntegration().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration().specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
+  krnl.dQ(0) = const_cast<real*>(data.dofs());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
@@ -207,11 +207,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(data.dofs(), tensor::dQ::size(0), derivativesBuffer);
   } else if (o_timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
+    streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
   }
 
   krnl.execute();
@@ -221,19 +221,19 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
-      if (data.faceDisplacements[face] != nullptr
-          && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
+      if (data.faceDisplacements()[face] != nullptr
+          && data.cellInformation().faceTypes[face] == FaceType::freeSurfaceGravity) {
         bc.evaluate(
             face,
             projectDerivativeToNodalBoundaryRotated,
-            data.boundaryMapping[face],
-            data.faceDisplacements[face],
+            data.boundaryMapping()[face],
+            data.faceDisplacements()[face],
             tmp.nodalAvgDisplacements[face].data(),
             *this,
             derivativesBuffer,
             i_timeStepWidth,
-            data.material,
-            data.cellInformation.faceTypes[face]
+            data.material(),
+            data.cellInformation().faceTypes[face]
         );
       }
     }
