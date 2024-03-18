@@ -8,8 +8,11 @@ then
     exit 1
 fi
 
+$1/preprocessing/science/automated_workflow_dyn_from_kin/compile_scenario_macro_properties.py output
+
 read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
+
 for faultoutput in output/dyn*-fault.xdmf; do
    echo $faultoutput
    $2/compute_multi_cmt.py spatial $faultoutput  1 $1/preprocessing/science/automated_workflow_dyn_from_kin/input_files/smooth_PREM.txt --DH 10 --proj "${proj}" --NZ 3

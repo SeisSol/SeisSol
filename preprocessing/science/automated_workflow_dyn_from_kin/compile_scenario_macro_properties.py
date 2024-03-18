@@ -10,10 +10,12 @@ import re
 from obspy.signal.cross_correlation import correlate, correlate_template, xcorr_max
 from scipy import integrate
 
+
 def infer_duration(time, moment_rate):
     moment = integrate.cumtrapz(moment_rate, time, initial=0)
     M0 = np.trapz(moment_rate[:], x=time[:])
-    return np.amax(time[moment<0.99*M0])
+    return np.amax(time[moment < 0.99 * M0])
+
 
 def computeMw(label, time, moment_rate):
     M0 = np.trapz(moment_rate[:], x=time[:])
@@ -40,109 +42,117 @@ def extractBCR(fname):
         raise ValueError(f"No match found in the file name: {fname}")
 
 
-ps = 8
-matplotlib.rcParams.update({"font.size": ps})
-plt.rcParams["font.family"] = "sans"
-matplotlib.rc("xtick", labelsize=ps)
-matplotlib.rc("ytick", labelsize=ps)
-matplotlib.rcParams["lines.linewidth"] = 1.0
+if __name__ == "__main__":
+    ps = 8
+    matplotlib.rcParams.update({"font.size": ps})
+    plt.rcParams["font.family"] = "sans"
+    matplotlib.rc("xtick", labelsize=ps)
+    matplotlib.rc("ytick", labelsize=ps)
+    matplotlib.rcParams["lines.linewidth"] = 1.0
 
+    parser = argparse.ArgumentParser(description="compute scenario properties")
+    parser.add_argument("output_folder", help="path to output folder")
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser(description="compute scenario properties")
-parser.add_argument("output_folder", help="path to output folder")
-args = parser.parse_args()
+    if not os.path.exists("plots"):
+        os.makedirs("plots")
 
-if not os.path.exists("plots"):
-    os.makedirs("plots")
+    fig = plt.figure(figsize=(8, 4), dpi=80)
+    ax = fig.add_subplot(111)
 
-fig = plt.figure(figsize=(8, 4), dpi=80)
-ax = fig.add_subplot(111)
+    energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
+    results = {"B": [], "C": [], "R0": [], "Mw": [], "ccmax": [], "M0mis": []}
 
+    mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+    M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+    usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
+    print(usgs_duration)
+    # Create a new time array with the desired time step
+    dt = 0.25
+    new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
+    # Use numpy's interp function to interpolate values at the new time points
+    mr_usgs_interp = np.interp(new_time, mr_usgs[:, 0], mr_usgs[:, 1])
 
-energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
-results = {"B": [], "C": [], "R0": [], "Mw": [], "ccmax": [], "M0mis": []}
+    for i, fn in enumerate(energy_files):
+        if "fl33" in fn:
+            continue
+        df = pd.read_csv(fn)
+        df = df.pivot_table(index="time", columns="variable", values="measurement")
+        dt = df.index[1] - df.index[0]
+        assert dt == 0.25
+        df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
+        label = os.path.basename(fn)
+        B, C, R = extractBCR(fn)
+        M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
+        results["Mw"].append(Mw)
+        results["B"].append(B)
+        results["C"].append(C)
+        results["R0"].append(R)
+        if len(mr_usgs_interp) > len(df["seismic_moment_rate"]):
+            cc = correlate_template(
+                mr_usgs_interp,
+                df["seismic_moment_rate"],
+                mode="same",
+                normalize="naive",
+            )
+        else:
+            cc = correlate_template(
+                df["seismic_moment_rate"],
+                mr_usgs_interp,
+                mode="same",
+                normalize="naive",
+            )
+        # cc = correlate(stcc[i], stcc[j], shift=100)
+        shift, ccmax = xcorr_max(cc, abs_max=False)
+        if abs(shift * dt) > 0.75 * usgs_duration:
+            ccmax = 0.0
+        results["ccmax"].append(ccmax)
+        M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
+        results["M0mis"].append(M0_gof)
 
-mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
-M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
-usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
-print(usgs_duration)
-# Create a new time array with the desired time step
-dt = 0.25
-new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
-# Use numpy's interp function to interpolate values at the new time points
-mr_usgs_interp = np.interp(new_time, mr_usgs[:, 0], mr_usgs[:, 1])
+        label = f"B={B}, C={C}, R={R}"
+        if Mw < 6.0:
+            continue
+        overall_gof = M0_gof * ccmax
+        if overall_gof > 0.6:
+            labelargs = {"label": f"{label} (Mw={Mw:.2f}, gof={overall_gof:.2})"}
+            alpha = 1.0
+        else:
+            labelargs = {"color": "lightgrey", "zorder": 1}
+            alpha = 0.5
 
-for i, fn in enumerate(energy_files):
-    if "fl33" in fn:
-        continue
-    df = pd.read_csv(fn)
-    df = df.pivot_table(index="time", columns="variable", values="measurement")
-    dt = df.index[1] - df.index[0]
-    assert dt == 0.25
-    df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
-    label = os.path.basename(fn)
-    B, C, R = extractBCR(fn)
-    M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
-    results["Mw"].append(Mw)
-    results["B"].append(B)
-    results["C"].append(C)
-    results["R0"].append(R)
-    if len(mr_usgs_interp)>len(df["seismic_moment_rate"]):
-        cc = correlate_template(
-            mr_usgs_interp, df["seismic_moment_rate"], mode="same", normalize="naive"
+        ax.plot(
+            df.index.values,
+            df["seismic_moment_rate"] / 1e19,
+            alpha=alpha,
+            linestyle="--" if C == 0.3 else "-",
+            **labelargs,
         )
-    else:
-        cc = correlate_template(
-            df["seismic_moment_rate"], mr_usgs_interp, mode="same", normalize="naive"
-        )
-    # cc = correlate(stcc[i], stcc[j], shift=100)
-    shift, ccmax = xcorr_max(cc, abs_max=False)
-    if abs(shift*dt) > 0.75*usgs_duration:
-        ccmax = 0.0
-    results["ccmax"].append(ccmax)
-    M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
-    results["M0mis"].append(M0_gof)
-
-    label = f"B={B}, C={C}, R={R}"
-    if Mw < 6.0:
-        continue
-    overall_gof = M0_gof * ccmax
-    if overall_gof > 0.6:
-        labelargs = {"label": f"{label} (Mw={Mw:.2f}, gof={overall_gof:.2})"}
-        alpha = 1.0
-    else:
-        labelargs = {"color": "lightgrey", "zorder": 1}
-        alpha = 0.5
-
     ax.plot(
-        df.index.values,
-        df["seismic_moment_rate"] / 1e19,
-        alpha=alpha,
-        linestyle="--" if C == 0.3 else "-",
-        **labelargs,
+        mr_usgs[:, 0],
+        mr_usgs[:, 1] / 1e19,
+        label=f"usgs (Mw={Mwusgs:.2f})",
+        color="black",
     )
-ax.plot(
-    mr_usgs[:, 0], mr_usgs[:, 1] / 1e19, label=f"usgs (Mw={Mwusgs:.2f})", color="black"
-)
 
-result_df = pd.DataFrame(results)
-print(result_df)
+    result_df = pd.DataFrame(results)
+    print(result_df)
 
-selected_rows = result_df[result_df["Mw"] > 6]
-print(selected_rows)
+    selected_rows = result_df[result_df["Mw"] > 6]
+    print(selected_rows)
 
-ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
-ax.set_ylim(bottom=0)
-ax.set_xlim(left=0)
+    ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
+    ax.set_ylim(bottom=0)
+    ax.set_xlim(left=0)
 
-ax.spines["top"].set_visible(False)
-ax.spines["right"].set_visible(False)
-ax.get_xaxis().tick_bottom()
-ax.get_yaxis().tick_left()
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
 
-ax.set_ylabel(r"moment rate (e19 $\times$ Nm/s)")
-ax.set_xlabel("time (s)")
+    ax.set_ylabel(r"moment rate (e19 $\times$ Nm/s)")
+    ax.set_xlabel("time (s)")
 
-fn = f"plots/moment_rate.pdf"
-fig.savefig(fn, bbox_inches="tight", transparent=True)
-print(f"done write {fn}")
+    fn = f"plots/moment_rate.pdf"
+    fig.savefig(fn, bbox_inches="tight", transparent=True)
+    print(f"done write {fn}")

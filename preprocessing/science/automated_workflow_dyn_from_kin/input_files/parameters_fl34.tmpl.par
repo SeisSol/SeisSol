@@ -10,7 +10,7 @@ MaterialFileName = 'yaml_files/smooth_PREM_material.yaml'
 FL = 34                                        ! Friction law  
 !0: none, 16:LSW, 103: RS with strong velocity weakening
 !yaml file defining spatial dependance of fault properties
-ModelFileName = 'yaml_files/FL33_34_fault.yaml'
+ModelFileName = 'yaml_files/FL33_34_fault_inst.yaml'
 
 !reference vector for defining strike and dip direction
 XRef = 0.0 
