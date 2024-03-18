@@ -13,13 +13,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument("filename", help="filename of the srf file")
 
 parser.add_argument(
-    "--instantaneous",
-    dest="instantaneous",
-    action="store_true",
-    help="apply the slip over 0.1s everywhere",
-    default=False,
-)
-parser.add_argument(
     "--interpolation_method",
     nargs=1,
     metavar="interpolation_method",
@@ -91,5 +84,4 @@ mfp.generate_fault_ts_yaml_fl33(
     method=args.interpolation_method[0],
     spatial_zoom=args.spatial_zoom[0],
     proj=args.proj[0],
-    instantaneous=args.instantaneous,
 )

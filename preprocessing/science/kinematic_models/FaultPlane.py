@@ -452,7 +452,7 @@ class MultiFaultPlane:
                                 break
             return cls(fault_planes)
 
-    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj, instantaneous=False):
+    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
         """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
 
         if not os.path.exists("yaml_files"):
@@ -498,23 +498,19 @@ class MultiFaultPlane:
                     acc_time:  1e100
                     effective_rise_time:  2e100
 """
-        sonset = "0" if instantaneous else """x["rupture_onset"]"""
-        srisetime = "0.1" if instantaneous else """x["effective_rise_time"]"""
         template_yaml += (
             """    components: !LuaMap
       returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]
       function: |
         function f (x)
           -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
-          return {"""
-            + f"""
+          return {
           strike_slip = -x["strike_slip"],
           dip_slip = x["dip_slip"],
-          rupture_onset = {sonset},
+          rupture_onset = x["rupture_onset"],
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
-          rupture_rise_time = {srisetime}"""
-            + """
+          rupture_rise_time = x["effective_rise_time"]
           }
         end
         """
