@@ -54,6 +54,7 @@ format() {
         src/Geometry/CubeGenerator.cpp
         src/Parallel/AcceleratorDevice.h
         src/Parallel/AcceleratorDevice.cpp
+        src/Parallel/DataCollector.h
         src/Parallel/Helper.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h

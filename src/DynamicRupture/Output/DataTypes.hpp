@@ -7,6 +7,7 @@
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <Initializer/Parameters/DRParameters.h>
+#include <Parallel/DataCollector.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -128,7 +129,7 @@ struct ReceiverOutputData {
   size_t maxCacheLevel{50};
   bool isActive{false};
 
-  real** deviceDataPtr{nullptr};
+  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
