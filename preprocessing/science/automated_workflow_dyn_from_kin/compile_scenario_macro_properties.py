@@ -12,7 +12,7 @@ from scipy import integrate
 
 
 def infer_duration(time, moment_rate):
-    moment = integrate.cumtrapz(moment_rate, time, initial=0)
+    moment = integrate.cumulative_trapezoid(moment_rate, time, initial=0)
     M0 = np.trapz(moment_rate[:], x=time[:])
     return np.amax(time[moment < 0.99 * M0])
 
@@ -61,10 +61,25 @@ if __name__ == "__main__":
     ax = fig.add_subplot(111)
 
     energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
-    results = {"B": [], "C": [], "R0": [], "Mw": [], "ccmax": [], "M0mis": []}
+    results = {
+        "B": [],
+        "C": [],
+        "R0": [],
+        "Mw": [],
+        "ccmax": [],
+        "M0mis": [],
+        "faultfn": [],
+    }
 
     mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+    last_index_non_zero = np.nonzero(mr_usgs[:, 1])[0][-1]
+    mr_usgs = mr_usgs[:last_index_non_zero, :]
+    # Conversion factor from dyne-cm/sec to Nm/sec (for older usgs files)
+    scaling_factor = 1.0 if np.amax(mr_usgs[:, 1]) < 1e23 else 1e-7
+    mr_usgs[:, 1] *= scaling_factor
+
     M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+
     usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
     print(usgs_duration)
     # Create a new time array with the desired time step
@@ -82,12 +97,14 @@ if __name__ == "__main__":
         assert dt == 0.25
         df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
         label = os.path.basename(fn)
+        faultfn = fn.split("-energy.csv")[0] + "-fault.xdmf"
         B, C, R = extractBCR(fn)
         M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
         results["Mw"].append(Mw)
         results["B"].append(B)
         results["C"].append(C)
         results["R0"].append(R)
+        results["faultfn"].append(faultfn)
         if len(mr_usgs_interp) > len(df["seismic_moment_rate"]):
             cc = correlate_template(
                 mr_usgs_interp,
@@ -134,12 +151,22 @@ if __name__ == "__main__":
         label=f"usgs (Mw={Mwusgs:.2f})",
         color="black",
     )
-
     result_df = pd.DataFrame(results)
+    result_df["overall_gof"] = result_df["M0mis"] * result_df["ccmax"]
     print(result_df)
 
     selected_rows = result_df[result_df["Mw"] > 6]
+    selected_rows = selected_rows.sort_values(by="overall_gof").reset_index(drop=True)
     print(selected_rows)
+
+    fname = "tmp/selected_output.txt"
+    with open(fname, "w") as fid:
+        for index, row in selected_rows.iterrows():
+            fid.write(f"{row['faultfn']}\n")
+            if index == 3:
+                break
+        fid.write("output/dyn-usgs-fault.xdmf\n")
+    print(f"done writing {fname}")
 
     ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
     ax.set_ylim(bottom=0)

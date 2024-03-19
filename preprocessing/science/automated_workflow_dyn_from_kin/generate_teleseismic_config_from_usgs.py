@@ -46,7 +46,7 @@ input_file_dir = f"{script_directory}/input_files"
 templateLoader = jinja2.FileSystemLoader(searchpath=input_file_dir)
 templateEnv = jinja2.Environment(loader=templateLoader)
 
-point_source_files = ",".join(glob.glob("tmp/PointSou*.h5"))
+point_source_files = ",".join(sorted(glob.glob("tmp/PointSou*.h5")))
 
 template_par = {
     "setup_name": code_finite_fault,

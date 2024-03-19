@@ -17,11 +17,13 @@ $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/compile_scena
 read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
 
-for faultoutput in output/dyn*-fault.xdmf; do
-   echo $faultoutput
-   $teleseismicspath/compute_multi_cmt.py spatial $faultoutput  1 tmp/usgs_rigidity.txt --DH 10 --proj "${proj}" --NZ 3
-done
+# Read each line from selected_output.txt and process it
+while IFS= read -r faultoutput; do
+    echo "$faultoutput"
+    $teleseismicspath/compute_multi_cmt.py spatial "$faultoutput" 1 tmp/usgs_rigidity.txt --DH 10 --proj "${proj}" --NZ 3
+done < tmp/selected_output.txt
+
 mv PointSource* tmp
 $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_teleseismic_config_from_usgs.py
-$teleseismicspath/select_stations_azimuthal.py teleseismic_config.ini 5
+$teleseismicspath/select_stations_azimuthal.py teleseismic_config.ini 6
 $teleseismicspath/generate_figure_teleseismic_synthetics.py teleseismic_config.ini
