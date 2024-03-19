@@ -62,13 +62,18 @@ Note also that if a face is tagged twice, only the first tag will be considered.
 Using more than 189 dynamic rupture tags
 ----------------------------------------
 
-To handle more than 189 dynamic rupture tags (i.e. more than 255 boundary condition types), you will need to adjust the boundary format to i64 (or i32x4, see hereafter).
+To handle more than 189 dynamic rupture tags (i.e. more than 255 boundary condition types), you will need to adjust the boundary format when building your mesh in PUMgen.
 
-That is, build your mesh in PUMgen with the option ``--boundarytype=int64``.
-Next, specify ``pumlboundaryformat = 'i64'`` in the ``&meshnml`` section of your SeisSol parameter file.
+That is, add in PUMgen the option ``--boundarytype=int64`` when building your mesh.
+No modification in SeisSol is needed, as it tries to infer the boundary format from the shape of the boundary array automatically.
+However, to prevent mistakes with reading the format, we nevertheless recommend specifying the boundary format explicitly. (it *is* possible to confuse the boundary format, but only in some esoteric edge cases)
 
-The i64 boundary format has an upper limit of 65469 dynamic rupture tags (65535 boundary condition types).
-For an even larger tag space, you will need to resort to the i32x4 format.
+To do that, it suffices to specify ``pumlboundaryformat = $option`` in the ``&meshnml`` section of your SeisSol parameter file, where ``$option`` is one of the following:
+
+- ``'auto'``: SeisSol will try to infer the boundary format automatically. This is the default option.
+- ``'i32'``: 8 bits per boundary face. That is, 189 dynamic rupture tags are possible (255 boundary condition types). It is (usually) stored as a one-dimensional 32-bit integer array (one entry per cell) in the Hdf5/binary file.
+- ``'i64'``: 16 bits per boundary face. That is, 65469 dynamic rupture tags (65535 boundary condition types). It is stored as a one-dimensional 64-bit integer array (one entry per cell) in the Hdf5/binary file.
+- ``'i32x4'``: 32 bits per boundary face. In short, you will have :math:`2^{32} - 65` different dynamic rupture tags available. The data is stored as a two-dimensional array (four entries per cell, one for each face) of 32-bit integers.
 
 To see which boundary format you have built your mesh for, you can use ``h5dump -H <yourmeshfile>.puml.h5``,
 and look at the datatype and the shape of the ``boundary`` dataset.
