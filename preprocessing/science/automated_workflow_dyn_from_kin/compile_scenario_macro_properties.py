@@ -156,7 +156,7 @@ if __name__ == "__main__":
     print(result_df)
 
     selected_rows = result_df[result_df["Mw"] > 6]
-    selected_rows = selected_rows.sort_values(by="overall_gof").reset_index(drop=True)
+    selected_rows = selected_rows.sort_values(by="overall_gof", ascending=False).reset_index(drop=True)
     print(selected_rows)
 
     fname = "tmp/selected_output.txt"

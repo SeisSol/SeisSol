@@ -31,12 +31,16 @@ def read_velocity_model_from_fsp_file(fname):
     df = pd.read_csv(text_file, sep="\s+").drop([0])
     df = df.apply(pd.to_numeric, errors="coerce")
     rows_to_remove = df[df["DEPTH"] == 0]
-    print("removing row", rows_to_remove)
+    print("removing row\n", rows_to_remove)
     df = df[df["DEPTH"] > 0].reset_index(drop=True)
+    if 'S-VEL' in df:
+        # old usgs format
+        df.rename(columns={'S-VEL': 'S_VEL'}, inplace=True)
+        df.rename(columns={'P-VEL': 'P_VEL'}, inplace=True)
 
     df["rho"] = 1000.0 * df["DENS"]
-    df["mu"] = 1e6 * df["rho"] * df["S-VEL"] ** 2
-    df["lambda"] = 1e6 * df["rho"] * (df["P-VEL"] ** 2 - 2.0 * df["S-VEL"] ** 2)
+    df["mu"] = 1e6 * df["rho"] * df["S_VEL"] ** 2
+    df["lambda"] = 1e6 * df["rho"] * (df["P_VEL"] ** 2 - 2.0 * df["S_VEL"] ** 2)
     df.at[0, "DEPTH"] = -10
     print(df)
     return df
@@ -59,7 +63,7 @@ nodes:\n"""
             f" [{row['rho']},{row['mu']:.10e},{row['lambda']:.10e}, {row['QP']},"
             f" {row ['QS']}]"
         )
-        to_write += f" #[{row['P-VEL']}, {row['S-VEL']}]\n"
+        to_write += f" #[{row['P_VEL']}, {row['S_VEL']}]\n"
 
     fname = "yaml_files/usgs_material.yaml"
     with open(fname, "w") as fid:
