@@ -71,6 +71,7 @@ for i in range(nsample):
     template_par["end_time"] = usgs_duration + max(5.0, 0.25 * usgs_duration)
     template_par["fault_fname"] = fn_fault
     template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
+    template_par["material_fname"] = "yaml_files/usgs_material.yaml"
 
     fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)

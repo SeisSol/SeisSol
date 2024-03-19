@@ -1,6 +1,6 @@
 &equations
 !yaml file defining spatial dependance of material properties
-MaterialFileName = 'yaml_files/smooth_PREM_material.yaml'
+MaterialFileName = '{{ material_fname }}'
 /
 
 &IniCondition

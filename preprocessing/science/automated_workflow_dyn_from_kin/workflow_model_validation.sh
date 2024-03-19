@@ -19,7 +19,7 @@ proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
 
 for faultoutput in output/dyn*-fault.xdmf; do
    echo $faultoutput
-   $teleseismicspath/compute_multi_cmt.py spatial $faultoutput  1 $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/input_files/smooth_PREM.txt --DH 10 --proj "${proj}" --NZ 3
+   $teleseismicspath/compute_multi_cmt.py spatial $faultoutput  1 tmp/usgs_rigidity.txt --DH 10 --proj "${proj}" --NZ 3
 done
 mv PointSource* tmp
 $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_teleseismic_config_from_usgs.py

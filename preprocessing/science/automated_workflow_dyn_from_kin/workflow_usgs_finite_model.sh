@@ -27,4 +27,5 @@ $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_usgs
 module load pumgen
 pumgen -s msh4 tmp/mesh.msh
 $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_input_seissol_fl33.py
+$seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/extract_velocity_model_from_usgs_fsp.py
 echo "now run seissol"

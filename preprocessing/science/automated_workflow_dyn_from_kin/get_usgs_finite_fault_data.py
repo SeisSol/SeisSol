@@ -136,7 +136,7 @@ if __name__ == "__main__":
     with open(f"{folder_name}/tmp/hypocenter.txt", "w") as f:
         jsondata = f.write(f"{hypocenter_x} {hypocenter_y} {hypocenter_z}\n")
 
-    for fn in ["moment_rate.mr", "basic_inversion.param"]:
+    for fn in ["moment_rate.mr", "basic_inversion.param", "complete_inversion.fsp"]:
         url = f"https://earthquake.usgs.gov/product/finite-fault/{code_finite_fault}/us/{update_time}/{fn}"
         wget_overwrite(url, f"{folder_name}/tmp/{fn}")
 
