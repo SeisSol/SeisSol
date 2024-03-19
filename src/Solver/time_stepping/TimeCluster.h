@@ -486,10 +486,10 @@ private:
             real mu0M = materialData[l_cell].neighbor[side].mu0;
             real rho0M = materialData[l_cell].neighbor[side].rho;
 
-            real aB0 = 7.43e9;
-            real aB1 = -12.14e9;
+            real aB0 = 12.43e9;
+            real aB1 = -0.0*12.14e9;
             real aB2 = 18.93e9;
-            real aB3 = -5.067e9;
+            real aB3 = -0.0*5.067e9;
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP

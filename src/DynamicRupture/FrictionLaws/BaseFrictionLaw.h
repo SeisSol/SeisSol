@@ -74,10 +74,10 @@ class BaseFrictionLaw : public FrictionSolver {
       real mu0M = impAndEta[ltsFace].mu0M;
       real rho0M = impAndEta[ltsFace].rho0M;
 
-      real aB0 = 7.43e9;
-      real aB1 = -12.14e9;
+      real aB0 = 12.43e9;
+      real aB1 = -0.0*12.14e9;
       real aB2 = 18.93e9;
-      real aB3 = -5.067e9;
+      real aB3 = -0.0*5.067e9;
       // real aB0 = 4.95e9;
       // real aB1 = -18.89e9;
       // real aB2 = 23.96e9;

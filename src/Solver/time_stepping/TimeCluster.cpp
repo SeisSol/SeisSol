@@ -456,10 +456,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real const break_coeff = 1e2*damage_para1;
     real const beta_alpha = 0.05;
 
-    real aB0 = 7.43e9;
-    real aB1 = -12.14e9;
+    real aB0 = 12.43e9;
+    real aB1 = -0.0*12.14e9;
     real aB2 = 18.93e9;
-    real aB3 = -5.067e9;
+    real aB3 = -0.0*5.067e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -1238,10 +1238,10 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB2 = 23.96e9;
       // real aB3 = -10.112e9;
 
-      real aB0 = 7.43e9;
-      real aB1 = -12.14e9;
+      real aB0 = 12.43e9;
+      real aB1 = -0.0*12.14e9;
       real aB2 = 18.93e9;
-      real aB3 = -5.067e9;
+      real aB3 = -0.0*5.067e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 
@@ -1262,7 +1262,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
             (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
           );
        materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
-        - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+        - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
         + breakAve * (
           (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
         );
@@ -1396,7 +1396,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
                 (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
               );
           materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
-            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
             + breakAveNeigh * (
               (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
             );
