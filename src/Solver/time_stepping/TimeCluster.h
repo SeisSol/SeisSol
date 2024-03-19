@@ -800,6 +800,290 @@ private:
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
+          else if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurface) {
+            // Compute local integrals with derivatives and Rusanov flux
+            /// S1: compute the space-time interpolated Q on both side of 4 faces
+            /// S2: at the same time rotate the field to face-aligned coord.
+            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+
+            for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+              // alignas(PAGESIZE_STACK)
+              real degreesOfFreedomPlus[tensor::Q::size()];
+
+              for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
+                degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
+              }
+
+              // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
+              m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+
+              /// Prototype is necessary for openmp
+              kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
+                = m_nonlinearInterpolation;
+
+              m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+              m_nonLinInter.Q = degreesOfFreedomPlus;
+              m_nonLinInter.execute(side, 0);
+            }
+
+            /// S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+            //// Reshape the interpolated results
+            using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+            auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+
+            //// The arrays to store time integrated flux
+            alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+
+            for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+              rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+            }
+
+            using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
+            auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
+
+            /// Checked that, after reshaping, it still uses the same memory address
+            /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
+            using namespace seissol::dr::misc::quantity_indices;
+            unsigned DAM = 9;
+            unsigned BRE = 10;
+
+            // tpv5 45.0 deg, xi 0.77
+            real epsInitxx = -1.0072e-3; // eps_xx0
+            real epsInityy = -1.0383e-3; // eps_yy0
+            real epsInitzz = 3.7986e-4; // eps_zz0
+            real epsInitxy = 1.0909e-3; // eps_xy0
+            real epsInityz = -0e-1; // eps_yz0
+            real epsInitzx = -0e-1; // eps_zx0
+
+            real lambda0P = materialData[l_cell].local.lambda0;
+            real mu0P = materialData[l_cell].local.mu0;
+            real rho0P = materialData[l_cell].local.rho;
+
+            real aB0 = 7.43e9;
+            real aB1 = -12.14e9;
+            real aB2 = 18.93e9;
+            real aB3 = -5.067e9;
+
+            real sxxP, syyP, szzP, sxyP, syzP, szxP;
+
+            /// In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
+            for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+              auto weight = timeWeights[o];
+
+              for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
+                  i ++) {
+                real EspIp = (epsInitxx) + (epsInityy) + (epsInitzz);
+                real EspIIp = (epsInitxx)*(epsInitxx)
+                  + (epsInityy)*(epsInityy)
+                  + (epsInitzz)*(epsInitzz)
+                  + 2*(epsInitxy)*(epsInitxy)
+                  + 2*(epsInityz)*(epsInityz)
+                  + 2*(epsInitzx)*(epsInitzx);
+
+                real alphap = qIPlus[o][DAM][i];
+                real xip;
+                if (EspIIp > 1e-30){
+                  xip = EspIp / std::sqrt(EspIIp);
+                } else{
+                  xip = 0.0;
+                }
+
+                real lambp = (1- qIPlus[o][BRE][i])*
+                  (lambda0P - alphap * materialData[l_cell].local.gammaR * (epsInitxx)/std::sqrt(EspIIp) )
+                + qIPlus[o][BRE][i] *
+                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(epsInitxx)/std::sqrt(EspIIp));
+
+                real mup = (1- qIPlus[o][BRE][i])*
+                  (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR
+                  - 0.5*alphap*materialData[l_cell].local.gammaR*xip )
+                + qIPlus[o][BRE][i] *
+                  (aB0 + 0.5*xip*aB1 - 0.5*xip*xip*xip*aB3);
+
+                // damage stress
+                real mu_eff = materialData[l_cell].local.mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0
+                    - 0.5*alphap*materialData[l_cell].local.gammaR*xip;
+                real sxx_sp = materialData[l_cell].local.lambda0*EspIp
+                              - alphap*materialData[l_cell].local.gammaR * std::sqrt(EspIIp)
+                              + 2*mu_eff*(epsInitxx);
+                real syy_sp = materialData[l_cell].local.lambda0*EspIp
+                              - alphap*materialData[l_cell].local.gammaR * std::sqrt(EspIIp)
+                              + 2*mu_eff*(epsInityy);
+                real szz_sp = materialData[l_cell].local.lambda0*EspIp
+                              - alphap*materialData[l_cell].local.gammaR * std::sqrt(EspIIp)
+                              + 2*mu_eff*(epsInitzz);
+
+                real sxy_sp = 2*mu_eff*(epsInitxy);
+                real syz_sp = 2*mu_eff*(epsInityz);
+                real szx_sp = 2*mu_eff*(epsInitzx);
+
+                // breakage stress
+                real sxx_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitxx);
+                real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInityy);
+                real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitzz);
+
+                real sxy_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitxy);
+                real syz_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInityz);
+                real szx_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitzx);
+
+                real breakp = qIPlus[o][BRE][i];
+
+                sxxP = (1-breakp) * sxx_sp + breakp * sxx_bp;
+                syyP = (1-breakp) * syy_sp + breakp * syy_bp;
+                szzP = (1-breakp) * szz_sp + breakp * szz_bp;
+                sxyP = (1-breakp) * sxy_sp + breakp * sxy_bp;
+                syzP = (1-breakp) * syz_sp + breakp * syz_bp;
+                szxP = (1-breakp) * szx_sp + breakp * szx_bp;
+
+                rusanovFluxP[XX][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[YY][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[ZZ][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[XY][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[YZ][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[XZ][i] += weight * (
+                  (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.0
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[U][i] += weight * (
+                  (
+                    1.0*(-sxxP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    1.0*(-sxyP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    1.0*(-szxP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[V][i] += weight * (
+                  (
+                    1.0*(-sxyP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    1.0*(-syyP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    1.0*(-syzP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[W][i] += weight * (
+                  (
+                    1.0*(-szxP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    1.0*(-syzP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    1.0*(-szzP/rho0P)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[DAM][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+
+                rusanovFluxP[BRE][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                );
+              }
+            } // time integration loop
+            // Tested that after this step, rusanovFluxPlus is also changed
+
+            /// S5: Integrate in space using quadrature.
+            kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+            m_surfIntegral.Q = data.dofs;
+            m_surfIntegral.Flux = rusanovFluxPlus;
+            // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
+            m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+            // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
+            m_surfIntegral.execute(side, 0);
+          }
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
             // No neighboring cell contribution, interior bc.
             assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);

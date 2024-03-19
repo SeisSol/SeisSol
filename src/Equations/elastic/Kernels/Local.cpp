@@ -177,7 +177,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         lfKrnl.execute(face);
 
         #ifdef USE_DAMAGEDELASTIC
-        if (data.cellInformation.faceTypes[face] == FaceType::freeSurface
+        if (data.cellInformation.faceTypes[face] == FaceType::outflow
         || data.cellInformation.faceTypes[face] == FaceType::outflow) {
           // additional term on free-surface BC to accomodate initial strain
           alignas(PAGESIZE_STACK) real QInitialModal[tensor::Q::size()] = {0.0};
