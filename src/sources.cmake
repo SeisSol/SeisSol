@@ -57,14 +57,13 @@ src/Initializer/tree/Lut.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
-src/Kernels/Receiver.cpp
 src/Kernels/TimeCommon.cpp
-src/Kernels/Touch.cpp
 
 src/Model/common.cpp
 
 src/Modules/Module.cpp
 src/Modules/Modules.cpp
+
 
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
@@ -144,6 +143,8 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Plasticity.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Receiver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Numerical_aux/Statistics.cpp
@@ -162,6 +163,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeCluster.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeManager.cpp
+
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp

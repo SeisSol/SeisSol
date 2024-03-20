@@ -49,7 +49,9 @@
 #include <Kernels/Time.h>
 #include <Numerical_aux/BasisFunction.h>
 #include <Numerical_aux/Transformation.h>
+#include <Parallel/DataCollector.h>
 #include <generated_code/init.h>
+#include <optional>
 #include <vector>
 
 struct GlobalData;
@@ -134,7 +136,12 @@ namespace seissol {
         return 1 + ncols;
       }
 
+      void allocateData();
+      void freeData();
+
     private:
+      std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+      std::vector<size_t> deviceIndices;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;
