@@ -16,6 +16,7 @@ format() {
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/IO
         src/Modules
         src/Monitoring
         src/Physics

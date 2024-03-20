@@ -42,6 +42,7 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
+#include <IO/Manager.hpp>
 #include <memory>
 #include <string>
 
@@ -205,6 +206,8 @@ class SeisSol {
    * */
   const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
 
+  seissol::io::OutputManager& getOutputManager() { return outputManager; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -213,6 +216,8 @@ class SeisSol {
   // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
+
+  seissol::io::OutputManager outputManager;
 
   //! Collection of Parameters
   seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;

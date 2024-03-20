@@ -296,3 +296,6 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+
+add_subdirectory(src/IO)
+target_link_libraries(SeisSol-lib PUBLIC seissol-io)

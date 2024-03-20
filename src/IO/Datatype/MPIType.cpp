@@ -1,0 +1,108 @@
+#include "MPIType.hpp"
+#include <mpi.h>
+#include <unordered_map>
+#include <iosfwd>
+#include <yaml-cpp/yaml.h>
+
+namespace {
+static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
+} // namespace
+
+namespace {
+static MPI_Datatype convertOpaque(const seissol::io::datatype::Datatype& datatype) {
+  MPI_Datatype type;
+  MPI_Type_contiguous(datatype.size(), MPI_BYTE, &type);
+  return type;
+}
+
+static MPI_Datatype convertArray(const seissol::io::datatype::ArrayDatatype& datatype) {
+  std::vector<int> dims(datatype.dimensions().begin(), datatype.dimensions().end());
+  std::vector<int> starts(dims.size(), 0);
+  MPI_Datatype type;
+  MPI_Type_create_subarray(dims.size(),
+                           dims.data(),
+                           dims.data(),
+                           starts.data(),
+                           0,
+                           seissol::io::datatype::convertToMPI(datatype.base(), false),
+                           &type);
+  return type;
+}
+
+static MPI_Datatype convertStruct(const seissol::io::datatype::StructDatatype& datatype) {
+  MPI_Datatype type;
+  std::vector<MPI_Datatype> subtypes;
+  std::vector<MPI_Aint> suboffsets;
+  std::vector<int> subsizes;
+  for (const auto& member : datatype.members()) {
+    subsizes.push_back(1);
+    suboffsets.push_back(member.offset);
+    subtypes.push_back(seissol::io::datatype::convertToMPI(member.datatype, false));
+  }
+  MPI_Type_create_struct(
+      subtypes.size(), subsizes.data(), suboffsets.data(), subtypes.data(), &type);
+  return type;
+}
+
+static MPI_Datatype convertInteger(const seissol::io::datatype::IntegerDatatype& datatype) {
+  if (datatype.size() == 1) {
+    return datatype.sign() ? MPI_INT8_T : MPI_UINT8_T;
+  } else if (datatype.size() == 2) {
+    return datatype.sign() ? MPI_INT16_T : MPI_UINT16_T;
+  } else if (datatype.size() == 4) {
+    return datatype.sign() ? MPI_INT32_T : MPI_UINT32_T;
+  } else if (datatype.size() == 8) {
+    return datatype.sign() ? MPI_INT64_T : MPI_UINT64_T;
+  } else {
+    return MPI_BYTE; // TODO
+  }
+}
+} // namespace
+
+namespace seissol::io::datatype {
+MPI_Datatype convertToMPI(std::shared_ptr<Datatype> datatype, bool autocommit) {
+  std::string serialized = "";
+  if (autocommit) {
+    std::stringstream sstr;
+    {
+      YAML::Emitter output(sstr);
+      output << datatype->serialize();
+    }
+    serialized = sstr.str();
+  }
+  if (autocommit) {
+    if (autocommitRegistry.find(serialized) != autocommitRegistry.end()) {
+      return autocommitRegistry.at(serialized);
+    }
+  }
+  MPI_Datatype type;
+  bool needsCommit;
+  if (dynamic_cast<const ArrayDatatype*>(datatype.get()) != nullptr) {
+    type = convertArray(dynamic_cast<const ArrayDatatype&>(*datatype));
+    needsCommit = true;
+  } else if (dynamic_cast<const StructDatatype*>(datatype.get()) != nullptr) {
+    type = convertStruct(dynamic_cast<const StructDatatype&>(*datatype));
+    needsCommit = true;
+  } else if (dynamic_cast<const IntegerDatatype*>(datatype.get()) != nullptr) {
+    type = convertInteger(dynamic_cast<const IntegerDatatype&>(*datatype));
+    needsCommit = false;
+  } else if (dynamic_cast<const F32Datatype*>(datatype.get()) != nullptr) {
+    type = MPI_FLOAT;
+    needsCommit = false;
+  } else if (dynamic_cast<const F64Datatype*>(datatype.get()) != nullptr) {
+    type = MPI_DOUBLE;
+    needsCommit = false;
+  } else if (dynamic_cast<const F80Datatype*>(datatype.get()) != nullptr) {
+    type = MPI_LONG_DOUBLE;
+    needsCommit = false;
+  } else if (dynamic_cast<const OpaqueDatatype*>(datatype.get()) != nullptr) {
+    type = convertOpaque(dynamic_cast<const OpaqueDatatype&>(*datatype));
+    needsCommit = true;
+  }
+  if (needsCommit && autocommit) {
+    MPI_Type_commit(&type);
+    autocommitRegistry[serialized] = type;
+  }
+  return type;
+}
+} // namespace seissol::io::datatype
