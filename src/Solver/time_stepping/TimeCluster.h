@@ -455,12 +455,12 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
-            // real epsInitxx = 3.7986e-4; // eps_xx0
-            // real epsInityy = -1.0383e-3; // eps_yy0
-            // real epsInitzz = -1.0072e-3; // eps_zz0
-            // real epsInitxy = 1.0909e-3; // eps_xy0
-            // real epsInityz = -0e-1; // eps_yz0
-            // real epsInitzx = -0e-1; // eps_zx0
+            real epsInitxx = 3.7986e-4; // eps_xx0
+            real epsInityy = -1.0383e-3; // eps_yy0
+            real epsInitzz = -1.0072e-3; // eps_zz0
+            real epsInitxy = 1.0909e-3; // eps_xy0
+            real epsInityz = -0e-1; // eps_yz0
+            real epsInitzx = -0e-1; // eps_zx0
 
             // // tpv5 45.0 deg
             // real epsInitxx = -7.4861e-4; // eps_xx0
@@ -471,12 +471,12 @@ private:
             // real epsInitzx = -0e-1; // eps_zx0
 
             // tpv5 45.0 deg, xi 0.77
-            real epsInitxx = -1.0072e-3; // eps_xx0
-            real epsInityy = -1.0383e-3; // eps_yy0
-            real epsInitzz = 3.7986e-4; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
-            real epsInityz = -0e-1; // eps_yz0
-            real epsInitzx = -0e-1; // eps_zx0
+            // real epsInitxx = -1.0072e-3; // eps_xx0
+            // real epsInityy = -1.0383e-3; // eps_yy0
+            // real epsInitzz = 3.7986e-4; // eps_zz0
+            // real epsInitxy = 1.0909e-3; // eps_xy0
+            // real epsInityz = -0e-1; // eps_yz0
+            // real epsInitzx = -0e-1; // eps_zx0
 
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
@@ -800,6 +800,7 @@ private:
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
+	  /*
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurface) {
             // Compute local integrals with derivatives and Rusanov flux
             /// S1: compute the space-time interpolated Q on both side of 4 faces
@@ -847,22 +848,29 @@ private:
             unsigned DAM = 9;
             unsigned BRE = 10;
 
-            // tpv5 45.0 deg, xi 0.77
-            real epsInitxx = -1.0072e-3; // eps_xx0
+            real epsInitxx = 3.7986e-4; // eps_xx0
             real epsInityy = -1.0383e-3; // eps_yy0
-            real epsInitzz = 3.7986e-4; // eps_zz0
+            real epsInitzz = -1.0072e-3; // eps_zz0
             real epsInitxy = 1.0909e-3; // eps_xy0
             real epsInityz = -0e-1; // eps_yz0
             real epsInitzx = -0e-1; // eps_zx0
+	    
+	    // tpv5 45.0 deg, xi 0.77
+            // real epsInitxx = -1.0072e-3; // eps_xx0
+            // real epsInityy = -1.0383e-3; // eps_yy0
+            // real epsInitzz = 3.7986e-4; // eps_zz0
+            // real epsInitxy = 1.0909e-3; // eps_xy0
+            // real epsInityz = -0e-1; // eps_yz0
+            // real epsInitzx = -0e-1; // eps_zx0
 
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
             real rho0P = materialData[l_cell].local.rho;
 
-            real aB0 = 7.43e9;
-            real aB1 = -12.14e9;
+            real aB0 = 12.43e9;
+            real aB1 = -0.0*12.14e9;
             real aB2 = 18.93e9;
-            real aB3 = -5.067e9;
+            real aB3 = -0.0*5.067e9;
 
             real sxxP, syyP, szzP, sxyP, syzP, szxP;
 
@@ -1084,6 +1092,7 @@ private:
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
+	  */
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
             // No neighboring cell contribution, interior bc.
             assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
