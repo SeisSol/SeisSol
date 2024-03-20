@@ -800,7 +800,6 @@ private:
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
-	  /*
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurface) {
             // Compute local integrals with derivatives and Rusanov flux
             /// S1: compute the space-time interpolated Q on both side of 4 faces
@@ -1092,7 +1091,6 @@ private:
             // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
             m_surfIntegral.execute(side, 0);
           }
-	  */
           else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
             // No neighboring cell contribution, interior bc.
             assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
