@@ -12,24 +12,30 @@ namespace seissol::io::writer {
 
 class DataSource {
   public:
-  DataSource(std::shared_ptr<datatype::Datatype> datatype);
+  DataSource(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t>& shape);
 
   virtual YAML::Node serialize() = 0;
   virtual const void* getPointer(const async::ExecInfo& info) = 0;
   virtual std::size_t count(const async::ExecInfo& info) = 0;
   virtual void assignId(int id) = 0;
-
+  virtual bool distributed() = 0;
+  
+  const std::vector<std::size_t>& shape() const;
   std::shared_ptr<seissol::io::datatype::Datatype> datatype() const;
 
   static std::unique_ptr<DataSource> deserialize(YAML::Node node);
 
   protected:
   std::shared_ptr<seissol::io::datatype::Datatype> datatypeP;
+  const std::vector<std::size_t>& shapeP;
 };
 
 class WriteInline : public DataSource {
   public:
-  WriteInline(void* dataPtr, std::size_t size, std::shared_ptr<datatype::Datatype> datatype);
+  WriteInline(void* dataPtr,
+              std::size_t size,
+              std::shared_ptr<datatype::Datatype> datatype,
+              const std::vector<std::size_t>& shape);
 
   explicit WriteInline(YAML::Node node);
 
@@ -39,13 +45,16 @@ class WriteInline : public DataSource {
 
   std::size_t count(const async::ExecInfo& info) override;
 
+  bool distributed() override;
+
   void assignId(int) override;
 
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
+             const std::vector<std::size_t>& shape,
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
-    return std::make_shared<WriteInline>(&data, sizeof(T), datatype);
+    return std::make_shared<WriteInline>(&data, sizeof(T), datatype, shape);
   }
 
   private:
@@ -64,13 +73,18 @@ class WriteBufferRemote : public DataSource {
 
   void assignId(int) override;
 
+  bool distributed() override;
+
   private:
   int id;
 };
 
 class WriteBuffer : public DataSource {
   public:
-  WriteBuffer(void* data, size_t size, std::shared_ptr<datatype::Datatype> datatype);
+  WriteBuffer(void* data,
+              size_t size,
+              std::shared_ptr<datatype::Datatype> datatype,
+              const std::vector<std::size_t>& shape);
 
   YAML::Node serialize() override;
 
@@ -83,12 +97,15 @@ class WriteBuffer : public DataSource {
 
   void assignId(int givenId) override;
 
+  bool distributed() override;
+
   template <typename T>
   static std::shared_ptr<DataSource>
       create(T* data,
              size_t count,
+             const std::vector<std::size_t>& shape = {},
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
-    return std::make_shared<WriteBuffer>(data, sizeof(T) * count, datatype);
+    return std::make_shared<WriteBuffer>(data, sizeof(T) * count, datatype, shape);
   }
 
   private:
@@ -101,6 +118,9 @@ class AdhocBuffer : public DataSource {
   public:
   virtual std::size_t getTargetSize() = 0;
   virtual void setData(void* target) = 0;
+
+  AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t> shape)
+    : DataSource(datatype, shape) {}
 
   YAML::Node serialize() override {
     YAML::Node node;
@@ -118,30 +138,39 @@ class AdhocBuffer : public DataSource {
 
   void assignId(int givenId) override { id = givenId; }
 
+  bool distributed() override { return true; }
+
   private:
   int id;
 };
 
-template <std::size_t TargetCount, typename T, typename S, typename F>
-class ElementTransformBuffer : public AdhocBuffer {
+template <typename T, typename F>
+class ElementBuffer : public AdhocBuffer {
   public:
-  ElementTransformBuffer(F&& handler, T* source, std::size_t count)
-      : handler(std::forward<F>(handler)), source(source), sourceCount(count) {}
+  ElementBuffer(std::size_t sourceCount,
+                std::size_t targetCount,
+                const std::vector<std::size_t> shape,
+                F&& handler,
+                std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>())
+      : handler(std::forward<F>(handler)), sourceCount(sourceCount), targetCount(targetCount),
+        AdhocBuffer(datatype, shape) {}
 
   void setData(void* targetPtr) override {
-    S* target = targetPtr;
+    T* target = targetPtr;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
     for (std::size_t i = 0; i < sourceCount; ++i) {
-      using TargetArray = S[TargetCount];
-      std::invoke(handler, *reinterpret_cast<TargetArray*>(&target[i * TargetCount]), source[i]);
+      std::invoke(handler, &target[i * targetCount], i);
     }
   }
 
-  std::size_t getTargetSize() override { return TargetCount * sizeof(S) * sourceCount; }
+  std::size_t getTargetSize() override { return targetCount * sizeof(T) * sourceCount; }
 
   private:
   F handler;
-  T* source;
-  size_t sourceCount;
+  std::size_t sourceCount;
+  std::size_t targetCount;
 };
 
 } // namespace seissol::io::writer

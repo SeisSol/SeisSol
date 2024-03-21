@@ -8,6 +8,7 @@
 
 namespace seissol::io::reader {
 class Distributor {
+  public:
   Distributor(MPI_Comm comm);
 
   void setup(std::size_t globalCount,

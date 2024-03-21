@@ -48,7 +48,6 @@
 
 #include "utils/logger.h"
 
-#include "Checkpoint/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
@@ -102,8 +101,6 @@ class SeisSol {
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
   Simulator& simulator() { return m_simulator; }
-
-  checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
 
   sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
 
@@ -243,9 +240,6 @@ class SeisSol {
   //! Simulator
   Simulator m_simulator;
 
-  //! Check pointing module
-  checkpoint::Manager m_checkPointManager;
-
   //! Source term module
   sourceterm::Manager m_sourceTermManager;
 
@@ -288,7 +282,7 @@ class SeisSol {
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
       : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
+        m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
         m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
 };

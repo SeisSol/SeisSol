@@ -1,8 +1,10 @@
 #pragma once
 
+#include <Geometry/MeshReader.h>
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Reader/Distribution.hpp>
+#include <IO/Reader/File/Hdf5Reader.hpp>
 #include <IO/Writer/Writer.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Layer.hpp>
@@ -24,6 +26,7 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
+  template<typename F>
   void registerTree(const std::string& name, initializer::LTSTree* tree, const std::size_t* ids) {
     dataRegistry[tree].name = name;
     dataRegistry[tree].tree = tree;
@@ -43,28 +46,32 @@ class CheckpointManager {
     return [dataRegistry](double time) -> writer::Writer {
       writer::Writer writer;
       for (auto& [_, ckpTree] : dataRegistry) {
-        auto cells = ckpTree->tree.getNumberOfCells(Ghost);
-        MPI_Allreduce(&totalCells,
-                      &cells,
+        const std::size_t cells = ckpTree.tree->getNumberOfCells(Ghost);
+        assert(cells == meshReader->getElements().size());
+        std::size_t totalCells;
+        MPI_Allreduce(&cells,
+                      &totalCells,
                       1,
                       datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                       MPI_SUM,
-                      comm);
+                      MPI::mpi.comm());
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
             writer::instructions::Hdf5Location("checkpoint.h5", {"checkpoint", ckpTree.name}),
             "__count",
-            writer::WriteInline::create(totalCells)));
+            writer::WriteInline::create(totalCells, {})));
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location("checkpoint.h5", {"checkpoint", ckpTree.name}),
             "__ids",
-            writer::ElementTransformBuffer(),
+            writer::TransformBuffer<std::size_t>(cells, 1, std::vector<std::size_t>(), [&](std::size_t* target, std::size_t index) {
+              target[0] = meshReader->getElements()[index].globalId;
+            }),
             datatype::inferDatatype<std::size_t>() std::vector<std::size_t>()));
         for (auto& variable : ckpTree.variables) {
           // TODO(David): assert that we don't have ghost cells
           writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
               writer::instructions::Hdf5Location("checkpoint.h5", {"checkpoint", ckpTree.name}),
               variable.name,
-              writer::WriteBuffer(variable.data, cells, variable.datatype),
+              writer::WriteBuffer(variable.data, cells, variable.datatype, {}),
               variable.datatype,
               std::vector<std::size_t>()));
         }
@@ -73,15 +80,19 @@ class CheckpointManager {
   }
 
   void loadCheckpoint(const std::string& file) {
-    auto reader = reader::Hdf5File(seissol::MPI::mpi.comm());
+    auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
     reader.openFile(file);
     for (auto& [_, ckpTree] : dataRegistry) {
       reader.openGroup(ckpTree.name);
       auto distributor = reader::Distributor(seissol::MPI::mpi.comm());
       std::size_t totalCount =
-          reader.readAttribute("__count", datatype::inferDatatype<std::size_t>());
-      auto groupIds = reader.readData("__ids", datatype::inferDatatype<std::size_t>());
-      distributor.setup(totalCount, groupIds.data(), ckpTree.ids);
+          reader.readAttributeScalar<std::size_t>("__count");
+      auto groupIds = reader.readData<std::size_t>("__ids", {});
+      std::vector<std::size_t> currentGlobalIds(meshReader->getElements().size());
+      for (std::size_t i = 0; i < currentGlobalIds.size(); ++i) {
+        currentGlobalIds[i] = meshReader->getElements()[i].globalId;
+      }
+      distributor.setup(totalCount, groupIds.data(), currentGlobalIds.data());
       for (auto& variable : ckpTree.variables) {
         auto readData = reader.readData(variable.name, variable.datatype);
         distributor.distribute(variable.data, readData.data(), variable.datatype);
@@ -93,6 +104,7 @@ class CheckpointManager {
 
   private:
   std::unordered_map<initializer::LTSTree*, CheckpointTree> dataRegistry;
+  geometry::MeshReader* meshReader;
 };
 
 } // namespace seissol::io::instance::checkpoint

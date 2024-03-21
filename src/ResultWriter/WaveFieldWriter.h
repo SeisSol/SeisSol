@@ -56,7 +56,6 @@
 
 #include "async/Module.h"
 
-#include "Checkpoint/DynStruct.h"
 #include "Geometry/refinement/VariableSubSampler.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
@@ -81,9 +80,6 @@ class WaveFieldWriter
 
   /** True if wave field output is enabled */
   bool m_enabled;
-
-  /** The timestep component in the checkpoint header */
-  DynStruct::Component<int> m_timestepComp;
 
   /** False if entire region is to be written */
   bool isExtractRegionEnabled;

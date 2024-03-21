@@ -22,8 +22,6 @@ class Hdf5File {
   void writeData(const async::ExecInfo& info,
                  const std::string& name,
                  std::shared_ptr<DataSource> source,
-                 std::size_t count,
-                 const std::vector<std::size_t>& dimensions,
                  std::shared_ptr<datatype::Datatype> targetType,
                  int compress);
   void closeGroup();
@@ -31,7 +29,7 @@ class Hdf5File {
 
   private:
   hid_t file;
-  std::stack<hid_t> handles;
+  std::stack<hid_t> handles; // TODO: have something more sophisticated than a single stack
   MPI_Comm comm;
 };
 

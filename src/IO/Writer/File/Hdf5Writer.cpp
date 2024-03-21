@@ -51,26 +51,42 @@ void Hdf5File::openGroup(const std::string& name) {
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
                               const std::string& name,
                               std::shared_ptr<DataSource> source) {
-  hid_t h5spaceScalar = _eh(H5Screate(H5S_SCALAR));
+  if (source->distributed()) {
+    logError() << "Attempted to write an HDF5 attributed as a distributed source.";
+  }
+  hid_t h5space;
+  if (source->shape().empty()) {
+    h5space = _eh(H5Screate(H5S_SCALAR));
+  } else {
+    auto& shape = source->shape();
+    h5space = _eh(H5Screate_simple(shape.size(), shape.data(), nullptr));
+  }
   hid_t h5type = datatype::convertToHdf5(source->datatype());
   hid_t handle =
-      _eh(H5Acreate(handles.top(), name.c_str(), h5type, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT));
+      _eh(H5Acreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, H5P_DEFAULT));
   _eh(H5Awrite(handle, h5type, source->getPointer(info)));
   _eh(H5Aclose(handle));
-  _eh(H5Sclose(h5spaceScalar));
+  _eh(H5Sclose(h5space));
 }
 void Hdf5File::writeData(const async::ExecInfo& info,
                          const std::string& name,
                          std::shared_ptr<DataSource> source,
-                         std::size_t count,
-                         const std::vector<std::size_t>& dimensions,
                          std::shared_ptr<datatype::Datatype> targetType,
                          int compress) {
-  const std::size_t chunksize = 1000000;
-
   MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
-  std::size_t allcount;
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+  // if we don't write distributed data, only one rank needs to do the work
+  const std::size_t count = (source->distributed() || rank == 0) ? source->count(info) : 0;
+  const auto& dimensions = source->shape();
+  // TODO: adjust chunksize according to dimensions and datatype size
+  const std::size_t chunksize = 1000000;
+
+  const std::size_t actualDimensions =
+      source->distributed() ? dimensions.size() + 1 : dimensions.size();
+
+  std::size_t allcount = count;
   std::size_t offset = 0;
 
   std::size_t rounds = (count + chunksize - 1) / chunksize;
@@ -84,20 +100,24 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   std::size_t chunkcount = std::min(chunksize, count);
 
-  globalSizes.push_back(allcount);
-  localSizes.push_back(chunkcount);
+  if (source->distributed()) {
+    globalSizes.push_back(allcount);
+    localSizes.push_back(chunkcount);
+  }
   for (const auto& dim : dimensions) {
     globalSizes.push_back(dim);
     localSizes.push_back(dim);
   }
-  hid_t h5space = H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr);
-  hid_t h5memspace = H5Screate_simple(localSizes.size(), localSizes.data(), nullptr);
+  hid_t h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr));
+  hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
 
   std::vector<hsize_t> writeStart;
   std::vector<hsize_t> writeLength;
 
-  writeStart.push_back(offset);
-  writeLength.push_back(chunkcount);
+  if (source->distributed()) {
+    writeStart.push_back(offset);
+    writeLength.push_back(chunkcount);
+  }
   for (const auto& dim : dimensions) {
     writeStart.push_back(0);
     writeLength.push_back(dim);
@@ -121,7 +141,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   hid_t h5filter = H5P_DEFAULT;
   if (compress > 0) {
     h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
-    _eh(H5Pset_chunk(h5filter, 2, writeLength.data()));
+    _eh(H5Pset_chunk(h5filter, actualDimensions, writeLength.data()));
     int deflateStrength = compress;
     _eh(H5Pset_deflate(h5filter, deflateStrength));
   }
@@ -130,16 +150,16 @@ void Hdf5File::writeData(const async::ExecInfo& info,
       file, (std::string("/") + name).c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
 
   std::size_t written = 0;
-  std::size_t index = 0;
 
-  std::vector<hsize_t> nullstart(dimensions.size() + 1);
+  std::vector<hsize_t> nullstart(actualDimensions);
 
   const char* data = reinterpret_cast<const char*>(source->getPointer(info));
 
   for (std::size_t i = 0; i < rounds; ++i) {
-    index = 0;
-    writeStart[0] = offset + written;
-    writeLength[0] = std::min(count - written, chunkcount);
+    if (source->distributed()) {
+      writeStart[0] = offset + written;
+      writeLength[0] = std::min(count - written, chunkcount);
+    }
 
     const char* dataloc = data;
 
@@ -151,7 +171,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
     _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
 
-    written += writeLength[0];
+    if (source->distributed()) {
+      written += writeLength[0];
+    }
   }
 
   if (compress > 0) {
@@ -203,13 +225,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, instructions::Hdf5DataWr
     assert(trueCount % dimension == 0);
     trueCount /= dimension;
   }
-  file.writeData(info,
-                 write.name,
-                 write.dataSource,
-                 write.dataSource->count(info),
-                 write.dimensions,
-                 write.targetType,
-                 0);
+  file.writeData(info, write.name, write.dataSource, write.targetType, 0);
   for (auto _ : write.location.groups()) {
     file.closeGroup();
   }
