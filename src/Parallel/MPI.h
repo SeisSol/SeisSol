@@ -181,8 +181,9 @@ class MPI : public MPIBasic {
     return collected;
   }
 
-  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
-  template<typename F>
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by
+  // rank 0, then by rank 1, then by rank 2 etc.
+  template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
       comm = std::optional<MPI_Comm>(m_comm);
@@ -195,14 +196,14 @@ class MPI : public MPIBasic {
     const int tag = 15; // TODO(David): replace by a tag allocation system one day
     char flag = 0;
     if (rank > 0) {
-      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+      MPI_Recv(&flag, 1, MPI_CHAR, rank - 1, tag, comm.value(), MPI_STATUS_IGNORE);
     }
 
     std::invoke(std::forward<F>(operation));
 
     // size >= 1 is ensured
     if (rank < size - 1) {
-      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+      MPI_Send(&flag, 1, MPI_CHAR, rank + 1, tag, comm.value());
     }
   }
 
@@ -258,9 +259,7 @@ class MPI : public MPIBasic {
   /**
    * Finalize MPI
    */
-  void finalize() {
-    MPI_Finalize();
-  }
+  void finalize() { MPI_Finalize(); }
 
   void setDataTransferModeFromEnv();
 

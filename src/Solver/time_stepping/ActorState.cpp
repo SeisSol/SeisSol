@@ -72,9 +72,10 @@ long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncT
   return static_cast<long>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
 }
 
-NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate) {
+NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor neighborExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
+  executor = neighborExecutor;
 }
 
 DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster) :

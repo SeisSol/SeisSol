@@ -45,6 +45,7 @@
 
 #include <Initializer/ParameterDB.h>
 #include "Initializer/MemoryManager.h"
+#include "tree/Layer.hpp"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -404,9 +405,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
+  CellDRMapping (*drMappingDevice)[4] = io_ltsTree->var(i_lts->drMappingDevice);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
   real** derivatives = io_ltsTree->var(i_lts->derivatives);
   real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
+  real** derivativesDevice = io_ltsTree->var(i_lts->derivativesDevice);
+  real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -414,11 +418,17 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
+    real**                                timeDerivativePlusDevice                                        = it->var(dynRup->timeDerivativePlusDevice);
+    real**                                timeDerivativeMinusDevice                                       = it->var(dynRup->timeDerivativeMinusDevice);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Host);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Host);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Host);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Host);
+    real                                (*imposedStatePlusDevice)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Device);
+    real                                (*imposedStateMinusDevice)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Device);
+    real                                (*fluxSolverPlusDevice)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Device);
+    real                                (*fluxSolverMinusDevice)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Device);
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
@@ -456,29 +466,37 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
         derivativesMeshId = fault[meshFace].neighborElement;
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
-      real* timeDerivative1 = NULL;
-      real* timeDerivative2 = NULL;
+      real* timeDerivative1 = nullptr;
+      real* timeDerivative2 = nullptr;
+      real* timeDerivative1Device = nullptr;
+      real* timeDerivative2Device = nullptr;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         unsigned ltsId = i_ltsLut->ltsId(i_lts->cellInformation.mask, derivativesMeshId, duplicate);
-        if (timeDerivative1 == NULL && (cellInformation[ltsId].ltsSetup >> 9)%2 == 1) {
+        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9)%2 == 1) {
           timeDerivative1 = derivatives[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
+          timeDerivative1Device = derivativesDevice[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
         }
-        if (timeDerivative2 == NULL && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
+        if (timeDerivative2 == nullptr && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
           timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
+          timeDerivative2Device = faceNeighborsDevice[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
         }
       }
 
-      assert(timeDerivative1 != NULL && timeDerivative2 != NULL);
+      assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
       if (fault[meshFace].element >= 0) {
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
+        timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
+        timeDerivativeMinusDevice[ltsFace] = timeDerivative2Device;
       } else {
         timeDerivativePlus[ltsFace] = timeDerivative2;
         timeDerivativeMinus[ltsFace] = timeDerivative1;
+        timeDerivativePlusDevice[ltsFace] = timeDerivative2Device;
+        timeDerivativeMinusDevice[ltsFace] = timeDerivative1Device;
       }
 
-      assert(timeDerivativePlus[ltsFace] != NULL && timeDerivativeMinus[ltsFace] != NULL);
+      assert(timeDerivativePlus[ltsFace] != nullptr && timeDerivativeMinus[ltsFace] != nullptr);
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
@@ -497,6 +515,11 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
           mapping.faceRelation = 0;
           mapping.godunov = &imposedStatePlus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
+          CellDRMapping& mappingDevice = drMappingDevice[plusLtsId][ faceInformation[ltsFace].plusSide ];
+          mappingDevice.side = faceInformation[ltsFace].plusSide;
+          mappingDevice.faceRelation = 0;
+          mappingDevice.godunov = &imposedStatePlusDevice[ltsFace][0];
+          mappingDevice.fluxSolver = &fluxSolverPlusDevice[ltsFace][0];
 }
         }
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
@@ -509,6 +532,11 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
           mapping.faceRelation = faceInformation[ltsFace].faceRelation;
           mapping.godunov = &imposedStateMinus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
+          CellDRMapping& mappingDevice = drMappingDevice[minusLtsId][ faceInformation[ltsFace].minusSide ];
+          mappingDevice.side = faceInformation[ltsFace].minusSide;
+          mappingDevice.faceRelation = faceInformation[ltsFace].faceRelation;
+          mappingDevice.godunov = &imposedStateMinusDevice[ltsFace][0];
+          mappingDevice.fluxSolver = &fluxSolverMinusDevice[ltsFace][0];
 }
         }
       }
@@ -653,12 +681,15 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;
 
-      krnl.fluxSolver = fluxSolverPlus[ltsFace];
+      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
+      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+
+      krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = APlusData;
       krnl.execute();
 
-      krnl.fluxSolver = fluxSolverMinus[ltsFace];
+      krnl.fluxSolver = fluxSolverMinusHost[ltsFace];
       krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();
@@ -675,16 +706,6 @@ void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                                                      LTSTree*          boundaryTree,
                                                      Boundary*         boundary) {
 #ifdef ACL_DEVICE
-  // Byte-copy of element compute-static data from the host to device
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
 
-  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
-                     ltsTree->var(lts->localIntegration),
-                     variableSizes[lts->localIntegration.index]);
-
-  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
-                     ltsTree->var(lts->neighboringIntegration),
-                     variableSizes[lts->neighboringIntegration.index]);
 #endif // ACL_DEVICE
 }

@@ -8,6 +8,7 @@
 #include "Initializer/typedefs.hpp"
 
 #include "Numerical_aux/Quadrature.h"
+#include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE
 #include "yateto.h"
@@ -80,7 +81,8 @@ class DirichletBoundary {
                         InverseMappingKrnl& nodalLfKrnlPrototype,
                         local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
                         ConditionalPointersToRealsTable &dataTable,
-                        device::DeviceInstance& device) const {
+                        device::DeviceInstance& device,
+                        seissol::parallel::runtime::StreamRuntime& runtime) const {
 
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
@@ -89,7 +91,7 @@ class DirichletBoundary {
     auto** dofsFaceBoundaryNodalPtrs = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
     memCounter += 2;
 
-    auto* deviceStream = device.api->getDefaultStream();
+    auto* deviceStream = runtime.stream();
     device.algorithms.incrementalAdd(
       dofsFaceBoundaryNodalPtrs,
       dofsFaceBoundaryNodalData,

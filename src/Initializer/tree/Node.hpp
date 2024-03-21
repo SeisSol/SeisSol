@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -45,17 +46,17 @@
 #include <cassert>
 
 namespace seissol {
-  namespace initializer {
-    class Node;
-  }
+namespace initializer {
+class Node;
 }
+} // namespace seissol
 
 class seissol::initializer::Node {
-protected:
+  protected:
   Node** m_children;
   unsigned m_numChildren;
   Node* m_next;
-  
+
   void setPostOrderPointers(Node* previous = NULL) {
     for (unsigned child = 0; child < m_numChildren; ++child) {
       m_children[child]->setPostOrderPointers(previous);
@@ -66,7 +67,7 @@ protected:
     }
   }
 
-public:
+  public:
   Node() : m_children(NULL), m_numChildren(0), m_next(NULL) {}
   virtual ~Node() {
     for (unsigned child = 0; child < m_numChildren; ++child) {
@@ -75,27 +76,23 @@ public:
     delete[] m_children;
   }
 
-  template<typename T>
+  template <typename T>
   void setChildren(unsigned numChildren) {
     delete[] m_children;
     m_children = new Node*[numChildren];
     m_numChildren = numChildren;
-    
+
     for (unsigned child = 0; child < m_numChildren; ++child) {
       m_children[child] = new T;
     }
   }
-  
-  inline bool isLeaf() const {
-    return m_numChildren == 0;
-  }
-  
-  inline unsigned numChildren() const {
-    return m_numChildren;
-  }  
+
+  inline bool isLeaf() const { return m_numChildren == 0; }
+
+  inline unsigned numChildren() const { return m_numChildren; }
 
   class iterator {
-  public:
+public:
     using iterator_category = std::input_iterator_tag;
     using value_type = Node;
     using difference_type = size_t;
@@ -109,24 +106,16 @@ public:
       m_node = m_node->m_next;
       return *this;
     }
-    
-    inline reference operator*() {
-      return *m_node;
-    }
-    
-    inline pointer operator->() {
-      return m_node;
-    }
-    
-    inline bool operator==(iterator const& other) const {
-      return other.m_node == m_node;
-    }
-    
-    inline bool operator!=(iterator const& other) const {
-      return other.m_node != m_node;
-    }
 
-  protected:
+    inline reference operator*() { return *m_node; }
+
+    inline pointer operator->() { return m_node; }
+
+    inline bool operator==(iterator const& other) const { return other.m_node == m_node; }
+
+    inline bool operator!=(iterator const& other) const { return other.m_node != m_node; }
+
+protected:
     value_type* m_node;
   };
 
@@ -138,13 +127,12 @@ public:
     assert(start == this || start->m_next != NULL);
     return iterator(start);
   }
-  
+
   inline iterator end() {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
     return iterator(this->m_next);
   }
 };
-
 
 #endif

@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
+#include <Parallel/Runtime/Stream.hpp>
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -171,8 +172,11 @@ ProxyOutput runProxy(ProxyConfig config) {
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
 
-  if (config.verbose)
+  runtime = new seissol::parallel::runtime::StreamRuntime();
+
+  if (config.verbose) {
     printf("...done\n\n");
+  }
 
   struct timeval start_time, end_time;
 #ifdef __USE_RDTSC
@@ -184,6 +188,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   // init OpenMP and LLC
   testKernel(config.kernel, 1);
 
+  runtime->wait();
+
   seissol::monitoring::FlopCounter flopCounter;
 
   gettimeofday(&start_time, NULL);
@@ -192,6 +198,8 @@ ProxyOutput runProxy(ProxyConfig config) {
 #endif
 
   testKernel(config.kernel, config.timesteps);
+
+  runtime->wait();
 
 #ifdef __USE_RDTSC  
   cycles_end = __rdtsc();
@@ -261,6 +269,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   delete m_ltsTree;
   delete m_dynRupTree;
   delete m_allocator;
+
+  delete runtime;
 
 #ifdef ACL_DEVICE
   device.finalize();

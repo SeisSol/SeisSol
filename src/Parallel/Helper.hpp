@@ -3,6 +3,10 @@
 
 #include "utils/env.h"
 
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
+
 namespace seissol {
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic) {
@@ -33,6 +37,44 @@ void printPersistentMpiInfo(const T& mpiBasic) {
     logInfo(mpiBasic.rank()) << "Using asynchronous MPI routines.";
   }
 }
+
+#ifdef ACL_DEVICE
+inline bool useUSM() {
+  return utils::Env::get<bool>("SEISSOL_USM",
+                               device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+}
+
+template <typename T>
+void printUSMInfo(const T& mpiBasic) {
+  if (useUSM()) {
+    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU data.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU data.";
+  }
+}
+
+inline bool useMPIUSM() {
+  return utils::Env::get<bool>("SEISSOL_USM_MPI",
+                               device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+}
+
+template <typename T>
+void printMPIUSMInfo(const T& mpiBasic) {
+  if (useMPIUSM()) {
+    logInfo(mpiBasic.rank()) << "Using unified buffers for CPU-GPU MPI data.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU MPI data.";
+  }
+}
+
+inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
+
+template <typename T>
+void printDeviceHostSwitch(const T& mpiBasic) {
+  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch()
+                           << "or more cells on the GPU (and on the CPU otherwise)";
+}
+#endif
 
 } // namespace seissol
 

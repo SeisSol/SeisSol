@@ -176,11 +176,13 @@ class LinearSlipWeakeningLaw
                                       real fullUpdateTime) override {
     auto* concreteLts =
         dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
-    this->dC = layerData.var(concreteLts->dC);
-    this->muS = layerData.var(concreteLts->muS);
-    this->muD = layerData.var(concreteLts->muD);
-    this->cohesion = layerData.var(concreteLts->cohesion);
-    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
+    this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
+    this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
+    this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
+    this->cohesion =
+        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Device);
+    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime,
+                                            seissol::initializer::AllocationPlace::Device);
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -324,7 +326,8 @@ class BiMaterialFault {
                           real fullUpdateTime) {
     auto* concreteLts =
         dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
-    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
+                                              seissol::initializer::AllocationPlace::Device);
   }
 
   static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
@@ -352,7 +355,6 @@ class BiMaterialFault {
                            size_t pointIndex) {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
-    assert(regularisedStrength != nullptr && "regularisedStrength is not initialized");
 
     const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                    deltaT / prakashLength);

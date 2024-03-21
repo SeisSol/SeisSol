@@ -98,7 +98,7 @@ class seissol::sourceterm::Manager {
       -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
 
   auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
-      -> std::unique_ptr<kernels::PointSourceCluster>;
+      -> PointSourceClusterPair;
 
   auto loadSourcesFromFSRM(char const* fileName,
                            seissol::geometry::MeshReader const& mesh,
@@ -106,7 +106,7 @@ class seissol::sourceterm::Manager {
                            seissol::initializer::LTS* lts,
                            seissol::initializer::Lut* ltsLut,
                            AllocatorT const& alloc)
-      -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
+      -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>>;
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
   auto loadSourcesFromNRF(char const* fileName,
@@ -115,7 +115,7 @@ class seissol::sourceterm::Manager {
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
                           AllocatorT const& alloc)
-      -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
+      -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>>;
 #endif
 };
 

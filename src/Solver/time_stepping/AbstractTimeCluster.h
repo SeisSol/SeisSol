@@ -20,11 +20,12 @@ protected:
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
+  Executor executor;
 
   [[nodiscard]] double timeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
-  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate);
+  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
 
   virtual bool mayPredict();
   virtual bool mayCorrect();
@@ -36,6 +37,8 @@ protected:
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
+
+  bool hasDifferentExecutorNeighbor();
 
 
   long timeStepRate;

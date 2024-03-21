@@ -52,7 +52,8 @@ namespace seissol {
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
                                 initializer::LTS& lts,
                                 initializer::Layer& layer,
-                                seissol::SeisSol& seissolInstance);
+                                seissol::SeisSol& seissolInstance,
+                                seissol::parallel::runtime::StreamRuntime& runtime);
   
   void fillWithStuff(real* buffer,
                      unsigned nValues);
