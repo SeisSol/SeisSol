@@ -6,6 +6,7 @@
 #include "generated_code/tensor.h"
 #include <Initializer/Parameters/ModelParameters.h>
 #include <cstring>
+#include "Kernels/Time.h"
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -144,6 +145,7 @@ void ReceiverOutput::calcFaultOutput(
     alignas(ALIGNMENT) real dofsStressPlus[tensor::Q::size()]{};
     alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
 #ifdef USE_DAMAGEDELASTIC
+    kernels::Time timeKernel;
     seissol::dr::ImpedancesAndEta* impAndEtaGet =
         &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
@@ -182,28 +184,12 @@ void ReceiverOutput::calcFaultOutput(
     const real aB3 = damagedElasticParameters.aB3;
 
     for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
-      real EspIp = (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
-                   (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) +
-                   (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-      real EspIIp = (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) *
-                        (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
-                    (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) *
-                        (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) +
-                    (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz) *
-                        (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz) +
-                    2 * (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy) *
-                        (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy) +
-                    2 * (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz) *
-                        (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz) +
-                    2 * (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx) *
-                        (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+      real EspIp, EspIIp, EspIm, EspIIm, xip, xim;
+      timeKernel.calculateEps(&dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, EspIp, EspIIp, xip);
       real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      real xip;
-      if (EspIIp > 1e-30) {
-        xip = EspIp / std::sqrt(EspIIp);
-      } else {
-        xip = 0.0;
-      }
 
       // damage stress impAndEtaGet->gammaRP, mu0P
       real mu_eff = mu0P - alphap * impAndEtaGet->gammaRP * impAndEtaGet->xi0P -
@@ -261,28 +247,11 @@ void ReceiverOutput::calcFaultOutput(
           (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
           dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
 
-      real EspIm = (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
-                   (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) +
-                   (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-      real EspIIm = (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) *
-                        (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx) +
-                    (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) *
-                        (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy) +
-                    (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz) *
-                        (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz) +
-                    2 * (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy) *
-                        (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy) +
-                    2 * (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz) *
-                        (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz) +
-                    2 * (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx) *
-                        (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+      timeKernel.calculateEps(&dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      &dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, EspIm, EspIIm, xim);
       real alpham = dofsNMinus[9];
-      real xim;
-      if (EspIIm > 1e-30) {
-        xim = EspIIm / std::sqrt(EspIIm);
-      } else {
-        xim = 0.0;
-      }
 
       // damage stress minus
       mu_eff = mu0M - alpham * impAndEtaGet->gammaRM * impAndEtaGet->xi0M -
