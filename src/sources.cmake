@@ -10,12 +10,6 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 
-src/Checkpoint/Backend.cpp
-src/Checkpoint/Fault.cpp
-src/Checkpoint/Manager.cpp
-src/Checkpoint/posix/Fault.cpp
-src/Checkpoint/posix/Wavefield.cpp
-
 src/Common/IntegerMaskParser.cpp
 
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
