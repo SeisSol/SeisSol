@@ -14,9 +14,14 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/tree
+        src/Geometry
+        src/tests/Common
         src/tests/DynamicRupture
+        src/tests/Initializer
+        src/tests/Kernel
         src/tests/Model
         src/tests/Reader
+        src/tests/SourceTerm
         src/Modules
         src/Monitoring
         src/Parallel
@@ -42,16 +47,6 @@ format() {
         src/Kernels/PointSourceClusterOnDevice.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Geometry/MeshReader.h
-        src/Geometry/MeshReader.cpp
-        src/Geometry/NetcdfReader.h
-        src/Geometry/NetcdfReader.cpp
-        src/Geometry/PUMLReader.h
-        src/Geometry/PUMLReader.cpp
-        src/Geometry/PartitioningLib.h
-        src/Geometry/PartitioningLib.cpp
-        src/Geometry/CubeGenerator.h
-        src/Geometry/CubeGenerator.cpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

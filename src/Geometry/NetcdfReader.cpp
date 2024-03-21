@@ -328,8 +328,16 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 #endif // USE_MPI
   }
 
+  const unsigned long localCells = sizes[0];
+  unsigned long localStart = 0;
+
+#ifdef USE_MPI
+  MPI_Exscan(&localCells, &localStart, 1, MPI_UNSIGNED_LONG, MPI_SUM, seissol::MPI::mpi.comm());
+#endif
+
   // Copy buffers to elements
   for (int i = 0; i < sizes[0]; i++) {
+    m_elements[i].globalId = localStart + i;
     m_elements[i].localId = i;
 
     memcpy(m_elements[i].vertices, &elemVertices[i], sizeof(ElemVertices));

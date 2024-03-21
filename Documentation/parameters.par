@@ -78,6 +78,7 @@ PPFileName = 'tpv33_faultreceivers.dat'
             
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
+pumlboundaryformat = 'auto'      ! the boundary data type for PUML files
 meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 /
