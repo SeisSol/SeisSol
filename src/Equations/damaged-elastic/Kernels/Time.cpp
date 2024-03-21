@@ -186,13 +186,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else // USE_STP
 
 #ifdef USE_DAMAGEDELASTIC
-  const real epsInitxx = m_damagedElasticParameters->epsInitxx;
-  const real epsInityy = m_damagedElasticParameters->epsInityy;
-  const real epsInitzz = m_damagedElasticParameters->epsInitzz;
-  const real epsInitxy = m_damagedElasticParameters->epsInitxy;
-  const real epsInityz = m_damagedElasticParameters->epsInityz;
-  const real epsInitzx = m_damagedElasticParameters->epsInitzx;
-
   const real damageParameter = data.material.local.Cd;
   const real scalingValue = m_damagedElasticParameters->scalingValue;
   const real breakCoefficient = scalingValue * damageParameter;
@@ -225,19 +218,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
-    real EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
-    real EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
-                 (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
-                 (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
-                 2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
-                 2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
-                 2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
-    real xi;
-    if (EspII > 1e-30) {
-      xi = EspI / std::sqrt(EspII);
-    } else {
-      xi = 0.0;
-    }
+    real EspI, EspII, xi;
+    calculateEps(exxNodal, eyyNodal, ezzNodal, exyNodal, eyzNodal, ezxNodal, q, *m_damagedElasticParameters, EspI, EspII, xi);
 
     // Compute alpha_{cr}
     real aCR = (3.0 * xi * xi - 3.0) * data.material.local.gammaR * data.material.local.gammaR +
