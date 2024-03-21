@@ -1056,7 +1056,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 #ifdef USE_DAMAGEDELASTIC
     kernel::cellAve m_cellAverageKernel;
     // real Q_aveData[NUMBER_OF_QUANTITIES];
-    real Q_aveData[tensor::QAve::size()];
+    alignas(ALIGNMENT) real Q_aveData[tensor::QAve::size()];
     auto Q_ave = init::QAve::view::create(Q_aveData);
 #endif
 
