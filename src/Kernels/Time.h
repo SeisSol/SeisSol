@@ -165,13 +165,14 @@ class seissol::kernels::Time : public TimeBase {
     m_damagedElasticParameters = damagedElasticParameters;
   };
   void calculateEps(const real* exxNodal, const real* eyyNodal, const real* ezzNodal, const real* exyNodal,
-      const real* eyzNodal, const real* ezxNodal,const unsigned int& q, real& EspI, real& EspII, real&xi) {
-    const real epsInitxx = m_damagedElasticParameters->epsInitxx;
-    const real epsInityy = m_damagedElasticParameters->epsInityy;
-    const real epsInitzz = m_damagedElasticParameters->epsInitzz;
-    const real epsInitxy = m_damagedElasticParameters->epsInitxy;
-    const real epsInityz = m_damagedElasticParameters->epsInitxx;
-    const real epsInitzx = m_damagedElasticParameters->epsInitxx;
+      const real* eyzNodal, const real* ezxNodal,const unsigned int& q, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+      real& EspI, real& EspII, real&xi) {
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
+    const real epsInityy = damagedElasticParameters.epsInityy;
+    const real epsInitzz = damagedElasticParameters.epsInitzz;
+    const real epsInitxy = damagedElasticParameters.epsInitxy;
+    const real epsInityz = damagedElasticParameters.epsInitxx;
+    const real epsInitzx = damagedElasticParameters.epsInitxx;
 
     EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
     EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +

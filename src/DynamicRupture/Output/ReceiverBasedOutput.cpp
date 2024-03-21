@@ -189,7 +189,7 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel.calculateEps(&dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
       &dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
       &dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-      &dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, EspIp, EspIIp, xip);
+      &dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, damagedElasticParameters, EspIp, EspIIp, xip);
       real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
 
       // damage stress impAndEtaGet->gammaRP, mu0P
@@ -251,7 +251,7 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel.calculateEps(&dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
       &dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
       &dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-      &dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, EspIm, EspIIm, xim);
+      &dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, damagedElasticParameters, EspIm, EspIIm, xim);
       real alpham = dofsNMinus[9];
 
       // damage stress minus
