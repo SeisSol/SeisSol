@@ -273,7 +273,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 }
 
 void OutputManager::writePickpointOutput(double time, double dt) {
-  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+  auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
 
@@ -333,7 +333,7 @@ void OutputManager::flushPickpointDataToFile() {
 
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
-    const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+    auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
                           ewOutputData,

@@ -30,7 +30,7 @@ class ReceiverOutput {
       seissol::initializer::parameters::OutputType outputType,
       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
       std::shared_ptr<ReceiverOutputData> state,
-      seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
+      seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
       double time = 0.0);
 
   protected:

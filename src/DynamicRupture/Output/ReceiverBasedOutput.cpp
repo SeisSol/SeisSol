@@ -76,7 +76,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
-    seissol::initializer::parameters::DamagedElasticParameters const& damagedElasticParameters,
+    seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -146,6 +146,7 @@ void ReceiverOutput::calcFaultOutput(
     alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
 #ifdef USE_DAMAGEDELASTIC
     kernels::Time timeKernel;
+    timeKernel.setDamagedElasticParameters(&damagedElasticParameters);
     seissol::dr::ImpedancesAndEta* impAndEtaGet =
         &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
