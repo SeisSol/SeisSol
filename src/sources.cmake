@@ -171,22 +171,6 @@ set(SYCL_ONLY_SRC_FILES
 target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
-if (MPI)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/FaultAsync.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Fault.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/WavefieldAsync.cpp
-)
-endif()
-
-if (HDF5)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Fault.cpp
-    )
-endif()
-
 if (HDF5 AND MPI)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
