@@ -1264,7 +1264,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
        materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
         - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
         + breakAve * (
-          (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+          (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII)
         );
        materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
 
@@ -1398,7 +1398,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
             - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
             + breakAveNeigh * (
-              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII)
             );
           materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
 
