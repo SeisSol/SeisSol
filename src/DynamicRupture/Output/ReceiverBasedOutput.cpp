@@ -163,8 +163,8 @@ void ReceiverOutput::calcFaultOutput(
     d_converToKrnl.Q = dofsMinus;
     d_converToKrnl.execute();
 
-    real dofsStressNPlus[tensor::Q::size()]{};
-    real dofsStressNMinus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
     const real epsInitxx = damagedElasticParameters.epsInitxx;
     const real epsInityy = damagedElasticParameters.epsInityy;
