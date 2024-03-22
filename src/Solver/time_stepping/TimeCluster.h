@@ -411,36 +411,13 @@ private:
 
               for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
                   i ++) {
-                real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
-                real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
-                  + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
-                  + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
-                  + 2*(qIPlus[o][XY][i]+epsInitxy)*(qIPlus[o][XY][i]+epsInitxy)
-                  + 2*(qIPlus[o][YZ][i]+epsInityz)*(qIPlus[o][YZ][i]+epsInityz)
-                  + 2*(qIPlus[o][XZ][i]+epsInitzx)*(qIPlus[o][XZ][i]+epsInitzx);
+                    real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
                 real alphap = qIPlus[o][DAM][i];
-                real xip;
-                if (EspIIp > 1e-30){
-                  xip = EspIp / std::sqrt(EspIIp);
-                } else{
-                  xip = 0.0;
-                }
-
-                real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
-                real EspIIm = (qIMinus[o][XX][i]+epsInitxx)*(qIMinus[o][XX][i]+epsInitxx)
-                  + (qIMinus[o][YY][i]+epsInityy)*(qIMinus[o][YY][i]+epsInityy)
-                  + (qIMinus[o][ZZ][i]+epsInitzz)*(qIMinus[o][ZZ][i]+epsInitzz)
-                  + 2*(qIMinus[o][XY][i]+epsInitxy)*(qIMinus[o][XY][i]+epsInitxy)
-                  + 2*(qIMinus[o][YZ][i]+epsInityz)*(qIMinus[o][YZ][i]+epsInityz)
-                  + 2*(qIMinus[o][XZ][i]+epsInitzx)*(qIMinus[o][XZ][i]+epsInitzx);
                 real alpham = qIMinus[o][DAM][i];
-                real xim;
-                if (EspIIm > 1e-30){
-                  xim = EspIm / std::sqrt(EspIIm);
-                } else{
-                  xim = 0.0;
-                }
-
+                m_timeKernel.calculateEps(qIPlus[o][XX], qIPlus[o][YY], qIPlus[o][ZZ],
+                  qIPlus[o][XY], qIPlus[o][YZ], qIPlus[o][XZ], i, damagedElasticParameters, EspIp, EspIIp, xip);
+                m_timeKernel.calculateEps(qIMinus[o][XX], qIMinus[o][YY], qIMinus[o][ZZ],
+                  qIMinus[o][XY], qIMinus[o][YZ], qIMinus[o][XZ], i, damagedElasticParameters, EspIm, EspIIm, xim);
                 real lambp = (1- qIPlus[o][BRE][i])*
                   (lambda0P - alphap * materialData[l_cell].local.gammaR * (qIPlus[o][XX][i]+epsInitxx)/std::sqrt(EspIIp) )
                 + qIPlus[o][BRE][i] *
