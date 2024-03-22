@@ -268,6 +268,7 @@ struct seissol::initializer::LTSRateAndStateThermalPressurization : public seiss
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager, LTSTree* tree) override {
     seissol::initializer::LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager, tree);
+    manager.registerData("temperature", tree, temperature);
     manager.registerData("pressure", tree, pressure);
   }
 };
