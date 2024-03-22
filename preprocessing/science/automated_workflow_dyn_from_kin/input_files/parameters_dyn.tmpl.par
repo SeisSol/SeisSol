@@ -26,7 +26,7 @@ SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
 ! parameterize paraview file output
 &Elementwise
-printtimeinterval_sec = 0.5                    ! Time interval at which output will be written
+printtimeinterval_sec = {{ fault_print_time_interval }}      ! Time interval at which output will be written
 OutputMask = 1 1 0 1 1 1 1 1 1 1 1             ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 0

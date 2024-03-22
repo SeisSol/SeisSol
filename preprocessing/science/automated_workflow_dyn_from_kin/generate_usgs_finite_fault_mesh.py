@@ -183,11 +183,12 @@ gmsh.model.mesh.field.add("Distance", 1)
 gmsh.model.mesh.field.setNumbers(1, "SurfacesList", fault_faces)
 gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 gmsh.model.mesh.field.add("MathEval", 2)
-gmsh.model.mesh.field.setString(2, "F", f"0.1*F1 +0.1*(F1/100)^2 + {h_fault}")
+gmsh.model.mesh.field.setString(2, "F", f"20*F1^(0.5) + 0.1*F1 + {h_fault}")
 gmsh.model.mesh.field.setAsBackgroundMesh(2)
 gmsh.model.geo.synchronize()
 
 gmsh.model.addPhysicalGroup(3, [1], 1)
+gmsh.option.setNumber("Mesh.Algorithm3D", 10)
 gmsh.model.mesh.generate(3)
 
 if not os.path.exists("tmp"):

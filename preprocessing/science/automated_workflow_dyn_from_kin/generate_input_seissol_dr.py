@@ -59,6 +59,21 @@ mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
 usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
 
 
+def compute_fault_sampling(usgs_duration):
+    if usgs_duration < 15:
+        return 0.25
+    elif usgs_duration < 30:
+        return 0.5
+    elif usgs_duration < 60:
+        return 1.0
+    elif usgs_duration < 200:
+        return 2.5
+    else:
+        return 5.0
+
+
+fault_sampling = compute_fault_sampling(usgs_duration)
+
 list_fault_yaml = []
 for i in range(nsample):
     R, B, C = pars[i, :]
@@ -72,7 +87,7 @@ for i in range(nsample):
     template_par["fault_fname"] = fn_fault
     template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
     template_par["material_fname"] = "yaml_files/usgs_material.yaml"
-
+    template_par["fault_print_time_interval"] = fault_sampling
     fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
