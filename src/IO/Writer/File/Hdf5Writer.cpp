@@ -221,7 +221,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, instructions::Hdf5DataWr
     file.openGroup(groupname);
   }
   std::size_t trueCount = write.dataSource->count(info);
-  for (auto dimension : write.dimensions) {
+  for (auto dimension : write.dataSource->shape()) {
     assert(trueCount % dimension == 0);
     trueCount /= dimension;
   }

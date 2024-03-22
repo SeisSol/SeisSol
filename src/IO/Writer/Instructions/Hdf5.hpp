@@ -91,15 +91,12 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
   std::shared_ptr<datatype::Datatype> targetType;
-  std::vector<size_t> dimensions;
 
   Hdf5DataWrite(const Hdf5Location& location,
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
-                std::shared_ptr<datatype::Datatype> targetType,
-                const std::vector<size_t>& dimensions)
-      : location(location), name(name), dataSource(dataSource), targetType(targetType),
-        dimensions(dimensions) {}
+                std::shared_ptr<datatype::Datatype> targetType)
+      : location(location), name(name), dataSource(dataSource), targetType(targetType) {}
 
   YAML::Node serialize() override {
     YAML::Node node;
@@ -107,7 +104,6 @@ struct Hdf5DataWrite : public WriteInstruction {
     node["source"] = dataSource->serialize();
     node["location"] = location.serialize();
     node["targetType"] = targetType->serialize();
-    node["dimensions"] = dimensions;
     node["writer"] = "hdf5";
     node["type"] = "data";
     return node;
@@ -117,8 +113,7 @@ struct Hdf5DataWrite : public WriteInstruction {
       : name(node["name"].as<std::string>()),
         dataSource(writer::DataSource::deserialize(node["source"])),
         location(Hdf5Location(node["location"])),
-        targetType(datatype::Datatype::deserialize(node["targetType"])),
-        dimensions(node["dimensions"].as<std::vector<size_t>>()) {}
+        targetType(datatype::Datatype::deserialize(node["targetType"])) {}
 
   std::vector<std::shared_ptr<DataSource>> dataSources() override { return {dataSource}; }
 };

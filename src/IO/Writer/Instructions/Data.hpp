@@ -4,7 +4,6 @@
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <cstring>
-#include <exception>
 #include <functional>
 #include <yaml-cpp/yaml.h>
 
@@ -19,7 +18,7 @@ class DataSource {
   virtual std::size_t count(const async::ExecInfo& info) = 0;
   virtual void assignId(int id) = 0;
   virtual bool distributed() = 0;
-  
+
   const std::vector<std::size_t>& shape() const;
   std::shared_ptr<seissol::io::datatype::Datatype> datatype() const;
 
@@ -52,9 +51,16 @@ class WriteInline : public DataSource {
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
-             const std::vector<std::size_t>& shape,
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
-    return std::make_shared<WriteInline>(&data, sizeof(T), datatype, shape);
+    return std::make_shared<WriteInline>(&data, sizeof(T), datatype, {});
+  }
+
+  template <typename T>
+  static std::shared_ptr<DataSource>
+      createArray(const std::vector<std::size_t>& shape,
+                  const std::vector<T>& data,
+                  std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+    return std::make_shared<WriteInline>(data.data(), sizeof(T) * data.size(), datatype, shape);
   }
 
   private:
@@ -120,7 +126,7 @@ class AdhocBuffer : public DataSource {
   virtual void setData(void* target) = 0;
 
   AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t> shape)
-    : DataSource(datatype, shape) {}
+      : DataSource(datatype, shape) {}
 
   YAML::Node serialize() override {
     YAML::Node node;

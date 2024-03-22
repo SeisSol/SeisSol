@@ -24,10 +24,8 @@ class OutputManager : public seissol::Module {
   }
 
   // TODO: de-couple checkpoint loading/writing (forward the CheckpointManager)
-  
-  void loadCheckpoint(const std::string& path) {
-    checkpointManager.loadCheckpoint(path);
-  }
+
+  void loadCheckpoint(const std::string& path) { checkpointManager.loadCheckpoint(path); }
 
   void setupCheckpoint(const std::string& path, double interval) {
     writer::ScheduledWriter checkpointScheduled;
@@ -36,6 +34,8 @@ class OutputManager : public seissol::Module {
     checkpointScheduled.interval = interval;
     addOutput(checkpointScheduled);
   }
+
+  instance::checkpoint::CheckpointManager& getCheckpointManager() { return checkpointManager; }
 
   private:
   instance::checkpoint::CheckpointManager checkpointManager;

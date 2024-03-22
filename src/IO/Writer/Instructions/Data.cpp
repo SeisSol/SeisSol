@@ -74,8 +74,11 @@ void WriteBufferRemote::assignId(int) {}
 
 bool WriteBuffer::distributed() { return true; }
 
-WriteBuffer::WriteBuffer(void* data, size_t size, std::shared_ptr<datatype::Datatype> datatype)
-    : id(-1), data(data), size(size), DataSource(datatype) {}
+WriteBuffer::WriteBuffer(void* data,
+                         size_t size,
+                         std::shared_ptr<datatype::Datatype> datatype,
+                         const std::vector<std::size_t>& shape)
+    : id(-1), data(data), size(size), DataSource(datatype, shape) {}
 
 YAML::Node WriteBuffer::serialize() {
   YAML::Node node;
