@@ -87,8 +87,8 @@
 namespace seissol {
   namespace kernels {
     class Time;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 class seissol::kernels::Time : public TimeBase {
   protected:
