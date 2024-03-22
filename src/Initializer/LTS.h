@@ -40,6 +40,7 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
+#include <IO/Instance/Checkpoint/CheckpointManager.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
@@ -78,15 +79,13 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializer {
-    struct LTS;
-  }
   namespace tensor {
     class Qane;
   }
 }
 
-struct seissol::initializer::LTS {
+namespace seissol::initializer {
+struct LTS {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
   Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;
@@ -150,5 +149,18 @@ struct seissol::initializer::LTS {
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
 #endif
   }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager, LTSTree* tree) {
+    manager.registerData("dofs", tree, dofs);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      manager.registerData("dofsAne", tree, dofsAne);
+    }
+    // check plasticity usage over the layer mask (for now)
+    if (plasticity.mask == LayerMask(Ghost)) {
+      manager.registerData("pstrain", tree, pstrain);
+    }
+  }
 };
+
+} // namespace seissol::initializer
 #endif

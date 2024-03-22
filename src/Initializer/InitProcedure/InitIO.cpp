@@ -14,11 +14,35 @@
 namespace {
 
 static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  seissolInstance.getOutputManager().loadCheckpoint(seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName);
+  auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
+
+  {
+    auto* tree = seissolInstance.getMemoryManager().getLtsTree();
+    checkpoint.registerTree<void>("lts", tree, nullptr);
+    seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
+  }
+
+  {
+    auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
+    checkpoint.registerTree<void>("dynrup", tree, nullptr);
+    seissolInstance.getMemoryManager().getDynamicRupture()->registerCheckpointVariables(checkpoint,
+                                                                                        tree);
+  }
+
+  {
+    auto* tree = seissolInstance.getMemoryManager().getBoundaryTree();
+    checkpoint.registerTree<void>("boundary", tree, nullptr);
+    seissolInstance.getMemoryManager().getBoundary()->registerCheckpointVariables(checkpoint, tree);
+  }
+
+  seissolInstance.getOutputManager().loadCheckpoint(
+      seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName);
 
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
     // TODO: for now, allow only _one_ checkpoint interval which checkpoints everything existent
-    seissolInstance.getOutputManager().setupCheckpoint(seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName, seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
+    seissolInstance.getOutputManager().setupCheckpoint(
+        seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName,
+        seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
   }
 
   /*if (hasCheckpoint) {
