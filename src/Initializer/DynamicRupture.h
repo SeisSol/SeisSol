@@ -168,6 +168,11 @@ public:
     manager.registerData("accumulatedSlipMagnitude", tree, accumulatedSlipMagnitude);
     manager.registerData("slip1", tree, slip1);
     manager.registerData("slip2", tree, slip2);
+    manager.registerData("peakSlipRate", tree, peakSlipRate);
+    manager.registerData("ruptureTime", tree, ruptureTime);
+    manager.registerData("ruptureTimePending", tree, ruptureTimePending);
+    manager.registerData("dynStressTime", tree, dynStressTime);
+    manager.registerData("dynStressTimePending", tree, dynStressTimePending);
   }
 };
 
