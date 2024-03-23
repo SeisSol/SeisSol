@@ -46,7 +46,7 @@ for current_file in output/dyn_*-surface.xdmf; do
 done
 
 
-for current_file in output/dyn_*-fault.xdmf; do
+for current_file in output/*-fault.xdmf; do
     counter=$((counter+1))
     echo "Processing file $counter of $total_params: $current_file"
     srun -n 1 -c 1 --exclusive --mem-per-cpu 8G seissol_output_extractor $current_file &
@@ -68,5 +68,3 @@ done
 wait
 mv *_extracted* extracted_output 
 mv *_disp* extracted_output
-cp output/dyn-*-fau* extracted_output
-cp output/fl33-fau* extracted_output
