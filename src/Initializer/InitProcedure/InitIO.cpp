@@ -1,10 +1,14 @@
 #include "Init.hpp"
 #include "InitIO.hpp"
 #include "Initializer/BasicTypedefs.hpp"
-#include <IO/Instance/CheckpointWriter.hpp>
+#include <IO/Instance/Mesh/VtkHdf.hpp>
 #include <IO/Writer/Writer.hpp>
+#include <Numerical_aux/Transformation.h>
 #include <SeisSol.h>
 #include <cstring>
+#include <kernel.h>
+#include <string>
+#include <tensor.h>
 #include <vector>
 #include "DynamicRupture/Misc.h"
 #include "Common/filesystem.h"
@@ -68,7 +72,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   // numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it
   // nonetheless.
 
-  if (seissolParams.output.waveFieldParameters.enabled) {
+  if (seissolParams.output.waveFieldParameters.enabled &&
+      seissolParams.output.waveFieldParameters.vtkorder < 0) {
     // seissolInstance.getOutputManager().addOutput(WaveField);
     // record the clustering info i.e., distribution of elements within an LTS tree
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
@@ -91,6 +96,45 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
+  }
+
+  if (seissolParams.output.waveFieldParameters.enabled &&
+      seissolParams.output.waveFieldParameters.vtkorder >= 0) {
+    auto order = seissolParams.output.waveFieldParameters.vtkorder;
+    auto& meshReader = seissolInstance.meshReader();
+    io::writer::ScheduledWriter schedWriter;
+    schedWriter.name = "wavefield";
+    schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
+    auto writer = io::instance::mesh::VtkHdfWriter(
+        seissolInstance.meshReader().getElements().size(), 3, order);
+    writer.addPointProjector([=](double* target, std::size_t index) {
+      const auto& element = meshReader.getElements()[index];
+      const auto& vertexArray = meshReader.getVertices();
+      for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+        seissol::transformations::tetrahedronReferenceToGlobal(
+            vertexArray[element.vertices[0]].coords,
+            vertexArray[element.vertices[1]].coords,
+            vertexArray[element.vertices[2]].coords,
+            vertexArray[element.vertices[3]].coords,
+            &init::vtk3d::Values[order][i * 3],
+            &target[i * 3]);
+      }
+    });
+    for (std::size_t quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
+      std::string name = std::string("q") + std::to_string(quantity);
+      writer.addPointData<real>(name, {}, [=](real* target, std::size_t index) {
+        const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, index);
+        const auto* dofsSingleQuantity = dofsAllQuantities + tensor::Q::Shape[0] * quantity;
+        kernel::projectBasisToVtkVolume vtkproj;
+        vtkproj.qb = dofsSingleQuantity;
+        vtkproj.xv(order) = target;
+        vtkproj.collvv(CONVERGENCE_ORDER, order) =
+            init::collvv::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
+        vtkproj.execute(order);
+      });
+    }
+    schedWriter.planWrite = writer.makeWriter();
+    seissolInstance.getOutputManager().addOutput(schedWriter);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -145,7 +189,8 @@ static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
 
 static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  if (seissolParams.output.waveFieldParameters.enabled) {
+  if (seissolParams.output.waveFieldParameters.enabled &&
+      seissolParams.output.waveFieldParameters.vtkorder < 0) {
     seissolInstance.waveFieldWriter().enable();
     seissolInstance.waveFieldWriter().setFilename(seissolParams.output.prefix.c_str());
     seissolInstance.waveFieldWriter().setWaveFieldInterval(

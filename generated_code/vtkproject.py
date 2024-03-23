@@ -15,20 +15,29 @@ def addKernels(generator, aderdg, matricesDir, targets=['cpu']):
         # the following is due to a shortcut in Yateto where 1-column matrices are interpreted as rank-1 vectors
 
         qb = Tensor('qb', (aderdg.numberOf3DBasisFunctions(),))
+        pb = Tensor('pb', (aderdg.numberOf2DBasisFunctions(),))
         xv = [Tensor(f'xv({i})', (((i+1)*(i+2)*(i+3))//6,)) for i in range(8)]
         xf = [Tensor(f'xf({i})', (((i+1)*(i+2))//2,)) for i in range(8)]
 
         generator.addFamily(f'{name_prefix}projectBasisToVtkVolume',
                   simpleParameterSpace(8),
-                  lambda i: xv[i]['p'] <= vtko.byName(f'coll{aderdg.order}vd{i}')['pb'] * qb['b'],
+                  lambda i: xv[i]['p'] <= vtko.byName(f'collvv({aderdg.order},{i})')['pb'] * qb['b'],
                   target=target)
-        
         generator.addFamily(f'{name_prefix}projectBasisToVtkFace',
+                  simpleParameterSpace(8),
+                  lambda i: xf[i]['p'] <= vtko.byName(f'collff({aderdg.order},{i})')['pb'] * pb['b'],
+                  target=target)
+
+        generator.addFamily(f'{name_prefix}projectBasisToVtkFaceFromVolume',
                     simpleParameterSpace(8, 4),
-                  lambda i,j: xf[i]['p'] <= vtko.byName(f'coll{aderdg.order}f{j}d{i}')['pb'] * qb['b'],
+                  lambda i,j: xf[i]['p'] <= vtko.byName(f'collvf({aderdg.order},{i},{j})')['pb'] * qb['b'],
                   target=target)
 
 def includeTensors(matricesDir, includeTensors):
     vtkbase = parseJSONMatrixFile(f'{matricesDir}/vtkbase.json')
     for x in vtkbase.__dict__:
-        includeTensors.add(vtkbase.__dict__[x])
+        if isinstance(vtkbase.__dict__[x], dict):
+            for y in vtkbase.__dict__[x]:
+                includeTensors.add(vtkbase.__dict__[x][y])
+        else:
+            includeTensors.add(vtkbase.__dict__[x])
