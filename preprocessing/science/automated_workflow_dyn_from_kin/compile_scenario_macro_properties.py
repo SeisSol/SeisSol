@@ -97,7 +97,8 @@ if __name__ == "__main__":
         assert dt == 0.25
         df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
         label = os.path.basename(fn)
-        faultfn = fn.split("-energy.csv")[0] + "-fault.xdmf"
+        prefix = fn.split("-energy.csv")[0]
+        faultfn = glob.glob(f"{prefix}*-fault.xdmf")[0]
         B, C, R = extractBCR(fn)
         M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
         results["Mw"].append(Mw)
@@ -127,12 +128,38 @@ if __name__ == "__main__":
         M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
         results["M0mis"].append(M0_gof)
 
-        label = f"B={B}, C={C}, R={R}"
-        if Mw < 6.0:
+    result_df = pd.DataFrame(results)
+    result_df["overall_gof"] = np.sqrt(result_df["M0mis"] * result_df["ccmax"])
+    print(result_df)
+
+    B = result_df["B"].values
+    C = result_df["C"].values
+    R = result_df["R0"].values
+    overall_gof = result_df["overall_gof"].values
+    Mw = result_df["Mw"].values
+    indices_of_3largest_values = result_df['overall_gof'].nlargest(3).index
+    indices_of_10largest_values = result_df['overall_gof'].nlargest(10).index
+    indices_greater_than_threshold = result_df[result_df['overall_gof'] > 0.6].index
+    if len(indices_greater_than_threshold) > 10:
+        selected_indices = indices_of_10largest_values
+    else:
+        selected_indices = indices_greater_than_threshold
+
+    for i, fn in enumerate(energy_files):
+        if "fl33" in fn:
             continue
-        overall_gof = M0_gof * ccmax
-        if overall_gof > 0.6:
-            labelargs = {"label": f"{label} (Mw={Mw:.2f}, gof={overall_gof:.2})"}
+        if Mw[i] < 6.0:
+            continue
+
+        df = pd.read_csv(fn)
+        df = df.pivot_table(index="time", columns="variable", values="measurement")
+        dt = df.index[1] - df.index[0]
+        assert dt == 0.25
+        df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
+
+        label = f"B={B[i]}, C={C[i]}, R={R[i]}"
+        if i in selected_indices or i in indices_of_3largest_values:
+            labelargs = {"label": f"{label} (Mw={Mw[i]:.2f}, gof={overall_gof[i]:.2})"}
             alpha = 1.0
         else:
             labelargs = {"color": "lightgrey", "zorder": 1}
@@ -142,18 +169,17 @@ if __name__ == "__main__":
             df.index.values,
             df["seismic_moment_rate"] / 1e19,
             alpha=alpha,
-            linestyle="--" if C == 0.3 else "-",
             **labelargs,
         )
+
+
     ax.plot(
         mr_usgs[:, 0],
         mr_usgs[:, 1] / 1e19,
         label=f"usgs (Mw={Mwusgs:.2f})",
         color="black",
     )
-    result_df = pd.DataFrame(results)
-    result_df["overall_gof"] = result_df["M0mis"] * result_df["ccmax"]
-    print(result_df)
+
 
     selected_rows = result_df[result_df["Mw"] > 6]
     selected_rows = selected_rows.sort_values(by="overall_gof", ascending=False).reset_index(drop=True)
