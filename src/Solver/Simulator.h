@@ -61,15 +61,6 @@ class seissol::Simulator {
     //! usePlasticity = true if plasticity is on
     bool m_usePlasticity;
 
-    //! last time a checkpoint was written
-    double m_checkPointTime;
-
-    //! time interval of the checkpoints
-    double m_checkPointInterval;
-
-    //! If true, a checkpoint is loaded before the simulation
-    bool m_loadCheckPoint;
-
   public:
     /**
      * Constructor, which initializes all values.
@@ -99,23 +90,6 @@ class seissol::Simulator {
      * @param i_currentTime current time
      */
     void setCurrentTime( double i_currentTime );
-
-    /**
-     * Activates checkpoint loading at the beginning of the simulation
-     */
-    void loadCheckPoint();
-
-    /**
-     * Sets the interval for checkpointing.
-     *
-     * @param i_checkPointInterval check point interval.
-     **/
-    void setCheckPointInterval( double i_checkPointInterval );
-
-    /**
-     * Returns if the simulator is going to write check points.
-     */
-    bool checkPointingEnabled();
 
     /**
      * Simulates until finished.

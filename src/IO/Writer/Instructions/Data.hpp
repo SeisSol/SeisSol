@@ -5,6 +5,7 @@
 #include <IO/Datatype/Inference.hpp>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer {
@@ -26,12 +27,12 @@ class DataSource {
 
   protected:
   std::shared_ptr<seissol::io::datatype::Datatype> datatypeP;
-  const std::vector<std::size_t>& shapeP;
+  std::vector<std::size_t> shapeP;
 };
 
 class WriteInline : public DataSource {
   public:
-  WriteInline(void* dataPtr,
+  WriteInline(const void* dataPtr,
               std::size_t size,
               std::shared_ptr<datatype::Datatype> datatype,
               const std::vector<std::size_t>& shape);
@@ -52,7 +53,7 @@ class WriteInline : public DataSource {
   static std::shared_ptr<DataSource>
       create(const T& data,
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
-    return std::make_shared<WriteInline>(&data, sizeof(T), datatype, {});
+    return std::make_shared<WriteInline>(&data, sizeof(T), datatype, std::vector<std::size_t>());
   }
 
   template <typename T>
@@ -133,6 +134,7 @@ class AdhocBuffer : public DataSource {
     node["id"] = id;
     node["datatype"] = datatype()->serialize();
     node["type"] = "buffer";
+    node["shape"] = shape();
     return node;
   }
 
@@ -150,33 +152,57 @@ class AdhocBuffer : public DataSource {
   int id;
 };
 
-template <typename T, typename F>
-class ElementBuffer : public AdhocBuffer {
+class GeneratedBuffer : public AdhocBuffer {
   public:
-  ElementBuffer(std::size_t sourceCount,
-                std::size_t targetCount,
-                const std::vector<std::size_t> shape,
-                F&& handler,
-                std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>())
-      : handler(std::forward<F>(handler)), sourceCount(sourceCount), targetCount(targetCount),
-        AdhocBuffer(datatype, shape) {}
-
-  void setData(void* targetPtr) override {
-    T* target = targetPtr;
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-    for (std::size_t i = 0; i < sourceCount; ++i) {
-      std::invoke(handler, &target[i * targetCount], i);
+  GeneratedBuffer(std::size_t sourceCount,
+                  std::size_t targetCount,
+                  std::function<void(void*)> generator,
+                  std::shared_ptr<datatype::Datatype> datatype,
+                  const std::vector<std::size_t>& shape)
+      : generator(generator), sourceCount(sourceCount), targetCount(targetCount),
+        AdhocBuffer(datatype, shape) {
+    targetStride = targetCount;
+    for (auto dim : shape) {
+      targetStride *= dim;
     }
   }
 
-  std::size_t getTargetSize() override { return targetCount * sizeof(T) * sourceCount; }
+  std::size_t getTargetSize() override { return targetStride * datatype()->size() * sourceCount; }
+
+  void setData(void* targetPtr) override { std::invoke(generator, targetPtr); }
+
+  template <typename T, typename F>
+  static std::shared_ptr<GeneratedBuffer> createElementwise(
+      std::size_t sourceCount,
+      std::size_t targetCount,
+      const std::vector<std::size_t>& shape,
+      F&& handler,
+      std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
+    std::size_t localTargetStride = targetCount;
+    for (auto dim : shape) {
+      localTargetStride *= dim;
+    }
+    return std::make_shared<GeneratedBuffer>(
+        sourceCount,
+        targetCount,
+        [=](void* targetPtr) {
+          T* target = reinterpret_cast<T*>(targetPtr);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+          for (std::size_t i = 0; i < sourceCount; ++i) {
+            std::invoke(handler, &target[i * localTargetStride], i);
+          }
+        },
+        datatype,
+        shape);
+  }
 
   private:
-  F handler;
+  std::function<void(void*)> generator;
   std::size_t sourceCount;
   std::size_t targetCount;
+  std::size_t targetStride;
 };
 
 } // namespace seissol::io::writer

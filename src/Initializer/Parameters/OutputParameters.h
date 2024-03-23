@@ -94,6 +94,7 @@ struct OutputBounds {
 
 struct WaveFieldOutputParameters {
   bool enabled;
+  int vtkorder;
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;

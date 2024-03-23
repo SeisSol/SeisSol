@@ -54,19 +54,7 @@
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
-  m_usePlasticity(  false ),
-  m_checkPointTime(     0 ),
-  m_checkPointInterval( std::numeric_limits< double >::max() ),
-  m_loadCheckPoint( false ) {}
-
-void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
-  assert( m_checkPointInterval > 0 );
-  m_checkPointInterval = i_checkPointInterval;
-}
-
-bool seissol::Simulator::checkPointingEnabled() {
-  return m_checkPointInterval < std::numeric_limits<double>::max();
-}
+  m_usePlasticity(  false ) {}
 
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
   assert( i_finalTime > 0 );
@@ -107,7 +95,6 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   }
 
   // intialize wave field and checkpoint time
-  m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
 
   // derive next synchronization time
@@ -116,7 +103,6 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
-  upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
   double lastSplit = 0;
 
@@ -144,14 +130,6 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
-
-    // write checkpoint if required
-    if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
-      const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
-      seissolInstance.checkPointManager().write(m_currentTime, faultTimeStep);
-      m_checkPointTime += m_checkPointInterval;
-    }
-    upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
     ioStopwatch.pause();
 

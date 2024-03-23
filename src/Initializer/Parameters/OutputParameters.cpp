@@ -196,8 +196,17 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
 
-  return WaveFieldOutputParameters{
-      enabled, interval, refinement, bounds, outputMask, plasticityMask, integrationMask, groups};
+  const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
+
+  return WaveFieldOutputParameters{enabled,
+                                   vtkorder,
+                                   interval,
+                                   refinement,
+                                   bounds,
+                                   outputMask,
+                                   plasticityMask,
+                                   integrationMask,
+                                   groups};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {

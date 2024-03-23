@@ -10,7 +10,7 @@ std::shared_ptr<seissol::io::datatype::Datatype> DataSource::datatype() const { 
 
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP; }
 
-WriteInline::WriteInline(void* dataPtr,
+WriteInline::WriteInline(const void* dataPtr,
                          std::size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)

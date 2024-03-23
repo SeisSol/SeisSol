@@ -51,6 +51,7 @@ void Hdf5File::openGroup(const std::string& name) {
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
                               const std::string& name,
                               std::shared_ptr<DataSource> source) {
+  // TODO: store datatype separately
   if (source->distributed()) {
     logError() << "Attempted to write an HDF5 attributed as a distributed source.";
   }
@@ -75,10 +76,16 @@ void Hdf5File::writeData(const async::ExecInfo& info,
                          int compress) {
   MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
+  std::size_t trueCount = source->count(info);
+  for (auto dimension : source->shape()) {
+    assert(trueCount % dimension == 0);
+    trueCount /= dimension;
+  }
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
   // if we don't write distributed data, only one rank needs to do the work
-  const std::size_t count = (source->distributed() || rank == 0) ? source->count(info) : 0;
+  const std::size_t count = (source->distributed() || rank == 0) ? trueCount : 0;
   const auto& dimensions = source->shape();
   // TODO: adjust chunksize according to dimensions and datatype size
   const std::size_t chunksize = 1000000;
@@ -92,8 +99,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   std::size_t rounds = (count + chunksize - 1) / chunksize;
 
   MPI_Allreduce(MPI_IN_PLACE, &rounds, 1, sizetype, MPI_MAX, comm);
-  MPI_Allreduce(&allcount, &count, 1, sizetype, MPI_SUM, comm);
-  MPI_Exscan(&offset, &count, 1, sizetype, MPI_SUM, comm);
+  MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm);
+  MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm);
 
   std::vector<hsize_t> globalSizes;
   std::vector<hsize_t> localSizes;
@@ -131,8 +138,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   hid_t h5type = datatype::convertToHdf5(targetType);
   h5type = _eh(H5Tcopy(h5type));
-  _eh(H5Tcommit(file,
-                (std::string("/") + name + std::string("_Type")).c_str(),
+  _eh(H5Tcommit(handles.top(),
+                (name + std::string("_Type")).c_str(),
                 h5type,
                 H5P_DEFAULT,
                 H5P_DEFAULT,
@@ -146,8 +153,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     _eh(H5Pset_deflate(h5filter, deflateStrength));
   }
 
-  hid_t h5data = H5Dcreate(
-      file, (std::string("/") + name).c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
+  hid_t h5data =
+      H5Dcreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
 
   std::size_t written = 0;
 
@@ -219,11 +226,6 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, instructions::Hdf5DataWr
   file = openFiles.at(write.location.file());
   for (auto groupname : write.location.groups()) {
     file.openGroup(groupname);
-  }
-  std::size_t trueCount = write.dataSource->count(info);
-  for (auto dimension : write.dataSource->shape()) {
-    assert(trueCount % dimension == 0);
-    trueCount /= dimension;
   }
   file.writeData(info, write.name, write.dataSource, write.targetType, 0);
   for (auto _ : write.location.groups()) {

@@ -43,6 +43,19 @@ YAML::Node OpaqueDatatype::serialize() const {
 
 OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
 
+StringDatatype::StringDatatype(std::size_t size) : sizeP(size) {}
+
+std::size_t StringDatatype::size() const { return sizeP; }
+
+YAML::Node StringDatatype::serialize() const {
+  YAML::Node node;
+  node["type"] = "string";
+  node["size"] = sizeP;
+  return node;
+}
+
+StringDatatype::StringDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
+
 std::size_t F32Datatype::size() const { return 4; }
 
 YAML::Node F32Datatype::serialize() const {
@@ -171,6 +184,9 @@ std::shared_ptr<Datatype> Datatype::deserialize(YAML::Node node) {
   }
   if (type == "opaque") {
     return std::make_shared<OpaqueDatatype>(node);
+  }
+  if (type == "string") {
+    return std::make_shared<StringDatatype>(node);
   }
   if (type == "int") {
     return std::make_shared<IntegerDatatype>(node);

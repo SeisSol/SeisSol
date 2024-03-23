@@ -40,6 +40,20 @@ class OpaqueDatatype : public Datatype {
   std::size_t sizeP;
 };
 
+class StringDatatype : public Datatype {
+  public:
+  StringDatatype(std::size_t size);
+
+  explicit StringDatatype(YAML::Node node);
+
+  std::size_t size() const override;
+
+  YAML::Node serialize() const override;
+
+  private:
+  std::size_t sizeP;
+};
+
 class F32Datatype : public Datatype {
   public:
   std::size_t size() const override;

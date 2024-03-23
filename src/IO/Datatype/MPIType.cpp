@@ -1,4 +1,5 @@
 #include "MPIType.hpp"
+#include <IO/Datatype/Datatype.hpp>
 #include <mpi.h>
 #include <unordered_map>
 #include <iosfwd>
@@ -12,6 +13,12 @@ namespace {
 static MPI_Datatype convertOpaque(const seissol::io::datatype::Datatype& datatype) {
   MPI_Datatype type;
   MPI_Type_contiguous(datatype.size(), MPI_BYTE, &type);
+  return type;
+}
+
+static MPI_Datatype convertString(const seissol::io::datatype::Datatype& datatype) {
+  MPI_Datatype type;
+  MPI_Type_contiguous(datatype.size(), MPI_CHAR, &type);
   return type;
 }
 
@@ -97,6 +104,9 @@ MPI_Datatype convertToMPI(std::shared_ptr<Datatype> datatype, bool autocommit) {
     needsCommit = false;
   } else if (dynamic_cast<const OpaqueDatatype*>(datatype.get()) != nullptr) {
     type = convertOpaque(dynamic_cast<const OpaqueDatatype&>(*datatype));
+    needsCommit = true;
+  } else if (dynamic_cast<const StringDatatype*>(datatype.get()) != nullptr) {
+    type = convertString(dynamic_cast<const StringDatatype&>(*datatype));
     needsCommit = true;
   }
   if (needsCommit && autocommit) {

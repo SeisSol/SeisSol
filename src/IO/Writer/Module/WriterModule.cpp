@@ -50,64 +50,67 @@ void WriterModule::syncPoint(double time) {
   for (auto& instruction : writer.getInstructions()) {
     for (auto& dataSource : instruction->dataSources()) {
       if (handledSources.find(dataSource.get()) == handledSources.end()) {
-        // NOTE: the following structure is suboptimal, because it's not respecting basic OOP
-        // practices. Not sure, if it's important to really care about that... But there may be more
-        // beautiful ways for some day.
-        auto id = [&]() -> int {
-          if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
-            // pass-through buffer
-            auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
-            auto pointer = writeBuffer->getLocalPointer();
-            auto size = writeBuffer->getLocalSize();
-            if (pointerMap.find(pointer) == pointerMap.end()) {
-              BufferPointer repr;
-              repr.id = addBuffer(pointer, size);
-              repr.size = size;
-              pointerMap[pointer] = repr;
-              return repr.id;
-            } else {
-              auto& repr = pointerMap.at(pointer);
-              if (repr.size != size) {
-                if (idSet.find(repr.id) != idSet.end()) {
-                  // it is ok to request the same buffer multiple times, but not with different
-                  // sizes (that's currently still unsupported)
-                  logError() << "The same buffer is requested with different sizes. This is not "
-                                "supported at the moment.";
-                }
-                resizeBuffer(repr.id, pointer, size);
+        // TODO: make a better flag than distributed here
+        if (dataSource->distributed()) {
+          // NOTE: the following structure is suboptimal, because it's not respecting basic OOP
+          // practices. Not sure, if it's important to really care about that... But there may be
+          // more beautiful ways for some day.
+          auto id = [&]() -> int {
+            if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
+              // pass-through buffer
+              auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
+              auto pointer = writeBuffer->getLocalPointer();
+              auto size = writeBuffer->getLocalSize();
+              if (pointerMap.find(pointer) == pointerMap.end()) {
+                BufferPointer repr;
+                repr.id = addBuffer(pointer, size);
                 repr.size = size;
-              }
-              return repr.id;
-            }
-          }
-          if (dynamic_cast<AdhocBuffer*>(dataSource.get()) != nullptr) {
-            // managed buffer
-            // for now, recycle existing buffers of the same size
-            // this does of course assume that we don't change the size too often...
-            auto* adhocBuffer = dynamic_cast<AdhocBuffer*>(dataSource.get());
-            auto targetSize = adhocBuffer->getTargetSize();
-            const auto foundId = [&]() -> int {
-              for (auto id : bufferMap[targetSize]) {
-                if (idSet.find(id) == idSet.end()) {
-                  return id;
+                pointerMap[pointer] = repr;
+                return repr.id;
+              } else {
+                auto& repr = pointerMap.at(pointer);
+                if (repr.size != size) {
+                  if (idSet.find(repr.id) != idSet.end()) {
+                    // it is ok to request the same buffer multiple times, but not with different
+                    // sizes (that's currently still unsupported)
+                    logError() << "The same buffer is requested with different sizes. This is not "
+                                  "supported at the moment.";
+                  }
+                  resizeBuffer(repr.id, pointer, size);
+                  repr.size = size;
                 }
+                return repr.id;
               }
-              return addBuffer(nullptr, targetSize);
-            }();
-            void* bufferPtr = managedBuffer<void*>(foundId);
-            adhocBuffer->setData(bufferPtr);
-            return foundId;
+            }
+            if (dynamic_cast<AdhocBuffer*>(dataSource.get()) != nullptr) {
+              // managed buffer
+              // for now, recycle existing buffers of the same size
+              // this does of course assume that we don't change the size too often...
+              auto* adhocBuffer = dynamic_cast<AdhocBuffer*>(dataSource.get());
+              auto targetSize = adhocBuffer->getTargetSize();
+              const auto foundId = [&]() -> int {
+                for (auto id : bufferMap[targetSize]) {
+                  if (idSet.find(id) == idSet.end()) {
+                    return id;
+                  }
+                }
+                return addBuffer(nullptr, targetSize);
+              }();
+              void* bufferPtr = managedBuffer<void*>(foundId);
+              adhocBuffer->setData(bufferPtr);
+              return foundId;
+            }
+            logError() << "Unsupported buffer type.";
+            return -1;
+          }();
+          if (id == -1) {
+            logError() << "Internal buffer error.";
           }
-          logError() << "Unsupported buffer type.";
-          return -1;
-        }();
-        if (id == -1) {
-          logError() << "Unsupported buffer type.";
+          idSet.emplace(id);
+          idsToSend.push_back(id);
+          dataSource->assignId(id);
+          handledSources.emplace(dataSource.get());
         }
-        idSet.emplace(id);
-        idsToSend.push_back(id);
-        dataSource->assignId(id);
-        handledSources.emplace(dataSource.get());
       }
     }
   }

@@ -18,6 +18,12 @@ static hid_t convertOpaque(const seissol::io::datatype::Datatype& datatype) {
   return _eh(H5Tcreate(H5T_OPAQUE, datatype.size()));
 }
 
+static hid_t convertString(const seissol::io::datatype::Datatype& datatype) {
+  hid_t handle = _eh(H5Tcopy(H5T_C_S1));
+  _eh(H5Tset_size(handle, datatype.size()));
+  return handle;
+}
+
 static hid_t convertArray(const seissol::io::datatype::ArrayDatatype& datatype) {
   std::vector<hsize_t> h5dims(datatype.dimensions().begin(), datatype.dimensions().end());
   return _eh(H5Tarray_create(
@@ -70,6 +76,8 @@ hid_t convertToHdf5(std::shared_ptr<Datatype> datatype) {
     return H5T_NATIVE_LDOUBLE;
   } else if (dynamic_cast<const OpaqueDatatype*>(datatype.get()) != nullptr) {
     return convertOpaque(dynamic_cast<const OpaqueDatatype&>(*datatype));
+  } else if (dynamic_cast<const StringDatatype*>(datatype.get()) != nullptr) {
+    return convertString(dynamic_cast<const StringDatatype&>(*datatype));
   }
   return H5T_NATIVE_INT;
 }
