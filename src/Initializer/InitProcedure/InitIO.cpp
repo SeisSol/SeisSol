@@ -110,13 +110,23 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     writer.addPointProjector([=](double* target, std::size_t index) {
       const auto& element = meshReader.getElements()[index];
       const auto& vertexArray = meshReader.getVertices();
-      for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+
+      // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
+      const double zero[3] = {0, 0, 0};
+      seissol::transformations::tetrahedronReferenceToGlobal(
+          vertexArray[element.vertices[0]].coords,
+          vertexArray[element.vertices[1]].coords,
+          vertexArray[element.vertices[2]].coords,
+          vertexArray[element.vertices[3]].coords,
+          zero,
+          &target[0]);
+      for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
             vertexArray[element.vertices[2]].coords,
             vertexArray[element.vertices[3]].coords,
-            &init::vtk3d::Values[order][i * 3],
+            &init::vtk3d::Values[order][i * 3 - 3],
             &target[i * 3]);
       }
     });
