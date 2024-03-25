@@ -9,10 +9,39 @@ import shutil
 from estimate_nucleation_radius import compute_critical_nucleation
 from scipy.stats import qmc
 import random
+import itertools
 from compile_scenario_macro_properties import infer_duration
+import warnings
+import seissolxdmf as sx
 
 if not os.path.exists("yaml_files"):
     os.makedirs("yaml_files")
+
+
+def compute_peak_slip_rate(fn):
+    sx0 = sx.seissolxdmf(fn)
+    ndt = sx0.ReadNdt()
+    for i in range(ndt):
+        if i == 0:
+            PSR = sx0.ReadData("SR", i)
+        else:
+            PSR = np.maximum(PSR, sx0.ReadData("SR", i))
+    return PSR.max()
+
+
+usgs_fn = "output/dyn-usgs-fault.xdmf"
+if os.path.exists(usgs_fn):
+    maxPSR = compute_peak_slip_rate(usgs_fn)
+    terminator_slip_rate_threshold = min(0.5, 0.2 * maxPSR)
+    print(
+        f"peak slip rate: {maxPSR}, using a terminator threshold of {terminator_slip_rate_threshold} m/s"
+    )
+else:
+    warnings.warn(
+        f"{usgs_fn} does not exists: using terminator_slip_rate_threshold of 0.5"
+    )
+    terminator_slip_rate_threshold = 0.5
+
 
 # Get the directory of the script
 script_path = os.path.abspath(__file__)
@@ -21,26 +50,41 @@ input_file_dir = f"{script_directory}/input_files"
 templateLoader = jinja2.FileSystemLoader(searchpath=input_file_dir)
 templateEnv = jinja2.Environment(loader=templateLoader)
 
-# R, B, C
-l_bounds = [0.55, 0.8, 0.1]
-u_bounds = [0.95, 1.2, 0.3]
+latin_hypercube = True
 
-if not os.path.exists("tmp/seed.txt"):
-    seed = random.randint(1, 1000000)
-    # keep the seed for reproducibility
-    with open("tmp/seed.txt", "w+") as fid:
-        fid.write(f"{seed}\n")
+if latin_hypercube:
+    # R, B, C
+    l_bounds = [0.55, 0.8, 0.1]
+    u_bounds = [0.95, 1.2, 0.3]
+
+    if not os.path.exists("tmp/seed.txt"):
+        seed = random.randint(1, 1000000)
+        # keep the seed for reproducibility
+        with open("tmp/seed.txt", "w+") as fid:
+            fid.write(f"{seed}\n")
+    else:
+        with open("tmp/seed.txt", "r") as fid:
+            seed = int(fid.readline())
+        print("seed read from tmp/seed.txt")
+
+    sampler = qmc.LatinHypercube(d=3, seed=seed)
+    nsample = 50
+    sample = sampler.random(n=nsample)
+    pars = qmc.scale(sample, l_bounds, u_bounds)
+    pars = np.around(pars, decimals=3)
 else:
-    with open("tmp/seed.txt", "r") as fid:
-        seed = int(fid.readline())
-    print("seed read from tmp/seed.txt")
-
-
-sampler = qmc.LatinHypercube(d=3, seed=seed)
-nsample = 50
-sample = sampler.random(n=nsample)
-pars = qmc.scale(sample, l_bounds, u_bounds)
-pars = np.around(pars, decimals=3)
+    # grid parameter space
+    param1_values = [0.55, 0.6, 0.65]
+    param2_values = [1.0, 1.1, 1.2]
+    param3_values = [0.15, 0.2, 0.25, 0.3]
+    # Generate all combinations of parameter values
+    param_combinations = list(
+        itertools.product(param1_values, param2_values, param3_values)
+    )
+    # Convert combinations to numpy array and round to desired decimals
+    pars = np.around(np.array(param_combinations), decimals=3)
+    nsample = pars.shape[0]
+    print(f"parameter space has {nsample} samples")
 
 
 def render_file(template_par, template_fname, out_fname, verbose=True):
@@ -88,6 +132,7 @@ for i in range(nsample):
     template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
     template_par["material_fname"] = "yaml_files/usgs_material.yaml"
     template_par["fault_print_time_interval"] = fault_sampling
+    template_par["terminator_slip_rate_threshold"] = terminator_slip_rate_threshold
     fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
@@ -96,8 +141,17 @@ fnames = ["smooth_PREM_material.yaml", "mud.yaml", "rake.yaml", "fault_slip.yaml
 for fn in fnames:
     shutil.copy(f"{input_file_dir}/{fn}", f"yaml_files/{fn}")
 
+if os.path.exists("output/fl33-fault.xdmf"):
+    fl33_file = "output/fl33-fault.xdmf"
+elif os.path.exists("extracted_output/fl33_extracted-fault.xdmf"):
+    fl33_file = "extracted_output/fl33_extracted-fault.xdmf"
+else:
+    raise FileNotFoundError(
+        f"The files output/fl33-fault.xdmf or extracted_output/fl33_extracted-fault.xdmf were not found."
+    )
+
 list_nucleation_size = compute_critical_nucleation(
-    "output/fl33-fault.xdmf",
+    fl33_file,
     "yaml_files/smooth_PREM_material.yaml",
     "yaml_files/fault_slip.yaml",
     list_fault_yaml,
