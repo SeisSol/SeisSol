@@ -96,8 +96,8 @@ else:
 
 
 onset = out["rupture_onset"]
-onset[onset>1e50] = np.nan
-rise_time[rise_time>1e50] = np.nan
+onset[onset > 1e50] = np.nan
+rise_time[rise_time > 1e50] = np.nan
 
 tmax = np.nanmax(rise_time + onset) + 2.0
 print(tmax)
@@ -120,13 +120,12 @@ sld = out["dip_slip"]
 slip = np.sqrt(sls**2 + sld**2)
 print(time)
 for k, ti in enumerate(tqdm(time)):
-    for i in range(nel):
-        if use_Yoffe:
+    if not use_Yoffe:
+        STF = GaussianSTF(ti - onset, rise_time, dt_output)
+        intSTF = SmoothStep(ti - onset, rise_time)
+    else:
+        for i in range(nel):
             STF[i] = regularizedYoffe(ti - onset[i], ts[i], tr[i])
-        else:
-            STF[i] = GaussianSTF(ti - onset[i], rise_time[i], dt_output)
-            intSTF[i] = SmoothStep(ti - onset[i], rise_time[i])
-    if use_Yoffe:
         intSTF += dt * STF
     if k % n_time_sub == 0:
         p = k // n_time_sub
