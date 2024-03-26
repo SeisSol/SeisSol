@@ -41,8 +41,10 @@ def compute_max_slip(fn):
 usgs_fn = "output/dyn-usgs-fault.xdmf"
 if os.path.exists(usgs_fn):
     maxPSR = compute_peak_slip_rate(usgs_fn)
-    max_slip = compute_max_slip(fn)
-    terminator_slip_rate_threshold = min(0.5, 0.2 * maxPSR)
+    max_slip = compute_max_slip(usgs_fn)
+    # commented as not very efficient (simulation stops to late)
+    # terminator_slip_rate_threshold = min(0.5, 0.2 * maxPSR)
+    terminator_slip_rate_threshold = 0.5
     print(
         f"peak slip rate: {maxPSR}, using a terminator threshold of {terminator_slip_rate_threshold} m/s"
     )
@@ -60,7 +62,7 @@ input_file_dir = f"{script_directory}/input_files"
 templateLoader = jinja2.FileSystemLoader(searchpath=input_file_dir)
 templateEnv = jinja2.Environment(loader=templateLoader)
 
-latin_hypercube = True
+latin_hypercube = False
 
 if latin_hypercube:
     # R, B, C
@@ -84,7 +86,7 @@ if latin_hypercube:
     pars = np.around(pars, decimals=3)
 else:
     # grid parameter space
-    param1_values = [0.55, 0.6, 0.65]
+    param1_values = [0.5, 0.55, 0.6, 0.65]
     param2_values = [1.0, 1.1, 1.2]
     param3_values = [0.15, 0.2, 0.25, 0.3]
     # Generate all combinations of parameter values
@@ -131,7 +133,14 @@ fault_sampling = compute_fault_sampling(usgs_duration)
 list_fault_yaml = []
 for i in range(nsample):
     R, B, C = pars[i, :]
-    template_par = {"R": R, "B": B, "C": C, "hypo_z": hypo_z, "r_crit": 3000.0}
+    template_par = {
+        "R": R,
+        "B": B,
+        "C": C,
+        "min_dc": C * max_slip * 0.15,
+        "hypo_z": hypo_z,
+        "r_crit": 3000.0,
+    }
     fn_fault = f"yaml_files/fault_B{B}_C{C}_R{R}.yaml"
     list_fault_yaml.append(fn_fault)
 
@@ -176,9 +185,9 @@ for i, fn in enumerate(list_fault_yaml):
         assert fn_fault == fn
         template_par = {
             "R": R,
-            "min_dc": C * max_slip * 0.15,
             "B": B,
             "C": C,
+            "min_dc": C * max_slip * 0.15,
             "hypo_z": hypo_z,
             "r_crit": list_nucleation_size[i],
         }
