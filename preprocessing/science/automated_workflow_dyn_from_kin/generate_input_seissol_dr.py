@@ -29,9 +29,19 @@ def compute_peak_slip_rate(fn):
     return PSR.max()
 
 
+def compute_max_slip(fn):
+    sx0 = sx.seissolxdmf(fn)
+    ndt = sx0.ReadNdt()
+    ASl = sx0.ReadData("ASl", ndt - 1)
+    if np.any(np.isnan(ASl)):
+        ASl = sx0.ReadData("ASl", ndt - 2)
+    return ASl.max()
+
+
 usgs_fn = "output/dyn-usgs-fault.xdmf"
 if os.path.exists(usgs_fn):
     maxPSR = compute_peak_slip_rate(usgs_fn)
+    max_slip = compute_max_slip(fn)
     terminator_slip_rate_threshold = min(0.5, 0.2 * maxPSR)
     print(
         f"peak slip rate: {maxPSR}, using a terminator threshold of {terminator_slip_rate_threshold} m/s"
@@ -166,6 +176,7 @@ for i, fn in enumerate(list_fault_yaml):
         assert fn_fault == fn
         template_par = {
             "R": R,
+            "min_dc": C * max_slip * 0.15,
             "B": B,
             "C": C,
             "hypo_z": hypo_z,
