@@ -96,8 +96,13 @@ if __name__ == "__main__":
         help="usgs earthquake code or event dictionnary (dtgeo workflow)",
     )
     parser.add_argument(
-        "--min_magnitude", nargs=1, help="min magnitude in eq query", default=[7.0]
+        "--min_magnitude",
+        nargs=1,
+        help="min magnitude in eq query",
+        default=[7.0],
+        type=float,
     )
+    parser.add_argument("--suffix", nargs=1, help="suffix for folder name")
     args = parser.parse_args()
     minM = args.min_magnitude[0]
 
@@ -125,8 +130,9 @@ if __name__ == "__main__":
     hypocenter_x = finite_fault["properties"]["longitude"]
     hypocenter_y = finite_fault["properties"]["latitude"]
     hypocenter_z = finite_fault["properties"]["depth"]
+    suffix = args.suffix[0] if args.suffix else ""
 
-    folder_name = f"{day}_Mw{mag}_{descr[:20]}_{code_finite_fault}"
+    folder_name = f"{day}_Mw{mag}_{descr[:20]}_{code_finite_fault}{suffix}"
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
