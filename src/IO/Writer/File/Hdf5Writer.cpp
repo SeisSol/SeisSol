@@ -60,7 +60,8 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
     h5space = _eh(H5Screate(H5S_SCALAR));
   } else {
     auto& shape = source->shape();
-    h5space = _eh(H5Screate_simple(shape.size(), shape.data(), nullptr));
+    std::vector<hsize_t> hshape(shape.begin(), shape.end());
+    h5space = _eh(H5Screate_simple(shape.size(), hshape.data(), nullptr));
   }
   hid_t h5type = datatype::convertToHdf5(source->datatype());
   hid_t handle =
