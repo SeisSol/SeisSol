@@ -51,16 +51,28 @@ if __name__ == "__main__":
     matplotlib.rcParams["lines.linewidth"] = 1.0
 
     parser = argparse.ArgumentParser(description="compute scenario properties")
-    parser.add_argument("output_folder", help="path to output folder")
+    parser.add_argument(
+        "output_folder",
+        help="path to output folder or full path to specific energy.csv file",
+    )
     args = parser.parse_args()
 
     if not os.path.exists("plots"):
         os.makedirs("plots")
 
-    fig = plt.figure(figsize=(8, 4), dpi=80)
+    if args.output_folder.endswith("energy.csv"):
+        energy_files = [args.output_folder]
+    else:
+        if os.path.exists(args.output_folder):
+            args.output_folder += "/"
+        energy_files = sorted(glob.glob(f"{args.output_folder}*-energy.csv"))
+    one_model_shown = len(energy_files) == True
+
+    cm = 1 / 2.54
+    figsize = (6.5 * cm, 3.5 * cm) if one_model_shown else (8, 4)
+    fig = plt.figure(figsize=figsize, dpi=80)
     ax = fig.add_subplot(111)
 
-    energy_files = sorted(glob.glob(f"{args.output_folder}/*-energy.csv"))
     results = {
         "B": [],
         "C": [],
@@ -137,9 +149,9 @@ if __name__ == "__main__":
     R = result_df["R0"].values
     overall_gof = result_df["overall_gof"].values
     Mw = result_df["Mw"].values
-    indices_of_3largest_values = result_df['overall_gof'].nlargest(3).index
-    indices_of_10largest_values = result_df['overall_gof'].nlargest(10).index
-    indices_greater_than_threshold = result_df[result_df['overall_gof'] > 0.6].index
+    indices_of_3largest_values = result_df["overall_gof"].nlargest(3).index
+    indices_of_10largest_values = result_df["overall_gof"].nlargest(10).index
+    indices_greater_than_threshold = result_df[result_df["overall_gof"] > 0.6].index
     if len(indices_greater_than_threshold) > 10:
         selected_indices = indices_of_10largest_values
     else:
@@ -157,9 +169,17 @@ if __name__ == "__main__":
         assert dt == 0.25
         df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
 
-        label = f"B={B[i]}, C={C[i]}, R={R[i]}"
+        if one_model_shown:
+            label = f"simulation"
+        else:
+            label = f"B={B[i]}, C={C[i]}, R={R[i]}"
         if i in selected_indices or i in indices_of_3largest_values:
-            labelargs = {"label": f"{label} (Mw={Mw[i]:.2f}, gof={overall_gof[i]:.2})"}
+            if one_model_shown:
+                labelargs = {"label": f"{label} (Mw={Mw[i]:.2f})"}
+            else:
+                labelargs = {
+                    "label": f"{label} (Mw={Mw[i]:.2f}, gof={overall_gof[i]:.2})"
+                }
             alpha = 1.0
         else:
             labelargs = {"color": "lightgrey", "zorder": 1}
@@ -172,7 +192,6 @@ if __name__ == "__main__":
             **labelargs,
         )
 
-
     ax.plot(
         mr_usgs[:, 0],
         mr_usgs[:, 1] / 1e19,
@@ -180,9 +199,10 @@ if __name__ == "__main__":
         color="black",
     )
 
-
     selected_rows = result_df[result_df["Mw"] > 6]
-    selected_rows = selected_rows.sort_values(by="overall_gof", ascending=False).reset_index(drop=True)
+    selected_rows = selected_rows.sort_values(
+        by="overall_gof", ascending=False
+    ).reset_index(drop=True)
     print(selected_rows)
 
     fname = "tmp/selected_output.txt"
@@ -194,7 +214,8 @@ if __name__ == "__main__":
         fid.write("output/dyn-usgs-fault.xdmf\n")
     print(f"done writing {fname}")
 
-    ax.legend(frameon=False, loc="upper right", ncol=2, fontsize=6)
+    col = 1 if one_model_shown else 2
+    ax.legend(frameon=False, loc="upper right", ncol=col, fontsize=8)
     ax.set_ylim(bottom=0)
     ax.set_xlim(left=0)
 
@@ -206,6 +227,6 @@ if __name__ == "__main__":
     ax.set_ylabel(r"moment rate (e19 $\times$ Nm/s)")
     ax.set_xlabel("time (s)")
 
-    fn = f"plots/moment_rate.pdf"
+    fn = f"plots/moment_rate.svg"
     fig.savefig(fn, bbox_inches="tight", transparent=True)
     print(f"done write {fn}")
