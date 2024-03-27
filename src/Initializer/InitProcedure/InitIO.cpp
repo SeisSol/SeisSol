@@ -121,12 +121,15 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
           zero,
           &target[0]);
       for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
+        double point[3] = {init::vtk3d::Values[order][i * 3 - 3 + 0],
+                           init::vtk3d::Values[order][i * 3 - 3 + 1],
+                           init::vtk3d::Values[order][i * 3 - 3 + 2]};
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
             vertexArray[element.vertices[2]].coords,
             vertexArray[element.vertices[3]].coords,
-            &init::vtk3d::Values[order][i * 3 - 3],
+            point,
             &target[i * 3]);
       }
     });

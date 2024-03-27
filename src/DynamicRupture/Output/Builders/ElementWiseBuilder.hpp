@@ -142,9 +142,10 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
             auto& receiverPoint =
                 outputData->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
-            double nullpoint[2] = {0, 0};
-            const double* point =
+            real nullpoint[2] = {0, 0};
+            const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
+            double point[2] = {prepoint[0], prepoint[1]};
             transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
             transformations::tetrahedronReferenceToGlobal(vertices[0],
                                                           vertices[1],
