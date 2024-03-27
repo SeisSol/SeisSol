@@ -357,16 +357,16 @@ class MultiFaultPlane:
         fault_planes.append(FaultPlane())
         fp = fault_planes[0]
         df = pd.read_csv(fname, delim_whitespace=True, skiprows=25, usecols=range(8), comment=":")
-        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[False, True, True])
+        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[False, True, True]).reset_index()
         rows_with_same_depth = df[df["depth(km)"] == df.iloc[0]["depth(km)"]]
-        nx = len(rows_with_same_depth)
-        ny = len(df) // nx
-        assert len(df) % nx == 0
+        fp.nx = len(rows_with_same_depth)
+        fp.ny = len(df) // fp.nx
+        assert len(df) % fp.nx == 0
 
-        print(f"read {nx} x {ny} fault segments of size {dx} x {dy} km2 in param file")
+        print(f"read {fp.nx} x {fp.ny} fault segments of size {dx} x {dy} km2 in param file")
         print(df)
 
-        fp.init_spatial_arrays(nx, ny)
+        fp.init_spatial_arrays(fp.nx, fp.ny)
 
         assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
         for j in range(fp.ny):
