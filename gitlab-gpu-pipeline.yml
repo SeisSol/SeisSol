@@ -71,7 +71,9 @@ gpu_build:
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
-        - EQUATION: [elastic, anisotropic, poroelastic, viscoelastic2]
+          EQUATION: [elastic]
+        - BACKEND: [cuda]
+          EQUATION: [anisotropic, poroelastic, viscoelastic2]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
