@@ -24,17 +24,9 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
 
   auto enabled = reader->readWithDefault("checkpoint", true);
   auto readBackend = [&reader](bool enabled) {
-    CheckpointingBackend backend = CheckpointingBackend::DISABLED;
+    CheckpointingBackend backend = CheckpointingBackend::Disabled;
     if (enabled) {
-      backend = reader->readWithDefaultStringEnum<CheckpointingBackend>(
-          "checkpointbackend",
-          "none",
-          {{"none", CheckpointingBackend::DISABLED},
-           {"posix", CheckpointingBackend::POSIX},
-           {"hdf5", CheckpointingBackend::HDF5},
-           {"mpio", CheckpointingBackend::MPIO},
-           {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
-           {"sionlib", CheckpointingBackend::SIONLIB}});
+      reader->markUnused({"CheckpointingBackend"});
     } else {
       reader->markUnused({"CheckpointingBackend"});
     }
@@ -73,8 +65,10 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
   int refinement = reader->readWithDefault("refinement", 2);
   reader->warnDeprecated({"printintervalcriterion"});
 
+  const auto vtkorder = reader->readWithDefault("vtkorder", -1);
+
   return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement};
+      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
@@ -108,14 +102,16 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval};
+  const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
+
+  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = 50;
+  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
@@ -123,9 +119,12 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 
   const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
 
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+
   reader->warnDeprecated({"noutpoints"});
 
-  return PickpointParameters{printTimeInterval, maxPickStore, outputMask, pickpointFileName};
+  return PickpointParameters{
+      printTimeInterval, maxPickStore, outputMask, pickpointFileName, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -139,7 +138,10 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
-  return ReceiverOutputParameters{enabled, computeRotation, interval, samplingInterval, fileName};
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+
+  return ReceiverOutputParameters{
+      enabled, computeRotation, interval, samplingInterval, fileName, collectiveio};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {

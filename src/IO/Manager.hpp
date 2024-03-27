@@ -8,20 +8,21 @@
 #include <memory>
 #include <vector>
 
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
 namespace seissol::io {
 
 class OutputManager : public seissol::Module {
   public:
-  OutputManager() = default;
+  OutputManager(SeisSol& seissolInstance);
 
   void setup() { Modules::registerHook(*this, ModuleHook::PostMPIInit); }
 
   void postMPIInit() override {}
 
-  void addOutput(const writer::ScheduledWriter& writer) {
-    modules.emplace_back(std::make_unique<seissol::io::writer::module::WriterModule>(writer));
-    modules.back()->startup();
-  }
+  void addOutput(const writer::ScheduledWriter& writer);
 
   // TODO: de-couple checkpoint loading/writing (forward the CheckpointManager)
 
@@ -40,6 +41,7 @@ class OutputManager : public seissol::Module {
   private:
   instance::checkpoint::CheckpointManager checkpointManager;
   std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules;
+  SeisSol& seissolInstance;
 };
 
 } // namespace seissol::io

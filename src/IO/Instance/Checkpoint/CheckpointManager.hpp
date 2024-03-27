@@ -6,11 +6,14 @@
 #include <IO/Datatype/MPIType.hpp>
 #include <IO/Reader/Distribution.hpp>
 #include <IO/Reader/File/Hdf5Reader.hpp>
+#include <IO/Writer/Instructions/Data.hpp>
 #include <IO/Writer/Writer.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Layer.hpp>
 #include <string>
 #include <unordered_map>
+
+#include "utils/logger.h"
 
 namespace seissol::io::instance::checkpoint {
 
@@ -40,14 +43,17 @@ class CheckpointManager {
   void registerData(const std::string& name,
                     initializer::LTSTree* tree,
                     initializer::Variable<T> var) {
+    if (var.mask != initializer::LayerMask(Ghost)) {
+      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
+    }
     dataRegistry[tree].variables.emplace_back(
         CheckpointVariable{name, tree->var(var), datatype::inferDatatype<T>()});
   }
 
-  std::function<writer::Writer(double)> makeWriter() {
+  std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     auto dataRegistry = this->dataRegistry;
     auto meshReader = this->meshReader;
-    return [=](double time) -> writer::Writer {
+    return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
       writer::Writer writer;
       auto timestr = std::to_string(time);
       timestr.replace(timestr.find("."), 1, "-");
@@ -66,19 +72,18 @@ class CheckpointManager {
             writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
             "__count",
             writer::WriteInline::create(totalCells)));
-        /*writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
             "__ids",
-            std::make_shared<writer::ElementBuffer<std::size_t>>(cells,
-                                               1,
-                                               std::vector<std::size_t>(),
-                                               [&](std::size_t* target, std::size_t index) {
-                                                 target[0] =
-                                                     meshReader->getElements()[index].globalId;
-                                               }),
-            datatype::inferDatatype<std::size_t>()));*/
+            writer::GeneratedBuffer::createElementwise<std::size_t>(
+                cells,
+                1,
+                std::vector<std::size_t>(),
+                [&](std::size_t* target, std::size_t index) {
+                  target[0] = meshReader->getElements()[index].globalId;
+                }),
+            datatype::inferDatatype<std::size_t>()));
         for (auto& variable : ckpTree.variables) {
-          // TODO(David): assert that we don't have ghost cells
           writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
               writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
               variable.name,
@@ -92,7 +97,7 @@ class CheckpointManager {
   }
 
   void loadCheckpoint(const std::string& file) {
-    /*std::size_t storesize = 1;
+    std::size_t storesize = 1;
     void* datastore = std::malloc(1);
 
     auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
@@ -124,7 +129,6 @@ class CheckpointManager {
     reader.closeFile();
 
     std::free(datastore);
-    */
   }
 
   private:

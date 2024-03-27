@@ -2,6 +2,7 @@
 
 #include "AsyncWriter.hpp"
 #include "Modules/Module.h"
+#include <Parallel/Pin.h>
 #include <functional>
 #include <memory>
 #include <string>
@@ -16,7 +17,9 @@ struct BufferPointer {
 
 class WriterModule : public seissol::Module, private AsyncWriterModule {
   public:
-  WriterModule(const ScheduledWriter& settings);
+  WriterModule(const std::string& prefix,
+               const ScheduledWriter& settings,
+               const parallel::Pinning& pinning);
   void startup();
   void setUp() override;
   void simulationStart() override;
@@ -25,12 +28,16 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   void shutdown() override;
 
   private:
+  int rank;
+  std::string prefix;
   unsigned planId;
   AsyncWriter executor;
   std::unordered_map<void*, BufferPointer> pointerMap;
   std::unordered_map<std::size_t, std::vector<int>> bufferMap;
   ScheduledWriter settings;
   double lastWrite;
+  const parallel::Pinning& pinning;
+  std::size_t writeCount{0};
 };
 
 } // namespace seissol::io::writer::module

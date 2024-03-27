@@ -48,5 +48,6 @@ class Hdf5Reader {
 
   private:
   std::stack<hid_t> handles;
+  MPI_Comm comm;
 };
 } // namespace seissol::io::reader::file

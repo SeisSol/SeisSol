@@ -79,7 +79,7 @@ class Writer {
 struct ScheduledWriter {
   std::string name;
   double interval;
-  std::function<Writer(double)> planWrite;
+  std::function<Writer(const std::string&, std::size_t, double)> planWrite;
 };
 
 } // namespace seissol::io::writer

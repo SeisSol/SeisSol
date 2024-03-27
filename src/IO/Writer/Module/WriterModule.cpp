@@ -8,12 +8,29 @@
 
 namespace seissol::io::writer::module {
 
-WriterModule::WriterModule(const ScheduledWriter& settings) : settings(settings), lastWrite(-1) {}
+WriterModule::WriterModule(const std::string& prefix,
+                           const ScheduledWriter& settings,
+                           const parallel::Pinning& pinning)
+    : prefix(prefix), settings(settings), lastWrite(-1), pinning(pinning) {
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+}
 
-void WriterModule::setUp() { setExecutor(executor); }
+void WriterModule::setUp() {
+  logInfo(rank) << "Output Writer" << settings.name << ": setup.";
+  setExecutor(executor);
+  if (isAffinityNecessary()) {
+    const auto freeCpus = pinning.getFreeCPUsMask();
+    logInfo(rank) << "Output Writer" << settings.name
+                  << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
+    if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+      logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+    }
+    setAffinityIfNecessary(freeCpus);
+  }
+}
 
 void WriterModule::startup() {
-  logInfo() << "Output Writer" << settings.name << ": setup, running at interval"
+  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
             << settings.interval;
   init();
 
@@ -31,17 +48,21 @@ void WriterModule::startup() {
   setSyncInterval(settings.interval);
 }
 
-void WriterModule::simulationStart() { syncPoint(0); }
+void WriterModule::simulationStart() {
+  writeCount = 0;
+  syncPoint(0);
+}
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
-    logInfo() << "Output Writer" << settings.name << ": finishing previous write from" << lastWrite;
+    logInfo(rank) << "Output Writer" << settings.name << ": finishing previous write from"
+                  << lastWrite;
   }
   wait();
-  logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
+  logInfo(rank) << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
-  auto writer = settings.planWrite(time);
+  auto writer = settings.planWrite(prefix, writeCount, time);
 
   // prepare the data in the plan
   std::unordered_set<DataSource*> handledSources;
@@ -94,7 +115,9 @@ void WriterModule::syncPoint(double time) {
                     return id;
                   }
                 }
-                return addBuffer(nullptr, targetSize);
+                auto newId = addBuffer(nullptr, targetSize);
+                bufferMap[targetSize].push_back(newId);
+                return newId;
               }();
               void* bufferPtr = managedBuffer<void*>(foundId);
               adhocBuffer->setData(bufferPtr);
@@ -127,17 +150,19 @@ void WriterModule::syncPoint(double time) {
     sendBuffer(id);
   }
 
-  logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
+  ++writeCount;
+
+  logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
   call(AsyncWriterExec{});
 }
 
 void WriterModule::simulationEnd() {
-  logInfo() << "Output Writer" << settings.name << ": finishing output";
+  logInfo(rank) << "Output Writer" << settings.name << ": finishing output";
   wait();
 }
 
 void WriterModule::shutdown() {
-  logInfo() << "Output Writer" << settings.name << ": shutdown";
+  logInfo(rank) << "Output Writer" << settings.name << ": shutdown";
   finalize();
 }
 

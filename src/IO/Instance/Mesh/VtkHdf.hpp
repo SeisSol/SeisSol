@@ -16,9 +16,12 @@
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {
   public:
-  VtkHdfWriter(std::size_t localElementCount, std::size_t dimension, std::size_t targetDegree)
+  VtkHdfWriter(const std::string& name,
+               std::size_t localElementCount,
+               std::size_t dimension,
+               std::size_t targetDegree)
       : localElementCount(localElementCount), globalElementCount(localElementCount),
-        elementOffset(0) {
+        elementOffset(0), name(name) {
     // 69: Lagrange triangle
     // 71: Lagrange tetrahedron
 
@@ -193,12 +196,10 @@ class VtkHdfWriter {
     });
   }
 
-  std::function<writer::Writer(double)> makeWriter() {
+  std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     auto self = *this;
-    return [self](double time) -> writer::Writer {
-      auto timestr = std::to_string(time);
-      timestr.replace(timestr.find("."), 1, "-");
-      const auto filename = std::string("iotest-") + timestr + ".hdf";
+    return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
+      const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".hdf";
       auto writer = writer::Writer();
       for (auto& instruction : self.instructionsConst) {
         writer.addInstruction(instruction(filename, time));
@@ -211,6 +212,7 @@ class VtkHdfWriter {
   }
 
   private:
+  std::string name;
   std::size_t localElementCount;
   std::size_t globalElementCount;
   std::size_t elementOffset;
