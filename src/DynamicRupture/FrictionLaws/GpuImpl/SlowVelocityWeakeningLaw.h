@@ -79,9 +79,9 @@ class SlowVelocityWeakeningLaw
 
     // #pragma omp distribute
     #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(to: stateVariableBuffer[0:layerSize]) map(from: stateVariable[0:layerSize]) nowait
-    #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
+    #pragma omp metadirective when(device={nohost}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
+        #pragma omp metadirective when(device={nohost}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         stateVariable[ltsFace][pointIndex] = stateVariableBuffer[ltsFace][pointIndex];

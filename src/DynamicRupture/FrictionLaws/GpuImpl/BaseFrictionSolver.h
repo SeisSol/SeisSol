@@ -51,9 +51,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       // #pragma omp distribute
       #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(from: devFaultStresses[0:layerSize]) nowait
-      #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
+      #pragma omp metadirective when(device={nohost}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
+        #pragma omp metadirective when(device={nohost}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
@@ -76,9 +76,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
         // #pragma omp distribute
         #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devInitialStressInFaultCS[0:layerSize], devInitialPressure[0:layerSize]) map(to: devNucleationStressInFaultCS[0:layerSize], devNucleationPressure[0:layerSize]) nowait
-        #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
+        #pragma omp metadirective when(device={nohost}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-          #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
+          #pragma omp metadirective when(device={nohost}: parallel for) default(simd)
           for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
             common::adjustInitialStress<gpuRangeType>(
@@ -103,9 +103,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       // #pragma omp distribute
       #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(tofrom: devRuptureTimePending[0:layerSize]) map(from: devRuptureTime[0:layerSize]) map(to: devSlipRateMagnitude[0:layerSize]) nowait
-      #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
+      #pragma omp metadirective when(device={nohost}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
+        #pragma omp metadirective when(device={nohost}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
@@ -136,9 +136,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       // #pragma omp distribute
       #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[0:layerSize], devSlipRateMagnitude[0:layerSize], devFaultStresses[0:layerSize], devTractionResults[0:layerSize], devImpAndEta[0:layerSize], devImpedanceMatrices[0:layerSize], devQInterpolatedPlus[0:layerSize], devQInterpolatedMinus[0:layerSize]) map(tofrom: devPeakSlipRate[0:layerSize], devImposedStatePlus[0:layerSize], devImposedStateMinus[0:layerSize], devEnergyData[0:layerSize]) nowait
-      #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
+      #pragma omp metadirective when(device={nohost}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
+        #pragma omp metadirective when(device={nohost}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
           common::savePeakSlipRateOutput<gpuRangeType>(
