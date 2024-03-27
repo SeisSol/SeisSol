@@ -357,16 +357,16 @@ class MultiFaultPlane:
         fault_planes.append(FaultPlane())
         fp = fault_planes[0]
         df = pd.read_csv(fname, delim_whitespace=True, skiprows=25, usecols=range(8), comment=":")
-        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[False, True, True]).reset_index()
+        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[True, True, True]).reset_index()
         rows_with_same_depth = df[df["depth(km)"] == df.iloc[0]["depth(km)"]]
-        fp.nx = len(rows_with_same_depth)
-        fp.ny = len(df) // fp.nx
-        assert len(df) % fp.nx == 0
+        nx = len(rows_with_same_depth)
+        ny = len(df) // nx
+        assert len(df) % nx == 0
 
-        print(f"read {fp.nx} x {fp.ny} fault segments of size {dx} x {dy} km2 in param file")
+        print(f"read {nx} x {ny} fault segments of size {dx} x {dy} km2 in param file")
         print(df)
 
-        fp.init_spatial_arrays(fp.nx, fp.ny)
+        fp.init_spatial_arrays(nx, ny)
 
         assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
         for j in range(fp.ny):
@@ -770,14 +770,15 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         km2m = 1e3
         coords = np.array([self.x, self.y, -km2m * self.depth])
         ny, nx = coords.shape[1:3]
-        center_row = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
-        dx1 = np.linalg.norm(center_row, axis=0)
-        # with this convention the first data point is in local coordinate (0,0)
-        xb = np.cumsum(dx1) - dx1[0]
 
-        center_col = coords[:, :, (nx - 1) // 2] - coords[:, :, (nx - 1) // 2 - 1]
+        center_row = np.diff(coords[:, (ny - 1) // 2, :])
+        dx1 = np.linalg.norm(center_row, axis=0)
+        center_col = np.diff(coords[:, :, (nx - 1) // 2])
         dy1 = np.linalg.norm(center_col, axis=0)
-        yb = np.cumsum(dy1) - dy1[0]
+
+        # with this convention the first data point is in local coordinate (0,0)
+        xb = np.insert(np.cumsum(dx1), 0 ,0)
+        yb = np.insert(np.cumsum(dy1), 0 ,0)
 
         self.xb = np.pad(xb, ((1), (1)), "reflect", reflect_type="odd")
         self.yb = np.pad(yb, ((1), (1)), "reflect", reflect_type="odd")
@@ -902,10 +903,10 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         p3 = np.array([self.x[ny - 1, nx - 1], self.y[ny - 1, nx - 1], -km2m * self.depth[ny - 1, nx - 1]])
 
         hw = p1 - p0
-        dx1 = np.linalg.norm(hw) / (ny - 1)
+        dx2 = np.linalg.norm(hw) / (ny - 1)
         self.affine_map["hw"] = hw / np.linalg.norm(hw)
         hh = p2 - p0
-        dx2 = np.linalg.norm(hh) / (nx - 1)
+        dx1 = np.linalg.norm(hh) / (nx - 1)
         self.affine_map["hh"] = hh / np.linalg.norm(hh)
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         # a kinematic model defines the fault quantities at the subfault center
