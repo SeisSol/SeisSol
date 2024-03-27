@@ -22,9 +22,10 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     auto* queue{this->queue};
 
     // #pragma omp distribute
-    #pragma omp target teams distribute depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devSl0[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
+    #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(to: devSl0[0:layerSize], devLocalSlipRate[0:layerSize], devStateVarReference[0:layerSize]) map(from: devStateVariableBuffer[0:layerSize]) nowait
+    #pragma omp metadirective when(device_type={nohost}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        #pragma omp parallel for 
+        #pragma omp metadirective when(device_type={nohost}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
         const double localSl0 = devSl0[ltsFace][pointIndex];
