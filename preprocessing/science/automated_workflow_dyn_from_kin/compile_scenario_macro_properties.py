@@ -55,6 +55,14 @@ if __name__ == "__main__":
         "output_folder",
         help="path to output folder or full path to specific energy.csv file",
     )
+    parser.add_argument(
+        "--gof_threshold",
+        help="gof threshold from which results are selected",
+        nargs=1,
+        type=float,
+        default=[0.6],
+    )
+
     args = parser.parse_args()
 
     if not os.path.exists("plots"):
@@ -93,12 +101,18 @@ if __name__ == "__main__":
     M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
 
     usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
-    print(usgs_duration)
+
     # Create a new time array with the desired time step
     dt = 0.25
     new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
     # Use numpy's interp function to interpolate values at the new time points
     mr_usgs_interp = np.interp(new_time, mr_usgs[:, 0], mr_usgs[:, 1])
+
+    if 2 * usgs_duration > new_time[-1]:
+        added = int((2 * usgs_duration - new_time.max()) / dt)
+        mr_usgs_interp = np.pad(
+            mr_usgs_interp, (0, added), "constant", constant_values=(0, 0)
+        )
 
     for i, fn in enumerate(energy_files):
         if "fl33" in fn:
@@ -151,7 +165,9 @@ if __name__ == "__main__":
     Mw = result_df["Mw"].values
     indices_of_3largest_values = result_df["overall_gof"].nlargest(3).index
     indices_of_10largest_values = result_df["overall_gof"].nlargest(10).index
-    indices_greater_than_threshold = result_df[result_df["overall_gof"] > 0.6].index
+    indices_greater_than_threshold = result_df[
+        result_df["overall_gof"] > args.gof_threshold[0]
+    ].index
     if len(indices_greater_than_threshold) > 10:
         selected_indices = indices_of_10largest_values
     else:
