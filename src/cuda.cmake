@@ -31,3 +31,10 @@ if (EXTRA_CXX_FLAGS)
             --compiler-options ${EXTRA_CXX_FLAGS}
             >)
 endif()
+if (GPU_KERNEL_DEBUG)
+target_compile_options(SeisSol-device-lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+        -keep;
+        -lineinfo;
+        -g
+        >)
+endif()

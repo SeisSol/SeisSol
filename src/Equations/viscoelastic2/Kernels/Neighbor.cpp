@@ -126,7 +126,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
     }
   }
 
-  kernel::neighbour nKrnl = m_nKrnlPrototype;
+  kernel::neighbor nKrnl = m_nKrnlPrototype;
   nKrnl.Qext = Qext;
   nKrnl.Q = data.dofs;
   nKrnl.Qane = data.dofsAne;
@@ -166,8 +166,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
     }
   }
 
-  o_nonZeroFlops += kernel::neighbour::NonZeroFlops;
-  o_hardwareFlops += kernel::neighbour::HardwareFlops;
+  o_nonZeroFlops += kernel::neighbor::NonZeroFlops;
+  o_hardwareFlops += kernel::neighbor::HardwareFlops;
 }
 
 
