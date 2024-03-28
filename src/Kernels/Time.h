@@ -79,6 +79,7 @@
 #include <Kernels/common.hpp>
 #include <cassert>
 #include <generated_code/tensor.h>
+#include <kernel.h>
 #include <limits>
 #ifdef USE_STP
 #include <Numerical_aux/BasisFunction.h>
@@ -173,6 +174,10 @@ void calculateEps(const real* exxNodal, const real* eyyNodal, const real* ezzNod
 
 void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const unsigned int& l_cell, const unsigned int& side, const double* timeWeights,
   const real* qIPlus, const real* qIMinus, real* rusanovFluxP, const LocalIntegrationData* localIntegration);
+
+void computeNonLinearIntegralCorrection(const CellLocalInformation* cellInformation, const unsigned int& l_cell, real** derivatives, 
+real* (* faceNeighbors)[4], const CellMaterialData* materialData, const LocalIntegrationData* localIntegration, const NeighborData& data, const CellDRMapping (*drMapping)[4],
+kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype, double timeStepSize, const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
 #endif
 };
 #endif
