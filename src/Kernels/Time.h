@@ -71,6 +71,7 @@
 #ifndef TIME_H_
 #define TIME_H_
 
+#include <DynamicRupture/Misc.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Interface.hpp>
@@ -225,55 +226,55 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
 
         real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
 
-        calculateEps(&qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX],
-                                  &qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY],
-                                  &qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ],
-                                  &qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY],
-                                  &qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ],
-                                  &qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ],
+        calculateEps(&qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
+                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
+                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
+                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
+                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
+                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
                                   i,
                                   *m_damagedElasticParameters,
                                   EspIp,
                                   EspIIp,
                                   xip);
-        real alphap = qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-        calculateEps(&qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX],
-                                  &qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY],
-                                  &qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ],
-                                  &qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY],
-                                  &qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ],
-                                  &qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ],
+        real alphap = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
+        calculateEps(&qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
+                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
+                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
+                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
+                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
+                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
                                   i,
                                   *m_damagedElasticParameters,
                                   EspIm,
                                   EspIIm,
                                   xim);
-        real alpham = qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-        real lambp = (1 - qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
+        real alpham = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
+        real lambp = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
                          (lambda0P - alphap * materialData[l_cell].local.gammaR *
-                                         (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp)) +
-                     qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xip * aB3 +
-                                          aB1 * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp));
+                                         (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp)) +
+                     qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xip * aB3 +
+                                          aB1 * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp));
         real mup =
-            (1 - qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
+            (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
                 (mu0P -
                  alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR -
                  0.5 * alphap * materialData[l_cell].local.gammaR * xip) +
-            qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xip * aB1 - 0.5 * xip * xip * xip * aB3);
+            qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xip * aB1 - 0.5 * xip * xip * xip * aB3);
 
         real lambm =
-            (1 - qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
+            (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
                 (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR *
-                                (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints+i] + epsInitxx) / std::sqrt(EspIIm)) +
-            qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xim * aB3 +
-                                  aB1 * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIm));
+                                (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints+i] + epsInitxx) / std::sqrt(EspIIm)) +
+            qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xim * aB3 +
+                                  aB1 * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIm));
 
-        real mum = (1 - qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
+        real mum = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
                        (mu0M -
                         alpham * materialData[l_cell].neighbor[side].xi0 *
                             materialData[l_cell].neighbor[side].gammaR -
                         0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim) +
-                   qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xim * aB1 - 0.5 * xim * xim * xim * aB3);
+                   qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xim * aB1 - 0.5 * xim * xim * xim * aB3);
 
         lambdaMax =
             std::min(std::sqrt((lambp + 2 * mup) / rho0P), std::sqrt((lambm + 2 * mum) / rho0M));
@@ -284,35 +285,35 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
                       0.5 * alphap * materialData[l_cell].local.gammaR * xip;
         real sxx_sp = materialData[l_cell].local.lambda0 * EspIp -
                       alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
+                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
         real syy_sp = materialData[l_cell].local.lambda0 * EspIp -
                       alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
+                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
         real szz_sp = materialData[l_cell].local.lambda0 * EspIp -
                       alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
+                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
 
-        real sxy_sp = 2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_sp = 2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_sp = 2 * mu_eff * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
+        real sxy_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
+        real syz_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
+        real szx_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
 
         // breakage stress
         real sxx_bp =
             (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
         real syy_bp =
             (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
         real szz_bp =
             (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
 
         real sxy_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
         real syz_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
         real szx_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
+            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
 
         // damage stress minus
         mu_eff = materialData[l_cell].neighbor[side].mu0 -
@@ -321,38 +322,38 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
                  0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim;
         real sxx_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
                       alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
+                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
         real syy_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
                       alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
+                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
         real szz_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
                       alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
+                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
 
-        real sxy_sm = 2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_sm = 2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_sm = 2 * mu_eff * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
+        real sxy_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
+        real syz_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
+        real szx_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
 
         // breakage stress
         real sxx_bm =
             (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
         real syy_bm =
             (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
         real szz_bm =
             (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
 
         real sxy_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
         real syz_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
         real szx_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
+            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
 
-        real breakp = qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
-        real breakm = qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
+        real breakp = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
+        real breakm = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
 
         sxxP = (1 - breakp) * sxx_sp + breakp * sxx_bp;
         syyP = (1 - breakp) * syy_sp + breakp * syy_bp;
@@ -370,46 +371,46 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
         szxM = (1 - breakm) * szx_sm + breakm * szx_bm;
 
         rusanovFluxP[XX*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][0] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx));
 
         rusanovFluxP[YY*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][1] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy));
 
         rusanovFluxP[ZZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz));
 
         rusanovFluxP[XY*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ((0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER + U*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
+                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][1] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + XY*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInitxy) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + XY*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInitxy));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy));
 
         rusanovFluxP[YZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ( (0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ( (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][1] +
-                      (0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER + V*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER + V*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i])) *
+                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + YZ*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInityz) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + YZ*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInityz));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz));
 
         rusanovFluxP[XZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i])) *
+            weight * ((0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-0.5 * qIPlus[o*CONVERGENCE_ORDER + U*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*CONVERGENCE_ORDER + U*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i])) *
+                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + XZ*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInitzx) -
-                      0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + XZ*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i] + epsInitzx));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx) -
+                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx));
 
         rusanovFluxP[U*seissol::dr::misc::numPaddedPoints + i] +=
             weight * ((0.5 * (-sxxP / rho0P) + 0.5 * (-sxxM / rho0M)) *
@@ -418,7 +419,7 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
                           localIntegration[l_cell].surfaceNormal[side][1] +
                       (0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + U*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + U*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]));
 
         rusanovFluxP[V*seissol::dr::misc::numPaddedPoints + i] +=
             weight * ((0.5 * (-sxyP / rho0P) + 0.5 * (-sxyM / rho0M)) *
@@ -427,7 +428,7 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
                           localIntegration[l_cell].surfaceNormal[side][1] +
                       (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + V*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + V*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]));
 
         rusanovFluxP[W*seissol::dr::misc::numPaddedPoints + i] +=
             weight * ((0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
@@ -436,7 +437,7 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
                           localIntegration[l_cell].surfaceNormal[side][1] +
                       (0.5 * (-szzP / rho0P) + 0.5 * (-szzM / rho0M)) *
                           localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*CONVERGENCE_ORDER + W*CONVERGENCE_ORDER*seissol::dr::misc::numPaddedPoints + i]));
+                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]));
       }
     }
   }
