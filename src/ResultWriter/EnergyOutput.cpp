@@ -54,7 +54,7 @@ void EnergyOutput::init(
   terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold = parameters.terminatorMomentRateThreshold;
   isCheckAbortCriteraSlipRateEnabled = std::isfinite(terminatorMaxTimePostRupture);
-  isCheckAbortCriteraMomentRateEnabled = (terminatorMomentRateThreshold > 0) && (rank == 0);
+  isCheckAbortCriteraMomentRateEnabled = (terminatorMomentRateThreshold > 0);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -82,7 +82,7 @@ void EnergyOutput::syncPoint(double time) {
   if (isCheckAbortCriteraSlipRateEnabled) {
     reduceMinTimeSinceSlipRateBelowThreshold();
   }
-  if (isCheckAbortCriteraMomentRateEnabled) {
+  if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
     double seismicMomentRate =
         (energiesStorage.seismicMoment() - seismicMomentPrevious) / energyOutputInterval;
     seismicMomentPrevious = energiesStorage.seismicMoment();
