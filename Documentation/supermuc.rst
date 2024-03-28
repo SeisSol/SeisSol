@@ -218,8 +218,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
     # install a few python modules
     python3.10 -m pip install --upgrade pip --user --proxy http://localhost:DDDDD
-    pip3.10 install --upgrade setuptools --user --proxy http://localhost:DDDDD
-    pip3.10 install --upgrade numpy --user --proxy http://localhost:DDDDD
+    pip3.10 install --upgrade setuptools numpy wheel packaging --user --proxy http://localhost:DDDDD
     pip3.10 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
 
     # clone seissol-spack-aid and add the repository
