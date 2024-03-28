@@ -76,7 +76,7 @@ The GUI of SimModeler can be used to find the correspondence between region/surf
 Velocity-aware meshing
 -------------------------------------
 
-PUMGen supports automatic mesh refinement depending on the velocity structure specified in an easi file. PUMGen generates a mesh with a local element size that satisfies the specified number of :code:`elementsPerWaveLength` for the target :code:`frequency` within the :code:`VelocityRefinementCuboid`. Running SeisSol with :code:`-DORDER=6` resolves the target frequency when using two elements per wavelength. 
+PUMGen supports automatic mesh refinement depending on the velocity structure specified in an easi file. PUMGen generates a mesh with a local element size that satisfies the specified number of :code:`elementsPerWaveLength` for the target :code:`frequency` within the :code:`VelocityRefinementCuboid`. As a rule of thumb, running SeisSol with :code:`-DORDER=6` resolves the target frequency when using two elements per wavelength (for details see `Käser et al., 2008 <https://doi.org/10.1111/j.1365-246X.2008.03781.x>`_). 
 
 | Velocity-aware meshing is enabled within the xml file:
 
