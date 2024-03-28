@@ -10,11 +10,11 @@ usgs_event_id_or_dtgeo_file=$1
 
 if [ $# -eq 1 ]; then
     finite_fault_fn="tmp/basic_inversion.param"
-    suffix=""
+    suffix_arg=""
 elif [ $# -eq 2 ]; then
     finite_fault_fn="../$2"
     file_basename=$(basename "$2")
-    suffix="${file_basename%.*}"
+    suffix_arg="--suffix ${file_basename%.*}"
 else
     echo "illegal number of parameters, usage:"
     echo "./workflow_usgs_finite_model.sh usgs_event_id_or_dtgeo_file"
@@ -24,7 +24,7 @@ else
 fi
 
 
-folder_name=$($seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $usgs_event_id_or_dtgeo_file --suffix $suffix)
+folder_name=$($seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/get_usgs_finite_fault_data.py $usgs_event_id_or_dtgeo_file $suffix_arg)
 cd $folder_name
 read lon lat _ < tmp/hypocenter.txt
 proj="+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=${lon} +lat_0=${lat}"
