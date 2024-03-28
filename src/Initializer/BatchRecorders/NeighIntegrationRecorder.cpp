@@ -14,7 +14,7 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
   idofsAddressRegistry.clear();
 
   recordDofsTimeEvaluation();
-  recordNeighbourFluxIntegrals();
+  recordNeighborFluxIntegrals();
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
@@ -87,7 +87,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   }
 }
 
-void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
+void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};

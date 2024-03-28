@@ -189,9 +189,9 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   copyManager.template copyFamilyToMemAndSetPtr<init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::rT>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<init::rT>(globalMatrixMemPtr, globalData.neighborChangeOfBasisMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::fMrT>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, prop.alignment);
-  copyManager.template copyFamilyToMemAndSetPtr<init::fP>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<init::fP>(globalMatrixMemPtr, globalData.neighborFluxMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(globalMatrixMemPtr, globalData.V3mTo2nFace, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(globalMatrixMemPtr, globalData.project2nFaceTo3m, prop.alignment);
 

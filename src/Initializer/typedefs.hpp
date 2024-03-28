@@ -234,7 +234,7 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<real const*> neighbourChangeOfBasisMatricesTransposed;
+  seissol::tensor::rT::Container<real const*> neighborChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the global flux matrices:
@@ -243,7 +243,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP::Container<real const*> neighbourFluxMatrices;
+  seissol::tensor::fP::Container<real const*> neighborFluxMatrices;
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):

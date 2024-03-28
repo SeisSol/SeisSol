@@ -79,11 +79,11 @@ void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, s
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % alignment == 0 );
     assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % alignment == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % alignment == 0 );
+    assert( ((uintptr_t)global->neighborChangeOfBasisMatricesTransposed(l_neighbor)) % alignment == 0 );
   }
 
   for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % alignment == 0 );
+    assert( ((uintptr_t)global->neighborFluxMatrices(h)) % alignment == 0 );
   }
 
   for (int i = 0; i < 4; ++i) {
@@ -97,8 +97,8 @@ void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, s
 void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   checkGlobalData(global, ALIGNMENT);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
@@ -114,8 +114,8 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif

@@ -53,11 +53,11 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
     assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighborChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
   }
 
   for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighborFluxMatrices(h)) % ALIGNMENT == 0 );
   }
 
   for (int i = 0; i < 4; ++i) {
@@ -67,8 +67,8 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   }
 #endif
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
   m_nKrnlPrototype.selectEla = init::selectEla::Values;
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
@@ -97,7 +97,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
 
-  kernel::neighbourFluxExt nfKrnl = m_nfKrnlPrototype;
+  kernel::neighborFluxExt nfKrnl = m_nfKrnlPrototype;
   nfKrnl.Qext = Qext;
 
   // iterate over faces
@@ -154,8 +154,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
       if( i_faceTypes[l_face] != FaceType::freeSurface ) {
         assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
 
-        o_nonZeroFlops  += seissol::kernel::neighbourFluxExt::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
-        o_hardwareFlops += seissol::kernel::neighbourFluxExt::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        o_nonZeroFlops  += seissol::kernel::neighborFluxExt::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        o_hardwareFlops += seissol::kernel::neighborFluxExt::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
         o_nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(l_face);
         o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(l_face);
