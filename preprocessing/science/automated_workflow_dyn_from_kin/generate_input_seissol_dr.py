@@ -195,6 +195,6 @@ for i, fn in enumerate(list_fault_yaml):
     else:
         code = fn.split(".yaml")[0].split("fault_")[1]
         fn_param = f"parameters_dyn_{code}.par"
-        print(f"removing {fn} and {fn_param} (nuclation too large)")
+        print(f"removing {fn} and {fn_param} (nucleation too large)")
         os.remove(fn)
         os.remove(fn_param)
