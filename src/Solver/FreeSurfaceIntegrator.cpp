@@ -226,7 +226,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
                                                                         double const* weights) const
 {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d-k; ++j) {
         unsigned i = d-k-j;
@@ -251,7 +251,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
                                                                                  const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
                                                                                  double const* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;

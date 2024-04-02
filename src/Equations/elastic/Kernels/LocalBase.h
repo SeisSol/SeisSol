@@ -41,6 +41,7 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
+#include <Common/constants.hpp>
 #include "generated_code/kernel.h"
 #include <memory>
 #pragma GCC diagnostic push

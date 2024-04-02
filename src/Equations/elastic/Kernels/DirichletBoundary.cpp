@@ -4,7 +4,7 @@
 #pragma GCC diagnostic pop
 void seissol::kernels::computeAverageDisplacement(double deltaT,
 					 const real* timeDerivatives,
-					 const unsigned int derivativesOffsets[CONVERGENCE_ORDER],
+					 const unsigned int derivativesOffsets[ConvergenceOrder],
 					 real timeIntegrated[tensor::I::size()] 
 					 ) {
   // TODO(Lukas) Only compute integral for displacement, not for all vars.
@@ -21,7 +21,7 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
   real factorial = 2.0;
   double power = deltaT * deltaT;
   
-  for (int der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (int der = 0; der < ConvergenceOrder; ++der) {
     intKrnl.power = power / factorial;
     intKrnl.execute(der);
 

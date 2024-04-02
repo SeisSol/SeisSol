@@ -51,11 +51,11 @@ struct QInterpolated {
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
     const FaultStresses& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
@@ -96,8 +96,8 @@ inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
@@ -121,7 +121,7 @@ inline void precomputeStressFromQInterpolated(
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
@@ -156,7 +156,7 @@ inline void precomputeStressFromQInterpolated(
   krnl.theta = thetaBuffer;
   auto thetaView = init::theta::view::create(thetaBuffer);
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     krnl.Qplus = qInterpolatedPlus[o];
     krnl.Qminus = qInterpolatedMinus[o];
     krnl.execute();
@@ -175,10 +175,10 @@ inline void precomputeStressFromQInterpolated(
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPostCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real imposedStateP[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const real imposedStateM[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
+    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real imposedStateP[ConvergenceOrder][dr::misc::numPaddedPoints],
+    const real imposedStateM[ConvergenceOrder][dr::misc::numPaddedPoints],
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults) {
   using namespace dr::misc::quantity_indices;
@@ -197,7 +197,7 @@ inline void checkAlignmentPostCompute(
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % ALIGNMENT == 0);
 
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
@@ -240,9 +240,9 @@ inline void postcomputeImposedStateFromNewStress(
     const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const double timeWeights[CONVERGENCE_ORDER],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const double timeWeights[ConvergenceOrder],
     unsigned startIndex = 0) {
 
   // set imposed state to zero
@@ -274,7 +274,7 @@ inline void postcomputeImposedStateFromNewStress(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
 
     using NumPointsRange = typename NumPoints<Type>::Range;
@@ -330,7 +330,7 @@ inline void postcomputeImposedStateFromNewStress(
   krnlM.theta = thetaBuffer;
   krnlP.theta = thetaBuffer;
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
     // copy values to yateto dataformat
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
@@ -492,10 +492,10 @@ inline void
 template <RangeType Type = RangeType::CPU>
 inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     const ImpedancesAndEta& impAndEta,
-    const double timeWeights[CONVERGENCE_ORDER],
+    const double timeWeights[ConvergenceOrder],
     const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
     const DRGodunovData& godunovData,
     size_t startIndex = 0) {
@@ -515,7 +515,7 @@ inline void computeFrictionEnergy(
   using Range = typename NumPoints<Type>::Range;
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE

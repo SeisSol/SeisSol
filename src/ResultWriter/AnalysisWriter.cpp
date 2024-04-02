@@ -72,7 +72,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];

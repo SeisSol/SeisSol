@@ -71,6 +71,7 @@
 #ifndef KERNELS_TIMEBASE_H_
 #define KERNELS_TIMEBASE_H_
 
+#include <Common/constants.hpp>
 #include <generated_code/kernel.h>
 
 #ifdef ACL_DEVICE
@@ -103,7 +104,7 @@ class TimeBase {
    *   ...
    * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
    */
-  unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+  unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;

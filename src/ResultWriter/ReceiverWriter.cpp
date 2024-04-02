@@ -101,11 +101,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"});
-#ifdef USE_POROELASTIC
-  std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
-  names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
-#endif
+  std::vector<std::string> names(seissol::model::Material_t::Quantities.begin(), seissol::model::Material_t::Quantities.end());
   if (m_computeRotation) {
     std::array<std::string, 3> rotationNames({"rot1", "rot2", "rot3"});
     names.insert(names.end(), rotationNames.begin(), rotationNames.end());
@@ -202,7 +198,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
   std::vector<unsigned> meshIds(numberOfPoints);
   
   // We want to plot all quantities except for the memory variables
-  const int n = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+  const int n = seissol::model::Material_t::NumberOfQuantities - 6*NUMBER_OF_RELAXATION_MECHANISMS;
   std::vector<unsigned> quantities(n);
   std::iota(quantities.begin(), quantities.end(), 0);
 

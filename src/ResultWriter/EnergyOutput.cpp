@@ -107,7 +107,7 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
@@ -313,7 +313,7 @@ void EnergyOutput::computeVolumeEnergies() {
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
+    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
     constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
     double quadraturePointsTet[numQuadraturePointsTet][3];

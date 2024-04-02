@@ -99,7 +99,7 @@ namespace seissol::kernels {
 
 TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
-  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+  for (int order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
@@ -116,7 +116,7 @@ void Time::setHostGlobalData(GlobalData const* global) {
 #ifdef USE_STP
   //Note: We could use the space time predictor for elasticity.
   //This is not tested and experimental
-  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+  for (int n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
@@ -219,7 +219,7 @@ void Time::computeAder(double i_timeStepWidth,
     streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
   }
 
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
     krnl.execute(der);
 
     // update scalar for this derivative
@@ -304,7 +304,7 @@ void Time::computeBatchedAder(double i_timeStepWidth,
     intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute0();
 
-    for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
+    for (unsigned Der = 1; Der < ConvergenceOrder; ++Der) {
       derivativesKrnl.linearAllocator.initialize(tmpMem);
       derivativesKrnl.streamPtr = device.api->getDefaultStream();
       derivativesKrnl.execute(Der);
@@ -345,7 +345,7 @@ void Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
 
   // interate over derivatives
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
+  for( unsigned l_derivative = 1; l_derivative < ConvergenceOrder; l_derivative++ ) {
     o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
     o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
 
@@ -405,7 +405,7 @@ void Time::computeIntegral( double                            i_expansionPoint,
   }
  
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
+  for(int der = 0; der < ConvergenceOrder; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= (real)(der+1);
@@ -454,7 +454,7 @@ void Time::computeBatchedIntegral(double i_expansionPoint,
   }
 
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for(int der = 0; der < ConvergenceOrder; ++der) {
     firstTerm *= deltaTUpper;
     secondTerm *= deltaTLower;
     factorial *= static_cast<real>(der + 1);
@@ -496,7 +496,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.power = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / real(derivative+1);
   }
@@ -525,7 +525,7 @@ void Time::computeBatchedTaylorExpansion(real time,
   // iterate over time derivatives
   const real deltaT = time - expansionPoint;
   intKrnl.power = 1.0;
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
@@ -561,7 +561,7 @@ void Time::computeDerivativeTaylorExpansion(real time,
   intKrnl.power = 1.0;
 
   // iterate over time derivatives
-  for(unsigned derivative = order; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(unsigned derivative = order; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / real(derivative+1);
   }
@@ -573,7 +573,7 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   nonZeroFlops = 0; hardwareFlops = 0;
 
   // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }

@@ -45,7 +45,7 @@ class DirichletBoundary {
  public:
 
   DirichletBoundary() {
-    quadrature::GaussLegendre(quadPoints, quadWeights, CONVERGENCE_ORDER);
+    quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder);
   }
 
   template<typename Func, typename MappingKrnl>
@@ -153,9 +153,9 @@ class DirichletBoundary {
     assert(boundaryMapping.nodes != nullptr);
   
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[CONVERGENCE_ORDER];
-    double timeWeights[CONVERGENCE_ORDER];
-    for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+    double timePoints[ConvergenceOrder];
+    double timeWeights[ConvergenceOrder];
+    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth)/2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
@@ -171,7 +171,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
   
-    for (int i = 0; i < CONVERGENCE_ORDER; ++i) {
+    for (int i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],
@@ -184,14 +184,14 @@ class DirichletBoundary {
   }
 
  private:
-  double quadPoints[CONVERGENCE_ORDER];
-  double quadWeights[CONVERGENCE_ORDER];
+  double quadPoints[ConvergenceOrder];
+  double quadWeights[ConvergenceOrder];
 };
 
 
 void computeAverageDisplacement(double deltaT,
 				const real* timeDerivatives,
-				const unsigned int derivativesOffsets[CONVERGENCE_ORDER],
+				const unsigned int derivativesOffsets[ConvergenceOrder],
 				real timeIntegrated[tensor::I::size()]);
 
 } // namespace kernels

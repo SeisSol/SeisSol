@@ -113,7 +113,7 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(
   auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
   auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
-      CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+      ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);
   double JInv = 1.0 / (6.0 * volume);

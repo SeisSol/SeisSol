@@ -46,28 +46,12 @@
 #include <Kernels/common.hpp>
 #include <Model/plasticity.hpp>
 
-#if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
-#error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
-#endif
-
 #ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#if CONVERGENCE_ORDER <= 7
-#   define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_TIMEDOFS seissol::memory::Standard
-#endif
+#   define MEMKIND_TIMEDOFS (ConvergenceOrder <= 7 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_CONSTANT (ConvergenceOrder <= 4 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_DOFS     (ConvergenceOrder <= 3 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
 #define MEMKIND_TIMEBUCKET MEMKIND_TIMEDOFS
-#if CONVERGENCE_ORDER <= 4
-#   define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_CONSTANT seissol::memory::Standard
-#endif
-#if CONVERGENCE_DOFS <= 3
-#   define MEMKIND_DOFS     seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_DOFS     seissol::memory::Standard
-#endif
 # define MEMKIND_UNIFIED  seissol::memory::Standard
 #else // ACL_DEVICE
 #	define MEMKIND_GLOBAL     seissol::memory::Standard
@@ -79,15 +63,14 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializer {
-    struct LTS;
-  }
   namespace tensor {
     class Qane;
   }
 }
 
-struct seissol::initializer::LTS {
+namespace seissol::initializer {
+
+struct LTS {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
   Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
@@ -152,4 +135,6 @@ struct seissol::initializer::LTS {
 #endif
   }
 };
+
+} // namespace seissol::initializer
 #endif

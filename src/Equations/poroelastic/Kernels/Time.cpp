@@ -25,7 +25,7 @@ namespace seissol::kernels {
 
 TimeBase::TimeBase(){
   m_derivativesOffsets[0] = 0;
-  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+  for (int order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
@@ -33,7 +33,7 @@ TimeBase::TimeBase(){
 }
 
 void Time::setHostGlobalData(GlobalData const* global) {
-  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+  for (int n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
@@ -41,7 +41,7 @@ void Time::setHostGlobalData(GlobalData const* global) {
     }
     m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
-  for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
+  for (int k = 0; k < seissol::model::Material_t::NumberOfQuantities; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
     m_krnlPrototype.selectQuantityG(k) = init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
@@ -98,15 +98,15 @@ void Time::executeSTP( double                      i_timeStepWidth,
   //we have to recalculate it
   if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
-    real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
-    model::zInvInitializerForLoop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
-    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    real ZinvData[seissol::model::Material_t::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder];
+    model::zInvInitializerForLoop<0, seissol::model::Material_t::NumberOfQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
+    for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
     // krnl.execute has to be run here: ZinvData is only allocated locally
     krnl.execute();
   } else {
-    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
       krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
     }
     krnl.execute();
@@ -215,7 +215,7 @@ void Time::computeIntegral( double                            i_expansionPoint,
   }
  
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
+  for(int der = 0; der < ConvergenceOrder; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= (real)(der+1);
@@ -252,7 +252,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.power = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / real(derivative+1);
   }
@@ -263,7 +263,7 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   nonZeroFlops = 0; hardwareFlops = 0;
 
   // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }

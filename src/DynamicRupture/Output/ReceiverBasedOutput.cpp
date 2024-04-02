@@ -424,7 +424,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   }
 
   if (needsUpdate) {
-    constexpr int numPoly = CONVERGENCE_ORDER - 1;
+    constexpr int numPoly = ConvergenceOrder - 1;
     constexpr int numDegFr2d = (numPoly + 1) * (numPoly + 2) / 2;
     std::array<double, numDegFr2d> projectedRT{};
     projectedRT.fill(0.0);

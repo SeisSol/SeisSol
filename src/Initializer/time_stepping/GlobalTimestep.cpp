@@ -33,7 +33,7 @@ static double
 
   // Compute maximum timestep
   return std::fmin(maximumAllowedTimeStep,
-                   cfl * 2.0 * insphere / (pWaveVel * (2 * CONVERGENCE_ORDER - 1)));
+                   cfl * 2.0 * insphere / (pWaveVel * (2 * ConvergenceOrder - 1)));
 }
 
 GlobalTimestep

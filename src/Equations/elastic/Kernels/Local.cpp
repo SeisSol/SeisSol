@@ -454,9 +454,9 @@ void Local::flopsIntegral(FaceType const i_faceTypes[4],
       break;
     case FaceType::analytical:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
       break;
     default:
       break;

@@ -109,8 +109,8 @@ public:
   Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
   Variable<real[dr::misc::numPaddedPoints]> traction1;
   Variable<real[dr::misc::numPaddedPoints]> traction2;
-  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
-  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
+  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedPlus;
+  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;

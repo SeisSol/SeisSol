@@ -233,7 +233,7 @@ namespace seissol {
         logError() << "This is only used for poroelastic materials. You should never end up here.";
       }
     
-      constexpr size_t relevantQuantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+      constexpr size_t relevantQuantities = seissol::model::Material_t::NumberOfQuantities - 6*NUMBER_OF_RELAXATION_MECHANISMS;
       for (size_t i = 0; i < relevantQuantities; i++) {
         for (size_t j = 0; j < relevantQuantities; j++) {
           QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
@@ -255,30 +255,30 @@ namespace seissol {
 
     // zeroThreshold has default parameter 1e-7, see src/Model/common.hpp
     template<>
-    inline seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> getEigenDecomposition (PoroElasticMaterial const& material, double zeroThreshold) {
-      std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
-      auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+    inline seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> getEigenDecomposition (PoroElasticMaterial const& material, double zeroThreshold) {
+      std::array<std::complex<double>, seissol::model::Material_t::NumberOfQuantities*seissol::model::Material_t::NumberOfQuantities> AT;
+      auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities});
       getTransposedCoefficientMatrix(material, 0, ATView);
-      std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
+      std::array<std::complex<double>, seissol::model::Material_t::NumberOfQuantities*seissol::model::Material_t::NumberOfQuantities> A;
       //transpose AT to get A
-      for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-        for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
-          A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
+      for (int i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
+        for (int j = 0; j < seissol::model::Material_t::NumberOfQuantities; j++) {
+          A[i+seissol::model::Material_t::NumberOfQuantities*j] = AT[seissol::model::Material_t::NumberOfQuantities*i+j];
         }
       }
-      eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair;
+      eigenvalues::Eigenpair<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> eigenpair;
       eigenvalues::computeEigenvaluesWithLapack(A, eigenpair);
 
 #ifndef NDEBUG
-      using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
+      using CMatrix = Eigen::Matrix<std::complex<double>, seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities>;
+      using CVector = Eigen::Matrix<std::complex<double>, seissol::model::Material_t::NumberOfQuantities, 1>;
       CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
       CVector eigenvalues = CVector(eigenpair.values.data());
       //check number of eigenvalues
       //also check that the imaginary parts are zero
       int evNeg = 0;
       int evPos = 0;
-      for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (int i = 0; i < seissol::model::Material_t::NumberOfQuantities; ++i) {
         assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
         if (eigenvalues(i).real() < -zeroThreshold) {
           ++evNeg;
@@ -293,7 +293,7 @@ namespace seissol {
       CMatrix coeff(A.data());
       const CMatrix matrixMult = coeff * eigenvectors;
       CMatrix eigenvalueMatrix = CMatrix::Zero();
-      for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+      for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
         eigenvalueMatrix(i,i) = eigenvalues(i);
       }
       const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
@@ -316,9 +316,9 @@ namespace seissol {
     {
       //Will be used to check, whether numbers are (numerically) zero
       constexpr auto zeroThreshold = 1e-7;
-      using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using Matrix = Eigen::Matrix<double, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
+      using CMatrix = Eigen::Matrix<std::complex<double>, seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities>;
+      using Matrix = Eigen::Matrix<double, seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities>;
+      using CVector = Eigen::Matrix<std::complex<double>, seissol::model::Material_t::NumberOfQuantities, 1>;
 
       auto splitEigenDecomposition = [&zeroThreshold] (PoroElasticMaterial const& material) {
         auto eigenpair = getEigenDecomposition(material, zeroThreshold);
@@ -369,8 +369,8 @@ namespace seissol {
         Tview &sourceMatrix, 
         size_t quantity,
         real timeStepWidth) {
-      using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
-      using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
+      using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
+      using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
 
       Matrix Z(init::Z::Values);
       //sourceMatrix[i,i] = 0 for i < 10
@@ -381,11 +381,11 @@ namespace seissol {
       }
 
       auto solver = Z.colPivHouseholderQr();
-      for(int col = 0; col < CONVERGENCE_ORDER; col++) {
+      for(int col = 0; col < ConvergenceOrder; col++) {
         Vector rhs = Vector::Zero();
         rhs(col) = 1.0;
         auto ZinvCol = solver.solve(rhs);
-        for(int row = 0; row < CONVERGENCE_ORDER; row++) {
+        for(int row = 0; row < ConvergenceOrder; row++) {
           //save as transposed
           Zinv(col,row) = ZinvCol(row);
         }
@@ -395,7 +395,7 @@ namespace seissol {
     //constexpr for loop since we need to instatiate the view templates
     template<size_t iStart, size_t iEnd, typename Tview>
     struct zInvInitializerForLoop {
-      zInvInitializerForLoop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
+      zInvInitializerForLoop(real ZinvData[seissol::model::Material_t::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder],
           Tview &sourceMatrix, 
           real timeStepWidth) {
         auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]); 
@@ -414,8 +414,8 @@ namespace seissol {
       sourceMatrix.setZero();
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-      zInvInitializerForLoop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(localData->Zinv, sourceMatrix, timeStepWidth);
-      std::fill(localData->G, localData->G+NUMBER_OF_QUANTITIES, 0.0);
+      zInvInitializerForLoop<0, seissol::model::Material_t::NumberOfQuantities, decltype(sourceMatrix)>(localData->Zinv, sourceMatrix, timeStepWidth);
+      std::fill(localData->G, localData->G+seissol::model::Material_t::NumberOfQuantities, 0.0);
       localData->G[10] = sourceMatrix(10, 6);
       localData->G[11] = sourceMatrix(11, 7);
       localData->G[12] = sourceMatrix(12, 8);

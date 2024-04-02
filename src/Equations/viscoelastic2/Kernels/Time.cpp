@@ -134,7 +134,7 @@ void Time::computeAder(double i_timeStepWidth,
 
   intKrnl.execute0();
   
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
     krnl.execute(der);
 
     // update scalar for this derivative
@@ -156,7 +156,7 @@ void Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
 
   // interate over derivatives
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
     o_nonZeroFlops  += kernel::derivative::nonZeroFlops(der);
     o_hardwareFlops += kernel::derivative::hardwareFlops(der);
 
@@ -214,7 +214,7 @@ void Time::computeIntegral( double                                      i_expans
   }
 
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
+  for(int der = 0; der < ConvergenceOrder; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= static_cast<real>(der+1);
@@ -253,7 +253,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.power = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / real(derivative+1);
   }
@@ -264,7 +264,7 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   nonZeroFlops = 0; hardwareFlops = 0;
 
   // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
     nonZeroFlops  += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
   }
