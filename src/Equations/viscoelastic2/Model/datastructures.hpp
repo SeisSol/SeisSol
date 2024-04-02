@@ -53,8 +53,8 @@
 namespace seissol::model {
 template <std::size_t MechanismsP>
 struct ViscoelasticMaterial : public ElasticMaterial {
-  static constexpr std::size_t NumberOfQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 6;
+  static constexpr std::size_t NumberOfQuantities = 9 + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechansims = MechanismsP;
   static constexpr MaterialType Type = MaterialType::viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
