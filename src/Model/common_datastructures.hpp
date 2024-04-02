@@ -76,7 +76,7 @@ struct Material {
   virtual double getPWaveSpeed() const = 0;
   virtual double getSWaveSpeed() const = 0;
   virtual double getMu() const = 0;
-  virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0;
+  virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
   virtual MaterialType getMaterialType() const = 0;
 };
 
