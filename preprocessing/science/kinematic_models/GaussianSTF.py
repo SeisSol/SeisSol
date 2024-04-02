@@ -1,4 +1,3 @@
-from math import exp
 import numpy as np
 
 
@@ -19,4 +18,4 @@ def GaussianSTF(time, Tnuc, dt):
         SmoothStep(time, Tnuc) - SmoothStep(time - dt, Tnuc),
         0,
     )
-    return Gnuc
+    return Gnuc / dt

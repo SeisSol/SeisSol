@@ -389,8 +389,50 @@ class MultiFaultPlane:
                 fp.dip[j, i] = df["dip"][k]
                 fp.PSarea_cm2 = dx * dy * 1e10
                 fp.t0[j, i] = df["ontime"][k]
-                fp.tacc[j, i] = 1.0
-                fp.rise_time[j, i] = 2.0
+                fp.tacc[j, i] = 5.0
+                fp.rise_time[j, i] = 10.0
+
+        # compute moment rate function and save to file
+        def G(depth):
+            if depth < 0.6:
+                return 7.2200000000e09
+            elif depth < 2:
+                return 1.5548000000e10
+            elif depth < 5:
+                return 2.5281000000e10
+            elif depth < 30:
+                return 4.0781250000e10
+            else:
+                return 7.2277920000e10
+
+        duration = fp.t0.max() + fp.rise_time.max()
+        dt = 0.25
+        time = np.arange(0, duration, dt)
+        moment_rate = np.zeros_like(time)
+        for k, tk in enumerate(time):
+            STF = GaussianSTF(tk - fp.t0[:, :], fp.rise_time[:, :], dt)
+            for j in range(fp.ny):
+                for i in range(fp.nx):
+                    dz = dy * np.sin(np.radians(fp.dip[j, i]))
+                    ztop, zbot = fp.depth[j, i] - 0.5 * dz, fp.depth[j, i] + 0.5 * dz
+                    zi = [ztop, zbot] + [
+                        depth for depth in [0.6, 2, 5, 30] if ztop < depth < zbot
+                    ]
+                    zi.sort()
+                    Gav = np.trapz([G(z) for z in zi], x=zi) / dz
+                    moment_rate[k] += (
+                        Gav * dx * dy * 1e6 * STF[j, i] * fp.slip1[j, i] * 0.01
+                    )
+        M0 = np.trapz(moment_rate[:], x=time[:])
+        Mw = 2.0 * np.log10(M0) / 3.0 - 6.07
+        print(f"inferred Mw {Mw} and duration {duration}:")
+
+        if not os.path.exists("tmp"):
+            os.makedirs("tmp")
+        fname = "tmp/moment_rate_slipnear.txt"
+        with open(fname, "w") as f:
+            np.savetxt(f, np.column_stack((time, moment_rate)), fmt="%g")
+        print(f"done writing {fname}")
 
         return cls(fault_planes, hypocenter)
 
@@ -532,7 +574,9 @@ class MultiFaultPlane:
             if not os.path.exists("tmp"):
                 os.makedirs("tmp")
             with open(f"tmp/hypocenter.txt", "w") as f:
-                jsondata = f.write(f"{self.hypocenter[0]} {self.hypocenter[1]} {self.hypocenter[2]}\n")
+                jsondata = f.write(
+                    f"{self.hypocenter[0]} {self.hypocenter[1]} {self.hypocenter[2]}\n"
+                )
 
 
 class FaultPlane:
