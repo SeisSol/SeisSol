@@ -72,6 +72,7 @@
 #define TIME_H_
 
 #include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Typedefs.hpp>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Interface.hpp>
@@ -178,6 +179,8 @@ void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const uns
 void computeNonLinearIntegralCorrection(const CellLocalInformation* cellInformation, const unsigned int& l_cell, real** derivatives, 
 real* (* faceNeighbors)[4], const CellMaterialData* materialData, const LocalIntegrationData* localIntegration, const NeighborData& data, const CellDRMapping (*drMapping)[4],
 kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype, double timeStepSize, const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
+void calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus);
 #endif
 };
 #endif
