@@ -89,29 +89,45 @@ if __name__ == "__main__":
         "ccmax": [],
         "M0mis": [],
         "faultfn": [],
+        "shift_syn_ref_sec": [],
     }
 
-    mr_usgs = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
-    last_index_non_zero = np.nonzero(mr_usgs[:, 1])[0][-1]
-    mr_usgs = mr_usgs[:last_index_non_zero, :]
-    # Conversion factor from dyne-cm/sec to Nm/sec (for older usgs files)
-    scaling_factor = 1.0 if np.amax(mr_usgs[:, 1]) < 1e23 else 1e-7
-    mr_usgs[:, 1] *= scaling_factor
+    def read_usgs_moment_rate():
+        mr_ref = np.loadtxt("tmp/moment_rate.mr", skiprows=2)
+        ref_name = "usgs"
+        # Conversion factor from dyne-cm/sec to Nm/sec (for older usgs files)
+        scaling_factor = 1.0 if np.amax(mr_ref[:, 1]) < 1e23 else 1e-7
+        mr_ref[:, 1] *= scaling_factor
+        return mr_ref
 
-    M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+    def trim_trailing_zero(mr_ref):
+        last_index_non_zero = np.nonzero(mr_ref[:, 1])[0][-1]
+        return mr_ref[:last_index_non_zero, :]
 
-    usgs_duration = infer_duration(mr_usgs[:, 0], mr_usgs[:, 1])
+    if os.path.exists("tmp/moment_rate_slipnear.txt"):
+        print("loading slipnear moment rate")
+        mr_ref = np.loadtxt("tmp/moment_rate_slipnear.txt")
+        ref_name = "slipnear"
+    else:
+        mr_ref = read_usgs_moment_rate()
+        ref_name = "usgs"
+
+    mr_ref = trim_trailing_zero(mr_ref)
+
+    M0ref, Mwref = computeMw(ref_name, mr_ref[:, 0], mr_ref[:, 1])
+
+    inferred_duration = infer_duration(mr_ref[:, 0], mr_ref[:, 1])
 
     # Create a new time array with the desired time step
     dt = 0.25
-    new_time = np.arange(mr_usgs[:, 0].min(), mr_usgs[:, 0].max() + dt, dt)
+    new_time = np.arange(mr_ref[:, 0].min(), mr_ref[:, 0].max() + dt, dt)
     # Use numpy's interp function to interpolate values at the new time points
-    mr_usgs_interp = np.interp(new_time, mr_usgs[:, 0], mr_usgs[:, 1])
+    mr_ref_interp = np.interp(new_time, mr_ref[:, 0], mr_ref[:, 1])
 
-    if 2 * usgs_duration > new_time[-1]:
-        added = int((2 * usgs_duration - new_time.max()) / dt)
-        mr_usgs_interp = np.pad(
-            mr_usgs_interp, (0, added), "constant", constant_values=(0, 0)
+    if 2 * inferred_duration > new_time[-1]:
+        added = int((2 * inferred_duration - new_time.max()) / dt)
+        mr_ref_interp = np.pad(
+            mr_ref_interp, (0, added), "constant", constant_values=(0, 0)
         )
 
     for i, fn in enumerate(energy_files):
@@ -132,9 +148,9 @@ if __name__ == "__main__":
         results["C"].append(C)
         results["R0"].append(R)
         results["faultfn"].append(faultfn)
-        if len(mr_usgs_interp) > len(df["seismic_moment_rate"]):
+        if len(mr_ref_interp) > len(df["seismic_moment_rate"]):
             cc = correlate_template(
-                mr_usgs_interp,
+                mr_ref_interp,
                 df["seismic_moment_rate"],
                 mode="same",
                 normalize="naive",
@@ -142,16 +158,19 @@ if __name__ == "__main__":
         else:
             cc = correlate_template(
                 df["seismic_moment_rate"],
-                mr_usgs_interp,
+                mr_ref_interp,
                 mode="same",
                 normalize="naive",
             )
-        # cc = correlate(stcc[i], stcc[j], shift=100)
+        # cc = correlate(df["seismic_moment_rate"], mr_ref_interp, shift=int(0.25 * inferred_duration/dt))
         shift, ccmax = xcorr_max(cc, abs_max=False)
-        if abs(shift * dt) > 0.75 * usgs_duration:
+        d1 = max(len(df["seismic_moment_rate"]), len(mr_ref_interp))
+        d2 = min(len(df["seismic_moment_rate"]), len(mr_ref_interp))
+        results["shift_syn_ref_sec"].append((shift + 0.5 * (d1 - d2)) * dt)
+        if abs(results["shift_syn_ref_sec"][-1]) > 0.5 * inferred_duration:
             ccmax = 0.0
         results["ccmax"].append(ccmax)
-        M0_gof = 1 - abs(M0 - M0usgs) / M0usgs
+        M0_gof = 1 - abs(M0 - M0ref) / M0ref
         results["M0mis"].append(M0_gof)
 
     result_df = pd.DataFrame(results)
@@ -209,11 +228,21 @@ if __name__ == "__main__":
         )
 
     ax.plot(
-        mr_usgs[:, 0],
-        mr_usgs[:, 1] / 1e19,
-        label=f"usgs (Mw={Mwusgs:.2f})",
+        mr_ref[:, 0],
+        mr_ref[:, 1] / 1e19,
+        label=f"{ref_name} (Mw={Mwref:.2f})",
         color="black",
     )
+    if ref_name != "usgs":
+        mr_usgs = read_usgs_moment_rate()
+        mr_usgs = trim_trailing_zero(mr_usgs)
+        M0usgs, Mwusgs = computeMw("usgs", mr_usgs[:, 0], mr_usgs[:, 1])
+        ax.plot(
+            mr_usgs[:, 0],
+            mr_usgs[:, 1] / 1e19,
+            label=f"usgs (Mw={Mwusgs:.2f})",
+            color="darkblue",
+        )
 
     selected_rows = result_df[result_df["Mw"] > 6]
     selected_rows = selected_rows.sort_values(
