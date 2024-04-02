@@ -266,6 +266,12 @@ namespace seissol {
         return std::sqrt(muBar / rho);
       }
 
+      double getLambda() const {
+        double muBar = (c44 + c55 + c66) / 3.0;
+        double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
+        return lambdaBar;
+      }
+
       MaterialType getMaterialType() const {
         return MaterialType::anisotropic;
       }

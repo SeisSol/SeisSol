@@ -77,7 +77,7 @@ cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+gpu_platforms = ['cuda', 'hip', 'acpp', 'oneapi', 'omptarget', 'targetdart']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
 if cmdLineArgs.memLayout == 'auto':

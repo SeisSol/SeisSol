@@ -266,3 +266,144 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }
 }
+
+void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
+                                                    double i_integrationStart,
+                                                    double i_integrationEnd,
+                                                    const real** i_timeDerivatives,
+                                                    real ** o_timeIntegratedDofs,
+                                                    unsigned numElements) {
+#ifdef ACL_DEVICE
+  // assert that this is a forwared integration in time
+  assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
+  assert( i_integrationEnd                   > i_integrationStart );
+
+  /*
+   * compute time integral.
+   */
+  // compute lengths of integration intervals
+  real deltaTLower = i_integrationStart - i_expansionPoint;
+  real deltaTUpper = i_integrationEnd - i_expansionPoint;
+
+  // initialization of scalars in the taylor series expansion (0th term)
+  real firstTerm  = static_cast<real>(1.0);
+  real secondTerm = static_cast<real>(1.0);
+  real factorial  = static_cast<real>(1.0);
+
+  kernel::gpu_derivativeTaylorExpansion intKrnl;
+  intKrnl.numElements = numElements;
+  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+
+  intKrnl.I = o_timeIntegratedDofs;
+
+  unsigned derivativesOffset = 0;
+  for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = i_timeDerivatives;
+    intKrnl.extraOffset_dQ(i) = derivativesOffset;
+    derivativesOffset += tensor::dQ::size(i);
+  }
+
+  // iterate over time derivatives
+  for(int der = 0; der < CONVERGENCE_ORDER; ++der) {
+    firstTerm *= deltaTUpper;
+    secondTerm *= deltaTLower;
+    factorial *= static_cast<real>(der + 1);
+
+    intKrnl.power = firstTerm - secondTerm;
+    intKrnl.power /= factorial;
+    intKrnl.linearAllocator.initialize(tmpMem);
+    intKrnl.streamPtr = device.api->getDefaultStream();
+    intKrnl.execute(der);
+  }
+  device.api->popStackMemory();
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
+void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
+                                                           real expansionPoint,
+                                                           real** timeDerivatives,
+                                                           real** timeEvaluated,
+                                                           size_t numElements) {
+#ifdef ACL_DEVICE
+  assert( timeDerivatives != nullptr );
+  assert( timeEvaluated != nullptr );
+  assert( time >= expansionPoint );
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+  static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
+
+  kernel::gpu_derivativeTaylorExpansion intKrnl;
+  intKrnl.numElements = numElements;
+  intKrnl.I = timeEvaluated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = const_cast<const real **>(timeDerivatives);
+    intKrnl.extraOffset_dQ(i) = m_derivativesOffsets[i];
+  }
+
+  // iterate over time derivatives
+  const real deltaT = time - expansionPoint;
+  intKrnl.power = 1.0;
+  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.streamPtr = device.api->getDefaultStream();
+    intKrnl.execute(derivative);
+    intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
+void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
+                                                LocalTmp& tmp,
+                                                ConditionalPointersToRealsTable &dataTable,
+                                                ConditionalMaterialTable &materialTable,
+                                                bool updateDisplacement) {
+#ifdef ACL_DEVICE
+  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
+  assert( ((uintptr_t)stp) % ALIGNMENT == 0);
+  std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
+  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
+  kernel::gpu_spaceTimePredictor krnl;
+
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto &entry = dataTable[timeVolumeKernelKey];
+
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    krnl.numElements = numElements;
+
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Qdofs))->getDeviceDataPtr();
+    krnl.timestep = i_timeStepWidth;
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
+    krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
+
+    std::size_t starOffset = 0;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      krnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+
+    krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
+    krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
+    krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
+
+    if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+      assert(false && "NYI");
+    }
+    else {
+      std::size_t zinvOffset = 0;
+      for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
+        krnl.Zinv(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
+        krnl.extraOffset_Zinv(i) = zinvOffset;
+        zinvOffset += tensor::Zinv::size(i);
+      }
+      krnl.execute();
+    }
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}

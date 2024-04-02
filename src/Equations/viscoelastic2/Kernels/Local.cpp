@@ -156,3 +156,83 @@ unsigned seissol::kernels::Local::bytesIntegral()
   
   return reals * sizeof(real);
 }
+
+void seissol::kernels::Local::computeBatchedIntegral(
+  ConditionalPointersToRealsTable& dataTable,
+  ConditionalMaterialTable& materialTable,
+  ConditionalIndicesTable& indicesTable,
+  kernels::LocalData::Loader& loader,
+  LocalTmp& tmp,
+  double timeStepWidth) {
+#ifdef ACL_DEVICE
+  // Volume integral
+  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local localKrnl;
+
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
+
+  real* tmpMem = nullptr;
+  if (dataTable.find(key) != dataTable.end()) {
+    auto &entry = dataTable[key];
+
+    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    volKrnl.numElements = maxNumElements;
+
+    // volume kernel always contains more elements than any local one
+    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
+
+    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+    unsigned starOffset = 0;
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      volKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      volKrnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.streamPtr = device.api->getDefaultStream();
+    volKrnl.execute();
+  }
+
+  // Local Flux Integral
+  for (unsigned face = 0; face < 4; ++face) {
+    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+    if (dataTable.find(key) != dataTable.end()) {
+      auto &entry = dataTable[key];
+      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+      localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.streamPtr = device.api->getDefaultStream();
+      localFluxKrnl.execute(face);
+    }
+  }
+
+  if (dataTable.find(key) != dataTable.end()) {
+    auto &entry = dataTable[key];
+
+    localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    localKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    localKrnl.Iane = const_cast<const real **>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    localKrnl.W = const_cast<const real **>(entry.get(inner_keys::Wp::Id::W)->getDeviceDataPtr());
+    localKrnl.w = const_cast<const real **>(entry.get(inner_keys::Wp::Id::Omega)->getDeviceDataPtr());
+    localKrnl.E = const_cast<const real **>(entry.get(inner_keys::Wp::Id::E)->getDeviceDataPtr());
+    localKrnl.linearAllocator.initialize(tmpMem);
+    localKrnl.streamPtr = device.api->getDefaultStream();
+    localKrnl.execute();
+  }
+  if (tmpMem != nullptr) {
+    device.api->popStackMemory();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}

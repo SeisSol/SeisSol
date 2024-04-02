@@ -183,3 +183,93 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   return reals * sizeof(real);
 }
 
+void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
+#ifdef ACL_DEVICE
+  kernel::gpu_neighboringFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+
+  real* tmpMem = nullptr;
+  device.api->resetCircularStreamCounter();
+  auto resetDeviceCurrentState = [this](size_t counter) {
+    for (size_t i = 0; i < counter; ++i) {
+      this->device.api->popStackMemory();
+    }
+    this->device.api->joinCircularStreamsToDefault();
+    this->device.api->resetCircularStreamCounter();
+  };
+
+  for(size_t face = 0; face < 4; face++) {
+    this->device.api->forkCircularStreamsFromDefault();
+    size_t streamCounter{0};
+
+    // regular and periodic
+    for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
+
+      ConditionalKey key(*KernelNames::NeighborFlux,
+                         (FaceKinds::Regular || FaceKinds::Periodic),
+                         face,
+                         faceRelation);
+
+      if(table.find(key) != table.end()) {
+        auto &entry = table[key];
+
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        neighFluxKrnl.numElements = numElements;
+
+        neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+        neighFluxKrnl.linearAllocator.initialize(tmpMem);
+
+        neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
+        (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
+        ++streamCounter;
+      }
+    }
+
+    // dynamic rupture
+    for (unsigned faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
+
+      ConditionalKey Key(*KernelNames::NeighborFlux,
+                         *FaceKinds::DynamicRupture,
+                         face,
+                         faceRelation);
+
+      if(table.find(Key) != table.end()) {
+        auto &entry = table[Key];
+
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        drKrnl.numElements = numElements;
+
+        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+        drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+        drKrnl.linearAllocator.initialize(tmpMem);
+
+        drKrnl.streamPtr = device.api->getNextCircularStream();
+        (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
+        ++streamCounter;
+      }
+    }
+    resetDeviceCurrentState(streamCounter);
+
+    ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+    if (dataTable.find(key) != dataTable.end()) {
+      kernel::gpu_neighbor nKrnl;
+      nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      nKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+      nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+      nKrnl.w = (entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr();
+
+      nKrnl.execute();
+    }
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}

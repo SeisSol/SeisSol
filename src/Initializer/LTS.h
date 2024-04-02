@@ -111,6 +111,9 @@ struct seissol::initializer::LTS {
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
+  ScratchpadMemory                        derivativesExtScratch;
+  ScratchpadMemory                        idofsAneScratch;
+  ScratchpadMemory                        dofsExtScratch;
 #endif
   
   /// \todo Memkind
@@ -148,6 +151,9 @@ struct seissol::initializer::LTS {
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);
     tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(derivativesExtScratch,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(idofsAneScratch,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(dofsExtScratch,               1,      seissol::memory::DeviceGlobalMemory);
 #endif
   }
 };

@@ -34,16 +34,24 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
+    std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> starPtrs(size, nullptr);
     std::vector<real*> idofsPtrs{};
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
+
+    std::vector<real*> wPtrs(size, nullptr);
+    std::vector<real*> omegaPtrs(size, nullptr);
+    std::vector<real*> ePtrs(size, nullptr);
+    std::vector<real*> zinvPtrs(size, nullptr);
 
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
 
     real** derivatives = currentLayer->var(currentHandler->derivatives);
     real** buffers = currentLayer->var(currentHandler->buffers);
+
+    auto* dofsAne = currentLayer->var(currentHandler->dofsAne);
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
@@ -79,6 +87,15 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // stars
       starPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.starMatrices[0]);
+#ifdef USE_POROELASTIC
+      zinvPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.Zinv);
+#endif
+#ifdef USE_VISCOELASTIC2
+      wPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.W);
+      omegaPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.Omega);
+      ePtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.E);
+      dofsAnePtrs[cell] = dofsAne[cell];
+#endif
 
       // derivatives
       bool isDerivativesProvided = ((data.cellInformation.ltsSetup >> 9) % 2) == 1;
@@ -107,6 +124,16 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable)[key].set(inner_keys::Wp::Id::Buffers, ltsBuffers);
       (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
     }
+
+#ifdef USE_POROELASTIC
+    (*currentTable)[key].set(inner_keys::Wp::Id::Zinv, zinvPtrs);
+#endif
+#ifdef USE_VISCOELASTIC2
+    (*currentTable)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::W, wPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Omega, omegaPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::E, ePtrs);
+#endif
   }
 }
 
@@ -219,7 +246,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           Tinv[face].push_back(data.boundaryMapping[face].TinvData);
 
           rhos[face].push_back(data.material.local.rho);
+#ifdef USE_ANISOTROPIC
+          lambdas[face].push_back(data.material.local.getLambda());
+#else
           lambdas[face].push_back(data.material.local.lambda);
+#endif
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
