@@ -8,7 +8,7 @@ template <std::size_t Mechanisms>
 void fitAttenuation(seissol::model::ViscoelasticMaterial<Mechanisms>& vm,
                     double freqCentral,
                     double freqRatio) {
-  static_assert(Mechanisms > 0, "Attenuation cannot be computed for Mechanisms==0.");
+  static_assert(Mechanisms == 0, "Attenuation cannot be computed for Mechanisms==0.");
   constexpr std::size_t nummech = Mechanisms;
   constexpr std::size_t kmax =
       2 * nummech - 1; // slight note: if nummech == 0, this does not make any sense
