@@ -82,9 +82,11 @@ EnergyOutputInterval = 0.25
 
 &AbortCriteria
 EndTime = {{ end_time }}
-terminatorMaxTimePostRupture = 4.0 ! Stops SeisSol x sec after slip rate is below threshold everywhere on the fault
+terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate everywhere on the fault or seismic moment rate is below
+                                     ! the given threshold
 terminatorSlipRateThreshold = {{ terminator_slip_rate_threshold }}  ! Slip rate threshold for the above criteria (the proposed value should filter out locally high SR
-                                   ! in "creeping" fronts (numerical artifacts when rupture dies out).
+                                     ! in "creeping" fronts (numerical artifacts when rupture dies out).
+terminatorMomentRateThreshold = 2e18 ! Seismic moment rate threshold for the above criteria
 /
 
 &Analysis

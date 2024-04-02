@@ -86,7 +86,7 @@ if latin_hypercube:
     pars = np.around(pars, decimals=3)
 else:
     # grid parameter space
-    param1_values = [0.5, 0.55, 0.6, 0.65]
+    param1_values = [0.55, 0.6, 0.65, 0.7, 0.8, 0.9]
     param2_values = [1.0, 1.1, 1.2]
     param3_values = [0.15, 0.2, 0.25, 0.3]
     # Generate all combinations of parameter values

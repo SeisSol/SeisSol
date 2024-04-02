@@ -3,7 +3,7 @@ from extract_velocity_model_from_usgs_fsp import  write_yaml_material_file, writ
 
 if __name__ == "__main__":
     import pandas as pd
-    df = pd.read_csv('vel_model_slipnear.txt', sep=" ")
+    df = pd.read_csv('tmp/vel_model_slipnear.txt', sep=" ")
     df["rho"] = 1000.0 * df["DENS"]
     df["mu"] = 1e6 * df["rho"] * df["S_VEL"] ** 2
     df["lambda"] = 1e6 * df["rho"] * (df["P_VEL"] ** 2 - 2.0 * df["S_VEL"] ** 2)
