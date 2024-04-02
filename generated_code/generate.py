@@ -46,7 +46,7 @@ import os
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
@@ -195,17 +195,20 @@ generator.generate(outputDir=trueOutputDir,
                    include_tensors=include_tensors)
 
 def generate_general(subfolders):
+  arch = useArchitectureIdentifiedBy('d' + cmdLineArgs.host_arch[1:])
+
   outputDir = os.path.join(cmdLineArgs.outputDir, 'general')
   if not os.path.exists(outputDir):
     os.mkdir(outputDir)
 
   subfolders += [f'generated_code/general']
 
+  # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
   generator = Generator(arch)
   general.addStiffnessTensor(generator)
   generator.generate(outputDir=outputDir,
                     namespace='seissol_general',
-                    gemm_cfg=gemmTools,
+                    gemm_cfg=GeneratorCollection([Eigen(arch)]),
                     cost_estimator=cost_estimators,
                     include_tensors=general.includeMatrices(cmdLineArgs.matricesDir))
 
