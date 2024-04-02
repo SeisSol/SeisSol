@@ -92,6 +92,8 @@ namespace seissol::writer {
       // Hooks
       //
       void syncPoint(double) override;
+      void simulationStart() override;
+      void shutdown() override;
 
     private:
       [[nodiscard]] std::string fileName(unsigned pointId) const;

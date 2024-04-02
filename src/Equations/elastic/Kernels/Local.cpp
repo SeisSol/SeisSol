@@ -127,7 +127,7 @@ struct ApplyAnalyticalSolution {
     }
 
     assert(initCondition != nullptr);
-    initCondition->evaluate(time, nodesVec, localData.material, boundaryDofs);
+    initCondition->evaluate(time, nodesVec, localData.material(), boundaryDofs);
   }
 
 private:
@@ -144,43 +144,43 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
                                               double time,
                                               double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.dofs;
+  volKrnl.Q = data.dofs();
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration.starMatrices[i];
+    volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Q = data.dofs;
+  lfKrnl.Q = data.dofs();
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
   
   volKrnl.execute();
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
-      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+    if (data.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
+      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.dofs;
+    nodalLfKrnl.Q = data.dofs();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
-    nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
+    nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+    nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
 
     // Include some boundary conditions here.
-    switch (data.cellInformation.faceTypes[face]) {
+    switch (data.cellInformation().faceTypes[face]) {
     case FaceType::freeSurfaceGravity:
       {
         assert(cellBoundaryMapping != nullptr);
@@ -400,7 +400,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
         dirichletBoundary.evaluateTimeDependent(idofsPtrs[index],
                                                 face,
-                                                data.boundaryMapping[face],
+                                                data.boundaryMapping()[face],
                                                 m_projectKrnlPrototype,
                                                 applyAnalyticalSolution,
                                                 dofsFaceBoundaryNodal,
@@ -408,9 +408,9 @@ void Local::evaluateBatchedTimeDependentBc(
                                                 timeStepWidth);
 
         auto nodalLfKrnl = this->m_nodalLfKrnlPrototype;
-        nodalLfKrnl.Q = data.dofs;
+        nodalLfKrnl.Q = data.dofs();
         nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-        nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
+        nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
         nodalLfKrnl.execute(face);
       }
     }

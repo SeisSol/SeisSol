@@ -75,19 +75,19 @@ void Time::executeSTP( double                      i_timeStepWidth,
   real B_values[init::star::size(1)];
   real C_values[init::star::size(2)];
   for (size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[0][i];
-    B_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[1][i];
-    C_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[2][i];
+    A_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[0][i];
+    B_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[1][i];
+    C_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
-  krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
-  krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
+  krnl.Gk = data.localIntegration().specific.G[10] * i_timeStepWidth;
+  krnl.Gl = data.localIntegration().specific.G[11] * i_timeStepWidth;
+  krnl.Gm = data.localIntegration().specific.G[12] * i_timeStepWidth;
 
-  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.Q = const_cast<real*>(data.dofs());
   krnl.I = o_timeIntegrated;
   krnl.timestep = i_timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -96,8 +96,8 @@ void Time::executeSTP( double                      i_timeStepWidth,
   //The matrix Zinv depends on the timestep
   //If the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
-  if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-    auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
+  if (i_timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
+    auto sourceMatrix = init::ET::view::create(data.localIntegration().specific.sourceMatrix);
     real ZinvData[seissol::model::Material_t::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder];
     model::zInvInitializerForLoop<0, seissol::model::Material_t::NumberOfQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
     for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
@@ -107,7 +107,7 @@ void Time::executeSTP( double                      i_timeStepWidth,
     krnl.execute();
   } else {
     for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
-      krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
+      krnl.Zinv(i) = data.localIntegration().specific.Zinv[i];
     }
     krnl.execute();
   }
@@ -124,7 +124,7 @@ void Time::computeAder( double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs())            % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 

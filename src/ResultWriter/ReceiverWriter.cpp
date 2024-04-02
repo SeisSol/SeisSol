@@ -175,7 +175,9 @@ void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, do
   m_samplingInterval = parameters.samplingInterval;
   m_computeRotation = parameters.computeRotation;
   setSyncInterval(std::min(endTime, parameters.interval));
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  Modules::registerHook(*this, ModuleHook::Shutdown);
 }
 
 void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
@@ -226,6 +228,22 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
 
       writeHeader(point, points[point]);
       m_receiverClusters[layer][cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
+    }
+  }
+}
+
+void seissol::writer::ReceiverWriter::simulationStart() {
+  for (auto& [layer, clusters] : m_receiverClusters) {
+    for (auto& cluster : clusters) {
+      cluster.allocateData();
+    }
+  }
+}
+
+void seissol::writer::ReceiverWriter::shutdown() {
+  for (auto& [layer, clusters] : m_receiverClusters) {
+    for (auto& cluster : clusters) {
+      cluster.freeData();
     }
   }
 }
