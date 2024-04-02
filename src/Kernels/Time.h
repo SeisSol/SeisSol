@@ -181,6 +181,7 @@ real* (* faceNeighbors)[4], const CellMaterialData* materialData, const LocalInt
 kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype, double timeStepSize, const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
 void calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
 const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus);
+void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
 #endif
 };
 #endif

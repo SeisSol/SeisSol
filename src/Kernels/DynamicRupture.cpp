@@ -184,72 +184,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
     // TODO(NONLINEAR) What are these numbers?
-    const real epsInitxx = m_damagedElasticParameters->epsInitxx;
-    const real epsInityy = m_damagedElasticParameters->epsInityy;
-    const real epsInitzz = m_damagedElasticParameters->epsInitzz;
-    const real epsInitxy = m_damagedElasticParameters->epsInitxy;
-    const real epsInityz = m_damagedElasticParameters->epsInityz;
-    const real epsInitzx = m_damagedElasticParameters->epsInitzx;
-
-    for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
-      dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-
-      dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-
-      dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-
-      dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-
-      dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-
-      dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-
-      dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-
-      dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-
-      dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-
-      dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    }
+    m_timeKernel.stressToDofsDynamicRupture(dofsStressNPlus, dofsNPlus, dofsStressNMinus, dofsNMinus);
 #ifdef USE_DAMAGEDELASTIC
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
