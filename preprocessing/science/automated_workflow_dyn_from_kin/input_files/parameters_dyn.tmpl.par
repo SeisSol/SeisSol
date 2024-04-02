@@ -86,7 +86,7 @@ terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate every
                                      ! the given threshold
 terminatorSlipRateThreshold = {{ terminator_slip_rate_threshold }}  ! Slip rate threshold for the above criteria (the proposed value should filter out locally high SR
                                      ! in "creeping" fronts (numerical artifacts when rupture dies out).
-terminatorMomentRateThreshold = 2e18 ! Seismic moment rate threshold for the above criteria
+terminatorMomentRateThreshold = 1e18 ! Seismic moment rate threshold for the above criteria
 /
 
 &Analysis
