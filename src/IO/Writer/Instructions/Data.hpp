@@ -112,7 +112,7 @@ class WriteBuffer : public DataSource {
              size_t count,
              const std::vector<std::size_t>& shape = {},
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
-    return std::make_shared<WriteBuffer>(data, sizeof(T) * count, datatype, shape);
+    return std::make_shared<WriteBuffer>(data, count, datatype, shape);
   }
 
   private:

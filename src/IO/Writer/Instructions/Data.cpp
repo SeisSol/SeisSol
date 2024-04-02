@@ -90,7 +90,13 @@ YAML::Node WriteBuffer::serialize() {
 }
 
 const void* WriteBuffer::getLocalPointer() { return data; }
-size_t WriteBuffer::getLocalSize() { return size; }
+size_t WriteBuffer::getLocalSize() {
+  std::size_t shapeprod = 1;
+  for (auto dim : shape()) {
+    shapeprod *= dim;
+  }
+   return shapeprod * size * datatype()->size();
+   }
 
 const void* WriteBuffer::getPointer(const async::ExecInfo& info) { return data; }
 
