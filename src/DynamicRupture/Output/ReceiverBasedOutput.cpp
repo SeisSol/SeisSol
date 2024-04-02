@@ -98,8 +98,8 @@ void ReceiverOutput::calcFaultOutput(
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");

@@ -46,6 +46,7 @@
 #include <cstdlib>
 #include <array>
 #include <vector>
+#include <Common/constants.hpp>
 #include <Kernels/precision.hpp>
 #include <generated_code/tensor.h>
 #include <cstdint>
@@ -74,7 +75,7 @@ class AlignedArray {
   constexpr std::size_t size() const noexcept { return N; }
 
   private:
-  alignas(ALIGNMENT) T data_[N];
+  alignas(Alignment) T data_[N];
 };
 
 /** Models point sources of the form

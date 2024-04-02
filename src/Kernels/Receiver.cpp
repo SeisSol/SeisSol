@@ -73,9 +73,9 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
-  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+  alignas(Alignment) real timeEvaluated[tensor::Q::size()];
+  alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+  alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
   alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
@@ -85,7 +85,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
   derivativeKrnl.spaceTimePredictor = stp;
 #else
-  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+  alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   kernel::evaluateDOFSAtPoint krnl;

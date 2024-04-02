@@ -168,7 +168,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcStateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
-    alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
+    alignas(Alignment) real resampledSlipRate[misc::numPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];

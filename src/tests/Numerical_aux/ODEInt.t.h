@@ -15,8 +15,8 @@ TEST_CASE("Test ODE Solver") {
     constexpr auto sizeSolution = 5;
     constexpr auto sizeIntegratedSolution = sizeSolution;
 
-    alignas(ALIGNMENT) real curUSolutionIntegrated[sizeIntegratedSolution] = {};
-    alignas(ALIGNMENT) real curUSolution[sizeSolution] = {};
+    alignas(Alignment) real curUSolutionIntegrated[sizeIntegratedSolution] = {};
+    alignas(Alignment) real curUSolution[sizeSolution] = {};
 
     auto curU = seissol::ode::ODEVector{{curUSolutionIntegrated, curUSolution},
                                         {sizeIntegratedSolution, sizeSolution}};
@@ -67,7 +67,7 @@ TEST_CASE("Test ODE Solver") {
   SUBCASE("Test integration of Lotka-Voltera model") {
     constexpr auto sizeSolution = 2;
 
-    alignas(ALIGNMENT) real curUSolution[sizeSolution] = {};
+    alignas(Alignment) real curUSolution[sizeSolution] = {};
 
     auto curU = seissol::ode::ODEVector{{curUSolution}, {sizeSolution}};
 

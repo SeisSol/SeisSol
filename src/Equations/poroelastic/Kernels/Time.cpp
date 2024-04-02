@@ -128,7 +128,7 @@ void Time::computeAder( double i_timeStepWidth,
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
-  alignas(ALIGNMENT) real temporaryBuffer[tensor::spaceTimePredictor::size()];
+  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
   executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
 }

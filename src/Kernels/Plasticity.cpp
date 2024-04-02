@@ -66,15 +66,15 @@ namespace seissol::kernels {
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0);
 
-    real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
-    real QEtaNodal[tensor::QEtaNodal::size()] __attribute__((aligned(ALIGNMENT)));
-    real QEtaModal[tensor::QEtaModal::size()] __attribute__((aligned(ALIGNMENT)));
-    real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
-    real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
-    real tau[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
-    real taulim[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
-    real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(ALIGNMENT)));
-    real dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(ALIGNMENT)));
+    real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(Alignment)));
+    real QEtaNodal[tensor::QEtaNodal::size()] __attribute__((aligned(Alignment)));
+    real QEtaModal[tensor::QEtaModal::size()] __attribute__((aligned(Alignment)));
+    real meanStress[tensor::meanStress::size()] __attribute__((aligned(Alignment)));
+    real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
+    real tau[tensor::secondInvariant::size()] __attribute__((aligned(Alignment)));
+    real taulim[tensor::meanStress::size()] __attribute__((aligned(Alignment)));
+    real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(Alignment)));
+    real dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(Alignment)));
 
     static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                   "Second invariant tensor and mean stress tensor must be of the same size().");

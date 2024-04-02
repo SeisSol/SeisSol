@@ -119,8 +119,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
 
-    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(ALIGNMENT) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)

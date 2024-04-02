@@ -61,9 +61,9 @@ public:
     projectKernel.Tinv = Tinv.data();
 
     // Prepare projection of displacement/velocity to face-nodal basis.
-    alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
-    alignas(ALIGNMENT) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToGlobal = init::displacementRotationMatrix::view::create(rotateDisplacementToGlobalData);
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -73,7 +73,7 @@ public:
       }
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
-    alignas(ALIGNMENT) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
+    alignas(Alignment) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
 
     auto integratedDisplacementNodal = init::averageNormalDisplacement::view::create(integratedDisplacementNodalData);
     auto rotatedFaceDisplacement = init::faceDisplacement::view::create(rotatedFaceDisplacementData);
@@ -87,11 +87,11 @@ public:
     rotateFaceDisplacementKrnl.execute();
 
     // Temporary buffer to store nodal face dofs at some time t
-    alignas(ALIGNMENT) real dofsFaceNodalStorage[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceNodalStorage[tensor::INodal::size()];
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     // Temporary buffer to store nodal face coefficients at some time t
-    alignas(ALIGNMENT) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
+    alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
 
     const double deltaT = timeStepWidth;
     const double deltaTInt = timeStepWidth;

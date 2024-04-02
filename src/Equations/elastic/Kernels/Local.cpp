@@ -171,7 +171,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       lfKrnl.execute(face);
     }
 
-    alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
@@ -392,7 +392,7 @@ void Local::evaluateBatchedTimeDependentBc(
         auto cellId = cellIds[index];
         auto data = loader.entry(cellId);
 
-        alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);
