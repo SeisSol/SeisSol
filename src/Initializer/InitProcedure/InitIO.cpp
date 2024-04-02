@@ -22,22 +22,43 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
-    checkpoint.registerTree<void>("lts", tree, nullptr);
+    std::vector<std::size_t> globalIds(
+        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    const auto* ltsToMesh = seissolInstance.getMemoryManager().getLtsLut()->getLtsToMeshLut(
+        seissol::initializer::LayerMask(Ghost));
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t i = 0; i < globalIds.size(); ++i) {
+      globalIds[i] = seissolInstance.meshReader().getElements()[ltsToMesh[i]].globalId;
+    }
+    checkpoint.registerTree<void>("lts", tree, globalIds);
     seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
   }
 
   {
     auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
-    checkpoint.registerTree<void>("dynrup", tree, nullptr);
+    std::vector<std::size_t> faceIdentifiers(
+        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    const auto* ltsToFace = seissolInstance.getMemoryManager().ltsToFaceMap();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
+      const auto& fault = seissolInstance.meshReader().getFault()[ltsToFace[i]];
+      faceIdentifiers[i] = seissolInstance.meshReader().getElements()[fault.element].globalId * 4 + fault.side;
+    }
+    checkpoint.registerTree<void>("dynrup", tree, faceIdentifiers);
     seissolInstance.getMemoryManager().getDynamicRupture()->registerCheckpointVariables(checkpoint,
                                                                                         tree);
   }
 
-  {
-    auto* tree = seissolInstance.getMemoryManager().getBoundaryTree();
-    checkpoint.registerTree<void>("boundary", tree, nullptr);
-    seissolInstance.getMemoryManager().getBoundary()->registerCheckpointVariables(checkpoint, tree);
-  }
+  /*  {
+      auto* tree = seissolInstance.getMemoryManager().getBoundaryTree();
+      checkpoint.registerTree<void>("boundary", tree, nullptr);
+      seissolInstance.getMemoryManager().getBoundary()->registerCheckpointVariables(checkpoint,
+    tree);
+    }*/
 
   // seissolInstance.getOutputManager().loadCheckpoint(
   //     seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName);

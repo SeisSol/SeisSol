@@ -26,14 +26,16 @@ struct CheckpointVariable {
 struct CheckpointTree {
   std::string name;
   initializer::LTSTree* tree;
-  const std::size_t* ids;
+  std::vector<std::size_t> ids;
   std::vector<CheckpointVariable> variables;
 };
 
 class CheckpointManager {
   public:
   template <typename F>
-  void registerTree(const std::string& name, initializer::LTSTree* tree, const std::size_t* ids) {
+  void registerTree(const std::string& name,
+                    initializer::LTSTree* tree,
+                    const std::vector<std::size_t>& ids) {
     dataRegistry[tree].name = name;
     dataRegistry[tree].tree = tree;
     dataRegistry[tree].ids = ids;
@@ -52,15 +54,12 @@ class CheckpointManager {
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     auto dataRegistry = this->dataRegistry;
-    auto meshReader = this->meshReader;
     return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
       writer::Writer writer;
-      auto timestr = std::to_string(time);
-      timestr.replace(timestr.find("."), 1, "-");
-      const auto filename = std::string("checkpoint-") + timestr + ".h5";
+      const auto filename = std::string("checkpoint-") + std::to_string(counter) + ".h5";
       for (auto& [_, ckpTree] : dataRegistry) {
         const std::size_t cells = ckpTree.tree->getNumberOfCells(Ghost);
-        assert(cells == meshReader->getElements().size());
+        assert(cells == ckpTree.ids.size());
         std::size_t totalCells;
         MPI_Allreduce(&cells,
                       &totalCells,
@@ -75,13 +74,7 @@ class CheckpointManager {
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
             "__ids",
-            writer::GeneratedBuffer::createElementwise<std::size_t>(
-                cells,
-                1,
-                std::vector<std::size_t>(),
-                [&](std::size_t* target, std::size_t index) {
-                  target[0] = meshReader->getElements()[index].globalId;
-                }),
+            writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
             datatype::inferDatatype<std::size_t>()));
         for (auto& variable : ckpTree.variables) {
           writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
@@ -108,11 +101,7 @@ class CheckpointManager {
       std::size_t totalCount = reader.readAttributeScalar<std::size_t>("__count");
 
       auto groupIds = reader.readData<std::size_t>("__ids");
-      std::vector<std::size_t> currentGlobalIds(meshReader->getElements().size());
-      for (std::size_t i = 0; i < currentGlobalIds.size(); ++i) {
-        currentGlobalIds[i] = meshReader->getElements()[i].globalId;
-      }
-      distributor.setup(totalCount, groupIds, currentGlobalIds);
+      distributor.setup(totalCount, groupIds, ckpTree.ids);
       for (auto& variable : ckpTree.variables) {
         const std::size_t count = reader.dataCount(variable.name);
         std::size_t currsize = count * variable.datatype->size();

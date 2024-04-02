@@ -7,6 +7,7 @@
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/HDF5Type.hpp>
 #include <IO/Datatype/Inference.hpp>
+#include <IO/Datatype/MPIType.hpp>
 #include <hdf5.h>
 #include <memory>
 #include <stack>
@@ -53,10 +54,10 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
   _eh(H5Aclose(attr));
   return dims[0];
 }
-void Hdf5Reader::readAttributeRaw(void* data, const std::string& name) {
-  /*hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  _eh(H5Aread(attr, TODO, data));
-  _eh(H5Aclose(attr));*/
+void Hdf5Reader::readAttributeRaw(void* data, const std::string& name, std::shared_ptr<datatype::Datatype> type) {
+  hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
+  _eh(H5Aclose(attr));
 }
 std::size_t Hdf5Reader::dataCount(const std::string& name) {
   hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
@@ -66,16 +67,38 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));
+
+  int mpirank, mpisize;
+  MPI_Comm_size(comm, &mpisize);
+  MPI_Comm_rank(comm, &mpirank);
+
+  return dims[0] / mpisize + ((dims[0] % mpisize) < mpirank ? 1 : 0);
 }
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
                              std::size_t count,
                              std::shared_ptr<datatype::Datatype> targetType) {
-  /*hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
+  hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
 #ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
 #endif // USE_MPI
+
+  constexpr std::size_t chunksize = 1000000;
+  std::size_t rounds = (count + chunksize - 1) / chunksize;
+  std::size_t start = 0;
+  MPI_Allreduce(MPI_IN_PLACE,
+                &rounds,
+                1,
+                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+                MPI_MAX,
+                comm);
+  MPI_Exscan(&count,
+             &start,
+             1,
+             datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+             MPI_SUM,
+             comm);
 
   hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   hid_t dataspace = _eh(H5Dget_space(dataset));
@@ -92,13 +115,15 @@ void Hdf5Reader::readDataRaw(void* data,
   std::vector<hsize_t> readcount(rank);
   std::vector<hsize_t> filepos(rank);
 
+  filepos[0] = start;
+
   for (std::size_t i = 0; i < rounds; ++i) {
     _eh(H5Sselect_hyperslab(
         dataspace, H5S_SELECT_SET, nullstart.data(), nullptr, readcount.data(), nullptr));
     _eh(H5Sselect_hyperslab(
-        dataspace, H5S_SELECT_SET, const hsize_t* start, nullptr, readcount.data(), nullptr));
+        dataspace, H5S_SELECT_SET, filepos.data(), nullptr, readcount.data(), nullptr));
     _eh(H5Dread(dataset, datatype, memspace, dataspace, h5alist, data));
-  }*/
+  }
 }
 void Hdf5Reader::closeGroup() {
   _eh(H5Gclose(handles.top()));

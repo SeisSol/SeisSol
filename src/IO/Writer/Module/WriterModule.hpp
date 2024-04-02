@@ -32,7 +32,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   std::string prefix;
   unsigned planId;
   AsyncWriter executor;
-  std::unordered_map<void*, BufferPointer> pointerMap;
+  std::unordered_map<const void*, BufferPointer> pointerMap;
   std::unordered_map<std::size_t, std::vector<int>> bufferMap;
   ScheduledWriter settings;
   double lastWrite;

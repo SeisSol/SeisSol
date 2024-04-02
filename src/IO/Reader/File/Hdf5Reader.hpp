@@ -15,20 +15,20 @@ class Hdf5Reader {
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
   template <typename T>
-  std::vector<T> readAttribute(const std::string& name) {
+  std::vector<T> readAttribute(const std::string& name, std::shared_ptr<datatype::Datatype> type = datatype::inferDatatype<T>()) {
     const auto count = attributeCount(name);
     std::vector<T> output(count);
-    readAttributeRaw(output.data(), name);
+    readAttributeRaw(output.data(), name, type);
     return output;
   }
   template <typename T>
-  T readAttributeScalar(const std::string& name) {
+  T readAttributeScalar(const std::string& name, std::shared_ptr<datatype::Datatype> type = datatype::inferDatatype<T>()) {
     T attr;
-    readAttributeRaw(&attr, name);
+    readAttributeRaw(&attr, name, type);
     return attr;
   }
   std::size_t attributeCount(const std::string& name);
-  void readAttributeRaw(void* data, const std::string& name);
+  void readAttributeRaw(void* data, const std::string& name, std::shared_ptr<datatype::Datatype> type);
   template <typename T>
   std::vector<T>
       readData(const std::string& name,

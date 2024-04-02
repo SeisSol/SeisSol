@@ -88,14 +88,14 @@ class WriteBufferRemote : public DataSource {
 
 class WriteBuffer : public DataSource {
   public:
-  WriteBuffer(void* data,
+  WriteBuffer(const void* data,
               size_t size,
               std::shared_ptr<datatype::Datatype> datatype,
               const std::vector<std::size_t>& shape);
 
   YAML::Node serialize() override;
 
-  void* getLocalPointer();
+  const void* getLocalPointer();
   size_t getLocalSize();
 
   const void* getPointer(const async::ExecInfo& info) override;
@@ -108,7 +108,7 @@ class WriteBuffer : public DataSource {
 
   template <typename T>
   static std::shared_ptr<DataSource>
-      create(T* data,
+      create(const T* data,
              size_t count,
              const std::vector<std::size_t>& shape = {},
              std::shared_ptr<datatype::Datatype> datatype = datatype::inferDatatype<T>()) {
@@ -116,7 +116,7 @@ class WriteBuffer : public DataSource {
   }
 
   private:
-  void* data;
+  const void* data;
   size_t size;
   int id;
 };

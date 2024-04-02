@@ -125,18 +125,15 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     // update current time
     m_currentTime = upcomingTime;
 
-    // Set new upcoming time (might by overwritten by any of the modules)
-    upcomingTime = m_finalTime;
-
-    // Check all synchronization point hooks
-    upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
+    // Check all synchronization point hooks and set the new upcoming time
+    upcomingTime = std::min(m_finalTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
 
     ioStopwatch.pause();
 
     double currentSplit = simulationStopwatch.split();
     Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (IO dispatch):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }
@@ -146,7 +143,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
-  ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
+  ioStopwatch.printTime("Simulation time (IO dispatch):", seissol::MPI::mpi.comm());
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 

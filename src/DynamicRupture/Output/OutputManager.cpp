@@ -159,16 +159,16 @@ void OutputManager::initElementwiseOutput() {
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
   const auto backendType = seissolParameters.output.xdmfWriterBackend;
 
-  std::vector<real*> dataPointers;
-  auto recordPointers = [&dataPointers](auto& var, int) {
-    if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim)
-        dataPointers.push_back(var.data[dim]);
-    }
-  };
-  misc::forEach(ewOutputData->vars, recordPointers);
-
   if (seissolParameters.output.elementwiseParameters.vtkorder < 0) {
+    std::vector<real*> dataPointers;
+    auto recordPointers = [&dataPointers](auto& var, int) {
+      if (var.isActive) {
+        for (int dim = 0; dim < var.dim(); ++dim)
+          dataPointers.push_back(var.data[dim]);
+      }
+    };
+    misc::forEach(ewOutputData->vars, recordPointers);
+
     seissolInstance.faultWriter().init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
@@ -192,78 +192,28 @@ void OutputManager::initElementwiseOutput() {
 
     writer.addPointProjector([=](double* target, std::size_t index) {
       for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
-        target[i * 3 + 0] =
-            receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[0];
-        target[i * 3 + 1] =
-            receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[1];
-        target[i * 3 + 2] =
-            receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[2];
+        for (int j = 0; j < 3; ++j) {
+          target[i * 3 + j] =
+              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+        }
       }
     });
 
-    std::vector<std::string> labels{"SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud",
-                                    "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr",
-                                    "ASl", "PSR", "RT",  "DS",  "P_f", "Tmp"};
-
-    std::vector<bool> outputMask(20);
-    if (intMask[0]) {
-      outputMask[0] = true;
-      outputMask[1] = true;
-    }
-    if (intMask[1]) {
-      outputMask[2] = true;
-      outputMask[3] = true;
-      outputMask[4] = true;
-    }
-    if (intMask[2]) {
-      outputMask[5] = true;
-    }
-    if (intMask[3]) {
-      outputMask[6] = true;
-      outputMask[7] = true;
-    }
-    if (intMask[4]) {
-      outputMask[8] = true;
-      outputMask[9] = true;
-      outputMask[10] = true;
-    }
-    if (intMask[5]) {
-      outputMask[11] = true;
-      outputMask[12] = true;
-    }
-    if (intMask[6]) {
-      outputMask[13] = true;
-    }
-    if (intMask[7]) {
-      outputMask[14] = true;
-    }
-    if (intMask[8]) {
-      outputMask[15] = true;
-    }
-    if (intMask[9]) {
-      outputMask[16] = true;
-    }
-    if (intMask[10]) {
-      outputMask[17] = true;
-    }
-    if (intMask[11]) {
-      outputMask[18] = true;
-      outputMask[19] = true;
-    }
-
-    std::size_t bufferCounter = 0;
-    for (std::size_t i = 0; i < outputMask.size(); ++i) {
-      if (outputMask[i]) {
-        writer.addPointData<real>(
-            labels[i], std::vector<std::size_t>(), [=](real* target, std::size_t index) {
-              std::memcpy(target,
-                          dataPointers[bufferCounter] +
-                              seissol::init::vtk2d::Shape[order][1] * index,
-                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-            });
-        ++bufferCounter;
+    misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
+      if (var.isActive) {
+        for (int d = 0; d < var.dim(); ++d) {
+          auto* data = var.data[d];
+          writer.addPointData<real>(
+              variableLabels[i][d],
+              std::vector<std::size_t>(),
+              [=](real* target, std::size_t index) {
+                std::memcpy(target,
+                            data + seissol::init::vtk2d::Shape[order][1] * index,
+                            sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+              });
+        }
       }
-    }
+    });
 
     io::writer::ScheduledWriter schedWriter;
     schedWriter.interval = printTime;

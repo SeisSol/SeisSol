@@ -74,7 +74,7 @@ void WriteBufferRemote::assignId(int) {}
 
 bool WriteBuffer::distributed() { return true; }
 
-WriteBuffer::WriteBuffer(void* data,
+WriteBuffer::WriteBuffer(const void* data,
                          size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
@@ -89,7 +89,7 @@ YAML::Node WriteBuffer::serialize() {
   return node;
 }
 
-void* WriteBuffer::getLocalPointer() { return data; }
+const void* WriteBuffer::getLocalPointer() { return data; }
 size_t WriteBuffer::getLocalSize() { return size; }
 
 const void* WriteBuffer::getPointer(const async::ExecInfo& info) { return data; }

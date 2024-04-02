@@ -299,6 +299,8 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                    numberOfDRInteriorFaces,
                                                    seissolParams.model.plasticity);
 
+  seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
+
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
 
