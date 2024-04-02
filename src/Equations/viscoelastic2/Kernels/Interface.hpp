@@ -52,8 +52,8 @@ namespace seissol::kernels {
       GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
       LocalTmp(double gravitationalAcceleration) : gravitationalFreeSurfaceBc(gravitationalAcceleration) {};
     };
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializer::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
-  LTSTREE_GENERATE_INTERFACE(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 }
 
 #endif
