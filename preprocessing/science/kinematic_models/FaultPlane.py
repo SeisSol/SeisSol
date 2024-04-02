@@ -357,6 +357,7 @@ class MultiFaultPlane:
                     break
             if not hypocenter:
                 raise ValueError("Failed reading hypocenter from slipnear file")
+            hypocenter[0], hypocenter[1] = hypocenter[1], hypocenter[0]
             return dx, dy, hypocenter
 
         print(f"reading {fname}, assuming it is a slipnear file")
