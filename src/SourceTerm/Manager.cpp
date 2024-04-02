@@ -169,7 +169,8 @@ void seissol::sourceterm::transformNRFSourceToInternalSource(
     em.getFullStiffnessTensor(stiffnessTensor);
     break;
   }
-  std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), pointSources.stiffnessTensor[index].begin());
+  std::copy(
+      stiffnessTensor.begin(), stiffnessTensor.end(), pointSources.stiffnessTensor[index].begin());
   pointSources.onsetTime[index] = subfault.tinit;
   pointSources.samplingInterval[index] = subfault.timestep;
   for (unsigned sr = 0; sr < Offsets().size(); ++sr) {

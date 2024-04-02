@@ -79,7 +79,6 @@ src/Numerical_aux/Transformation.cpp
 
 src/Parallel/Pin.cpp
 
-src/Physics/Attenuation.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Physics/InitialField.cpp
 

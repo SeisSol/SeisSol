@@ -1,6 +1,8 @@
 #ifndef MODEL_POROELASTIC_INTEGRATIONDATA_H_
 #define MODEL_POROELASTIC_INTEGRATIONDATA_H_
 
+#include "datastructures.hpp"
+#include <Common/constants.hpp>
 #include <generated_code/tensor.h>
 
 namespace seissol {
