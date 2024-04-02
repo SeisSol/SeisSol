@@ -185,9 +185,10 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
 
 
 class MultiFaultPlane:
-    def __init__(self, fault_planes):
+    def __init__(self, fault_planes, hypocenter=None):
         self.fault_planes = fault_planes
         self.max_slip = 0.0
+        self.hypocenter = hypocenter
         for fp in fault_planes:
             self.max_slip = max(self.max_slip, np.amax(fp.slip1))
 
@@ -340,7 +341,7 @@ class MultiFaultPlane:
 
         """ reading a file from the SLIPNEAR method, Delouis, Géoazur/OCA """
 
-        def read_dx_dy(fname):
+        def read_dx_dy_hypocenter(fname):
             with open(fname, "r") as fid:
                 lines = fid.readlines()
 
@@ -349,10 +350,17 @@ class MultiFaultPlane:
 
             dx = float(lines[2].split()[3])
             dy = float(lines[3].split()[0])
-            return dx, dy
+            hypocenter = None
+            for line in lines:
+                if line.endswith("hypocenter"):
+                    hypocenter = [float(v) for v in line.split()[0:3]]
+                    break
+            if not hypocenter:
+                raise ValueError("Failed reading hypocenter from slipnear file")
+            return dx, dy, hypocenter
 
         print(f"reading {fname}, assuming it is a slipnear file")
-        dx, dy = read_dx_dy(fname)
+        dx, dy, hypocenter = read_dx_dy_hypo(fname)
         fault_planes = []
         fault_planes.append(FaultPlane())
         fp = fault_planes[0]
@@ -384,7 +392,7 @@ class MultiFaultPlane:
                 fp.tacc[j, i] = 1.0
                 fp.rise_time[j, i] = 2.0
 
-        return cls(fault_planes)
+        return cls(fault_planes, hypocenter)
 
     @classmethod
     def from_srf(cls, fname):
@@ -520,6 +528,11 @@ class MultiFaultPlane:
         with open(fname, "w") as fid:
             fid.write(template_yaml)
         print(f"done writing {fname}")
+        if self.hypocenter:
+            if not os.path.exists("tmp"):
+                os.makedirs("tmp")
+            with open(f"tmp/hypocenter.txt", "w") as f:
+                jsondata = f.write(f"{self.hypocenter[0]} {self.hypocenter[1]} {self.hypocenter[2]}\n")
 
 
 class FaultPlane:
