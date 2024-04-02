@@ -24,7 +24,7 @@ template <typename T>
 static std::vector<T> computeHistogram(const std::vector<T>& input) {
   std::vector<T> output(input.size() + 1);
   for (std::size_t i = 1; i < output.size(); ++i) {
-    output[i] = output[i - 1] + input[i];
+    output[i] = output[i - 1] + input[i - 1];
   }
   return output;
 }
@@ -48,7 +48,7 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
 
   auto sourceToSendHistogram = computeHistogram(sourceToSend);
 
-  std::vector<T> sortedSource(commsize);
+  std::vector<T> sortedSource(source.size());
   {
     auto tempHistogram = sourceToSendHistogram;
     for (const auto& [i, j] : source) {
@@ -91,7 +91,7 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
   std::vector<std::pair<T, int>> outputIntermediate(intermediate.size());
   int rank = 0;
   for (std::size_t i = 0; i < intermediate.size(); ++i) {
-    if (sourceToRecvHistogram[rank + 1] >= i) {
+    if (sourceToRecvHistogram[rank + 1] <= i) {
       ++rank;
     }
     outputIntermediate[i] = std::pair<T, int>(intermediate[i], rank);

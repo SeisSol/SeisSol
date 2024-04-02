@@ -91,7 +91,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const std::size_t count = (source->distributed() || rank == 0) ? trueCount : 0;
   const auto& dimensions = source->shape();
   // TODO: adjust chunksize according to dimensions and datatype size
-  const std::size_t chunksize = std::max(std::size_t(1), std::size_t(2'000'000'000) / (source->datatype()->size() * dimprod));
+  const std::size_t chunksize =
+      std::max(std::size_t(1), std::size_t(2'000'000'000) / (source->datatype()->size() * dimprod));
 
   const std::size_t actualDimensions =
       source->distributed() ? dimensions.size() + 1 : dimensions.size();

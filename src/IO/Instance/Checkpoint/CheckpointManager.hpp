@@ -95,6 +95,7 @@ class CheckpointManager {
 
     auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
     reader.openFile(file);
+    reader.openGroup("checkpoint");
     for (auto& [_, ckpTree] : dataRegistry) {
       reader.openGroup(ckpTree.name);
       auto distributor = reader::Distributor(seissol::MPI::mpi.comm());
@@ -115,6 +116,7 @@ class CheckpointManager {
 
       reader.closeGroup();
     }
+    reader.closeGroup();
     reader.closeFile();
 
     std::free(datastore);

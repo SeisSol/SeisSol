@@ -203,14 +203,14 @@ void OutputManager::initElementwiseOutput() {
       if (var.isActive) {
         for (int d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
-          writer.addPointData<real>(
-              variableLabels[i][d],
-              std::vector<std::size_t>(),
-              [=](real* target, std::size_t index) {
-                std::memcpy(target,
-                            data + seissol::init::vtk2d::Shape[order][1] * index,
-                            sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-              });
+          writer.addPointData<real>(variableLabels[i][d],
+                                    std::vector<std::size_t>(),
+                                    [=](real* target, std::size_t index) {
+                                      std::memcpy(
+                                          target,
+                                          data + seissol::init::vtk2d::Shape[order][1] * index,
+                                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+                                    });
         }
       }
     });

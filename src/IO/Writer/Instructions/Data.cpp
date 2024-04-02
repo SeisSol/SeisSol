@@ -95,8 +95,8 @@ size_t WriteBuffer::getLocalSize() {
   for (auto dim : shape()) {
     shapeprod *= dim;
   }
-   return shapeprod * size * datatype()->size();
-   }
+  return shapeprod * size * datatype()->size();
+}
 
 const void* WriteBuffer::getPointer(const async::ExecInfo& info) { return data; }
 

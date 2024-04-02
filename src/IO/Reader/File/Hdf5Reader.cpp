@@ -54,7 +54,9 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
   _eh(H5Aclose(attr));
   return dims[0];
 }
-void Hdf5Reader::readAttributeRaw(void* data, const std::string& name, std::shared_ptr<datatype::Datatype> type) {
+void Hdf5Reader::readAttributeRaw(void* data,
+                                  const std::string& name,
+                                  std::shared_ptr<datatype::Datatype> type) {
   hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
@@ -109,21 +111,40 @@ void Hdf5Reader::readDataRaw(void* data,
   std::vector<hsize_t> dims(rank);
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
 
-  hid_t memspace = _eh(H5Screate_simple(rank, dims.data(), nullptr));
-
   std::vector<hsize_t> nullstart(rank);
   std::vector<hsize_t> readcount(rank);
   std::vector<hsize_t> filepos(rank);
 
+  for (std::size_t i = 1; i < readcount.size(); ++i) {
+    readcount[i] = dims[i];
+  }
+  readcount[0] = std::min(chunksize, count);
+
   filepos[0] = start;
 
+  hid_t memspace = _eh(H5Screate_simple(rank, readcount.data(), nullptr));
+
+  std::size_t read = 0;
+
+  unsigned char* ptr = reinterpret_cast<unsigned char*>(data);
+
   for (std::size_t i = 0; i < rounds; ++i) {
+    filepos[0] = start + read;
+    readcount[0] = std::min(chunksize, count - read);
+
     _eh(H5Sselect_hyperslab(
-        dataspace, H5S_SELECT_SET, nullstart.data(), nullptr, readcount.data(), nullptr));
+        memspace, H5S_SELECT_SET, nullstart.data(), nullptr, readcount.data(), nullptr));
     _eh(H5Sselect_hyperslab(
         dataspace, H5S_SELECT_SET, filepos.data(), nullptr, readcount.data(), nullptr));
     _eh(H5Dread(dataset, datatype, memspace, dataspace, h5alist, data));
+
+    read += readcount[0];
+    ptr += readcount[0] * 1 * targetType->size(); // TODO:
   }
+
+  _eh(H5Sclose(memspace));
+  _eh(H5Sclose(dataspace));
+  _eh(H5Dclose(dataset));
 }
 void Hdf5Reader::closeGroup() {
   _eh(H5Gclose(handles.top()));
