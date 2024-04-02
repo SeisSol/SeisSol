@@ -36,5 +36,12 @@ $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_usgs
 module load pumgen
 pumgen -s msh4 tmp/mesh.msh
 $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_input_seissol_fl33.py
-$seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/extract_velocity_model_from_usgs_fsp.py
+if [ -z "$suffix_arg" ]; then
+    $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/extract_velocity_model_from_usgs_fsp.py
+else
+    echo "using slipnear velocity model"
+    cp $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/input_files/vel_model_slipnear.txt tmp
+    $seissolpath/preprocessing/science/automated_workflow_dyn_from_kin/generate_velocity_model_files_slipnear.py
+fi
+
 echo "now run seissol"
