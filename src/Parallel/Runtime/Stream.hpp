@@ -3,6 +3,7 @@
 
 #include <Initializer/tree/Layer.hpp>
 #include <functional>
+#include <omp.h>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -35,6 +36,9 @@ class StreamRuntime {
     for (size_t i = 0; i < RingbufferSize; ++i) {
       allStreams[i + 1] = ringbufferPtr[i];
     }
+
+    forkEventSycl = device().api->createEvent();
+    joinEventSycl = device().api->createEvent();
   }
 
   void dispose() {
@@ -45,6 +49,8 @@ class StreamRuntime {
         device().api->destroyEvent(forkEvents[i]);
         device().api->destroyEvent(joinEvents[i]);
       }
+      device().api->destroyEvent(forkEventSycl);
+      device().api->destroyEvent(joinEventSycl);
       disposed = true;
     }
   }
@@ -59,6 +65,16 @@ class StreamRuntime {
   template <typename F>
   void enqueueHost(F&& handler) {
     device().api->streamHostFunction(streamPtr, std::forward<F>(handler));
+  }
+
+  template <typename F>
+  void enqueueOmpFor(std::size_t elemCount, F&& handler) {
+    enqueueHost([=]() {
+      #pragma omp parallel for schedule(static)
+      for (std::size_t i = 0; i < elemCount; ++i) {
+        std::invoke(handler);
+      }
+    });
   }
 
   template <typename F>
@@ -102,6 +118,26 @@ class StreamRuntime {
     }
   }
 
+  template<typename F>
+  void envSycl(void* queue, F&& handler) {
+    syncToSycl(queue);
+    std::invoke(handler);
+    syncFromSycl(queue);
+  }
+
+  template<typename F>
+  void envOMP(void* depobj, F&& handler) {
+    syncToOMP(depobj);
+    std::invoke(handler);
+    syncFromOMP(depobj);
+  }
+
+
+  void syncToSycl(void* queue);
+  void syncFromSycl(void* queue);
+  void syncToOMP(void* depobj);
+  void syncFromOMP(void* depobj);
+
   private:
   bool disposed;
   void* streamPtr;
@@ -109,6 +145,8 @@ class StreamRuntime {
   std::vector<void*> allStreams;
   std::vector<void*> forkEvents;
   std::vector<void*> joinEvents;
+  void* forkEventSycl;
+  void* joinEventSycl;
 #else
   public:
   void wait() {}

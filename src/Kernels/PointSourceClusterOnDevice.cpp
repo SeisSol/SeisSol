@@ -21,10 +21,12 @@ PointSourceClusterOnDevice::PointSourceClusterOnDevice(sourceterm::ClusterMappin
 
 unsigned PointSourceClusterOnDevice::size() const { return sources_.numberOfSources; }
 
-void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, double to) {
+void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   auto& mapping = clusterMapping_.cellToSources;
   if (mapping.size() > 0) {
+    runtime.syncToSycl(&queue);
+
     auto* mapping_ptr = mapping.data();
     auto* mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources.data();
     auto* tensor = sources_.tensor.data();
@@ -70,8 +72,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
                                                 *mapping_ptr[id[0]].dofs);
               }
             });
-          })
-          .wait();
+          });
     } else {
       queue
           .submit([&](sycl::handler& cgh) {
@@ -92,9 +93,9 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
                                                  *mapping_ptr[id[0]].dofs);
               }
             });
-          })
-          .wait();
+          });
     }
+    runtime.syncFromSycl(&queue);
   }
 }
 

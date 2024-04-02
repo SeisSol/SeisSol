@@ -167,6 +167,8 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp
+
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES

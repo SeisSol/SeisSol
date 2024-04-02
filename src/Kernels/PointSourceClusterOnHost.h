@@ -12,7 +12,7 @@ namespace seissol::kernels {
 class PointSourceClusterOnHost : public PointSourceCluster {
   public:
   PointSourceClusterOnHost(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
-  void addTimeIntegratedPointSources(double from, double to) override;
+  void addTimeIntegratedPointSources(double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) override;
   unsigned size() const override;
 
   private:

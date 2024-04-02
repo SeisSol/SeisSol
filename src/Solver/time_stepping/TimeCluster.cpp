@@ -71,6 +71,7 @@
 
 #include "Parallel/MPI.h"
 #include <Common/Executor.hpp>
+#include <Initializer/tree/Layer.hpp>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 
@@ -216,7 +217,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   if (pointSourceCluster) {
     m_loopStatistics->begin(m_regionComputePointSources);
     auto timeStepSizeLocal = timeStepSize();
-    pointSourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSizeLocal);
+    pointSourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSizeLocal, streamRuntime);
     m_loopStatistics->end(m_regionComputePointSources, pointSourceCluster->size(), m_profilingId);
   }
 #ifdef ACL_DEVICE
@@ -273,7 +274,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   frictionSolver->evaluate(layerData,
                            m_dynRup,
                            ct.correctionTime,
-                           m_dynamicRuptureKernel.timeWeights);
+                           m_dynamicRuptureKernel.timeWeights,
+                           streamRuntime);
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
   {
@@ -302,15 +304,22 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
       m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
     });
     device.api->popLastProfilingMark();
-    streamRuntime.wait();
+    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+      m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, initializer::AllocationPlace::Host, streamRuntime.stream());
+    }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     frictionSolverDevice->computeDeltaT(m_dynamicRuptureKernel.timePoints);
     frictionSolverDevice->evaluate(layerData,
                              m_dynRup,
                              ct.correctionTime,
-                             m_dynamicRuptureKernel.timeWeights);
+                             m_dynamicRuptureKernel.timeWeights,
+                             streamRuntime);
     device.api->popLastProfilingMark();
+    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+      m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, initializer::AllocationPlace::Device, streamRuntime.stream());
+    }
+    streamRuntime.wait();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
 }
