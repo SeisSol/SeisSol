@@ -21,7 +21,9 @@ extern long long libxsmm_num_total_flops;
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-seissol::kernels::TimeBase::TimeBase(){
+namespace seissol::kernels {
+
+TimeBase::TimeBase(){
   m_derivativesOffsets[0] = 0;
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
@@ -30,7 +32,7 @@ seissol::kernels::TimeBase::TimeBase(){
   }
 }
 
-void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+void Time::setHostGlobalData(GlobalData const* global) {
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -47,7 +49,7 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.wHat = init::wHat::Values;
 }
 
-void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+void Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
@@ -55,13 +57,13 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void seissol::kernels::Time::executeSTP( double                      i_timeStepWidth,
+void Time::executeSTP( double                      i_timeStepWidth,
                                          LocalData&                  data,
                                          real                        o_timeIntegrated[tensor::I::size()],
                                          real*                       stp )
 
 {
-  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
+  alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
   assert( ((uintptr_t)stp) % ALIGNMENT == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
@@ -112,7 +114,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
 }
                                           
 
-void seissol::kernels::Time::computeAder( double i_timeStepWidth,
+void Time::computeAder( double i_timeStepWidth,
                                           LocalData& data,
                                           LocalTmp& tmp,
                                           real o_timeIntegrated[tensor::I::size()],
@@ -131,7 +133,7 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
   executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
 }
 
-void seissol::kernels::Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
+void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
                                             real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]) {
   kernel::evaluateDOFSAtTimeSTP krnl;
   krnl.spaceTimePredictor = timeDerivatives;
@@ -148,7 +150,7 @@ void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
   hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
 }
 
-void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
+void Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops =0;
@@ -160,7 +162,7 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_hardwareFlops += 3*init::star::size(0);
 }
 
-unsigned seissol::kernels::Time::bytesAder()
+unsigned Time::bytesAder()
 {
   unsigned reals = 0;
   
@@ -178,7 +180,7 @@ unsigned seissol::kernels::Time::bytesAder()
   return reals * sizeof(real);
 }
 
-void seissol::kernels::Time::computeIntegral( double                            i_expansionPoint,
+void Time::computeIntegral( double                            i_expansionPoint,
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
                                               const real*                       i_timeDerivatives,
@@ -225,7 +227,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   }
 }
 
-void seissol::kernels::Time::computeTaylorExpansion( real         time,
+void Time::computeTaylorExpansion( real         time,
                                                      real         expansionPoint,
                                                      real const*  timeDerivatives,
                                                      real         timeEvaluated[tensor::Q::size()] ) {
@@ -256,7 +258,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   }
 }
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0; hardwareFlops = 0;
 
@@ -265,4 +267,6 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }
+}
+
 }

@@ -63,15 +63,6 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
 
 enum SystemType { Host = 0, Device = 1 };
 
-// plasticity information per cell
-struct PlasticityData {
-  // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
-};
-
 enum class ComputeGraphType {
   LocalIntegral = 0,
   AccumulatedVelocities,

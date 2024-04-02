@@ -20,7 +20,7 @@ namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation  
 template<typename MappingKrnl>
 void addRotationToProjectKernel(MappingKrnl& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+				const seissol::CellBoundaryMapping& boundaryMapping) {
   // do nothing
 }
 
@@ -30,7 +30,7 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+				const seissol::CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.TinvData != nullptr);
   projectKernel.Tinv = boundaryMapping.TinvData;
 }

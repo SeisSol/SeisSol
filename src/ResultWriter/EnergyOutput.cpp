@@ -112,8 +112,8 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
   alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
   alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
@@ -261,8 +261,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min                                                             \
-                                   : minTimeSinceSlipRateBelowThreshold) default(none)             \
+#pragma omp parallel for reduction(min : minTimeSinceSlipRateBelowThreshold) default(none)         \
     shared(it, drEnergyOutput, faceInformation)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {

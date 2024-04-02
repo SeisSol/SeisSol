@@ -77,13 +77,12 @@
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class NeighborBase;
-  }
-}
-struct GlobalData;
+  struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::NeighborBase {
+namespace seissol::kernels {
+
+class NeighborBase {
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::neighboringFlux m_nfKrnlPrototype;
@@ -95,5 +94,8 @@ class seissol::kernels::NeighborBase {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
+
+
+} // namespace seissol::kernels
 
 #endif

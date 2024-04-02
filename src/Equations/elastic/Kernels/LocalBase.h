@@ -41,8 +41,8 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
-#include <memory>
 #include "generated_code/kernel.h"
+#include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
@@ -54,13 +54,12 @@
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class LocalBase;
-  }
-}
-struct GlobalData;
+  struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::LocalBase {
+namespace seissol::kernels {
+
+class LocalBase {
   protected:
     double gravitationalAcceleration;
     static void checkGlobalData(GlobalData const* global, size_t alignment);
@@ -96,5 +95,7 @@ public:
       return condition.get();
     }
 };
+
+} // namespace seissol::kernels
 #endif
 

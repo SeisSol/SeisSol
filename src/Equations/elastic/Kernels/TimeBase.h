@@ -78,13 +78,12 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace kernels {
-    class TimeBase;
-  }
-}
-struct GlobalData;
+  struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::TimeBase {
+namespace seissol::kernels {
+
+class TimeBase {
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment);
 #ifdef USE_STP
@@ -119,6 +118,8 @@ public:
     TimeBase();
 
 };
+
+} // namespace seissol::kernels
 
 #endif
 

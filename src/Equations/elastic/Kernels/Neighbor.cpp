@@ -74,7 +74,9 @@
 #include <cassert>
 #include <stdint.h>
 
-void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+namespace seissol::kernels {
+
+void NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % alignment == 0 );
@@ -94,7 +96,7 @@ void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, s
 #endif
 }
 
-void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
+void Neighbor::setHostGlobalData(GlobalData const* global) {
   checkGlobalData(global, ALIGNMENT);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
@@ -102,7 +104,7 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
-void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
@@ -121,7 +123,7 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
 #endif
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
+void Neighbor::computeNeighborsIntegral(NeighborData& data,
                                                           CellDRMapping const (&cellDrMapping)[4],
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
@@ -169,7 +171,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
+void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
@@ -248,7 +250,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
 #endif
 }
 
-void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
+void Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
                                                         CellDRMapping const (&cellDrMapping)[4],
                                                         unsigned int &o_nonZeroFlops,
@@ -284,7 +286,7 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
 }
 
 
-unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
+unsigned Neighbor::bytesNeighborsIntegral()
 {
   unsigned reals = 0;
 
@@ -295,3 +297,5 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   
   return reals * sizeof(real);
 }
+
+} // namespace seissol::kernels

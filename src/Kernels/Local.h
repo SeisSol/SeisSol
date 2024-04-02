@@ -49,10 +49,8 @@
 #include <generated_code/tensor.h>
 
 namespace seissol::kernels {
-  class Local;
-}
 
-class seissol::kernels::Local : public LocalBase {
+class Local : public LocalBase {
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -84,6 +82,8 @@ class seissol::kernels::Local : public LocalBase {
                         
     unsigned bytesIntegral();
 };
+
+} // namespace seissol::kernels
 
 #endif
 

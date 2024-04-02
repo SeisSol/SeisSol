@@ -121,8 +121,8 @@ public:
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
-    tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
+    tree.addVar(        imposedStatePlus,             mask,     PagesizeHeap,      MEMKIND_IMPOSED_STATE );
+    tree.addVar(       imposedStateMinus,             mask,     PagesizeHeap,      MEMKIND_IMPOSED_STATE );
     tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );

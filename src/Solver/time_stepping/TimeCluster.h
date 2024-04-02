@@ -263,7 +263,7 @@ private:
       real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
       CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+      auto* plasticity = i_layerData.var(m_lts->plasticity);
       auto* pstrain = i_layerData.var(m_lts->pstrain);
       unsigned numberOTetsWithPlasticYielding = 0;
 

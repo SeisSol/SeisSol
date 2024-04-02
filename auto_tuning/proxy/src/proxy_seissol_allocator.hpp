@@ -142,7 +142,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
     
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
+    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, MEMKIND_TIMEDOFS);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif

@@ -52,8 +52,8 @@
 #include <generated_code/init.h>
 #include <vector>
 
-struct GlobalData;
 namespace seissol {
+  struct GlobalData;
   class SeisSol;
 
   namespace kernels {

@@ -59,7 +59,7 @@ namespace seissol::kernels {
                                          double timeStepWidth,
                                          double T_v,
                                          GlobalData const *global,
-                                         PlasticityData const *plasticityData,
+                                         seissol::model::PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
@@ -250,7 +250,7 @@ namespace seissol::kernels {
                                                 double T_v,
                                                 GlobalData const *global,
                                                 initializer::recording::ConditionalPointersToRealsTable &table,
-                                                PlasticityData *plasticityData) {
+                                                seissol::model::PlasticityData *plasticityData) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                   "modal and nodal dofs must have the same leading dimensions");

@@ -83,13 +83,9 @@
 #include <memory>
 #endif
 
-namespace seissol {
-  namespace kernels {
-    class Time;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Time : public TimeBase {
+class Time : public TimeBase {
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -156,6 +152,8 @@ class seissol::kernels::Time : public TimeBase {
 
   unsigned int* getDerivativesOffsets();
 };
+
+} // namespace seissol::kernels
 
 #endif
 

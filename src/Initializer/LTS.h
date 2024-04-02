@@ -44,6 +44,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
 #include <Kernels/common.hpp>
+#include <Model/plasticity.hpp>
 
 #if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
@@ -89,7 +90,7 @@ namespace seissol {
 struct seissol::initializer::LTS {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
-  Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;
@@ -97,7 +98,7 @@ struct seissol::initializer::LTS {
   Variable<LocalIntegrationData>          localIntegration;
   Variable<NeighboringIntegrationData>    neighboringIntegration;
   Variable<CellMaterialData>              material;
-  Variable<PlasticityData>                plasticity;
+  Variable<seissol::model::PlasticityData>                plasticity;
   Variable<CellDRMapping[4]>              drMapping;
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
@@ -122,9 +123,9 @@ struct seissol::initializer::LTS {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
-    tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+    tree.addVar(                    dofs, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
     if (kernels::size<tensor::Qane>() > 0) {
-      tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+      tree.addVar(                 dofsAne, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
     }
     tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
     tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
@@ -136,11 +137,11 @@ struct seissol::initializer::LTS {
     tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
     tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
-    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(                 pstrain,   plasticityMask,     PagesizeHeap,      MEMKIND_UNIFIED );
+    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PagesizeHeap,      seissol::memory::Standard );
 
-    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEBUCKET );
-    tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    tree.addBucket(buffersDerivatives,                          PagesizeHeap,      MEMKIND_TIMEBUCKET );
+    tree.addBucket(faceDisplacementsBuffer,                     PagesizeHeap,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
     tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);

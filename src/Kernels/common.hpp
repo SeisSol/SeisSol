@@ -62,8 +62,7 @@
  * otherwise
  */
 #define GENERATE_HAS_MEMBER(NAME)                                                                  \
-  namespace seissol {                                                                              \
-  namespace kernels {                                                                              \
+  namespace seissol::kernels {                                                                     \
   template <typename T>                                                                            \
   struct has_##NAME {                                                                              \
     template <typename U>                                                                          \
@@ -102,7 +101,6 @@
   constexpr auto get_ptr_##NAME(T&) ->                                                             \
       typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
     return nullptr;                                                                                \
-  }                                                                                                \
   }                                                                                                \
   }
 

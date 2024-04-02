@@ -48,7 +48,9 @@
 
 #include <generated_code/init.h>
 
-void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
+namespace seissol::kernels {
+
+void Neighbor::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
@@ -74,11 +76,11 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
+void Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
                                                             CellDRMapping const             (&cellDrMapping)[4],
                                                             real*                             i_timeIntegrated[4],
                                                             real*                             faceNeighbors_prefetch[4] )
@@ -95,7 +97,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   // alignment of the degrees of freedom
   assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
 
-  real Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+  real Qext[tensor::Qext::size()] __attribute__((aligned(PagesizeStack))) = {};
 
   kernel::neighbourFluxExt nfKrnl = m_nfKrnlPrototype;
   nfKrnl.Qext = Qext;
@@ -135,7 +137,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   nKrnl.execute();
 }
 
-void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
+void Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
                                                         CellDRMapping const (&cellDrMapping)[4],
                                                         unsigned int &o_nonZeroFlops,
@@ -171,7 +173,7 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
 }
 
 
-unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
+unsigned Neighbor::bytesNeighborsIntegral()
 {
   unsigned reals = 0;
 
@@ -182,4 +184,6 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
 
   return reals * sizeof(real);
 }
+
+} // namespace seissol::kernels
 

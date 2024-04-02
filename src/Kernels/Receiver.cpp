@@ -77,7 +77,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+  alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.spaceTimePredictor = stp;

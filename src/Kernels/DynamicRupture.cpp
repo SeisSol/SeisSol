@@ -138,8 +138,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-  alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
-  alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] ;
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {

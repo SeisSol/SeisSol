@@ -166,7 +166,7 @@ class SpaceTimePredictorTestFixture {
 
   void solveWithKernel(real stp[], real* QData) {
     real o_timeIntegrated[seissol::tensor::I::size()];
-    alignas(PAGESIZE_STACK) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
+    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
     std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::spaceTimePredictor krnl;
@@ -230,10 +230,10 @@ class SpaceTimePredictorTestFixture {
 };
 
 TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
-  alignas(PAGESIZE_STACK) real stp[seissol::tensor::spaceTimePredictor::size()];
-  alignas(PAGESIZE_STACK) real rhs[seissol::tensor::testLhs::size()];
-  alignas(PAGESIZE_STACK) real lhs[seissol::tensor::testRhs::size()];
-  alignas(PAGESIZE_STACK) real QData[NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS];
+  alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
+  alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
+  alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
+  alignas(PagesizeStack) real QData[NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS];
   std::fill(std::begin(stp), std::end(stp), 0);
   std::fill(std::begin(rhs), std::end(rhs), 0);
   std::fill(std::begin(lhs), std::end(lhs), 0);

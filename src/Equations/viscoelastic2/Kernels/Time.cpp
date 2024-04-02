@@ -54,7 +54,9 @@ extern long long libxsmm_num_total_flops;
 #include <Kernels/denseMatrixOps.hpp>
 #include <generated_code/init.h>
 
-void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+namespace seissol::kernels {
+
+void Time::setHostGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
@@ -64,11 +66,11 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
-void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+void Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Time::computeAder(double i_timeStepWidth,
+void Time::computeAder(double i_timeStepWidth,
                                          LocalData& data,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
@@ -85,9 +87,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
    * compute ADER scheme.
    */
   // temporary result
-  real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
-  real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
-  real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+  real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PagesizeStack)));
+  real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PagesizeStack)));
+  real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PagesizeStack)));
 
   kernel::derivative krnl = m_krnlPrototype;
   kernel::derivativeTaylorExpansion intKrnl;
@@ -144,7 +146,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // Compute integrated displacement over time step if needed.
 }
 
-void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
+void Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {  
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops =0;
@@ -164,7 +166,7 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   }
 }
 
-unsigned seissol::kernels::Time::bytesAder()
+unsigned Time::bytesAder()
 {
   unsigned reals = 0;
   
@@ -181,7 +183,7 @@ unsigned seissol::kernels::Time::bytesAder()
   return reals * sizeof(real);
 }
 
-void seissol::kernels::Time::computeIntegral( double                                      i_expansionPoint,
+void Time::computeIntegral( double                                      i_expansionPoint,
                                               double                                      i_integrationStart,
                                               double                                      i_integrationEnd,
                                               real const*                                 i_timeDerivatives,
@@ -224,7 +226,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   }
 }
 
-void seissol::kernels::Time::computeTaylorExpansion( real         time,
+void Time::computeTaylorExpansion( real         time,
                                                      real         expansionPoint,
                                                      real const*  timeDerivatives,
                                                      real         timeEvaluated[tensor::Q::size()] ) {
@@ -257,7 +259,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   }
 }
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0; hardwareFlops = 0;
 
@@ -267,3 +269,5 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
   }
 }
+
+} // namespace seissol::kernels

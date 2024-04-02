@@ -25,6 +25,10 @@ format() {
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
+        src/Equations/elastic/Model/datastructures.hpp
+        src/Equations/viscoelastic2/Model/datastructures.hpp
+        src/Equations/anisotropic/Model/datastructures.hpp
+        src/Equations/poroelastic/Model/datastructures.hpp
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
         src/Initializer/ParameterDB.h
@@ -41,7 +45,8 @@ format() {
         src/Kernels/PointSourceClusterOnDevice.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
+        src/Model/common_datastructures.hpp
+        src/Model/plasticity.hpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
         src/Geometry/NetcdfReader.h

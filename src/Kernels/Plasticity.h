@@ -42,18 +42,15 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
-#include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Model/plasticity.hpp>
+#include <generated_code/tensor.h>
 #include <limits>
 
-namespace seissol {
-  namespace kernels {
-    class Plasticity;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Plasticity {
+class Plasticity {
 public:
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
@@ -61,7 +58,7 @@ public:
                                      double                      timeStepWidth,
                                      double                      T_v,
                                      GlobalData const*           global,
-                                     PlasticityData const*       plasticityData,
+                                     seissol::model::PlasticityData const*       plasticityData,
                                      real                        degreesOfFreedom[tensor::Q::size()],
                                      real*                       pstrain);
 
@@ -70,13 +67,15 @@ public:
                                            double T_v,
                                            GlobalData const *global,
                                            initializer::recording::ConditionalPointersToRealsTable &table,
-                                           PlasticityData *plasticity);
+                                           seissol::model::PlasticityData *plasticity);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,
                                 long long&  o_nonZeroFlopsYield,
                                 long long&  o_hardwareFlopsYield );
 };
+
+}
 
 #endif
 

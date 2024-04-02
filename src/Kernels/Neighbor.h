@@ -75,13 +75,9 @@
 #include <Kernels/Interface.hpp>
 #include <Kernels/NeighborBase.h>
 
-namespace seissol {
-  namespace kernels {
-    class Neighbor;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Neighbor : public NeighborBase {
+class Neighbor : public NeighborBase {
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -103,5 +99,7 @@ class seissol::kernels::Neighbor : public NeighborBase {
                                  
     unsigned bytesNeighborsIntegral();
 };
+
+} // namespace seissol::kernels
 
 #endif

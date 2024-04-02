@@ -47,7 +47,9 @@
 
 #include <yateto.h>
 
-void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+namespace seissol::kernels {
+
+void Local::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
@@ -65,11 +67,11 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
                                               LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -121,7 +123,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   lKrnl.execute();
 }
 
-void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+void Local::flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops )
 {
@@ -139,7 +141,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned seissol::kernels::Local::bytesIntegral()
+unsigned Local::bytesIntegral()
 {
   unsigned reals = 0;
 
@@ -156,3 +158,5 @@ unsigned seissol::kernels::Local::bytesIntegral()
   
   return reals * sizeof(real);
 }
+
+} // namespace seissol::kernels
