@@ -352,7 +352,7 @@ class MultiFaultPlane:
             dy = float(lines[3].split()[0])
             hypocenter = None
             for line in lines:
-                if line.endswith("hypocenter"):
+                if line.strip().endswith("hypocenter"):
                     hypocenter = [float(v) for v in line.split()[0:3]]
                     break
             if not hypocenter:
@@ -360,7 +360,7 @@ class MultiFaultPlane:
             return dx, dy, hypocenter
 
         print(f"reading {fname}, assuming it is a slipnear file")
-        dx, dy, hypocenter = read_dx_dy_hypo(fname)
+        dx, dy, hypocenter = read_dx_dy_hypocenter(fname)
         fault_planes = []
         fault_planes.append(FaultPlane())
         fp = fault_planes[0]
