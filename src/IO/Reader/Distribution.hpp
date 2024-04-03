@@ -11,9 +11,7 @@ class Distributor {
   public:
   Distributor(MPI_Comm comm);
 
-  void setup(std::size_t globalCount,
-             const std::vector<std::size_t>& sourceIds,
-             const std::vector<std::size_t>& targetIds);
+  void setup(const std::vector<std::size_t>& sourceIds, const std::vector<std::size_t>& targetIds);
 
   template <typename T>
   void distribute(T* target,

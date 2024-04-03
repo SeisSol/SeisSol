@@ -1,5 +1,6 @@
 #include "Distribution.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -156,8 +157,7 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
 namespace seissol::io::reader {
 Distributor::Distributor(MPI_Comm comm) : comm(comm) {}
 
-void Distributor::setup(std::size_t globalCount,
-                        const std::vector<std::size_t>& sourceIds,
+void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
   int commsize;
   int commrank;
@@ -174,6 +174,13 @@ void Distributor::setup(std::size_t globalCount,
       seissol::io::datatype::convertToMPI(seissol::io::datatype::inferDatatype<std::size_t>());
   MPI_Datatype pairtype = seissol::io::datatype::convertToMPI(
       seissol::io::datatype::inferDatatype<std::pair<std::size_t, int>>());
+
+  auto sourceMax = *std::max_element(sourceIds.begin(), sourceIds.end());
+  auto targetMax = *std::max_element(targetIds.begin(), targetIds.end());
+  std::size_t localMax = std::max(sourceMax, targetMax);
+  std::size_t globalMax;
+  MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm);
+  auto globalCount = globalMax + 1;
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
   // methods to work correctly right now
