@@ -182,6 +182,8 @@ kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype, double timeStepSize, c
 void calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
 const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus);
 void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
+void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace, const real* qIPlus, real* qStressIPlus,
+const real* qIMinus, real* qStressIMinus);
 #endif
 };
 #endif
