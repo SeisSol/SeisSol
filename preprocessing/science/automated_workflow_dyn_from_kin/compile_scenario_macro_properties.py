@@ -56,11 +56,31 @@ if __name__ == "__main__":
         help="path to output folder or full path to specific energy.csv file",
     )
     parser.add_argument(
+        "--extension",
+        help="figure extension (without the .)",
+        nargs=1,
+        default=["pdf"],
+    )
+    parser.add_argument(
         "--gof_threshold",
         help="gof threshold from which results are selected",
         nargs=1,
         type=float,
         default=[0.6],
+    )
+    parser.add_argument(
+        "--nmin",
+        help="minimum number of synthetic moment rates drawn in color",
+        nargs=1,
+        type=int,
+        default=[3],
+    )
+    parser.add_argument(
+        "--nmax",
+        help="maximum number of synthetic moment rates drawn in color",
+        nargs=1,
+        type=int,
+        default=[10],
     )
 
     args = parser.parse_args()
@@ -74,7 +94,7 @@ if __name__ == "__main__":
         if os.path.exists(args.output_folder):
             args.output_folder += "/"
         energy_files = sorted(glob.glob(f"{args.output_folder}*-energy.csv"))
-    one_model_shown = len(energy_files) == True
+    one_model_shown = args.nmax[0] == 1
 
     cm = 1 / 2.54
     figsize = (6.5 * cm, 3.5 * cm) if one_model_shown else (8, 4)
@@ -182,13 +202,15 @@ if __name__ == "__main__":
     R = result_df["R0"].values
     overall_gof = result_df["overall_gof"].values
     Mw = result_df["Mw"].values
-    indices_of_3largest_values = result_df["overall_gof"].nlargest(3).index
-    indices_of_10largest_values = result_df["overall_gof"].nlargest(10).index
+    indices_of_nlargest_values = result_df["overall_gof"].nlargest(args.nmin[0]).index
+    indices_of_nmax_largest_values = (
+        result_df["overall_gof"].nlargest(args.nmax[0]).index
+    )
     indices_greater_than_threshold = result_df[
         result_df["overall_gof"] > args.gof_threshold[0]
     ].index
-    if len(indices_greater_than_threshold) > 10:
-        selected_indices = indices_of_10largest_values
+    if len(indices_greater_than_threshold) > args.nmax[0]:
+        selected_indices = indices_of_nmax_largest_values
     else:
         selected_indices = indices_greater_than_threshold
 
@@ -208,7 +230,7 @@ if __name__ == "__main__":
             label = f"simulation"
         else:
             label = f"B={B[i]}, C={C[i]}, R={R[i]}"
-        if i in selected_indices or i in indices_of_3largest_values:
+        if i in selected_indices or i in indices_of_nlargest_values:
             if one_model_shown:
                 labelargs = {"label": f"{label} (Mw={Mw[i]:.2f})"}
             else:
@@ -272,6 +294,8 @@ if __name__ == "__main__":
     ax.set_ylabel(r"moment rate (e19 $\times$ Nm/s)")
     ax.set_xlabel("time (s)")
 
-    fn = f"plots/moment_rate.svg"
+    fn = f"plots/moment_rate.{args.extension[0]}"
     fig.savefig(fn, bbox_inches="tight", transparent=True)
     print(f"done write {fn}")
+    full_path = os.path.abspath(fn)
+    print(f"full path: {full_path}")
