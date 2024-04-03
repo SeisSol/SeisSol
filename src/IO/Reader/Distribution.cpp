@@ -122,8 +122,8 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
     }
     for (std::size_t i = 0; i < intermediateSource.size(); ++i) {
       for (auto it = intermediateSourceMap.find(intermediateTarget[i].first);
-           it != intermediateSourceMap.end();
-           ++it) {
+           it != intermediateSourceMap.end() && it->first == intermediateTarget[i].first;
+           ++it) { // TODO: handle the multimap properly
         sourceToTargetRankMap[i] = {{it->first, intermediateTarget[i].second}, it->second};
       }
     }
