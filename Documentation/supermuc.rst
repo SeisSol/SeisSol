@@ -27,14 +27,14 @@ Load modules (including seissol-env). Add these lines to .bashrc:
   module load seissol-env/develop-intel21-impi-x2b
   export CC=mpicc 
   export CXX=mpiCC 
-  export FC=mpif90
-
 
 Install pspamm (see :ref:`pypi_behind_firewall` for the proxy):
 
 ::
 
     pip3 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
+
+(`--no-build-isolation` is used to circumvent the problem described in https://github.com/SeisSol/PSpaMM/issues/13)
 
 Clone SeisSol including the submodules using 
 
@@ -125,19 +125,18 @@ Many post-processing scripts of SeisSol require Python dependencies.
 We describe how to use pip on SuperMUC at see :ref:`pypi_behind_firewall`.
 
 
-Using Sanitizer
----------------
+Using the Sanitizer
+-------------------
 
-Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
+Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc (or clang but the `static-libasan` argument does not work then).
 For that modules and compiler need to be switched:
 
 .. code-block:: bash
 
     module switch seissol-env seissol-env/develop-gcc11
 
-    export CC=mpigcc
-    export CXX=mpigxx
-    export FC=mpifc
+    export CC=gcc
+    export CXX=gxx
 
 Then cmake on a new build folder.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
@@ -206,7 +205,7 @@ The seissol-env compilation can also be reduced by adding the python module to `
 Compiling seissol spack package
 -------------------------------
  
-The seissol package is similar with the seissol-env package (it gathers all dependencies of seissol), but also compiles a specific version of seissol.
+The seissol package is similar to the seissol-env package (it gathers all dependencies of seissol), but also compiles a specific version of seissol itself.
 To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
 .. code-block:: bash
