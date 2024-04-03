@@ -10,7 +10,7 @@ FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {
-  delete queue;
+  delete[] queue;
   if (maxClusterSize == 0)
     return;
 
@@ -24,12 +24,16 @@ FrictionSolverDetails::~FrictionSolverDetails() {
 }
 
 void FrictionSolverDetails::initSyclQueue() {
-  queue = new int;
+  
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
   if (maxClusterSize == 0)
     return;
+  
+  queue = new int[4];
+
+  chunksize = (maxClusterSize + 3) / 4;
 
   faultStresses = static_cast<FaultStresses*>(
       omp_aligned_alloc(ALIGNMENT, maxClusterSize * sizeof(FaultStresses)));
