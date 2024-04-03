@@ -37,15 +37,17 @@
  * @section DESCRIPTION
  **/
 
-#include "Receiver.h"
-#include <SeisSol.h>
+#include "Monitoring/FlopCounter.hpp"
 #include "Numerical_aux/BasisFunction.h"
+#include "Parallel/DataCollector.h"
+#include "Receiver.h"
+#include "SeisSol.h"
+#include "generated_code/kernel.h"
+#include <unordered_map>
 
-#include <Initializer/PointMapper.h>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/MPI.h>
-#include <Monitoring/FlopCounter.hpp>
-#include <generated_code/kernel.h>
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
@@ -73,6 +75,7 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
+  
   alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
   alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
@@ -100,17 +103,30 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
   auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
+#ifdef ACL_DEVICE
+  deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
+
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    for (auto& receiver : m_receivers) {
+    for (size_t i = 0; i < m_receivers.size(); ++i) {
+      auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
+      // Copy DOFs from device to host.
+      LocalData tmpReceiverData { receiver.data };
+#ifdef ACL_DEVICE
+      tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(deviceCollector->get(deviceIndices[i]));
+#endif
+      
+
 #ifdef USE_STP
-      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
+      m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
 #else
       m_timeKernel.computeAder( timeStepWidth,
-                                receiver.data,
+                                tmpReceiverData,
                                 tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
@@ -179,3 +195,26 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   return receiverTime;
 }
 
+void seissol::kernels::ReceiverCluster::allocateData() {
+#ifdef ACL_DEVICE
+  // collect all data pointers to transfer. If we have multiple receivers on the same cell, we make sure to only transfer the related data once (hence, we use the `indexMap` here)
+  deviceIndices.resize(m_receivers.size());
+  std::vector<real*> dofs;
+  std::unordered_map<real*, size_t> indexMap;
+  for (size_t i = 0; i < m_receivers.size(); ++i) {
+    real* currentDofs = m_receivers[i].data.dofs();
+    if (indexMap.find(currentDofs) == indexMap.end()) {
+      // point to the current array end
+      indexMap[currentDofs] = dofs.size();
+      dofs.push_back(currentDofs);
+    }
+    deviceIndices[i] = indexMap.at(currentDofs);
+  }
+  deviceCollector = std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size());
+#endif
+}
+void seissol::kernels::ReceiverCluster::freeData() {
+#ifdef ACL_DEVICE
+  deviceCollector.reset(nullptr);
+#endif
+}

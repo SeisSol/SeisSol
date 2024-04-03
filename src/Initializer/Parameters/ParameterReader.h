@@ -111,8 +111,8 @@ class ParameterReader {
     }
   }
 
-  bool empty;
   YAML::Node node; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
+  bool empty;
   std::unordered_set<std::string> visited;
   std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders;
 };

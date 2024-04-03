@@ -163,8 +163,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   // Initialize the asynchronous module
   async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();
 
-  Modules::registerHook(*this, SIMULATION_START);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 
   const int rank = seissol::MPI::mpi.rank();
 

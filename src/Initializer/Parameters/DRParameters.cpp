@@ -48,6 +48,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   }
   const auto backgroundType = reader->readWithDefault("backgroundtype", 0);
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
+  const auto healingThreshold =
+      static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
   const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
 
   const bool isRateAndState =
@@ -82,18 +84,29 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   auto* outputReader = baseReader->readSubNode("output");
   bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
+  auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
+  const auto terminatorSlipRateThreshold =
+      static_cast<real>(abortCriteriaReader->readWithDefault("terminatorslipratethreshold", 0.5));
+  const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+  bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
+
+  const double etaHack = outputReader->readWithDefault("etahack", 1.0);
 
   reader->warnDeprecated({"rf_output_on"});
 
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
+                      isCheckAbortCriteraEnabled,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,
                       frictionLawType,
+                      healingThreshold,
                       t0,
                       rsF0,
                       rsB,
@@ -109,6 +122,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName,
-                      referencePoint};
+                      referencePoint,
+                      terminatorSlipRateThreshold,
+                      etaHack};
 }
 } // namespace seissol::initializer::parameters

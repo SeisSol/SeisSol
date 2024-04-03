@@ -48,6 +48,10 @@
 #include "SeisSol.h"
 #include "utils/args.h"
 
+#ifdef USE_ASAGI
+#include "Reader/AsagiModule.h"
+#endif
+
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -78,10 +82,10 @@ int main(int argc, char* argv[]) {
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
   // It needs to be done here, as it registers PRE_MPI hooks
-  asagi::AsagiModule::getInstance();
+  seissol::asagi::AsagiModule::getInstance();
 #endif
   // Call pre MPI hooks
-  seissol::Modules::callHook<seissol::PRE_MPI>();
+  seissol::Modules::callHook<ModuleHook::PreMPI>();
 
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();
@@ -123,12 +127,12 @@ int main(int argc, char* argv[]) {
     break;
   }
   }
-  const auto parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+  const auto parameterFile = args.getAdditionalArgument("file", "parameters.par");
   logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializer::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
-  const auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
+  auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
   // Initialize SeisSol

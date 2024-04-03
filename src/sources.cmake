@@ -57,13 +57,13 @@ src/Initializer/tree/Lut.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
-src/Kernels/Receiver.cpp
 src/Kernels/TimeCommon.cpp
-src/Kernels/Touch.cpp
 
 src/Model/common.cpp
 
+src/Modules/Module.cpp
 src/Modules/Modules.cpp
+
 
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
@@ -111,6 +111,9 @@ src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+
+src/Reader/AsagiModule.cpp
+src/Reader/AsagiReader.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
@@ -134,11 +137,14 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/PointMapper.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Module.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Modules/Modules.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/ActorStateStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Monitoring/LoopStatistics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Plasticity.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnHost.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Touch.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Receiver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Numerical_aux/Statistics.cpp
@@ -157,6 +163,7 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeCluster.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/TimeManager.cpp
+
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp
@@ -200,13 +207,6 @@ if (NETCDF)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
-    )
-endif()
-
-if (ASAGI)
-  target_sources(SeisSol-lib PRIVATE
-    #todo:
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Reader/AsagiModule.cpp
     )
 endif()
 

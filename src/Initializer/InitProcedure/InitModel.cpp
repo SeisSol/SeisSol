@@ -216,6 +216,12 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping);
 
+  if (seissolParams.drParameters.etaHack != 1.0) {
+    logWarning(seissol::MPI::mpi.rank())
+        << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
+           "friction law. The results may not conform to the existing benchmarks.";
+  }
+
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsTree(),
                                                          memoryManager.getLts(),
@@ -224,7 +230,7 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                          memoryManager.getDynamicRupture(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalDataOnHost(),
-                                                         ltsInfo.timeStepping);
+                                                         seissolParams.drParameters.etaHack);
 
   memoryManager.initFrictionData();
 
@@ -348,7 +354,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo(seissol::MPI::mpi.rank()) << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<seissol::PRE_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -378,7 +384,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   watch.printTime("Model initialized in:");
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<seissol::POST_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PostModel>();
 
   logInfo(seissol::MPI::mpi.rank()) << "End init model.";
 }
