@@ -87,9 +87,9 @@ void Time::computeAder(double i_timeStepWidth,
    * compute ADER scheme.
    */
   // temporary result
-  real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PagesizeStack)));
-  real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PagesizeStack)));
-  real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PagesizeStack)));
+  real temporaryBuffer[2][tensor::dQ::size(0)] alignas(PagesizeStack);
+  real temporaryBufferExt[2][tensor::dQext::size(1)] alignas(PagesizeStack);
+  real temporaryBufferAne[2][tensor::dQane::size(0)] alignas(PagesizeStack);
 
   kernel::derivative krnl = m_krnlPrototype;
   kernel::derivativeTaylorExpansion intKrnl;
