@@ -223,7 +223,17 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
     real EspI, EspII, xi;
-    calculateEps(exxNodal, eyyNodal, ezzNodal, exyNodal, eyzNodal, ezxNodal, q, *m_damagedElasticParameters, EspI, EspII, xi);
+    calculateEps(exxNodal,
+                 eyyNodal,
+                 ezzNodal,
+                 exyNodal,
+                 eyzNodal,
+                 ezxNodal,
+                 q,
+                 *m_damagedElasticParameters,
+                 EspI,
+                 EspII,
+                 xi);
 
     // Compute alpha_{cr}
     real aCR = (3.0 * xi * xi - 3.0) * data.material.local.gammaR * data.material.local.gammaR +
@@ -690,620 +700,941 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops,
 
 unsigned int* seissol::kernels::Time::getDerivativesOffsets() { return m_derivativesOffsets; }
 
-void seissol::kernels::Time::calculateEps(const real *exxNodal, const real *eyyNodal, const real *ezzNodal, const real *exyNodal, const real *eyzNodal, const real *ezxNodal, const unsigned int &q, const seissol::initializer::parameters::DamagedElasticParameters &damagedElasticParameters, real &EspI, real &EspII, real &xi){
-      const real epsInitxx = damagedElasticParameters.epsInitxx;
+void seissol::kernels::Time::calculateEps(
+    const real* exxNodal,
+    const real* eyyNodal,
+    const real* ezzNodal,
+    const real* exyNodal,
+    const real* eyzNodal,
+    const real* ezxNodal,
+    const unsigned int& q,
+    const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+    real& EspI,
+    real& EspII,
+    real& xi) {
+  const real epsInitxx = damagedElasticParameters.epsInitxx;
+  const real epsInityy = damagedElasticParameters.epsInityy;
+  const real epsInitzz = damagedElasticParameters.epsInitzz;
+  const real epsInitxy = damagedElasticParameters.epsInitxy;
+  const real epsInityz = damagedElasticParameters.epsInitxx;
+  const real epsInitzx = damagedElasticParameters.epsInitxx;
+
+  EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
+  EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
+          (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
+          (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
+          2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
+          2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
+          2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
+  if (EspII > 1e-30) {
+    xi = EspI / std::sqrt(EspII);
+  } else {
+    xi = 0.0;
+  }
+}
+
+void seissol::kernels::Time::computeNonLinearRusanovFlux(
+    const CellMaterialData* materialData,
+    const unsigned int& l_cell,
+    const unsigned int& side,
+    const double* timeWeights,
+    const real* qIPlus,
+    const real* qIMinus,
+    real* rusanovFluxP,
+    const LocalIntegrationData* localIntegration) {
+  using namespace seissol::dr::misc::quantity_indices;
+  /// Checked that, after reshaping, it still uses the same memory address
+  /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
+  const unsigned DAM = 9;
+  const unsigned BRE = 10;
+
+  const real lambda0P = materialData[l_cell].local.lambda0;
+  const real mu0P = materialData[l_cell].local.mu0;
+  const real rho0P = materialData[l_cell].local.rho;
+
+  const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
+  const real mu0M = materialData[l_cell].neighbor[side].mu0;
+  const real rho0M = materialData[l_cell].neighbor[side].rho;
+
+  const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+  const real epsInityy = m_damagedElasticParameters->epsInityy;
+  const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+  const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+  const real epsInityz = m_damagedElasticParameters->epsInityz;
+  const real epsInitzx = m_damagedElasticParameters->epsInitzx;
+
+  const real aB0 = m_damagedElasticParameters->aB0;
+  const real aB1 = m_damagedElasticParameters->aB1;
+  const real aB2 = m_damagedElasticParameters->aB2;
+  const real aB3 = m_damagedElasticParameters->aB3;
+
+  real lambdaMax = 1.0 * std::sqrt((lambda0P + 2 * mu0P) / rho0P);
+  real sxxP, syyP, szzP, sxyP, syzP, szxP, sxxM, syyM, szzM, sxyM, syzM, szxM;
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    auto weight = timeWeights[o];
+
+    for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
+
+      real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
+
+      calculateEps(
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XX * seissol::dr::misc::numPaddedPoints],
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  YY * seissol::dr::misc::numPaddedPoints],
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  ZZ * seissol::dr::misc::numPaddedPoints],
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XY * seissol::dr::misc::numPaddedPoints],
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  YZ * seissol::dr::misc::numPaddedPoints],
+          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XZ * seissol::dr::misc::numPaddedPoints],
+          i,
+          *m_damagedElasticParameters,
+          EspIp,
+          EspIIp,
+          xip);
+      real alphap =
+          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                 DAM * seissol::dr::misc::numPaddedPoints + i];
+      calculateEps(
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XX * seissol::dr::misc::numPaddedPoints],
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   YY * seissol::dr::misc::numPaddedPoints],
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   ZZ * seissol::dr::misc::numPaddedPoints],
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XY * seissol::dr::misc::numPaddedPoints],
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   YZ * seissol::dr::misc::numPaddedPoints],
+          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XZ * seissol::dr::misc::numPaddedPoints],
+          i,
+          *m_damagedElasticParameters,
+          EspIm,
+          EspIIm,
+          xim);
+      real alpham =
+          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  DAM * seissol::dr::misc::numPaddedPoints + i];
+      real lambp =
+          (1 - qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      BRE * seissol::dr::misc::numPaddedPoints + i]) *
+              (lambda0P - alphap * materialData[l_cell].local.gammaR *
+                              (qIPlus[o * seissol::dr::misc::numQuantities *
+                                          seissol::dr::misc::numPaddedPoints +
+                                      XX * seissol::dr::misc::numPaddedPoints + i] +
+                               epsInitxx) /
+                              std::sqrt(EspIIp)) +
+          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                 BRE * seissol::dr::misc::numPaddedPoints + i] *
+              (2.0 * aB2 + 3.0 * xip * aB3 +
+               aB1 *
+                   (qIPlus[o * seissol::dr::misc::numQuantities *
+                               seissol::dr::misc::numPaddedPoints +
+                           XX * seissol::dr::misc::numPaddedPoints + i] +
+                    epsInitxx) /
+                   std::sqrt(EspIIp));
+      real mup =
+          (1 - qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      BRE * seissol::dr::misc::numPaddedPoints + i]) *
+              (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR -
+               0.5 * alphap * materialData[l_cell].local.gammaR * xip) +
+          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                 BRE * seissol::dr::misc::numPaddedPoints + i] *
+              (aB0 + 0.5 * xip * aB1 - 0.5 * xip * xip * xip * aB3);
+
+      real lambm =
+          (1 - qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       BRE * seissol::dr::misc::numPaddedPoints + i]) *
+              (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR *
+                              (qIMinus[o * seissol::dr::misc::numQuantities *
+                                           seissol::dr::misc::numPaddedPoints +
+                                       XX * seissol::dr::misc::numPaddedPoints + i] +
+                               epsInitxx) /
+                              std::sqrt(EspIIm)) +
+          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  BRE * seissol::dr::misc::numPaddedPoints + i] *
+              (2.0 * aB2 + 3.0 * xim * aB3 +
+               aB1 *
+                   (qIMinus[o * seissol::dr::misc::numQuantities *
+                                seissol::dr::misc::numPaddedPoints +
+                            XX * seissol::dr::misc::numPaddedPoints + i] +
+                    epsInitxx) /
+                   std::sqrt(EspIIm));
+
+      real mum =
+          (1 - qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       BRE * seissol::dr::misc::numPaddedPoints + i]) *
+              (mu0M -
+               alpham * materialData[l_cell].neighbor[side].xi0 *
+                   materialData[l_cell].neighbor[side].gammaR -
+               0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim) +
+          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  BRE * seissol::dr::misc::numPaddedPoints + i] *
+              (aB0 + 0.5 * xim * aB1 - 0.5 * xim * xim * xim * aB3);
+
+      lambdaMax =
+          std::min(std::sqrt((lambp + 2 * mup) / rho0P), std::sqrt((lambm + 2 * mum) / rho0M));
+
+      // damage stress
+      real mu_eff = materialData[l_cell].local.mu0 -
+                    alphap * materialData[l_cell].local.gammaR * materialData[l_cell].local.xi0 -
+                    0.5 * alphap * materialData[l_cell].local.gammaR * xip;
+      real sxx_sp =
+          materialData[l_cell].local.lambda0 * EspIp -
+          alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
+          2 * mu_eff *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      XX * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitxx);
+      real syy_sp =
+          materialData[l_cell].local.lambda0 * EspIp -
+          alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
+          2 * mu_eff *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      YY * seissol::dr::misc::numPaddedPoints + i] +
+               epsInityy);
+      real szz_sp =
+          materialData[l_cell].local.lambda0 * EspIp -
+          alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
+          2 * mu_eff *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      ZZ * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitzz);
+
+      real sxy_sp =
+          2 * mu_eff *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XY * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitxy);
+      real syz_sp =
+          2 * mu_eff *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  YZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInityz);
+      real szx_sp =
+          2 * mu_eff *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitzx);
+
+      // breakage stress
+      real sxx_bp =
+          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      XX * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitxx);
+      real syy_bp =
+          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      YY * seissol::dr::misc::numPaddedPoints + i] +
+               epsInityy);
+      real szz_bp =
+          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+              (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                      ZZ * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitzz);
+
+      real sxy_bp =
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XY * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitxy);
+      real syz_bp =
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  YZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInityz);
+      real szx_bp =
+          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+          (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitzx);
+
+      // damage stress minus
+      mu_eff = materialData[l_cell].neighbor[side].mu0 -
+               alpham * materialData[l_cell].neighbor[side].gammaR *
+                   materialData[l_cell].neighbor[side].xi0 -
+               0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim;
+      real sxx_sm =
+          materialData[l_cell].neighbor[side].lambda0 * EspIm -
+          alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
+          2 * mu_eff *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       XX * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitxx);
+      real syy_sm =
+          materialData[l_cell].neighbor[side].lambda0 * EspIm -
+          alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
+          2 * mu_eff *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       YY * seissol::dr::misc::numPaddedPoints + i] +
+               epsInityy);
+      real szz_sm =
+          materialData[l_cell].neighbor[side].lambda0 * EspIm -
+          alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
+          2 * mu_eff *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       ZZ * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitzz);
+
+      real sxy_sm =
+          2 * mu_eff *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XY * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitxy);
+      real syz_sm =
+          2 * mu_eff *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   YZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInityz);
+      real szx_sm =
+          2 * mu_eff *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitzx);
+
+      // breakage stress
+      real sxx_bm =
+          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       XX * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitxx);
+      real syy_bm =
+          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       YY * seissol::dr::misc::numPaddedPoints + i] +
+               epsInityy);
+      real szz_bm =
+          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+              (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       ZZ * seissol::dr::misc::numPaddedPoints + i] +
+               epsInitzz);
+
+      real sxy_bm =
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XY * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitxy);
+      real syz_bm =
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   YZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInityz);
+      real szx_bm =
+          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+          (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   XZ * seissol::dr::misc::numPaddedPoints + i] +
+           epsInitzx);
+
+      real breakp =
+          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                 BRE * seissol::dr::misc::numPaddedPoints + i];
+      real breakm =
+          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  BRE * seissol::dr::misc::numPaddedPoints + i];
+
+      sxxP = (1 - breakp) * sxx_sp + breakp * sxx_bp;
+      syyP = (1 - breakp) * syy_sp + breakp * syy_bp;
+      szzP = (1 - breakp) * szz_sp + breakp * szz_bp;
+      sxyP = (1 - breakp) * sxy_sp + breakp * sxy_bp;
+      syzP = (1 - breakp) * syz_sp + breakp * syz_bp;
+      szxP = (1 - breakp) * szx_sp + breakp * szx_bp;
+
+      sxxM = (1 - breakm) * sxx_sm + breakm * sxx_bm;
+      syyM = (1 - breakm) * syy_sm + breakm * syy_bm;
+      szzM = (1 - breakm) * szz_sm + breakm * szz_bm;
+
+      sxyM = (1 - breakm) * sxy_sm + breakm * sxy_bm;
+      syzM = (1 - breakm) * syz_sm + breakm * syz_bm;
+      szxM = (1 - breakm) * szx_sm + breakm * szx_bm;
+
+      rusanovFluxP[XX * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         U * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 * (-qIMinus[o * seissol::dr::misc::numQuantities *
+                                seissol::dr::misc::numPaddedPoints +
+                            U * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       XX * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxx) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        XX * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxx));
+
+      rusanovFluxP[YY * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         V * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 * (-qIMinus[o * seissol::dr::misc::numQuantities *
+                                seissol::dr::misc::numPaddedPoints +
+                            V * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       YY * seissol::dr::misc::numPaddedPoints + i] +
+                epsInityy) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        YY * seissol::dr::misc::numPaddedPoints + i] +
+                epsInityy));
+
+      rusanovFluxP[ZZ * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         W * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 * (-qIMinus[o * seissol::dr::misc::numQuantities *
+                                seissol::dr::misc::numPaddedPoints +
+                            W * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       ZZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitzz) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        ZZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitzz));
+
+      rusanovFluxP[XY * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        V * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         V * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           (0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        U * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         U * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       XY * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxy) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        XY * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxy));
+
+      rusanovFluxP[YZ * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        W * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         W * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           (0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        V * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         V * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       YZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInityz) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        YZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInityz));
+
+      rusanovFluxP[XZ * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        W * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         W * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           (0.5 *
+                (-0.5 *
+                 qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        U * seissol::dr::misc::numPaddedPoints + i]) +
+            0.5 *
+                (-0.5 *
+                 qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                         U * seissol::dr::misc::numPaddedPoints + i])) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       XZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitzx) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        XZ * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitzx));
+
+      rusanovFluxP[U * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 * (-sxxP / rho0P) + 0.5 * (-sxxM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           (0.5 * (-sxyP / rho0P) + 0.5 * (-sxyM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           (0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       U * seissol::dr::misc::numPaddedPoints + i]) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        U * seissol::dr::misc::numPaddedPoints + i]));
+
+      rusanovFluxP[V * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 * (-sxyP / rho0P) + 0.5 * (-sxyM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           (0.5 * (-syyP / rho0P) + 0.5 * (-syyM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       V * seissol::dr::misc::numPaddedPoints + i]) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        V * seissol::dr::misc::numPaddedPoints + i]));
+
+      rusanovFluxP[W * seissol::dr::misc::numPaddedPoints + i] +=
+          weight *
+          ((0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][0] +
+           (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][1] +
+           (0.5 * (-szzP / rho0P) + 0.5 * (-szzM / rho0M)) *
+               localIntegration[l_cell].surfaceNormal[side][2] +
+           0.5 * lambdaMax *
+               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                       W * seissol::dr::misc::numPaddedPoints + i]) -
+           0.5 * lambdaMax *
+               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                        W * seissol::dr::misc::numPaddedPoints + i]));
+    }
+  }
+}
+
+void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
+    const real* dofsNPlus,
+    const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+    const seissol::dr::ImpedancesAndEta* impAndEtaGet,
+    real* dofsStressNPlus,
+    const real* dofsNMinus,
+    real* dofsStressNMinus) {
+  for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
+    real EspIp, EspIIp, EspIm, EspIIm, xip, xim;
+    const real epsInitxx = damagedElasticParameters.epsInitxx;
     const real epsInityy = damagedElasticParameters.epsInityy;
     const real epsInitzz = damagedElasticParameters.epsInitzz;
     const real epsInitxy = damagedElasticParameters.epsInitxy;
-    const real epsInityz = damagedElasticParameters.epsInitxx;
-    const real epsInitzx = damagedElasticParameters.epsInitxx;
+    const real epsInityz = damagedElasticParameters.epsInityz;
+    const real epsInitzx = damagedElasticParameters.epsInitzx;
+    const real aB0 = damagedElasticParameters.aB0;
+    const real aB1 = damagedElasticParameters.aB1;
+    const real aB2 = damagedElasticParameters.aB2;
+    const real aB3 = damagedElasticParameters.aB3;
 
-    EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
-    EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
-                 (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
-                 (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
-                 2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
-                 2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
-                 2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
-    if (EspII > 1e-30) {
-      xi = EspI / std::sqrt(EspII);
-    } else {
-      xi = 0.0;
-    }
+    calculateEps(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 q,
+                 damagedElasticParameters,
+                 EspIp,
+                 EspIIp,
+                 xip);
+    real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+
+    real lambda0P = impAndEtaGet->lambda0P;
+    real mu0P = impAndEtaGet->mu0P;
+    real lambda0M = impAndEtaGet->lambda0M;
+    real mu0M = impAndEtaGet->mu0M;
+
+    // damage stress impAndEtaGet->gammaRP, mu0P
+    real mu_eff = mu0P - alphap * impAndEtaGet->gammaRP * impAndEtaGet->xi0P -
+                  0.5 * alphap * impAndEtaGet->gammaRP * xip;
+    real sxx_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
+                  2 * mu_eff * (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+    real syy_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
+                  2 * mu_eff * (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    real szz_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
+                  2 * mu_eff * (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+
+    real sxy_sp = 2 * mu_eff * (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    real syz_sp = 2 * mu_eff * (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    real szx_sp = 2 * mu_eff * (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+
+    // breakage stress
+    real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                      (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+    real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                      (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                      (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+
+    real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                  (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                  (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
+                  (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+
+    dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bp;
+
+    dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bp;
+
+    dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bp;
+
+    dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bp;
+
+    dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bp;
+
+    dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
+
+    calculateEps(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 &dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                 q,
+                 damagedElasticParameters,
+                 EspIm,
+                 EspIIm,
+                 xim);
+    real alpham = dofsNMinus[9];
+
+    // damage stress minus
+    mu_eff = mu0M - alpham * impAndEtaGet->gammaRM * impAndEtaGet->xi0M -
+             0.5 * alpham * impAndEtaGet->gammaRM * xim;
+    real sxx_sm = lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
+                  2 * mu_eff * (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+    real syy_sm = lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
+                  2 * mu_eff * (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    real szz_sm = lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
+                  2 * mu_eff * (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+
+    real sxy_sm = 2 * mu_eff * (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    real syz_sm = 2 * mu_eff * (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    real szx_sm = 2 * mu_eff * (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+
+    // breakage stress
+    real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                  (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                      (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+    real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                  (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                      (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
+                  (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                      (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+
+    real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                  (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                  (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
+                  (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+
+    dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bm;
+
+    dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bm;
+
+    dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bm;
+
+    dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bm;
+
+    dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bm;
+
+    dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sm +
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bm;
+
+    dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+
+    dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+  }
 }
 
-void seissol::kernels::Time::computeNonLinearRusanovFlux(const CellMaterialData *materialData, const unsigned int &l_cell, const unsigned int &side, const double *timeWeights, const real *qIPlus, const real *qIMinus, real *rusanovFluxP, const LocalIntegrationData *localIntegration){
-      using namespace seissol::dr::misc::quantity_indices;
-    /// Checked that, after reshaping, it still uses the same memory address
-    /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
-    const unsigned DAM = 9;
-    const unsigned BRE = 10;
-
-    const real lambda0P = materialData[l_cell].local.lambda0;
-    const real mu0P = materialData[l_cell].local.mu0;
-    const real rho0P = materialData[l_cell].local.rho;
-
-    const real lambda0M = materialData[l_cell].neighbor[side].lambda0;
-    const real mu0M = materialData[l_cell].neighbor[side].mu0;
-    const real rho0M = materialData[l_cell].neighbor[side].rho;
-
-    const real epsInitxx = m_damagedElasticParameters->epsInitxx;
-    const real epsInityy = m_damagedElasticParameters->epsInityy;
-    const real epsInitzz = m_damagedElasticParameters->epsInitzz;
-    const real epsInitxy = m_damagedElasticParameters->epsInitxy;
-    const real epsInityz = m_damagedElasticParameters->epsInityz;
-    const real epsInitzx = m_damagedElasticParameters->epsInitzx;
-
-    const real aB0 = m_damagedElasticParameters->aB0;
-    const real aB1 = m_damagedElasticParameters->aB1;
-    const real aB2 = m_damagedElasticParameters->aB2;
-    const real aB3 = m_damagedElasticParameters->aB3;
-
-    real lambdaMax = 1.0 * std::sqrt((lambda0P + 2 * mu0P) / rho0P);
-    real sxxP, syyP, szzP, sxyP, syzP, szxP, sxxM, syyM, szzM, sxyM, syzM, szxM;
-
-    for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-      auto weight = timeWeights[o];
-
-      for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
-
-        real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
-
-        calculateEps(&qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
-                                  i,
-                                  *m_damagedElasticParameters,
-                                  EspIp,
-                                  EspIIp,
-                                  xip);
-        real alphap = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-        calculateEps(&qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
-                                  i,
-                                  *m_damagedElasticParameters,
-                                  EspIm,
-                                  EspIIm,
-                                  xim);
-        real alpham = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-        real lambp = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
-                         (lambda0P - alphap * materialData[l_cell].local.gammaR *
-                                         (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp)) +
-                     qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xip * aB3 +
-                                          aB1 * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIp));
-        real mup =
-            (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
-                (mu0P -
-                 alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR -
-                 0.5 * alphap * materialData[l_cell].local.gammaR * xip) +
-            qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xip * aB1 - 0.5 * xip * xip * xip * aB3);
-
-        real lambm =
-            (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
-                (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR *
-                                (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints+i] + epsInitxx) / std::sqrt(EspIIm)) +
-            qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (2.0 * aB2 + 3.0 * xim * aB3 +
-                                  aB1 * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) / std::sqrt(EspIIm));
-
-        real mum = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) *
-                       (mu0M -
-                        alpham * materialData[l_cell].neighbor[side].xi0 *
-                            materialData[l_cell].neighbor[side].gammaR -
-                        0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim) +
-                   qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * (aB0 + 0.5 * xim * aB1 - 0.5 * xim * xim * xim * aB3);
-
-        lambdaMax =
-            std::min(std::sqrt((lambp + 2 * mup) / rho0P), std::sqrt((lambm + 2 * mum) / rho0M));
-
-        // damage stress
-        real mu_eff = materialData[l_cell].local.mu0 -
-                      alphap * materialData[l_cell].local.gammaR * materialData[l_cell].local.xi0 -
-                      0.5 * alphap * materialData[l_cell].local.gammaR * xip;
-        real sxx_sp = materialData[l_cell].local.lambda0 * EspIp -
-                      alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
-        real syy_sp = materialData[l_cell].local.lambda0 * EspIp -
-                      alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
-        real szz_sp = materialData[l_cell].local.lambda0 * EspIp -
-                      alphap * materialData[l_cell].local.gammaR * std::sqrt(EspIIp) +
-                      2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
-
-        real sxy_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
-
-        // breakage stress
-        real sxx_bp =
-            (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
-        real syy_bp =
-            (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
-        real szz_bp =
-            (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
-
-        real sxy_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_bp =
-            (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
-
-        // damage stress minus
-        mu_eff = materialData[l_cell].neighbor[side].mu0 -
-                 alpham * materialData[l_cell].neighbor[side].gammaR *
-                     materialData[l_cell].neighbor[side].xi0 -
-                 0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim;
-        real sxx_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
-                      alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
-        real syy_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
-                      alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
-        real szz_sm = materialData[l_cell].neighbor[side].lambda0 * EspIm -
-                      alpham * materialData[l_cell].neighbor[side].gammaR * std::sqrt(EspIIm) +
-                      2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
-
-        real sxy_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
-
-        // breakage stress
-        real sxx_bm =
-            (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx);
-        real syy_bm =
-            (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy);
-        real szz_bm =
-            (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz);
-
-        real sxy_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy);
-        real syz_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz);
-        real szx_bm =
-            (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx);
-
-        real breakp = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
-        real breakm = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
-
-        sxxP = (1 - breakp) * sxx_sp + breakp * sxx_bp;
-        syyP = (1 - breakp) * syy_sp + breakp * syy_bp;
-        szzP = (1 - breakp) * szz_sp + breakp * szz_bp;
-        sxyP = (1 - breakp) * sxy_sp + breakp * sxy_bp;
-        syzP = (1 - breakp) * syz_sp + breakp * syz_bp;
-        szxP = (1 - breakp) * szx_sp + breakp * szx_bp;
-
-        sxxM = (1 - breakm) * sxx_sm + breakm * sxx_bm;
-        syyM = (1 - breakm) * syy_sm + breakm * syy_bm;
-        szzM = (1 - breakm) * szz_sm + breakm * szz_bm;
-
-        sxyM = (1 - breakm) * sxy_sm + breakm * sxy_bm;
-        syzM = (1 - breakm) * syz_sm + breakm * syz_bm;
-        szxM = (1 - breakm) * szx_sm + breakm * szx_bm;
-
-        rusanovFluxP[XX*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] + epsInitxx));
-
-        rusanovFluxP[YY*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] + epsInityy));
-
-        rusanovFluxP[ZZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzz));
-
-        rusanovFluxP[XY*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] + epsInitxy));
-
-        rusanovFluxP[YZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ( (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] + epsInityz));
-
-        rusanovFluxP[XZ*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-0.5 * qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) + 0.5 * (-0.5 * qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i])) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx) -
-                      0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] + epsInitzx));
-
-        rusanovFluxP[U*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-sxxP / rho0P) + 0.5 * (-sxxM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-sxyP / rho0P) + 0.5 * (-sxyM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      (0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i]));
-
-        rusanovFluxP[V*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-sxyP / rho0P) + 0.5 * (-sxyM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-syyP / rho0P) + 0.5 * (-syyM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i]));
-
-        rusanovFluxP[W*seissol::dr::misc::numPaddedPoints + i] +=
-            weight * ((0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][0] +
-                      (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][1] +
-                      (0.5 * (-szzP / rho0P) + 0.5 * (-szzM / rho0M)) *
-                          localIntegration[l_cell].surfaceNormal[side][2] +
-                      0.5 * lambdaMax * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]) - 0.5 * lambdaMax * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i]));
-      }
-    }
-}
-
-void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
-const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus){
-      for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
-        real EspIp, EspIIp, EspIm, EspIIm, xip, xim;
-        const real epsInitxx = damagedElasticParameters.epsInitxx;
-        const real epsInityy = damagedElasticParameters.epsInityy;
-        const real epsInitzz = damagedElasticParameters.epsInitzz;
-        const real epsInitxy = damagedElasticParameters.epsInitxy;
-        const real epsInityz = damagedElasticParameters.epsInityz;
-        const real epsInitzx = damagedElasticParameters.epsInitzx;
-        const real aB0 = damagedElasticParameters.aB0;
-        const real aB1 = damagedElasticParameters.aB1;
-        const real aB2 = damagedElasticParameters.aB2;
-        const real aB3 = damagedElasticParameters.aB3;
-
-        calculateEps(&dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-        &dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-        &dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-        &dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, damagedElasticParameters, EspIp, EspIIp, xip);
-        real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-
-        real lambda0P = impAndEtaGet->lambda0P;
-        real mu0P = impAndEtaGet->mu0P;
-        real lambda0M = impAndEtaGet->lambda0M;
-        real mu0M = impAndEtaGet->mu0M;
-
-
-      // damage stress impAndEtaGet->gammaRP, mu0P
-      real mu_eff = mu0P - alphap * impAndEtaGet->gammaRP * impAndEtaGet->xi0P -
-                    0.5 * alphap * impAndEtaGet->gammaRP * xip;
-      real sxx_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                    2 * mu_eff * (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-      real syy_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                    2 * mu_eff * (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-      real szz_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                    2 * mu_eff * (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      real sxy_sp = 2 * mu_eff * (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-      real syz_sp = 2 * mu_eff * (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-      real szx_sp = 2 * mu_eff * (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      // breakage stress
-      real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                    (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                        (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-      real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                    (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                        (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-      real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                    (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                        (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                    (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-      real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                    (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-      real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                    (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bp;
-
-      dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bp;
-
-      dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bp;
-
-      dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bp;
-
-      dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bp;
-
-      dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
-
-      calculateEps(&dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-      &dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-      &dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], &dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-      &dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], q, damagedElasticParameters, EspIm, EspIIm, xim);
-      real alpham = dofsNMinus[9];
-
-      // damage stress minus
-      mu_eff = mu0M - alpham * impAndEtaGet->gammaRM * impAndEtaGet->xi0M -
-               0.5 * alpham * impAndEtaGet->gammaRM * xim;
-      real sxx_sm =
-          lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-      real syy_sm =
-          lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-      real szz_sm =
-          lambda0M * EspIm - alpham * impAndEtaGet->gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      real sxy_sm =
-          2 * mu_eff * (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-      real syz_sm =
-          2 * mu_eff * (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-      real szx_sm =
-          2 * mu_eff * (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      // breakage stress
-      real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                    (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                        (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-      real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                    (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                        (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-      real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                    (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                        (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-      real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                    (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-      real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                    (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-      real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                    (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-      dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bm;
-
-      dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bm;
-
-      dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bm;
-
-      dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bm;
-
-      dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bm;
-
-      dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sm +
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bm;
-
-      dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-
-      dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    }
-}
-
-void seissol::kernels::Time::computeNonLinearIntegralCorrection(const CellLocalInformation *cellInformation, const unsigned int &l_cell, real **derivatives, real *(*faceNeighbors)[4], const CellMaterialData *materialData, const LocalIntegrationData *localIntegration, const NeighborData &data, const CellDRMapping (*drMapping)[4], kernel::nonlinearSurfaceIntegral &m_nonlSurfIntPrototype, double timeStepSize, const kernel::nonlEvaluateAndRotateQAtInterpolationPoints &m_nonlinearInterpolation){
+void seissol::kernels::Time::computeNonLinearIntegralCorrection(
+    const CellLocalInformation* cellInformation,
+    const unsigned int& l_cell,
+    real** derivatives,
+    real* (*faceNeighbors)[4],
+    const CellMaterialData* materialData,
+    const LocalIntegrationData* localIntegration,
+    const NeighborData& data,
+    const CellDRMapping (*drMapping)[4],
+    kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
+    double timeStepSize,
+    const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation) {
   double timePoints[CONVERGENCE_ORDER];
-      double timeWeights[CONVERGENCE_ORDER];
+  double timeWeights[CONVERGENCE_ORDER];
 
-      seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
 
-      for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
-        timePoints[point] = 0.5 * (timeStepSize * timePoints[point] + timeStepSize);
-        timeWeights[point] = 0.5 * timeStepSize * timeWeights[point];
+  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+    timePoints[point] = 0.5 * (timeStepSize * timePoints[point] + timeStepSize);
+    timeWeights[point] = 0.5 * timeStepSize * timeWeights[point];
+  }
+  for (unsigned int side = 0; side < 4; side++) {
+    if (cellInformation[l_cell].faceTypes[side] == FaceType::regular ||
+        cellInformation[l_cell].faceTypes[side] == FaceType::periodic) {
+      // Compute local integrals with derivatives and Rusanov flux
+      /// S1: compute the space-time interpolated Q on both side of 4 faces
+      /// S2: at the same time rotate the field to face-aligned coord.
+      alignas(PAGESIZE_STACK)
+          real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {
+              {0.0}};
+      alignas(PAGESIZE_STACK)
+          real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {
+              {0.0}};
+
+      for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+        real degreesOfFreedomPlus[tensor::Q::size()];
+        real degreesOfFreedomMinus[tensor::Q::size()];
+
+        for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++) {
+          degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
+          degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
+        }
+
+        // !!! Make sure every time after entering this function, the last input should be
+        // reinitialized to zero
+        computeTaylorExpansion(
+            timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+        computeTaylorExpansion(
+            timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+
+        // Prototype is necessary for openmp
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
+
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(side, 0);
+
+        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomMinus;
+        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
+                              cellInformation[l_cell].faceRelations[side][1] + 1);
       }
-        for (unsigned int side = 0; side < 4; side++ ){
-          if (cellInformation[l_cell].faceTypes[side] == FaceType::regular
-          || cellInformation[l_cell].faceTypes[side] == FaceType::periodic){
-            // Compute local integrals with derivatives and Rusanov flux
-            /// S1: compute the space-time interpolated Q on both side of 4 faces
-            /// S2: at the same time rotate the field to face-aligned coord.
-            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
-            alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
-            for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-              real degreesOfFreedomPlus[tensor::Q::size()];
-              real degreesOfFreedomMinus[tensor::Q::size()];
+      // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+      // Reshape the interpolated results
+      using QInterpolatedShapeT =
+          const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
 
-              for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
-                degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
-                degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
-              }
+      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
 
-              // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
-              computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-              computeTaylorExpansion(timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+      // The arrays to store time integrated flux
+      alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+      // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
 
-              // Prototype is necessary for openmp
-              kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
-                = m_nonlinearInterpolation;
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
+        rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+      }
 
-              m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
-              m_nonLinInter.Q = degreesOfFreedomPlus;
-              m_nonLinInter.execute(side, 0);
+      using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
+      auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
 
-              m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
-              m_nonLinInter.Q = degreesOfFreedomMinus;
-              m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0]
-                            , cellInformation[l_cell].faceRelations[side][1]+1);
-            }
+      // S4: Compute the Rusanov flux
+      computeNonLinearRusanovFlux(materialData,
+                                  l_cell,
+                                  side,
+                                  timeWeights,
+                                  *qIPlus[0],
+                                  *qIMinus[0],
+                                  *rusanovFluxP,
+                                  localIntegration);
 
-            // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
-            // Reshape the interpolated results
-            using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+      /// S5: Integrate in space using quadrature.
+      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      m_surfIntegral.Q = data.dofs;
+      m_surfIntegral.Flux = rusanovFluxPlus;
+      m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+      m_surfIntegral.execute(side, 0);
+    } else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
+      // No neighboring cell contribution, interior bc.
+      assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
 
-            auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
-            auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
-
-            // The arrays to store time integrated flux
-            alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
-            // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
-
-            for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
-              rusanovFluxPlus[i_f] = static_cast<real>(0.0);
-            }
-
-            using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
-            auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
-
-            // S4: Compute the Rusanov flux
-            computeNonLinearRusanovFlux(materialData, l_cell, side, timeWeights, *qIPlus[0], *qIMinus[0], *rusanovFluxP, localIntegration);
-
-            /// S5: Integrate in space using quadrature.
-            kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-            m_surfIntegral.Q = data.dofs;
-            m_surfIntegral.Flux = rusanovFluxPlus;
-            m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            m_surfIntegral.execute(side, 0);
-          }
-          else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
-            // No neighboring cell contribution, interior bc.
-            assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
-
-            kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
-            m_drIntegral.Q = data.dofs;
-            m_drIntegral.Flux = drMapping[l_cell][side].godunov;
-            m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-            m_drIntegral.execute(side, drMapping[l_cell][side].faceRelation);
-          } // if (faceTypes)
-        } // for (side)
+      kernel::nonlinearSurfaceIntegral m_drIntegral = m_nonlSurfIntPrototype;
+      m_drIntegral.Q = data.dofs;
+      m_drIntegral.Flux = drMapping[l_cell][side].godunov;
+      m_drIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+      m_drIntegral.execute(side, drMapping[l_cell][side].faceRelation);
+    } // if (faceTypes)
+  }   // for (side)
 }
 
-void seissol::kernels::Time::stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, 
-const real* dofsNMinus){
-    const real epsInitxx = m_damagedElasticParameters->epsInitxx;
-    const real epsInityy = m_damagedElasticParameters->epsInityy;
-    const real epsInitzz = m_damagedElasticParameters->epsInitzz;
-    const real epsInitxy = m_damagedElasticParameters->epsInitxy;
-    const real epsInityz = m_damagedElasticParameters->epsInityz;
-    const real epsInitzx = m_damagedElasticParameters->epsInitzx;
+void seissol::kernels::Time::stressToDofsDynamicRupture(real* dofsStressNPlus,
+                                                        const real* dofsNPlus,
+                                                        real* dofsStressNMinus,
+                                                        const real* dofsNMinus) {
+  const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+  const real epsInityy = m_damagedElasticParameters->epsInityy;
+  const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+  const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+  const real epsInityz = m_damagedElasticParameters->epsInityz;
+  const real epsInitzx = m_damagedElasticParameters->epsInitzx;
 
-    for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
-      dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+  for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++) {
+    dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
 
-      dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
 
-      dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+    dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
 
-      dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
 
-      dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
 
-      dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+    dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
 
-      dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
+    dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
 
-      dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
+    dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
 
-      dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+    dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
 
-      dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
+    dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
 
-      dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
+    dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
 
-      dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+    dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        (dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
 
-      dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
 
-      dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-      dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-          dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    }
+    dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+    dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+  }
 }
 
-void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace,
-const real* qIPlus, real* qStressIPlus, const real* qIMinus, real* qStressIMinus){
+void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
+    const seissol::dr::ImpedancesAndEta* impAndEta,
+    const unsigned& ltsFace,
+    const real* qIPlus,
+    real* qStressIPlus,
+    const real* qIMinus,
+    real* qStressIMinus) {
       using namespace seissol::dr::misc::quantity_indices;
-      const real lambda0P = impAndEta[ltsFace].lambda0P;
-      const real mu0P = impAndEta[ltsFace].mu0P;
-      const real lambda0M = impAndEta[ltsFace].lambda0M;
-      const real mu0M = impAndEta[ltsFace].mu0M;
+      using namespace seissol::dr::misc;
+
+     real lambda0P = impAndEta[ltsFace].lambda0P;
+      real mu0P = impAndEta[ltsFace].mu0P;
+      real rho0P = impAndEta[ltsFace].rho0P;
+      real lambda0M = impAndEta[ltsFace].lambda0M;
+      real mu0M = impAndEta[ltsFace].mu0M;
+      real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
       const real aB0 = m_damagedElasticParameters->aB0;
@@ -1313,113 +1644,127 @@ const real* qIPlus, real* qStressIPlus, const real* qIMinus, real* qStressIMinus
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
-          real EspIp, EspIIp, alphap, xip, EspIm, EspIIm, alpham, xim;
-          calculateEps(&qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
-                                  i,
-                                  *m_damagedElasticParameters,
-                                  EspIp,
-                                  EspIIp,
-                                  xip);
-          alphap = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
+
+          real EspIp = (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) + (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) + (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
+          real EspIIp = (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) +
+                        (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) +
+                        (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
+          real alphap = qIPlus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          real xip;
+          if (EspIIp > 1e-30) {
+            xip = EspIp / std::sqrt(EspIIp);
+          } else {
+            xip = 0.0;
+          }
+
           // damage stress impAndEtaGet->gammaRP, mu0P
           real mu_eff = mu0P - alphap * impAndEta[ltsFace].gammaRP * impAndEta[ltsFace].xi0P -
                         0.5 * alphap * impAndEta[ltsFace].gammaRP * xip;
           real sxx_sp = lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-                        2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i]);
+                        2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]);
           real syy_sp = lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-                        2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i]);
+                        2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]);
           real szz_sp = lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-                        2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i]);
+                        2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
 
-          const real sxy_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i]);
-          const real syz_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i]);
-          const real szx_sp = 2 * mu_eff * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i]);
+          const real sxy_sp = 2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]);
+          const real syz_sp = 2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]);
+          const real szx_sp = 2 * mu_eff * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
 
           // breakage stress
           const real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]);
           const real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]);
           const real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
 
-          const real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i]);
-          const real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i]);
-          const real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i]);
+          const real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]);
+          const real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]);
+          const real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
 
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * sxx_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * sxx_bp;
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * syy_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * syy_bp;
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * szz_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * szz_bp;
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * sxy_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * sxy_bp;
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * syz_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * syz_bp;
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * szx_sp + qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * szx_bp;
+          qStressIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * sxx_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * sxx_bp;
 
-          calculateEps(&qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints],
-                                  &qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints],
-                                  i,
-                                  *m_damagedElasticParameters,
-                                  EspIm,
-                                  EspIIm,
-                                  xim);
-          alpham = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
+          qStressIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * syy_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * syy_bp;
+
+          qStressIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * szz_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * szz_bp;
+
+          qStressIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * sxy_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * sxy_bp;
+
+          qStressIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * syz_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * syz_bp;
+
+          qStressIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * szx_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * szx_bp;
+
+          const real EspIm = (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) + (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) + (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
+          const real EspIIm = (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) +
+                              (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) +
+                              (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
+          real alpham = qIMinus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          real xim;
+          if (EspIIm > 1e-30) {
+            xim = EspIm / std::sqrt(EspIIm);
+          } else {
+            xim = 0.0;
+          }
 
           // damage stress minus
           mu_eff = mu0M - alpham * impAndEta[ltsFace].gammaRM * impAndEta[ltsFace].xi0M -
                    0.5 * alpham * impAndEta[ltsFace].gammaRM * xim;
           const real sxx_sm = lambda0M * EspIm -
                               alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-                              2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i]);
+                              2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]);
           const real syy_sm = lambda0M * EspIm -
                               alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-                              2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i]);
+                              2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]);
           const real szz_sm = lambda0M * EspIm -
                               alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-                              2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i]);
+                              2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
 
-          const real sxy_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i]);
-          const real syz_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i]);
-          const real szx_sm = 2 * mu_eff * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i]);
+          const real sxy_sm = 2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]);
+          const real syz_sm = 2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]);
+          const real szx_sm = 2 * mu_eff * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
 
           // breakage stress
           const real sxx_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]);
           const real syy_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]);
           const real szz_bm = (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i]);
+                              (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
 
-          const real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i]);
-          const real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i]);
-          const real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i]);
+          const real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]);
+          const real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]);
+          const real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
 
+          qStressIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * sxx_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * sxx_bm;
 
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XX*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * sxx_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * sxx_bm;
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YY*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * syy_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * syy_bm;
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + ZZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * szz_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * szz_bm;
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XY*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * sxy_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * sxy_bm;
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + YZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * syz_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * syz_bm;
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + XZ*seissol::dr::misc::numPaddedPoints + i] = (1 - qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i]) * szx_sm + qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] * szx_bm;
+          qStressIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * syy_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * syy_bm;
 
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i] = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i];
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i] = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i];
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i] = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i];
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i] = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-          qStressIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] = qIPlus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * szz_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * szz_bm;
 
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i] = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + U*seissol::dr::misc::numPaddedPoints + i];
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i] = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + V*seissol::dr::misc::numPaddedPoints + i];
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i] = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + W*seissol::dr::misc::numPaddedPoints + i];
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i] = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + DAM*seissol::dr::misc::numPaddedPoints + i];
-          qStressIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i] = qIMinus[o*seissol::dr::misc::numQuantities*seissol::dr::misc::numPaddedPoints + BRE*seissol::dr::misc::numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * sxy_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * sxy_bm;
+
+          qStressIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * syz_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * syz_bm;
+
+          qStressIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i] = (1 - qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * szx_sm + qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * szx_bm;
+
+          qStressIPlus[o*numQuantities*numPaddedPoints + U*numPaddedPoints + i] = qIPlus[o*numQuantities*numPaddedPoints + U*numPaddedPoints + i];
+          qStressIPlus[o*numQuantities*numPaddedPoints + V*numPaddedPoints + i] = qIPlus[o*numQuantities*numPaddedPoints + V*numPaddedPoints + i];
+          qStressIPlus[o*numQuantities*numPaddedPoints + W*numPaddedPoints + i] = qIPlus[o*numQuantities*numPaddedPoints + W*numPaddedPoints + i];
+          qStressIPlus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i] = qIPlus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          qStressIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] = qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i];
+
+          qStressIMinus[o*numQuantities*numPaddedPoints + U*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + U*numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + V*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + V*numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + W*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + W*numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          qStressIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i];
         }
-      }
+      } // time integration loop
 }
