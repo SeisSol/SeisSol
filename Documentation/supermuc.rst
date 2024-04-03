@@ -34,7 +34,7 @@ Install pspamm (see :ref:`pypi_behind_firewall` for the proxy):
 
     pip3 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
 
-(`--no-build-isolation` is used to circumvent the problem described in https://github.com/SeisSol/PSpaMM/issues/13)
+(``--no-build-isolation`` is used to circumvent the problem described in https://github.com/SeisSol/PSpaMM/issues/13)
 
 Clone SeisSol including the submodules using 
 
@@ -56,16 +56,15 @@ Install SeisSol with cmake, e.g. with (more options with ccmake)
 Running SeisSol
 ---------------
 
-This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change 
-#SBATCH --nodes= 
+This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change ``#SBATCH --nodes=`` 
 to the number of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes. 
 
 ::
 
   #!/bin/bash
   # Job Name and Files (also --job-name)
-
   #SBATCH -J <job name>
+
   #Output and error (also --output, --error):
   #SBATCH -o ./%j.%x.out
   #SBATCH -e ./%j.%x.err
@@ -77,19 +76,16 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
   #SBATCH --mail-type=END
   #SBATCH --mail-user=<your email address>
 
-  # Wall clock limit:
-  #SBATCH --time=03:00:00
-  #SBATCH --no-requeue
-
   #Setup of execution environment
   #SBATCH --export=ALL
   #SBATCH --account=<project id>
-  #constraints are optional
-  #--constraint="scratch&work"
-  #SBATCH --partition=general
+  #SBATCH --no-requeue
 
   #Number of nodes and MPI tasks per node:
+  #SBATCH --partition=general
   #SBATCH --nodes=40
+  #SBATCH --time=03:00:00
+
   #SBATCH --ntasks-per-node=1
   #EAR may impact code performance
   #SBATCH --ear=off
@@ -128,7 +124,7 @@ We describe how to use pip on SuperMUC at see :ref:`pypi_behind_firewall`.
 Using the Sanitizer
 -------------------
 
-Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc (or clang but the `static-libasan` argument does not work then).
+Note that to use the Sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc (or clang but the "static-libasan" argument does not work then).
 For that modules and compiler need to be switched:
 
 .. code-block:: bash
@@ -202,8 +198,8 @@ The seissol-env compilation can also be reduced by adding the python module to `
            - python/3.8.11-extended
 
 
-Compiling seissol spack package
--------------------------------
+Compiling the seissol spack package
+-----------------------------------
  
 The seissol package is similar to the seissol-env package (it gathers all dependencies of seissol), but also compiles a specific version of seissol itself.
 To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
@@ -215,7 +211,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
     module load user_spack/23.1.0
     module load intel intel-mkl intel-mpi python/3.10.10-extended
 
-    # install a few python modules
+    # install a few python modules (change DDDDD to the value used after RemoteForward in ~/.ssh/config)
     python3.10 -m pip install --upgrade pip --user --proxy http://localhost:DDDDD
     pip3.10 install --upgrade setuptools numpy wheel packaging --user --proxy http://localhost:DDDDD
     pip3.10 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
