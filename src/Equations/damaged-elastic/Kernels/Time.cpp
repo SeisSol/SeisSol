@@ -1645,13 +1645,20 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-          real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
-
-          calculateEps(&qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints],
-           &qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints], 
-           &qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints], 
-           i, *m_damagedElasticParameters, EspIp, EspIIp, xip);
+          real EspIp = (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) + (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) + (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
+          real EspIIp = (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) +
+                        (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) +
+                        (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) +
+                        2 * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]) * (qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
           real alphap = qIPlus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          real xip;
+          if (EspIIp > 1e-30) {
+            xip = EspIp / std::sqrt(EspIIp);
+          } else {
+            xip = 0.0;
+          }
 
           // damage stress impAndEtaGet->gammaRP, mu0P
           real mu_eff = mu0P - alphap * impAndEta[ltsFace].gammaRP * impAndEta[ltsFace].xi0P -
@@ -1691,11 +1698,20 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
 
           qStressIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i] = (1 - qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i]) * szx_sp + qIPlus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] * szx_bp;
 
-          calculateEps(&qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints],
-           &qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints], 
-           &qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints], 
-           i, *m_damagedElasticParameters, EspIm, EspIIm, xim);
+          const real EspIm = (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) + (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) + (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]);
+          const real EspIIm = (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints + i]) +
+                              (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints + i]) +
+                              (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints + i]) +
+                              2 * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]) * (qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints + i]);
           real alpham = qIMinus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
+          real xim;
+          if (EspIIm > 1e-30) {
+            xim = EspIm / std::sqrt(EspIIm);
+          } else {
+            xim = 0.0;
+          }
 
           // damage stress minus
           mu_eff = mu0M - alpham * impAndEta[ltsFace].gammaRM * impAndEta[ltsFace].xi0M -
