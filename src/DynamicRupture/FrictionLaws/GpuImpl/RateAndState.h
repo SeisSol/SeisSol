@@ -96,7 +96,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto* devLocalStateVariable{this->stateVariable};
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devLocalStateVariable[CURRCHUNK]) map(from: stateVariableBuffer[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devLocalStateVariable)) map(from: CCHUNK(stateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -141,7 +141,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devFaultStresses[CURRCHUNK], devStateVariableBuffer[CURRCHUNK], devSlipRate1[CURRCHUNK], devSlipRate2[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK]) map(from: devSlipRateMagnitude[CURRCHUNK], devAbsoluteShearTraction[CURRCHUNK], devLocalSlipRate[CURRCHUNK], devStateVarReference[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devFaultStresses), CCHUNK(devStateVariableBuffer), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2), CCHUNK(devInitialStressInFaultCS)) map(from: CCHUNK(devSlipRateMagnitude), CCHUNK(devAbsoluteShearTraction), CCHUNK(devLocalSlipRate), CCHUNK(devStateVarReference)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -197,7 +197,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto detRsSr0 = details.rsSr0;
 
       for (int chunk = 0; chunk < 4; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: detA[CURRCHUNK], detSl0[CURRCHUNK], devStateVariableBuffer[CURRCHUNK], devNormalStress[CURRCHUNK], devAbsoluteShearStress[CURRCHUNK], devImpAndEta[CURRCHUNK]) map(tofrom: devSlipRateMagnitude[CURRCHUNK]) map(from: devHasConverged[CURRCHUNK], devLocalSlipRate[CURRCHUNK], devMu[CURRCHUNK]) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(detA), CCHUNK(detSl0), CCHUNK(devStateVariableBuffer), CCHUNK(devNormalStress), CCHUNK(devAbsoluteShearStress), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devSlipRateMagnitude)) map(from: CCHUNK(devHasConverged), CCHUNK(devLocalSlipRate), CCHUNK(devMu)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         bool hasConvergedAllPoints = true;
@@ -276,7 +276,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: detA[CURRCHUNK], detSl0[CURRCHUNK], devStateVariableBuffer[CURRCHUNK], devSlipRateMagnitude[CURRCHUNK], devNormalStress[CURRCHUNK], devAbsoluteTraction[CURRCHUNK], devFaultStresses[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK], devImpAndEta[CURRCHUNK]) map(tofrom: devMu[CURRCHUNK], devAccumulatedSlipMagnitude[CURRCHUNK], devSlip1[CURRCHUNK], devSlip2[CURRCHUNK]) map(from: devTraction1[CURRCHUNK], devTraction2[CURRCHUNK], devTractionResults[CURRCHUNK], devSlipRate1[CURRCHUNK], devSlipRate2[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(detA), CCHUNK(detSl0), CCHUNK(devStateVariableBuffer), CCHUNK(devSlipRateMagnitude), CCHUNK(devNormalStress), CCHUNK(devAbsoluteTraction), CCHUNK(devFaultStresses), CCHUNK(devInitialStressInFaultCS), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devMu), CCHUNK(devAccumulatedSlipMagnitude), CCHUNK(devSlip1), CCHUNK(devSlip2)) map(from: CCHUNK(devTraction1), CCHUNK(devTraction2), CCHUNK(devTractionResults), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -358,7 +358,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devMu[CURRCHUNK], devRuptureTime[CURRCHUNK]) map(tofrom: devDynStressTimePending[CURRCHUNK]) map(from: devDynStressTime[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMu), CCHUNK(devRuptureTime)) map(tofrom: CCHUNK(devDynStressTimePending)) map(from: CCHUNK(devDynStressTime)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -419,7 +419,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devFaultStresses[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK]) map(from: devNormalStress[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devFaultStresses), CCHUNK(devInitialStressInFaultCS)) map(from: CCHUNK(devNormalStress)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)

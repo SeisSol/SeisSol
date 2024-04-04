@@ -55,7 +55,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devFaultStresses[CURRCHUNK], devStrengthBuffer[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK], devImpAndEta[CURRCHUNK]) map(tofrom: devSlipRateMagnitude[CURRCHUNK], devSlipRate1[CURRCHUNK], devSlipRate2[CURRCHUNK], devSlip1[CURRCHUNK], devSlip2[CURRCHUNK]) map(from: devTraction1[CURRCHUNK], devTraction2[CURRCHUNK], devTractionResults[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devFaultStresses), CCHUNK(devStrengthBuffer), CCHUNK(devInitialStressInFaultCS), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devSlipRateMagnitude), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2), CCHUNK(devSlip1), CCHUNK(devSlip2)) map(from: CCHUNK(devTraction1), CCHUNK(devTraction2), CCHUNK(devTractionResults)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -109,7 +109,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devMuS[CURRCHUNK], devMuD[CURRCHUNK], stateVariableBuffer[CURRCHUNK]) map(from: devMu[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -137,7 +137,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devAccumulatedSlipMagnitude[CURRCHUNK], devDC[CURRCHUNK]) map(tofrom: devDynStressTimePending[CURRCHUNK]) map(from: devDynStressTime[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devAccumulatedSlipMagnitude), CCHUNK(devDC)) map(tofrom: CCHUNK(devDynStressTimePending)) map(from: CCHUNK(devDynStressTime)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -206,7 +206,7 @@ class LinearSlipWeakeningLaw
 
     if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
       for (int chunk = 0; chunk < 4; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devMu[CURRCHUNK], devCohesion[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK], devFaultStresses[CURRCHUNK]) map(from: devStrengthBuffer[CURRCHUNK]) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -228,7 +228,7 @@ class LinearSlipWeakeningLaw
     else {
       auto* regStrength = currentLayerDetails.regularisedStrength;
       for (int chunk = 0; chunk < 4; ++chunk)
-        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devMu[CURRCHUNK], devCohesion[CURRCHUNK], devSlipRateMagnitude[CURRCHUNK], devInitialStressInFaultCS[CURRCHUNK], devFaultStresses[CURRCHUNK]) map(from: devStrengthBuffer[CURRCHUNK]) map(tofrom:regStrength[CURRCHUNK]) nowait
+        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devSlipRateMagnitude), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) map(tofrom:CCHUNK(regStrength)) nowait
         #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -278,7 +278,7 @@ class LinearSlipWeakeningLaw
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devSlipRateMagnitude[CURRCHUNK], devForcedRuptureTime[CURRCHUNK], devDC[CURRCHUNK], devResample[0:resampleSize]) map(tofrom: devAccumulatedSlipMagnitude[CURRCHUNK]) map(from: devStateVariableBuffer[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devSlipRateMagnitude), CCHUNK(devForcedRuptureTime), CCHUNK(devDC), devResample[0:resampleSize]) map(tofrom: CCHUNK(devAccumulatedSlipMagnitude)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)

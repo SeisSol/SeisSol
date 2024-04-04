@@ -50,7 +50,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto layerSize{this->currLayerSize};
 
       for (int chunk = 0; chunk < 4; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devImpAndEta[CURRCHUNK], devImpedanceMatrices[CURRCHUNK], devQInterpolatedPlus[CURRCHUNK], devQInterpolatedMinus[CURRCHUNK]) map(from: devFaultStresses[CURRCHUNK]) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(from: CCHUNK(devFaultStresses)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -75,7 +75,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const auto* devNucleationPressure{this->nucleationPressure};
 
         for (int chunk = 0; chunk < 4; ++chunk)
-        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: devInitialStressInFaultCS[CURRCHUNK], devInitialPressure[CURRCHUNK]) map(to: devNucleationStressInFaultCS[CURRCHUNK], devNucleationPressure[CURRCHUNK]) nowait
+        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: CCHUNK(devInitialStressInFaultCS), CCHUNK(devInitialPressure)) map(to: CCHUNK(devNucleationStressInFaultCS), CCHUNK(devNucleationPressure)) nowait
         #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
           #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -102,7 +102,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devRuptureTime{this->ruptureTime};
 
       for (int chunk = 0; chunk < 4; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: devRuptureTimePending[CURRCHUNK]) map(from: devRuptureTime[CURRCHUNK]) map(to: devSlipRateMagnitude[CURRCHUNK]) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: CCHUNK(devRuptureTimePending)) map(from: CCHUNK(devRuptureTime)) map(to: CCHUNK(devSlipRateMagnitude)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -127,7 +127,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devGodunovData{this->godunovData};
 
       /*
-      #pragma omp target teams distribute depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[CURRCHUNK], devSlipRateMagnitude[CURRCHUNK], devFaultStresses[CURRCHUNK], devTractionResults[CURRCHUNK], devImpAndEta[CURRCHUNK], devImpedanceMatrices[CURRCHUNK], devQInterpolatedPlus[CURRCHUNK], devQInterpolatedMinus) map(tofrom: devPeakSlipRate[CURRCHUNK], devImposedStatePlus[CURRCHUNK], devImposedStateMinus[CURRCHUNK], devEnergyData[CURRCHUNK]) nowait
+      #pragma omp target teams distribute depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), devQInterpolatedMinus) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
       #pragma omp metadirective when( device={arch(nvptx)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when( device={arch(nvptx)}: parallel for ) default(simd)
@@ -136,7 +136,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       
       for (int chunk = 0; chunk < 4; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devGodunovData[CURRCHUNK], devSlipRateMagnitude[CURRCHUNK], devFaultStresses[CURRCHUNK], devTractionResults[CURRCHUNK], devImpAndEta[CURRCHUNK], devImpedanceMatrices[CURRCHUNK], devQInterpolatedPlus[CURRCHUNK], devQInterpolatedMinus[CURRCHUNK]) map(tofrom: devPeakSlipRate[CURRCHUNK], devImposedStatePlus[CURRCHUNK], devImposedStateMinus[CURRCHUNK], devEnergyData[CURRCHUNK]) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)

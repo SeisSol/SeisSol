@@ -78,7 +78,7 @@ class SlowVelocityWeakeningLaw
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < 4; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: stateVariableBuffer[CURRCHUNK]) map(from: stateVariable[CURRCHUNK]) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(stateVariableBuffer)) map(from: CCHUNK(stateVariable)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)

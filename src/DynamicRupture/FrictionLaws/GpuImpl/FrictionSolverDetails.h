@@ -5,7 +5,10 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 
-#define CURRCHUNK std::min(this->currLayerSize,this->chunksize*chunk):std::min(this->currLayerSize,this->chunksize*(chunk+1))
+// #define CURRCHUNK std::min(this->currLayerSize,this->chunksize*chunk):std::min(this->currLayerSize,this->chunksize*(chunk+1))
+
+// #define CCHUNK(var) var[std::min(this->currLayerSize,this->chunksize*chunk):std::min(this->currLayerSize,this->chunksize*(chunk+1))]
+#define CCHUNK(var) (var + std::min(this->currLayerSize,this->chunksize*chunk))[0:std::min(this->currLayerSize,this->chunksize*(chunk+1)]
 
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
