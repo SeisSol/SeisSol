@@ -183,7 +183,7 @@ void calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol:
 const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus);
 void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
 void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace, const real* qIPlus, real* qStressIPlus,
-const real* qIMinus, real* qStressIMinus);
+const real* qIMinus, real* qStressIMinus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters);
 #endif
 };
 #endif

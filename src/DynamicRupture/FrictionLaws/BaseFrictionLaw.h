@@ -69,7 +69,7 @@ class BaseFrictionLaw : public FrictionSolver {
       seissol::kernels::Time m_timeKernel;
       m_timeKernel.setDamagedElasticParameters(damagedElasticParameters);
 
-      m_timeKernel.computeNonLinearBaseFrictionLaw(impAndEta, ltsFace, *qIPlus[0], *qStressIPlus[0], *qIMinus[0], *qStressIMinus[0]);
+      m_timeKernel.computeNonLinearBaseFrictionLaw(impAndEta, ltsFace, *qIPlus[0], *qStressIPlus[0], *qIMinus[0], *qStressIMinus[0], *damagedElasticParameters);
 #else
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::tensor::QInterpolated::size(); i++) {

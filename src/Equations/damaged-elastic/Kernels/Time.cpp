@@ -101,6 +101,10 @@ extern long long libxsmm_num_total_flops;
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
+using namespace seissol::dr::misc::quantity_indices;
+using namespace seissol::dr::misc;
+
+
 seissol::kernels::TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
@@ -742,7 +746,6 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
     const real* qIMinus,
     real* rusanovFluxP,
     const LocalIntegrationData* localIntegration) {
-  using namespace seissol::dr::misc::quantity_indices;
   /// Checked that, after reshaping, it still uses the same memory address
   /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
   const unsigned DAM = 9;
@@ -1625,9 +1628,8 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
     const real* qIPlus,
     real* qStressIPlus,
     const real* qIMinus,
-    real* qStressIMinus) {
-      using namespace seissol::dr::misc::quantity_indices;
-      using namespace seissol::dr::misc;
+    real* qStressIMinus,
+    const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters) {
 
      real lambda0P = impAndEta[ltsFace].lambda0P;
       real mu0P = impAndEta[ltsFace].mu0P;
@@ -1637,10 +1639,10 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
-      const real aB0 = m_damagedElasticParameters->aB0;
-      const real aB1 = m_damagedElasticParameters->aB1;
-      const real aB2 = m_damagedElasticParameters->aB2;
-      const real aB3 = m_damagedElasticParameters->aB3;
+      const real aB0 = damagedElasticParameters.aB0;
+      const real aB1 = damagedElasticParameters.aB1;
+      const real aB2 = damagedElasticParameters.aB2;
+      const real aB3 = damagedElasticParameters.aB3;
 
       for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
         for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
@@ -1650,7 +1652,7 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           calculateEps(&qIPlus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints],
            &qIPlus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints], 
            &qIPlus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints], &qIPlus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints], 
-           i, *m_damagedElasticParameters, EspIp, EspIIp, xip);
+           i, damagedElasticParameters, EspIp, EspIIp, xip);
           real alphap = qIPlus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
 
           // damage stress impAndEtaGet->gammaRP, mu0P
@@ -1694,7 +1696,7 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           calculateEps(&qIMinus[o*numQuantities*numPaddedPoints + XX*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + YY*numPaddedPoints],
            &qIMinus[o*numQuantities*numPaddedPoints + ZZ*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + XY*numPaddedPoints], 
            &qIMinus[o*numQuantities*numPaddedPoints + YZ*numPaddedPoints], &qIMinus[o*numQuantities*numPaddedPoints + XZ*numPaddedPoints], 
-           i, *m_damagedElasticParameters, EspIm, EspIIm, xim);
+           i, damagedElasticParameters, EspIm, EspIIm, xim);
           real alpham = qIMinus[o*numQuantities*numPaddedPoints + DAM*numPaddedPoints + i];
 
           // damage stress minus
