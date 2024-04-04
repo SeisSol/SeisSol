@@ -19,7 +19,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
     auto layerSize{this->currLayerSize};
     auto* queue{this->queue};
 
-    for (int chunk = 0; chunk < 4; ++chunk)
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[0]) device(TARGETDART_ANY) map(to: CCHUNK(devSl0), CCHUNK(devLocalSlipRate), CCHUNK(devStateVarReference)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {

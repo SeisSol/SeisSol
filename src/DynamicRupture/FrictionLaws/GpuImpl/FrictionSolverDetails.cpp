@@ -31,9 +31,9 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   if (maxClusterSize == 0)
     return;
   
-  queue = new int[4];
+  queue = new int[chunkcount];
 
-  chunksize = (maxClusterSize + 3) / 4;
+  chunksize = (maxClusterSize + chunkcount - 1) / chunkcount;
 
   faultStresses = static_cast<FaultStresses*>(
       omp_aligned_alloc(ALIGNMENT, maxClusterSize * sizeof(FaultStresses)));

@@ -54,7 +54,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto deltaT{this->deltaT[timeIndex]};
     auto* queue{this->queue};
 
-    for (int chunk = 0; chunk < 4; ++chunk)
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devFaultStresses), CCHUNK(devStrengthBuffer), CCHUNK(devInitialStressInFaultCS), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devSlipRateMagnitude), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2), CCHUNK(devSlip1), CCHUNK(devSlip2)) map(from: CCHUNK(devTraction1), CCHUNK(devTraction2), CCHUNK(devTractionResults)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -108,7 +108,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMuD{this->muD};
     auto* queue{this->queue};
 
-    for (int chunk = 0; chunk < 4; ++chunk)
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -136,7 +136,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devDC{this->dC};
     auto* queue{this->queue};
 
-    for (int chunk = 0; chunk < 4; ++chunk)
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devAccumulatedSlipMagnitude), CCHUNK(devDC)) map(tofrom: CCHUNK(devDynStressTimePending)) map(from: CCHUNK(devDynStressTime)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -205,7 +205,7 @@ class LinearSlipWeakeningLaw
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
     if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
-      for (int chunk = 0; chunk < 4; ++chunk)
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
       #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -227,7 +227,7 @@ class LinearSlipWeakeningLaw
     }
     else {
       auto* regStrength = currentLayerDetails.regularisedStrength;
-      for (int chunk = 0; chunk < 4; ++chunk)
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
         #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devSlipRateMagnitude), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) map(tofrom:CCHUNK(regStrength)) nowait
         #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -277,7 +277,7 @@ class LinearSlipWeakeningLaw
     constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
     auto* queue{this->queue};
 
-    for (int chunk = 0; chunk < 4; ++chunk)
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devSlipRateMagnitude), CCHUNK(devForcedRuptureTime), CCHUNK(devDC), devResample[0:resampleSize]) map(tofrom: CCHUNK(devAccumulatedSlipMagnitude)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {

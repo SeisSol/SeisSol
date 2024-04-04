@@ -49,7 +49,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devFaultStresses{this->faultStresses};
       auto layerSize{this->currLayerSize};
 
-      for (int chunk = 0; chunk < 4; ++chunk)
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
       #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(from: CCHUNK(devFaultStresses)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -74,7 +74,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         auto* devInitialPressure{this->initialPressure};
         const auto* devNucleationPressure{this->nucleationPressure};
 
-        for (int chunk = 0; chunk < 4; ++chunk)
+        for (int chunk = 0; chunk < this->chunkcount; ++chunk)
         #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: CCHUNK(devInitialStressInFaultCS), CCHUNK(devInitialPressure)) map(to: CCHUNK(devNucleationStressInFaultCS), CCHUNK(devNucleationPressure)) nowait
         #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
         for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -101,7 +101,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSlipRateMagnitude{this->slipRateMagnitude};
       auto* devRuptureTime{this->ruptureTime};
 
-      for (int chunk = 0; chunk < 4; ++chunk)
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
       #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(tofrom: CCHUNK(devRuptureTimePending)) map(from: CCHUNK(devRuptureTime)) map(to: CCHUNK(devSlipRateMagnitude)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
@@ -135,7 +135,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       
-      for (int chunk = 0; chunk < 4; ++chunk)
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
       #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:CONVERGENCE_ORDER], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
