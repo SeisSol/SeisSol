@@ -184,6 +184,9 @@ const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const 
 void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
 void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace, const real* qIPlus, real* qStressIPlus,
 const real* qIMinus, real* qStressIMinus);
+void computeNonLinearLocalIntegration(const LocalData& data, const real* QInterpolatedBodyNodal, real* FInterpolatedBody, real* sxxNodal,
+real* syyNodal, real* szzNodal, real* sxyNodal, real* syzNodal, real* szxNodal, real* FluxInterpolatedBodyX, real* FluxInterpolatedBodyY,
+real* FluxInterpolatedBodyZ);
 #endif
 };
 #endif
