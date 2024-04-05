@@ -18,17 +18,6 @@ if not os.path.exists("yaml_files"):
     os.makedirs("yaml_files")
 
 
-def compute_peak_slip_rate(fn):
-    sx0 = sx.seissolxdmf(fn)
-    ndt = sx0.ReadNdt()
-    for i in range(ndt):
-        if i == 0:
-            PSR = sx0.ReadData("SR", i)
-        else:
-            PSR = np.maximum(PSR, sx0.ReadData("SR", i))
-    return PSR.max()
-
-
 def compute_max_slip(fn):
     sx0 = sx.seissolxdmf(fn)
     ndt = sx0.ReadNdt()
@@ -39,21 +28,7 @@ def compute_max_slip(fn):
 
 
 usgs_fn = "output/dyn-usgs-fault.xdmf"
-if os.path.exists(usgs_fn):
-    maxPSR = compute_peak_slip_rate(usgs_fn)
-    max_slip = compute_max_slip(usgs_fn)
-    # commented as not very efficient (simulation stops to late)
-    # terminator_slip_rate_threshold = min(0.5, 0.2 * maxPSR)
-    terminator_slip_rate_threshold = 0.5
-    print(
-        f"peak slip rate: {maxPSR}, using a terminator threshold of {terminator_slip_rate_threshold} m/s"
-    )
-else:
-    warnings.warn(
-        f"{usgs_fn} does not exists: using terminator_slip_rate_threshold of 0.5"
-    )
-    terminator_slip_rate_threshold = 0.5
-
+max_slip = compute_max_slip(usgs_fn)
 
 # Get the directory of the script
 script_path = os.path.abspath(__file__)
@@ -151,7 +126,6 @@ for i in range(nsample):
     template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
     template_par["material_fname"] = "yaml_files/usgs_material.yaml"
     template_par["fault_print_time_interval"] = fault_sampling
-    template_par["terminator_slip_rate_threshold"] = terminator_slip_rate_threshold
     fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 

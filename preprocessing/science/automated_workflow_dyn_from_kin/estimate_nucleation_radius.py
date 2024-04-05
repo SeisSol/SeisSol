@@ -134,15 +134,30 @@ def compute_critical_nucleation(
             if rad > 2.0 * estimatedR:
                 ratio_slip_area = 100 * np.pi * rad**2 / slip_area
                 print(
-                    "selected_radius, estimated_radius, std, nuc_area/slip_area (%) :"
-                    f" {rad:.0f} {estimatedR:.0f} {np.std(L[ids]):.0f}"
-                    f" {ratio_slip_area:.1f}",
+                    (
+                        "selected_radius, estimated_radius, std, nuc_area/slip_area"
+                        " (%) :"
+                        f" {rad:.0f} {estimatedR:.0f} {np.std(L[ids]):.0f}"
+                        f" {ratio_slip_area:.1f}"
+                    ),
                 )
                 if ratio_slip_area > 15.0:
                     nucRadius = False
                 else:
                     nucRadius = rad
                 break
+        if not nucRadius:
+            rad = min(rad, np.sqrt((0.15 / np.pi) * slip_area))
+            ratio_slip_area = 100 * np.pi * rad**2 / slip_area
+            if rad > estimatedR:
+                print(
+                    (
+                        "selected_radius (forced to 15% of slip area),"
+                        " estimated_radius, std, nuc_area/slip_area (%) :"
+                        f" {rad:.0f} {estimatedR:.0f} {np.std(L[ids]):.0f}"
+                        f" {ratio_slip_area:.1f}"
+                    ),
+                )
         results.append(nucRadius)
     return results
 

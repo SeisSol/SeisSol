@@ -155,6 +155,9 @@ if __name__ == "__main__":
             continue
         df = pd.read_csv(fn)
         df = df.pivot_table(index="time", columns="variable", values="measurement")
+        if len(df) < 2:
+            print(f"skipping empty {fn}")
+            continue
         dt = df.index[1] - df.index[0]
         assert dt == 0.25
         df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
@@ -213,13 +216,17 @@ if __name__ == "__main__":
         selected_indices = indices_of_nmax_largest_values
     else:
         selected_indices = indices_greater_than_threshold
-
-    for i, fn in enumerate(energy_files):
-        if "fl33" in fn:
+    i = 0
+    for fn in energy_files:
+        prefix_to_match = fn.split("-energy.csv")[0]
+        row_with_prefix1 = result_df[
+            result_df["faultfn"].str.startswith(prefix_to_match + "_")
+        ]
+        row_with_prefix2 = result_df[
+            result_df["faultfn"].str.startswith(prefix_to_match + "-")
+        ]
+        if row_with_prefix1.empty and row_with_prefix2.empty:
             continue
-        if Mw[i] < 6.0:
-            continue
-
         df = pd.read_csv(fn)
         df = df.pivot_table(index="time", columns="variable", values="measurement")
         dt = df.index[1] - df.index[0]
@@ -248,6 +255,7 @@ if __name__ == "__main__":
             alpha=alpha,
             **labelargs,
         )
+        i += 1
 
     ax.plot(
         mr_ref[:, 0],
