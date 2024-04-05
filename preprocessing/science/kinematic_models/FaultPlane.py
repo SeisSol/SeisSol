@@ -489,8 +489,8 @@ class MultiFaultPlane:
         # Generate yaml file loading ASAGI file
         nplanes = len(self.fault_planes)
         template_yaml = f"""!Switch
-[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
-    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
+[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time, rake_interp_low_slip]: !EvalModel
+    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time, rake_interp_low_slip]
     model: !Any
      components:
 """
@@ -516,7 +516,7 @@ class MultiFaultPlane:
               components: !Any
                 - !ASAGI
                     file: ASAGI_files/{prefix}{p+1}_{spatial_zoom}_{method}.nc
-                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
+                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time, rake_interp_low_slip]
                     var: data
                     interpolation: linear
                 - !ConstantMap
@@ -526,6 +526,7 @@ class MultiFaultPlane:
                     rupture_onset:    0.0
                     acc_time:  1e100
                     effective_rise_time:  2e100
+                    rake_interp_low_slip: 0.0
 """
         template_yaml += (
             """    components: !LuaMap
@@ -539,7 +540,8 @@ class MultiFaultPlane:
           rupture_onset = x["rupture_onset"],
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
-          rupture_rise_time = x["effective_rise_time"]
+          rupture_rise_time = x["effective_rise_time"],
+          rake_interp_low_slip = x["rake_interp_low_slip"]
           }
         end
         """
@@ -910,10 +912,41 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         rake_rad = np.radians(rake)
         strike_slip = slip * np.cos(rake_rad) * cm2m
         dip_slip = slip * np.sin(rake_rad) * cm2m
+        
+        def compute_rake_interp_low_slip(strike_slip, dip_slip, slip_threshold = 0.05):
+            "compute rake with, with interpolation is slip is too small" 
+            slip = np.sqrt(strike_slip**2 + dip_slip**2)
+            rake = np.arctan2(dip_slip, strike_slip)
+            rake[slip<slip_threshold] = np.nan
+            nan_indices = np.isnan(rake)
+            if not nan_indices.any():
+                return rake
+            else:
+                # Create a meshgrid for interpolation
+                x, y = np.meshgrid(np.arange(rake.shape[1]), np.arange(rake.shape[0]))
+
+                # Flatten the arrays and remove NaNs
+                x_flat = x[~nan_indices].flatten()
+                y_flat = y[~nan_indices].flatten()
+                rake_flat = rake[~nan_indices].flatten()
+
+                # Interpolate missing values using linear interpolation
+                rake_interpolated_lin = griddata((x_flat, y_flat), rake_flat, (x, y), method='linear')
+                rake[nan_indices] = rake_interpolated_lin[nan_indices]
+                nan_indices = np.isnan(rake)
+                if not nan_indices.any():
+                    return rake
+                else:
+                    rake_interpolated_near = griddata((x_flat, y_flat), rake_flat, (x, y), method='nearest')
+                    nan_indices = np.isnan(rake)
+                    rake[nan_indices] = rake_interpolated_near[nan_indices]
+                    return rake
+
+        rake = compute_rake_interp_low_slip(strike_slip, dip_slip)
 
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
-        ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
-        lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
+        ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time", "rake_interp_low_slip"]
+        lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc, rake]
 
         prefix2 = f"{prefix}_{spatial_zoom}_{method}"
         if write_paraview:
