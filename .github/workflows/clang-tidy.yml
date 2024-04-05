@@ -48,7 +48,7 @@ jobs:
           which clang-tidy
           git submodule update --init
           mkdir -p build && cd build
-          CC=clang CXX=clang++ cmake -DCMAKE_PREFIX_PATH=/opt/dependencies -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          cmake -DCMAKE_PREFIX_PATH=/opt/dependencies -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           make SeisSol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
