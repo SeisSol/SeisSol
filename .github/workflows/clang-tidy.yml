@@ -9,6 +9,7 @@ jobs:
     steps:
       - name: apt-get
         run: |
+          sudo apt-get update
           sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-103 libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
           sudo pip3 install numpy clang clang-tidy
           sudo mkdir -p /opt/dependencies
