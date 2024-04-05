@@ -29,6 +29,7 @@ def compute_max_slip(fn):
 
 usgs_fn = "output/dyn-usgs-fault.xdmf"
 max_slip = compute_max_slip(usgs_fn)
+assert max_slip>0
 
 # Get the directory of the script
 script_path = os.path.abspath(__file__)
@@ -130,7 +131,7 @@ for i in range(nsample):
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
 
-fnames = ["smooth_PREM_material.yaml", "mud.yaml", "rake.yaml", "fault_slip.yaml"]
+fnames = ["smooth_PREM_material.yaml", "mud.yaml", "fault_slip.yaml"]
 for fn in fnames:
     shutil.copy(f"{input_file_dir}/{fn}", f"yaml_files/{fn}")
 

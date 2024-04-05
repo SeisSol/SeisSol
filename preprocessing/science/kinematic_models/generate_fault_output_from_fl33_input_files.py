@@ -64,7 +64,6 @@ sx = seissolxdmfExtended(args.fault_filename)
 centers = sx.ComputeCellCenters()
 tags = sx.ReadFaultTags()
 
-use_Yoffe = args.stf == "Yoffe"
 dt_output = args.dt[0]
 
 print(f"using {args.stf}")
@@ -134,7 +133,7 @@ sld = out["dip_slip"]
 slip = np.sqrt(sls**2 + sld**2)
 print(time)
 for k, ti in enumerate(tqdm(time)):
-    if args.stf == "Yoffe":
+    if args.stf == "Gaussian":
         STF = GaussianSTF(ti - onset, rise_time, dt_output)
         intSTF = SmoothStep(ti - onset, rise_time)
     elif args.stf == "AsymmetricCosine":
@@ -150,8 +149,8 @@ for k, ti in enumerate(tqdm(time)):
         ASl[p, :] = intSTF * slip
         Sls[p, :] = intSTF * sls
         Sld[p, :] = intSTF * sld
-
-if use_Yoffe:
+assert ASl.max() > 0
+if not args.stf == "Gaussian":
     id_where_slip = np.where(slip > 0.02 * slip)[0]
     error_slip = np.abs(ASl[-1, id_where_slip] - slip[id_where_slip])
     error_slip_rel = error_slip / slip[id_where_slip]

@@ -531,7 +531,7 @@ class MultiFaultPlane:
 """
         template_yaml += (
             """    components: !LuaMap
-      returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]
+      returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time, rake_interp_low_slip]
       function: |
         function f (x)
           -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)

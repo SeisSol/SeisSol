@@ -158,6 +158,7 @@ def compute_critical_nucleation(
                         f" {ratio_slip_area:.1f}"
                     ),
                 )
+                nucRadius = rad
         results.append(nucRadius)
     return results
 
