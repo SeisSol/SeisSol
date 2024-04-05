@@ -38,11 +38,22 @@
  * @section DESCRIPTION
  */
 
-#include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/Parameters/ParameterReader.h>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Modules/Modules.h>
+#include <cstdlib>
+#include <ctime>
+#include <exception>
 #include <fty/fty.hpp>
+#include <fty/include/FtyPolicies.hpp>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <utils/logger.h>
+#include <utils/timeutils.h>
+#include <xdmfwriter/scorep_wrapper.h>
+#include <yaml-cpp/node/node.h>
 
-#include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"

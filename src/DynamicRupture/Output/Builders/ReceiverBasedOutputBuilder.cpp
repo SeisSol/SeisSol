@@ -1,5 +1,27 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
+#include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Output/DataTypes.hpp>
+#include <DynamicRupture/Output/OutputAux.hpp>
+#include <Eigen/src/Core/Matrix.h>
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
+#include <Geometry/MeshTools.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Kernels/precision.hpp>
+#include <Model/common.hpp>
+#include <Numerical_aux/Transformation.h>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <functional>
+#include <init.h>
+#include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <yateto/TensorView.h>
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
@@ -26,8 +48,8 @@ struct HashPair {
   std::size_t operator()(const std::pair<T1, T2>& data) const {
     // Taken from: https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
     // (probably any other lcg-like hash function would work as well)
-    std::hash<T1> hasher1;
-    std::hash<T2> hasher2;
+    std::hash<T1> const hasher1;
+    std::hash<T2> const hasher2;
     std::size_t seed = hasher1(data.first);
     seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     return seed;

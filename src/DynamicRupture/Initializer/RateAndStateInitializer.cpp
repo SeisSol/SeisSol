@@ -1,6 +1,17 @@
 #include "RateAndStateInitializer.h"
 
 #include "DynamicRupture/Misc.h"
+#include <DynamicRupture/Initializer/BaseDRInitializer.h>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/LTSInternalNode.hpp>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Kernels/precision.hpp>
+#include <cmath>
+#include <cstdlib>
+#include <string>
+#include <unordered_map>
+#include <utils/logger.h>
 
 namespace seissol::dr::initializer {
 void RateAndStateInitializer::initializeFault(

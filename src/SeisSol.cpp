@@ -42,13 +42,14 @@
 #include "SeisSol.h"
 
 #include <climits>
+#include <memory>
 #include <sys/resource.h>
+#include <utils/logger.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
 
-#include "utils/args.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"

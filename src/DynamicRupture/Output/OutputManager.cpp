@@ -2,11 +2,40 @@
 #include "DynamicRupture/Output/OutputManager.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "SeisSol.h"
+#include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Output/Builders/ElementWiseBuilder.hpp>
+#include <DynamicRupture/Output/Builders/PickPointBuilder.hpp>
+#include <DynamicRupture/Output/DataTypes.hpp>
+#include <DynamicRupture/Output/Geometry.hpp>
+#include <DynamicRupture/Output/OutputAux.hpp>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Parameters/DRParameters.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <ResultWriter/FaultWriterExecutor.h>
+#include <algorithm>
+#include <cstddef>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <ios>
+#include <memory>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <tuple>
 #include <type_traits>
-#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <utils/timeutils.h>
+#include <vector>
 
 struct NativeFormat {};
 struct WideFormat {};

@@ -1,10 +1,26 @@
 #include "BaseDRInitializer.h"
 
 #include "Initializer/ParameterDB.h"
-#include "Model/common.hpp"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
+#include <DynamicRupture/Misc.h>
 #include <Eigen/Dense>
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/LTSInternalNode.hpp>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Kernels/precision.hpp>
+#include <Numerical_aux/Transformation.h>
+#include <cassert>
+#include <cstddef>
+#include <init.h>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture const* const dynRup,

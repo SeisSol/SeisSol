@@ -1,4 +1,11 @@
 #include "ThermalPressurization.h"
+#include <DynamicRupture/Misc.h>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/Layer.hpp>
+#include <Kernels/precision.hpp>
+#include <algorithm>
+#include <array>
+#include <cmath>
 
 namespace seissol::dr::friction_law {
 
