@@ -1,11 +1,15 @@
 #include "NoFault.h"
+#include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <array>
 
 namespace seissol::dr::friction_law {
 void NoFault::updateFrictionAndSlip(
     FaultStresses const& faultStresses,
     TractionResults& tractionResults,
-    std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
-    std::array<real, misc::numPaddedPoints> const& strengthBuffer,
+    std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+    std::array<real, misc::numPaddedPoints>& strengthBuffer,
     unsigned ltsFace,
     unsigned timeIndex) {
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {

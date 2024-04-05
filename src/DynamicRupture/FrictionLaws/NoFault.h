@@ -17,8 +17,8 @@ class NoFault : public BaseFrictionLaw<NoFault> {
 
   void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
-                             std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
-                             std::array<real, misc::numPaddedPoints> const& strengthBuffer,
+                             std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+                             std::array<real, misc::numPaddedPoints>& strengthBuffer,
                              unsigned ltsFace,
                              unsigned timeIndex);
 
