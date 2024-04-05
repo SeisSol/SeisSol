@@ -2,7 +2,6 @@
 #include <DynamicRupture/Misc.h>
 #include <DynamicRupture/Output/DataTypes.hpp>
 #include <DynamicRupture/Output/OutputAux.hpp>
-#include <Eigen/src/Core/Matrix.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>

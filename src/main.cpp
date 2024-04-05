@@ -45,7 +45,6 @@
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
-#include <fty/include/FtyPolicies.hpp>
 #include <memory>
 #include <ostream>
 #include <string>

@@ -6,7 +6,6 @@
 #include "generated_code/tensor.h"
 #include <DynamicRupture/Misc.h>
 #include <DynamicRupture/Output/DataTypes.hpp>
-#include <Eigen/src/Core/Matrix.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/DynamicRupture.h>
