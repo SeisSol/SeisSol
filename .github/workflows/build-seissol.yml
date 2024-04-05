@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: apt-get
         run: |
-          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev 
+          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev
           sudo mkdir -p /opt/dependencies
 
       - name: build-hdf5
@@ -105,7 +105,7 @@ jobs:
 
       - name: apt-get
         run: |
-          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev python3-pip 
+          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev python3-pip ninja
           pip3 install numpy scipy
 
       - name: download-artifacts
@@ -124,8 +124,8 @@ jobs:
           else
               mechanisms=0
           fi
-          cmake .. -DCMAKE_PREFIX_PATH=/opt/dependencies -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
-          make -j $(nproc)
+          cmake .. -GNinja -DCMAKE_PREFIX_PATH=/opt/dependencies -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          ninja -j $(nproc)
 
       - name: test-seissol
         run: |
