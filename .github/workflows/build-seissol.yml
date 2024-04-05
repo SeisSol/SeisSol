@@ -131,6 +131,6 @@ jobs:
       - name: test-seissol
         run: |
           cd build
-          make test
+          ninja test
 
 
