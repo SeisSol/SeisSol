@@ -19,6 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           clang-format --version
+          which clang-format
           ./.ci/format.sh $(which clang-format) .
           git diff > formatting.patch
           cat formatting.patch 
