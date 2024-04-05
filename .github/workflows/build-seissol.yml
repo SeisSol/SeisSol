@@ -105,7 +105,8 @@ jobs:
 
       - name: apt-get
         run: |
-          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev python3-pip ninja
+          sudo apt-get update
+          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev python3-pip ninja-build
           pip3 install numpy scipy
 
       - name: download-artifacts
