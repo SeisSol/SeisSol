@@ -10,8 +10,9 @@
        function f (x)
         if x['fault_slip']<0.05 then
            rake = x['rake_lowslip']*3.1415/180
+        else
+           rake= math.atan2(x['dip_slip'], x['strike_slip'])
         end
-        rake= math.atan2(x['dip_slip'], x['strike_slip'])
         return {
            rake =  rake
         }
