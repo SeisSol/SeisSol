@@ -33,7 +33,7 @@ jobs:
       - name: build-easi
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_PREFIX_PATH=/opt/dependencies -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
           make -j $(nproc) && make install
 
       - name: checkout-seissol
@@ -48,7 +48,7 @@ jobs:
           which clang-tidy
           git submodule update --init
           mkdir -p build && cd build
-          cmake -DCMAKE_PREFIX_PATH=/opt/dependencies -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           make SeisSol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json

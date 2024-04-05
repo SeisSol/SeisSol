@@ -13,6 +13,7 @@
 #include <Kernels/precision.hpp>
 #include <Numerical_aux/Transformation.h>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <init.h>
 #include <string>

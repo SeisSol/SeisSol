@@ -53,7 +53,7 @@ jobs:
         run: |
             mkdir build && cd build
             git submodule update --init
-            cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=$HOME -DCMAKE_INSTALL_PREFIX=/opt/dependencies
+            cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=/opt/dependencies
             make -j $(nproc) && make install
 
       - name: checkout-easi
@@ -64,7 +64,7 @@ jobs:
       - name: build-easi
         run: |
           mkdir build && cd build
-          cmake .. -DCMAKE_PREFIX_PATH=/opt/dependencies -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=ON -DLUA=ON -DEASICUBE=OFF
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=ON -DLUA=ON -DEASICUBE=OFF
           make -j $(nproc) && make install
 
       - name: checkout-libxsmm
@@ -125,12 +125,10 @@ jobs:
           else
               mechanisms=0
           fi
-          cmake .. -GNinja -DCMAKE_PREFIX_PATH=/opt/dependencies -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja -j $(nproc)
 
       - name: test-seissol
         run: |
           cd build
           ninja test
-
-
