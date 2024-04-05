@@ -301,9 +301,8 @@ void seissol::sourceterm::Manager::loadSources(
   timeManager.setPointSourcesForClusters(std::move(sourceClusters));
 }
 
-auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping,
-                                                          PointSources sources)
-    -> std::unique_ptr<kernels::PointSourceCluster> {
+auto seissol::sourceterm::Manager::makePointSourceCluster(
+    ClusterMapping mapping, PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster> {
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
   using Impl = kernels::PointSourceClusterOnDevice;
 #else

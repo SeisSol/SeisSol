@@ -97,8 +97,8 @@ class seissol::sourceterm::Manager {
                                  AllocatorT const& alloc)
       -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
 
-  auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
-      -> std::unique_ptr<kernels::PointSourceCluster>;
+  auto makePointSourceCluster(ClusterMapping mapping,
+                              PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster>;
 
   auto loadSourcesFromFSRM(char const* fileName,
                            seissol::geometry::MeshReader const& mesh,

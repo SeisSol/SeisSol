@@ -97,7 +97,7 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress){};
+                                          const std::array<real, 6>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

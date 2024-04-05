@@ -186,7 +186,7 @@ class seissol::initializer::MaterialParameterDB : seissol::initializer::Paramete
                             std::vector<T> const& materialsFromQuery);
   void evaluateModel(std::string const& fileName, QueryGenerator const* const queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter){};
+  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
   private:
   std::vector<T>* m_materials;

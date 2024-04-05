@@ -100,10 +100,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-               unsigned int ltsFace){};
+  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  };
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                unsigned int ltsFace){};
+                unsigned int ltsFace) {};
 
   /**
    * evaluate friction law: updated mu -> friction law
@@ -210,7 +210,7 @@ class NoSpecialization {
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           seissol::initializer::DynamicRupture const* const dynRup,
-                          real fullUpdateTime){};
+                          real fullUpdateTime) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
