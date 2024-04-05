@@ -383,6 +383,18 @@ class MultiFaultPlane:
         fp.dy = dy
         fp.init_spatial_arrays(nx, ny)
 
+        def G(depth):
+            if depth < 0.6:
+                return 7.2200000000e09
+            elif depth < 2:
+                return 1.5548000000e10
+            elif depth < 5:
+                return 2.5281000000e10
+            elif depth < 30:
+                return 4.0781250000e10
+            else:
+                return 7.2277920000e10
+
         assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
         for j in range(fp.ny):
             for i in range(fp.nx):
