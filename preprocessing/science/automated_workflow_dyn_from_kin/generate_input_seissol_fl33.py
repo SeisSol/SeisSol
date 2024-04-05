@@ -39,7 +39,7 @@ end_time = max_distance / 3200.0
 template_par = {}
 # well in theory we would need to run for end_time, but practically
 # a portion of it may be sufficient
-template_par["end_time"] = max(15.0, 0.3 * end_time)
+template_par["end_time"] = max(25.0, 0.6 * end_time)
 template_par["material_fname"] = "yaml_files/usgs_material.yaml"
 
 template = templateEnv.get_template(f"parameters_fl34.tmpl.par")

@@ -250,6 +250,8 @@ class MultiFaultPlane:
             nsbfs = read_param(lines[0], "Nsbfs")
             assert nsbfs == nx * ny
 
+            fp.dx = dx
+            fp.dy = dy
             fp.init_spatial_arrays(nx, ny)
             lines = get_to_first_line_starting_with(lines, "% LAT LON")
             column_names = lines[0][1:].split()
@@ -309,6 +311,8 @@ class MultiFaultPlane:
             numbers = [float(num) for num in numbers]
             _, nx, dx, ny, dy = numbers
             nx, ny = map(int, [nx, ny])
+            fp.dx = dx
+            fp.dy = dy
             fp.init_spatial_arrays(nx, ny)
 
             line1 = istart + 9
@@ -375,6 +379,8 @@ class MultiFaultPlane:
         print(f"read {nx} x {ny} fault segments of size {dx} x {dy} km2 in param file")
         print(df)
 
+        fp.dx = dx
+        fp.dy = dy
         fp.init_spatial_arrays(nx, ny)
 
         assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
@@ -384,7 +390,9 @@ class MultiFaultPlane:
                 fp.lon[j, i] = df["Lon"][k]
                 fp.lat[j, i] = df["Lat"][k]
                 fp.depth[j, i] = df["depth(km)"][k]
-                fp.slip1[j, i] = df["slip(cm)"][k]
+                # the slip is based on a homogeneous mu model, but the waveforms
+                # are calculated with the layered G as above
+                fp.slip1[j, i] = df["slip(cm)"][k] * 2.5e10/ G(fp.depth[j, i])
                 fp.rake[j, i] = df["rake"][k]
                 fp.strike[j, i] = df["strike"][k]
                 fp.dip[j, i] = df["dip"][k]
@@ -392,48 +400,6 @@ class MultiFaultPlane:
                 fp.t0[j, i] = df["ontime"][k]
                 fp.tacc[j, i] = 5.0
                 fp.rise_time[j, i] = 10.0
-
-        # compute moment rate function and save to file
-        def G(depth):
-            if depth < 0.6:
-                return 7.2200000000e09
-            elif depth < 2:
-                return 1.5548000000e10
-            elif depth < 5:
-                return 2.5281000000e10
-            elif depth < 30:
-                return 4.0781250000e10
-            else:
-                return 7.2277920000e10
-
-        duration = fp.t0.max() + fp.rise_time.max()
-        dt = 0.25
-        time = np.arange(0, duration, dt)
-        moment_rate = np.zeros_like(time)
-        for k, tk in enumerate(time):
-            STF = GaussianSTF(tk - fp.t0[:, :], fp.rise_time[:, :], dt)
-            for j in range(fp.ny):
-                for i in range(fp.nx):
-                    dz = dy * np.sin(np.radians(fp.dip[j, i]))
-                    ztop, zbot = fp.depth[j, i] - 0.5 * dz, fp.depth[j, i] + 0.5 * dz
-                    zi = [ztop, zbot] + [
-                        depth for depth in [0.6, 2, 5, 30] if ztop < depth < zbot
-                    ]
-                    zi.sort()
-                    Gav = np.trapz([G(z) for z in zi], x=zi) / dz
-                    moment_rate[k] += (
-                        Gav * dx * dy * 1e6 * STF[j, i] * fp.slip1[j, i] * 0.01
-                    )
-        M0 = np.trapz(moment_rate[:], x=time[:])
-        Mw = 2.0 * np.log10(M0) / 3.0 - 6.07
-        print(f"inferred Mw {Mw} and duration {duration}:")
-
-        if not os.path.exists("tmp"):
-            os.makedirs("tmp")
-        fname = "tmp/moment_rate_slipnear.txt"
-        with open(fname, "w") as f:
-            np.savetxt(f, np.column_stack((time, moment_rate)), fmt="%g")
-        print(f"done writing {fname}")
 
         return cls(fault_planes, hypocenter)
 
@@ -584,6 +550,8 @@ class FaultPlane:
     def __init__(self):
         self.nx = 0
         self.ny = 0
+        self.dx = None
+        self.dy = None
         self.ndt = 0
         self.PSarea_cm2 = 0
         self.dt = 0

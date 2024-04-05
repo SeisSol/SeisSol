@@ -46,7 +46,7 @@ components:
 
 for tag in unique_tags:
     ids = np.where(tags == tag)[0]
-    face_area_sel = face_area[ids]
+    face_area_sel = face_area[ids] * slip[ids]
     ruptured_area = np.sum(face_area_sel)
     average_rake = np.sum(rake[ids] * face_area_sel) / ruptured_area
     print(average_rake)

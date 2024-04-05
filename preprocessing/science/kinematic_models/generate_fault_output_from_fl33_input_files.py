@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 from GaussianSTF import GaussianSTF, SmoothStep
 from Yoffe import regularizedYoffe
+from AsymmetricCosineSTF import asymmetric_cosine
 from tqdm import tqdm
 
 
@@ -30,7 +31,7 @@ class seissolxdmfExtended(seissolxdmf.seissolxdmf):
 
 # parsing python arguments
 parser = argparse.ArgumentParser(
-    description=("generate a fault output from FL33 input files")
+    description="generate a fault output from FL33 input files"
 )
 parser.add_argument("fault_filename", help="fault.xdmf filename")
 parser.add_argument("yaml_filename", help="fault easi/yaml filename")
@@ -44,14 +45,14 @@ parser.add_argument(
 parser.add_argument(
     "--stf",
     type=str,
-    choices=["Yoffe", "Gaussian"],
-    default="Yoffe",
+    choices=["Yoffe", "Gaussian", "AsymmetricCosine"],
+    default="Gaussian",
     help="the source time function to use",
 )
 parser.add_argument(
     "--dt",
     nargs=1,
-    metavar=("dt"),
+    metavar="dt",
     default=[0.5],
     help="sampling time of the output file",
     type=float,
@@ -67,7 +68,7 @@ use_Yoffe = args.stf == "Yoffe"
 dt_output = args.dt[0]
 
 print(f"using {args.stf}")
-if use_Yoffe:
+if args.stf == "Yoffe":
     out = easi.evaluate_model(
         centers,
         tags,
@@ -83,7 +84,20 @@ if use_Yoffe:
     n_time_sub = max(1, round(dt_output / dt_required))
     dt = dt_output / n_time_sub
     print(f"STF numerically integrated (dt used {dt})")
-else:
+elif args.stf == "AsymmetricCosine":
+    out = easi.evaluate_model(
+        centers,
+        tags,
+        ["strike_slip", "dip_slip", "tau_S", "rupture_rise_time", "rupture_onset"],
+        args.yaml_filename,
+    )
+    acc_time = np.maximum(out["tau_S"], 0) * 1.27
+    rise_time = out["rupture_rise_time"]
+    dt_required = np.amin(acc_time) / 3.0
+    n_time_sub = max(1, round(dt_output / dt_required))
+    dt = dt_output / n_time_sub
+    print(f"STF numerically integrated (dt used {dt})")
+elif args.stf == "Gaussian":
     n_time_sub = 1
     dt = dt_output
     out = easi.evaluate_model(
@@ -120,10 +134,13 @@ sld = out["dip_slip"]
 slip = np.sqrt(sls**2 + sld**2)
 print(time)
 for k, ti in enumerate(tqdm(time)):
-    if not use_Yoffe:
+    if args.stf == "Yoffe":
         STF = GaussianSTF(ti - onset, rise_time, dt_output)
         intSTF = SmoothStep(ti - onset, rise_time)
-    else:
+    elif args.stf == "AsymmetricCosine":
+        STF = asymmetric_cosine(ti - onset, acc_time, rise_time - acc_time)
+        intSTF += dt * STF
+    elif args.stf == "Yoffe":
         for i in range(nel):
             STF[i] = regularizedYoffe(ti - onset[i], ts[i], tr[i])
         intSTF += dt * STF
@@ -139,7 +156,8 @@ if use_Yoffe:
     error_slip = np.abs(ASl[-1, id_where_slip] - slip[id_where_slip])
     error_slip_rel = error_slip / slip[id_where_slip]
     print(
-        f"max error/relative on slip due to numerical integration {np.amax(error_slip)} {np.amax(error_slip_rel)}"
+        "max error/relative on slip due to numerical integration"
+        f" {np.amax(error_slip)} {np.amax(error_slip_rel)}"
     )
 dictTime = {time_out[i]: i for i in range(time_out.shape[0])}
 
