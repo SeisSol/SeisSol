@@ -2,6 +2,12 @@
 
 #include "FrictionLaws/FrictionLaws.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
+#include "Initializer/Initializers.h"
+#include "Output/Output.hpp"
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/Parameters/DRParameters.h>
+#include <memory>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 namespace friction_law_impl = seissol::dr::friction_law::gpu;
