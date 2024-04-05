@@ -3,11 +3,11 @@
 [mu_d]: !Include yaml_files/mud.yaml
 
 [T_s, T_d, T_n, mu_s, cohesion]: !EvalModel
-    parameters: [Ts0, Td0, mu_d, x, y, z, rake, DeltaS, R]
+    parameters: [Ts0, Td0, mu_d, x, y, z, rake_interp_low_slip, DeltaS, R]
     model: !Switch
         [Ts0, Td0]: !Include yaml_files/Ts0Td0.yaml
         [mu_d]: !Include yaml_files/mud.yaml
-        [rake]: !Include yaml_files/rake.yaml
+        [rake_interp_low_slip]: !Include 'yaml_files/FL33_34_fault.yaml'
         [x, y, z]: !AffineMap
           matrix:
             x: [1.0, 0.0, 0.0]
@@ -46,8 +46,8 @@
         depthIncreasingCohesion = 6000.0
         cohesion = coh0  - 1e6 * math.max(0, (x['z'] + depthIncreasingCohesion) / depthIncreasingCohesion)
 
-        T_s = math.cos(x['rake']) * x['mu_d']*sigma_n - {{ B }} * x['Ts0']
-        T_d = math.sin(x['rake']) * x['mu_d']*sigma_n - {{ B }} * x['Td0']
+        T_s = math.cos(x['rake_interp_low_slip']) * x['mu_d']*sigma_n - {{ B }} * x['Ts0']
+        T_d = math.sin(x['rake_interp_low_slip']) * x['mu_d']*sigma_n - {{ B }} * x['Td0']
         Tau0 =  math.sqrt(T_s^2 + T_d^2)
         mu_smax = 1.5
         Tau0_max = sigma_n * ( x['mu_d'] + (mu_smax - x['mu_d'] - cohesion/sigma_n) * R)

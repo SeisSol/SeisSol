@@ -10,7 +10,8 @@ from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
 from writeNetcdf import writeNetcdf
 import os
-
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 
 def cosine_taper(npts, p=0.1, freqs=None, flimit=None, halfcosine=True, sactaper=False):
     """
@@ -912,16 +913,14 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         rake_rad = np.radians(rake)
         strike_slip = slip * np.cos(rake_rad) * cm2m
         dip_slip = slip * np.sin(rake_rad) * cm2m
-        
-        def compute_rake_interp_low_slip(strike_slip, dip_slip, slip_threshold = 0.05):
-            "compute rake with, with interpolation is slip is too small" 
+
+        def compute_rake_interp_low_slip(strike_slip, dip_slip, slip_threshold=0.05):
+            "compute rake with, with interpolation is slip is too small"
             slip = np.sqrt(strike_slip**2 + dip_slip**2)
             rake = np.arctan2(dip_slip, strike_slip)
-            rake[slip<slip_threshold] = np.nan
+            rake[slip < slip_threshold] = np.nan
             nan_indices = np.isnan(rake)
-            if not nan_indices.any():
-                return rake
-            else:
+            if nan_indices.any():
                 # Create a meshgrid for interpolation
                 x, y = np.meshgrid(np.arange(rake.shape[1]), np.arange(rake.shape[0]))
 
@@ -931,21 +930,31 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 rake_flat = rake[~nan_indices].flatten()
 
                 # Interpolate missing values using linear interpolation
-                rake_interpolated_lin = griddata((x_flat, y_flat), rake_flat, (x, y), method='linear')
+                rake_interpolated_lin = griddata(
+                    (x_flat, y_flat), rake_flat, (x, y), method="linear"
+                )
                 rake[nan_indices] = rake_interpolated_lin[nan_indices]
                 nan_indices = np.isnan(rake)
-                if not nan_indices.any():
-                    return rake
-                else:
-                    rake_interpolated_near = griddata((x_flat, y_flat), rake_flat, (x, y), method='nearest')
+                if nan_indices.any():
+                    rake_interpolated_near = griddata(
+                        (x_flat, y_flat), rake_flat, (x, y), method="nearest"
+                    )
                     nan_indices = np.isnan(rake)
                     rake[nan_indices] = rake_interpolated_near[nan_indices]
-                    return rake
+            rake = gaussian_filter(rake, sigma=spatial_zoom / 2)
+            return rake
 
         rake = compute_rake_interp_low_slip(strike_slip, dip_slip)
 
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
-        ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time", "rake_interp_low_slip"]
+        ldataName = [
+            "strike_slip",
+            "dip_slip",
+            "rupture_onset",
+            "effective_rise_time",
+            "acc_time",
+            "rake_interp_low_slip",
+        ]
         lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc, rake]
 
         prefix2 = f"{prefix}_{spatial_zoom}_{method}"
