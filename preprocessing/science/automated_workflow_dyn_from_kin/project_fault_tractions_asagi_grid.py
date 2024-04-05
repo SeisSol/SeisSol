@@ -6,6 +6,7 @@ import seissolxdmf
 import argparse
 import numpy as np
 from writeNetcdf import writeNetcdf
+from scipy.ndimage import gaussian_filter
 import os
 
 
@@ -56,6 +57,10 @@ def Gridto2Dlocal(coords, lengths, myAffineMap, fault_fname, ldataName, ids):
         # using linear interpolation when possible, else nearest neighbor
         ids_in = ~np.isnan(gridded_myData_lin)
         gridded_myData[ids_in] = gridded_myData_lin[ids_in]
+        if args.gaussian_kernel:
+            gridded_myData = gaussian_filter(
+                gridded_myData, sigma=args.gaussian_kernel[0] / dx
+            )
 
         if args.taper:
             taper_value = args.taper[0] * 1e6
@@ -109,6 +114,14 @@ parser.add_argument(
     type=float,
     default=([100]),
 )
+parser.add_argument(
+    "--gaussian_kernel",
+    metavar="sigma_m",
+    nargs=1,
+    help="apply a gaussian kernel to smooth out intput stresses",
+    type=float,
+)
+
 parser.add_argument(
     "--taper",
     nargs=1,
