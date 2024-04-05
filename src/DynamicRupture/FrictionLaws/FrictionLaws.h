@@ -1,7 +1,7 @@
 #ifndef SEISSOL_FRICTIONLAWS_H
 #define SEISSOL_FRICTIONLAWS_H
 
- // IWYU pragma: begin_exports
+// IWYU pragma: begin_exports
 
 // collect all friction laws here
 #include "AgingLaw.h"
@@ -24,6 +24,6 @@
 #include "GpuImpl/ThermalPressurization/NoTP.h"
 #endif
 
- // IWYU pragma: end_exports
+// IWYU pragma: end_exports
 
 #endif // SEISSOL_FRICTIONLAWS_H
