@@ -81,7 +81,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
   assert( ((uintptr_t)tmp.timeIntegratedAne) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs())           % ALIGNMENT == 0 );
 #endif
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));
@@ -90,33 +90,33 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   volKrnl.Qext = Qext;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration.starMatrices[i];
+    volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
   
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
   
   volKrnl.execute();
   
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[face] != FaceType::dynamicRupture ) {
-      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+    if( data.cellInformation().faceTypes[face] != FaceType::dynamicRupture ) {
+      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
   kernel::local lKrnl = m_localKernelPrototype;
-  lKrnl.E = data.localIntegration.specific.E;
+  lKrnl.E = data.localIntegration().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
-  lKrnl.Q = data.dofs;
-  lKrnl.Qane = data.dofsAne;
+  lKrnl.Q = data.dofs();
+  lKrnl.Qane = data.dofsAne();
   lKrnl.Qext = Qext;
-  lKrnl.W = data.localIntegration.specific.W;
-  lKrnl.w = data.localIntegration.specific.w;
+  lKrnl.W = data.localIntegration().specific.W;
+  lKrnl.w = data.localIntegration().specific.w;
 
   lKrnl.execute();
 }
