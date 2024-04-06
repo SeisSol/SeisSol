@@ -197,7 +197,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
         self.I['kp'] <= self.I['kp'] + powers[d] * dQ[d]['kp'],
         self.Iane['kpm'] <= self.Iane['kpm'] + powers[d] * dQane[d]['kpm'],
       ]
-    # TODO(David): we'll need to add intermediate results to Yateto, then the temporary storage needed can be reduced
+    # TODO(David): we'll need to add intermediate results to Yateto, then the temporary storage needed can be reduced.
     # for now, we'll interleave the Taylor expansion with the derivative computation
     # derivativeExpr += [
     #   derivativeTaylorExpansionElaExpr,

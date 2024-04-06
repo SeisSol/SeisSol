@@ -347,14 +347,14 @@ class LinearADERDG(ADERDGBase):
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
         self.dQs.append(dQ)
 
-        # TODO(David): interleave derivative and derivativeTaylorExpansion kernels?
-        derivativeExpr += [dQ['kp'] <= derivativeSum] # for interleaving, add: self.I['kp'] <= self.I['kp'] + power * dQ['kp']
+        # for now, we interleave derivative and derivativeTaylorExpansion kernels.
+        derivativeExpr += [dQ['kp'] <= derivativeSum, self.I['kp'] <= self.I['kp'] + power * dQ['kp']]
         derivativeTaylorExpansion += power * dQ['kp']
 
         derivatives.append(dQ)
 
       derivativeTaylorExpansionExpr = self.I['kp'] <= derivativeTaylorExpansion
-      derivativeExpr += [derivativeTaylorExpansionExpr]
+      # derivativeExpr += [derivativeTaylorExpansionExpr]
       generator.add(f'{name_prefix}derivative', derivativeExpr, target=target)
       generator.add(f'{name_prefix}derivativeTaylorExpansion',
                     derivativeTaylorExpansionExpr,
