@@ -535,6 +535,7 @@ class MultiFaultPlane:
       function: |
         function f (x)
           -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
+          -- same for the math.pi factor on rake
           return {
           strike_slip = -x["strike_slip"],
           dip_slip = x["dip_slip"],
@@ -542,7 +543,7 @@ class MultiFaultPlane:
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
           rupture_rise_time = x["effective_rise_time"],
-          rake_interp_low_slip = x["rake_interp_low_slip"]
+          rake_interp_low_slip = x["rake_interp_low_slip"] + math.pi
           }
         end
         """

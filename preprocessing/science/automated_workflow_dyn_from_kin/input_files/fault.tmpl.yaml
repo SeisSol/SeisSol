@@ -3,7 +3,7 @@
 [mu_d]: !Include yaml_files/mud.yaml
 
 [T_s, T_d, T_n, mu_s, cohesion]: !EvalModel
-    parameters: [Ts0, Td0, mu_d, x, y, z, rake_interp_low_slip, DeltaS, R]
+    parameters: [Ts0, Td0, mu_d, x, y, z, rake_interp_low_slip, R]
     model: !Switch
         [Ts0, Td0]: !Include yaml_files/Ts0Td0.yaml
         [mu_d]: !Include yaml_files/mud.yaml
@@ -17,10 +17,7 @@
             x: 0.0
             y: 0.0
             z: 0.0
-        [DeltaS,R]: !ConstantMap
-           map:
-             DeltaS: 100000
-             R: {{ R }}
+{{ R_yaml_block }}
     components: !LuaMap
       returns: [T_s, T_d, T_n, cohesion, mu_s]
       function: |

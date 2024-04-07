@@ -29,7 +29,7 @@ def compute_max_slip(fn):
 
 usgs_fn = "output/dyn-usgs-fault.xdmf"
 max_slip = compute_max_slip(usgs_fn)
-assert max_slip>0
+assert max_slip > 0
 
 # Get the directory of the script
 script_path = os.path.abspath(__file__)
@@ -37,6 +37,8 @@ script_directory = os.path.dirname(script_path)
 input_file_dir = f"{script_directory}/input_files"
 templateLoader = jinja2.FileSystemLoader(searchpath=input_file_dir)
 templateEnv = jinja2.Environment(loader=templateLoader)
+number_of_segments = len(glob.glob(f"tmp/*.ts"))
+print(f"found {number_of_segments} segments")
 
 latin_hypercube = False
 
@@ -62,13 +64,21 @@ if latin_hypercube:
     pars = np.around(pars, decimals=3)
 else:
     # grid parameter space
-    param1_values = [0.55, 0.6, 0.65, 0.7, 0.8, 0.9]
-    param2_values = [1.0, 1.1, 1.2]
-    param3_values = [0.15, 0.2, 0.25, 0.3]
+    paramB = [1.0, 1.1, 1.2]
+    # paramB = [1.0]
+    paramC = [0.1, 0.15, 0.2, 0.25, 0.3]
+    # paramC = [0.15]
+    paramR = [0.55, 0.6, 0.65, 0.7, 0.8, 0.9]
+    use_R_segment_wise = True
+    if use_R_segment_wise:
+        params = [paramB, paramC] + [paramR] * number_of_segments
+        # params = [paramB, paramC] + [[0.85]] + [paramR] * (number_of_segments-1)
+        assert len(params) == number_of_segments + 2
+    else:
+        params = [paramB, paramC, paramR]
+        assert len(params) == 3
     # Generate all combinations of parameter values
-    param_combinations = list(
-        itertools.product(param1_values, param2_values, param3_values)
-    )
+    param_combinations = list(itertools.product(*params))
     # Convert combinations to numpy array and round to desired decimals
     pars = np.around(np.array(param_combinations), decimals=3)
     nsample = pars.shape[0]
@@ -106,28 +116,52 @@ def compute_fault_sampling(usgs_duration):
 
 fault_sampling = compute_fault_sampling(usgs_duration)
 
+
+def generate_R_yaml_block(Rvalues):
+    if len(Rvalues) == 1:
+        return f"""        [R]: !ConstantMap
+            map:
+              R: {Rvalues[0]}"""
+
+    R_yaml_block = """        [R]: !Any
+           components:"""
+    for p, Rp in enumerate(Rvalues):
+        fault_id = 3 if p == 0 else 64 + p
+        R_yaml_block += f"""
+            - !GroupFilter
+              groups: {fault_id}
+              components: !ConstantMap
+                 map:
+                   R: {Rp}"""
+    return R_yaml_block
+
+
 list_fault_yaml = []
 for i in range(nsample):
-    R, B, C = pars[i, :]
+    row = pars[i, :]
+    B, C = row[0:2]
+    R = row[2:]
+
     template_par = {
-        "R": R,
+        "R_yaml_block": generate_R_yaml_block(R),
         "B": B,
         "C": C,
         "min_dc": C * max_slip * 0.15,
         "hypo_z": hypo_z,
         "r_crit": 3000.0,
     }
-    fn_fault = f"yaml_files/fault_B{B}_C{C}_R{R}.yaml"
+    sR = "_".join(map(str, R))
+    fn_fault = f"yaml_files/fault_B{B}_C{C}_R{sR}.yaml"
     list_fault_yaml.append(fn_fault)
 
     render_file(template_par, "fault.tmpl.yaml", fn_fault)
 
     template_par["end_time"] = usgs_duration + max(5.0, 0.25 * usgs_duration)
     template_par["fault_fname"] = fn_fault
-    template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{R}"
+    template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{sR}"
     template_par["material_fname"] = "yaml_files/usgs_material.yaml"
     template_par["fault_print_time_interval"] = fault_sampling
-    fn_param = f"parameters_dyn_B{B}_C{C}_R{R}.par"
+    fn_param = f"parameters_dyn_B{B}_C{C}_R{sR}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
 
@@ -152,14 +186,16 @@ list_nucleation_size = compute_critical_nucleation(
     -hypo_z,
 )
 print(list_nucleation_size)
-
 for i, fn in enumerate(list_fault_yaml):
     if list_nucleation_size[i]:
-        R, B, C = pars[i, :]
-        fn_fault = f"yaml_files/fault_B{B}_C{C}_R{R}.yaml"
+        row = pars[i, :]
+        B, C = row[0:2]
+        R = row[2:]
+        sR = "_".join(map(str, R))
+        fn_fault = f"yaml_files/fault_B{B}_C{C}_R{sR}.yaml"
         assert fn_fault == fn
         template_par = {
-            "R": R,
+            "R_yaml_block": generate_R_yaml_block(R),
             "B": B,
             "C": C,
             "min_dc": C * max_slip * 0.15,
