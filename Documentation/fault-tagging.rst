@@ -62,36 +62,18 @@ Note also that if a face is tagged twice, only the first tag will be considered.
 Using more than 189 dynamic rupture tags
 ----------------------------------------
 
-Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic rupture tags. To overcome this limitation, it is necessary to patch PUMGen, SeisSol and the PUML submodule of SeisSol. This can be done with:
+To handle more than 189 dynamic rupture tags (i.e. more than 255 boundary condition types), you will need to adjust the boundary format when building your mesh in PUMgen.
 
-.. code-block::
+That is, add in PUMgen the option ``--boundarytype=int64`` when building your mesh.
+No modification in SeisSol is needed, as it tries to infer the boundary format from the shape of the boundary array automatically.
+However, to prevent mistakes with reading the format, we nevertheless recommend specifying the boundary format explicitly. (it *is* possible to confuse the boundary format, but only in some esoteric edge cases)
 
-   cd PUMGen
-   git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
+To do that, it suffices to specify ``pumlboundaryformat = $option`` in the ``&meshnml`` section of your SeisSol parameter file, where ``$option`` is one of the following:
 
+- ``'auto'``: SeisSol will try to infer the boundary format automatically. This is the default option.
+- ``'i32'``: 8 bits per boundary face. That is, 189 dynamic rupture tags are possible (255 boundary condition types). It is (usually) stored as a one-dimensional 32-bit integer array (one entry per cell) in the Hdf5/binary file.
+- ``'i64'``: 16 bits per boundary face. That is, 65469 dynamic rupture tags (65535 boundary condition types). It is stored as a one-dimensional 64-bit integer array (one entry per cell) in the Hdf5/binary file.
+- ``'i32x4'``: 32 bits per boundary face. In short, you will have :math:`2^{32} - 65` different dynamic rupture tags available. The data is stored as a two-dimensional array (four entries per cell, one for each face) of 32-bit integers.
 
-.. code-block::
-
-   cd SeisSol
-   git apply Documentation/patchesI64/patch_SeisSol.diff
-
-
-and finally:
-
-.. code-block::
-
-   cd SeisSol/submodules/PUML/
-   git apply ../../Documentation/patchesI64/patch_PUML.diff
-
-
-Meshes with more than 255 tags can be created using pumgen -xml option, e.g. :
-
-.. code-block:: xml
-
-   <boundaryCondition tag="3">13245</boundaryCondition>
-   .
-   .
-   .
-   <boundaryCondition tag="900">12345,14325</boundaryCondition>
-
-
+To see which boundary format you have built your mesh for, you can use ``h5dump -H <yourmeshfile>.puml.h5``,
+and look at the datatype and the shape of the ``boundary`` dataset.
