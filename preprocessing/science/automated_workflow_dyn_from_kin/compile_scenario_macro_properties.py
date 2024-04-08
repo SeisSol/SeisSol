@@ -25,19 +25,21 @@ def computeMw(label, time, moment_rate):
 
 
 def extractBCR(fname):
-    # Define a regular expression pattern to extract numeric values
-    pattern = re.compile(r"B([\d.]+)_C([\d.]+)_R([\d.]+)-energy.csv")
+  # Define a regular expression pattern to extract B, C, and R values
+  pattern = r'B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv'
 
-    # Use the pattern to find matches in the file name
-    matches = pattern.search(fname)
+  # Match the pattern against the filename
+  match = re.search(pattern, fname)
 
-    if matches:
-        # Extract the values of B, C, and R from the matched groups
-        B_value = float(matches.group(1))
-        C_value = float(matches.group(2))
-        R_value = float(matches.group(3))
-        return B_value, C_value, R_value
-    else:
+  if match:
+      # Extract B and C values
+      B_value = float(match.group(1))
+      C_value = float(match.group(2))
+
+      # Extract R values and convert to a list
+      R_value = list(map(float, match.group(3).split('_')))
+      return B_value, C_value, R_value
+  else:
         # Raise a custom exception if no match is found
         raise ValueError(f"No match found in the file name: {fname}")
 
