@@ -42,6 +42,93 @@ def extractBCR(fname):
         raise ValueError(f"No match found in the file name: {fname}")
 
 
+def generate_XY_panel(
+    name_arr1, arr1, name_arr2, arr2, name3, val3, name_col, ax, cmap
+):
+    "generate a 2D plot with name_arr1 and name_arr2 in X and Y axis"
+    "colored by name_col"
+    unique_arr1 = np.unique(arr1)
+    unique_arr2 = np.unique(arr2)
+    X, Y = np.meshgrid(unique_arr1, unique_arr2)
+    gof_array = np.zeros_like(X) + np.nan
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            result = result_df[
+                (result_df[name_arr1] == X[i, j])
+                & (result_df[name_arr2] == Y[i, j])
+                & (result_df[name3] == val3)
+            ]
+            if not result.empty:
+                specific_index = result.index[0]
+                gof_array[i, j] = result.loc[specific_index, name_col]
+    im = ax.pcolormesh(X, Y, gof_array, cmap=cmap)
+    im.set_clim(0, result_df[name_col].max())
+    ax.set_xlabel(name_arr1)
+    ax.set_ylabel(name_arr2)
+    ax.set_xticks(unique_arr1)
+    ax.set_yticks(unique_arr2)
+    ax.set_title(f"{name3}={val3}")
+    if name_col == "ccmax":
+        label = "gof usgs moment rate release"
+    elif name_col == "M0mis":
+        label = "gof usgs moment release"
+    else:
+        label = name_col
+
+    fig.colorbar(im, label=label, ax=ax)
+
+
+def generate_BCR_plots(B, C, R):
+    unique_R = np.unique(R)
+    n_div = 2
+    nrow, ncol = len(unique_R) // n_div, 2 * n_div
+    # nrow, ncol = 2, 2
+    fig, axarr = plt.subplots(
+        nrow,
+        ncol,
+        figsize=(ncol * 4, nrow * 4),
+        dpi=160,
+        sharex=False,
+        sharey=True,
+        squeeze=False,
+    )
+
+    for k, Rk in enumerate(unique_R):
+        row = k % nrow
+        col = k // nrow * n_div
+        generate_XY_panel("B", B, "C", C, "R0", Rk, "ccmax", axarr[row, col], "viridis")
+        generate_XY_panel(
+            "B", B, "C", C, "R0", Rk, "M0mis", axarr[row, col + 1], "plasma"
+        )
+    fname = "BC_constant_R.pdf"
+    plt.savefig(fname)
+    print(f"done writing {fname}")
+
+    unique_B = np.unique(B)
+    n_div = 1
+    nrow, ncol = len(unique_B) // n_div, 2 * n_div
+    fig, axarr = plt.subplots(
+        nrow,
+        ncol,
+        figsize=(ncol * 4, nrow * 4),
+        dpi=160,
+        sharex=False,
+        sharey=True,
+        squeeze=False,
+    )
+
+    for k, Bk in enumerate(unique_B):
+        row = k % nrow
+        col = k // nrow * n_div
+        generate_XY_panel("R0", R, "C", C, "B", Bk, "ccmax", axarr[row, col], "viridis")
+        generate_XY_panel(
+            "R0", R, "C", C, "B", Bk, "M0mis", axarr[row, col + 1], "plasma"
+        )
+    fname = "R0C_constant_B.pdf"
+    plt.savefig(fname)
+    print(f"done writing {fname}")
+
+
 if __name__ == "__main__":
     ps = 8
     matplotlib.rcParams.update({"font.size": ps})
@@ -199,10 +286,12 @@ if __name__ == "__main__":
     result_df = pd.DataFrame(results)
     result_df["overall_gof"] = np.sqrt(result_df["M0mis"] * result_df["ccmax"])
     print(result_df)
-
     B = result_df["B"].values
     C = result_df["C"].values
     R = result_df["R0"].values
+
+    generate_BCR_plots(B, C, R)
+
     overall_gof = result_df["overall_gof"].values
     Mw = result_df["Mw"].values
     indices_of_nlargest_values = result_df["overall_gof"].nlargest(args.nmin[0]).index
