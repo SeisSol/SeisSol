@@ -895,7 +895,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.execute();
 
       m_timeKernel.updateNonLinearMaterialLocal(l_cell, Q_aveData, materialData, vertices, elements, meshId, AT, BT, CT, ATData,
-      BTData, CTData, data, cellInformation, m_cellAverageKernel, *derivatives_neighbor, QgodLocal, QgodNeighbor, ATtilde, T, Tinv,
+      BTData, CTData, data, cellInformation, m_cellAverageKernel, derivatives_neighbor, QgodLocal, QgodNeighbor, ATtilde, T, Tinv,
       QgodLocalData, TData, TinvData, ATtildeData, QgodNeighborData);
     }
 

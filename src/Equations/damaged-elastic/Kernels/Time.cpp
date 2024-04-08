@@ -1952,7 +1952,7 @@ void seissol::kernels::Time::updateNonLinearMaterialLocal(const unsigned int& l_
 CellMaterialData* materialData, const std::vector<Vertex>& vertices, const std::vector<Element>& elements,
 const unsigned int& meshId, yateto::CSCMatrixView<real, unsigned int> AT, yateto::CSCMatrixView<real, unsigned int> BT,
 yateto::CSCMatrixView<real, unsigned int> CT, real* ATData, real* BTData, real* CTData, const LocalData& data,
-const CellLocalInformation* cellInformation, kernel::cellAve& m_cellAverageKernel, real* derivatives_neighbor, yateto::DenseTensorView<2, double, unsigned int>& QgodLocal,
+const CellLocalInformation* cellInformation, kernel::cellAve& m_cellAverageKernel, real* derivatives_neighbor[4], yateto::DenseTensorView<2, double, unsigned int>& QgodLocal,
 yateto::DenseTensorView<2, double, unsigned int>& QgodNeighbor, yateto::CSCMatrixView<real, unsigned int>& ATtilde, init::T::view::type& T, init::Tinv::view::type& Tinv,
 real* QgodLocalData, real* TData, real* TinvData, real* ATtildeData, real* QgodNeighborData){
 
@@ -2045,7 +2045,7 @@ real* QgodLocalData, real* TData, real* TinvData, real* ATtildeData, real* QgodN
         if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
         cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
           m_cellAverageKernel.phiAve = init::phiAve::Values;
-          m_cellAverageKernel.Q = &derivatives_neighbor[side];
+          m_cellAverageKernel.Q = derivatives_neighbor[side];
           m_cellAverageKernel.QAve = Q_aveData;
           m_cellAverageKernel.execute();
 
