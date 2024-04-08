@@ -76,9 +76,16 @@
 #include "Kernels/GravitationalFreeSurfaceBC.h"
 #include <DynamicRupture/Misc.h>
 #include <DynamicRupture/Typedefs.hpp>
-#include <Equations/elastic/Kernels/Interface.hpp>
+#include <Equations/damaged-elastic/Model/DamagedSetup.h>
+#include <Initializer/CellLocalMatrices.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/typedefs.hpp>
 #include <Kernels/precision.hpp>
+#include <Model/common.hpp>
+#include <Numerical_aux/Transformation.h>
+#include <kernel.h>
+#include <vector>
+#include <yateto/TensorView.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -1632,10 +1639,8 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
 
      real lambda0P = impAndEta[ltsFace].lambda0P;
       real mu0P = impAndEta[ltsFace].mu0P;
-      real rho0P = impAndEta[ltsFace].rho0P;
       real lambda0M = impAndEta[ltsFace].lambda0M;
       real mu0M = impAndEta[ltsFace].mu0M;
-      real rho0M = impAndEta[ltsFace].rho0M;
 
       // TODO(NONLINEAR) What are these values?
       const real aB0 = m_damagedElasticParameters->aB0;
@@ -1941,4 +1946,192 @@ real* FluxInterpolatedBodyX, real* FluxInterpolatedBodyY, real* FluxInterpolated
         FluxInterpolatedBodyZ[timeInterval*CONVERGENCE_ORDER + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       }
     }
+}
+
+void seissol::kernels::Time::updateNonLinearMaterialLocal(const unsigned int& l_cell, real* Q_aveData, 
+CellMaterialData* materialData, const std::vector<Vertex>& vertices, const std::vector<Element>& elements,
+const unsigned int& meshId, yateto::CSCMatrixView<real, unsigned int> AT, yateto::CSCMatrixView<real, unsigned int> BT,
+yateto::CSCMatrixView<real, unsigned int> CT, real* ATData, real* BTData, real* CTData, const LocalData& data,
+const CellLocalInformation* cellInformation, kernel::cellAve& m_cellAverageKernel, real* derivatives_neighbor, yateto::DenseTensorView<2, double, unsigned int>& QgodLocal,
+yateto::DenseTensorView<2, double, unsigned int>& QgodNeighbor, yateto::CSCMatrixView<real, unsigned int>& ATtilde, init::T::view::type& T, init::Tinv::view::type& Tinv,
+real* QgodLocalData, real* TData, real* TinvData, real* ATtildeData, real* QgodNeighborData){
+
+      const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+      const real epsInityy = m_damagedElasticParameters->epsInityy;
+      const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+      const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+      const real epsInityz = m_damagedElasticParameters->epsInityz;
+      const real epsInitzx = m_damagedElasticParameters->epsInitzx;
+
+      const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
+      const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+        +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
+        +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
+        +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+        +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+        +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
+
+      real xi;
+      if (EspII > 1e-30){
+        xi = EspI / std::sqrt(EspII);
+      } else{
+        xi = 0.0;
+      }
+
+      const real alphaAve = Q_aveData[9];
+      const real breakAve = Q_aveData[10];
+
+      real lambda0 = materialData[l_cell].local.lambda0;
+      real mu0 = materialData[l_cell].local.mu0;
+
+      const real aB0 = m_damagedElasticParameters->aB0;
+      const real aB1 = m_damagedElasticParameters->aB1;
+      const real aB2 = m_damagedElasticParameters->aB2;
+      const real aB3 = m_damagedElasticParameters->aB3;
+
+      materialData[l_cell].local.mu = (1-breakAve) * (mu0
+         - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR
+         - 0.5*alphaAve*materialData[l_cell].local.gammaR*xi)
+         + breakAve * (
+           (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+         );
+      materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
+       - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+       + breakAve * (
+         (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+       );
+      materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
+
+      materialData[l_cell].local.epsxx_alpha = (Q_aveData[0]+epsInitxx);
+      materialData[l_cell].local.epsyy_alpha = (Q_aveData[1]+epsInityy);
+      materialData[l_cell].local.epszz_alpha = (Q_aveData[2]+epsInitzz);
+      materialData[l_cell].local.epsxy_alpha = (Q_aveData[3]+epsInitxy);
+      materialData[l_cell].local.epsyz_alpha = (Q_aveData[4]+epsInityz);
+      materialData[l_cell].local.epszx_alpha = (Q_aveData[5]+epsInitzx);
+
+      // global coordinates of the vertices
+      real x[4];
+      real y[4];
+      real z[4];
+      real gradXi[3];
+      real gradEta[3];
+      real gradZeta[3];
+
+      // Iterate over all 4 vertices of the tetrahedron
+      for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+        x[vertex] = coords[0];
+        y[vertex] = coords[1];
+        z[vertex] = coords[2];
+      }
+
+      seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, AT );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 1, BT );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 2, CT );
+      setStarMatrix(ATData, BTData, CTData, gradXi, data.localIntegration.starMatrices[0]);
+      setStarMatrix(ATData, BTData, CTData, gradEta, data.localIntegration.starMatrices[1]);
+      setStarMatrix(ATData, BTData, CTData, gradZeta, data.localIntegration.starMatrices[2]);
+
+      double volume = MeshTools::volume(elements[meshId], vertices);
+
+      auto ATtildeBC = init::star::view<0>::create(data.localIntegration.ATtildeBC);
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
+
+      for (unsigned side = 0; side < 4; ++side) {
+        lambda0 = materialData[l_cell].neighbor[side].lambda0;
+        mu0 = materialData[l_cell].neighbor[side].mu0;
+
+        if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
+        cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
+          m_cellAverageKernel.phiAve = init::phiAve::Values;
+          m_cellAverageKernel.Q = &derivatives_neighbor[side];
+          m_cellAverageKernel.QAve = Q_aveData;
+          m_cellAverageKernel.execute();
+
+          real EspINeigh = ((Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz));
+          real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+            +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
+            +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
+            +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+            +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+            +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
+          const real alphaAveNeigh = Q_aveData[9];
+          const real breakAveNeigh = Q_aveData[10];
+          real xi;
+          if (EspII > 1e-30){
+            xi = EspINeigh / std::sqrt(EspII);
+          } else{
+            xi = 0.0;
+          }
+
+          materialData[l_cell].neighbor[side].mu = (1-breakAveNeigh) * (mu0
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
+            - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
+            + breakAveNeigh * (
+                (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+              );
+          materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+            + breakAveNeigh * (
+              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+            );
+          materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
+
+          materialData[l_cell].neighbor[side].epsxx_alpha = (Q_aveData[0]+epsInitxx);
+          materialData[l_cell].neighbor[side].epsyy_alpha = (Q_aveData[1]+epsInityy);
+          materialData[l_cell].neighbor[side].epszz_alpha = (Q_aveData[2]+epsInitzz);
+          materialData[l_cell].neighbor[side].epsxy_alpha = (Q_aveData[3]+epsInitxy);
+          materialData[l_cell].neighbor[side].epsyz_alpha = (Q_aveData[4]+epsInityz);
+          materialData[l_cell].neighbor[side].epszx_alpha = (Q_aveData[5]+epsInitzx);
+        }
+        VrtxCoords normal;
+        VrtxCoords tangent1;
+        VrtxCoords tangent2;
+        MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
+        const double surface = MeshTools::surface(normal);
+        MeshTools::normalize(normal, normal);
+        MeshTools::normalize(tangent1, tangent1);
+        MeshTools::normalize(tangent2, tangent2);
+
+        real NLocalData[6*6];
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
+        seissol::model::getTransposedGodunovState(  materialData[l_cell].local,
+                                                      materialData[l_cell].neighbor[side],
+                                                      cellInformation[l_cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+        seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtilde );
+
+
+        // Calculate transposed T instead
+        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
+
+        // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
+        // must be subtracted.
+        const real fluxScale = -2.0 * surface / (6.0 * volume);
+
+        kernel::computeFluxSolverLocal localKrnl;
+        localKrnl.fluxScale = fluxScale;
+        localKrnl.AplusT = data.localIntegration.nApNm1[side];
+        localKrnl.QgodLocal = QgodLocalData;
+        localKrnl.T = TData;
+        localKrnl.Tinv = TinvData;
+        localKrnl.star(0) = ATtildeData;
+        localKrnl.execute();
+
+        kernel::computeFluxSolverNeighbor neighKrnl;
+        neighKrnl.fluxScale = fluxScale;
+        neighKrnl.AminusT = data.neighboringIntegration.nAmNm1[side];
+        neighKrnl.QgodNeighbor = QgodNeighborData;
+        neighKrnl.T = TData;
+        neighKrnl.Tinv = TinvData;
+        neighKrnl.star(0) = ATtildeData;
+        if (cellInformation[l_cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+          // Already rotated!
+          neighKrnl.Tinv = init::identityT::Values;
+        }
+        neighKrnl.execute();
+      }
 }

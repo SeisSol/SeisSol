@@ -180,7 +180,6 @@ inline void getTransposedGodunovState(DamagedElasticMaterial const& local,
     R(0, 8) = 1.0;
     R(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
   }
-#if USE_DAMAGEDELASTIC
   // R(9,9) = 1.0;
   // eigenvector corresponding to the additional damage variable
   real I1 = local.epsxx_alpha + local.epsyy_alpha + local.epszz_alpha;
@@ -204,7 +203,6 @@ inline void getTransposedGodunovState(DamagedElasticMaterial const& local,
 
   R(9, 9) = local.rho;
   R(10, 10) = local.rho;
-#endif
 
   //===============Added for free surface BC of the strain-vel case=====================
   // The input of getTransposedFreeSurfaceGodunovState() is changed from R to R_sig
@@ -226,10 +224,8 @@ inline void getTransposedGodunovState(DamagedElasticMaterial const& local,
   C(7, 7) = 1;
   C(8, 8) = 1;
 
-#if USE_DAMAGEDELASTIC
   C(9, 9) = 1.0;
   C(10, 10) = 1.0;
-#endif
 
   Matrix1010 R_sig = (C * R).eval();
 
