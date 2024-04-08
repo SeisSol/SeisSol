@@ -49,11 +49,12 @@ for p, p1 in enumerate(mfp.fault_planes):
     min_fault_plane_area = min(min_fault_plane_area, la * lb)
     total_area += la * lb
     print("inferred fault dimensions (km)", la, lb)
-
+    points = points.reshape((p1.ny, p1.nx, 2)) * 1e3
     iy = p1.ny // 2
     ix = p1.nx // 2
-    dx = min(dx, p1.x[iy, ix] - p1.x[iy, ix - 1])
-    dy = min(dy, p1.x[iy, ix] - p1.x[iy - 1, ix])
+    dx = min(dx, abs(points[iy, ix, 0] - points[iy, ix - 1, 0]))
+    dy = min(dy, abs(points[iy, ix, 1] - points[iy - 1, ix, 1]))
+    print(dx, dy)
 
 
 def next_odd_integer(x):
@@ -66,13 +67,12 @@ def next_odd_integer(x):
 
 
 def get_fault_mesh_size(min_plane_area, total_area):
-    if min_plane_area < 40 * 80:
+    if total_area < 40 * 80:
         return 500
+    elif total_area > 100 * 200:
+        return 1000
     else:
-        if total_area > 100 * 200:
-            return 1000
-        else:
-            return 700
+        return 700
 
 
 if not os.path.exists("tmp"):
@@ -85,7 +85,7 @@ print(f"using a mesh size of {mesh_size}")
 
 inferred_spatial_zoom = next_odd_integer(min(dx, dy) / mesh_size)
 
-print("inferred spatial zoom {inferred_spatial_zoom}")
+print(f"inferred spatial zoom {inferred_spatial_zoom}")
 fns = {
     "inferred_spatial_zoom.txt": inferred_spatial_zoom,
     "inferred_fault_mesh_size.txt": mesh_size,
