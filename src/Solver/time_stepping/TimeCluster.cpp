@@ -883,7 +883,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 #endif
     for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
       auto data = loader.entry(l_cell);
-      real * derivatives_neighbor[4];
+      alignas(ALIGNMENT) real * derivatives_neighbor[4];
       for (unsigned int i_nei=0; i_nei<4; i_nei++){
         derivatives_neighbor[i_nei] = faceNeighbors[l_cell][i_nei];
       }
