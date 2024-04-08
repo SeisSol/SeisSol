@@ -49,11 +49,6 @@
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Boundary.h>
 
-void setStarMatrix( real* i_AT,
-                    real* i_BT,
-                    real* i_CT,
-                    real  i_grad[3],
-                    real* o_starMatrix );
 namespace seissol {
   namespace initializer {
       class EasiBoundary;
