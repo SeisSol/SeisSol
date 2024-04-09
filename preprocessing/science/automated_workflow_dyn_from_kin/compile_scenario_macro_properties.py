@@ -25,21 +25,23 @@ def computeMw(label, time, moment_rate):
 
 
 def extractBCR(fname):
-  # Define a regular expression pattern to extract B, C, and R values
-  pattern = r'B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv'
+    # Define a regular expression pattern to extract B, C, and R values
+    pattern = r"B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv"
 
-  # Match the pattern against the filename
-  match = re.search(pattern, fname)
+    # Match the pattern against the filename
+    match = re.search(pattern, fname)
 
-  if match:
-      # Extract B and C values
-      B_value = float(match.group(1))
-      C_value = float(match.group(2))
+    if match:
+        # Extract B and C values
+        B_value = float(match.group(1))
+        C_value = float(match.group(2))
 
-      # Extract R values and convert to a list
-      R_value = list(map(float, match.group(3).split('_')))
-      return B_value, C_value, R_value
-  else:
+        # Extract R values and convert to a list
+        R_value = list(map(float, match.group(3).split("_")))
+        if len(R_value) == 1:
+            R_value = R_value[0]
+        return B_value, C_value, R_value
+    else:
         # Raise a custom exception if no match is found
         raise ValueError(f"No match found in the file name: {fname}")
 
@@ -102,7 +104,7 @@ def generate_BCR_plots(B, C, R):
         generate_XY_panel(
             "B", B, "C", C, "R0", Rk, "M0mis", axarr[row, col + 1], "plasma"
         )
-    fname = "BC_constant_R.pdf"
+    fname = "plots/BC_constant_R.pdf"
     plt.savefig(fname)
     print(f"done writing {fname}")
 
@@ -126,7 +128,7 @@ def generate_BCR_plots(B, C, R):
         generate_XY_panel(
             "R0", R, "C", C, "B", Bk, "M0mis", axarr[row, col + 1], "plasma"
         )
-    fname = "R0C_constant_B.pdf"
+    fname = "plots/R0C_constant_B.pdf"
     plt.savefig(fname)
     print(f"done writing {fname}")
 
