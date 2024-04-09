@@ -169,32 +169,83 @@ class seissol::kernels::Time : public TimeBase {
   };
 
 #ifdef USE_DAMAGEDELASTIC
-void calculateEps(const real* exxNodal, const real* eyyNodal, const real* ezzNodal, const real* exyNodal,
-      const real* eyzNodal, const real* ezxNodal,const unsigned int& q, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
-      real& EspI, real& EspII, real&xi);
+  void calculateEps(
+      const real* exxNodal,
+      const real* eyyNodal,
+      const real* ezzNodal,
+      const real* exyNodal,
+      const real* eyzNodal,
+      const real* ezxNodal,
+      const unsigned int& q,
+      const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+      real& EspI,
+      real& EspII,
+      real& xi);
 
-void computeNonLinearRusanovFlux(const CellMaterialData* materialData, const unsigned int& l_cell, const unsigned int& side, const double* timeWeights,
-  const real* qIPlus, const real* qIMinus, real* rusanovFluxP, const LocalIntegrationData* localIntegration);
+  void computeNonLinearRusanovFlux(const CellMaterialData* materialData,
+                                   const unsigned int& l_cell,
+                                   const unsigned int& side,
+                                   const double* timeWeights,
+                                   const real* qIPlus,
+                                   const real* qIMinus,
+                                   real* rusanovFluxP,
+                                   const LocalIntegrationData* localIntegration);
 
-void computeNonLinearIntegralCorrection(const CellLocalInformation* cellInformation, const unsigned int& l_cell, real** derivatives, 
-real* (* faceNeighbors)[4], const CellMaterialData* materialData, const LocalIntegrationData* localIntegration, const NeighborData& data, const CellDRMapping (*drMapping)[4],
-kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype, double timeStepSize, const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
-void calculateDynamicRuptureReceiverOutput(const real* dofsNPlus, const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
-const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const real* dofsNMinus, real* dofsStressNMinus);
-void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
-void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace, const real* qIPlus, real* qStressIPlus,
-const real* qIMinus, real* qStressIMinus);
-void updateNonLinearMaterialLocal(const real* Q_aveData, CellMaterialData* materialData, const unsigned int& l_cell,
-const std::vector<Element>& elements, const std::vector<Vertex>& vertices, const unsigned int& meshId, real* x, real* y, real* z);
-void updateNonLinearMaterialNeighbor(CellMaterialData* materialData, const unsigned int& l_cell, const unsigned& side,
-const real* Q_aveData);
-void computeNonLinearLocalIntegration(const seissol::kernels::LocalData& data,
-real (& QInterpolatedBodyNodal)[CONVERGENCE_ORDER][tensor::QNodal::size()], real (& FInterpolatedBody)[CONVERGENCE_ORDER][tensor::QNodal::size()],
-real (& sxxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& syyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& szzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-real (& sxyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& syzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& szxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-real (& FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
-real (& FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
-real (& FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
+  void computeNonLinearIntegralCorrection(
+      const CellLocalInformation* cellInformation,
+      const unsigned int& l_cell,
+      real** derivatives,
+      real* (*faceNeighbors)[4],
+      const CellMaterialData* materialData,
+      const LocalIntegrationData* localIntegration,
+      const NeighborData& data,
+      const CellDRMapping (*drMapping)[4],
+      kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
+      double timeStepSize,
+      const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
+  void calculateDynamicRuptureReceiverOutput(
+      const real* dofsNPlus,
+      const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+      const seissol::dr::ImpedancesAndEta* impAndEtaGet,
+      real* dofsStressNPlus,
+      const real* dofsNMinus,
+      real* dofsStressNMinus);
+  void stressToDofsDynamicRupture(real* dofsStressNPlus,
+                                  const real* dofsNPlus,
+                                  real* dofsStressNMinus,
+                                  const real* dofsNMinus);
+  void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta,
+                                       const unsigned& ltsFace,
+                                       const real* qIPlus,
+                                       real* qStressIPlus,
+                                       const real* qIMinus,
+                                       real* qStressIMinus);
+  void updateNonLinearMaterialLocal(const real* Q_aveData,
+                                    CellMaterialData* materialData,
+                                    const unsigned int& l_cell,
+                                    const std::vector<Element>& elements,
+                                    const std::vector<Vertex>& vertices,
+                                    const unsigned int& meshId,
+                                    real* x,
+                                    real* y,
+                                    real* z);
+  void updateNonLinearMaterialNeighbor(CellMaterialData* materialData,
+                                       const unsigned int& l_cell,
+                                       const unsigned& side,
+                                       const real* Q_aveData);
+  void computeNonLinearLocalIntegration(
+      const seissol::kernels::LocalData& data,
+      real (&QInterpolatedBodyNodal)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FInterpolatedBody)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&sxxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&syyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&szzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&sxyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&syzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&szxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
 #endif
 };
 #endif

@@ -441,8 +441,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     alignas(PAGESIZE_STACK) real syzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
     alignas(PAGESIZE_STACK) real szxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
 
-    m_timeKernel.computeNonLinearLocalIntegration(data, QInterpolatedBodyNodal, FInterpolatedBody, sxxNodal, syyNodal, szzNodal,sxyNodal,
-    syzNodal, szxNodal, FluxInterpolatedBodyX, FluxInterpolatedBodyY, FluxInterpolatedBodyZ);
+    m_timeKernel.computeNonLinearLocalIntegration(data,
+                                                  QInterpolatedBodyNodal,
+                                                  FInterpolatedBody,
+                                                  sxxNodal,
+                                                  syyNodal,
+                                                  szzNodal,
+                                                  sxyNodal,
+                                                  syzNodal,
+                                                  szxNodal,
+                                                  FluxInterpolatedBodyX,
+                                                  FluxInterpolatedBodyY,
+                                                  FluxInterpolatedBodyZ);
 
     /// Convert Q_{lp} at the initial time step from modal to nodal space
     //// Quadrature in time and nodal space and project back to modal space
@@ -901,7 +911,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-      m_timeKernel.updateNonLinearMaterialLocal(Q_aveData, materialData, l_cell, elements, vertices, meshId, x, y, z);
+      m_timeKernel.updateNonLinearMaterialLocal(
+          Q_aveData, materialData, l_cell, elements, vertices, meshId, x, y, z);
 
       seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
       seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, AT );

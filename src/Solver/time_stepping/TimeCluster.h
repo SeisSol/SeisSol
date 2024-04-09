@@ -300,10 +300,21 @@ private:
       LocalIntegrationData* localIntegration = i_layerData.var(m_lts->localIntegration);
       CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
-      
-      #ifdef _OPENMP // okay
-      #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared( materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
-      #endif // _OPENMP
+#ifdef _OPENMP // okay
+#pragma omp parallel for collapse(1)                                                               \
+    schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch)             \
+    shared(materialData,                                                                           \
+               localIntegration,                                                                   \
+               cellInformation,                                                                    \
+               loader,                                                                             \
+               faceNeighbors,                                                                      \
+               derivatives,                                                                        \
+               pstrain,                                                                            \
+               i_layerData,                                                                        \
+               plasticity,                                                                         \
+               drMapping,                                                                          \
+               subTimeStart) reduction(+ : numberOTetsWithPlasticYielding)
+#endif // _OPENMP
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
 
@@ -311,8 +322,17 @@ private:
         // TODO: Check if it works for periodic BCs.
         // Here, plus side is actually minus (or local solution side),
         // minus side is neighbor solution side.
-        m_timeKernel.computeNonLinearIntegralCorrection(cellInformation, l_cell, derivatives, faceNeighbors, materialData, localIntegration,
-        data, drMapping, m_nonlSurfIntPrototype, timeStepSize(), m_nonlinearInterpolation);
+        m_timeKernel.computeNonLinearIntegralCorrection(cellInformation,
+                                                        l_cell,
+                                                        derivatives,
+                                                        faceNeighbors,
+                                                        materialData,
+                                                        localIntegration,
+                                                        data,
+                                                        drMapping,
+                                                        m_nonlSurfIntPrototype,
+                                                        timeStepSize(),
+                                                        m_nonlinearInterpolation);
       }
 
       const long long nonZeroFlopsPlasticity =
