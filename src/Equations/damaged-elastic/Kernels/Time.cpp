@@ -78,6 +78,7 @@
 #include <DynamicRupture/Typedefs.hpp>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/precision.hpp>
+#include <Numerical_aux/Transformation.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -1767,4 +1768,123 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           qStressIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i] = qIMinus[o*numQuantities*numPaddedPoints + BRE*numPaddedPoints + i];
         }
       } // time integration loop
+}
+
+void seissol::kernels::Time::updateNonLinearMaterialLocal(const real* Q_aveData, CellMaterialData* materialData, const unsigned int& l_cell,
+const std::vector<Element>& elements, const std::vector<Vertex>& vertices, const unsigned int& meshId, real* x, real* y, real* z){
+      const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+      const real epsInityy = m_damagedElasticParameters->epsInityy;
+      const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+      const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+      const real epsInityz = m_damagedElasticParameters->epsInityz;
+      const real epsInitzx = m_damagedElasticParameters->epsInitzx;
+
+      const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
+      const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+        +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
+        +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
+        +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+        +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+        +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
+
+      real xi;
+      if (EspII > 1e-30){
+        xi = EspI / std::sqrt(EspII);
+      } else{
+        xi = 0.0;
+      }
+
+      const real alphaAve = Q_aveData[9];
+      const real breakAve = Q_aveData[10];
+
+      real lambda0 = materialData[l_cell].local.lambda0;
+      real mu0 = materialData[l_cell].local.mu0;
+
+      const real aB0 = m_damagedElasticParameters->aB0;
+      const real aB1 = m_damagedElasticParameters->aB1;
+      const real aB2 = m_damagedElasticParameters->aB2;
+      const real aB3 = m_damagedElasticParameters->aB3;
+
+            materialData[l_cell].local.mu = (1-breakAve) * (mu0
+         - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR
+         - 0.5*alphaAve*materialData[l_cell].local.gammaR*xi)
+         + breakAve * (
+           (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+         );
+      materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
+       - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+       + breakAve * (
+         (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+       );
+      materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
+
+      materialData[l_cell].local.epsxx_alpha = (Q_aveData[0]+epsInitxx);
+      materialData[l_cell].local.epsyy_alpha = (Q_aveData[1]+epsInityy);
+      materialData[l_cell].local.epszz_alpha = (Q_aveData[2]+epsInitzz);
+      materialData[l_cell].local.epsxy_alpha = (Q_aveData[3]+epsInitxy);
+      materialData[l_cell].local.epsyz_alpha = (Q_aveData[4]+epsInityz);
+      materialData[l_cell].local.epszx_alpha = (Q_aveData[5]+epsInitzx);
+
+
+      // Iterate over all 4 vertices of the tetrahedron
+      for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+        x[vertex] = coords[0];
+        y[vertex] = coords[1];
+        z[vertex] = coords[2];
+      }
+}
+
+void seissol::kernels::Time::updateNonLinearMaterialNeighbor(CellMaterialData* materialData, const unsigned int& l_cell, const unsigned& side,
+const real* Q_aveData){
+      const real epsInitxx = m_damagedElasticParameters->epsInitxx;
+      const real epsInityy = m_damagedElasticParameters->epsInityy;
+      const real epsInitzz = m_damagedElasticParameters->epsInitzz;
+      const real epsInitxy = m_damagedElasticParameters->epsInitxy;
+      const real epsInityz = m_damagedElasticParameters->epsInityz;
+      const real epsInitzx = m_damagedElasticParameters->epsInitzx;
+      const real aB0 = m_damagedElasticParameters->aB0;
+      const real aB1 = m_damagedElasticParameters->aB1;
+      const real aB2 = m_damagedElasticParameters->aB2;
+      const real aB3 = m_damagedElasticParameters->aB3;
+
+        real lambda0 = materialData[l_cell].neighbor[side].lambda0;
+        real mu0 = materialData[l_cell].neighbor[side].mu0;
+
+          real EspINeigh = ((Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz));
+          real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
+            +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
+            +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
+            +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
+            +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
+            +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
+          const real alphaAveNeigh = Q_aveData[9];
+          const real breakAveNeigh = Q_aveData[10];
+          real xi;
+          real xiInv;
+          if (EspII > 1e-30){
+            xi = EspINeigh / std::sqrt(EspII);
+          } else{
+            xi = 0.0;
+          }
+
+          materialData[l_cell].neighbor[side].mu = (1-breakAveNeigh) * (mu0
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
+            - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
+            + breakAveNeigh * (
+                (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+              );
+          materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
+            + breakAveNeigh * (
+              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
+            );
+          materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
+
+          materialData[l_cell].neighbor[side].epsxx_alpha = (Q_aveData[0]+epsInitxx);
+          materialData[l_cell].neighbor[side].epsyy_alpha = (Q_aveData[1]+epsInityy);
+          materialData[l_cell].neighbor[side].epszz_alpha = (Q_aveData[2]+epsInitzz);
+          materialData[l_cell].neighbor[side].epsxy_alpha = (Q_aveData[3]+epsInitxy);
+          materialData[l_cell].neighbor[side].epsyz_alpha = (Q_aveData[4]+epsInityz);
+          materialData[l_cell].neighbor[side].epszx_alpha = (Q_aveData[5]+epsInitzx);
 }

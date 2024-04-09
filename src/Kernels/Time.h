@@ -184,6 +184,10 @@ const seissol::dr::ImpedancesAndEta* impAndEtaGet, real* dofsStressNPlus, const 
 void stressToDofsDynamicRupture(real* dofsStressNPlus, const real* dofsNPlus, real* dofsStressNMinus, const real* dofsNMinus);
 void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta, const unsigned& ltsFace, const real* qIPlus, real* qStressIPlus,
 const real* qIMinus, real* qStressIMinus);
+void updateNonLinearMaterialLocal(const real* Q_aveData, CellMaterialData* materialData, const unsigned int& l_cell,
+const std::vector<Element>& elements, const std::vector<Vertex>& vertices, const unsigned int& meshId, real* x, real* y, real* z);
+void updateNonLinearMaterialNeighbor(CellMaterialData* materialData, const unsigned int& l_cell, const unsigned& side,
+const real* Q_aveData);
 #endif
 };
 #endif
