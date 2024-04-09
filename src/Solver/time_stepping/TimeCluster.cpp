@@ -1053,12 +1053,10 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-#ifdef USE_DAMAGEDELASTIC
     kernel::cellAve m_cellAverageKernel;
     // real Q_aveData[NUMBER_OF_QUANTITIES];
     alignas(ALIGNMENT) real Q_aveData[tensor::QAve::size()];
     auto Q_ave = init::QAve::view::create(Q_aveData);
-#endif
 
 #ifdef _OPENMP
     #pragma omp for schedule(static)
@@ -1072,7 +1070,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       }
 
       unsigned int meshId = data.localIntegration.globalMeshId;
-#ifdef USE_DAMAGEDELASTIC
+
       m_cellAverageKernel.phiAve = init::phiAve::Values;
       m_cellAverageKernel.Q = data.dofs;
       m_cellAverageKernel.QAve = Q_aveData;
@@ -1210,7 +1208,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           materialData[l_cell].neighbor[side].epsyz_alpha = (Q_aveData[4]+epsInityz);
           materialData[l_cell].neighbor[side].epszx_alpha = (Q_aveData[5]+epsInitzx);
         }
-#endif
 
         VrtxCoords normal;
         VrtxCoords tangent1;
