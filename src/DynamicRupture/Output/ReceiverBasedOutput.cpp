@@ -1,12 +1,12 @@
 #include "Initializer/tree/Layer.hpp"
 #include "Initializer/preProcessorMacros.hpp"
+#include "Kernels/Time.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Initializer/Parameters/ModelParameters.h>
 #include <cstring>
-#include "Kernels/Time.h"
 
 using namespace seissol::dr::misc::quantity_indices;
 
