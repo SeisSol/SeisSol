@@ -188,6 +188,13 @@ void updateNonLinearMaterialLocal(const real* Q_aveData, CellMaterialData* mater
 const std::vector<Element>& elements, const std::vector<Vertex>& vertices, const unsigned int& meshId, real* x, real* y, real* z);
 void updateNonLinearMaterialNeighbor(CellMaterialData* materialData, const unsigned int& l_cell, const unsigned& side,
 const real* Q_aveData);
+void computeNonLinearLocalIntegration(const seissol::kernels::LocalData& data,
+real (& QInterpolatedBodyNodal)[CONVERGENCE_ORDER][tensor::QNodal::size()], real (& FInterpolatedBody)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+real (& sxxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& syyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& szzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+real (& sxyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& syzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], real (& szxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+real (& FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+real (& FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+real (& FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
 #endif
 };
 #endif
