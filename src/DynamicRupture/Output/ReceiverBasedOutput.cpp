@@ -167,8 +167,12 @@ void ReceiverOutput::calcFaultOutput(
     alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
-    timeKernel.calculateDynamicRuptureReceiverOutput(dofsNPlus, damagedElasticParameters, impAndEtaGet, dofsStressNPlus, 
-    dofsNMinus, dofsStressNMinus);
+    timeKernel.calculateDynamicRuptureReceiverOutput(dofsNPlus,
+                                                     damagedElasticParameters,
+                                                     impAndEtaGet,
+                                                     dofsStressNPlus,
+                                                     dofsNMinus,
+                                                     dofsStressNMinus);
 
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
