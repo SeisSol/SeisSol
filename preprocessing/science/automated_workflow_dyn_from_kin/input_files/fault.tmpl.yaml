@@ -27,7 +27,7 @@
         xha = {0, 0, {{ hypo_z }}}
         r_crita = {{ r_crit }}
         ra = math.sqrt((x['x']-xha[1])^2 + (x['y']-xha[2])^2 + (x['z']-xha[3])^2 )
-        coh0 = -0.25e6
+        coh0 = -{{ cohesion_const }}
         cohn = 0.0
         R = x["R"]
         if (ra <= r_crita) then
@@ -41,7 +41,7 @@
         sigma_n = math.abs(T_n)
 
         depthIncreasingCohesion = 6000.0
-        cohesion = coh0  - 1e6 * math.max(0, (x['z'] + depthIncreasingCohesion) / depthIncreasingCohesion)
+        cohesion = coh0  -{{ cohesion_lin }} * math.max(0, (x['z'] + depthIncreasingCohesion) / depthIncreasingCohesion)
 
         T_s = math.cos(x['rake_interp_low_slip']) * x['mu_d']*sigma_n - {{ B }} * x['Ts0']
         T_d = math.sin(x['rake_interp_low_slip']) * x['mu_d']*sigma_n - {{ B }} * x['Td0']

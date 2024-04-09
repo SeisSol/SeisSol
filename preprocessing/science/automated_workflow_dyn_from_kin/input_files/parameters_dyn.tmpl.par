@@ -17,7 +17,7 @@ XRef = 0.0
 YRef = 0.0
 ZRef = -1.0
 refPointMethod = 1
-t0=0.5
+t_0=0.5
 OutputPointType = 4                            ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
@@ -69,7 +69,7 @@ refinement = 1
 ! Free surface output
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
-SurfaceOutputInterval = 5.0
+SurfaceOutputInterval = {{  surface_output_interval }}
 
 xdmfWriterBackend = 'hdf5' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
@@ -84,7 +84,7 @@ EnergyOutputInterval = 0.25
 EndTime = {{ end_time }}
 terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate everywhere on the fault or seismic moment rate is below
                                      ! the given threshold
-terminatorMomentRateThreshold = 1e18 ! Seismic moment rate threshold for the above criteria
+terminatorMomentRateThreshold = {{ terminatorMomentRateThreshold }} ! Seismic moment rate threshold for the above criteria
 /
 
 &Analysis

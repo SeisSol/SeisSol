@@ -543,7 +543,7 @@ class MultiFaultPlane:
           tau_S = x["acc_time"]/1.27,
           tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
           rupture_rise_time = x["effective_rise_time"],
-          rake_interp_low_slip = x["rake_interp_low_slip"] + math.pi
+          rake_interp_low_slip = math.pi - x["rake_interp_low_slip"]
           }
         end
         """

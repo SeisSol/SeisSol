@@ -4,6 +4,7 @@ import argparse
 from scipy import interpolate
 import easi
 import seissolxdmf
+from tqdm import tqdm
 
 
 class seissolxdmfExtended(seissolxdmf.seissolxdmf):
@@ -114,7 +115,7 @@ def compute_critical_nucleation(
     CG = compute_CG(centers, ids, sx, mat_yaml)
     tags = sx.ReadFaultTags()[ids]
     results = []
-    for fault_yaml in list_fault_yaml:
+    for fault_yaml in tqdm(list_fault_yaml):
         print(f"now processing {fault_yaml}")
         out = easi.evaluate_model(
             centers, tags, ["mu_s", "mu_d", "d_c", "T_n"], fault_yaml

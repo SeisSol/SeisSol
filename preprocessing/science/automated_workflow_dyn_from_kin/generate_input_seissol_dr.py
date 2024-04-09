@@ -64,19 +64,24 @@ if latin_hypercube:
     pars = np.around(pars, decimals=3)
 else:
     # grid parameter space
-    paramB = [1.0, 1.1, 1.2]
+    paramB = [0.9, 1.0, 1.1, 1.2]
     # paramB = [1.0]
     paramC = [0.1, 0.15, 0.2, 0.25, 0.3]
     # paramC = [0.15]
     paramR = [0.55, 0.6, 0.65, 0.7, 0.8, 0.9]
+    # paramR = [0.55]
+    list_cohesion = [(0.25, 1)]
+    # list_cohesion = [(0.25, 0), (0.25, 1), (0.25, 3)]
+    paramCoh = list(range(len(list_cohesion)))
+    longer_and_more_frequent_output = True
     use_R_segment_wise = True
     if use_R_segment_wise:
-        params = [paramB, paramC] + [paramR] * number_of_segments
-        # params = [paramB, paramC] + [[0.85]] + [paramR] * (number_of_segments-1)
-        assert len(params) == number_of_segments + 2
+        params = [paramCoh, paramB, paramC] + [paramR] * number_of_segments
+        # params = [paramCoh, paramB, paramC] + [[0.85]] + [paramR] * (number_of_segments-1)
+        assert len(params) == number_of_segments + 3
     else:
-        params = [paramB, paramC, paramR]
-        assert len(params) == 3
+        params = [paramCoh, paramB, paramC, paramR]
+        assert len(params) == 4
     # Generate all combinations of parameter values
     param_combinations = list(itertools.product(*params))
     # Convert combinations to numpy array and round to desired decimals
@@ -139,29 +144,41 @@ def generate_R_yaml_block(Rvalues):
 list_fault_yaml = []
 for i in range(nsample):
     row = pars[i, :]
-    B, C = row[0:2]
-    R = row[2:]
+    cohi, B, C = row[0:3]
+    cohesion_const, cohesion_lin = list_cohesion[int(cohi)]
+    R = row[3:]
 
     template_par = {
         "R_yaml_block": generate_R_yaml_block(R),
+        "cohesion_const": cohesion_const,
+        "cohesion_lin": cohesion_lin,
         "B": B,
         "C": C,
         "min_dc": C * max_slip * 0.15,
         "hypo_z": hypo_z,
         "r_crit": 3000.0,
     }
+
     sR = "_".join(map(str, R))
-    fn_fault = f"yaml_files/fault_B{B}_C{C}_R{sR}.yaml"
+    code = f"coh{cohesion_const}_{cohesion_lin}_B{B}_C{C}_R{sR}"
+    fn_fault = f"yaml_files/fault_{code}.yaml"
     list_fault_yaml.append(fn_fault)
 
     render_file(template_par, "fault.tmpl.yaml", fn_fault)
 
-    template_par["end_time"] = usgs_duration + max(5.0, 0.25 * usgs_duration)
+    if longer_and_more_frequent_output:
+        template_par["end_time"] = usgs_duration + max(20.0, 0.25 * usgs_duration)
+        template_par["terminatorMomentRateThreshold"] = -1
+        template_par["surface_output_interval"] = 1.0
+    else:
+        template_par["end_time"] = usgs_duration + max(5.0, 0.25 * usgs_duration)
+        template_par["terminatorMomentRateThreshold"] = 5e17
+        template_par["surface_output_interval"] = 5.0
     template_par["fault_fname"] = fn_fault
-    template_par["output_file"] = f"output/dyn_B{B}_C{C}_R{sR}"
+    template_par["output_file"] = f"output/dyn_{code}"
     template_par["material_fname"] = "yaml_files/usgs_material.yaml"
     template_par["fault_print_time_interval"] = fault_sampling
-    fn_param = f"parameters_dyn_B{B}_C{C}_R{sR}.par"
+    fn_param = f"parameters_dyn_{code}.par"
     render_file(template_par, "parameters_dyn.tmpl.par", fn_param)
 
 
@@ -187,15 +204,19 @@ list_nucleation_size = compute_critical_nucleation(
 )
 print(list_nucleation_size)
 for i, fn in enumerate(list_fault_yaml):
+    row = pars[i, :]
+    cohi, B, C = row[0:3]
+    cohesion_const, cohesion_lin = list_cohesion[int(cohi)]
+    R = row[3:]
+    sR = "_".join(map(str, R))
+    code = f"coh{cohesion_const}_{cohesion_lin}_B{B}_C{C}_R{sR}"
     if list_nucleation_size[i]:
-        row = pars[i, :]
-        B, C = row[0:2]
-        R = row[2:]
-        sR = "_".join(map(str, R))
-        fn_fault = f"yaml_files/fault_B{B}_C{C}_R{sR}.yaml"
+        fn_fault = f"yaml_files/fault_{code}.yaml"
         assert fn_fault == fn
         template_par = {
             "R_yaml_block": generate_R_yaml_block(R),
+            "cohesion_const": cohesion_const,
+            "cohesion_lin": cohesion_lin,
             "B": B,
             "C": C,
             "min_dc": C * max_slip * 0.15,
@@ -204,7 +225,6 @@ for i, fn in enumerate(list_fault_yaml):
         }
         render_file(template_par, "fault.tmpl.yaml", fn_fault)
     else:
-        code = fn.split(".yaml")[0].split("fault_")[1]
         fn_param = f"parameters_dyn_{code}.par"
         print(f"removing {fn} and {fn_param} (nucleation too large)")
         os.remove(fn)

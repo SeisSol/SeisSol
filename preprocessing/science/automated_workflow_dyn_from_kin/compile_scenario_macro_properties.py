@@ -9,6 +9,7 @@ import glob
 import re
 from obspy.signal.cross_correlation import correlate, correlate_template, xcorr_max
 from scipy import integrate
+from cmcrameri import cm
 
 
 def infer_duration(time, moment_rate):
@@ -70,12 +71,17 @@ def generate_XY_panel(
     ax.set_xlabel(name_arr1)
     ax.set_ylabel(name_arr2)
     ax.set_xticks(unique_arr1)
+    from matplotlib.ticker import FormatStrFormatter
+
+    ax.set_xticklabels(FormatStrFormatter("%g").format_ticks(unique_arr1))
     ax.set_yticks(unique_arr2)
     ax.set_title(f"{name3}={val3}")
     if name_col == "ccmax":
         label = "gof usgs moment rate release"
     elif name_col == "M0mis":
         label = "gof usgs moment release"
+    elif name_col == "overall_gof":
+        label = "combined gof"
     else:
         label = name_col
 
@@ -85,7 +91,7 @@ def generate_XY_panel(
 def generate_BCR_plots(B, C, R):
     unique_R = np.unique(R)
     n_div = 2
-    nrow, ncol = len(unique_R) // n_div, 2 * n_div
+    nrow, ncol = int(np.ceil(len(unique_R) / n_div)), 2 * n_div
     # nrow, ncol = 2, 2
     fig, axarr = plt.subplots(
         nrow,
@@ -96,13 +102,14 @@ def generate_BCR_plots(B, C, R):
         sharey=True,
         squeeze=False,
     )
-
     for k, Rk in enumerate(unique_R):
         row = k % nrow
         col = k // nrow * n_div
-        generate_XY_panel("B", B, "C", C, "R0", Rk, "ccmax", axarr[row, col], "viridis")
         generate_XY_panel(
-            "B", B, "C", C, "R0", Rk, "M0mis", axarr[row, col + 1], "plasma"
+            "B", B, "C", C, "R0", Rk, "ccmax", axarr[row, col], cm.cmaps["acton"]
+        )
+        generate_XY_panel(
+            "B", B, "C", C, "R0", Rk, "M0mis", axarr[row, col + 1], cm.cmaps["oslo"]
         )
     fname = "plots/BC_constant_R.pdf"
     plt.savefig(fname)
@@ -110,7 +117,7 @@ def generate_BCR_plots(B, C, R):
 
     unique_B = np.unique(B)
     n_div = 1
-    nrow, ncol = len(unique_B) // n_div, 2 * n_div
+    nrow, ncol = len(unique_B) // n_div, 3 * n_div
     fig, axarr = plt.subplots(
         nrow,
         ncol,
@@ -124,10 +131,24 @@ def generate_BCR_plots(B, C, R):
     for k, Bk in enumerate(unique_B):
         row = k % nrow
         col = k // nrow * n_div
-        generate_XY_panel("R0", R, "C", C, "B", Bk, "ccmax", axarr[row, col], "viridis")
         generate_XY_panel(
-            "R0", R, "C", C, "B", Bk, "M0mis", axarr[row, col + 1], "plasma"
+            "R0", R, "C", C, "B", Bk, "ccmax", axarr[row, col], cm.cmaps["acton"]
         )
+        generate_XY_panel(
+            "R0", R, "C", C, "B", Bk, "M0mis", axarr[row, col + 1], cm.cmaps["oslo"]
+        )
+        generate_XY_panel(
+            "R0",
+            R,
+            "C",
+            C,
+            "B",
+            Bk,
+            "overall_gof",
+            axarr[row, col + 2],
+            cm.cmaps["batlowW"],
+        )
+
     fname = "plots/R0C_constant_B.pdf"
     plt.savefig(fname)
     print(f"done writing {fname}")
@@ -187,8 +208,8 @@ if __name__ == "__main__":
         energy_files = sorted(glob.glob(f"{args.output_folder}*-energy.csv"))
     one_model_shown = args.nmax[0] == 1
 
-    cm = 1 / 2.54
-    figsize = (6.5 * cm, 3.5 * cm) if one_model_shown else (8, 4)
+    centimeter = 1 / 2.54
+    figsize = (6.5 * centimeter, 3.5 * centimeter) if one_model_shown else (8, 4)
     fig = plt.figure(figsize=figsize, dpi=80)
     ax = fig.add_subplot(111)
 
@@ -215,9 +236,9 @@ if __name__ == "__main__":
         last_index_non_zero = np.nonzero(mr_ref[:, 1])[0][-1]
         return mr_ref[:last_index_non_zero, :]
 
-    if os.path.exists("tmp/moment_rate_slipnear.txt"):
+    if os.path.exists("tmp/moment_rate_from_finite_source_file.txt"):
         print("loading slipnear moment rate")
-        mr_ref = np.loadtxt("tmp/moment_rate_slipnear.txt")
+        mr_ref = np.loadtxt("tmp/moment_rate_from_finite_source_file.txt")
         ref_name = "slipnear"
     else:
         mr_ref = read_usgs_moment_rate()
@@ -254,7 +275,11 @@ if __name__ == "__main__":
         df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], dt)
         label = os.path.basename(fn)
         prefix = fn.split("-energy.csv")[0]
-        faultfn = glob.glob(f"{prefix}*-fault.xdmf")[0]
+        faultfn = glob.glob(f"{prefix}-fault.xdmf")
+        if faultfn:
+            faultfn = faultfn[0]
+        else:
+            faultfn = glob.glob(f"{prefix}_*-fault.xdmf")[0]
         B, C, R = extractBCR(fn)
         M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
         results["Mw"].append(Mw)
@@ -262,27 +287,25 @@ if __name__ == "__main__":
         results["C"].append(C)
         results["R0"].append(R)
         results["faultfn"].append(faultfn)
-        if len(mr_ref_interp) > len(df["seismic_moment_rate"]):
-            cc = correlate_template(
-                mr_ref_interp,
-                df["seismic_moment_rate"],
-                mode="same",
-                normalize="naive",
-            )
-        else:
-            cc = correlate_template(
-                df["seismic_moment_rate"],
-                mr_ref_interp,
-                mode="same",
-                normalize="naive",
-            )
-        # cc = correlate(df["seismic_moment_rate"], mr_ref_interp, shift=int(0.25 * inferred_duration/dt))
+        max_shift = int(0.25 * inferred_duration / dt)
+
+        len_corr = max(len(mr_ref_interp), len(df["seismic_moment_rate"]))
+        # signal padded for easier interpretation of the shift
+        s1 = np.pad(
+            mr_ref_interp,
+            (0, len_corr - len(mr_ref_interp)),
+            "constant",
+            constant_values=(0, 0),
+        )
+        s2 = np.pad(
+            df["seismic_moment_rate"],
+            (0, len_corr - len(df["seismic_moment_rate"])),
+            "constant",
+            constant_values=(0, 0),
+        )
+        cc = correlate(s1, s2, shift=max_shift)
         shift, ccmax = xcorr_max(cc, abs_max=False)
-        d1 = max(len(df["seismic_moment_rate"]), len(mr_ref_interp))
-        d2 = min(len(df["seismic_moment_rate"]), len(mr_ref_interp))
-        results["shift_syn_ref_sec"].append((shift + 0.5 * (d1 - d2)) * dt)
-        if abs(results["shift_syn_ref_sec"][-1]) > 0.5 * inferred_duration:
-            ccmax = 0.0
+        results["shift_syn_ref_sec"].append(shift * dt)
         results["ccmax"].append(ccmax)
         M0_gof = 1 - abs(M0 - M0ref) / M0ref
         results["M0mis"].append(M0_gof)
