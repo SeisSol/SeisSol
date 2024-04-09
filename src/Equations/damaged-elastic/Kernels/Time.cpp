@@ -1632,10 +1632,8 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
 
   real lambda0P = impAndEta[ltsFace].lambda0P;
   real mu0P = impAndEta[ltsFace].mu0P;
-  real rho0P = impAndEta[ltsFace].rho0P;
   real lambda0M = impAndEta[ltsFace].lambda0M;
   real mu0M = impAndEta[ltsFace].mu0M;
-  real rho0M = impAndEta[ltsFace].rho0M;
 
   // TODO(NONLINEAR) What are these values?
   const real aB0 = m_damagedElasticParameters->aB0;
@@ -1948,7 +1946,6 @@ void seissol::kernels::Time::updateNonLinearMaterialNeighbor(CellMaterialData* m
   const real alphaAveNeigh = Q_aveData[9];
   const real breakAveNeigh = Q_aveData[10];
   real xi;
-  real xiInv;
   if (EspII > 1e-30) {
     xi = EspINeigh / std::sqrt(EspII);
   } else {
