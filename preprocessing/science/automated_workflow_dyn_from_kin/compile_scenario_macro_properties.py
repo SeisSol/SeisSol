@@ -43,7 +43,6 @@ def extract_params_from_prefix(fname):
     for i in range(2):
         match = re.search(patterns[i], fname)
         out = {}
-        print(i, fname, True if match else False)
         if i == 0 and match:
             # Extract cohesion_values
             out["coh"] = (float(match.group(1)), float(match.group(2)))
@@ -165,13 +164,6 @@ def generate_BCR_plots(B, C, R):
 
 
 if __name__ == "__main__":
-    ps = 8
-    matplotlib.rcParams.update({"font.size": ps})
-    plt.rcParams["font.family"] = "sans"
-    matplotlib.rc("xtick", labelsize=ps)
-    matplotlib.rc("ytick", labelsize=ps)
-    matplotlib.rcParams["lines.linewidth"] = 1.0
-
     parser = argparse.ArgumentParser(description="compute scenario properties")
     parser.add_argument(
         "output_folder",
@@ -183,6 +175,8 @@ if __name__ == "__main__":
         nargs=1,
         default=["pdf"],
     )
+    parser.add_argument("--font_size", help="font size", nargs=1, default=[8], type=int)
+
     parser.add_argument(
         "--gof_threshold",
         help="gof threshold from which results are selected",
@@ -206,6 +200,13 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    ps = args.font_size[0]
+    matplotlib.rcParams.update({"font.size": ps})
+    plt.rcParams["font.family"] = "sans"
+    matplotlib.rc("xtick", labelsize=ps)
+    matplotlib.rc("ytick", labelsize=ps)
+    matplotlib.rcParams["lines.linewidth"] = 1.0
 
     if not os.path.exists("plots"):
         os.makedirs("plots")
@@ -320,7 +321,8 @@ if __name__ == "__main__":
         shift, ccmax = xcorr_max(cc, abs_max=False)
         results["shift_syn_ref_sec"].append(shift * dt)
         results["ccmax"].append(ccmax)
-        M0_gof = 1 - abs(M0 - M0ref) / M0ref
+        # allow 15% variation on the misfit
+        M0_gof = min(1, 1.15 - abs(M0 - M0ref) / M0ref)
         results["M0mis"].append(M0_gof)
 
     result_df = pd.DataFrame(results)
@@ -430,7 +432,7 @@ if __name__ == "__main__":
         frameon=False,
         loc="upper right",
         ncol=col,
-        fontsize=8,
+        fontsize=ps,
         bbox_to_anchor=(1.0, 1.25),
     )
     ax.set_ylim(bottom=0)
