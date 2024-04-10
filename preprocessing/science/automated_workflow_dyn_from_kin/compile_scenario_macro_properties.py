@@ -25,26 +25,36 @@ def computeMw(label, time, moment_rate):
     return M0, Mw
 
 
-def extractBCR(fname):
+def extract_params_from_prefix(fname):
     # Define a regular expression pattern to extract B, C, and R values
-    pattern = r"B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv"
-
-    # Match the pattern against the filename
-    match = re.search(pattern, fname)
-
-    if match:
-        # Extract B and C values
-        B_value = float(match.group(1))
-        C_value = float(match.group(2))
-
+    def extract_BCR(out, match, i0=1):
+        out["B"] = float(match.group(i0))
+        out["C"] = float(match.group(i0 + 1))
         # Extract R values and convert to a list
-        R_value = list(map(float, match.group(3).split("_")))
+        R_value = list(map(float, match.group(i0 + 2).split("_")))
         if len(R_value) == 1:
             R_value = R_value[0]
-        return B_value, C_value, R_value
-    else:
-        # Raise a custom exception if no match is found
+        out["R"] = R_value
+
+    patterns = [
+        r"coh([\d.]+)_([\d.]+)_B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv",
+        r"B([\d.]+)_C([\d.]+)_R([\d._]+)-energy.csv",
+    ]
+    for i in range(2):
+        match = re.search(patterns[i], fname)
+        out = {}
+        print(i, fname, True if match else False)
+        if i == 0 and match:
+            # Extract cohesion_values
+            out["coh"] = (float(match.group(1)), float(match.group(2)))
+            extract_BCR(out, match, 3)
+            break
+        elif i == 1 and match:
+            extract_BCR(out, match, 1)
+            out["coh"] = np.nan
+    if not out:
         raise ValueError(f"No match found in the file name: {fname}")
+    return out
 
 
 def generate_XY_panel(
@@ -206,6 +216,9 @@ if __name__ == "__main__":
         if os.path.exists(args.output_folder):
             args.output_folder += "/"
         energy_files = sorted(glob.glob(f"{args.output_folder}*-energy.csv"))
+
+    # remove fl33
+    energy_files = [s for s in energy_files if "fl33" not in s]
     one_model_shown = args.nmax[0] == 1
 
     centimeter = 1 / 2.54
@@ -214,6 +227,7 @@ if __name__ == "__main__":
     ax = fig.add_subplot(111)
 
     results = {
+        "coh": [],
         "B": [],
         "C": [],
         "R0": [],
@@ -263,8 +277,6 @@ if __name__ == "__main__":
         )
 
     for i, fn in enumerate(energy_files):
-        if "fl33" in fn:
-            continue
         df = pd.read_csv(fn)
         df = df.pivot_table(index="time", columns="variable", values="measurement")
         if len(df) < 2:
@@ -280,12 +292,13 @@ if __name__ == "__main__":
             faultfn = faultfn[0]
         else:
             faultfn = glob.glob(f"{prefix}_*-fault.xdmf")[0]
-        B, C, R = extractBCR(fn)
+        out = extract_params_from_prefix(fn)
         M0, Mw = computeMw(label, df.index.values, df["seismic_moment_rate"])
         results["Mw"].append(Mw)
-        results["B"].append(B)
-        results["C"].append(C)
-        results["R0"].append(R)
+        results["coh"].append(out["coh"])
+        results["B"].append(out["B"])
+        results["C"].append(out["C"])
+        results["R0"].append(out["R"])
         results["faultfn"].append(faultfn)
         max_shift = int(0.25 * inferred_duration / dt)
 
@@ -313,11 +326,13 @@ if __name__ == "__main__":
     result_df = pd.DataFrame(results)
     result_df["overall_gof"] = np.sqrt(result_df["M0mis"] * result_df["ccmax"])
     print(result_df)
+    coh = result_df["coh"].values
     B = result_df["B"].values
     C = result_df["C"].values
     R = result_df["R0"].values
-
-    generate_BCR_plots(B, C, R)
+    if len(coh) == 1:
+        generate_BCR_plots(B, C, R)
+    varying_param = [len(np.unique(x)) > 1 for x in [coh, B, C, R]]
 
     overall_gof = result_df["overall_gof"].values
     Mw = result_df["Mw"].values
@@ -352,7 +367,12 @@ if __name__ == "__main__":
         if one_model_shown:
             label = f"simulation"
         else:
-            label = f"B={B[i]}, C={C[i]}, R={R[i]}"
+            label = ""
+            names = ["coh", "B", "C", "R"]
+            vals = [coh[i], B[i], C[i], R[i]]
+            for p, x in enumerate(varying_param):
+                if x:
+                    label += f"{names[p]}={vals[p]},"
         if i in selected_indices or i in indices_of_nlargest_values:
             if one_model_shown:
                 labelargs = {"label": f"{label} (Mw={Mw[i]:.2f})"}
@@ -364,7 +384,6 @@ if __name__ == "__main__":
         else:
             labelargs = {"color": "lightgrey", "zorder": 1}
             alpha = 0.5
-
         ax.plot(
             df.index.values,
             df["seismic_moment_rate"] / 1e19,
@@ -387,7 +406,8 @@ if __name__ == "__main__":
             mr_usgs[:, 0],
             mr_usgs[:, 1] / 1e19,
             label=f"usgs (Mw={Mwusgs:.2f})",
-            color="darkblue",
+            color="k",
+            linestyle="--",
         )
 
     selected_rows = result_df[result_df["Mw"] > 6]
@@ -406,7 +426,13 @@ if __name__ == "__main__":
     print(f"done writing {fname}")
 
     col = 1 if one_model_shown else 2
-    ax.legend(frameon=False, loc="upper right", ncol=col, fontsize=8)
+    ax.legend(
+        frameon=False,
+        loc="upper right",
+        ncol=col,
+        fontsize=8,
+        bbox_to_anchor=(1.0, 1.25),
+    )
     ax.set_ylim(bottom=0)
     ax.set_xlim(left=0)
 

@@ -40,12 +40,17 @@ templateEnv = jinja2.Environment(loader=templateLoader)
 number_of_segments = len(glob.glob(f"tmp/*.ts"))
 print(f"found {number_of_segments} segments")
 
-latin_hypercube = False
+mode = "latin_hypercube"
+# mode = "grid_search"
+# mode = "picked_models"
+longer_and_more_frequent_output = False
 
-if latin_hypercube:
+if mode == "latin_hypercube":
     # R, B, C
     l_bounds = [0.55, 0.8, 0.1]
     u_bounds = [0.95, 1.2, 0.3]
+    # cohesion is fixed in this appraoch
+    list_cohesion = [(0.25, 1)]
 
     if not os.path.exists("tmp/seed.txt"):
         seed = random.randint(1, 1000000)
@@ -62,18 +67,20 @@ if latin_hypercube:
     sample = sampler.random(n=nsample)
     pars = qmc.scale(sample, l_bounds, u_bounds)
     pars = np.around(pars, decimals=3)
-else:
+    column_of_zeros = np.zeros((1, nsample))
+    pars = np.insert(pars, 0, column_of_zeros, axis=1)
+
+elif mode == "grid_search":
     # grid parameter space
     paramB = [0.9, 1.0, 1.1, 1.2]
     # paramB = [1.0]
     paramC = [0.1, 0.15, 0.2, 0.25, 0.3]
-    # paramC = [0.15]
+    # paramC = [0.3]
     paramR = [0.55, 0.6, 0.65, 0.7, 0.8, 0.9]
-    # paramR = [0.55]
+    # paramR = [0.65]
     list_cohesion = [(0.25, 1)]
     # list_cohesion = [(0.25, 0), (0.25, 1), (0.25, 3)]
     paramCoh = list(range(len(list_cohesion)))
-    longer_and_more_frequent_output = True
     use_R_segment_wise = True
     if use_R_segment_wise:
         params = [paramCoh, paramB, paramC] + [paramR] * number_of_segments
@@ -86,8 +93,16 @@ else:
     param_combinations = list(itertools.product(*params))
     # Convert combinations to numpy array and round to desired decimals
     pars = np.around(np.array(param_combinations), decimals=3)
-    nsample = pars.shape[0]
-    print(f"parameter space has {nsample} samples")
+    print(pars)
+elif mode == "picked_models":
+    list_cohesion = [(0.25, 0), (0.25, 1), (0.25, 3)]
+    pars = [[0, 0.9, 0.3, 0.65], [1, 1.0, 0.3, 0.65], [2, 1.2, 0.3, 0.65]]
+    pars = np.array(pars)
+else:
+    raise NotImplemented(f"unkown mode {mode}")
+
+nsample = pars.shape[0]
+print(f"parameter space has {nsample} samples")
 
 
 def render_file(template_par, template_fname, out_fname, verbose=True):
@@ -150,8 +165,8 @@ for i in range(nsample):
 
     template_par = {
         "R_yaml_block": generate_R_yaml_block(R),
-        "cohesion_const": cohesion_const,
-        "cohesion_lin": cohesion_lin,
+        "cohesion_const": cohesion_const * 1e6,
+        "cohesion_lin": cohesion_lin * 1e6,
         "B": B,
         "C": C,
         "min_dc": C * max_slip * 0.15,
@@ -215,8 +230,8 @@ for i, fn in enumerate(list_fault_yaml):
         assert fn_fault == fn
         template_par = {
             "R_yaml_block": generate_R_yaml_block(R),
-            "cohesion_const": cohesion_const,
-            "cohesion_lin": cohesion_lin,
+            "cohesion_const": cohesion_const * 1e6,
+            "cohesion_lin": cohesion_lin * 1e6,
             "B": B,
             "C": C,
             "min_dc": C * max_slip * 0.15,
