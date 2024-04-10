@@ -40,10 +40,10 @@ templateEnv = jinja2.Environment(loader=templateLoader)
 number_of_segments = len(glob.glob(f"tmp/*.ts"))
 print(f"found {number_of_segments} segments")
 
-mode = "latin_hypercube"
+# mode = "latin_hypercube"
 # mode = "grid_search"
-# mode = "picked_models"
-longer_and_more_frequent_output = False
+mode = "picked_models"
+longer_and_more_frequent_output = True
 
 if mode == "latin_hypercube":
     # R, B, C
@@ -95,11 +95,11 @@ elif mode == "grid_search":
     pars = np.around(np.array(param_combinations), decimals=3)
     print(pars)
 elif mode == "picked_models":
-    list_cohesion = [(0.25, 0), (0.25, 1), (0.25, 3)]
+    list_cohesion = [(0.25, 0), (0.25, 1), (0.25, 2.5)]
     pars = [[0, 0.9, 0.3, 0.65], [1, 1.0, 0.3, 0.65], [2, 1.2, 0.3, 0.65]]
     pars = np.array(pars)
 else:
-    raise NotImplemented(f"unkown mode {mode}")
+    raise NotImplementedError(f"unkown mode {mode}")
 
 nsample = pars.shape[0]
 print(f"parameter space has {nsample} samples")
