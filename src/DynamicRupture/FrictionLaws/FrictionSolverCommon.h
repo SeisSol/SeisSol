@@ -223,10 +223,15 @@ inline void precomputeStressFromQInterpolated(
     + breP * (
       (aB0 + 0.5*aB1*xip - 0.5*aB3*xip*xip*xip)
     );
+  // auto laP = (1-breP) * (la0P
+  // - alphap*gaRP*(eyyP+epsInityy)/std::sqrt(EspIIp))
+  // + breP * (
+  //   (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
+  // );
   auto laP = (1-breP) * (la0P
-  - alphap*gaRP*(eyyP+epsInityy)/std::sqrt(EspIIp))
+  - alphap*gaRP*(ezzP+epsInitzz)/std::sqrt(EspIIp))
   + breP * (
-    (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
+    (2.0*aB2 + 3.0*aB3*xip) + aB1*(ezzP+epsInitzz)/std::sqrt(EspIIp)
   );
 
   auto muM = (1-breM) * (mu0M
@@ -236,9 +241,9 @@ inline void precomputeStressFromQInterpolated(
       (aB0 + 0.5*aB1*xim - 0.5*aB3*xim*xim*xim)
     );
   auto laM = (1-breM) * (la0M
-  - alpham*gaRM*(eyyM+epsInityy)/std::sqrt(EspIIm))
+  - alpham*gaRM*(ezzM+epsInitzz)/std::sqrt(EspIIm))
   + breM * (
-    (2.0*aB2 + 3.0*aB3*xim) + aB1*(eyyM+epsInityy)/std::sqrt(EspIIm)
+    (2.0*aB2 + 3.0*aB3*xim) + aB1*(ezzM+epsInitzz)/std::sqrt(EspIIm)
   );
 
   invZp = 1.0/std::sqrt( rhoP*(laP+2*muP) );
