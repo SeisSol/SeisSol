@@ -113,11 +113,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                             unsigned int ltsFace) {
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      this->mu[ltsFace][pointIndex] = specialization.frictionHook(muS[ltsFace][pointIndex],
-                                                                  muD[ltsFace][pointIndex],
-                                                                  stateVariable[pointIndex],
-                                                                  ltsFace,
-                                                                  pointIndex);
+      this->mu[ltsFace][pointIndex] =
+          muS[ltsFace][pointIndex] -
+          (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
       // instantaneous healing
       if ((this->peakSlipRate[ltsFace][pointIndex] > this->drParameters->healingThreshold) &&
           (this->slipRateMagnitude[ltsFace][pointIndex] < this->drParameters->healingThreshold)) {
@@ -161,7 +159,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       strength[pointIndex] =
           specialization.strengthHook(strength[pointIndex],
                                       this->slipRateMagnitude[ltsFace][pointIndex],
-                                      this->dC[ltsFace][pointIndex],
                                       this->deltaT[timeIndex],
                                       ltsFace,
                                       pointIndex);
@@ -184,9 +181,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
       // we divide it here by the critical distance.
-      stateVariable[pointIndex] = std::min(
-          std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) / dC[ltsFace][pointIndex],
-          static_cast<real>(1.0));
+      stateVariable[pointIndex] =
+          specialization.stateVariableHook(this->accumulatedSlipMagnitude[ltsFace][pointIndex],
+                                           dC[ltsFace][pointIndex],
+                                           ltsFace,
+                                           pointIndex);
 
       // Forced rupture time
       real f2 = 0.0;
@@ -229,18 +228,16 @@ class NoSpecialization {
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]);
 #pragma omp declare simd
-  real frictionHook(real localMuS,
-                    real localMuD,
-                    real localStateVariable,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex) {
-    return localMuS - (localMuS - localMuD) * localStateVariable;
+  real stateVariableHook(real localAccumulatedSlip,
+                         real localDc,
+                         unsigned int ltsFace,
+                         unsigned int pointIndex) {
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
-                    real dC,
                     real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex) {
@@ -270,18 +267,16 @@ class BiMaterialFault {
   };
 
 #pragma omp declare simd
-  real frictionHook(real localMuS,
-                    real localMuD,
-                    real localStateVariable,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex) {
-    return localMuS - (localMuS - localMuD) * localStateVariable;
+  real stateVariableHook(real localAccumulatedSlip,
+                         real localDc,
+                         unsigned int ltsFace,
+                         unsigned int pointIndex) {
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
-                    real dC,
                     real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
@@ -311,16 +306,14 @@ class TPApprox {
   };
 
 #pragma omp declare simd
-  real frictionHook(real localMuS,
-                    real localMuD,
-                    real localStateVariable,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex);
+  real stateVariableHook(real localAccumulatedSlip,
+                         real localDc,
+                         unsigned int ltsFace,
+                         unsigned int pointIndex);
 
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
-                    real dC,
                     real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex) {

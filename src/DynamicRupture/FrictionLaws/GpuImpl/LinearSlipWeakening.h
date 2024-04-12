@@ -110,11 +110,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const auto pointIndex = item.get_local_id(0);
 
         auto& stateVariable = stateVariableBuffer[ltsFace];
-        devMu[ltsFace][pointIndex] = specializationT::frictionHook(devMuS[ltsFace][pointIndex],
-                                                                   devMuD[ltsFace][pointIndex],
-                                                                   stateVariable[pointIndex],
-                                                                   ltsFace,
-                                                                   pointIndex);
+        devMu[ltsFace][pointIndex] =
+            devMuS[ltsFace][pointIndex] -
+            (devMuS[ltsFace][pointIndex] - devMuD[ltsFace][pointIndex]) * stateVariable[pointIndex];
         // instantaneous healing
         if ((devPeakSlipRate[ltsFace][pointIndex] > devHealingThreshold) &&
             (devSlipRateMagnitude[ltsFace][pointIndex] < devHealingThreshold)) {
@@ -256,9 +254,10 @@ class LinearSlipWeakeningLaw
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
-            sycl::min(sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
-                          devDC[ltsFace][pointIndex],
-                      static_cast<real>(1.0));
+            SpecializationT::stateVariableHook(devAccumulatedSlipMagnitude[ltsFace][pointIndex],
+                                               devDC[ltsFace][pointIndex],
+                                               ltsFace,
+                                               pointIndex);
 
         real f2 = 0.0;
         if (t0 == 0) {
@@ -306,9 +305,11 @@ class NoSpecialization {
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
 
-  static real frictionHook(
-      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
-    return localMuS - (localMuS - localMuD) * localStateVariable;
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
   static real strengthHook(Details details,
@@ -350,9 +351,11 @@ class BiMaterialFault {
     return details;
   }
 
-  static real frictionHook(
-      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
-    return localMuS - (localMuS - localMuD) * localStateVariable;
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
   static real strengthHook(Details details,
@@ -387,11 +390,7 @@ class TPApprox {
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           seissol::initializer::DynamicRupture const* const dynRup,
-                          real fullUpdateTime) {
-    auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
-    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
-  }
+                          real fullUpdateTime) {}
 
   static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
                                real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
@@ -403,16 +402,15 @@ class TPApprox {
     real (*regularisedStrength)[misc::numPaddedPoints];
   };
 
-  Details getCurrentLayerDetails() {
-    Details details{this->regularisedStrength};
-    return details;
-  }
+  Details getCurrentLayerDetails() { return Details{}; }
 
-  static real frictionHook(
-      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
-    const real factor = (1 + localStateVariable);
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
     const real cbrt = sycl::cbrt(factor);
-    return localMuD + (localMuS - localMuD) / cbrt;
+    return 1.0 - 1.0 / cbrt;
   };
 
   static real strengthHook(Details details,
@@ -425,9 +423,6 @@ class TPApprox {
                            size_t pointIndex) {
     return strength;
   };
-
-  private:
-  real (*regularisedStrength)[misc::numPaddedPoints];
 };
 
 } // namespace seissol::dr::friction_law::gpu

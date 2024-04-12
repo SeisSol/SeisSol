@@ -21,7 +21,6 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 #pragma omp declare simd
 real BiMaterialFault::strengthHook(real faultStrength,
                                    real localSlipRate,
-                                   real dC,
                                    real deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
@@ -37,14 +36,13 @@ real BiMaterialFault::strengthHook(real faultStrength,
 }
 
 #pragma omp declare simd
-real TPApprox::frictionHook(real localMuS,
-                            real localMuD,
-                            real localStateVariable,
-                            unsigned int ltsFace,
-                            unsigned int pointIndex) {
-  const real factor = (1 + localStateVariable);
+real TPApprox::stateVariableHook(real localAccumulatedSlip,
+                                 real localDc,
+                                 unsigned int ltsFace,
+                                 unsigned int pointIndex) {
+  const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   const real cbrt = std::cbrt(factor);
-  return localMuD + (localMuS - localMuD) / cbrt;
+  return 1.0 - 1.0 / cbrt;
 }
 
 } // namespace seissol::dr::friction_law

@@ -117,11 +117,11 @@ DynamicRuptureTuple LinearSlipWeakeningTPApproxFactory::produce() {
   using FrictionLawType = friction_law_impl::LinearSlipWeakeningLaw<Specialization>;
 
   return {
-    std::make_unique<seissol::initializer::LTSLinearSlipWeakening>(),
-    std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters, seissolInstance),
-    std::make_unique<FrictionLawType>(drParameters.get()),
-    std::make_unique<output::OutputManager>(std::make_unique<output::LinearSlipWeakening>(), 
-                                            seissolInstance)};
+      std::make_unique<seissol::initializer::LTSLinearSlipWeakening>(),
+      std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters, seissolInstance),
+      std::make_unique<FrictionLawType>(drParameters.get()),
+      std::make_unique<output::OutputManager>(std::make_unique<output::LinearSlipWeakening>(),
+                                              seissolInstance)};
 }
 
 DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {
