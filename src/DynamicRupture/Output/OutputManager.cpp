@@ -333,7 +333,7 @@ void OutputManager::flushPickpointDataToFile() {
 
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
-    auto& seissolParameters = seissolInstance.getSeisSolParameters();
+    const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
                           ewOutputData,
