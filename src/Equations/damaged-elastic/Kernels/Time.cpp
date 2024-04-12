@@ -740,8 +740,6 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
     real* rusanovFluxP,
     const LocalIntegrationData* localIntegration) {
   using namespace seissol::dr::misc::quantity_indices;
-  /// Checked that, after reshaping, it still uses the same memory address
-  /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
   const unsigned DAM = 9;
   const unsigned BRE = 10;
 
