@@ -76,7 +76,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
-    seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+    const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)

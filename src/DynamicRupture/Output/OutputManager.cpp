@@ -273,7 +273,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 }
 
 void OutputManager::writePickpointOutput(double time, double dt) {
-  auto& seissolParameters = seissolInstance.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
 

@@ -95,7 +95,7 @@ namespace seissol {
 
 class seissol::kernels::Time : public TimeBase {
   protected:
-    seissol::initializer::parameters::DamagedElasticParameters* m_damagedElasticParameters;
+    const seissol::initializer::parameters::DamagedElasticParameters* m_damagedElasticParameters;
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -164,7 +164,7 @@ class seissol::kernels::Time : public TimeBase {
   /**
    * sets the damaged elastic parameters pointer
   */
-  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters){
+  void setDamagedElasticParameters(const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters){
     m_damagedElasticParameters = damagedElasticParameters;
   };
 
