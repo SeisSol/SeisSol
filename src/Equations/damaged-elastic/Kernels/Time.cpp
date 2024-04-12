@@ -224,17 +224,14 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
     real EspI, EspII, xi;
-    calculateEsp(exxNodal,
+    std::tie(EspI, EspII, xi) = calculateEsp(exxNodal,
                  eyyNodal,
                  ezzNodal,
                  exyNodal,
                  eyzNodal,
                  ezxNodal,
                  q,
-                 m_damagedElasticParameters,
-                 EspI,
-                 EspII,
-                 xi);
+                 m_damagedElasticParameters);
 
     // Compute alpha_{cr}
     real aCR = (3.0 * xi * xi - 3.0) * data.material.local.gammaR * data.material.local.gammaR +
@@ -701,7 +698,7 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops,
 
 unsigned int* seissol::kernels::Time::getDerivativesOffsets() { return m_derivativesOffsets; }
 
-void seissol::kernels::Time::calculateEsp(
+std::tuple<real, real, real> seissol::kernels::Time::calculateEsp(
     const real* exxNodal,
     const real* eyyNodal,
     const real* ezzNodal,
@@ -709,10 +706,7 @@ void seissol::kernels::Time::calculateEsp(
     const real* eyzNodal,
     const real* ezxNodal,
     const unsigned int& q,
-    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
-    real& EspI,
-    real& EspII,
-    real& xi) {
+    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters) {
   const real epsInitxx = damagedElasticParameters->epsInitxx;
   const real epsInityy = damagedElasticParameters->epsInityy;
   const real epsInitzz = damagedElasticParameters->epsInitzz;
@@ -720,18 +714,20 @@ void seissol::kernels::Time::calculateEsp(
   const real epsInityz = damagedElasticParameters->epsInitxx;
   const real epsInitzx = damagedElasticParameters->epsInitxx;
 
-  EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
-  EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
+  real EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
+  real EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
           (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
           (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
           2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
           2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
           2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
+    real xi;
   if (EspII > 1e-30) {
     xi = EspI / std::sqrt(EspII);
   } else {
     xi = 0.0;
   }
+  return {EspI, EspII, xi};
 }
 
 void seissol::kernels::Time::computeNonLinearRusanovFlux(
@@ -779,7 +775,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
 
       real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
 
-      calculateEsp(
+      std::tie(EspIp, EspIIp, xip) = calculateEsp(
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                   XX * seissol::dr::misc::numPaddedPoints],
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
@@ -793,14 +789,11 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                   XZ * seissol::dr::misc::numPaddedPoints],
           i,
-          m_damagedElasticParameters,
-          EspIp,
-          EspIIp,
-          xip);
+          m_damagedElasticParameters);
       real alphap =
           qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                  DAM * seissol::dr::misc::numPaddedPoints + i];
-      calculateEsp(
+      std::tie(EspIm, EspIIm, xim) = calculateEsp(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XX * seissol::dr::misc::numPaddedPoints],
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
@@ -814,10 +807,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XZ * seissol::dr::misc::numPaddedPoints],
           i,
-          m_damagedElasticParameters,
-          EspIm,
-          EspIIm,
-          xim);
+          m_damagedElasticParameters);
       real alpham =
           qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                   DAM * seissol::dr::misc::numPaddedPoints + i];
@@ -1269,17 +1259,14 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     const real aB2 = damagedElasticParameters.aB2;
     const real aB3 = damagedElasticParameters.aB3;
 
-    calculateEsp(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    std::tie(EspIp, EspIIp, xip) = calculateEsp(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  q,
-                 &damagedElasticParameters,
-                 EspIp,
-                 EspIIp,
-                 xip);
+                 &damagedElasticParameters);
     real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
 
     real lambda0P = impAndEtaGet->lambda0P;
@@ -1343,17 +1330,14 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
         (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
         dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
 
-    calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    std::tie(EspIm, EspIIm, xim) = calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  q,
-                 &damagedElasticParameters,
-                 EspIm,
-                 EspIIm,
-                 xim);
+                 &damagedElasticParameters);
     real alpham = dofsNMinus[9];
 
     // damage stress minus

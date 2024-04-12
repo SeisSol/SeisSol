@@ -169,7 +169,7 @@ class seissol::kernels::Time : public TimeBase {
   };
 
 #ifdef USE_DAMAGEDELASTIC
-  void calculateEsp(
+  std::tuple<real, real, real> calculateEsp(
       const real* exxNodal,
       const real* eyyNodal,
       const real* ezzNodal,
@@ -177,10 +177,7 @@ class seissol::kernels::Time : public TimeBase {
       const real* eyzNodal,
       const real* ezxNodal,
       const unsigned int& q,
-      const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
-      real& EspI,
-      real& EspII,
-      real& xi);
+      const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters);
 
   void computeNonLinearRusanovFlux(const CellMaterialData* materialData,
                                    const unsigned int& l_cell,
