@@ -231,7 +231,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                  eyzNodal,
                  ezxNodal,
                  q,
-                 *m_damagedElasticParameters,
+                 m_damagedElasticParameters,
                  EspI,
                  EspII,
                  xi);
@@ -709,16 +709,16 @@ void seissol::kernels::Time::calculateEsp(
     const real* eyzNodal,
     const real* ezxNodal,
     const unsigned int& q,
-    const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+    const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
     real& EspI,
     real& EspII,
     real& xi) {
-  const real epsInitxx = damagedElasticParameters.epsInitxx;
-  const real epsInityy = damagedElasticParameters.epsInityy;
-  const real epsInitzz = damagedElasticParameters.epsInitzz;
-  const real epsInitxy = damagedElasticParameters.epsInitxy;
-  const real epsInityz = damagedElasticParameters.epsInitxx;
-  const real epsInitzx = damagedElasticParameters.epsInitxx;
+  const real epsInitxx = damagedElasticParameters->epsInitxx;
+  const real epsInityy = damagedElasticParameters->epsInityy;
+  const real epsInitzz = damagedElasticParameters->epsInitzz;
+  const real epsInitxy = damagedElasticParameters->epsInitxy;
+  const real epsInityz = damagedElasticParameters->epsInitxx;
+  const real epsInitzx = damagedElasticParameters->epsInitxx;
 
   EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
   EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
@@ -793,7 +793,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                   XZ * seissol::dr::misc::numPaddedPoints],
           i,
-          *m_damagedElasticParameters,
+          m_damagedElasticParameters,
           EspIp,
           EspIIp,
           xip);
@@ -814,7 +814,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XZ * seissol::dr::misc::numPaddedPoints],
           i,
-          *m_damagedElasticParameters,
+          m_damagedElasticParameters,
           EspIm,
           EspIIm,
           xim);
@@ -1276,7 +1276,7 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
                  &dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  q,
-                 damagedElasticParameters,
+                 &damagedElasticParameters,
                  EspIp,
                  EspIIp,
                  xip);
@@ -1350,7 +1350,7 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
                  &dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  q,
-                 damagedElasticParameters,
+                 &damagedElasticParameters,
                  EspIm,
                  EspIIm,
                  xim);

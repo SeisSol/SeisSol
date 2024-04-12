@@ -177,7 +177,7 @@ class seissol::kernels::Time : public TimeBase {
       const real* eyzNodal,
       const real* ezxNodal,
       const unsigned int& q,
-      const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+      const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters,
       real& EspI,
       real& EspII,
       real& xi);
