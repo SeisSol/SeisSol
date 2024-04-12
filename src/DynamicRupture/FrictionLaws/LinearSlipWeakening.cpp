@@ -37,17 +37,14 @@ real BiMaterialFault::strengthHook(real faultStrength,
 }
 
 #pragma omp declare simd
-real TPApprox::strengthHook(real faultStrength,
-                           real localSlipRate,
-                           real dC,
-                           real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
-  // modify strength according to Alice's suggestion on github issue #1058
-  const real factor = (1 + localSlipRate / dC);
+real TPApprox::frictionHook(real localMuS,
+                            real localMuD,
+                            real localStateVariable,
+                            unsigned int ltsFace,
+                            unsigned int pointIndex) {
+  const real factor = (1 + localStateVariable);
   const real cbrt = std::cbrt(factor);
-  const real newStrength = faultStrength / cbrt;
-  return newStrength;
+  return localMuD + (localMuS - localMuD) / cbrt;
 }
 
 } // namespace seissol::dr::friction_law

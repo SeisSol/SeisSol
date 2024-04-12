@@ -113,9 +113,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                             unsigned int ltsFace) {
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      this->mu[ltsFace][pointIndex] =
-          muS[ltsFace][pointIndex] -
-          (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
+      this->mu[ltsFace][pointIndex] = specialization.frictionHook(muS[ltsFace][pointIndex],
+                                                                  muD[ltsFace][pointIndex],
+                                                                  stateVariable[pointIndex],
+                                                                  ltsFace,
+                                                                  pointIndex);
     }
   }
 
@@ -221,6 +223,15 @@ class NoSpecialization {
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]);
 #pragma omp declare simd
+  real frictionHook(real localMuS,
+                    real localMuD,
+                    real localStateVariable,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex) {
+    return localMuS - (localMuS - localMuD) * localStateVariable;
+  }
+
+#pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
                     real dC,
@@ -251,6 +262,16 @@ class BiMaterialFault {
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
+
+#pragma omp declare simd
+  real frictionHook(real localMuS,
+                    real localMuD,
+                    real localStateVariable,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex) {
+    return localMuS - (localMuS - localMuD) * localStateVariable;
+  }
+
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
@@ -282,13 +303,23 @@ class TPApprox {
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
+
+#pragma omp declare simd
+  real frictionHook(real localMuS,
+                    real localMuD,
+                    real localStateVariable,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex);
+
 #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
                     real dC,
                     real deltaT,
                     unsigned int ltsFace,
-                    unsigned int pointIndex);
+                    unsigned int pointIndex) {
+    return strength;
+  };
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
