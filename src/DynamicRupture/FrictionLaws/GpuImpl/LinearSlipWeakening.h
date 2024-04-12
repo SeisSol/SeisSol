@@ -107,9 +107,11 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const auto pointIndex = item.get_local_id(0);
 
         auto& stateVariable = stateVariableBuffer[ltsFace];
-        devMu[ltsFace][pointIndex] =
-            devMuS[ltsFace][pointIndex] -
-            (devMuS[ltsFace][pointIndex] - devMuD[ltsFace][pointIndex]) * stateVariable[pointIndex];
+        devMu[ltsFace][pointIndex] = specializationT::frictionHook(devMuS[ltsFace][pointIndex],
+                                                                   devMuD[ltsFace][pointIndex],
+                                                                   stateVariable[pointIndex],
+                                                                   ltsFace,
+                                                                   pointIndex);
       });
     });
   }
@@ -294,6 +296,12 @@ class NoSpecialization {
 
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
+
+  static real frictionHook(
+      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
+    return localMuS - (localMuS - localMuD) * localStateVariable;
+  };
+
   static real strengthHook(Details details,
                            real strength,
                            real localSlipRate,
@@ -333,6 +341,11 @@ class BiMaterialFault {
     return details;
   }
 
+  static real frictionHook(
+      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
+    return localMuS - (localMuS - localMuD) * localStateVariable;
+  };
+
   static real strengthHook(Details details,
                            real faultStrength,
                            real localSlipRate,
@@ -358,6 +371,56 @@ class BiMaterialFault {
   private:
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
+
+class TPApprox {
+  public:
+  TPApprox(seissol::initializer::parameters::DRParameters* parameters){};
+
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          seissol::initializer::DynamicRupture const* const dynRup,
+                          real fullUpdateTime) {
+    auto* concreteLts =
+        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+  }
+
+  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
+    return slipRateMagnitude[pointIndex];
+  };
+
+  struct Details {
+    real (*regularisedStrength)[misc::numPaddedPoints];
+  };
+
+  Details getCurrentLayerDetails() {
+    Details details{this->regularisedStrength};
+    return details;
+  }
+
+  static real frictionHook(
+      real localMuS, real localMuD, real localStateVariable, size_t ltsFace, size_t pointIndex) {
+    const real factor = (1 + localStateVariable);
+    const real cbrt = sycl::cbrt(factor);
+    return localMuD + (localMuS - localMuD) / cbrt;
+  };
+
+  static real strengthHook(Details details,
+                           real strength,
+                           real localSlipRate,
+                           real deltaT,
+                           real vStar,
+                           real prakashLength,
+                           size_t ltsFace,
+                           size_t pointIndex) {
+    return strength;
+  };
+
+  private:
+  real (*regularisedStrength)[misc::numPaddedPoints];
+};
+
 } // namespace seissol::dr::friction_law::gpu
 
 #endif // SEISSOL_GPU_LINEARSLIPWEAKENING_H

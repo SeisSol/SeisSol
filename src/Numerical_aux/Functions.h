@@ -47,6 +47,7 @@ struct HostStdFunctions {
   template <typename T1, typename ...T> static inline T1 min(T1 value1, T... value) { return std::min(value1, value...); }
   template <typename T> static inline T ceil(T value) { return std::ceil(value); }
   template <typename T> static inline T floor(T value) { return std::floor(value); }
+  template <typename T> static inline T cbrt(T value) { return std::cbrt(value); }
 };
 
 /**
