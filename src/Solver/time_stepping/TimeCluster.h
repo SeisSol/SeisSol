@@ -322,7 +322,7 @@ private:
         // TODO: Check if it works for periodic BCs.
         // Here, plus side is actually minus (or local solution side),
         // minus side is neighbor solution side.
-        m_timeKernel.computeNonLinearIntegralCorrection(cellInformation,
+        m_localKernel.computeNonLinearIntegralCorrection(cellInformation,
                                                         l_cell,
                                                         derivatives,
                                                         faceNeighbors,

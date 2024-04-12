@@ -179,27 +179,6 @@ class seissol::kernels::Time : public TimeBase {
       unsigned int q,
       const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters);
 
-  void computeNonLinearRusanovFlux(const CellMaterialData* materialData,
-                                   unsigned int l_cell,
-                                   unsigned int side,
-                                   const double* timeWeights,
-                                   const real* qIPlus,
-                                   const real* qIMinus,
-                                   real* rusanovFluxP,
-                                   const LocalIntegrationData* localIntegration);
-
-  void computeNonLinearIntegralCorrection(
-      const CellLocalInformation* cellInformation,
-      unsigned int l_cell,
-      real** derivatives,
-      real* (*faceNeighbors)[4],
-      const CellMaterialData* materialData,
-      const LocalIntegrationData* localIntegration,
-      const NeighborData& data,
-      const CellDRMapping (*drMapping)[4],
-      kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
-      double timeStepSize,
-      const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);
   void calculateDynamicRuptureReceiverOutput(
       const real* dofsNPlus,
       const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
