@@ -176,12 +176,12 @@ class seissol::kernels::Time : public TimeBase {
       const real* exyNodal,
       const real* eyzNodal,
       const real* ezxNodal,
-      const unsigned int& q,
+      unsigned int q,
       const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters);
 
   void computeNonLinearRusanovFlux(const CellMaterialData* materialData,
-                                   const unsigned int& l_cell,
-                                   const unsigned int& side,
+                                   unsigned int l_cell,
+                                   unsigned int side,
                                    const double* timeWeights,
                                    const real* qIPlus,
                                    const real* qIMinus,
@@ -190,7 +190,7 @@ class seissol::kernels::Time : public TimeBase {
 
   void computeNonLinearIntegralCorrection(
       const CellLocalInformation* cellInformation,
-      const unsigned int& l_cell,
+      unsigned int l_cell,
       real** derivatives,
       real* (*faceNeighbors)[4],
       const CellMaterialData* materialData,
@@ -212,23 +212,23 @@ class seissol::kernels::Time : public TimeBase {
                                   real* dofsStressNMinus,
                                   const real* dofsNMinus);
   void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta,
-                                       const unsigned& ltsFace,
+                                       unsigned ltsFace,
                                        const real* qIPlus,
                                        real* qStressIPlus,
                                        const real* qIMinus,
                                        real* qStressIMinus);
   void updateNonLinearMaterialLocal(const real* Q_aveData,
                                     CellMaterialData* materialData,
-                                    const unsigned int& l_cell,
+                                    unsigned int l_cell,
                                     const std::vector<Element>& elements,
                                     const std::vector<Vertex>& vertices,
-                                    const unsigned int& meshId,
+                                    unsigned int meshId,
                                     real* x,
                                     real* y,
                                     real* z);
   void updateNonLinearMaterialNeighbor(CellMaterialData* materialData,
-                                       const unsigned int& l_cell,
-                                       const unsigned& side,
+                                       unsigned int l_cell,
+                                       unsigned side,
                                        const real* Q_aveData);
   void computeNonLinearLocalIntegration(
       const seissol::kernels::LocalData& data,

@@ -705,7 +705,7 @@ std::tuple<real, real, real> seissol::kernels::Time::calculateEsp(
     const real* exyNodal,
     const real* eyzNodal,
     const real* ezxNodal,
-    const unsigned int& q,
+    unsigned int q,
     const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters) {
   const real epsInitxx = damagedElasticParameters->epsInitxx;
   const real epsInityy = damagedElasticParameters->epsInityy;
@@ -732,8 +732,8 @@ std::tuple<real, real, real> seissol::kernels::Time::calculateEsp(
 
 void seissol::kernels::Time::computeNonLinearRusanovFlux(
     const CellMaterialData* materialData,
-    const unsigned int& l_cell,
-    const unsigned int& side,
+    unsigned int l_cell,
+    unsigned int side,
     const double* timeWeights,
     const real* qIPlus,
     const real* qIMinus,
@@ -1422,7 +1422,7 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
 
 void seissol::kernels::Time::computeNonLinearIntegralCorrection(
     const CellLocalInformation* cellInformation,
-    const unsigned int& l_cell,
+    unsigned int l_cell,
     real** derivatives,
     real* (*faceNeighbors)[4],
     const CellMaterialData* materialData,
@@ -1606,7 +1606,7 @@ void seissol::kernels::Time::stressToDofsDynamicRupture(real* dofsStressNPlus,
 
 void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
     const seissol::dr::ImpedancesAndEta* impAndEta,
-    const unsigned& ltsFace,
+    unsigned ltsFace,
     const real* qIPlus,
     real* qStressIPlus,
     const real* qIMinus,
@@ -1832,10 +1832,10 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
 
 void seissol::kernels::Time::updateNonLinearMaterialLocal(const real* Q_aveData,
                                                           CellMaterialData* materialData,
-                                                          const unsigned int& l_cell,
+                                                          unsigned int l_cell,
                                                           const std::vector<Element>& elements,
                                                           const std::vector<Vertex>& vertices,
-                                                          const unsigned int& meshId,
+                                                          unsigned int meshId,
                                                           real* x,
                                                           real* y,
                                                           real* z) {
@@ -1902,8 +1902,8 @@ void seissol::kernels::Time::updateNonLinearMaterialLocal(const real* Q_aveData,
 }
 
 void seissol::kernels::Time::updateNonLinearMaterialNeighbor(CellMaterialData* materialData,
-                                                             const unsigned int& l_cell,
-                                                             const unsigned& side,
+                                                             unsigned int l_cell,
+                                                             unsigned side,
                                                              const real* Q_aveData) {
   const real epsInitxx = m_damagedElasticParameters->epsInitxx;
   const real epsInityy = m_damagedElasticParameters->epsInityy;
