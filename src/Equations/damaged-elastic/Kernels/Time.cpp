@@ -224,7 +224,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
     real EspI, EspII, xi;
-    calculateEps(exxNodal,
+    calculateEsp(exxNodal,
                  eyyNodal,
                  ezzNodal,
                  exyNodal,
@@ -701,7 +701,7 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops,
 
 unsigned int* seissol::kernels::Time::getDerivativesOffsets() { return m_derivativesOffsets; }
 
-void seissol::kernels::Time::calculateEps(
+void seissol::kernels::Time::calculateEsp(
     const real* exxNodal,
     const real* eyyNodal,
     const real* ezzNodal,
@@ -779,7 +779,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
 
       real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
 
-      calculateEps(
+      calculateEsp(
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                   XX * seissol::dr::misc::numPaddedPoints],
           &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
@@ -800,7 +800,7 @@ void seissol::kernels::Time::computeNonLinearRusanovFlux(
       real alphap =
           qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                  DAM * seissol::dr::misc::numPaddedPoints + i];
-      calculateEps(
+      calculateEsp(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XX * seissol::dr::misc::numPaddedPoints],
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
@@ -1269,7 +1269,7 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     const real aB2 = damagedElasticParameters.aB2;
     const real aB3 = damagedElasticParameters.aB3;
 
-    calculateEps(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    calculateEsp(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -1343,7 +1343,7 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
         (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
         dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
 
-    calculateEps(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],

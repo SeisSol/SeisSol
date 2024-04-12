@@ -169,7 +169,7 @@ class seissol::kernels::Time : public TimeBase {
   };
 
 #ifdef USE_DAMAGEDELASTIC
-  void calculateEps(
+  void calculateEsp(
       const real* exxNodal,
       const real* eyyNodal,
       const real* ezzNodal,
