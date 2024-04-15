@@ -243,7 +243,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
         + 2*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy)*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy)
         + 2*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz)
         + 2*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
-      real alpham = dofsNMinus[9];
+      real alpham = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       real xim;
       if (EspIIm > 1e-30){
         xim = EspIIm / std::sqrt(EspIIm);
