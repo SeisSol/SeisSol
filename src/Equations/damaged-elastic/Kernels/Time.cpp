@@ -1457,38 +1457,40 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
         FInterpolatedBody[timeInterval][10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       }
 
-      // Compute nonlinear flux term
-
-      // damage stress
-      real mu_eff = data.material.local.mu0 -
-                    alphaNodal[q] * data.material.local.gammaR * data.material.local.xi0 -
-                    0.5 * alphaNodal[q] * data.material.local.gammaR * xi;
-      real sxx_s = data.material.local.lambda0 * EspI -
-                   alphaNodal[q] * data.material.local.gammaR * std::sqrt(EspII) +
-                   2 * mu_eff * (exxNodal[q] + epsInitxx);
-      real syy_s = data.material.local.lambda0 * EspI -
-                   alphaNodal[q] * data.material.local.gammaR * std::sqrt(EspII) +
-                   2 * mu_eff * (eyyNodal[q] + epsInityy);
-
-      real szz_s = data.material.local.lambda0 * EspI -
-                   alphaNodal[q] * data.material.local.gammaR * std::sqrt(EspII) +
-                   2 * mu_eff * (ezzNodal[q] + epsInitzz);
-
-      const real sxy_s = 2 * mu_eff * (exyNodal[q] + epsInitxy);
-      const real syz_s = 2 * mu_eff * (eyzNodal[q] + epsInityz);
-      const real szx_s = 2 * mu_eff * (ezxNodal[q] + epsInitzx);
-
-      // breakage stress
-      const real sxx_b = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-                         (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (exxNodal[q] + epsInitxx);
-      const real syy_b = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-                         (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (eyyNodal[q] + epsInityy);
-      const real szz_b = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-                         (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (ezzNodal[q] + epsInitzz);
-
-      const real sxy_b = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (exyNodal[q] + epsInitxy);
-      const real syz_b = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (eyzNodal[q] + epsInityz);
-      const real szx_b = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * (ezxNodal[q] + epsInitzx);
+    real mu_eff, sxx_s, syy_s, szz_s, sxy_s, syz_s, szx_s, sxx_b, syy_b, szz_b, sxy_b,
+        syz_b, szx_b;
+    std::tie(mu_eff,
+             sxx_s,
+             syy_s,
+             szz_s,
+             sxy_s,
+             syz_s,
+             szx_s,
+             sxx_b,
+             syy_b,
+             szz_b,
+             sxy_b,
+             syz_b,
+             szx_b) =
+        calculateDamageAndBreakageStresses(
+            data.material.local.mu0,
+            alphaNodal[q],
+            data.material.local.gammaR,
+            data.material.local.xi0,
+            xi,
+            data.material.local.lambda0,
+            EspI,
+            EspII,
+            exxNodal[q]+epsInitxx,
+            eyyNodal[q]+epsInityy,
+            ezzNodal[q]+epsInitzz,
+            exyNodal[q]+epsInitxy,
+            eyzNodal[q]+epsInityz,
+            ezxNodal[q]+epsInitzx,
+            aB0,
+            aB1,
+            aB2,
+            aB3);
 
       sxxNodal[q] = (1 - breakNodal[q]) * sxx_s + breakNodal[q] * sxx_b;
       syyNodal[q] = (1 - breakNodal[q]) * syy_s + breakNodal[q] * syy_b;
