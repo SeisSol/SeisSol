@@ -802,29 +802,23 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
             aB2,
             aB3);
 
-    dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bp;
-
-    dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bp;
-
-    dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bp;
-
-    dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bp;
-
-    dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bp;
-
-    dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sp +
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bp;
+calculateStressesFromDamageAndBreakageStresses(&dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsStressNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsStressNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    sxx_sp, sxx_bp, syy_sp, syy_bp, szz_sp, szz_bp, sxy_sp, sxy_bp, syz_sp, syz_bp, szx_sp, szx_bp, q);
 
     std::tie(EspIm, EspIIm, xim) = calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
                  &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -871,51 +865,23 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
             aB2,
             aB3);
 
-    dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxx_bm;
-
-    dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syy_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syy_bm;
-
-    dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szz_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szz_bm;
-
-    dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxy_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * sxy_bm;
-
-    dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * syz_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * syz_bm;
-
-    dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        (1 - dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * szx_sm +
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] * szx_bm;
-
-    dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-
-    dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
-    dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+calculateStressesFromDamageAndBreakageStresses(&dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsStressNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsStressNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    &dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
+    &dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    sxx_sm, sxx_bm, syy_sm, syy_bm, szz_sm, szz_bm, sxy_sm, sxy_bm, syz_sm, syz_bm, szx_sm, szx_bm, q);
   }
 }
 
@@ -1120,40 +1086,23 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
             aB2,
             aB3);
 
-      qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxx_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * sxx_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * syy_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * syy_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * szz_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * szz_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxy_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * sxy_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * syz_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * syz_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i] =
-          (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * szx_sm +
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * szx_bm;
-
-      qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i] =
-          qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i];
-      qStressIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints + i] =
-          qIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints + i];
-      qStressIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints + i] =
-          qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints + i];
-      qStressIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i] =
-          qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
-      qStressIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] =
-          qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i];
+    calculateStressesFromDamageAndBreakageStresses(&qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
+    &qStressIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
+    &qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
+    &qIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
+    &qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
+    &qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
+    &qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
+    sxx_sm, sxx_bm, syy_sm, syy_bm, szz_sm, szz_bm, sxy_sm, sxy_bm, syz_sm, syz_bm, szx_sm, szx_bm, i);
     }
   } // time integration loop
 }
