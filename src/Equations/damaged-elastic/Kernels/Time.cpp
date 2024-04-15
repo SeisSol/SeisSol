@@ -1038,46 +1038,40 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
         xip = 0.0;
       }
 
-      // damage stress impAndEtaGet->gammaRP, mu0P
-      real mu_eff = mu0P - alphap * impAndEta[ltsFace].gammaRP * impAndEta[ltsFace].xi0P -
-                    0.5 * alphap * impAndEta[ltsFace].gammaRP * xip;
-      real sxx_sp =
-          lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]);
-      real syy_sp =
-          lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]);
-      real szz_sp =
-          lambda0P * EspIp - alphap * impAndEta[ltsFace].gammaRP * std::sqrt(EspIIp) +
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
-
-      const real sxy_sp =
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]);
-      const real syz_sp =
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]);
-      const real szx_sp =
-          2 * mu_eff * (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
-
-      // breakage stress
-      const real sxx_bp =
-          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-              (qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]);
-      const real syy_bp =
-          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-              (qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]);
-      const real szz_bp =
-          (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-          (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-              (qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
-
-      const real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                          (qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]);
-      const real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                          (qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]);
-      const real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                          (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
+    real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
+        syz_bp, szx_bp;
+    std::tie(mu_eff,
+             sxx_sp,
+             syy_sp,
+             szz_sp,
+             sxy_sp,
+             syz_sp,
+             szx_sp,
+             sxx_bp,
+             syy_bp,
+             szz_bp,
+             sxy_bp,
+             syz_bp,
+             szx_bp) =
+        calculateDamageAndBreakageStresses(
+            mu0P,
+            alphap,
+            impAndEta[ltsFace].gammaRP,
+            impAndEta[ltsFace].xi0P,
+            xip,
+            lambda0P,
+            EspIp,
+            EspIIp,
+            qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+            qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+            qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+            qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+            qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+            qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+            aB0,
+            aB1,
+            aB2,
+            aB3);
 
       qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i] =
           (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxx_sp +
@@ -1127,46 +1121,41 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
         xim = 0.0;
       }
 
-      // damage stress minus
-      mu_eff = mu0M - alpham * impAndEta[ltsFace].gammaRM * impAndEta[ltsFace].xi0M -
-               0.5 * alpham * impAndEta[ltsFace].gammaRM * xim;
-      const real sxx_sm =
-          lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]);
-      const real syy_sm =
-          lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]);
-      const real szz_sm =
-          lambda0M * EspIm - alpham * impAndEta[ltsFace].gammaRM * std::sqrt(EspIIm) +
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
+    real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm,
+        syz_bm, szx_bm;
 
-      const real sxy_sm =
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]);
-      const real syz_sm =
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]);
-      const real szx_sm =
-          2 * mu_eff * (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
-
-      // breakage stress
-      const real sxx_bm =
-          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-              (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]);
-      const real syy_bm =
-          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-              (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]);
-      const real szz_bm =
-          (2.0 * aB2 + 3.0 * xim * aB3) * EspIm + aB1 * std::sqrt(EspIIm) +
-          (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-              (qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
-
-      const real sxy_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                          (qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]);
-      const real syz_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                          (qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]);
-      const real szx_bm = (2.0 * aB0 + aB1 * xim - aB3 * xim * xim * xim) *
-                          (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
+    std::tie(mu_eff,
+             sxx_sm,
+             syy_sm,
+             szz_sm,
+             sxy_sm,
+             syz_sm,
+             szx_sm,
+             sxx_bm,
+             syy_bm,
+             szz_bm,
+             sxy_bm,
+             syz_bm,
+             szx_bm) =
+        calculateDamageAndBreakageStresses(
+            mu0M,
+            alpham,
+            impAndEta[ltsFace].gammaRM,
+            impAndEta[ltsFace].xi0M,
+            xim,
+            lambda0M,
+            EspIm,
+            EspIIm,
+            qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+            qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+            qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+            qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+            qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+            qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+            aB0,
+            aB1,
+            aB2,
+            aB3);
 
       qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i] =
           (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxx_sm +
