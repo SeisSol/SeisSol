@@ -78,6 +78,7 @@
 #include <Kernels/Interface.hpp>
 #include <Kernels/TimeBase.h>
 #include <Kernels/common.hpp>
+#include <Model/datastructures.hpp>
 #include <cassert>
 #include <generated_code/tensor.h>
 #include <kernel.h>
@@ -268,6 +269,7 @@ class seissol::kernels::Time : public TimeBase {
                                                       real szxS,
                                                       real szxB,
                                                       unsigned int i);
+  void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material);
 #endif
 };
 #endif

@@ -1168,14 +1168,6 @@ void seissol::kernels::Time::updateNonLinearMaterialLocal(const real* Q_aveData,
   materialData[l_cell].local.epsxy_alpha = (Q_aveData[3] + epsInitxy);
   materialData[l_cell].local.epsyz_alpha = (Q_aveData[4] + epsInityz);
   materialData[l_cell].local.epszx_alpha = (Q_aveData[5] + epsInitzx);
-
-  // Iterate over all 4 vertices of the tetrahedron
-  for (unsigned vertex = 0; vertex < 4; ++vertex) {
-    VrtxCoords const& coords = vertices[elements[meshId].vertices[vertex]].coords;
-    x[vertex] = coords[0];
-    y[vertex] = coords[1];
-    z[vertex] = coords[2];
-  }
 }
 
 void seissol::kernels::Time::updateNonLinearMaterialNeighbor(CellMaterialData* materialData,
@@ -1532,4 +1524,8 @@ void seissol::kernels::Time::calculateStressesFromDamageAndBreakageStresses(real
   qStressDofsW[i] = qIW[i];
   qStressDofsDAM[i] = qIDAM[i];
   qStressDofsBRE[i] = qIBRE[i];
+}
+
+void seissol::kernels::Time::updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material){
+
 }
