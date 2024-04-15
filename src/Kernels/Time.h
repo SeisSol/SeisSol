@@ -222,6 +222,25 @@ class seissol::kernels::Time : public TimeBase {
       real (&FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
       real (&FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
       real (&FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
+  std::tuple<real, real, real, real, real, real, real, real, real, real, real, real, real>
+      calculateDamageAndBreakageStresses(real mu0P,
+                                         real alphap,
+                                         real gammaRP,
+                                         real xi0P,
+                                         real xip,
+                                         real lambda0P,
+                                         real EspIp,
+                                         real EspIIp,
+                                         real stressXX,
+                                         real stressYY,
+                                         real stressZZ,
+                                         real stressXY,
+                                         real stressYZ,
+                                         real stressXZ,
+                                         real aB0,
+                                         real aB1,
+                                         real aB2,
+                                         real aB3);
 #endif
 };
 #endif

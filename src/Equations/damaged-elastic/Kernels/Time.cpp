@@ -79,6 +79,7 @@
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/precision.hpp>
 #include <Numerical_aux/Transformation.h>
+#include <tuple>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -765,37 +766,41 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
-    // damage stress impAndEtaGet->gammaRP, mu0P
-    real mu_eff = mu0P - alphap * impAndEtaGet->gammaRP * impAndEtaGet->xi0P -
-                  0.5 * alphap * impAndEtaGet->gammaRP * xip;
-    real sxx_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                  2 * mu_eff * (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-    real syy_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                  2 * mu_eff * (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-    real szz_sp = lambda0P * EspIp - alphap * impAndEtaGet->gammaRP * std::sqrt(EspIIp) +
-                  2 * mu_eff * (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
+    real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
+        syz_bp, szx_bp;
 
-    real sxy_sp = 2 * mu_eff * (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-    real syz_sp = 2 * mu_eff * (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-    real szx_sp = 2 * mu_eff * (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
-
-    // breakage stress
-    real sxx_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                      (dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx);
-    real syy_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                      (dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy);
-    real szz_bp = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
-                  (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                      (dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz);
-
-    real sxy_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                  (dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy);
-    real syz_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                  (dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz);
-    real szx_bp = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) *
-                  (dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx);
+    std::tie(mu_eff,
+             sxx_sp,
+             syy_sp,
+             szz_sp,
+             sxy_sp,
+             syz_sp,
+             szx_sp,
+             sxx_bp,
+             syy_bp,
+             szz_bp,
+             sxy_bp,
+             syz_bp,
+             szx_bp) =
+        calculateDamageAndBreakageStresses(
+            mu0P,
+            alphap,
+            impAndEtaGet->gammaRP,
+            impAndEtaGet->xi0P,
+            xip,
+            lambda0P,
+            EspIp,
+            EspIIp,
+            dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx,
+            dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy,
+            dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz,
+            dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy,
+            dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz,
+            dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx,
+            aB0,
+            aB1,
+            aB2,
+            aB3);
 
     dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
         (1 - dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q]) * sxx_sp +
@@ -1550,4 +1555,44 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       FluxInterpolatedBodyZ[timeInterval][9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
     }
   }
+}
+
+std::tuple<real, real, real, real, real, real, real, real, real, real, real, real, real>
+    seissol::kernels::Time::calculateDamageAndBreakageStresses(real mu0P,
+                                                               real alphap,
+                                                               real gammaRP,
+                                                               real xi0P,
+                                                               real xip,
+                                                               real lambda0P,
+                                                               real EspIp,
+                                                               real EspIIp,
+                                                               real stressXX,
+                                                               real stressYY,
+                                                               real stressZZ,
+                                                               real stressXY,
+                                                               real stressYZ,
+                                                               real stressXZ,
+                                                               real aB0,
+                                                               real aB1,
+                                                               real aB2,
+                                                               real aB3) {
+  real muEff = mu0P - alphap * gammaRP * xi0P - 0.5 * alphap * gammaRP * xip;
+  real sxxS = lambda0P * EspIp - alphap * gammaRP * std::sqrt(EspIIp) + 2 * muEff * stressXX;
+  real syyS = lambda0P * EspIp - alphap * gammaRP * std::sqrt(EspIIp) + 2 * muEff * stressYY;
+  real szzS = lambda0P * EspIp - alphap * gammaRP * std::sqrt(EspIIp) + 2 * muEff * stressZZ;
+  real sxyS = 2 * muEff * stressXY;
+  real syzS = 2 * muEff * stressYZ;
+  real szxS = 2 * muEff * stressXZ;
+  real sxxB = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressXX;
+  real syyB = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressYY;
+  real szzB = (2.0 * aB2 + 3.0 * xip * aB3) * EspIp + aB1 * std::sqrt(EspIIp) +
+              (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressZZ;
+  real sxyB = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressXY;
+  real syzB = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressYZ;
+  real szxB = (2.0 * aB0 + aB1 * xip - aB3 * xip * xip * xip) * stressXZ;
+
+  return std::make_tuple(
+      muEff, sxxS, syyS, szzS, sxyS, syzS, szxS, sxxB, syyB, szzB, sxyB, syzB, szxB);
 }
