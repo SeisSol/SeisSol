@@ -717,17 +717,12 @@ std::tuple<real, real, real> seissol::kernels::Time::calculateEsp(
 
   real EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
   real EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
-          (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
-          (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
-          2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
-          2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
-          2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
-    real xi;
-  if (EspII > 1e-30) {
-    xi = EspI / std::sqrt(EspII);
-  } else {
-    xi = 0.0;
-  }
+               (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
+               (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
+               2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
+               2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
+               2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
+  real xi = computexi(EspI, EspII);
   return {EspI, EspII, xi};
 }
 
@@ -941,7 +936,6 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
   real lambda0M = impAndEta[ltsFace].lambda0M;
   real mu0M = impAndEta[ltsFace].mu0M;
 
-  // TODO(NONLINEAR) What are these values?
   const real aB0 = m_damagedElasticParameters->aB0;
   const real aB1 = m_damagedElasticParameters->aB1;
   const real aB2 = m_damagedElasticParameters->aB2;
@@ -966,12 +960,7 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
                     2 * (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]) *
                         (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
       real alphap = qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
-      real xip;
-      if (EspIIp > 1e-30) {
-        xip = EspIp / std::sqrt(EspIIp);
-      } else {
-        xip = 0.0;
-      }
+      real xip = computexi(EspIp, EspIIp);
 
     real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
         syz_bp, szx_bp;
@@ -1043,12 +1032,7 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           2 * (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]) *
               (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
       real alpham = qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
-      real xim;
-      if (EspIIm > 1e-30) {
-        xim = EspIm / std::sqrt(EspIIm);
-      } else {
-        xim = 0.0;
-      }
+      real xim = computexi(EspIm, EspIIm);
 
     real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm,
         syz_bm, szx_bm;
@@ -1166,12 +1150,7 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
                    2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
                    2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
                    2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
-      real xi;
-      if (EspII > 1e-30) {
-        xi = EspI / std::sqrt(EspII);
-      } else {
-        xi = 0.0;
-      }
+      real xi = computexi(EspI, EspII);
 
       // Compute alpha_{cr}
       real aCR = (3.0 * xi * xi - 3.0) * data.material.local.gammaR * data.material.local.gammaR +
@@ -1271,7 +1250,6 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       syzNodal[q] = (1 - breakNodal[q]) * syz_s + breakNodal[q] * syz_b;
       szxNodal[q] = (1 - breakNodal[q]) * szx_s + breakNodal[q] * szx_b;
 
-      // //--- x-dir
       FluxInterpolatedBodyX[timeInterval][0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];
       FluxInterpolatedBodyX[timeInterval][1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyX[timeInterval][2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
@@ -1287,7 +1265,7 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       FluxInterpolatedBodyX[timeInterval][8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
           -szxNodal[q] / data.material.local.rho;
       FluxInterpolatedBodyX[timeInterval][9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-      //--- y-dir
+
       FluxInterpolatedBodyY[timeInterval][0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyY[timeInterval][1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vyNodal[q];
       FluxInterpolatedBodyY[timeInterval][2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
@@ -1303,7 +1281,7 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       FluxInterpolatedBodyY[timeInterval][8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
           -syzNodal[q] / data.material.local.rho;
       FluxInterpolatedBodyY[timeInterval][9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-      //--- z-dir
+      
       FluxInterpolatedBodyZ[timeInterval][0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyZ[timeInterval][1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyZ[timeInterval][2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vzNodal[q];
@@ -1422,12 +1400,8 @@ void seissol::kernels::Time::updateNonLinearMaterial(
                      2 * (Q_aveData[4] + epsInityz) * (Q_aveData[4] + epsInityz) +
                      2 * (Q_aveData[5] + epsInitzx) * (Q_aveData[5] + epsInitzx);
 
-  real xi;
-  if (EspII > 1e-30) {
-    xi = EspI / std::sqrt(EspII);
-  } else {
-    xi = 0.0;
-  }
+  real xi = computexi(EspI, EspII);
+  
   const real alphaAve = Q_aveData[9];
   const real breakAve = Q_aveData[10];
 
@@ -1452,4 +1426,8 @@ void seissol::kernels::Time::updateNonLinearMaterial(
   material.epsxy_alpha = (Q_aveData[3] + epsInitxy);
   material.epsyz_alpha = (Q_aveData[4] + epsInityz);
   material.epszx_alpha = (Q_aveData[5] + epsInitzx);
+}
+
+real seissol::kernels::Time::computexi(real EspI, real EspII){
+    return (EspII > 1e-30) ? EspI / std::sqrt(EspII) : 0.0;
 }

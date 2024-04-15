@@ -258,6 +258,7 @@ class seissol::kernels::Time : public TimeBase {
                                                       unsigned int i);
   void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
                                const real* Q_aveData);
+  real computexi(real EspI, real EspII);
 #endif
 };
 #endif
