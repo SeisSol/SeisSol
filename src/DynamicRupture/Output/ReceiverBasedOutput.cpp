@@ -149,7 +149,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real epsInitxy = 1.0909e-3; // eps_xy0
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
-    
+
     real lambda0P = impAndEtaGet->lambda0P;
     real mu0P = impAndEtaGet->mu0P;
     real lambda0M = impAndEtaGet->lambda0M;
