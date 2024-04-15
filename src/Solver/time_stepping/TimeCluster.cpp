@@ -913,6 +913,13 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
 
       m_timeKernel.updateNonLinearMaterialLocal(
           Q_aveData, materialData, l_cell, elements, vertices, meshId, x, y, z);
+      // Iterate over all 4 vertices of the tetrahedron
+      for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        VrtxCoords const& coords = vertices[elements[meshId].vertices[vertex]].coords;
+        x[vertex] = coords[0];
+        y[vertex] = coords[1];
+        z[vertex] = coords[2];
+      }
 
       seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
       seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, AT );
