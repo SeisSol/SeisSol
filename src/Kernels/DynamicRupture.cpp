@@ -182,10 +182,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
-    m_timeKernel.stressToDofsDynamicRupture(
-        dofsStressNPlus, dofsNPlus);
-    m_timeKernel.stressToDofsDynamicRupture(
-        dofsStressNMinus, dofsNMinus);
+    m_timeKernel.stressToDofsDynamicRupture(dofsStressNPlus, dofsNPlus);
+    m_timeKernel.stressToDofsDynamicRupture(dofsStressNMinus, dofsNMinus);
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;

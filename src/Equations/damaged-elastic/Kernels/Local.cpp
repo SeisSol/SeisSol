@@ -691,8 +691,8 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
               aB2,
               aB3);
 
-      real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm,
-          syz_bm, szx_bm;
+      real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm, syz_bm,
+          szx_bm;
 
       std::tie(mu_eff,
                sxx_sm,

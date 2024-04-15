@@ -225,14 +225,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   for (unsigned int q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
     real EspI, EspII, xi;
-    std::tie(EspI, EspII, xi) = calculateEsp(exxNodal,
-                 eyyNodal,
-                 ezzNodal,
-                 exyNodal,
-                 eyzNodal,
-                 ezxNodal,
-                 q,
-                 m_damagedElasticParameters);
+    std::tie(EspI, EspII, xi) = calculateEsp(
+        exxNodal, eyyNodal, ezzNodal, exyNodal, eyzNodal, ezxNodal, q, m_damagedElasticParameters);
 
     // Compute alpha_{cr}
     real aCR = (3.0 * xi * xi - 3.0) * data.material.local.gammaR * data.material.local.gammaR +
@@ -747,13 +741,13 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     const real aB3 = damagedElasticParameters.aB3;
 
     std::tie(EspIp, EspIIp, xip) = calculateEsp(&dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 q,
-                 &damagedElasticParameters);
+                                                &dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                q,
+                                                &damagedElasticParameters);
     real alphap = dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
 
     real lambda0P = impAndEtaGet->lambda0P;
@@ -797,32 +791,45 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
             aB2,
             aB3);
 
-calculateStressesFromDamageAndBreakageStresses(&dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsStressNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsStressNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    sxx_sp, sxx_bp, syy_sp, syy_bp, szz_sp, szz_bp, sxy_sp, sxy_bp, syz_sp, syz_bp, szx_sp, szx_bp, q);
+    calculateStressesFromDamageAndBreakageStresses(
+        &dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        sxx_sp,
+        sxx_bp,
+        syy_sp,
+        syy_bp,
+        szz_sp,
+        szz_bp,
+        sxy_sp,
+        sxy_bp,
+        syz_sp,
+        syz_bp,
+        szx_sp,
+        szx_bp,
+        q);
 
     std::tie(EspIm, EspIIm, xim) = calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 &dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                 q,
-                 &damagedElasticParameters);
+                                                &dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                &dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                q,
+                                                &damagedElasticParameters);
     real alpham = dofsNMinus[9];
 
     real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm, syz_bm,
@@ -860,28 +867,40 @@ calculateStressesFromDamageAndBreakageStresses(&dofsStressNPlus[0*NUMBER_OF_ALIG
             aB2,
             aB3);
 
-calculateStressesFromDamageAndBreakageStresses(&dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsStressNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsStressNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    &dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS], 
-    &dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-    sxx_sm, sxx_bm, syy_sm, syy_bm, szz_sm, szz_bm, sxy_sm, sxy_bm, syz_sm, syz_bm, szx_sm, szx_bm, q);
+    calculateStressesFromDamageAndBreakageStresses(
+        &dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsStressNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNMinus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNMinus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        &dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+        sxx_sm,
+        sxx_bm,
+        syy_sm,
+        syy_bm,
+        szz_sm,
+        szz_bm,
+        sxy_sm,
+        sxy_bm,
+        syz_sm,
+        syz_bm,
+        szx_sm,
+        szx_bm,
+        q);
   }
 }
 
-void seissol::kernels::Time::stressToDofsDynamicRupture(real* dofsStress,
-                                                        const real* dofs) {
+void seissol::kernels::Time::stressToDofsDynamicRupture(real* dofsStress, const real* dofs) {
   const real epsInitxx = m_damagedElasticParameters->epsInitxx;
   const real epsInityy = m_damagedElasticParameters->epsInityy;
   const real epsInitzz = m_damagedElasticParameters->epsInitzz;
@@ -962,58 +981,71 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       real alphap = qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
       real xip = computexi(EspIp, EspIIp);
 
-    real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
-        syz_bp, szx_bp;
-    std::tie(mu_eff,
-             sxx_sp,
-             syy_sp,
-             szz_sp,
-             sxy_sp,
-             syz_sp,
-             szx_sp,
-             sxx_bp,
-             syy_bp,
-             szz_bp,
-             sxy_bp,
-             syz_bp,
-             szx_bp) =
-        calculateDamageAndBreakageStresses(
-            mu0P,
-            alphap,
-            impAndEta[ltsFace].gammaRP,
-            impAndEta[ltsFace].xi0P,
-            xip,
-            lambda0P,
-            EspIp,
-            EspIIp,
-            qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-            qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-            qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-            qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-            qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-            qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
-            aB0,
-            aB1,
-            aB2,
-            aB3);
-    
-    calculateStressesFromDamageAndBreakageStresses(&qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
-    &qStressIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
-    &qIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
-    &qIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
-    &qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
-    &qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
-    &qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
-    sxx_sp, sxx_bp, syy_sp, syy_bp, szz_sp, szz_bp, sxy_sp, sxy_bp, syz_sp, syz_bp, szx_sp, szx_bp, i);
+      real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
+          syz_bp, szx_bp;
+      std::tie(mu_eff,
+               sxx_sp,
+               syy_sp,
+               szz_sp,
+               sxy_sp,
+               syz_sp,
+               szx_sp,
+               sxx_bp,
+               syy_bp,
+               szz_bp,
+               sxy_bp,
+               syz_bp,
+               szx_bp) =
+          calculateDamageAndBreakageStresses(
+              mu0P,
+              alphap,
+              impAndEta[ltsFace].gammaRP,
+              impAndEta[ltsFace].xi0P,
+              xip,
+              lambda0P,
+              EspIp,
+              EspIIp,
+              qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+              qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+              qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+              qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+              qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+              qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+              aB0,
+              aB1,
+              aB2,
+              aB3);
+
+      calculateStressesFromDamageAndBreakageStresses(
+          &qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
+          &qStressIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
+          &qIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
+          &qIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
+          &qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
+          &qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
+          &qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
+          sxx_sp,
+          sxx_bp,
+          syy_sp,
+          syy_bp,
+          szz_sp,
+          szz_bp,
+          sxy_sp,
+          sxy_bp,
+          syz_sp,
+          syz_bp,
+          szx_sp,
+          szx_bp,
+          i);
 
       const real EspIm = (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
                          (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
@@ -1034,59 +1066,72 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       real alpham = qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
       real xim = computexi(EspIm, EspIIm);
 
-    real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm,
-        syz_bm, szx_bm;
+      real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm, syz_bm,
+          szx_bm;
 
-    std::tie(mu_eff,
-             sxx_sm,
-             syy_sm,
-             szz_sm,
-             sxy_sm,
-             syz_sm,
-             szx_sm,
-             sxx_bm,
-             syy_bm,
-             szz_bm,
-             sxy_bm,
-             syz_bm,
-             szx_bm) =
-        calculateDamageAndBreakageStresses(
-            mu0M,
-            alpham,
-            impAndEta[ltsFace].gammaRM,
-            impAndEta[ltsFace].xi0M,
-            xim,
-            lambda0M,
-            EspIm,
-            EspIIm,
-            qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-            qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-            qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-            qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-            qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-            qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
-            aB0,
-            aB1,
-            aB2,
-            aB3);
+      std::tie(mu_eff,
+               sxx_sm,
+               syy_sm,
+               szz_sm,
+               sxy_sm,
+               syz_sm,
+               szx_sm,
+               sxx_bm,
+               syy_bm,
+               szz_bm,
+               sxy_bm,
+               syz_bm,
+               szx_bm) =
+          calculateDamageAndBreakageStresses(
+              mu0M,
+              alpham,
+              impAndEta[ltsFace].gammaRM,
+              impAndEta[ltsFace].xi0M,
+              xim,
+              lambda0M,
+              EspIm,
+              EspIIm,
+              qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+              qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+              qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+              qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+              qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+              qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+              aB0,
+              aB1,
+              aB2,
+              aB3);
 
-    calculateStressesFromDamageAndBreakageStresses(&qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
-    &qStressIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
-    &qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
-    &qIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
-    &qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
-    &qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
-    &qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
-    sxx_sm, sxx_bm, syy_sm, syy_bm, szz_sm, szz_bm, sxy_sm, sxy_bm, syz_sm, syz_bm, szx_sm, szx_bm, i);
+      calculateStressesFromDamageAndBreakageStresses(
+          &qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
+          &qStressIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
+          &qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
+          &qIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
+          &qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
+          &qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
+          &qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
+          sxx_sm,
+          sxx_bm,
+          syy_sm,
+          syy_bm,
+          szz_sm,
+          szz_bm,
+          sxy_sm,
+          sxy_bm,
+          syz_sm,
+          syz_bm,
+          szx_sm,
+          szx_bm,
+          i);
     }
   } // time integration loop
 }
@@ -1208,40 +1253,38 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
         FInterpolatedBody[timeInterval][10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       }
 
-    real mu_eff, sxx_s, syy_s, szz_s, sxy_s, syz_s, szx_s, sxx_b, syy_b, szz_b, sxy_b,
-        syz_b, szx_b;
-    std::tie(mu_eff,
-             sxx_s,
-             syy_s,
-             szz_s,
-             sxy_s,
-             syz_s,
-             szx_s,
-             sxx_b,
-             syy_b,
-             szz_b,
-             sxy_b,
-             syz_b,
-             szx_b) =
-        calculateDamageAndBreakageStresses(
-            data.material.local.mu0,
-            alphaNodal[q],
-            data.material.local.gammaR,
-            data.material.local.xi0,
-            xi,
-            data.material.local.lambda0,
-            EspI,
-            EspII,
-            exxNodal[q]+epsInitxx,
-            eyyNodal[q]+epsInityy,
-            ezzNodal[q]+epsInitzz,
-            exyNodal[q]+epsInitxy,
-            eyzNodal[q]+epsInityz,
-            ezxNodal[q]+epsInitzx,
-            aB0,
-            aB1,
-            aB2,
-            aB3);
+      real mu_eff, sxx_s, syy_s, szz_s, sxy_s, syz_s, szx_s, sxx_b, syy_b, szz_b, sxy_b, syz_b,
+          szx_b;
+      std::tie(mu_eff,
+               sxx_s,
+               syy_s,
+               szz_s,
+               sxy_s,
+               syz_s,
+               szx_s,
+               sxx_b,
+               syy_b,
+               szz_b,
+               sxy_b,
+               syz_b,
+               szx_b) = calculateDamageAndBreakageStresses(data.material.local.mu0,
+                                                           alphaNodal[q],
+                                                           data.material.local.gammaR,
+                                                           data.material.local.xi0,
+                                                           xi,
+                                                           data.material.local.lambda0,
+                                                           EspI,
+                                                           EspII,
+                                                           exxNodal[q] + epsInitxx,
+                                                           eyyNodal[q] + epsInityy,
+                                                           ezzNodal[q] + epsInitzz,
+                                                           exyNodal[q] + epsInitxy,
+                                                           eyzNodal[q] + epsInityz,
+                                                           ezxNodal[q] + epsInitzx,
+                                                           aB0,
+                                                           aB1,
+                                                           aB2,
+                                                           aB3);
 
       sxxNodal[q] = (1 - breakNodal[q]) * sxx_s + breakNodal[q] * sxx_b;
       syyNodal[q] = (1 - breakNodal[q]) * syy_s + breakNodal[q] * syy_b;
@@ -1281,7 +1324,7 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       FluxInterpolatedBodyY[timeInterval][8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
           -syzNodal[q] / data.material.local.rho;
       FluxInterpolatedBodyY[timeInterval][9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-      
+
       FluxInterpolatedBodyZ[timeInterval][0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyZ[timeInterval][1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       FluxInterpolatedBodyZ[timeInterval][2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vzNodal[q];
@@ -1401,7 +1444,7 @@ void seissol::kernels::Time::updateNonLinearMaterial(
                      2 * (Q_aveData[5] + epsInitzx) * (Q_aveData[5] + epsInitzx);
 
   real xi = computexi(EspI, EspII);
-  
+
   const real alphaAve = Q_aveData[9];
   const real breakAve = Q_aveData[10];
 
@@ -1428,6 +1471,6 @@ void seissol::kernels::Time::updateNonLinearMaterial(
   material.epszx_alpha = (Q_aveData[5] + epsInitzx);
 }
 
-real seissol::kernels::Time::computexi(real EspI, real EspII){
-    return (EspII > 1e-30) ? EspI / std::sqrt(EspII) : 0.0;
+real seissol::kernels::Time::computexi(real EspI, real EspII) {
+  return (EspII > 1e-30) ? EspI / std::sqrt(EspII) : 0.0;
 }
