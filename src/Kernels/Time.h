@@ -186,10 +186,8 @@ class seissol::kernels::Time : public TimeBase {
       real* dofsStressNPlus,
       const real* dofsNMinus,
       real* dofsStressNMinus);
-  void stressToDofsDynamicRupture(real* dofsStressNPlus,
-                                  const real* dofsNPlus,
-                                  real* dofsStressNMinus,
-                                  const real* dofsNMinus);
+  void stressToDofsDynamicRupture(real* dofsStress,
+                                  const real* dofs);
   void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta,
                                        unsigned ltsFace,
                                        const real* qIPlus,

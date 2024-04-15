@@ -182,9 +182,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
     alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
     alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
 
-    // TODO(NONLINEAR) What are these numbers?
     m_timeKernel.stressToDofsDynamicRupture(
-        dofsStressNPlus, dofsNPlus, dofsStressNMinus, dofsNMinus);
+        dofsStressNPlus, dofsNPlus);
+    m_timeKernel.stressToDofsDynamicRupture(
+        dofsStressNMinus, dofsNMinus);
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
     d_convertBackKrnl.FNodal = dofsStressNPlus;
