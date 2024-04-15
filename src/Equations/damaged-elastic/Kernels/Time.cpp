@@ -1041,30 +1041,24 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
             aB1,
             aB2,
             aB3);
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxx_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * sxx_bp;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * syy_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * syy_bp;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * szz_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * szz_bp;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * sxy_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * sxy_bp;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * syz_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * syz_bp;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i] =
-          (1 - qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * szx_sp +
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * szx_bp;
+    
+    calculateStressesFromDamageAndBreakageStresses(&qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
+    &qStressIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
+    &qIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints], 
+    &qIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints], 
+    &qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints], 
+    &qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints], 
+    &qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints], 
+    sxx_sp, sxx_bp, syy_sp, syy_bp, szz_sp, szz_bp, sxy_sp, sxy_bp, syz_sp, syz_bp, szx_sp, szx_bp, i);
 
       const real EspIm = (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
                          (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
@@ -1149,17 +1143,6 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i] =
           (1 - qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i]) * szx_sm +
           qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] * szx_bm;
-
-      qStressIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i] =
-          qIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i];
-      qStressIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints + i] =
-          qIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints + i];
-      qStressIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints + i] =
-          qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints + i];
-      qStressIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i] =
-          qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
-      qStressIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i] =
-          qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints + i];
 
       qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i] =
           qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints + i];
@@ -1558,4 +1541,46 @@ std::tuple<real, real, real, real, real, real, real, real, real, real, real, rea
 
   return std::make_tuple(
       muEff, sxxS, syyS, szzS, sxyS, syzS, szxS, sxxB, syyB, szzB, sxyB, syzB, szxB);
+}
+
+void seissol::kernels::Time::calculateStressesFromDamageAndBreakageStresses(real* qStressDofsXX,
+                                                                            real* qStressDofsYY,
+                                                                            real* qStressDofsZZ,
+                                                                            real* qStressDofsXY,
+                                                                            real* qStressDofsYZ,
+                                                                            real* qStressDofsXZ,
+                                                                            real* qStressDofsU,
+                                                                            real* qStressDofsV,
+                                                                            real* qStressDofsW,
+                                                                            real* qStressDofsDAM,
+                                                                            real* qStressDofsBRE,
+                                                                            const real* qIU,
+                                                                            const real* qIV,
+                                                                            const real* qIW,
+                                                                            const real* qIDAM,
+                                                                            const real* qIBRE,
+                                                                            real sxxS,
+                                                                            real sxxB,
+                                                                            real syyS,
+                                                                            real syyB,
+                                                                            real szzS,
+                                                                            real szzB,
+                                                                            real sxyS,
+                                                                            real sxyB,
+                                                                            real syzS,
+                                                                            real syzB,
+                                                                            real szxS,
+                                                                            real szxB,
+                                                                            unsigned int i) {
+  qStressDofsXX[i] = (1 - qIBRE[i]) * sxxS + qIBRE[i] * sxxB;
+  qStressDofsYY[i] = (1 - qIBRE[i]) * syyS + qIBRE[i] * syyB;
+  qStressDofsZZ[i] = (1 - qIBRE[i]) * szzS + qIBRE[i] * szzB;
+  qStressDofsXY[i] = (1 - qIBRE[i]) * sxyS + qIBRE[i] * sxyB;
+  qStressDofsYZ[i] = (1 - qIBRE[i]) * syzS + qIBRE[i] * syzB;
+  qStressDofsXZ[i] = (1 - qIBRE[i]) * szxS + qIBRE[i] * szxB;
+  qStressDofsU[i] = qIU[i];
+  qStressDofsV[i] = qIV[i];
+  qStressDofsW[i] = qIW[i];
+  qStressDofsDAM[i] = qIDAM[i];
+  qStressDofsBRE[i] = qIBRE[i];
 }
