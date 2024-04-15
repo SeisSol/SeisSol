@@ -195,19 +195,6 @@ class seissol::kernels::Time : public TimeBase {
                                        real* qStressIPlus,
                                        const real* qIMinus,
                                        real* qStressIMinus);
-  void updateNonLinearMaterialLocal(const real* Q_aveData,
-                                    CellMaterialData* materialData,
-                                    unsigned int l_cell,
-                                    const std::vector<Element>& elements,
-                                    const std::vector<Vertex>& vertices,
-                                    unsigned int meshId,
-                                    real* x,
-                                    real* y,
-                                    real* z);
-  void updateNonLinearMaterialNeighbor(CellMaterialData* materialData,
-                                       unsigned int l_cell,
-                                       unsigned side,
-                                       const real* Q_aveData);
   void computeNonLinearLocalIntegration(
       const seissol::kernels::LocalData& data,
       real (&QInterpolatedBodyNodal)[CONVERGENCE_ORDER][tensor::QNodal::size()],
@@ -269,7 +256,8 @@ class seissol::kernels::Time : public TimeBase {
                                                       real szxS,
                                                       real szxB,
                                                       unsigned int i);
-  void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material);
+  void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
+                               const real* Q_aveData);
 #endif
 };
 #endif

@@ -911,8 +911,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
-      m_timeKernel.updateNonLinearMaterialLocal(
-          Q_aveData, materialData, l_cell, elements, vertices, meshId, x, y, z);
+      m_timeKernel.updateNonLinearMaterial(materialData[l_cell].local, Q_aveData);
       // Iterate over all 4 vertices of the tetrahedron
       for (unsigned vertex = 0; vertex < 4; ++vertex) {
         VrtxCoords const& coords = vertices[elements[meshId].vertices[vertex]].coords;
@@ -942,7 +941,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           m_cellAverageKernel.QAve = Q_aveData;
           m_cellAverageKernel.execute();
 
-          m_timeKernel.updateNonLinearMaterialNeighbor(materialData, l_cell, side, Q_aveData);
+          m_timeKernel.updateNonLinearMaterial(materialData[l_cell].neighbor[side], Q_aveData);
         }
 
         VrtxCoords normal;
