@@ -1202,23 +1202,23 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
       real mu_eff;
       Stresses sS, sB;
       std::tie(mu_eff, sS, sB) = calculateDamageAndBreakageStresses(data.material.local.mu0,
-                                                           alphaNodal[q],
-                                                           data.material.local.gammaR,
-                                                           data.material.local.xi0,
-                                                           xi,
-                                                           data.material.local.lambda0,
-                                                           EspI,
-                                                           EspII,
-                                                           exxNodal[q] + epsInitxx,
-                                                           eyyNodal[q] + epsInityy,
-                                                           ezzNodal[q] + epsInitzz,
-                                                           exyNodal[q] + epsInitxy,
-                                                           eyzNodal[q] + epsInityz,
-                                                           ezxNodal[q] + epsInitzx,
-                                                           aB0,
-                                                           aB1,
-                                                           aB2,
-                                                           aB3);
+                                                                    alphaNodal[q],
+                                                                    data.material.local.gammaR,
+                                                                    data.material.local.xi0,
+                                                                    xi,
+                                                                    data.material.local.lambda0,
+                                                                    EspI,
+                                                                    EspII,
+                                                                    exxNodal[q] + epsInitxx,
+                                                                    eyyNodal[q] + epsInityy,
+                                                                    ezzNodal[q] + epsInitzz,
+                                                                    exyNodal[q] + epsInitxy,
+                                                                    eyzNodal[q] + epsInityz,
+                                                                    ezxNodal[q] + epsInitzx,
+                                                                    aB0,
+                                                                    aB1,
+                                                                    aB2,
+                                                                    aB3);
 
       sxxNodal[q] = (1 - breakNodal[q]) * sS.sxx + breakNodal[q] * sB.sxx;
       syyNodal[q] = (1 - breakNodal[q]) * sS.syy + breakNodal[q] * sS.syy;
@@ -1306,11 +1306,11 @@ std::tuple<real, seissol::kernels::Time::Stresses, seissol::kernels::Time::Stres
   sS.syz = 2 * muEff * stressYZ;
   sS.sxz = 2 * muEff * stressXZ;
   sB.sxx = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-              (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXX;
+           (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXX;
   sB.syy = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-              (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYY;
+           (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYY;
   sB.szz = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
-              (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressZZ;
+           (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressZZ;
   sB.sxy = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXY;
   sB.syz = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYZ;
   sB.sxz = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXZ;
@@ -1422,8 +1422,7 @@ std::tuple<real, real, real> seissol::kernels::Time::computealphalambdamu(const 
                                                                           real aB2,
                                                                           real aB3,
                                                                           real xi,
-                                                                          real xi0
-                                                                           ) {
+                                                                          real xi0) {
   using namespace seissol::dr::misc::quantity_indices;
   real alpha = q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                  DAM * seissol::dr::misc::numPaddedPoints + i];
@@ -1444,14 +1443,12 @@ std::tuple<real, real, real> seissol::kernels::Time::computealphalambdamu(const 
                   XX * seissol::dr::misc::numPaddedPoints + i] +
                 epsInitxx) /
                std::sqrt(EspII));
-  real mu =
-      (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  BRE * seissol::dr::misc::numPaddedPoints + i]) *
-          (mu0 - alpha * xi0 * gammaR -
-           0.5 * alpha * gammaR * xi) +
-      q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-             BRE * seissol::dr::misc::numPaddedPoints + i] *
-          (aB0 + 0.5 * xi * aB1 - 0.5 * xi * xi * xi * aB3);
+  real mu = (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                   BRE * seissol::dr::misc::numPaddedPoints + i]) *
+                (mu0 - alpha * xi0 * gammaR - 0.5 * alpha * gammaR * xi) +
+            q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+              BRE * seissol::dr::misc::numPaddedPoints + i] *
+                (aB0 + 0.5 * xi * aB1 - 0.5 * xi * xi * xi * aB3);
 
-    return std::make_tuple(alpha, lambda, mu);
+  return std::make_tuple(alpha, lambda, mu);
 }
