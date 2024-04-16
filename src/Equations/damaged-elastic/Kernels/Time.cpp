@@ -755,41 +755,28 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
-    real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
-        syz_bp, szx_bp;
+    real mu_eff;
+    Stresses sSp, sBp;
 
-    std::tie(mu_eff,
-             sxx_sp,
-             syy_sp,
-             szz_sp,
-             sxy_sp,
-             syz_sp,
-             szx_sp,
-             sxx_bp,
-             syy_bp,
-             szz_bp,
-             sxy_bp,
-             syz_bp,
-             szx_bp) =
-        calculateDamageAndBreakageStresses(
-            mu0P,
-            alphap,
-            impAndEtaGet->gammaRP,
-            impAndEtaGet->xi0P,
-            xip,
-            lambda0P,
-            EspIp,
-            EspIIp,
-            dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx,
-            dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy,
-            dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz,
-            dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy,
-            dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz,
-            dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx,
-            aB0,
-            aB1,
-            aB2,
-            aB3);
+    std::tie(mu_eff, sSp, sBp) = calculateDamageAndBreakageStresses(
+        mu0P,
+        alphap,
+        impAndEtaGet->gammaRP,
+        impAndEtaGet->xi0P,
+        xip,
+        lambda0P,
+        EspIp,
+        EspIIp,
+        dofsNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx,
+        dofsNPlus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy,
+        dofsNPlus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz,
+        dofsNPlus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy,
+        dofsNPlus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz,
+        dofsNPlus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx,
+        aB0,
+        aB1,
+        aB2,
+        aB3);
 
     calculateStressesFromDamageAndBreakageStresses(
         &dofsStressNPlus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -808,18 +795,18 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
         &dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-        sxx_sp,
-        sxx_bp,
-        syy_sp,
-        syy_bp,
-        szz_sp,
-        szz_bp,
-        sxy_sp,
-        sxy_bp,
-        syz_sp,
-        syz_bp,
-        szx_sp,
-        szx_bp,
+        sSp.sxx,
+        sBp.sxx,
+        sSp.syy,
+        sBp.syy,
+        sSp.szz,
+        sBp.szz,
+        sSp.sxy,
+        sBp.sxy,
+        sSp.syz,
+        sBp.syz,
+        sSp.sxz,
+        sBp.sxz,
         q);
 
     std::tie(EspIm, EspIIm, xim) = calculateEsp(&dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -832,40 +819,26 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
                                                 &damagedElasticParameters);
     real alpham = dofsNMinus[9];
 
-    real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm, syz_bm,
-        szx_bm;
-    std::tie(mu_eff,
-             sxx_sm,
-             syy_sm,
-             szz_sm,
-             sxy_sm,
-             syz_sm,
-             szx_sm,
-             sxx_bm,
-             syy_bm,
-             szz_bm,
-             sxy_bm,
-             syz_bm,
-             szx_bm) =
-        calculateDamageAndBreakageStresses(
-            mu0M,
-            alpham,
-            impAndEtaGet->gammaRM,
-            impAndEtaGet->xi0M,
-            xim,
-            lambda0M,
-            EspIm,
-            EspIIm,
-            dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx,
-            dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy,
-            dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz,
-            dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy,
-            dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz,
-            dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx,
-            aB0,
-            aB1,
-            aB2,
-            aB3);
+    Stresses sSm, sBm;
+    std::tie(mu_eff, sSm, sBm) = calculateDamageAndBreakageStresses(
+        mu0M,
+        alpham,
+        impAndEtaGet->gammaRM,
+        impAndEtaGet->xi0M,
+        xim,
+        lambda0M,
+        EspIm,
+        EspIIm,
+        dofsNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxx,
+        dofsNMinus[1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityy,
+        dofsNMinus[2 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzz,
+        dofsNMinus[3 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitxy,
+        dofsNMinus[4 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInityz,
+        dofsNMinus[5 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] + epsInitzx,
+        aB0,
+        aB1,
+        aB2,
+        aB3);
 
     calculateStressesFromDamageAndBreakageStresses(
         &dofsStressNMinus[0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -884,18 +857,18 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
         &dofsNMinus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNMinus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNMinus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-        sxx_sm,
-        sxx_bm,
-        syy_sm,
-        syy_bm,
-        szz_sm,
-        szz_bm,
-        sxy_sm,
-        sxy_bm,
-        syz_sm,
-        syz_bm,
-        szx_sm,
-        szx_bm,
+        sSm.sxx,
+        sBm.sxx,
+        sSm.syy,
+        sBm.syy,
+        sSm.szz,
+        sBm.szz,
+        sSm.sxy,
+        sBm.sxy,
+        sSm.syz,
+        sBm.syz,
+        sSm.sxz,
+        sBm.sxz,
         q);
   }
 }
@@ -981,40 +954,27 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       real alphap = qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
       real xip = computexi(EspIp, EspIIp);
 
-      real mu_eff, sxx_sp, syy_sp, szz_sp, sxy_sp, syz_sp, szx_sp, sxx_bp, syy_bp, szz_bp, sxy_bp,
-          syz_bp, szx_bp;
-      std::tie(mu_eff,
-               sxx_sp,
-               syy_sp,
-               szz_sp,
-               sxy_sp,
-               syz_sp,
-               szx_sp,
-               sxx_bp,
-               syy_bp,
-               szz_bp,
-               sxy_bp,
-               syz_bp,
-               szx_bp) =
-          calculateDamageAndBreakageStresses(
-              mu0P,
-              alphap,
-              impAndEta[ltsFace].gammaRP,
-              impAndEta[ltsFace].xi0P,
-              xip,
-              lambda0P,
-              EspIp,
-              EspIIp,
-              qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-              qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-              qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-              qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-              qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-              qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
-              aB0,
-              aB1,
-              aB2,
-              aB3);
+      real mu_eff;
+      Stresses sSp, sBp;
+      std::tie(mu_eff, sSp, sBp) = calculateDamageAndBreakageStresses(
+          mu0P,
+          alphap,
+          impAndEta[ltsFace].gammaRP,
+          impAndEta[ltsFace].xi0P,
+          xip,
+          lambda0P,
+          EspIp,
+          EspIIp,
+          qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+          qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+          qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+          qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+          qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+          qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+          aB0,
+          aB1,
+          aB2,
+          aB3);
 
       calculateStressesFromDamageAndBreakageStresses(
           &qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
@@ -1033,18 +993,18 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           &qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
           &qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
           &qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          sxx_sp,
-          sxx_bp,
-          syy_sp,
-          syy_bp,
-          szz_sp,
-          szz_bp,
-          sxy_sp,
-          sxy_bp,
-          syz_sp,
-          syz_bp,
-          szx_sp,
-          szx_bp,
+          sSp.sxx,
+          sBp.sxx,
+          sSp.syy,
+          sBp.syy,
+          sSp.szz,
+          sBp.szz,
+          sSp.sxy,
+          sBp.sxy,
+          sSp.syz,
+          sBp.syz,
+          sSp.sxz,
+          sBp.sxz,
           i);
 
       const real EspIm = (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
@@ -1066,41 +1026,27 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       real alpham = qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
       real xim = computexi(EspIm, EspIIm);
 
-      real sxx_sm, syy_sm, szz_sm, sxy_sm, syz_sm, szx_sm, sxx_bm, syy_bm, szz_bm, sxy_bm, syz_bm,
-          szx_bm;
+      Stresses sSm, sBm;
 
-      std::tie(mu_eff,
-               sxx_sm,
-               syy_sm,
-               szz_sm,
-               sxy_sm,
-               syz_sm,
-               szx_sm,
-               sxx_bm,
-               syy_bm,
-               szz_bm,
-               sxy_bm,
-               syz_bm,
-               szx_bm) =
-          calculateDamageAndBreakageStresses(
-              mu0M,
-              alpham,
-              impAndEta[ltsFace].gammaRM,
-              impAndEta[ltsFace].xi0M,
-              xim,
-              lambda0M,
-              EspIm,
-              EspIIm,
-              qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-              qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-              qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-              qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-              qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-              qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
-              aB0,
-              aB1,
-              aB2,
-              aB3);
+      std::tie(mu_eff, sSm, sBm) = calculateDamageAndBreakageStresses(
+          mu0M,
+          alpham,
+          impAndEta[ltsFace].gammaRM,
+          impAndEta[ltsFace].xi0M,
+          xim,
+          lambda0M,
+          EspIm,
+          EspIIm,
+          qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
+          qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
+          qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
+          qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
+          qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
+          qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+          aB0,
+          aB1,
+          aB2,
+          aB3);
 
       calculateStressesFromDamageAndBreakageStresses(
           &qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
@@ -1119,18 +1065,18 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           &qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
           &qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
           &qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          sxx_sm,
-          sxx_bm,
-          syy_sm,
-          syy_bm,
-          szz_sm,
-          szz_bm,
-          sxy_sm,
-          sxy_bm,
-          syz_sm,
-          syz_bm,
-          szx_sm,
-          szx_bm,
+          sSm.sxx,
+          sBm.sxx,
+          sSm.syy,
+          sBm.syy,
+          sSm.szz,
+          sBm.szz,
+          sSm.sxy,
+          sBm.sxy,
+          sSm.syz,
+          sBm.syz,
+          sSm.sxz,
+          sBm.sxz,
           i);
     }
   } // time integration loop
@@ -1253,21 +1199,9 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
         FInterpolatedBody[timeInterval][10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
       }
 
-      real mu_eff, sxx_s, syy_s, szz_s, sxy_s, syz_s, szx_s, sxx_b, syy_b, szz_b, sxy_b, syz_b,
-          szx_b;
-      std::tie(mu_eff,
-               sxx_s,
-               syy_s,
-               szz_s,
-               sxy_s,
-               syz_s,
-               szx_s,
-               sxx_b,
-               syy_b,
-               szz_b,
-               sxy_b,
-               syz_b,
-               szx_b) = calculateDamageAndBreakageStresses(data.material.local.mu0,
+      real mu_eff;
+      Stresses sS, sB;
+      std::tie(mu_eff, sS, sB) = calculateDamageAndBreakageStresses(data.material.local.mu0,
                                                            alphaNodal[q],
                                                            data.material.local.gammaR,
                                                            data.material.local.xi0,
@@ -1286,12 +1220,12 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
                                                            aB2,
                                                            aB3);
 
-      sxxNodal[q] = (1 - breakNodal[q]) * sxx_s + breakNodal[q] * sxx_b;
-      syyNodal[q] = (1 - breakNodal[q]) * syy_s + breakNodal[q] * syy_b;
-      szzNodal[q] = (1 - breakNodal[q]) * szz_s + breakNodal[q] * szz_b;
-      sxyNodal[q] = (1 - breakNodal[q]) * sxy_s + breakNodal[q] * sxy_b;
-      syzNodal[q] = (1 - breakNodal[q]) * syz_s + breakNodal[q] * syz_b;
-      szxNodal[q] = (1 - breakNodal[q]) * szx_s + breakNodal[q] * szx_b;
+      sxxNodal[q] = (1 - breakNodal[q]) * sS.sxx + breakNodal[q] * sB.sxx;
+      syyNodal[q] = (1 - breakNodal[q]) * sS.syy + breakNodal[q] * sS.syy;
+      szzNodal[q] = (1 - breakNodal[q]) * sS.szz + breakNodal[q] * sS.szz;
+      sxyNodal[q] = (1 - breakNodal[q]) * sS.sxy + breakNodal[q] * sS.sxy;
+      syzNodal[q] = (1 - breakNodal[q]) * sS.syz + breakNodal[q] * sS.syz;
+      szxNodal[q] = (1 - breakNodal[q]) * sS.sxz + breakNodal[q] * sS.sxz;
 
       FluxInterpolatedBodyX[timeInterval][0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];
       FluxInterpolatedBodyX[timeInterval][1 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
@@ -1344,7 +1278,7 @@ void seissol::kernels::Time::computeNonLinearLocalIntegration(
   }
 }
 
-std::tuple<real, real, real, real, real, real, real, real, real, real, real, real, real>
+std::tuple<real, seissol::kernels::Time::Stresses, seissol::kernels::Time::Stresses>
     seissol::kernels::Time::calculateDamageAndBreakageStresses(real mu0,
                                                                real alpha,
                                                                real gammaR,
@@ -1363,25 +1297,25 @@ std::tuple<real, real, real, real, real, real, real, real, real, real, real, rea
                                                                real aB1,
                                                                real aB2,
                                                                real aB3) {
+  seissol::kernels::Time::Stresses sS, sB;
   real muEff = mu0 - alpha * gammaR * xi0 - 0.5 * alpha * gammaR * xi;
-  real sxxS = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressXX;
-  real syyS = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressYY;
-  real szzS = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressZZ;
-  real sxyS = 2 * muEff * stressXY;
-  real syzS = 2 * muEff * stressYZ;
-  real szxS = 2 * muEff * stressXZ;
-  real sxxB = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
+  sS.sxx = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressXX;
+  sS.syy = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressYY;
+  sS.szz = lambda0 * EspI - alpha * gammaR * std::sqrt(EspII) + 2 * muEff * stressZZ;
+  sS.sxy = 2 * muEff * stressXY;
+  sS.syz = 2 * muEff * stressYZ;
+  sS.sxz = 2 * muEff * stressXZ;
+  sB.sxx = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
               (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXX;
-  real syyB = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
+  sB.syy = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
               (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYY;
-  real szzB = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
+  sB.szz = (2.0 * aB2 + 3.0 * xi * aB3) * EspI + aB1 * std::sqrt(EspII) +
               (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressZZ;
-  real sxyB = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXY;
-  real syzB = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYZ;
-  real szxB = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXZ;
+  sB.sxy = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXY;
+  sB.syz = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressYZ;
+  sB.sxz = (2.0 * aB0 + aB1 * xi - aB3 * xi * xi * xi) * stressXZ;
 
-  return std::make_tuple(
-      muEff, sxxS, syyS, szzS, sxyS, syzS, szxS, sxxB, syyB, szzB, sxyB, syzB, szxB);
+  return std::make_tuple(muEff, sS, sB);
 }
 
 void seissol::kernels::Time::calculateStressesFromDamageAndBreakageStresses(real* qStressDofsXX,
