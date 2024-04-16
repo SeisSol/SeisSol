@@ -329,7 +329,9 @@ class LinearADERDG(ADERDGBase):
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
       power = powers[0]
       derivatives = [dQ0]
-      derivativeExpr = [] # for interleaving: self.I['kp'] <= power * dQ0['kp']
+      
+      # for now, interleave Taylor expansion and derivative computation
+      derivativeExpr = [self.I['kp'] <= power * dQ0['kp']]
       derivativeTaylorExpansion = power * dQ0['kp']
 
       self.dQs = [dQ0]
