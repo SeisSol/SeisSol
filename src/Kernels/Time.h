@@ -259,6 +259,20 @@ class seissol::kernels::Time : public TimeBase {
   void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
                                const real* Q_aveData);
   real computexi(real EspI, real EspII);
+  std::tuple<real, real, real> computealphalambdamu(const real* q,
+                                                    unsigned int o,
+                                                    unsigned int i,
+                                                    real lambda0,
+                                                    real mu0,
+                                                    real gammaR,
+                                                    real epsInitxx,
+                                                    real EspII,
+                                                    real aB0,
+                                                    real aB1,
+                                                    real aB2,
+                                                    real aB3,
+                                                    real xi,
+                                                    real xi0);
 #endif
 };
 #endif

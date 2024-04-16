@@ -1474,3 +1474,50 @@ void seissol::kernels::Time::updateNonLinearMaterial(
 real seissol::kernels::Time::computexi(real EspI, real EspII) {
   return (EspII > 1e-30) ? EspI / std::sqrt(EspII) : 0.0;
 }
+
+std::tuple<real, real, real> seissol::kernels::Time::computealphalambdamu(const real* q,
+                                                                          unsigned int o,
+                                                                          unsigned int i,
+                                                                          real lambda0,
+                                                                          real mu0,
+                                                                          real gammaR,
+                                                                          real epsInitxx,
+                                                                          real EspII,
+                                                                          real aB0,
+                                                                          real aB1,
+                                                                          real aB2,
+                                                                          real aB3,
+                                                                          real xi,
+                                                                          real xi0
+                                                                           ) {
+  using namespace seissol::dr::misc::quantity_indices;
+  real alpha = q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                 DAM * seissol::dr::misc::numPaddedPoints + i];
+  real lambda =
+      (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+             BRE * seissol::dr::misc::numPaddedPoints + i]) *
+          (lambda0 -
+           alpha * gammaR *
+               (q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XX * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxx) /
+               std::sqrt(EspII)) +
+      q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+        BRE * seissol::dr::misc::numPaddedPoints + i] *
+          (2.0 * aB2 + 3.0 * xi * aB3 +
+           aB1 *
+               (q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  XX * seissol::dr::misc::numPaddedPoints + i] +
+                epsInitxx) /
+               std::sqrt(EspII));
+  real mu =
+      (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+                  BRE * seissol::dr::misc::numPaddedPoints + i]) *
+          (mu0 - alpha * xi0 * gammaR -
+           0.5 * alpha * gammaR * xi) +
+      q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
+             BRE * seissol::dr::misc::numPaddedPoints + i] *
+          (aB0 + 0.5 * xi * aB1 - 0.5 * xi * xi * xi * aB3);
+
+    return std::make_tuple(alpha, lambda, mu);
+}

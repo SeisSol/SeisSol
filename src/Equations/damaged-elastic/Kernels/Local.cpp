@@ -512,8 +512,6 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
     real* rusanovFluxP,
     const LocalIntegrationData* localIntegration) {
   using namespace seissol::dr::misc::quantity_indices;
-  const unsigned DAM = 9;
-  const unsigned BRE = 10;
 
   const real lambda0P = materialData[l_cell].local.lambda0;
   const real mu0P = materialData[l_cell].local.mu0;
@@ -562,9 +560,6 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                   XZ * seissol::dr::misc::numPaddedPoints],
           i,
           m_damagedElasticParameters);
-      real alphap =
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 DAM * seissol::dr::misc::numPaddedPoints + i];
       std::tie(EspIm, EspIIm, xim) = m_timeKernel.calculateEsp(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XX * seissol::dr::misc::numPaddedPoints],
@@ -580,65 +575,37 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                    XZ * seissol::dr::misc::numPaddedPoints],
           i,
           m_damagedElasticParameters);
-      real alpham =
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  DAM * seissol::dr::misc::numPaddedPoints + i];
-      real lambp =
-          (1 - qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                      BRE * seissol::dr::misc::numPaddedPoints + i]) *
-              (lambda0P - alphap * materialData[l_cell].local.gammaR *
-                              (qIPlus[o * seissol::dr::misc::numQuantities *
-                                          seissol::dr::misc::numPaddedPoints +
-                                      XX * seissol::dr::misc::numPaddedPoints + i] +
-                               epsInitxx) /
-                              std::sqrt(EspIIp)) +
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 BRE * seissol::dr::misc::numPaddedPoints + i] *
-              (2.0 * aB2 + 3.0 * xip * aB3 +
-               aB1 *
-                   (qIPlus[o * seissol::dr::misc::numQuantities *
-                               seissol::dr::misc::numPaddedPoints +
-                           XX * seissol::dr::misc::numPaddedPoints + i] +
-                    epsInitxx) /
-                   std::sqrt(EspIIp));
-      real mup =
-          (1 - qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                      BRE * seissol::dr::misc::numPaddedPoints + i]) *
-              (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR -
-               0.5 * alphap * materialData[l_cell].local.gammaR * xip) +
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 BRE * seissol::dr::misc::numPaddedPoints + i] *
-              (aB0 + 0.5 * xip * aB1 - 0.5 * xip * xip * xip * aB3);
-
-      real lambm =
-          (1 - qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                       BRE * seissol::dr::misc::numPaddedPoints + i]) *
-              (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR *
-                              (qIMinus[o * seissol::dr::misc::numQuantities *
-                                           seissol::dr::misc::numPaddedPoints +
-                                       XX * seissol::dr::misc::numPaddedPoints + i] +
-                               epsInitxx) /
-                              std::sqrt(EspIIm)) +
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  BRE * seissol::dr::misc::numPaddedPoints + i] *
-              (2.0 * aB2 + 3.0 * xim * aB3 +
-               aB1 *
-                   (qIMinus[o * seissol::dr::misc::numQuantities *
-                                seissol::dr::misc::numPaddedPoints +
-                            XX * seissol::dr::misc::numPaddedPoints + i] +
-                    epsInitxx) /
-                   std::sqrt(EspIIm));
-
-      real mum =
-          (1 - qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                       BRE * seissol::dr::misc::numPaddedPoints + i]) *
-              (mu0M -
-               alpham * materialData[l_cell].neighbor[side].xi0 *
-                   materialData[l_cell].neighbor[side].gammaR -
-               0.5 * alpham * materialData[l_cell].neighbor[side].gammaR * xim) +
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  BRE * seissol::dr::misc::numPaddedPoints + i] *
-              (aB0 + 0.5 * xim * aB1 - 0.5 * xim * xim * xim * aB3);
+      real alphap, lambp, mup, alpham, lambm, mum;
+      std::tie(alphap, lambp, mup) =
+          m_timeKernel.computealphalambdamu(qIPlus,
+                                            o,
+                                            i,
+                                            lambda0P,
+                                            mu0P,
+                                            materialData[l_cell].local.gammaR,
+                                            epsInitxx,
+                                            EspIIp,
+                                            aB0,
+                                            aB1,
+                                            aB2,
+                                            aB3,
+                                            xip,
+                                            materialData[l_cell].local.xi0);
+      std::tie(alpham, lambm, mum) =
+          m_timeKernel.computealphalambdamu(qIMinus,
+                                            o,
+                                            i,
+                                            lambda0M,
+                                            mu0M,
+                                            materialData[l_cell].local.gammaR,
+                                            epsInitxx,
+                                            EspIIm,
+                                            aB0,
+                                            aB1,
+                                            aB2,
+                                            aB3,
+                                            xim,
+                                            materialData[l_cell].local.xi0);
 
       lambdaMax =
           std::min(std::sqrt((lambp + 2 * mup) / rho0P), std::sqrt((lambm + 2 * mum) / rho0M));
@@ -1024,9 +991,7 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
       auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
       auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
 
-      // The arrays to store time integrated flux
       alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
-      // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
 
       for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
         rusanovFluxPlus[i_f] = static_cast<real>(0.0);
