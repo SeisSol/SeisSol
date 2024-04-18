@@ -390,7 +390,7 @@ void EnergyOutput::computeVolumeEnergies() {
         totalMomentumX += curWeight * curMomentumX;
         totalMomentumY += curWeight * curMomentumY;
         totalMomentumZ += curWeight * curMomentumZ;
-        
+
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
@@ -551,7 +551,6 @@ void EnergyOutput::printEnergies() {
     const auto totalMomentumX = energiesStorage.totalMomentumX();
     const auto totalMomentumY = energiesStorage.totalMomentumY();
     const auto totalMomentumZ = energiesStorage.totalMomentumZ();
-
 
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
