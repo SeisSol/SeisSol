@@ -390,6 +390,7 @@ void EnergyOutput::computeVolumeEnergies() {
         totalMomentumX += curWeight * curMomentumX;
         totalMomentumY += curWeight * curMomentumY;
         totalMomentumZ += curWeight * curMomentumZ;
+        
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
@@ -547,6 +548,10 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+    const auto totalMomentumX = energiesStorage.totalMomentumX();
+    const auto totalMomentumY = energiesStorage.totalMomentumY();
+    const auto totalMomentumZ = energiesStorage.totalMomentumZ();
+
 
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
@@ -566,6 +571,10 @@ void EnergyOutput::printEnergies() {
                       << energiesStorage.plasticMoment() << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
+      }
+      if (totalMomentumX || totalMomentumY || totalMomentumZ) {
+        logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+                      << " ," << totalMomentumZ;
       }
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
@@ -623,8 +632,9 @@ void EnergyOutput::writeEnergies(double time) {
         << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
         << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
         << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
-        << time << ",momentum," << energiesStorage.totalMomentumX() << ","
-        << energiesStorage.totalMomentumY() << "," << energiesStorage.totalMomentumZ() << "\n"
+        << time << ",momentumX," << energiesStorage.totalMomentumX() << "\n"
+        << time << ",momentumY," << energiesStorage.totalMomentumY() << "\n"
+        << time << ",momentumZ," << energiesStorage.totalMomentumZ() << "\n"
         << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
   }
   out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
