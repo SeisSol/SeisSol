@@ -208,7 +208,17 @@ class seissol::kernels::Time : public TimeBase {
       real (&FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
       real (&FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
       real (&FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
-  std::tuple<real, real, real, real, real, real, real, real, real, real, real, real, real>
+
+  struct Stresses {
+    real sxx;
+    real syy;
+    real szz;
+    real sxy;
+    real syz;
+    real sxz;
+  };
+  
+  std::tuple<real, Stresses, Stresses>
       calculateDamageAndBreakageStresses(real mu0,
                                          real alpha,
                                          real gammaR,
@@ -259,6 +269,20 @@ class seissol::kernels::Time : public TimeBase {
   void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
                                const real* Q_aveData);
   real computexi(real EspI, real EspII);
+  std::tuple<real, real, real> computealphalambdamu(const real* q,
+                                                    unsigned int o,
+                                                    unsigned int i,
+                                                    real lambda0,
+                                                    real mu0,
+                                                    real gammaR,
+                                                    real epsInitxx,
+                                                    real EspII,
+                                                    real aB0,
+                                                    real aB1,
+                                                    real aB2,
+                                                    real aB3,
+                                                    real xi,
+                                                    real xi0);
 #endif
 };
 #endif
