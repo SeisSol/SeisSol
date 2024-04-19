@@ -217,6 +217,20 @@ class seissol::kernels::Time : public TimeBase {
     real syz;
     real sxz;
   };
+
+  struct StressDofs {
+  real* qStressDofsXX;
+  real* qStressDofsYY;
+  real* qStressDofsZZ;
+  real* qStressDofsXY;
+  real* qStressDofsYZ;
+  real* qStressDofsXZ;
+  real* qStressDofsU;
+  real* qStressDofsV;
+  real* qStressDofsW;
+  real* qStressDofsDAM;
+  real* qStressDofsBRE;
+};
   
   std::tuple<real, Stresses, Stresses>
       calculateDamageAndBreakageStresses(real mu0,
@@ -237,25 +251,15 @@ class seissol::kernels::Time : public TimeBase {
                                          real aB1,
                                          real aB2,
                                          real aB3);
-  void calculateStressesFromDamageAndBreakageStresses(real* qStressDofsXX,
-                                                      real* qStressDofsYY,
-                                                      real* qStressDofsZZ,
-                                                      real* qStressDofsXY,
-                                                      real* qStressDofsYZ,
-                                                      real* qStressDofsXZ,
-                                                      real* qStressDofsU,
-                                                      real* qStressDofsV,
-                                                      real* qStressDofsW,
-                                                      real* qStressDofsDAM,
-                                                      real* qStressDofsBRE,
-                                                      const real* qIU,
-                                                      const real* qIV,
-                                                      const real* qIW,
-                                                      const real* qIDAM,
-                                                      const real* qIBRE,
-                                                      Stresses sS,
-                                                      Stresses sB,
-                                                      unsigned int i);
+void calculateStressesFromDamageAndBreakageStresses(seissol::kernels::Time::StressDofs& stressDofs,
+                                                                            const real* qIU,
+                                                                            const real* qIV,
+                                                                            const real* qIW,
+                                                                            const real* qIDAM,
+                                                                            const real* qIBRE,
+                                                                            const Stresses& sS,
+                                                                            const Stresses& sB,
+                                                                            unsigned int i);
   void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
                                const real* Q_aveData);
   real computexi(real EspI, real EspII);
