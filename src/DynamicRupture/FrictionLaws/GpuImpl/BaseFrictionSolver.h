@@ -162,9 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-
-      runtime.syncFromSycl(&this->queue);
     }
+    
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

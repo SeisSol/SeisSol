@@ -12,6 +12,12 @@
 
 namespace seissol::parallel::runtime {
 
+enum class Runtime {
+  Native,
+  Sycl,
+  OpenMP
+};
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -56,6 +62,9 @@ class StreamRuntime {
   }
 
   ~StreamRuntime() { dispose(); }
+
+  StreamRuntime(const StreamRuntime&) = delete;
+  StreamRuntime operator=(const StreamRuntime&) = delete;
 
   template <typename F>
   void env(F&& handler) {
