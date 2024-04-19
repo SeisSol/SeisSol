@@ -606,59 +606,47 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
       real mu_eff;
       seissol::kernels::Time::Stresses sSp, sBp;
 
-      std::tie(mu_eff, sSp, sBp) = m_timeKernel.calculateDamageAndBreakageStresses(
-          materialData[l_cell].local.mu0,
-          alphap,
-          materialData[l_cell].local.gammaR,
-          materialData[l_cell].local.xi0,
-          xip,
-          materialData[l_cell].local.lambda0,
-          EspIp,
-          EspIIp,
-          getQ(qIPlus, o, XX)[i] +
-              epsInitxx,
-          getQ(qIPlus, o, YY)[i] +
-              epsInityy,
-          getQ(qIPlus, o, ZZ)[i] +
-              epsInitzz,
-          getQ(qIPlus, o, XY)[i] +
-              epsInitxy,
-          getQ(qIPlus, o, YZ)[i] +
-              epsInityz,
-          getQ(qIPlus, o, XZ)[i] +
-              epsInitzx,
-          aB0,
-          aB1,
-          aB2,
-          aB3);
+      std::tie(mu_eff, sSp, sBp) =
+          m_timeKernel.calculateDamageAndBreakageStresses(materialData[l_cell].local.mu0,
+                                                          alphap,
+                                                          materialData[l_cell].local.gammaR,
+                                                          materialData[l_cell].local.xi0,
+                                                          xip,
+                                                          materialData[l_cell].local.lambda0,
+                                                          EspIp,
+                                                          EspIIp,
+                                                          getQ(qIPlus, o, XX)[i] + epsInitxx,
+                                                          getQ(qIPlus, o, YY)[i] + epsInityy,
+                                                          getQ(qIPlus, o, ZZ)[i] + epsInitzz,
+                                                          getQ(qIPlus, o, XY)[i] + epsInitxy,
+                                                          getQ(qIPlus, o, YZ)[i] + epsInityz,
+                                                          getQ(qIPlus, o, XZ)[i] + epsInitzx,
+                                                          aB0,
+                                                          aB1,
+                                                          aB2,
+                                                          aB3);
 
       seissol::kernels::Time::Stresses sSm, sBm;
 
-      std::tie(mu_eff, sSm, sBm) = m_timeKernel.calculateDamageAndBreakageStresses(
-          materialData[l_cell].local.mu0,
-          alpham,
-          materialData[l_cell].local.gammaR,
-          materialData[l_cell].local.xi0,
-          xim,
-          materialData[l_cell].local.lambda0,
-          EspIm,
-          EspIIm,
-          getQ(qIMinus, o, XX)[i] +
-              epsInitxx,
-          getQ(qIMinus, o, YY)[i] +
-              epsInityy,
-          getQ(qIMinus, o, ZZ)[i] +
-              epsInitzz,
-          getQ(qIMinus, o, XY)[i] +
-              epsInitxy,
-          getQ(qIMinus, o, YZ)[i] +
-              epsInityz,
-          getQ(qIMinus, o, XZ)[i] +
-              epsInitzx,
-          aB0,
-          aB1,
-          aB2,
-          aB3);
+      std::tie(mu_eff, sSm, sBm) =
+          m_timeKernel.calculateDamageAndBreakageStresses(materialData[l_cell].local.mu0,
+                                                          alpham,
+                                                          materialData[l_cell].local.gammaR,
+                                                          materialData[l_cell].local.xi0,
+                                                          xim,
+                                                          materialData[l_cell].local.lambda0,
+                                                          EspIm,
+                                                          EspIIm,
+                                                          getQ(qIMinus, o, XX)[i] + epsInitxx,
+                                                          getQ(qIMinus, o, YY)[i] + epsInityy,
+                                                          getQ(qIMinus, o, ZZ)[i] + epsInitzz,
+                                                          getQ(qIMinus, o, XY)[i] + epsInitxy,
+                                                          getQ(qIMinus, o, YZ)[i] + epsInityz,
+                                                          getQ(qIMinus, o, XZ)[i] + epsInitzx,
+                                                          aB0,
+                                                          aB1,
+                                                          aB2,
+                                                          aB3);
 
       real breakp = getQ(qIPlus, o, BRE)[i];
       real breakm = getQ(qIMinus, o, BRE)[i];

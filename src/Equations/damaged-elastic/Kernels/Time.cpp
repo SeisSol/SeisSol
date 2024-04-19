@@ -932,49 +932,46 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
   const real aB1 = m_damagedElasticParameters->aB1;
   const real aB2 = m_damagedElasticParameters->aB2;
   const real aB3 = m_damagedElasticParameters->aB3;
+  auto getQ = [](const real* qI, unsigned o, unsigned q) {
+    constexpr size_t offset1 =
+        seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
+    constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
+    return &qI[o * offset1 + q * offset2];
+  };
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-      real EspIp = (qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
-                   (qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
-                   (qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
-      real EspIIp = (qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
-                    (qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
-                    (qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]) +
-                    2 * (qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]) +
-                    2 * (qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]) +
-                    2 * (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]) *
-                        (qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
-      real alphap = qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
+      real EspIp = (getQ(qIPlus, o, XX)[i]) + (getQ(qIPlus, o, YY)[i]) + (getQ(qIPlus, o, ZZ)[i]);
+      real EspIIp = (getQ(qIPlus, o, XX)[i]) * (getQ(qIPlus, o, XX)[i]) +
+                    (getQ(qIPlus, o, YY)[i]) * (getQ(qIPlus, o, YY)[i]) +
+                    (getQ(qIPlus, o, ZZ)[i]) * (getQ(qIPlus, o, ZZ)[i]) +
+                    2 * (getQ(qIPlus, o, XY)[i]) * (getQ(qIPlus, o, XY)[i]) +
+                    2 * (getQ(qIPlus, o, YZ)[i]) * (getQ(qIPlus, o, YZ)[i]) +
+                    2 * (getQ(qIPlus, o, XZ)[i]) * (getQ(qIPlus, o, XZ)[i]);
+      real alphap = getQ(qIPlus, o, DAM)[i];
       real xip = computexi(EspIp, EspIIp);
 
       real mu_eff;
       Stresses sSp, sBp;
-      std::tie(mu_eff, sSp, sBp) = calculateDamageAndBreakageStresses(
-          mu0P,
-          alphap,
-          impAndEta[ltsFace].gammaRP,
-          impAndEta[ltsFace].xi0P,
-          xip,
-          lambda0P,
-          EspIp,
-          EspIIp,
-          qIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-          qIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-          qIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-          qIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-          qIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-          qIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
-          aB0,
-          aB1,
-          aB2,
-          aB3);
+      std::tie(mu_eff, sSp, sBp) = calculateDamageAndBreakageStresses(mu0P,
+                                                                      alphap,
+                                                                      impAndEta[ltsFace].gammaRP,
+                                                                      impAndEta[ltsFace].xi0P,
+                                                                      xip,
+                                                                      lambda0P,
+                                                                      EspIp,
+                                                                      EspIIp,
+                                                                      getQ(qIPlus, o, XX)[i],
+                                                                      getQ(qIPlus, o, YY)[i],
+                                                                      getQ(qIPlus, o, ZZ)[i],
+                                                                      getQ(qIPlus, o, XY)[i],
+                                                                      getQ(qIPlus, o, YZ)[i],
+                                                                      getQ(qIPlus, o, XZ)[i],
+                                                                      aB0,
+                                                                      aB1,
+                                                                      aB2,
+                                                                      aB3);
 
       calculateStressesFromDamageAndBreakageStresses(
           &qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
