@@ -615,23 +615,17 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
           materialData[l_cell].local.lambda0,
           EspIp,
           EspIIp,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 XX * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, XX)[i] +
               epsInitxx,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 YY * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, YY)[i] +
               epsInityy,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 ZZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, ZZ)[i] +
               epsInitzz,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 XY * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, XY)[i] +
               epsInitxy,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 YZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, YZ)[i] +
               epsInityz,
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 XZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIPlus, o, XZ)[i] +
               epsInitzx,
           aB0,
           aB1,
@@ -649,35 +643,25 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
           materialData[l_cell].local.lambda0,
           EspIm,
           EspIIm,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XX * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, XX)[i] +
               epsInitxx,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  YY * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, YY)[i] +
               epsInityy,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  ZZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, ZZ)[i] +
               epsInitzz,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XY * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, XY)[i] +
               epsInitxy,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  YZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, YZ)[i] +
               epsInityz,
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XZ * seissol::dr::misc::numPaddedPoints + i] +
+          getQ(qIMinus, o, XZ)[i] +
               epsInitzx,
           aB0,
           aB1,
           aB2,
           aB3);
 
-      real breakp =
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 BRE * seissol::dr::misc::numPaddedPoints + i];
-      real breakm =
-          qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  BRE * seissol::dr::misc::numPaddedPoints + i];
+      real breakp = getQ(qIPlus, o, BRE)[i];
+      real breakm = getQ(qIMinus, o, BRE)[i];
 
       sxxP = (1 - breakp) * sSp.sxx + breakp * sBp.sxx;
       syyP = (1 - breakp) * sSp.syy + breakp * sBp.syy;
