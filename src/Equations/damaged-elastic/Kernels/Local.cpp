@@ -680,8 +680,7 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
       rusanovFluxP[XX * seissol::dr::misc::numPaddedPoints + i] +=
           weight *
           ((0.5 *
-                (-qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                         U * seissol::dr::misc::numPaddedPoints + i]) +
+                (-getQ(qIPlus, o, U)[i]) +
             0.5 * (-qIMinus[o * seissol::dr::misc::numQuantities *
                                 seissol::dr::misc::numPaddedPoints +
                             U * seissol::dr::misc::numPaddedPoints + i])) *
