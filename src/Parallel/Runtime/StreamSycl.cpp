@@ -6,14 +6,14 @@
 namespace seissol::parallel::runtime {
 
 void StreamRuntime::syncToSycl(void* queuePtr) {
-    sycl::queue* queue = static_cast<sycl::queue*>(queue);
+    sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
     device().api->recordEventOnStream(forkEventSycl, streamPtr);
     syclNativeOperation(*queue, true, [=](void* stream) {
         device().api->syncStreamWithEvent(stream, forkEventSycl);
     });
 }
 void StreamRuntime::syncFromSycl(void* queuePtr) {
-    sycl::queue* queue = static_cast<sycl::queue*>(queue);
+    sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
     syclNativeOperation(*queue, true, [=](void* stream) {
         device().api->recordEventOnStream(joinEventSycl, stream);
     });
