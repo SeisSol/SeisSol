@@ -43,6 +43,7 @@
 
 #include "Kernels/Local.h"
 
+#include <cstddef>
 #include <yateto.h>
 
 #include <array>
@@ -546,22 +547,20 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
       real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
+      auto getQPlus = [qIPlus](unsigned o, unsigned q){
+        constexpr size_t offset1 = seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
+        constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
+        return &qIPlus[o * offset1 + q * offset2];
+      };
 
-      std::tie(EspIp, EspIIp, xip) = m_timeKernel.calculateEsp(
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XX * seissol::dr::misc::numPaddedPoints],
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  YY * seissol::dr::misc::numPaddedPoints],
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  ZZ * seissol::dr::misc::numPaddedPoints],
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XY * seissol::dr::misc::numPaddedPoints],
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  YZ * seissol::dr::misc::numPaddedPoints],
-          &qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XZ * seissol::dr::misc::numPaddedPoints],
-          i,
-          m_damagedElasticParameters);
+      std::tie(EspIp, EspIIp, xip) = m_timeKernel.calculateEsp(getQPlus(o, XX),
+                                                               getQPlus(o, YY),
+                                                               getQPlus(o, ZZ),
+                                                               getQPlus(o, XY),
+                                                               getQPlus(o, YZ),
+                                                               getQPlus(o, XZ),
+                                                               i,
+                                                               m_damagedElasticParameters);
       real alphap =
           qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                  DAM * seissol::dr::misc::numPaddedPoints + i];
