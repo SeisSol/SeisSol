@@ -374,14 +374,12 @@ void EnergyOutput::computeVolumeEnergies() {
         constexpr int pIdx = 0;
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
-
         const double curAcousticEnergy = (p * p) / (2 * K);
         totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
       } else {
         // Elastic
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
-
         auto getStressIndex = [](int i, int j) {
           const static auto lookup =
               std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
