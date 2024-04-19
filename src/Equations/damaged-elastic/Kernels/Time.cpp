@@ -939,11 +939,18 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
     return &qI[o * offset1 + q * offset2];
   };
 
+  auto getQStress = [](real* qStressI, unsigned o, unsigned q) {
+    constexpr size_t offset1 =
+        seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
+    constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
+    return &qStressI[o * offset1 + q * offset2];
+  };
+
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-      real EspIp = (getQ(qIPlus, o, XX)[i]) + (getQ(qIPlus, o, YY)[i]) + (getQ(qIPlus, o, ZZ)[i]);
-      real EspIIp = (getQ(qIPlus, o, XX)[i]) * (getQ(qIPlus, o, XX)[i]) +
+      const real EspIp = (getQ(qIPlus, o, XX)[i]) + (getQ(qIPlus, o, YY)[i]) + (getQ(qIPlus, o, ZZ)[i]);
+      const real EspIIp = (getQ(qIPlus, o, XX)[i]) * (getQ(qIPlus, o, XX)[i]) +
                     (getQ(qIPlus, o, YY)[i]) * (getQ(qIPlus, o, YY)[i]) +
                     (getQ(qIPlus, o, ZZ)[i]) * (getQ(qIPlus, o, ZZ)[i]) +
                     2 * (getQ(qIPlus, o, XY)[i]) * (getQ(qIPlus, o, XY)[i]) +
@@ -973,54 +980,46 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
                                                                       aB2,
                                                                       aB3);
 
-      calculateStressesFromDamageAndBreakageStresses(
-          &qStressIPlus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
-          &qStressIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          &qIPlus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
-          &qIPlus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
-          &qIPlus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
-          &qIPlus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
-          &qIPlus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          sSp.sxx,
-          sBp.sxx,
-          sSp.syy,
-          sBp.syy,
-          sSp.szz,
-          sBp.szz,
-          sSp.sxy,
-          sBp.sxy,
-          sSp.syz,
-          sBp.syz,
-          sSp.sxz,
-          sBp.sxz,
-          i);
+      calculateStressesFromDamageAndBreakageStresses(getQStress(qStressIPlus, o, XX),
+                                                     getQStress(qStressIPlus, o, YY),
+                                                     getQStress(qStressIPlus, o, ZZ),
+                                                     getQStress(qStressIPlus, o, XY),
+                                                     getQStress(qStressIPlus, o, YZ),
+                                                     getQStress(qStressIPlus, o, XZ),
+                                                     getQStress(qStressIPlus, o, U),
+                                                     getQStress(qStressIPlus, o, V),
+                                                     getQStress(qStressIPlus, o, W),
+                                                     getQStress(qStressIPlus, o, DAM),
+                                                     getQStress(qStressIPlus, o, BRE),
+                                                     getQ(qIPlus, o, U),
+                                                     getQ(qIPlus, o, V),
+                                                     getQ(qIPlus, o, W),
+                                                     getQ(qIPlus, o, DAM),
+                                                     getQ(qIPlus, o, BRE),
+                                                     sSp.sxx,
+                                                     sBp.sxx,
+                                                     sSp.syy,
+                                                     sBp.syy,
+                                                     sSp.szz,
+                                                     sBp.szz,
+                                                     sSp.sxy,
+                                                     sBp.sxy,
+                                                     sSp.syz,
+                                                     sBp.syz,
+                                                     sSp.sxz,
+                                                     sBp.sxz,
+                                                     i);
 
-      const real EspIm = (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
-                         (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
-                         (qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]);
-      const real EspIIm =
-          (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i]) +
-          (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i]) +
-          (qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i]) +
-          2 * (qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i]) +
-          2 * (qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i]) +
-          2 * (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]) *
-              (qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i]);
-      real alpham = qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints + i];
+      const real EspIm =
+          (getQ(qIMinus, o, XX)[i]) + (getQ(qIMinus, o, YY)[i]) + (getQ(qIMinus, o, ZZ)[i]);
+      const real EspIIm = (getQ(qIMinus, o, XX)[i]) * (getQ(qIMinus, o, XX)[i]) +
+                          (getQ(qIMinus, o, YY)[i]) * (getQ(qIMinus, o, YY)[i]) +
+                          (getQ(qIMinus, o, ZZ)[i]) * (getQ(qIMinus, o, ZZ)[i]) +
+                          2 * (getQ(qIMinus, o, XY)[i]) * (getQ(qIMinus, o, XY)[i]) +
+                          2 * (getQ(qIMinus, o, YZ)[i]) * (getQ(qIMinus, o, YZ)[i]) +
+                          2 * (getQ(qIMinus, o, XZ)[i]) * (getQ(qIMinus, o, XZ)[i]);
+
+      real alpham = getQ(qIMinus, o, DAM)[i];
       real xim = computexi(EspIm, EspIIm);
 
       Stresses sSm, sBm;
@@ -1034,47 +1033,46 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
           lambda0M,
           EspIm,
           EspIIm,
-          qIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints + i],
-          qIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints + i],
-          qIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints + i],
-          qIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints + i],
-          qIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints + i],
-          qIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints + i],
+          getQ(qIMinus, o, XX)[i],
+          getQ(qIMinus, o, YY)[i],
+          getQ(qIMinus, o, ZZ)[i],
+          getQ(qIMinus, o, XY)[i],
+          getQ(qIMinus, o, YZ)[i],
+          getQ(qIMinus, o, XZ)[i],
           aB0,
           aB1,
           aB2,
           aB3);
 
-      calculateStressesFromDamageAndBreakageStresses(
-          &qStressIMinus[o * numQuantities * numPaddedPoints + XX * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + YY * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + ZZ * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + XY * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + YZ * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + XZ * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
-          &qStressIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          &qIMinus[o * numQuantities * numPaddedPoints + U * numPaddedPoints],
-          &qIMinus[o * numQuantities * numPaddedPoints + V * numPaddedPoints],
-          &qIMinus[o * numQuantities * numPaddedPoints + W * numPaddedPoints],
-          &qIMinus[o * numQuantities * numPaddedPoints + DAM * numPaddedPoints],
-          &qIMinus[o * numQuantities * numPaddedPoints + BRE * numPaddedPoints],
-          sSm.sxx,
-          sBm.sxx,
-          sSm.syy,
-          sBm.syy,
-          sSm.szz,
-          sBm.szz,
-          sSm.sxy,
-          sBm.sxy,
-          sSm.syz,
-          sBm.syz,
-          sSm.sxz,
-          sBm.sxz,
-          i);
+      calculateStressesFromDamageAndBreakageStresses(getQStress(qStressIMinus, o, XX),
+                                                     getQStress(qStressIMinus, o, YY),
+                                                     getQStress(qStressIMinus, o, ZZ),
+                                                     getQStress(qStressIMinus, o, XY),
+                                                     getQStress(qStressIMinus, o, YZ),
+                                                     getQStress(qStressIMinus, o, XZ),
+                                                     getQStress(qStressIMinus, o, U),
+                                                     getQStress(qStressIMinus, o, V),
+                                                     getQStress(qStressIMinus, o, W),
+                                                     getQStress(qStressIMinus, o, DAM),
+                                                     getQStress(qStressIMinus, o, BRE),
+                                                     getQ(qIMinus, o, U),
+                                                     getQ(qIMinus, o, V),
+                                                     getQ(qIMinus, o, W),
+                                                     getQ(qIMinus, o, DAM),
+                                                     getQ(qIMinus, o, BRE),
+                                                     sSm.sxx,
+                                                     sBm.sxx,
+                                                     sSm.syy,
+                                                     sBm.syy,
+                                                     sSm.szz,
+                                                     sBm.szz,
+                                                     sSm.sxy,
+                                                     sBm.sxy,
+                                                     sSm.syz,
+                                                     sBm.syz,
+                                                     sSm.sxz,
+                                                     sBm.sxz,
+                                                     i);
     }
   } // time integration loop
 }
@@ -1421,31 +1419,21 @@ std::tuple<real, real, real> seissol::kernels::Time::computealphalambdamu(const 
                                                                           real xi,
                                                                           real xi0) {
   using namespace seissol::dr::misc::quantity_indices;
-  real alpha = q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 DAM * seissol::dr::misc::numPaddedPoints + i];
+
+  auto getQ = [](const real* qI, unsigned o, unsigned q) {
+    constexpr size_t offset1 =
+        seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
+    constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
+    return &qI[o * offset1 + q * offset2];
+  };
+  real alpha = getQ(q, o, DAM)[i];
   real lambda =
-      (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-             BRE * seissol::dr::misc::numPaddedPoints + i]) *
-          (lambda0 -
-           alpha * gammaR *
-               (q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XX * seissol::dr::misc::numPaddedPoints + i] +
-                epsInitxx) /
-               std::sqrt(EspII)) +
-      q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-        BRE * seissol::dr::misc::numPaddedPoints + i] *
-          (2.0 * aB2 + 3.0 * xi * aB3 +
-           aB1 *
-               (q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                  XX * seissol::dr::misc::numPaddedPoints + i] +
-                epsInitxx) /
-               std::sqrt(EspII));
-  real mu = (1 - q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   BRE * seissol::dr::misc::numPaddedPoints + i]) *
-                (mu0 - alpha * xi0 * gammaR - 0.5 * alpha * gammaR * xi) +
-            q[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-              BRE * seissol::dr::misc::numPaddedPoints + i] *
-                (aB0 + 0.5 * xi * aB1 - 0.5 * xi * xi * xi * aB3);
+      (1 - getQ(q, o, BRE)[i]) *
+          (lambda0 - alpha * gammaR * (getQ(q, o, XX)[i] + epsInitxx) / std::sqrt(EspII)) +
+      getQ(q, o, BRE)[i] *
+          (2.0 * aB2 + 3.0 * xi * aB3 + aB1 * (getQ(q, o, XX)[i] + epsInitxx) / std::sqrt(EspII));
+  real mu = (1 - getQ(q, o, BRE)[i]) * (mu0 - alpha * xi0 * gammaR - 0.5 * alpha * gammaR * xi) +
+            getQ(q, o, BRE)[i] * (aB0 + 0.5 * xi * aB1 - 0.5 * xi * xi * xi * aB3);
 
   return std::make_tuple(alpha, lambda, mu);
 }
