@@ -559,9 +559,7 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                                                                getQPlus(o, XZ),
                                                                i,
                                                                m_damagedElasticParameters);
-      real alphap =
-          qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                 DAM * seissol::dr::misc::numPaddedPoints + i];
+
       std::tie(EspIm, EspIIm, xim) = m_timeKernel.calculateEsp(
           &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
                    XX * seissol::dr::misc::numPaddedPoints],
