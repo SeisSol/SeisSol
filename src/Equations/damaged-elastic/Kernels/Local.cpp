@@ -727,12 +727,7 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                localIntegration[l_cell].surfaceNormal[side][1] +
            (0.5 * (-szxP / rho0P) + 0.5 * (-szxM / rho0M)) *
                localIntegration[l_cell].surfaceNormal[side][2] +
-           0.5 * lambdaMax *
-               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                       U * seissol::dr::misc::numPaddedPoints + i]) -
-           0.5 * lambdaMax *
-               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                        U * seissol::dr::misc::numPaddedPoints + i]));
+           0.5 * lambdaMax * (getQ(qIPlus, o, U)[i]) - 0.5 * lambdaMax * (getQ(qIMinus, o, U)[i]));
 
       rusanovFluxP[V * seissol::dr::misc::numPaddedPoints + i] +=
           weight *
@@ -742,12 +737,7 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                localIntegration[l_cell].surfaceNormal[side][1] +
            (0.5 * (-syzP / rho0P) + 0.5 * (-syzM / rho0M)) *
                localIntegration[l_cell].surfaceNormal[side][2] +
-           0.5 * lambdaMax *
-               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                       V * seissol::dr::misc::numPaddedPoints + i]) -
-           0.5 * lambdaMax *
-               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                        V * seissol::dr::misc::numPaddedPoints + i]));
+           0.5 * lambdaMax * (getQ(qIPlus, o, V)[i]) - 0.5 * lambdaMax * (getQ(qIMinus, o, V)[i]));
 
       rusanovFluxP[W * seissol::dr::misc::numPaddedPoints + i] +=
           weight *
@@ -757,12 +747,7 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
                localIntegration[l_cell].surfaceNormal[side][1] +
            (0.5 * (-szzP / rho0P) + 0.5 * (-szzM / rho0M)) *
                localIntegration[l_cell].surfaceNormal[side][2] +
-           0.5 * lambdaMax *
-               (qIPlus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                       W * seissol::dr::misc::numPaddedPoints + i]) -
-           0.5 * lambdaMax *
-               (qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                        W * seissol::dr::misc::numPaddedPoints + i]));
+           0.5 * lambdaMax * (getQ(qIPlus, o, W)[i]) - 0.5 * lambdaMax * (getQ(qIMinus, o, W)[i]));
     }
   }
 }
