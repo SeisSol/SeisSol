@@ -545,36 +545,29 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
       real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
-      auto getQPlus = [qIPlus](unsigned o, unsigned q){
+      auto getQ = [](const real* qI, unsigned o, unsigned q){
         constexpr size_t offset1 = seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
         constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
-        return &qIPlus[o * offset1 + q * offset2];
+        return &qI[o * offset1 + q * offset2];
       };
 
-      std::tie(EspIp, EspIIp, xip) = m_timeKernel.calculateEsp(getQPlus(o, XX),
-                                                               getQPlus(o, YY),
-                                                               getQPlus(o, ZZ),
-                                                               getQPlus(o, XY),
-                                                               getQPlus(o, YZ),
-                                                               getQPlus(o, XZ),
+      std::tie(EspIp, EspIIp, xip) = m_timeKernel.calculateEsp(getQ(qIPlus, o, XX),
+                                                               getQ(qIPlus, o, YY),
+                                                               getQ(qIPlus, o, ZZ),
+                                                               getQ(qIPlus, o, XY),
+                                                               getQ(qIPlus, o, YZ),
+                                                               getQ(qIPlus, o, XZ),
                                                                i,
                                                                m_damagedElasticParameters);
 
-      std::tie(EspIm, EspIIm, xim) = m_timeKernel.calculateEsp(
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   XX * seissol::dr::misc::numPaddedPoints],
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   YY * seissol::dr::misc::numPaddedPoints],
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   ZZ * seissol::dr::misc::numPaddedPoints],
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   XY * seissol::dr::misc::numPaddedPoints],
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   YZ * seissol::dr::misc::numPaddedPoints],
-          &qIMinus[o * seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints +
-                   XZ * seissol::dr::misc::numPaddedPoints],
-          i,
-          m_damagedElasticParameters);
+      std::tie(EspIm, EspIIm, xim) = m_timeKernel.calculateEsp(getQ(qIMinus, o, XX),
+                                                               getQ(qIMinus, o, YY),
+                                                               getQ(qIMinus, o, ZZ),
+                                                               getQ(qIMinus, o, XY),
+                                                               getQ(qIMinus, o, YZ),
+                                                               getQ(qIMinus, o, XZ),
+                                                               i,
+                                                               m_damagedElasticParameters);
       real alphap, lambp, mup, alpham, lambm, mum;
       std::tie(alphap, lambp, mup) =
           m_timeKernel.computealphalambdamu(qIPlus,
