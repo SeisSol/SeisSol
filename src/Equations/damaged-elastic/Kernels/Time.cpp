@@ -790,7 +790,8 @@ void seissol::kernels::Time::calculateDynamicRuptureReceiverOutput(
     sDofsPlus.qStressDofsDAM = &dofsStressNPlus[9 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
     sDofsPlus.qStressDofsBRE = &dofsStressNPlus[10 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
 
-    calculateStressesFromDamageAndBreakageStresses(sDofsPlus,
+    calculateStressesFromDamageAndBreakageStresses(
+        sDofsPlus,
         &dofsNPlus[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNPlus[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
         &dofsNPlus[8 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
@@ -933,13 +934,14 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
-      const real EspIp = (getQ(qIPlus, o, XX)[i]) + (getQ(qIPlus, o, YY)[i]) + (getQ(qIPlus, o, ZZ)[i]);
+      const real EspIp =
+          (getQ(qIPlus, o, XX)[i]) + (getQ(qIPlus, o, YY)[i]) + (getQ(qIPlus, o, ZZ)[i]);
       const real EspIIp = (getQ(qIPlus, o, XX)[i]) * (getQ(qIPlus, o, XX)[i]) +
-                    (getQ(qIPlus, o, YY)[i]) * (getQ(qIPlus, o, YY)[i]) +
-                    (getQ(qIPlus, o, ZZ)[i]) * (getQ(qIPlus, o, ZZ)[i]) +
-                    2 * (getQ(qIPlus, o, XY)[i]) * (getQ(qIPlus, o, XY)[i]) +
-                    2 * (getQ(qIPlus, o, YZ)[i]) * (getQ(qIPlus, o, YZ)[i]) +
-                    2 * (getQ(qIPlus, o, XZ)[i]) * (getQ(qIPlus, o, XZ)[i]);
+                          (getQ(qIPlus, o, YY)[i]) * (getQ(qIPlus, o, YY)[i]) +
+                          (getQ(qIPlus, o, ZZ)[i]) * (getQ(qIPlus, o, ZZ)[i]) +
+                          2 * (getQ(qIPlus, o, XY)[i]) * (getQ(qIPlus, o, XY)[i]) +
+                          2 * (getQ(qIPlus, o, YZ)[i]) * (getQ(qIPlus, o, YZ)[i]) +
+                          2 * (getQ(qIPlus, o, XZ)[i]) * (getQ(qIPlus, o, XZ)[i]);
       real alphap = getQ(qIPlus, o, DAM)[i];
       real xip = computexi(EspIp, EspIIp);
 
@@ -976,7 +978,6 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
       sDofsPlus.qStressDofsDAM = getQStress(qStressIPlus, o, DAM);
       sDofsPlus.qStressDofsBRE = getQStress(qStressIPlus, o, BRE);
 
-
       calculateStressesFromDamageAndBreakageStresses(sDofsPlus,
                                                      getQ(qIPlus, o, U),
                                                      getQ(qIPlus, o, V),
@@ -1001,25 +1002,24 @@ void seissol::kernels::Time::computeNonLinearBaseFrictionLaw(
 
       Stresses sSm, sBm;
 
-      std::tie(mu_eff, sSm, sBm) = calculateDamageAndBreakageStresses(
-          mu0M,
-          alpham,
-          impAndEta[ltsFace].gammaRM,
-          impAndEta[ltsFace].xi0M,
-          xim,
-          lambda0M,
-          EspIm,
-          EspIIm,
-          getQ(qIMinus, o, XX)[i],
-          getQ(qIMinus, o, YY)[i],
-          getQ(qIMinus, o, ZZ)[i],
-          getQ(qIMinus, o, XY)[i],
-          getQ(qIMinus, o, YZ)[i],
-          getQ(qIMinus, o, XZ)[i],
-          aB0,
-          aB1,
-          aB2,
-          aB3);
+      std::tie(mu_eff, sSm, sBm) = calculateDamageAndBreakageStresses(mu0M,
+                                                                      alpham,
+                                                                      impAndEta[ltsFace].gammaRM,
+                                                                      impAndEta[ltsFace].xi0M,
+                                                                      xim,
+                                                                      lambda0M,
+                                                                      EspIm,
+                                                                      EspIIm,
+                                                                      getQ(qIMinus, o, XX)[i],
+                                                                      getQ(qIMinus, o, YY)[i],
+                                                                      getQ(qIMinus, o, ZZ)[i],
+                                                                      getQ(qIMinus, o, XY)[i],
+                                                                      getQ(qIMinus, o, YZ)[i],
+                                                                      getQ(qIMinus, o, XZ)[i],
+                                                                      aB0,
+                                                                      aB1,
+                                                                      aB2,
+                                                                      aB3);
 
       seissol::kernels::Time::StressDofs sDofsMinus;
       sDofsMinus.qStressDofsXX = getQStress(qStressIMinus, o, XX);
@@ -1283,15 +1283,16 @@ std::tuple<real, seissol::kernels::Time::Stresses, seissol::kernels::Time::Stres
   return std::make_tuple(muEff, sS, sB);
 }
 
-void seissol::kernels::Time::calculateStressesFromDamageAndBreakageStresses(seissol::kernels::Time::StressDofs& stressDofs,
-                                                                            const real* qIU,
-                                                                            const real* qIV,
-                                                                            const real* qIW,
-                                                                            const real* qIDAM,
-                                                                            const real* qIBRE,
-                                                                            const Stresses& sS,
-                                                                            const Stresses& sB,
-                                                                            unsigned int i) {
+void seissol::kernels::Time::calculateStressesFromDamageAndBreakageStresses(
+    seissol::kernels::Time::StressDofs& stressDofs,
+    const real* qIU,
+    const real* qIV,
+    const real* qIW,
+    const real* qIDAM,
+    const real* qIBRE,
+    const Stresses& sS,
+    const Stresses& sB,
+    unsigned int i) {
   stressDofs.qStressDofsXX[i] = (1 - qIBRE[i]) * sS.sxx + qIBRE[i] * sB.sxx;
   stressDofs.qStressDofsYY[i] = (1 - qIBRE[i]) * sS.syy + qIBRE[i] * sB.syy;
   stressDofs.qStressDofsZZ[i] = (1 - qIBRE[i]) * sS.szz + qIBRE[i] * sB.szz;

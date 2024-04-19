@@ -545,8 +545,9 @@ void seissol::kernels::Local::computeNonLinearRusanovFlux(
     for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints; i++) {
 
       real EspIp, EspIIp, xip, EspIm, EspIIm, xim;
-      auto getQ = [](const real* qI, unsigned o, unsigned q){
-        constexpr size_t offset1 = seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
+      auto getQ = [](const real* qI, unsigned o, unsigned q) {
+        constexpr size_t offset1 =
+            seissol::dr::misc::numQuantities * seissol::dr::misc::numPaddedPoints;
         constexpr size_t offset2 = seissol::dr::misc::numPaddedPoints;
         return &qI[o * offset1 + q * offset2];
       };
