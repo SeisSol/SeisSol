@@ -54,6 +54,7 @@ etahack = 1                 ! use any value smaller than one to mitigate quasi-d
 OutputPointType = 5         ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
+!TpProxyExponent = -0.33333333 ! exponent (1+d_c) in the TP proxy slip weakening law (default is -1/3)
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html

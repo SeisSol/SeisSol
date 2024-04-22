@@ -52,6 +52,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
   const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
+  const auto tpProxyExponent =
+      static_cast<real>(reader->readWithDefault("tpproxyexponent", -1. / 3.));
 
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
@@ -109,6 +111,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       frictionLawType,
                       healingThreshold,
                       t0,
+                      tpProxyExponent,
                       rsF0,
                       rsB,
                       rsSr0,

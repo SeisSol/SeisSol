@@ -237,6 +237,7 @@ class LinearSlipWeakeningLaw
     auto deltaT{this->deltaT[timeIndex]};
     const real tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
+    const auto tpProxyExponent{this->drParameters->tpProxyExponent};
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -250,12 +251,12 @@ class LinearSlipWeakeningLaw
         // integrate slip rate to get slip = state variable
         devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate * deltaT;
 
-        // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
             SpecializationT::stateVariableHook(devAccumulatedSlipMagnitude[ltsFace][pointIndex],
                                                devDC[ltsFace][pointIndex],
+                                               tpProxyExponent,
                                                ltsFace,
                                                pointIndex);
 
@@ -307,6 +308,7 @@ class NoSpecialization {
 
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
+                                real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
     return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
@@ -353,6 +355,7 @@ class BiMaterialFault {
 
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
+                                real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
     return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
@@ -406,11 +409,11 @@ class TPApprox {
 
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
+                                real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
     const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
-    const real cbrt = sycl::cbrt(factor);
-    return 1.0 - 1.0 / cbrt;
+    return 1.0 - sycl::pow(factor, tpProxyExponent);
   };
 
   static real strengthHook(Details details,

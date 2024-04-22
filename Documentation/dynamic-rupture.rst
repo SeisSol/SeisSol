@@ -211,6 +211,7 @@ The fault strength is determined by
 
 All variables are the same as defined in previous section for :code:`FL=16`.
 The friction law also support forced rupture time.
+The exponent of (1 + d_c) in the friction law, by default set to -1/3, can be changed by setting :code:`TP_proxy_exponent` to a different value in the main parameter file (namelist :code:`DynamicRupture`).
 
 
 Rate-and-state friction
