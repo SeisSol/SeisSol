@@ -395,7 +395,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
                                                               DynamicRupture*        dynRup,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
-                                                              TimeStepping const&/*    timeStepping*/ )
+                                                              double etaHack )
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
@@ -585,7 +585,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       impAndEta[ltsFace].invZs = 1/impAndEta[ltsFace].zs;
       impAndEta[ltsFace].invZsNeig = 1/impAndEta[ltsFace].zsNeig;
 
-      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+      impAndEta[ltsFace].etaP = etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 

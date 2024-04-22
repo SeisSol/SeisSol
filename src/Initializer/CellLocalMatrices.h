@@ -75,7 +75,7 @@ namespace seissol {
                                             DynamicRupture*        dynRup,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
-                                            TimeStepping const&    timeStepping );
+                                            double etaHack );
 
       void copyCellMatricesToDevice(LTSTree*          ltsTree,
                                     LTS*              lts,

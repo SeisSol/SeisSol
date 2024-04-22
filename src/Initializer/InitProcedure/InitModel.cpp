@@ -216,6 +216,12 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping);
 
+  if (seissolParams.drParameters.etaHack != 1.0) {
+    logWarning(seissol::MPI::mpi.rank())
+        << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
+           "friction law. The results may not conform to the existing benchmarks.";
+  }
+
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsTree(),
                                                          memoryManager.getLts(),
@@ -224,7 +230,7 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                          memoryManager.getDynamicRupture(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalDataOnHost(),
-                                                         ltsInfo.timeStepping);
+                                                         seissolParams.drParameters.etaHack);
 
   memoryManager.initFrictionData();
 
