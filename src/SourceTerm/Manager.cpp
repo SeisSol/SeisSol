@@ -372,7 +372,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned fsrmIndex = originalIndex[sourceIndex];
-        sources.originalIndex[clusterSource] = sourceIndex;
+        sources.originalIndex[clusterSource] = fsrmIndex;
 
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
@@ -511,7 +511,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned nrfIndex = originalIndex[sourceIndex];
-        sources.originalIndex[clusterSource] = sourceIndex;
+        sources.originalIndex[clusterSource] = nrfIndex;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],
