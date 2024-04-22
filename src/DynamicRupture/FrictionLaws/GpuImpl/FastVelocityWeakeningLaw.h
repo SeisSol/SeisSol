@@ -88,7 +88,7 @@ class FastVelocityWeakeningLaw
 
         const double steadyStateFrictionCoefficient =
             muW + (lowVelocityFriction - muW) /
-                      std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                      std::pow(1.0 + std::pow(localSlipRate / localSrW, 8.0), 1.0 / 8.0);
 
         const double steadyStateStateVariable =
             localA * std::log(detRsSr0 / localSlipRate *
