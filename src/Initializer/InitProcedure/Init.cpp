@@ -35,8 +35,8 @@ static void reportDeviceMemoryStatus() {
     double fraction = device.api->getCurrentlyOccupiedMem() /
                       static_cast<double>(device.api->getMaxAvailableMem());
     const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
-    logInfo(rank) << "occupied memory on devices (%):"
-                  << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min
+    logInfo(rank) << "occupied memory on devices (%):" << " mean =" << summary.mean
+                  << " std =" << summary.std << " min =" << summary.min
                   << " median =" << summary.median << " max =" << summary.max;
   }
 #endif

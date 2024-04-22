@@ -12,6 +12,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
+#include <Solver/MultipleSimulations.h>
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
@@ -22,27 +23,28 @@ class SeisSol;
 namespace writer {
 
 struct EnergiesStorage {
-  std::array<double, 10> energies{};
+  static constexpr size_t NumberOfEnergies = 10;
+  std::array<double, multipleSimulations::numberOfSimulations * NumberOfEnergies> energies{};
 
-  double& gravitationalEnergy();
+  double& gravitationalEnergy(size_t sim);
 
-  double& acousticEnergy();
+  double& acousticEnergy(size_t sim);
 
-  double& acousticKineticEnergy();
+  double& acousticKineticEnergy(size_t sim);
 
-  double& elasticEnergy();
+  double& elasticEnergy(size_t sim);
 
-  double& elasticKineticEnergy();
+  double& elasticKineticEnergy(size_t sim);
 
-  double& totalFrictionalWork();
+  double& totalFrictionalWork(size_t sim);
 
-  double& staticFrictionalWork();
+  double& staticFrictionalWork(size_t sim);
 
-  double& plasticMoment();
+  double& plasticMoment(size_t sim);
 
-  double& seismicMoment();
+  double& seismicMoment(size_t sim);
 
-  double& potency();
+  double& potency(size_t sim);
 };
 
 class EnergyOutput : public Module {
@@ -65,11 +67,12 @@ class EnergyOutput : public Module {
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   private:
-  real computeStaticWork(const real* degreesOfFreedomPlus,
-                         const real* degreesOfFreedomMinus,
-                         DRFaceInformation const& faceInfo,
-                         DRGodunovData const& godunovData,
-                         const real slip[seissol::tensor::slipInterpolated::size()]);
+  std::array<real, multipleSimulations::numberOfSimulations>
+      computeStaticWork(const real* degreesOfFreedomPlus,
+                        const real* degreesOfFreedomMinus,
+                        DRFaceInformation const& faceInfo,
+                        DRGodunovData const& godunovData,
+                        const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 

@@ -404,6 +404,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto chiTau2dPoints =
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+    // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
+    auto getWeights = [&weights](size_t index) {
+#ifdef MULTIPLE_SIMULATIONS
+      return weights(index, 0);
+#else
+      return weights(index);
+#endif
+    };
 
     auto* rt = local.layer->var(drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
@@ -412,7 +420,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {
-        projectedRT[d] += weights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
+        projectedRT[d] += getWeights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
       }
     }
 

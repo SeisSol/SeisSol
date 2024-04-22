@@ -120,16 +120,16 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3), alignStride=True)
-  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
-  staticFrictionalWork = Tensor('staticFrictionalWork', ())
+  slipInterpolated = OptionalDimTensor('slipInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  tractionInterpolated = OptionalDimTensor('tractionInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  staticFrictionalWork = OptionalDimTensor('staticFrictionalWork', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
   minusSurfaceArea = Scalar('minusSurfaceArea')
-  spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints, 1), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
+  accumulateStaticFrictionalWork = staticFrictionalWork['l'] <= staticFrictionalWork['l'] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['kl']
   generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
   ## Dynamic Rupture Precompute
@@ -145,7 +145,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   eta = Tensor('eta', (N,N))
   zPlus = Tensor('Zplus', (N,N))
   zMinus = Tensor('Zminus', (N,N))
-  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (numberOfPoints, N), alignStride=True)
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints, N), alignStride=True)
 
   velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
   tractionsPlus = extractTractions['mn'] * qPlus['in']

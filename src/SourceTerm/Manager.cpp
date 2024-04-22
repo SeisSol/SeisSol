@@ -301,9 +301,8 @@ void seissol::sourceterm::Manager::loadSources(
   timeManager.setPointSourcesForClusters(std::move(sourceClusters));
 }
 
-auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping,
-                                                          PointSources sources)
-    -> std::unique_ptr<kernels::PointSourceCluster> {
+auto seissol::sourceterm::Manager::makePointSourceCluster(
+    ClusterMapping mapping, PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster> {
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
   using Impl = kernels::PointSourceClusterOnDevice;
 #else
@@ -364,6 +363,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
+      sources.originalIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1, 0);
@@ -372,6 +372,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned fsrmIndex = originalIndex[sourceIndex];
+        sources.originalIndex[clusterSource] = fsrmIndex;
 
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
@@ -490,6 +491,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
+      sources.originalIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
@@ -509,6 +511,7 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned nrfIndex = originalIndex[sourceIndex];
+        sources.originalIndex[clusterSource] = nrfIndex;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

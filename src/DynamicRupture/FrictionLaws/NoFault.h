@@ -22,9 +22,9 @@ class NoFault : public BaseFrictionLaw<NoFault> {
                              unsigned ltsFace,
                              unsigned timeIndex);
 
-  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
-  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
-  void saveDynamicStressOutput(unsigned int ltsFace){};
+  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
+  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
+  void saveDynamicStressOutput(unsigned int ltsFace) {};
 };
 } // namespace seissol::dr::friction_law
 #endif // SEISSOL_NOFAULT_H

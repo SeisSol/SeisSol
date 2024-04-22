@@ -25,12 +25,10 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double
     for (unsigned m = 0; m < mapping.size(); ++m) {
       unsigned startSource = mapping[m].pointSourcesOffset;
       unsigned endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
-      if (sources_.mode == sourceterm::PointSources::NRF) {
-        for (unsigned source = startSource; source < endSource; ++source) {
+      for (unsigned source = startSource; source < endSource; ++source) {
+        if (sources_.mode == sourceterm::PointSources::NRF) {
           addTimeIntegratedPointSourceNRF(source, from, to, *mapping[m].dofs);
-        }
-      } else {
-        for (unsigned source = startSource; source < endSource; ++source) {
+        } else {
           addTimeIntegratedPointSourceFSRM(source, from, to, *mapping[m].dofs);
         }
       }
@@ -72,7 +70,10 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.mArea = -sources_.A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  const auto originalIndex = sources_.originalIndex[source];
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
 }
@@ -95,7 +96,10 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.momentFSRM = sources_.tensor[source].data();
   krnl.stfIntegral = slip;
 #ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  const auto originalIndex = sources_.originalIndex[source];
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
 }

@@ -49,6 +49,9 @@ public:
     // and substituting the previous coefficient eta_t
     // This implementation sums up the Taylor series directly without storing
     // all coefficients.
+#ifdef MULTIPLE_SIMULATIONS
+      logError() << "Free Surface Gravity BC does not work with multiple simulations";
+#else
 
 
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
@@ -164,6 +167,7 @@ public:
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.execute();
+#endif
   }
 
 #ifdef ACL_DEVICE
