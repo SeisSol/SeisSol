@@ -569,10 +569,8 @@ void EnergyOutput::printEnergies() {
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
-      if (totalMomentumX || totalMomentumY || totalMomentumZ) {
-        logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
                       << " ," << totalMomentumZ;
-      }
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
