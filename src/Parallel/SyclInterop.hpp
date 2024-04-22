@@ -53,25 +53,25 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
     }
 #endif
 #if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
-    h.hipSYCL_enqueue_custom_operation([&](sycl::interop_handle& handle) {
+    h.hipSYCL_enqueue_custom_operation([=](sycl::interop_handle& handle) {
 #ifdef SEISSOL_SYCL_BACKEND_CUDA
       if (queue.get_device().get_backend() == sycl::backend::cuda) {
         auto stream = handle.get_native_queue<sycl::backend::cuda>();
-        std::invoke(std::forward<F>(function), stream);
+        std::invoke(function, stream);
         return;
       }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_HIP
       if (queue.get_device().get_backend() == sycl::backend::hip) {
         auto stream = handle.get_native_queue<sycl::backend::hip>();
-        std::invoke(std::forward<F>(function), stream);
+        std::invoke(function, stream);
         return;
       }
 #endif
 #ifdef SEISSOL_SYCL_BACKEND_ZE
       if (queue.get_device().get_backend() == sycl::backend::ze) {
         auto stream = handle.get_native_queue<sycl::backend::ze>();
-        std::invoke(std::forward<F>(function), stream);
+        std::invoke(function, stream);
         return;
       }
 #endif
@@ -81,7 +81,7 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
 #ifdef ONEAPI
     h.host_task([=](sycl::interop_handle& handle) {
       auto stream = handle.get_native_queue();
-      std::invoke(std::forward<F>(function), stream);
+      std::invoke(function, stream);
     });
 #endif
   });

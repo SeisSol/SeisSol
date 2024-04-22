@@ -12,11 +12,7 @@
 
 namespace seissol::parallel::runtime {
 
-enum class Runtime {
-  Native,
-  Sycl,
-  OpenMP
-};
+enum class Runtime { Native, Sycl, OpenMP };
 
 class StreamRuntime {
 #ifdef ACL_DEVICE
@@ -79,7 +75,7 @@ class StreamRuntime {
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     enqueueHost([=]() {
-      #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
         std::invoke(handler);
       }
@@ -127,25 +123,24 @@ class StreamRuntime {
     }
   }
 
-  template<typename F>
+  template <typename F>
   void envSycl(void* queue, F&& handler) {
     syncToSycl(queue);
     std::invoke(handler);
     syncFromSycl(queue);
   }
 
-  template<typename F>
+  template <typename F>
   void envOMP(void* depobj, F&& handler) {
     syncToOMP(depobj);
     std::invoke(handler);
     syncFromOMP(depobj);
   }
 
-
   void syncToSycl(void* queue);
   void syncFromSycl(void* queue);
-  void syncToOMP(void* depobj);
-  void syncFromOMP(void* depobj);
+  void syncToOMP(omp_depend_t& depobj);
+  void syncFromOMP(omp_depend_t& depobj);
 
   private:
   bool disposed;

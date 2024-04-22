@@ -114,6 +114,8 @@ src/Solver/time_stepping/TimeManager.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
+
+src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
@@ -167,11 +169,10 @@ set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/FSRMReader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/PointSource.cpp
-
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
