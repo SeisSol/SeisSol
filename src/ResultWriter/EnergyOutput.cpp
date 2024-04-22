@@ -1,31 +1,43 @@
 #include "EnergyOutput.h"
-#include <Kernels/DynamicRupture.h>
-#include <Numerical_aux/Quadrature.h>
+
 #include "DynamicRupture/Misc.h"
-#include <Parallel/MPI.h>
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "Initializer/InputParameters.hpp"
 
 namespace seissol::writer {
 
-double& EnergiesStorage::gravitationalEnergy(size_t sim) { return energies[0 + sim * 9]; }
-double& EnergiesStorage::acousticEnergy(size_t sim) { return energies[1 + sim * 9]; }
-double& EnergiesStorage::acousticKineticEnergy(size_t sim) { return energies[2 + sim * 9]; }
-double& EnergiesStorage::elasticEnergy(size_t sim) { return energies[3 + sim * 9]; }
-double& EnergiesStorage::elasticKineticEnergy(size_t sim) { return energies[4 + sim * 9]; }
-double& EnergiesStorage::totalFrictionalWork(size_t sim) { return energies[5 + sim * 9]; }
-double& EnergiesStorage::staticFrictionalWork(size_t sim) { return energies[6 + sim * 9]; }
-double& EnergiesStorage::plasticMoment(size_t sim) { return energies[7 + sim * 9]; }
-double& EnergiesStorage::seismicMoment(size_t sim) { return energies[8 + sim * 9]; }
+double& EnergiesStorage::gravitationalEnergy(size_t sim) {
+  return energies[0 + sim * NumberOfEnergies];
+}
+double& EnergiesStorage::acousticEnergy(size_t sim) { return energies[1 + sim * NumberOfEnergies]; }
+double& EnergiesStorage::acousticKineticEnergy(size_t sim) {
+  return energies[2 + sim * NumberOfEnergies];
+}
+double& EnergiesStorage::elasticEnergy(size_t sim) { return energies[3 + sim * NumberOfEnergies]; }
+double& EnergiesStorage::elasticKineticEnergy(size_t sim) {
+  return energies[4 + sim * NumberOfEnergies];
+}
+double& EnergiesStorage::totalFrictionalWork(size_t sim) {
+  return energies[5 + sim * NumberOfEnergies];
+}
+double& EnergiesStorage::staticFrictionalWork(size_t sim) {
+  return energies[6 + sim * NumberOfEnergies];
+}
+double& EnergiesStorage::plasticMoment(size_t sim) { return energies[7 + sim * NumberOfEnergies]; }
+double& EnergiesStorage::seismicMoment(size_t sim) { return energies[8 + sim * NumberOfEnergies]; }
+double& EnergiesStorage::potency(size_t sim) { return energies[9 + sim * NumberOfEnergies]; }
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializers::DynamicRupture* newDynRup,
-    seissol::initializers::LTSTree* newDynRuptTree,
+    seissol::initializer::DynamicRupture* newDynRup,
+    seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializers::LTSTree* newLtsTree,
-    seissol::initializers::LTS* newLts,
-    seissol::initializers::Lut* newLtsLut,
+    seissol::initializer::LTSTree* newLtsTree,
+    seissol::initializer::LTS* newLts,
+    seissol::initializer::Lut* newLtsLut,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -39,6 +51,8 @@ void EnergyOutput::init(
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
+  terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
+  isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -52,8 +66,8 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
-  Modules::registerHook(*this, SIMULATION_START);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
 }
 
@@ -63,8 +77,14 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
+  if (isCheckAbortCriteraEnabled) {
+    reduceMinTimeSinceSlipRateBelowThreshold();
+  }
   if (isTerminalOutputEnabled) {
     printEnergies();
+  }
+  if (isCheckAbortCriteraEnabled) {
+    checkAbortCriterion();
   }
   if (isFileOutputEnabled) {
     writeEnergies(time);
@@ -81,14 +101,14 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::computeStaticWork(
-    const real* degreesOfFreedomPlus,
-    const real* degreesOfFreedomMinus,
-    const DRFaceInformation& faceInfo,
-    const DRGodunovData& godunovData,
-    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
+std::array<real, multipleSimulations::numberOfSimulations>
+    EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
+                                    const real* degreesOfFreedomMinus,
+                                    const DRFaceInformation& faceInfo,
+                                    const DRGodunovData& godunovData,
+                                    const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -97,15 +117,21 @@ std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::compute
   alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
+  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+
+  // needed to counter potential mis-alignment
+  std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
+  std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  krnl.Q = degreesOfFreedomPlus;
+  krnl.Q = QPlus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  krnl.Q = degreesOfFreedomMinus;
+  krnl.Q = QMinus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
@@ -118,14 +144,14 @@ std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::compute
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
-  alignas(ALIGNMENT) real staticFrictionalWork[tensor::frictionalEnergy::size()]{};
+  alignas(ALIGNMENT) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
-  feKrnl.slipRateInterpolated = slip;
+  dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = staticFrictionalWork;
-  feKrnl.timeWeight = -0.5 * godunovData.doubledSurfaceArea;
+  feKrnl.staticFrictionalWork = staticFrictionalWork;
+  feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
   std::array<real, multipleSimulations::numberOfSimulations> frictionalWorkReturn;
@@ -136,72 +162,161 @@ std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::compute
 }
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
-  for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-    double& totalFrictionalWork = energiesStorage.totalFrictionalWork(s);
-    double& staticFrictionalWork = energiesStorage.staticFrictionalWork(s);
-    double& seismicMoment = energiesStorage.seismicMoment(s);
+  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+    double& totalFrictionalWork = energiesStorage.totalFrictionalWork(sim);
+    double& staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
+    double& seismicMoment = energiesStorage.seismicMoment(sim);
+    double& potency = energiesStorage.potency(sim);
+    minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
+#ifdef ACL_DEVICE
+    unsigned maxCells = 0;
+    for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+      maxCells = std::max(it->getNumberOfCells(), maxCells);
+    }
+
+    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
+    constexpr auto qSize = tensor::Q::size();
+    real* timeDerivativePlusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    real* timeDerivativeMinusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+#endif
     for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
+#ifdef ACL_DEVICE
+      ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+      auto& table = it->getConditionalTable<inner_keys::Dr>();
+      if (table.find(timeIntegrationKey) != table.end()) {
+        auto& entry = table[timeIntegrationKey];
+        real** timeDerivativePlusDevice =
+            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+        real** timeDerivativeMinusDevice =
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+            timeDerivativePlusDevice,
+            timeDerivativePlusHost,
+            qSize,
+            qSize,
+            it->getNumberOfCells(),
+            stream);
+        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+            timeDerivativeMinusDevice,
+            timeDerivativeMinusHost,
+            qSize,
+            qSize,
+            it->getNumberOfCells(),
+            stream);
+        device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+      }
+      auto const timeDerivativePlusPtr = [&](unsigned i) {
+        return timeDerivativePlusHost + qSize * i;
+      };
+      auto const timeDerivativeMinusPtr = [&](unsigned i) {
+        return timeDerivativeMinusHost + qSize * i;
+      };
+#else
       real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
+      auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+      auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+#endif
       DRGodunovData* godunovData = it->var(dynRup->godunovData);
       DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
       DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
       seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
       seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(s, it, drEnergyOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for reduction(                                                                \
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
+    shared(it,                                                                                     \
+               drEnergyOutput,                                                                     \
+               faceInformation,                                                                    \
+               timeDerivativeMinusPtr,                                                             \
+               timeDerivativePlusPtr,                                                              \
+               godunovData,                                                                        \
+               waveSpeedsPlus,                                                                     \
+               waveSpeedsMinus,                                                                    \
+               sim)
 #endif
       for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
             totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
           }
-          staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
-                                                    timeDerivativeMinus[i],
+          // TODO: move this out of the sim loop
+          staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
+                                                    timeDerivativeMinusPtr(i),
                                                     faceInformation[i],
                                                     godunovData[i],
-                                                    drEnergyOutput[i].slip)[s];
+                                                    drEnergyOutput[i].slip)[sim];
 
           real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
                         waveSpeedsPlus[i].sWaveVelocity;
           real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
                          waveSpeedsMinus[i].sWaveVelocity;
           real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-          real seismicMomentIncrease = 0.0;
+          real potencyIncrease = 0.0;
           for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
-            seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
+            potencyIncrease += drEnergyOutput[i].accumulatedSlip[k];
           }
-          seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                   seissol::dr::misc::numberOfBoundaryGaussPoints;
-          seismicMoment += seismicMomentIncrease;
+          potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea /
+                             seissol::dr::misc::numberOfBoundaryGaussPoints;
+          potency += potencyIncrease;
+          seismicMoment += potencyIncrease * mu;
         }
       }
+      real localMin = std::numeric_limits<real>::max();
+
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for reduction(min : localMin) default(none)                                   \
+    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
+#endif
+      for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
+        if (faceInformation[i].plusSideOnThisRank) {
+          for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+            if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
+              localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
+            }
+          }
+        }
+      }
+      minTimeSinceSlipRateBelowThreshold = std::min(localMin, minTimeSinceSlipRateBelowThreshold);
     }
   }
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {
-  for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-    auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(s);
-    auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(s);
-    auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy(s);
-    auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy(s);
-    auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy(s);
-    auto& totalPlasticMoment = energiesStorage.plasticMoment(s);
+  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+    auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
+    auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
+    auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy(sim);
+    auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy(sim);
+    auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy(sim);
+    auto& totalPlasticMoment = energiesStorage.plasticMoment(sim);
 
     std::vector<Element> const& elements = meshReader->getElements();
     std::vector<Vertex> const& vertices = meshReader->getVertices();
 
-    const auto g = SeisSol::main.getGravitationSetup().acceleration;
+    const auto g = seissolInstance.getGravitationSetup().acceleration;
 
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
-#if defined(_OPENMP) && !defined(__NVCOMPILER)
-#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
+                                                        totalAcousticEnergyLocal,                  \
+                                                        totalAcousticKineticEnergyLocal,           \
+                                                        totalElasticEnergyLocal,                   \
+                                                        totalElasticKineticEnergyLocal,            \
+                                                        totalPlasticMoment)                        \
+    shared(elements, vertices, lts, ltsLut, global)
 #endif
     for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
       real volume = MeshTools::volume(elements[elementId], vertices);
@@ -237,9 +352,9 @@ void EnergyOutput::computeVolumeEnergies() {
       krnl.execute();
 
 #ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(s, yateto::slice<>(), yateto::slice<>());
+      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
-      auto& numSub = numericalSolution;
+      auto numSub = numericalSolution;
 #endif
       for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
         constexpr int uIdx = 6;
@@ -327,18 +442,23 @@ void EnergyOutput::computeVolumeEnergies() {
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
         const auto rho = material.local.rho;
 
+#ifdef MULTIPLE_SIMULATIONS
+        static_assert(numQuadraturePointsTri ==
+                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[1]);
+        auto rotatedFaceDisplacementFused =
+            init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+        auto rotatedFaceDisplacement =
+            rotatedFaceDisplacementFused.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+#else
+        static_assert(numQuadraturePointsTri ==
+                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
         auto rotatedFaceDisplacement =
             init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
-#ifdef MULTIPLE_SIMULATIONS
-        auto slicedRotatedFaceDisplacement =
-            rotatedFaceDisplacement.subtensor(s, yateto::slice<>(), yateto::slice<>());
-#else
-        auto& slicedRotatedFaceDisplacement = rotatedFaceDisplacement;
 #endif
-        for (unsigned i = 0; i < slicedRotatedFaceDisplacement.shape(0); ++i) {
+        for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
           // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
           // derivation.
-          const auto displ = slicedRotatedFaceDisplacement(i, 0);
+          const auto displ = rotatedFaceDisplacement(i, 0);
           const auto curEnergy = 0.5 * rho * g * displ * displ;
           const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
           totalGravitationalEnergyLocal += curWeight * curEnergy;
@@ -354,7 +474,7 @@ void EnergyOutput::computeVolumeEnergies() {
 #else
         real mu = material.local.mu;
 #endif
-        totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+        totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
       }
     }
   }
@@ -388,60 +508,69 @@ void EnergyOutput::reduceEnergies() {
 #endif
 }
 
+void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
+#ifdef USE_MPI
+  const auto rank = MPI::mpi.rank();
+  const auto& comm = MPI::mpi.comm();
+
+  if (rank == 0) {
+    MPI_Reduce(MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold, 1, MPI_C_REAL, MPI_MIN, 0, comm);
+  } else {
+    MPI_Reduce(&minTimeSinceSlipRateBelowThreshold,
+               &minTimeSinceSlipRateBelowThreshold,
+               1,
+               MPI_C_REAL,
+               MPI_MIN,
+               0,
+               comm);
+  }
+#endif
+}
+
 void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
   if (rank == 0) {
-    for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
+    for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
       const auto totalAcousticEnergy =
-          energiesStorage.acousticKineticEnergy(s) + energiesStorage.acousticEnergy(s);
+          energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
       const auto totalElasticEnergy =
-          energiesStorage.elasticKineticEnergy(s) + energiesStorage.elasticEnergy(s);
+          energiesStorage.elasticKineticEnergy(sim) + energiesStorage.elasticEnergy(sim);
       const auto ratioElasticKinematic =
-          100.0 * energiesStorage.elasticKineticEnergy(s) / totalElasticEnergy;
+          100.0 * energiesStorage.elasticKineticEnergy(sim) / totalElasticEnergy;
       const auto ratioElasticPotential =
-          100.0 * energiesStorage.elasticEnergy(s) / totalElasticEnergy;
+          100.0 * energiesStorage.elasticEnergy(sim) / totalElasticEnergy;
       const auto ratioAcousticKinematic =
-          100.0 * energiesStorage.acousticKineticEnergy(s) / totalAcousticEnergy;
+          100.0 * energiesStorage.acousticKineticEnergy(sim) / totalAcousticEnergy;
       const auto ratioAcousticPotential =
-          100.0 * energiesStorage.acousticEnergy(s) / totalAcousticEnergy;
-      const auto totalFrictionalWork = energiesStorage.totalFrictionalWork(s);
-      const auto staticFrictionalWork = energiesStorage.staticFrictionalWork(s);
+          100.0 * energiesStorage.acousticEnergy(sim) / totalAcousticEnergy;
+      const auto totalFrictionalWork = energiesStorage.totalFrictionalWork(sim);
+      const auto staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
       const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
       const auto ratioFrictionalStatic = 100.0 * staticFrictionalWork / totalFrictionalWork;
       const auto ratioFrictionalRadiated = 100.0 * radiatedEnergy / totalFrictionalWork;
       const auto ratioPlasticMoment =
-          100.0 * energiesStorage.plasticMoment(s) /
-          (energiesStorage.plasticMoment(s) + energiesStorage.seismicMoment(s));
-#ifdef MULTIPLE_SIMULATIONS
-      std::stringstream multipleSimulationStream;
-      multipleSimulationStream << " for simulation " << s;
-      const std::string multipleSimulationString = multipleSimulationStream.str();
-      const char* multipleSimulationSnippet = multipleSimulationString.c_str();
-#else
-      // note: utils/logger puts std::string between quotation marks.
-      const char* multipleSimulationSnippet = "";
-#endif
+          100.0 * energiesStorage.plasticMoment(sim) /
+          (energiesStorage.plasticMoment(sim) + energiesStorage.seismicMoment(sim));
+
       if (shouldComputeVolumeEnergies()) {
         if (totalElasticEnergy) {
-          logInfo(rank) << "Elastic energy" << multipleSimulationSnippet
-                        << "(total, % kinematic, % potential): " << totalElasticEnergy << " ,"
-                        << ratioElasticKinematic << " ," << ratioElasticPotential;
+          logInfo(rank) << "Elastic energy (total, % kinematic, % potential): "
+                        << totalElasticEnergy << " ," << ratioElasticKinematic << " ,"
+                        << ratioElasticPotential;
         }
         if (totalAcousticEnergy) {
-          logInfo(rank) << "Acoustic energy" << multipleSimulationSnippet
-                        << "(total, % kinematic, % potential): " << totalAcousticEnergy << " ,"
-                        << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+          logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): "
+                        << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
+                        << ratioAcousticPotential;
         }
-        if (energiesStorage.gravitationalEnergy(s)) {
-          logInfo(rank) << "Gravitational energy" << multipleSimulationSnippet << ":"
-                        << energiesStorage.gravitationalEnergy(s);
+        if (energiesStorage.gravitationalEnergy(sim)) {
+          logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
         }
-        if (energiesStorage.plasticMoment(s)) {
-          logInfo(rank) << "Plastic moment" << multipleSimulationSnippet
-                        << "(value, equivalent Mw, % total moment):"
-                        << energiesStorage.plasticMoment(s) << " ,"
-                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(s)) - 6.07 << " ,"
+        if (energiesStorage.plasticMoment(sim)) {
+          logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+                        << energiesStorage.plasticMoment(sim) << " ,"
+                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
                         << ratioPlasticMoment;
         }
       } else {
@@ -451,8 +580,9 @@ void EnergyOutput::printEnergies() {
       if (totalFrictionalWork) {
         logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                       << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-        logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment(s)
-                      << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(s)) - 6.07;
+        logInfo(rank) << "Seismic moment (without plasticity):"
+                      << energiesStorage.seismicMoment(sim) << " Mw:"
+                      << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(sim)) - 6.07;
       }
 
       if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
@@ -462,36 +592,68 @@ void EnergyOutput::printEnergies() {
   }
 }
 
+void EnergyOutput::checkAbortCriterion() {
+  const auto rank = MPI::mpi.rank();
+  bool abort = false;
+  if (rank == 0) {
+    if ((minTimeSinceSlipRateBelowThreshold > 0) and
+        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
+      if (static_cast<double>(minTimeSinceSlipRateBelowThreshold) < terminatorMaxTimePostRupture) {
+        logInfo(rank) << "all slip rates are below threshold since"
+                      << minTimeSinceSlipRateBelowThreshold
+                      << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
+      } else {
+        logInfo(rank) << "all slip rates are below threshold since"
+                      << minTimeSinceSlipRateBelowThreshold
+                      << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
+        logInfo(rank) << "aborting...";
+        abort = true;
+      }
+    }
+  }
+#ifdef USE_MPI
+  const auto& comm = MPI::mpi.comm();
+  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+#endif
+  if (abort) {
+    seissol::MPI::mpi.finalize();
+    exit(0);
+  }
+}
+
 void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::endl; }
 
 void EnergyOutput::writeEnergies(double time) {
-  for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
+  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
 #ifdef MULTIPLE_SIMULATIONS
-    const std::string fusedSuffix = std::to_string(s);
+    const std::string fusedSuffix = std::to_string(sim);
 #else
     const std::string fusedSuffix = "";
 #endif
     if (shouldComputeVolumeEnergies()) {
       out << time << ",gravitational_energy" << fusedSuffix << ","
-          << energiesStorage.gravitationalEnergy(s) << "\n"
-          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy(s)
+          << energiesStorage.gravitationalEnergy(sim) << "\n"
+          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy(sim)
           << "\n"
           << time << ",acoustic_kinetic_energy" << fusedSuffix << ","
-          << energiesStorage.acousticKineticEnergy(s) << "\n"
-          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy(s)
+          << energiesStorage.acousticKineticEnergy(sim) << "\n"
+          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
           << "\n"
           << time << ",elastic_kinetic_energy" << fusedSuffix << ","
-          << energiesStorage.elasticKineticEnergy(s) << "\n"
-          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(s)
+          << energiesStorage.elasticKineticEnergy(sim) << "\n"
+          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
           << "\n";
     }
     out << time << ",total_frictional_work" << fusedSuffix << ","
-        << energiesStorage.totalFrictionalWork(s) << "\n"
+        << energiesStorage.totalFrictionalWork(sim) << "\n"
         << time << ",static_frictional_work" << fusedSuffix << ","
-        << energiesStorage.staticFrictionalWork(s) << "\n"
-        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment(s)
+        << energiesStorage.staticFrictionalWork(sim) << "\n"
+        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment(sim)
         << "\n"
-        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(s)
+        << time << ",potency" << fusedSuffix << "," << energiesStorage.potency(sim) << "\n"
+        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
         << std::endl;
   }
 }

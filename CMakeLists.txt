@@ -11,11 +11,29 @@ endif()
 
 project(SeisSol LANGUAGES C CXX)
 
+# TODO: Move one dir up.
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
+                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
+                      "${CMAKE_ROOT}/Modules")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
   if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
     message(FATAL_ERROR "NVHPC version ${NVHPC_REQUIRED_VERSION} or higher is required")
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  set(GNU_REQUIRED_VERSION "9.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
+    message(WARNING "GNU versions below ${GNU_REQUIRED_VERSION} are not supported")
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+  set(INTEL_REQUIRED_VERSION "2021")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS INTEL_REQUIRED_VERSION)
+    message(WARNING "INTEL versions below ${INTEL_REQUIRED_VERSION} are not supported")
   endif()
 endif()
 
@@ -29,21 +47,17 @@ endif()
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
-#                     MEMORY_LAYOUT, COMMTHREAD,
+#                     MEMORY_LAYOUT,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
+                         "VECTORSIZE=${VECTORSIZE}"
                          "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
-# TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
-                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
-                      "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,7 +73,7 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   # Note: hip 4.x has a bug during setting rpath while compiling
   #       device code for nvidia gpus. This scenario is used in
   #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX})
+  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
 # Generate version.h
@@ -74,8 +88,8 @@ if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
   set(PACKAGE_GIT_TIMESTAMP "9999-12-31T00:00:00+00:00")
 else()
   get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
-  string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 endif()
+string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
 configure_file("src/version_template.h"
@@ -110,6 +124,8 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+find_package(GemmTools REQUIRED)
+
 add_custom_command(
   COMMAND
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
@@ -126,6 +142,8 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
+     "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
@@ -155,7 +173,6 @@ add_custom_command(
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(SeisSol-common-properties INTERFACE IMPORTED)
 
-find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
 # enforce code generation to run before any other target
@@ -225,14 +242,6 @@ if (MPI)
   target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
-
-  if (MINI_SEISSOL)
-    target_compile_definitions(SeisSol-common-properties INTERFACE USE_MINI_SEISSOL)
-  endif()
-endif()
-
-if (COMMTHREAD)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_COMM_THREAD)
 endif()
 
 if (NUMA_AWARE_PINNING)
@@ -291,7 +300,7 @@ if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_STATIC_LDFLAGS})
+  target_link_libraries(SeisSol-common-properties INTERFACE ${ASAGI_LDFLAGS})
   target_include_directories(SeisSol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
   target_compile_options(SeisSol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
@@ -376,6 +385,13 @@ if (PREMULTIPLY_FLUX)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
 
+# adjust prefix name of executables
+if ("${DEVICE_ARCH_STR}" STREQUAL "none")
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+else()
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+endif()
+
 if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
@@ -440,10 +456,14 @@ if (WITH_GPU)
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)
 
+  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
+  set_target_properties(SeisSol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
+  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
+
   # set up GPU install targets
-  install(TARGETS general-sycl-offloading DESTINATION ${CMAKE_INSTALL_PREFIX})
-  install(TARGETS SeisSol-device-lib DESTINATION ${CMAKE_INSTALL_PREFIX})
-  install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
+  install(TARGETS general-sycl-offloading LIBRARY)
+  install(TARGETS SeisSol-device-lib LIBRARY)
+  install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
@@ -489,14 +509,6 @@ if (HAS_REDZONE)
   )
 endif()
 
-# adjust prefix name of executables
-if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
-else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
-endif()
-
-
 add_executable(SeisSol-bin src/main.cpp)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
@@ -527,7 +539,7 @@ endif()
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-install(TARGETS SeisSol-proxy DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS SeisSol-proxy RUNTIME)
 
 if (LIKWID)
   find_package(likwid REQUIRED)
@@ -630,16 +642,16 @@ endif()
   target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
-install(TARGETS SeisSol-bin DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS SeisSol-bin RUNTIME)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
   set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
-                 ${PROJECT_BINARY_DIR}/launch
+                 ${PROJECT_BINARY_DIR}/seissol-launch
                  @ONLY)
-  file(CHMOD ${PROJECT_BINARY_DIR}/launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
-  install(FILES ${PROJECT_BINARY_DIR}/launch DESTINATION ${CMAKE_INSTALL_PREFIX}
+  file(CHMOD ${PROJECT_BINARY_DIR}/seissol-launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+  install(FILES ${PROJECT_BINARY_DIR}/seissol-launch DESTINATION ${CMAKE_INSTALL_PREFIX}/share
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
 

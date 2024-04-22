@@ -1,68 +1,11 @@
 #ifndef INITIALIZER_INPUTAUX_H_
 #define INITIALIZER_INPUTAUX_H_
 
-#include <type_traits>
-#include <string>
 #include <fstream>
-#include <yaml-cpp/yaml.h>
+#include <iterator>
+#include <list>
 
-#include "DynamicRupture/Typedefs.hpp"
-#include "utils/logger.h"
-
-namespace YAML {
-template <>
-struct convert<seissol::dr::FrictionLawType> {
-  static Node encode(const seissol::dr::FrictionLawType& rhs) {
-    Node node;
-    node.push_back(static_cast<unsigned int>(rhs));
-    return node;
-  }
-
-  static bool decode(const Node& node, seissol::dr::FrictionLawType& rhs) {
-    if (node.IsSequence() || node.size() != 0) {
-      return false;
-    }
-
-    rhs = static_cast<seissol::dr::FrictionLawType>(node.as<unsigned int>());
-    return true;
-  }
-};
-} // namespace YAML
-namespace seissol::initializers {
-/*
- * If param stores a node with name field, return. Otherwise error.
- * @param param: YAML Node, which we want to read from.
- * @param field: Name of the field, we would like to read
- */
-template <typename T>
-T getUnsafe(const YAML::Node& param, const std::string& field) {
-  try {
-    // booleans are stored as integers
-    if constexpr (std::is_same<T, bool>::value) {
-      return param[field].as<int>() > 0;
-    } else {
-      return param[field].as<T>();
-    }
-  } catch (std::exception& e) {
-    logError() << "Error while reading field " << field << ": " << e.what();
-  }
-}
-
-/*
- * If param stores a node with name field override value
- * @param param: YAML Node, which we want to read from.
- * @param field: Name of the field, we would like to read
- * @param value: Reference to the value, which we want to override
- */
-template <typename T>
-T getWithDefault(const YAML::Node& param, const std::string& field, T defaultValue) {
-  T value = defaultValue;
-  if (param[field]) {
-    value = getUnsafe<T>(param, field);
-  }
-  return value;
-}
-
+namespace seissol::initializer {
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)
  *  is less or equal to the size of a container
@@ -182,7 +125,7 @@ std::array<T, n> convertStringToArray(const std::string& inputString,
 
   return result;
 }
-
+//
 using StringsType = std::list<std::string>;
 class FileProcessor {
   public:
@@ -220,6 +163,5 @@ class FileProcessor {
     }
   }
 };
-} // namespace seissol::initializers
-
+} // namespace seissol::initializer
 #endif // INITIALIZER_INPUTAUX_H_

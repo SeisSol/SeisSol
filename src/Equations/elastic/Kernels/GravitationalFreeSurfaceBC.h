@@ -19,12 +19,11 @@
 
 namespace seissol {
 
-// Used to avoid including SeisSo.h here as this leads to all sorts of issues
-double getGravitationalAcceleration();
-
 class GravitationalFreeSurfaceBc {
+private:
+  const double gravitationalAcceleration;
 public:
-  GravitationalFreeSurfaceBc() = default;
+  GravitationalFreeSurfaceBc(double gravitationalAcceleration) : gravitationalAcceleration(gravitationalAcceleration) {};
 
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType);
@@ -119,7 +118,7 @@ public:
 
 #ifdef USE_ELASTIC
     const double rho = materialData.local.rho;
-    const double g = getGravitationalAcceleration(); // [m/s^2]
+    const double g = gravitationalAcceleration; // [m/s^2]
     const double Z = std::sqrt(materialData.local.lambda * rho) ;
 #endif
 
@@ -264,7 +263,7 @@ public:
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;
-      const double g = getGravitationalAcceleration();
+      const double g = gravitationalAcceleration;
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
       for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {

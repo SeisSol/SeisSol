@@ -88,8 +88,9 @@ namespace seissol::kernels {
 
     //copy dofs for later comparison, only first dof of stresses required
     // @todo multiple sims
-    real prev_degreesOfFreedom[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    for (unsigned q = 0; q < 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+    
+    real prev_degreesOfFreedom[tensor::QStress::size()];
+    for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
       prev_degreesOfFreedom[q] = degreesOfFreedom[q];
     }
 
@@ -174,8 +175,8 @@ namespace seissol::kernels {
       adjKrnl.yieldFactor = yieldFactor;
       adjKrnl.execute();
 
-      // calculate plastic strain with first dof only (for now)
-      for (unsigned q = 0; q < 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+      // calculate plastic strain
+      for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
         /**
          * Equation (10) from Wollherr et al.:
          *
@@ -211,8 +212,9 @@ namespace seissol::kernels {
       m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
       m2nKrnl_dudt_pstrain.execute();
 
-      for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
-        QEtaModal[q] = pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      // Sizes:
+      for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+        QEtaModal[q] = pstrain[tensor::QStress::size() + q];
       }
 
       /* Convert modal to nodal */
@@ -239,8 +241,8 @@ namespace seissol::kernels {
       n2m_eta_Krnl.QEtaNodal = QEtaNodal;
       n2m_eta_Krnl.QEtaModal = QEtaModal;
       n2m_eta_Krnl.execute();
-      for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
-        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = QEtaModal[q];
+      for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+        pstrain[tensor::QStress::size() + q] = QEtaModal[q];
       }
       return 1;
     }
@@ -253,7 +255,7 @@ namespace seissol::kernels {
                                                 double timeStepWidth,
                                                 double T_v,
                                                 GlobalData const *global,
-                                                initializers::recording::ConditionalPointersToRealsTable &table,
+                                                initializer::recording::ConditionalPointersToRealsTable &table,
                                                 PlasticityData *plasticityData) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],

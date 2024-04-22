@@ -36,15 +36,22 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double
   }
 }
 
+unsigned PointSourceClusterOnHost::size() const { return sources_.numberOfSources; }
+
 void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
                                                                double from,
                                                                double to,
                                                                real dofs[tensor::Q::size()]) {
   real slip[] = {0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
-    if (sources_.slipRates[i][source].slopes.size() > 0) {
-      slip[i] = sources_.slipRates[i][source].timeIntegral(from, to);
-    }
+    auto o0 = sources_.sampleOffsets[i][source];
+    auto o1 = sources_.sampleOffsets[i][source + 1];
+    slip[i] = computeSampleTimeIntegral(from,
+                                        to,
+                                        sources_.onsetTime[source],
+                                        sources_.samplingInterval[source],
+                                        sources_.sample[i].data() + o0,
+                                        o1 - o0);
   }
 
   real rotatedSlip[] = {0.0, 0.0, 0.0};
@@ -75,11 +82,19 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
                                                                 double from,
                                                                 double to,
                                                                 real dofs[tensor::Q::size()]) {
+  auto o0 = sources_.sampleOffsets[0][source];
+  auto o1 = sources_.sampleOffsets[0][source + 1];
+  auto slip = computeSampleTimeIntegral(from,
+                                        to,
+                                        sources_.onsetTime[source],
+                                        sources_.samplingInterval[source],
+                                        sources_.sample[0].data() + o0,
+                                        o1 - o0);
   kernel::sourceFSRM krnl;
   krnl.Q = dofs;
   krnl.mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources[source].data();
   krnl.momentFSRM = sources_.tensor[source].data();
-  krnl.stfIntegral = sources_.slipRates[0][source].timeIntegral(from, to);
+  krnl.stfIntegral = slip;
 #ifdef MULTIPLE_SIMULATIONS
   const auto originalIndex = sources_.originalIndex[source];
   std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};

@@ -104,7 +104,7 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 }
 
 double distance(const double v1[2], const double v2[2]) {
-  Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
+  const Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
   return (vector1 - vector2).norm();
 }
 
@@ -195,7 +195,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
   auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
     auto referenceCoords = transformations::tetrahedronGlobalToReference(
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
-    basisFunction::SampledBasisFunctions<real> sampler(
+    const basisFunction::SampledBasisFunctions<real> sampler(
         CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;
   };
@@ -234,6 +234,14 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
     }
   }
   return cells;
+}
+std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
+  std::vector<unsigned int> faultTags(receiverPoints.size());
+
+  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
+  }
+  return faultTags;
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {

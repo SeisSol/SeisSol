@@ -29,7 +29,7 @@ TEST_CASE("Point mapper") {
   unsigned meshId[3] = {std::numeric_limits<unsigned>::max(),
                         std::numeric_limits<unsigned>::max(),
                         std::numeric_limits<unsigned>::max()};
-  seissol::initializers::findMeshIds(points, mockReader, 3, contained, meshId);
+  seissol::initializer::findMeshIds(points, mockReader, 3, contained, meshId);
 
   std::array<short, 3> expectedContained = {0, 0, 1};
   std::array<unsigned, 3> expectedMeshId = {

@@ -75,7 +75,7 @@ void setStarMatrix( real* i_AT,
   }
 }
 
-void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
+void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
@@ -252,7 +252,7 @@ void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshRead
   *surfaceArea = MeshTools::surface(normal);
 }
 
-void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
+void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
                                                        const EasiBoundary* easiBoundary,
                                                        LTSTree* io_ltsTree,
                                                        LTS* i_lts,
@@ -386,7 +386,7 @@ Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<doub
   return M.cast<real>();
 };
 
-void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
+void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
                                                               Lut*                   i_ltsLut,
@@ -394,7 +394,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
                                                               DynamicRupture*        dynRup,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
-                                                              TimeStepping const&/*    timeStepping*/ )
+                                                              double etaHack )
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
@@ -557,7 +557,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
       impAndEta[ltsFace].invZs = 1/impAndEta[ltsFace].zs;
       impAndEta[ltsFace].invZsNeig = 1/impAndEta[ltsFace].zsNeig;
 
-      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+      impAndEta[ltsFace].etaP = etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
@@ -668,7 +668,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
   }
 }
 
-void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                                                      LTS*              lts,
                                                      LTSTree*          dynRupTree,
                                                      DynamicRupture*   dynRup,

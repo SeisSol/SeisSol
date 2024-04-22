@@ -120,17 +120,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = OptionalDimTensor('slipRateInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  slipInterpolated = OptionalDimTensor('slipInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
   tractionInterpolated = OptionalDimTensor('tractionInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
-  frictionalEnergy = OptionalDimTensor('frictionalEnergy', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
-  timeWeight = Scalar('timeWeight')
+  staticFrictionalWork = OptionalDimTensor('staticFrictionalWork', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
+  minusSurfaceArea = Scalar('minusSurfaceArea')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints, 1), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  accumulateFrictionalEnergy = frictionalEnergy['l'] <= frictionalEnergy['l'] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['kl']
-  generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
+  accumulateStaticFrictionalWork = staticFrictionalWork['l'] <= staticFrictionalWork['l'] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['kl']
+  generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
   ## Dynamic Rupture Precompute
   qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
