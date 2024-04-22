@@ -131,7 +131,7 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void envOMP(void* depobj, F&& handler) {
+  void envOMP(omp_depend_t& depobj, F&& handler) {
     syncToOMP(depobj);
     std::invoke(handler);
     syncFromOMP(depobj);
