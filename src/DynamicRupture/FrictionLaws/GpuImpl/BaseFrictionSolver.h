@@ -137,7 +137,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       
       for (int chunk = 0; chunk < this->chunkcount; ++chunk)
-      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize, pointIndex) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devSpaceWeights[0:misc::numPaddedPoints], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: devTimeWeights[0:CONVERGENCE_ORDER], devSpaceWeights[0:misc::numPaddedPoints], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
