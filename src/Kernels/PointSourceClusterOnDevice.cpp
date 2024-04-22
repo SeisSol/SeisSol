@@ -28,9 +28,11 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
     auto* A = sources_.A.data();
     auto* stiffnessTensor = sources_.stiffnessTensor.data();
 
+    std::size_t mappingsize = mapping.size();
+
     if (sources_.mode == sourceterm::PointSources::NRF) {
-      #pragma omp target teams distribute device(TARGETDART_ANY) parallel for schedule(static, 1)
-      for (int i = 0; i < mapping.size(); ++i) {
+      #pragma omp target loop device(TARGETDART_ANY) map(to: mappingsize)
+      for (int i = 0; i < mappingsize; ++i) {
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
                                mapping_ptr[i].numberOfPointSources;
@@ -47,8 +49,8 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
           }
       }
     } else {
-      #pragma omp target teams distribute device(TARGETDART_ANY) parallel for schedule(static, 1)
-      for (int i = 0; i < mapping.size(); ++i) {
+      #pragma omp target loop device(TARGETDART_ANY) map(to: mappingsize)
+      for (int i = 0; i < mappingsize; ++i) {
           unsigned startSource = mapping_ptr[i].pointSourcesOffset;
           unsigned endSource = mapping_ptr[i].pointSourcesOffset +
                                mapping_ptr[i].numberOfPointSources;
