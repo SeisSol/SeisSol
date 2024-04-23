@@ -6,6 +6,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Kernels/common.hpp>
 #include <cstring>
 
 using namespace seissol::dr::misc::quantity_indices;
