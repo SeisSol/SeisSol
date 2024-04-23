@@ -223,7 +223,7 @@ def fc_Qzero_gridsearch(amplitude_tr, freq_tr, misfit="SSM", n=2, fc_end=0., q_d
     if q_dim != 0:
         q = q_zero[0,0,index[1]]
     else:
-        q = q_zero[0,index[1],0]
+        q = q_zero[0,index[0],0]
         
     return fc, q
 

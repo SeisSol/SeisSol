@@ -49,7 +49,7 @@
 #include "Initializer/typedefs.hpp"
 
 namespace seissol {
-namespace initializers {
+namespace initializer {
 namespace time_stepping {
   
 /**

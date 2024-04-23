@@ -15,7 +15,8 @@ struct GhostTimeClusterFactory {
                                                        int globalTimeClusterId,
                                                        int otherGlobalTimeClusterId,
                                                        const MeshStructure* meshStructure,
-                                                       MPI::DataTransferMode mode) {
+                                                       MPI::DataTransferMode mode,
+                                                       bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case MPI::DataTransferMode::CopyInCopyOutHost: {
@@ -24,16 +25,8 @@ struct GhostTimeClusterFactory {
                                               timeStepRate,
                                               globalTimeClusterId,
                                               otherGlobalTimeClusterId,
-                                              meshStructure);
-    }
-    case MPI::DataTransferMode::CopyInCopyOutDevice: {
-      using ghostCluster_t =
-          GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutDevice>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure);
+                                              meshStructure,
+                                              persistent);
     }
 #endif // ACL_DEVICE
     case MPI::DataTransferMode::Direct: {
@@ -41,7 +34,8 @@ struct GhostTimeClusterFactory {
                                                       timeStepRate,
                                                       globalTimeClusterId,
                                                       otherGlobalTimeClusterId,
-                                                      meshStructure);
+                                                      meshStructure,
+                                                      persistent);
     }
     default: {
       return nullptr;

@@ -12,7 +12,7 @@ add-apt-repository ppa:ubuntu-toolchain-r/test && \
 apt-get install -y gcc-9 g++-9 gfortran-9 && \
 apt-get install -y unzip openmpi-bin openmpi-common libopenmpi-dev && \
 apt-get install -y hdf5-tools libhdf5-openmpi-dev libmetis-dev libparmetis-dev libopenblas-dev && \
-apt-get install -y cxxtest libyaml-cpp-dev && \
+apt-get install -y libyaml-cpp-dev && \
 pip3 install --upgrade pip && \
 pip3 install numpy>=1.12.0 lxml setuptools sphinx sphinx_rtd_theme seissolxdmf pandas
 

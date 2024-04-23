@@ -46,6 +46,14 @@
 namespace seissol
 {
 
+// MPI_Comm substitute, so we don't have to disambiguate when it's not there
+#ifndef USE_MPI
+using MPI_Comm = int;
+constexpr MPI_Comm MPI_COMM_NULL = 0;
+constexpr MPI_Comm MPI_COMM_SELF = 1;
+constexpr MPI_Comm MPI_COMM_WORLD = 2;
+#endif
+
 /**
  * Dummy class when running without MPI
  */

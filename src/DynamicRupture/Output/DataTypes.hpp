@@ -3,8 +3,11 @@
 
 #include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Parallel/DataCollector.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -97,47 +100,7 @@ enum VariableID {
   Size
 };
 
-enum class OutputType : int {
-  None = 0,
-  AtPickpoint = 3,
-  Elementwise = 4,
-  AtPickpointAndElementwise = 5
-};
-
-enum class SlipRateOutputType { VelocityDifference, TractionsAndFailure };
-
-struct GeneralParams {
-  OutputType outputPointType{OutputType::None};
-  SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
-  bool isRfOutputOn{false};
-  bool isDsOutputOn{false};
-  bool isThermalPressurizationOn{false};
-  bool isRfTimeOn{false};
-  bool faultOutputFlag{false};
-  std::string outputFilePrefix{"data"};
-  std::string xdmfWriterBackend{"hdf5"};
-  std::string checkPointBackend{"none"};
-  double endTime{15.0};
-  size_t maxIteration{1000000000};
-};
-
-struct PickpointParams {
-  std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{true, true, true};
-  int printTimeInterval{1};
-  int maxPickStore{50};
-  std::string ppFileName{};
-};
-
-enum class RefinerType { Triple = 1, Quad = 2, Invalid = 3 };
-
-struct ElementwiseFaultParams {
-  double printTimeIntervalSec{1.0};
-  std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{true, true, true, true};
-  RefinerType refinementStrategy{RefinerType::Quad};
-  int refinement{2};
-};
-
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
@@ -165,6 +128,11 @@ struct ReceiverOutputData {
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
+
+  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::vector<std::size_t> deviceDataPlus;
+  std::vector<std::size_t> deviceDataMinus;
+  std::size_t cellCount{0};
 };
 } // namespace seissol::dr
 
