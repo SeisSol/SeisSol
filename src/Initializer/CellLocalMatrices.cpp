@@ -685,12 +685,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
-      krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = APlusData;
       krnl.execute();
 
       krnl.fluxSolver = fluxSolverMinusHost[ltsFace];
-      krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();
     }

@@ -6,6 +6,7 @@
 #include "Numerical_aux/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include <array>
 
 namespace seissol::writer {
 
@@ -28,6 +29,10 @@ double& EnergiesStorage::plasticMoment() { return energies[7]; }
 double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
 double& EnergiesStorage::potency() { return energies[9]; }
+
+double& EnergiesStorage::totalMomentumX() { return energies[10]; }
+double& EnergiesStorage::totalMomentumY() { return energies[11]; }
+double& EnergiesStorage::totalMomentumZ() { return energies[12]; }
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
@@ -286,6 +291,9 @@ void EnergyOutput::computeVolumeEnergies() {
   auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
   auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  auto& totalMomentumX = energiesStorage.totalMomentumX();
+  auto& totalMomentumY = energiesStorage.totalMomentumY();
+  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
   auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
   auto& totalPlasticMoment = energiesStorage.plasticMoment();
@@ -303,6 +311,9 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalAcousticKineticEnergyLocal,           \
                                                         totalElasticEnergyLocal,                   \
                                                         totalElasticKineticEnergyLocal,            \
+                                                        totalMomentumX,                            \
+                                                        totalMomentumY,                            \
+                                                        totalMomentumZ,                            \
                                                         totalPlasticMoment)                        \
     shared(elements, vertices, lts, ltsLut, global)
 #endif
@@ -353,13 +364,15 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto v = numSub(qp, uIdx + 1);
       const auto w = numSub(qp, uIdx + 2);
       const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
+      const double curMomentumX = rho * u;
+      const double curMomentumY = rho * v;
+      const double curMomentumZ = rho * w;
 
       if (std::abs(material.local.mu) < 10e-14) {
         // Acoustic
         constexpr int pIdx = 0;
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
-
         const double curAcousticEnergy = (p * p) / (2 * K);
         totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
@@ -371,6 +384,10 @@ void EnergyOutput::computeVolumeEnergies() {
               std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
+        totalMomentumX += curWeight * curMomentumX;
+        totalMomentumY += curWeight * curMomentumY;
+        totalMomentumZ += curWeight * curMomentumZ;
+
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
@@ -528,6 +545,9 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+    const auto totalMomentumX = energiesStorage.totalMomentumX();
+    const auto totalMomentumY = energiesStorage.totalMomentumY();
+    const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
@@ -548,6 +568,8 @@ void EnergyOutput::printEnergies() {
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
+      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+                    << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
@@ -604,6 +626,9 @@ void EnergyOutput::writeEnergies(double time) {
         << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
         << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
         << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
+        << time << ",momentumX," << energiesStorage.totalMomentumX() << "\n"
+        << time << ",momentumY," << energiesStorage.totalMomentumY() << "\n"
+        << time << ",momentumZ," << energiesStorage.totalMomentumZ() << "\n"
         << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
   }
   out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
