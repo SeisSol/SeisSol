@@ -570,7 +570,7 @@ void EnergyOutput::printEnergies() {
                       << ratioPlasticMoment;
       }
       logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
-                      << " ," << totalMomentumZ;
+                    << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
