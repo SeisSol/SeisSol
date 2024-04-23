@@ -99,7 +99,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devLocalStateVariable)) map(from: CCHUNK(stateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         stateVariableBuffer[ltsFace][pointIndex] = devLocalStateVariable[ltsFace][pointIndex];
@@ -146,7 +146,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:timeIndex) map(to: CCHUNK(devFaultStresses), CCHUNK(devStateVariableBuffer), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2), CCHUNK(devInitialStressInFaultCS)) map(from: CCHUNK(devSlipRateMagnitude), CCHUNK(devAbsoluteShearTraction), CCHUNK(devLocalSlipRate), CCHUNK(devStateVarReference)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         const auto& faultStresses = devFaultStresses[ltsFace];
@@ -203,7 +203,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       for (int chunk = 0; chunk < this->chunkcount; ++chunk)
       #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, detRsF0, detRsB, detRsSr0, solverSettings, timeIndex) map(to: CCHUNK(detA), CCHUNK(detSl0), CCHUNK(devStateVariableBuffer), CCHUNK(devNormalStress), CCHUNK(devAbsoluteShearStress), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devSlipRateMagnitude)) map(from: CCHUNK(devHasConverged), CCHUNK(devLocalSlipRate), CCHUNK(devMu)) nowait
       #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         bool hasConvergedAllPoints = true;
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd) reduction(&&:hasConvergedAllPoints)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -284,7 +284,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize, timeIndex, detRsF0, detRsB, detRsSr0, deltaTime) map(to: CCHUNK(detA), CCHUNK(detSl0), CCHUNK(devStateVariableBuffer), CCHUNK(devSlipRateMagnitude), CCHUNK(devNormalStress), CCHUNK(devAbsoluteTraction), CCHUNK(devFaultStresses), CCHUNK(devInitialStressInFaultCS), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devMu), CCHUNK(devAccumulatedSlipMagnitude), CCHUNK(devSlip1), CCHUNK(devSlip2)) map(from: CCHUNK(devTraction1), CCHUNK(devTraction2), CCHUNK(devTractionResults), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
           typename Derived::Details details;
@@ -368,7 +368,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, muW, rsF0, fullUpdateTime) map(to: CCHUNK(devMu), CCHUNK(devRuptureTime)) map(tofrom: CCHUNK(devDynStressTimePending)) map(from: CCHUNK(devDynStressTime)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -431,7 +431,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, timeIndex) map(to: CCHUNK(devFaultStresses), CCHUNK(devInitialStressInFaultCS)) map(from: CCHUNK(devNormalStress)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];

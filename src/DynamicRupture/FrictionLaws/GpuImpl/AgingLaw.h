@@ -25,7 +25,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, timeIncrement) map(to: CCHUNK(devSl0), CCHUNK(devLocalSlipRate), CCHUNK(devStateVarReference)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 

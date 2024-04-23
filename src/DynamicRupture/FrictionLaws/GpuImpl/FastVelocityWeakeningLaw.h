@@ -74,7 +74,7 @@ class FastVelocityWeakeningLaw
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, detRsF0, detRsB, detRsSr0, muW, timeIncrement) map(to: CCHUNK(detSl0), CCHUNK(detA), CCHUNK(detSrW), CCHUNK(devStateVarReference), CCHUNK(devLocalSlipRate)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
 
@@ -143,7 +143,7 @@ class FastVelocityWeakeningLaw
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
     #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devStateVariableBuffer), resampleMatrix[0:resampleSize]) map(tofrom: CCHUNK(devStateVariable)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
-      for (int ltsFace = 0; ltsFace < chunksize; ++ltsFace) {
+      CCHUNKLOOP(ltsFace) {
         real deltaStateVar[misc::numPaddedPoints];
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
         for (int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
