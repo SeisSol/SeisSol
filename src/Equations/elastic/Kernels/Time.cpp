@@ -198,15 +198,12 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = data.dofs();
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
+  krnl.I = o_timeIntegrated;
   // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
-  intKrnl.execute0();
+  krnl.power(0) = i_timeStepWidth;
+  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+    krnl.power(der) = krnl.power(der - 1) * i_timeStepWidth / real(der+1);
+  }
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
@@ -217,13 +214,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
   }
 
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
-    krnl.execute(der);
-
-    // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
-    intKrnl.execute(der);
-  }
+  krnl.execute();
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
@@ -257,7 +248,6 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 bool updateDisplacement) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
-  kernel::gpu_derivativeTaylorExpansion intKrnl;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -265,9 +255,7 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
-    intKrnl.numElements = numElements;
-
-    intKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
     unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -279,10 +267,7 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     unsigned derivativesOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      intKrnl.dQ(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr());
-
       derivativesKrnl.extraOffset_dQ(i) = derivativesOffset;
-      intKrnl.extraOffset_dQ(i) = derivativesOffset;
 
       derivativesOffset += tensor::dQ::size(i);
     }
@@ -294,25 +279,16 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                         derivativesKrnl.numElements,
                                         device.api->getDefaultStream());
 
-    const auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
+    const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
-    intKrnl.power = i_timeStepWidth;
-    intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute0();
-
+    derivativesKrnl.power(0) = i_timeStepWidth;
     for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
-      derivativesKrnl.linearAllocator.initialize(tmpMem);
-      derivativesKrnl.streamPtr = device.api->getDefaultStream();
-      derivativesKrnl.execute(Der);
-
-      // update scalar for this derivative
-      intKrnl.power *= i_timeStepWidth / real(Der + 1);
-      intKrnl.linearAllocator.initialize(tmpMem);
-      intKrnl.streamPtr = device.api->getDefaultStream();
-      intKrnl.execute(Der);
+      derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * i_timeStepWidth / real(Der + 1);
     }
+    derivativesKrnl.linearAllocator.initialize(tmpMem);
+    derivativesKrnl.streamPtr = device.api->getDefaultStream();
+    derivativesKrnl.execute();
     device.api->popStackMemory();
   }
 
@@ -335,22 +311,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
-
-  // initialization
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
-
-  // interate over derivatives
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(l_derivative);
-  }
+  o_nonZeroFlops  = kernel::derivative::NonZeroFlops;
+  o_hardwareFlops = kernel::derivative::HardwareFlops;
 
 }
 
@@ -408,11 +370,10 @@ void seissol::kernels::Time::computeIntegral( double                            
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= (real)(der+1);
 
-    intKrnl.power  = l_firstTerm - l_secondTerm;
-    intKrnl.power /= l_factorial;
-
-    intKrnl.execute(der);
+    intKrnl.power(der)  = l_firstTerm - l_secondTerm;
+    intKrnl.power(der) /= l_factorial;
   }
+  intKrnl.execute();
 }
 
 void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
@@ -457,12 +418,12 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
     secondTerm *= deltaTLower;
     factorial *= static_cast<real>(der + 1);
 
-    intKrnl.power = firstTerm - secondTerm;
-    intKrnl.power /= factorial;
-    intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute(der);
+    intKrnl.power(der) = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
   }
+  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.streamPtr = device.api->getDefaultStream();
+  intKrnl.execute();
   device.api->popStackMemory();
 #else
   assert(false && "no implementation provided");
@@ -491,13 +452,14 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
-  intKrnl.power = 1.0;
+  intKrnl.power(0) = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
+  for(int derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
+
+  intKrnl.execute();
 }
 
 void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
@@ -522,59 +484,22 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
 
   // iterate over time derivatives
   const real deltaT = time - expansionPoint;
-  intKrnl.power = 1.0;
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
+  intKrnl.power(0) = 1.0;
+  for(int derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
+
+  intKrnl.streamPtr = device.api->getDefaultStream();
+  intKrnl.execute();
 #else
   assert(false && "no implementation provided");
 #endif
 }
 
-void seissol::kernels::Time::computeDerivativeTaylorExpansion(real time,
-                                                     real expansionPoint,
-                                                     real const*  timeDerivatives,
-                                                     real timeEvaluated[tensor::Q::size()],
-                                                     unsigned order) {
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
-
-  // assert that this is a forward evaluation in time
-  assert( time >= expansionPoint );
-
-  real deltaT = time - expansionPoint;
-
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
-  }
-  intKrnl.power = 1.0;
-
-  // iterate over time derivatives
-  for(unsigned derivative = order; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
-  }
-}
-
 
 void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0; hardwareFlops = 0;
-
-  // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
-    nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-    hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
-  }
+  nonZeroFlops  = kernel::derivativeTaylorExpansion::NonZeroFlops;
+  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
 unsigned int* seissol::kernels::Time::getDerivativesOffsets() {
