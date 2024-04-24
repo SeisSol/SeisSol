@@ -400,23 +400,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     #ifdef USE_DAMAGEDELASTIC
 
-    const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-    
-    const real epsInitxx = damagedElasticParameters.epsInitxx;
-    const real epsInityy = damagedElasticParameters.epsInityy;
-    const real epsInitzz = damagedElasticParameters.epsInitzz;
-    const real epsInitxy = damagedElasticParameters.epsInitxy;
-    const real epsInityz = damagedElasticParameters.epsInityz;
-    const real epsInitzx = damagedElasticParameters.epsInitzx;
-    const real damageParameter = data.material.local.Cd;
-    const real scalingValue = damagedElasticParameters.scalingValue;
-    const real breakCoefficient = scalingValue*damageParameter;
-    const real betaAlpha = damagedElasticParameters.betaAlpha;
-    const real aB0 = damagedElasticParameters.aB0;
-    const real aB1 = damagedElasticParameters.aB1;
-    const real aB2 = damagedElasticParameters.aB2;
-    const real aB3 = damagedElasticParameters.aB3;
-
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
     double timePoints[CONVERGENCE_ORDER];
@@ -458,173 +441,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     alignas(PAGESIZE_STACK) real syzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
     alignas(PAGESIZE_STACK) real szxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
 
-    for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-      real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* breakNodal = (QInterpolatedBodyNodal[timeInterval] + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-
-      real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-
-      real alpha_ave = alphaNodal[0];
-      real break_ave = breakNodal[0];
-      for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
-        break_ave = std::max(break_ave, breakNodal[q]);
-        alpha_ave = std::max(alpha_ave, alphaNodal[q]);
-      }
-
-      for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-        real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
-        real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
-          + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
-          + (ezzNodal[q]+epsInitzz)*(ezzNodal[q]+epsInitzz)
-          + 2*(exyNodal[q]+epsInitxy)*(exyNodal[q]+epsInitxy)
-          + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
-          + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
-        real xi;
-        if (EspII > 1e-30){
-          xi = EspI / std::sqrt(EspII);
-        } else{
-          xi = 0.0;
-        }
-
-        // Compute alpha_{cr}
-        real aCR = (3.0*xi*xi - 3.0)*data.material.local.gammaR*data.material.local.gammaR
-        + 6.0*xi*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR
-        + 4.0*data.material.local.xi0*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR;
-
-        real bCR = - (8.0*data.material.local.mu0 + 6.0*data.material.local.lambda0) * data.material.local.xi0*data.material.local.gammaR
-        - xi * (xi*xi* data.material.local.lambda0 + 6.0*data.material.local.mu0) * data.material.local.gammaR;
-
-        real cCR = 4.0 * data.material.local.mu0 * data.material.local.mu0
-        + 6.0 * data.material.local.mu0 * data.material.local.lambda0;
-
-        const real alphaCR1q = ( -bCR - std::sqrt(bCR*bCR - 4.0*aCR*cCR) )/(2.0*aCR);
-        real alphaCR2q = 2.0*data.material.local.mu0
-          /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
-
-        real alphaCRq = 1.0;
-        if (alphaCR1q > 0.0){
-          if (alphaCR2q > 0.0){
-            alphaCRq = std::min(static_cast<real>(1.0),
-              std::min( alphaCR1q, alphaCR2q )
-            );
-          } 
-        }
-
-        if (xi + data.material.local.xi0 > 0) {
-          if (alpha_ave < 0.9 ){
-            if (break_ave < 0.85 ){
-              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/betaAlpha ) + 1.0) * breakCoefficient
-                  *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * damageParameter
-                  *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-            } else {
-              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-            }
-          } else {
-            FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-            FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-          }
-        } else if (alpha_ave > 5e-1 ) {
-          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damageParameter
-              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-          FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damageParameter
-              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
-        }
-        else {
-          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-          FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        }
-
-        // Compute nonlinear flux term
-
-        // damage stress
-        real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
-            - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
-        real sxx_s = data.material.local.lambda0*EspI
-                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
-                      + 2*mu_eff*(exxNodal[q]+epsInitxx);
-        real syy_s = data.material.local.lambda0*EspI
-                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
-                      + 2*mu_eff*(eyyNodal[q]+epsInityy);
-
-        real szz_s = data.material.local.lambda0*EspI
-                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
-                      + 2*mu_eff*(ezzNodal[q]+epsInitzz);
-
-        const real sxy_s = 2*mu_eff*(exyNodal[q]+epsInitxy);
-        const real syz_s = 2*mu_eff*(eyzNodal[q]+epsInityz);
-        const real szx_s = 2*mu_eff*(ezxNodal[q]+epsInitzx);
-
-        // breakage stress
-        const real sxx_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx);
-        const real syy_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
-        const real szz_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
-
-        const real sxy_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
-        const real syz_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
-        const real szx_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
-
-        sxxNodal[q] = (1-breakNodal[q])*sxx_s + breakNodal[q]*sxx_b;
-        syyNodal[q] = (1-breakNodal[q])*syy_s + breakNodal[q]*syy_b;
-        szzNodal[q] = (1-breakNodal[q])*szz_s + breakNodal[q]*szz_b;
-        sxyNodal[q] = (1-breakNodal[q])*sxy_s + breakNodal[q]*sxy_b;
-        syzNodal[q] = (1-breakNodal[q])*syz_s + breakNodal[q]*syz_b;
-        szxNodal[q] = (1-breakNodal[q])*szx_s + breakNodal[q]*szx_b;
-
-        // //--- x-dir
-        FluxInterpolatedBodyX[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];
-        FluxInterpolatedBodyX[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vyNodal[q];
-        FluxInterpolatedBodyX[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vzNodal[q];
-        FluxInterpolatedBodyX[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxxNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyX[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxyNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyX[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szxNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyX[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        //--- y-dir
-        FluxInterpolatedBodyY[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vyNodal[q];
-        FluxInterpolatedBodyY[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vxNodal[q];
-        FluxInterpolatedBodyY[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vzNodal[q];
-        FluxInterpolatedBodyY[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -sxyNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyY[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syyNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyY[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syzNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyY[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        //--- z-dir
-        FluxInterpolatedBodyZ[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vzNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vyNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -0.5*vxNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szxNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyZ[timeInterval][7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -syzNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyZ[timeInterval][8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -szzNodal[q]/data.material.local.rho;
-        FluxInterpolatedBodyZ[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-      }
-    }
+    m_timeKernel.computeNonLinearLocalIntegration(data,
+                                                  QInterpolatedBodyNodal,
+                                                  FInterpolatedBody,
+                                                  sxxNodal,
+                                                  syyNodal,
+                                                  szzNodal,
+                                                  sxyNodal,
+                                                  syzNodal,
+                                                  szxNodal,
+                                                  FluxInterpolatedBodyX,
+                                                  FluxInterpolatedBodyY,
+                                                  FluxInterpolatedBodyZ);
 
     /// Convert Q_{lp} at the initial time step from modal to nodal space
     //// Quadrature in time and nodal space and project back to modal space
@@ -1053,12 +881,10 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-#ifdef USE_DAMAGEDELASTIC
     kernel::cellAve m_cellAverageKernel;
     // real Q_aveData[NUMBER_OF_QUANTITIES];
-    real Q_aveData[tensor::QAve::size()];
+    alignas(ALIGNMENT) real Q_aveData[tensor::QAve::size()];
     auto Q_ave = init::QAve::view::create(Q_aveData);
-#endif
 
 #ifdef _OPENMP
     #pragma omp for schedule(static)
@@ -1070,69 +896,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       for (unsigned int i_nei=0; i_nei<4; i_nei++){
         derivatives_neighbor[i_nei] = faceNeighbors[l_cell][i_nei];
       }
-
-      unsigned int meshId = data.localIntegration.globalMeshId;
-#ifdef USE_DAMAGEDELASTIC
-      m_cellAverageKernel.phiAve = init::phiAve::Values;
-      m_cellAverageKernel.Q = data.dofs;
-      m_cellAverageKernel.QAve = Q_aveData;
-      m_cellAverageKernel.execute();
-
-      const auto& damagedElasticParameters = seissolInstance.getSeisSolParameters().model.damagedElasticParameters;
-
-      const real epsInitxx = damagedElasticParameters.epsInitxx;
-      const real epsInityy = damagedElasticParameters.epsInityy;
-      const real epsInitzz = damagedElasticParameters.epsInitzz;
-      const real epsInitxy = damagedElasticParameters.epsInitxy;
-      const real epsInityz = damagedElasticParameters.epsInityz;
-      const real epsInitzx = damagedElasticParameters.epsInitzx;
-
-      const real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
-      const real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
-        +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
-        +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
-        +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
-        +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
-        +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
-
-      real xi;
-      if (EspII > 1e-30){
-        xi = EspI / std::sqrt(EspII);
-      } else{
-        xi = 0.0;
-      }
-
-      const real alphaAve = Q_aveData[9];
-      const real breakAve = Q_aveData[10];
-
-      real lambda0 = materialData[l_cell].local.lambda0;
-      real mu0 = materialData[l_cell].local.mu0;
-
-      const real aB0 = damagedElasticParameters.aB0;
-      const real aB1 = damagedElasticParameters.aB1;
-      const real aB2 = damagedElasticParameters.aB2;
-      const real aB3 = damagedElasticParameters.aB3;
-
-      materialData[l_cell].local.mu = (1-breakAve) * (mu0
-         - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR
-         - 0.5*alphaAve*materialData[l_cell].local.gammaR*xi)
-         + breakAve * (
-           (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
-         );
-      materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
-       - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
-       + breakAve * (
-         (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
-       );
-      materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
-
-      materialData[l_cell].local.epsxx_alpha = (Q_aveData[0]+epsInitxx);
-      materialData[l_cell].local.epsyy_alpha = (Q_aveData[1]+epsInityy);
-      materialData[l_cell].local.epszz_alpha = (Q_aveData[2]+epsInitzz);
-      materialData[l_cell].local.epsxy_alpha = (Q_aveData[3]+epsInitxy);
-      materialData[l_cell].local.epsyz_alpha = (Q_aveData[4]+epsInityz);
-      materialData[l_cell].local.epszx_alpha = (Q_aveData[5]+epsInitzx);
-
       // global coordinates of the vertices
       real x[4];
       real y[4];
@@ -1141,9 +904,17 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       real gradEta[3];
       real gradZeta[3];
 
+      unsigned int meshId = data.localIntegration.globalMeshId;
+
+      m_cellAverageKernel.phiAve = init::phiAve::Values;
+      m_cellAverageKernel.Q = data.dofs;
+      m_cellAverageKernel.QAve = Q_aveData;
+      m_cellAverageKernel.execute();
+
+      m_timeKernel.updateNonLinearMaterial(materialData[l_cell].local, Q_aveData);
       // Iterate over all 4 vertices of the tetrahedron
       for (unsigned vertex = 0; vertex < 4; ++vertex) {
-        VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+        VrtxCoords const& coords = vertices[elements[meshId].vertices[vertex]].coords;
         x[vertex] = coords[0];
         y[vertex] = coords[1];
         z[vertex] = coords[2];
@@ -1163,9 +934,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
 
       for (unsigned side = 0; side < 4; ++side) {
-        lambda0 = materialData[l_cell].neighbor[side].lambda0;
-        mu0 = materialData[l_cell].neighbor[side].mu0;
-
         if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
         cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
           m_cellAverageKernel.phiAve = init::phiAve::Values;
@@ -1173,44 +941,8 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           m_cellAverageKernel.QAve = Q_aveData;
           m_cellAverageKernel.execute();
 
-          real EspINeigh = ((Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz));
-          real EspII = (Q_aveData[0]+epsInitxx)*(Q_aveData[0]+epsInitxx)
-            +  (Q_aveData[1]+epsInityy)*(Q_aveData[1]+epsInityy)
-            +  (Q_aveData[2]+epsInitzz)*(Q_aveData[2]+epsInitzz)
-            +  2*(Q_aveData[3]+epsInitxy)*(Q_aveData[3]+epsInitxy)
-            +  2*(Q_aveData[4]+epsInityz)*(Q_aveData[4]+epsInityz)
-            +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
-          const real alphaAveNeigh = Q_aveData[9];
-          const real breakAveNeigh = Q_aveData[10];
-          real xi;
-          real xiInv;
-          if (EspII > 1e-30){
-            xi = EspINeigh / std::sqrt(EspII);
-          } else{
-            xi = 0.0;
-          }
-
-          materialData[l_cell].neighbor[side].mu = (1-breakAveNeigh) * (mu0
-            - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
-            - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
-            + breakAveNeigh * (
-                (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
-              );
-          materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
-            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII))
-            + breakAveNeigh * (
-              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[0]+epsInitxx)/std::sqrt(EspII)
-            );
-          materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
-
-          materialData[l_cell].neighbor[side].epsxx_alpha = (Q_aveData[0]+epsInitxx);
-          materialData[l_cell].neighbor[side].epsyy_alpha = (Q_aveData[1]+epsInityy);
-          materialData[l_cell].neighbor[side].epszz_alpha = (Q_aveData[2]+epsInitzz);
-          materialData[l_cell].neighbor[side].epsxy_alpha = (Q_aveData[3]+epsInitxy);
-          materialData[l_cell].neighbor[side].epsyz_alpha = (Q_aveData[4]+epsInityz);
-          materialData[l_cell].neighbor[side].epszx_alpha = (Q_aveData[5]+epsInitzx);
+          m_timeKernel.updateNonLinearMaterial(materialData[l_cell].neighbor[side], Q_aveData);
         }
-#endif
 
         VrtxCoords normal;
         VrtxCoords tangent1;

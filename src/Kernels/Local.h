@@ -91,6 +91,28 @@ class seissol::kernels::Local : public LocalBase {
     void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters) {
       m_damagedElasticParameters = damagedElasticParameters;
     };
+    #ifdef USE_DAMAGEDELASTIC
+      void computeNonLinearRusanovFlux(const CellMaterialData* materialData,
+                                   unsigned int l_cell,
+                                   unsigned int side,
+                                   const double* timeWeights,
+                                   const real* qIPlus,
+                                   const real* qIMinus,
+                                   real* rusanovFluxP,
+                                   const LocalIntegrationData* localIntegration);
+      void computeNonLinearIntegralCorrection(
+      const CellLocalInformation* cellInformation,
+      unsigned int l_cell,
+      real** derivatives,
+      real* (*faceNeighbors)[4],
+      const CellMaterialData* materialData,
+      const LocalIntegrationData* localIntegration,
+      const NeighborData& data,
+      const CellDRMapping (*drMapping)[4],
+      kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
+      double timeStepSize,
+      const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);                             
+    #endif
 };
 
 #endif

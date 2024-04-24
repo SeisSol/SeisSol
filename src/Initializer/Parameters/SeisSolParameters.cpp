@@ -43,6 +43,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << printYesNo(isModelPoroelastic());
   logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << printYesNo(isModelAnisotropic());
   logInfo(seissol::MPI::mpi.rank()) << "Plasticity:" << printYesNo(modelParameters.plasticity);
+  logInfo(seissol::MPI::mpi.rank())
+      << "Non Linear Damage Model:" << printYesNo(isModelDamagedElastic());
 
   return SeisSolParameters{cubeGeneratorParameters,
                            drParameters,

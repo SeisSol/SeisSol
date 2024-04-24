@@ -199,23 +199,15 @@ inline void precomputeStressFromQInterpolated(
   const real EspIIp = (exxP) * (exxP) + (eyyP) * (eyyP) + (ezzP) * (ezzP) + 2 * (exyP) * (exyP) +
                       2 * (eyzP) * (eyzP) + 2 * (ezxP) * (ezxP);
   const real alphap = damP;
-  real xip;
-  if (EspIIp > 1e-30) {
-    xip = EspIp / std::sqrt(EspIIp);
-  } else {
-    xip = 0.0;
-  }
+  seissol::kernels::Time m_timeKernel;
+  m_timeKernel.setDamagedElasticParameters(damagedElasticParameters);
+  real xip = m_timeKernel.computexi(EspIp, EspIIp);
 
   const real EspIm = (exxM) + (eyyM) + (ezzM);
   const real EspIIm = (exxM) * (exxM) + (eyyM) * (eyyM) + (ezzM) * (ezzM) + 2 * (exyM) * (exyM) +
                       2 * (eyzM) * (eyzM) + 2 * (ezxM) * (ezxM);
   real alpham = damM;
-  real xim;
-  if (EspIIm > 1e-30) {
-    xim = EspIm / std::sqrt(EspIIm);
-  } else {
-    xim = 0.0;
-  }
+  real xim = m_timeKernel.computexi(EspIm, EspIIm);
 
   // compute laP, muP, laM and muM
   auto muP = (1 - breP) * (mu0P - alphap * xi0P * gaRP - 0.5 * alphap * gaRP * xip) +

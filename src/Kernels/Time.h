@@ -71,13 +71,17 @@
 #ifndef TIME_H_
 #define TIME_H_
 
+#include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Typedefs.hpp>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Interface.hpp>
 #include <Kernels/TimeBase.h>
 #include <Kernels/common.hpp>
+#include <Model/datastructures.hpp>
 #include <cassert>
 #include <generated_code/tensor.h>
+#include <kernel.h>
 #include <limits>
 #ifdef USE_STP
 #include <Numerical_aux/BasisFunction.h>
@@ -87,12 +91,12 @@
 namespace seissol {
   namespace kernels {
     class Time;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 class seissol::kernels::Time : public TimeBase {
   protected:
-    seissol::initializer::parameters::DamagedElasticParameters* m_damagedElasticParameters;
+    const seissol::initializer::parameters::DamagedElasticParameters* m_damagedElasticParameters;
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -161,10 +165,118 @@ class seissol::kernels::Time : public TimeBase {
   /**
    * sets the damaged elastic parameters pointer
   */
-  void setDamagedElasticParameters(seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters){
+  void setDamagedElasticParameters(const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters){
     m_damagedElasticParameters = damagedElasticParameters;
   };
+
+#ifdef USE_DAMAGEDELASTIC
+  std::tuple<real, real, real> calculateEsp(
+      const real* exxNodal,
+      const real* eyyNodal,
+      const real* ezzNodal,
+      const real* exyNodal,
+      const real* eyzNodal,
+      const real* ezxNodal,
+      unsigned int q,
+      const seissol::initializer::parameters::DamagedElasticParameters* damagedElasticParameters);
+
+  void calculateDynamicRuptureReceiverOutput(
+      const real* dofsNPlus,
+      const seissol::initializer::parameters::DamagedElasticParameters& damagedElasticParameters,
+      const seissol::dr::ImpedancesAndEta* impAndEtaGet,
+      real* dofsStressNPlus,
+      const real* dofsNMinus,
+      real* dofsStressNMinus);
+  void stressToDofsDynamicRupture(real* dofsStress,
+                                  const real* dofs);
+  void computeNonLinearBaseFrictionLaw(const seissol::dr::ImpedancesAndEta* impAndEta,
+                                       unsigned ltsFace,
+                                       const real* qIPlus,
+                                       real* qStressIPlus,
+                                       const real* qIMinus,
+                                       real* qStressIMinus);
+  void computeNonLinearLocalIntegration(
+      const seissol::kernels::LocalData& data,
+      real (&QInterpolatedBodyNodal)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FInterpolatedBody)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&sxxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&syyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&szzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&sxyNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&syzNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&szxNodal)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+      real (&FluxInterpolatedBodyX)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FluxInterpolatedBodyY)[CONVERGENCE_ORDER][tensor::QNodal::size()],
+      real (&FluxInterpolatedBodyZ)[CONVERGENCE_ORDER][tensor::QNodal::size()]);
+
+  struct Stresses {
+    real sxx;
+    real syy;
+    real szz;
+    real sxy;
+    real syz;
+    real sxz;
+  };
+
+  struct StressDofs {
+  real* qStressDofsXX;
+  real* qStressDofsYY;
+  real* qStressDofsZZ;
+  real* qStressDofsXY;
+  real* qStressDofsYZ;
+  real* qStressDofsXZ;
+  real* qStressDofsU;
+  real* qStressDofsV;
+  real* qStressDofsW;
+  real* qStressDofsDAM;
+  real* qStressDofsBRE;
 };
-
+  
+  std::tuple<real, Stresses, Stresses>
+      calculateDamageAndBreakageStresses(real mu0,
+                                         real alpha,
+                                         real gammaR,
+                                         real xi0,
+                                         real xi,
+                                         real lambda0,
+                                         real EspI,
+                                         real EspII,
+                                         real stressXX,
+                                         real stressYY,
+                                         real stressZZ,
+                                         real stressXY,
+                                         real stressYZ,
+                                         real stressXZ,
+                                         real aB0,
+                                         real aB1,
+                                         real aB2,
+                                         real aB3);
+void calculateStressesFromDamageAndBreakageStresses(seissol::kernels::Time::StressDofs& stressDofs,
+                                                                            const real* qIU,
+                                                                            const real* qIV,
+                                                                            const real* qIW,
+                                                                            const real* qIDAM,
+                                                                            const real* qIBRE,
+                                                                            const Stresses& sS,
+                                                                            const Stresses& sB,
+                                                                            unsigned int i);
+  void updateNonLinearMaterial(seissol::model::DamagedElasticMaterial& material,
+                               const real* Q_aveData);
+  real computexi(real EspI, real EspII);
+  std::tuple<real, real, real> computealphalambdamu(const real* q,
+                                                    unsigned int o,
+                                                    unsigned int i,
+                                                    real lambda0,
+                                                    real mu0,
+                                                    real gammaR,
+                                                    real epsInitxx,
+                                                    real EspII,
+                                                    real aB0,
+                                                    real aB1,
+                                                    real aB2,
+                                                    real aB3,
+                                                    real xi,
+                                                    real xi0);
 #endif
-
+};
+#endif
