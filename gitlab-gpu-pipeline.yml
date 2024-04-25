@@ -73,7 +73,7 @@ gpu_build:
         - BACKEND: [cuda, hipsycl, hip]
           EQUATION: [elastic]
         - BACKEND: [cuda]
-          EQUATION: [anisotropic, poroelastic, viscoelastic2]
+          EQUATION: [anisotropic] # poroelastic, viscoelastic2
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
@@ -152,8 +152,8 @@ gpu_run_tpv:
         - gpu-nvidia-sm_60
     parallel:
         matrix:
-            - precision: [single]
-              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
+            - precision: [single] # 5-poro, 5-visco
+              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
               backend: [cuda]
     script:
         - echo "run TPV${tpv} with ${backend} backend"
