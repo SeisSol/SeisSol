@@ -94,6 +94,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName != "";
 
+  const double etaHack = outputReader->readWithDefault("etahack", 1.0);
+
   reader->warnDeprecated({"rf_output_on"});
 
   return DRParameters{isDynamicRuptureEnabled,
@@ -121,6 +123,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       prakashLength,
                       faultFileName,
                       referencePoint,
-                      terminatorSlipRateThreshold};
+                      terminatorSlipRateThreshold,
+                      etaHack};
 }
 } // namespace seissol::initializer::parameters

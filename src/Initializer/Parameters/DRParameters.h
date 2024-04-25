@@ -68,6 +68,7 @@ struct DRParameters {
   std::string faultFileName{""};
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
+  double etaHack{1.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

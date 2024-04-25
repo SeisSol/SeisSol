@@ -22,7 +22,7 @@ class SeisSol;
 namespace writer {
 
 struct EnergiesStorage {
-  std::array<double, 10> energies{};
+  std::array<double, 13> energies{};
 
   double& gravitationalEnergy();
 
@@ -43,6 +43,10 @@ struct EnergiesStorage {
   double& seismicMoment();
 
   double& potency();
+
+  double& totalMomentumX();
+  double& totalMomentumY();
+  double& totalMomentumZ();
 };
 
 class EnergyOutput : public Module {
