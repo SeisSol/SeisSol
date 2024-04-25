@@ -191,6 +191,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.execute();
 #else // USE_STP
 
+#ifdef USE_DAMAGEDELASTIC
   const real damageParameter = data.material.local.Cd;
   const real scalingValue = m_damagedElasticParameters->scalingValue;
   const real breakCoefficient = scalingValue * damageParameter;
@@ -291,6 +292,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   d_assignFToDQ.dQModal = dQModalData;
   d_assignFToDQ.FNodal = fNodalData;
   d_assignFToDQ.execute();
+
+#endif
 
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;

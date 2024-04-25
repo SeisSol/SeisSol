@@ -391,7 +391,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
-        #ifdef USE_DAMAGEDELASTIC
+    m_timeKernel.computeAder(timeStepSize(),
+                             data,
+                             tmp,
+                             l_bufferPointer,
+                             derivatives[l_cell],
+                             true);
+
+    #ifdef USE_DAMAGEDELASTIC
 
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
@@ -481,14 +488,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       d_nonlinearVolumeIntegration.execute(timeInterval);
     }
     #endif
-
-    m_timeKernel.computeAder(timeStepSize(),
-                             data,
-                             tmp,
-                             l_bufferPointer,
-                             derivatives[l_cell],
-                             true);
-
 
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
