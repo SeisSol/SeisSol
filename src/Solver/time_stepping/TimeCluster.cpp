@@ -494,12 +494,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         real epsDev_yz = eyzNodal[q];
         real epsDev_zx = ezxNodal[q];
 
-        real sigDev_xx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xx;
-        real sigDev_yy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yy;
-        real sigDev_zz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zz;
-        real sigDev_xy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xy;
-        real sigDev_yz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yz;
-        real sigDev_zx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zx;
+        real sigDev_xx = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_xx;
+        real sigDev_yy = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_yy;
+        real sigDev_zz = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_zz;
+        real sigDev_xy = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_xy;
+        real sigDev_yz = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_yz;
+        real sigDev_zx = 2.0*(1-alphaNodal[q])*data.material.local.mu0 * epsDev_zx;
 
         FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_xx;
         FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_yy;
