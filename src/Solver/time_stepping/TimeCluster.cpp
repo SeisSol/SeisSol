@@ -418,6 +418,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real const damage_para2 = 3e-6;
     // real const lambda0 = 9.71e10; // data.material.local.lambda0
     // real const mu0 = 8.27e10; // data.material.local.mu0
+
+  real const Cplas = data.material.local.xi0;
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
     double timePoints[CONVERGENCE_ORDER];
@@ -483,6 +485,35 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
         real W_energy = 0.0*0.5*data.material.local.lambda0*EspI*EspI
         + data.material.local.mu0*EspII;
+
+        // Derive deviatoric stress
+        real epsDev_xx = exxNodal[q] - EspI/3.0;
+        real epsDev_yy = eyyNodal[q] - EspI/3.0;
+        real epsDev_zz = ezzNodal[q] - EspI/3.0;
+        real epsDev_xy = exyNodal[q];
+        real epsDev_yz = eyzNodal[q];
+        real epsDev_zx = ezxNodal[q];
+
+        real sigDev_xx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xx;
+        real sigDev_yy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yy;
+        real sigDev_zz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zz;
+        real sigDev_xy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xy;
+        real sigDev_yz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yz;
+        real sigDev_zx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zx;
+
+        FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_xx;
+        FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_yy;
+        FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_zz;
+        FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_xy;
+        FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_yz;
+        FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_zx;
+
+        FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_xx;
+        FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_yy;
+        FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_zz;
+        FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_xy;
+        FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_yz;
+        FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_zx;    
 
         // For IWAN
         if (W_energy - damage_para2*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])) > 0) {

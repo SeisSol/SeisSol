@@ -136,7 +136,11 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
 #elif USE_DAMAGEDELASTIC
   //damage
   o_T(9, 9) = 1;
-  o_Tinv(9,9) = 1;
+  o_Tinv(9, 9) = 1;
+  for (unsigned int iVis = 0; iVis < 6; ++iVis){
+    o_T(10+iVis, 10+iVis) = 1;
+    o_Tinv(10+iVis, 10+iVis) = 1;
+  }
 #endif 
 }
 

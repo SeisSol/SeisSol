@@ -200,6 +200,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInitzx = -0e-1; // eps_zz0
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
   real const damage_para2 = data.material.local.gammaR;
+
+  real const Cplas = data.material.local.xi0;
   // real const damage_para2 = 3e-6;
   // real const lambda0 = 9.71e10; // data.material.local.lambda0
   // real const mu0 = 8.27e10; // data.material.local.mu0
@@ -234,6 +236,35 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
     real W_energy = 0.0*0.5*data.material.local.lambda0*EspI*EspI
         + data.material.local.mu0*EspII;
+
+    // Derive deviatoric stress
+    real epsDev_xx = exxNodal[q] - EspI/3.0;
+    real epsDev_yy = eyyNodal[q] - EspI/3.0;
+    real epsDev_zz = ezzNodal[q] - EspI/3.0;
+    real epsDev_xy = exyNodal[q];
+    real epsDev_yz = eyzNodal[q];
+    real epsDev_zx = ezxNodal[q];
+
+    real sigDev_xx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xx;
+    real sigDev_yy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yy;
+    real sigDev_zz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zz;
+    real sigDev_xy = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_xy;
+    real sigDev_yz = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_yz;
+    real sigDev_zx = (1-alphaNodal[q])*data.material.local.mu0 * epsDev_zx;
+
+    fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_xx;
+    fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_yy;
+    fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_zz;
+    fNodalData[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_xy;
+    fNodalData[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_yz;
+    fNodalData[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas * sigDev_zx;
+
+    fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_xx;
+    fNodalData[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_yy;
+    fNodalData[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_zz;
+    fNodalData[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_xy;
+    fNodalData[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_yz;
+    fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas * sigDev_zx;    
 
     if (W_energy - damage_para2*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])) > 0) {
       if (alphaNodal[q] < 0.8){

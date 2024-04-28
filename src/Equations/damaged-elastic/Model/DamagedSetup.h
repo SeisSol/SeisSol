@@ -10,7 +10,7 @@
 
 namespace seissol {
   namespace model {
-    using Matrix1010 = Eigen::Matrix<double, 10, 10>;
+    using Matrix1010 = Eigen::Matrix<double, 16, 16>;
 
     template<typename T>
     inline void getTransposedCoefficientMatrix( DamagedElasticMaterial  const&  i_material,
@@ -182,6 +182,9 @@ namespace seissol {
           //   + local.mu*local.epszx_alpha )
           //     / (2*local.mu/local.rho);
           R(9,9) = local.rho;
+          for (unsigned int iVis = 0; iVis < 6; ++iVis){
+            R(10+iVis, 10+iVis) = local.rho;
+          }
          #endif
 
          //===============Added for free surface BC of the strain-vel case=====================
@@ -196,6 +199,9 @@ namespace seissol {
 
          #if USE_DAMAGEDELASTIC
           C(9,9) = 1.0;
+          for (unsigned int iVis = 0; iVis < 6; ++iVis){
+            C(10+iVis, 10+iVis) = 1.0;
+          }
          #endif
 
          Matrix1010 R_sig = (C*R).eval();
@@ -296,7 +302,7 @@ namespace seissol {
                QgodNeighbor(i,j) = godunov(j,i);
              }
            }
-           for (unsigned idx = 0; idx < 10; ++idx) {
+           for (unsigned idx = 0; idx < 16; ++idx) {
              QgodLocal(idx,idx) += 1.0;
            }
          }

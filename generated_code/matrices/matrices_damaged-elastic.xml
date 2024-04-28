@@ -1,5 +1,5 @@
 <matrices>
-  <matrix name="star" rows="10" columns="10">
+  <matrix name="star" rows="16" columns="16">
 
     <entry column="1" row="7"/>
     <entry column="1" row="8"/>
@@ -42,7 +42,7 @@
     <entry column="9" row="10"/>
   </matrix>
 
-  <matrix name="ET" rows="10" columns="10">
+  <matrix name="ET" rows="16" columns="16">
     <entry column="1" row="10" />
     <entry column="2" row="10" />
     <entry column="3" row="10" />
@@ -53,5 +53,11 @@
     <entry column="8" row="10" />
     <entry column="9" row="10" />
     <entry column="10" row="10" />
+    <entry column="11" row="10" />
+    <entry column="12" row="10" />
+    <entry column="13" row="10" />
+    <entry column="14" row="10" />
+    <entry column="15" row="10" />
+    <entry column="16" row="10" />
   </matrix>
 </matrices>
