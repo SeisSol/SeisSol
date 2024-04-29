@@ -66,10 +66,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsPlus[tensor::Q::size()]{};
     getDofs(dofsPlus, faultInfo.element);
 
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsMinus[tensor::Q::size()]{};
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
@@ -77,8 +77,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     }
 
     // Derive stress solutions from strain
-    alignas(ALIGNMENT) real dofsNPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsNMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
 
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
@@ -90,8 +90,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     d_converToKrnl.Q = dofsMinus;
     d_converToKrnl.execute();
 
-    alignas(ALIGNMENT) real dofsStressNPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsStressNMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
 
     // real dofsStressPlus[tensor::Q::size()]{};
     // real dofsStressMinus[tensor::Q::size()]{};
@@ -209,8 +209,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
-    alignas(ALIGNMENT) real dofsStressPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsStressMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressMinus[tensor::Q::size()]{};
 
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
