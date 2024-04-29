@@ -344,6 +344,8 @@ class LinearADERDG(ADERDGBase):
         for j in range(3):
           derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
         ## nonlinear source term
+        if i==1:
+          derivativeSum += self.dQModal['kp']
         self.addAdditionalTerms(i, derivativeSum)
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
