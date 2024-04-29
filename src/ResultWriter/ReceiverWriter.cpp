@@ -108,7 +108,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #elif USE_DAMAGEDELASTIC
   std::array<std::string, 7> additionalNames({"damage"
-                                              , "edp_xx", "edp_xx", "edp_xx", "edp_xy", "edp_yz", "edp_zx"});
+                                              , "edp_xx", "edp_yy", "edp_zz", "edp_xy", "edp_yz", "edp_zx"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
   if (m_computeRotation) {
@@ -206,7 +206,7 @@ void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);
-  
+
   // We want to plot all quantities except for the memory variables
   const int n = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
   std::vector<unsigned> quantities(n);
