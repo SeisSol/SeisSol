@@ -206,13 +206,12 @@ The fault strength is determined by
 
 .. math::
  
-  \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_d + \frac{{(\mu_s - \mu_d)}}{{\left(1 + \frac{S}{d_c}\right)^{\frac{1}{3}}}} \right),
+  \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_d + \frac{{(\mu_s - \mu_d)}}{{\left(1 + \frac{S}{d_c}\right)^{\alpha}}} \right),
 
 
 All variables are the same as defined in previous section for :code:`FL=16`.
-The friction law also support forced rupture time.
-The exponent of (1 + d_c) in the friction law, by default set to -1/3, can be changed by setting :code:`TP_proxy_exponent` to a different value in the main parameter file (namelist :code:`DynamicRupture`).
-
+The friction law also supports forced rupture time.
+You can modify the default value (-1/3) of :math:`\alpha`, by adjusting the :code:`TpProxyExponent` parameter in the main parameter file (namelist: :code:`DynamicRupture`).
 
 Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^

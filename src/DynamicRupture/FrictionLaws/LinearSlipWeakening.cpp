@@ -41,7 +41,7 @@ real TPApprox::stateVariableHook(real localAccumulatedSlip,
                                  unsigned int ltsFace,
                                  unsigned int pointIndex) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
-  return 1.0 - pow(factor, drParameters->tpProxyExponent);
+  return 1.0 - std::pow(factor, drParameters->tpProxyExponent);
 }
 
 } // namespace seissol::dr::friction_law
