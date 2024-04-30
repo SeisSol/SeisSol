@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 
 
-class seissolxdmfExtended(seissolxdmf.seissolxdmf):
+class SeissolxdmfExtended(seissolxdmf.seissolxdmf):
     def __init__(self, xdmfFilename):
         super().__init__(xdmfFilename)
         self.xyz = self.ReadGeometry()
@@ -63,71 +63,71 @@ def compute_tractions(dicStress, un):
     outDict["T_n"] = np.sum(Tractions * un, axis=1)
     outDict["T_s"] = np.sum(Tractions * us, axis=1)
     outDict["T_d"] = np.sum(Tractions * ud, axis=1)
-    print(outDict["T_n"].shape)
     return outDict
 
 
-# parsing python arguments
-parser = argparse.ArgumentParser(
-    description=(
-        " retrieve initial fault stress from easi/yaml file and fault output file"
+if __name__ == "__main__":
+    # parsing python arguments
+    parser = argparse.ArgumentParser(
+        description=(
+            " retrieve initial fault stress from easi/yaml file and fault output file"
+        )
     )
-)
-parser.add_argument("fault_filename", help="fault.xdmf filename")
-parser.add_argument("yaml_filename", help="fault easi/yaml filename")
-parser.add_argument(
-    "--parameters",
-    help="variable to be read in the yaml file. 'tractions' for initial stress. (coma separated string).",
-    nargs=1,
-    default=["tractions"],
-)
-parser.add_argument(
-    "--ref_vector",
-    nargs=1,
-    help="reference vector (see seissol parameter file) used to choose fault normal (coma separated string)",
-)
-parser.add_argument(
-    "--output_file",
-    help="path and prefix of the output file",
-    nargs=1,
-    default=["initial-stress-fault"],
-)
-args = parser.parse_args()
+    parser.add_argument("fault_filename", help="fault.xdmf filename")
+    parser.add_argument("yaml_filename", help="fault easi/yaml filename")
+    parser.add_argument(
+        "--parameters",
+        help="variable to be read in the yaml file. 'tractions' for initial stress. (coma separated string).",
+        nargs=1,
+        default=["tractions"],
+    )
+    parser.add_argument(
+        "--ref_vector",
+        nargs=1,
+        help="reference vector (see seissol parameter file) used to choose fault normal (coma separated string)",
+    )
+    parser.add_argument(
+        "--output_file",
+        help="path and prefix of the output file",
+        nargs=1,
+        default=["initial-stress-fault"],
+    )
+    args = parser.parse_args()
 
-sx = seissolxdmfExtended(args.fault_filename)
-centers = sx.ComputeCellCenters()
-tags = sx.ReadFaultTags()
-parameters = args.parameters[0].split(",")
-if "tractions" in parameters:
-    try:
-        out = easi.evaluate_model(
-            centers, tags, ["T_s", "T_d", "T_n"], args.yaml_filename
-        )
-    except ValueError:
-        if not args.ref_vector:
-            raise ValueError(
-                "ref_vector has to be defined for computing tractions from stress"
+    sx = SeissolxdmfExtended(args.fault_filename)
+    centers = sx.ComputeCellCenters()
+    tags = sx.ReadFaultTags()
+    parameters = args.parameters[0].split(",")
+    if "tractions" in parameters:
+        try:
+            out = easi.evaluate_model(
+                centers, tags, ["T_s", "T_d", "T_n"], args.yaml_filename
             )
-        else:
-            ref_vector = [float(v) for v in args.ref_vector[0].split(",")]
-        print(f"[T_s, T_d, T_n] not found in {args.yaml_filename}, using s_ij")
-        dicStress = easi.evaluate_model(
-            centers,
-            tags,
-            ["s_xx", "s_yy", "s_zz", "s_xy", "s_xz", "s_yz"],
-            args.yaml_filename,
-        )
-        normals = sx.ComputeCellNormals(ref_vector)
-        out = compute_tractions(dicStress, normals)
-else:
-    out = easi.evaluate_model(centers, tags, parameters, args.yaml_filename)
+        except ValueError:
+            if not args.ref_vector:
+                raise ValueError(
+                    "ref_vector has to be defined for computing tractions from stress"
+                )
+            else:
+                ref_vector = [float(v) for v in args.ref_vector[0].split(",")]
+            print(f"[T_s, T_d, T_n] not found in {args.yaml_filename}, using s_ij")
+            dicStress = easi.evaluate_model(
+                centers,
+                tags,
+                ["s_xx", "s_yy", "s_zz", "s_xy", "s_xz", "s_yz"],
+                args.yaml_filename,
+            )
+            normals = sx.ComputeCellNormals(ref_vector)
+            out = compute_tractions(dicStress, normals)
+    else:
+        out = easi.evaluate_model(centers, tags, parameters, args.yaml_filename)
 
-sxw.write(
-    args.output_file[0],
-    sx.xyz,
-    sx.connect,
-    out,
-    {},
-    reduce_precision=True,
-    backend="raw",
-)
+    sxw.write(
+        args.output_file[0],
+        sx.xyz,
+        sx.connect,
+        out,
+        {},
+        reduce_precision=True,
+        backend="raw",
+    )
