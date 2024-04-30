@@ -130,17 +130,20 @@ class StreamRuntime {
     syncFromSycl(queue);
   }
 
+  void syncToSycl(void* queue);
+  void syncFromSycl(void* queue);
+
+#if 0
   template <typename F>
   void envOMP(omp_depend_t& depobj, F&& handler) {
     syncToOMP(depobj);
     std::invoke(handler);
     syncFromOMP(depobj);
   }
-
-  void syncToSycl(void* queue);
-  void syncFromSycl(void* queue);
+  
   void syncToOMP(omp_depend_t& depobj);
   void syncFromOMP(omp_depend_t& depobj);
+#endif
 
   private:
   bool disposed;
