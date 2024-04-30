@@ -75,5 +75,5 @@ To do that, it suffices to specify ``pumlboundaryformat = $option`` in the ``&me
 - ``'i64'``: 16 bits per boundary face. That is, 65469 dynamic rupture tags (65535 boundary condition types). It is stored as a one-dimensional 64-bit integer array (one entry per cell) in the Hdf5/binary file.
 - ``'i32x4'``: 32 bits per boundary face. In short, you will have :math:`2^{32} - 65` different dynamic rupture tags available. The data is stored as a two-dimensional array (four entries per cell, one for each face) of 32-bit integers.
 
-To approximately see which boundary format you have built your mesh for, you can use ``h5dump -H <yourmeshfile>.puml.h5``,
+To try inferring which boundary format you have built your mesh for (in case it is not indicated by an attribute), you can use ``h5dump -H <yourmeshfile>.puml.h5``,
 and look at the datatype and the shape of the ``boundary`` dataset. Note however, that some libraries may store ``i32`` boundaries in a 64-bit integer.

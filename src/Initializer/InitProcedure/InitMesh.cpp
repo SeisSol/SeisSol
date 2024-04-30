@@ -107,19 +107,24 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
     _eh(H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info));
     hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plist_id));
-    hid_t existenceTest = _eh(H5Lexists(dataFile, "boundary-format", H5P_DEFAULT));
+    hid_t existenceTest = _eh(H5Aexists(dataFile, "boundary-format"));
     if (existenceTest > 0) {
       logInfo(rank) << "Boundary format given in PUML file.";
       hid_t boundaryAttribute = _eh(H5Aopen(dataFile, "boundary-format", H5P_DEFAULT));
 
-      int format;
-      _eh(H5Aread(boundaryAttribute, H5T_NATIVE_INT, &format));
+      char* formatRaw;
+      hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
+      _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
       _eh(H5Aclose(boundaryAttribute));
-      if (format == 0) {
+      _eh(H5Tclose(boundaryAttributeType));
+
+      auto format = std::string(formatRaw);
+      _eh(H5free_memory(formatRaw));
+      if (format == "i32x4") {
         boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-      } else if (format == 2) {
+      } else if (format == "i64") {
         boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-      } else if (format == 1) {
+      } else if (format == "i32") {
         boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
       } else {
         logError() << "Unkown boundary format given in PUML file:" << format;
