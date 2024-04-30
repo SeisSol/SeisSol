@@ -617,7 +617,6 @@ void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::strin
         logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
                       << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
                       << "s)";
-        logInfo(rank) << "aborting...";
         abort = true;
       }
     }
@@ -627,8 +626,7 @@ void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::strin
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
 #endif
   if (abort) {
-    seissol::MPI::mpi.finalize();
-    exit(0);
+    seissolInstance.simulator().abort();
   }
 }
 
