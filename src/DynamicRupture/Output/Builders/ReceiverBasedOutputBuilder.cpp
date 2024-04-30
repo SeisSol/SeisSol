@@ -1,4 +1,6 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
+#include <Parallel/DataCollector.h>
+#include <memory>
 #include <unordered_map>
 
 namespace seissol::dr::output {
@@ -106,27 +108,21 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   outputData->cellCount = elementIndices.size() + elementIndicesGhost.size();
 
 #ifdef ACL_DEVICE
-  real** preDofPtr =
-      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-          sizeof(real*) * outputData->cellCount));
-  outputData->deviceDataPtr =
-      reinterpret_cast<real**>(device::DeviceInstance::getInstance().api->allocGlobMem(
-          sizeof(real*) * outputData->cellCount));
+  std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
-    assert(preDofPtr[arrayIndex] != nullptr);
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivatives, index);
+    assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    preDofPtr[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
-    assert(preDofPtr[arrayIndex] != nullptr);
+    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->faceNeighbors, neighbor.first)[neighbor.second];
+    assert(indexPtrs[arrayIndex] != nullptr);
   }
 
-  device::DeviceInstance::getInstance().api->copyTo(
-      outputData->deviceDataPtr, preDofPtr, sizeof(real*) * outputData->cellCount);
-  device::DeviceInstance::getInstance().api->freePinnedMem(preDofPtr);
+  outputData->deviceDataCollector =
+      std::make_unique<seissol::parallel::DataCollector>(indexPtrs, seissol::tensor::Q::size());
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);
