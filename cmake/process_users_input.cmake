@@ -74,9 +74,6 @@ option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
 option(SHARED "Build SeisSol as shared library" OFF)
 
-option(BUILD_EXECUTABLE "Build SeisSol" ON)
-
-option(BUILD_PROXY "Build the SeisSol proxy" ON)
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")

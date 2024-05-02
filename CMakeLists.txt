@@ -41,7 +41,7 @@ endif()
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, BUILD_PROXY, BUILD_EXECUTABLE, SHARED
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, SHARED
 #
 #       user input:   HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -521,7 +521,7 @@ if (HAS_REDZONE)
   )
 endif()
 
-if (BUILD_EXECUTABLE)
+# build SeisSol-bin
   add_executable(SeisSol-bin src/main.cpp)
   set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
@@ -531,9 +531,9 @@ if (BUILD_EXECUTABLE)
   target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
   install(TARGETS SeisSol-bin RUNTIME)
-endif()
+# end build SeisSol-bin
 
-if (BUILD_PROXY)
+# build SeisSol-proxy
   # SeisSol proxy-core
   add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
   target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
@@ -559,7 +559,7 @@ if (BUILD_PROXY)
   target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
   set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
   install(TARGETS SeisSol-proxy RUNTIME)
-endif()
+# end build SeisSol-proxy
 
 if (LIKWID)
   find_package(likwid REQUIRED)
