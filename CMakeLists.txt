@@ -166,7 +166,7 @@ add_custom_command(
         generated_code/matrices
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations.."
+    COMMENT "Code generation for tensor operations..."
        )
 
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
