@@ -211,7 +211,7 @@ The fault strength is determined by
 
 All variables are the same as defined in previous section for :code:`FL=16`.
 The friction law also supports forced rupture time.
-You can modify the default value (-1/3) of :math:`\alpha`, by adjusting the :code:`TpProxyExponent` parameter in the main parameter file (namelist: :code:`DynamicRupture`).
+You can modify the default value 1/3 of :math:`\alpha`, by adjusting the :code:`TpProxyExponent` parameter in the main parameter file (namelist: :code:`DynamicRupture`).
 
 Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^

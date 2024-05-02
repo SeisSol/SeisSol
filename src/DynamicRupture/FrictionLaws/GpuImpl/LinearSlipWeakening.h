@@ -413,7 +413,7 @@ class TPApprox {
                                 size_t ltsFace,
                                 size_t pointIndex) {
     const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
-    return 1.0 - sycl::pow(factor, tpProxyExponent);
+    return 1.0 - sycl::pow(factor, -tpProxyExponent);
   };
 
   static real strengthHook(Details details,
