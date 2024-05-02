@@ -61,6 +61,9 @@ src/ResultWriter/ClusteringWriter.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
+
+src/Solver/Simulator.cpp
+src/ResultWriter/AnalysisWriter.cpp
 )
 
 # target_link_options(SeisSol-common-lib PUBLIC SeisSol-kernel-lib)
@@ -79,7 +82,6 @@ src/Checkpoint/Manager.cpp
 src/Checkpoint/posix/Fault.cpp
 src/Checkpoint/posix/Wavefield.cpp
 
-src/ResultWriter/AnalysisWriter.cpp
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
@@ -144,7 +146,6 @@ src/Physics/InitialField.cpp
 src/SeisSol.cpp
 
 src/Solver/FreeSurfaceIntegrator.cpp
-src/Solver/Simulator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp

@@ -6,6 +6,7 @@
 #include "Numerical_aux/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include <array>
 
 namespace seissol::writer {
 
@@ -29,6 +30,10 @@ double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
 double& EnergiesStorage::potency() { return energies[9]; }
 
+double& EnergiesStorage::totalMomentumX() { return energies[10]; }
+double& EnergiesStorage::totalMomentumY() { return energies[11]; }
+double& EnergiesStorage::totalMomentumZ() { return energies[12]; }
+
 void EnergyOutput::init(
     GlobalData* newGlobal,
     seissol::initializer::DynamicRupture* newDynRup,
@@ -48,10 +53,13 @@ void EnergyOutput::init(
   const auto rank = MPI::mpi.rank();
   logInfo(rank) << "Initializing energy output.";
 
+  energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
-  isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  terminatorMomentRateThreshold = parameters.terminatorMomentRateThreshold;
+  isCheckAbortCriteraSlipRateEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  isCheckAbortCriteraMomentRateEnabled = (terminatorMomentRateThreshold > 0);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -76,15 +84,30 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
-  if (isCheckAbortCriteraEnabled) {
+  if (isCheckAbortCriteraSlipRateEnabled) {
     reduceMinTimeSinceSlipRateBelowThreshold();
   }
+  if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
+    double seismicMomentRate =
+        (energiesStorage.seismicMoment() - seismicMomentPrevious) / energyOutputInterval;
+    seismicMomentPrevious = energiesStorage.seismicMoment();
+    if (time > 0 && seismicMomentRate < terminatorMomentRateThreshold) {
+      minTimeSinceMomentRateBelowThreshold += energyOutputInterval;
+    } else {
+      minTimeSinceMomentRateBelowThreshold = 0.0;
+    }
+  }
+
   if (isTerminalOutputEnabled) {
     printEnergies();
   }
-  if (isCheckAbortCriteraEnabled) {
-    checkAbortCriterion();
+  if (isCheckAbortCriteraSlipRateEnabled) {
+    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip-rate are");
   }
+  if (isCheckAbortCriteraMomentRateEnabled) {
+    checkAbortCriterion(minTimeSinceMomentRateBelowThreshold, "The seismic moment rate is");
+  }
+
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
@@ -287,6 +310,9 @@ void EnergyOutput::computeVolumeEnergies() {
   auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
   auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  auto& totalMomentumX = energiesStorage.totalMomentumX();
+  auto& totalMomentumY = energiesStorage.totalMomentumY();
+  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
   auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
   auto& totalPlasticMoment = energiesStorage.plasticMoment();
@@ -304,6 +330,9 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalAcousticKineticEnergyLocal,           \
                                                         totalElasticEnergyLocal,                   \
                                                         totalElasticKineticEnergyLocal,            \
+                                                        totalMomentumX,                            \
+                                                        totalMomentumY,                            \
+                                                        totalMomentumZ,                            \
                                                         totalPlasticMoment)                        \
     shared(elements, vertices, lts, ltsLut, global)
 #endif
@@ -354,13 +383,15 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto v = numSub(qp, uIdx + 1);
       const auto w = numSub(qp, uIdx + 2);
       const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
+      const double curMomentumX = rho * u;
+      const double curMomentumY = rho * v;
+      const double curMomentumZ = rho * w;
 
       if (std::abs(material.local.mu) < 10e-14) {
         // Acoustic
         constexpr int pIdx = 0;
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
-
         const double curAcousticEnergy = (p * p) / (2 * K);
         totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
@@ -372,6 +403,10 @@ void EnergyOutput::computeVolumeEnergies() {
               std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
+        totalMomentumX += curWeight * curMomentumX;
+        totalMomentumY += curWeight * curMomentumY;
+        totalMomentumZ += curWeight * curMomentumZ;
+
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
@@ -529,6 +564,9 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+    const auto totalMomentumX = energiesStorage.totalMomentumX();
+    const auto totalMomentumY = energiesStorage.totalMomentumY();
+    const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
@@ -549,6 +587,8 @@ void EnergyOutput::printEnergies() {
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
+      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+                    << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
@@ -565,23 +605,19 @@ void EnergyOutput::printEnergies() {
     }
   }
 }
-void EnergyOutput::checkAbortCriterion() {
+void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message) {
   const auto rank = MPI::mpi.rank();
   bool abort = false;
   if (rank == 0) {
-    if ((minTimeSinceSlipRateBelowThreshold > 0) and
-        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
-      if (static_cast<double>(minTimeSinceSlipRateBelowThreshold) < terminatorMaxTimePostRupture) {
-        logInfo(rank) << "all slip rates are below threshold since"
-                      << minTimeSinceSlipRateBelowThreshold
+    if ((timeSinceThreshold > 0) and (timeSinceThreshold < std::numeric_limits<real>::max())) {
+      if (static_cast<double>(timeSinceThreshold) < terminatorMaxTimePostRupture) {
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
                       << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
                       << "s)";
       } else {
-        logInfo(rank) << "all slip rates are below threshold since"
-                      << minTimeSinceSlipRateBelowThreshold
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
                       << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
                       << "s)";
-        logInfo(rank) << "aborting...";
         abort = true;
       }
     }
@@ -591,8 +627,7 @@ void EnergyOutput::checkAbortCriterion() {
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
 #endif
   if (abort) {
-    seissol::MPI::mpi.finalize();
-    exit(0);
+    seissolInstance.simulator().abort();
   }
 }
 
@@ -605,6 +640,9 @@ void EnergyOutput::writeEnergies(double time) {
         << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
         << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
         << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
+        << time << ",momentumX," << energiesStorage.totalMomentumX() << "\n"
+        << time << ",momentumY," << energiesStorage.totalMomentumY() << "\n"
+        << time << ",momentumZ," << energiesStorage.totalMomentumZ() << "\n"
         << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
   }
   out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"

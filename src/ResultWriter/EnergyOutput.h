@@ -22,7 +22,7 @@ class SeisSol;
 namespace writer {
 
 struct EnergiesStorage {
-  std::array<double, 10> energies{};
+  std::array<double, 13> energies{};
 
   double& gravitationalEnergy();
 
@@ -43,6 +43,10 @@ struct EnergiesStorage {
   double& seismicMoment();
 
   double& potency();
+
+  double& totalMomentumX();
+  double& totalMomentumY();
+  double& totalMomentumZ();
 };
 
 class EnergyOutput : public Module {
@@ -83,7 +87,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion();
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
 
   void writeHeader();
 
@@ -97,7 +101,8 @@ class EnergyOutput : public Module {
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
-  bool isCheckAbortCriteraEnabled = false;
+  bool isCheckAbortCriteraSlipRateEnabled = false;
+  bool isCheckAbortCriteraMomentRateEnabled = false;
   int computeVolumeEnergiesEveryOutput = 1;
   int outputId = 0;
 
@@ -114,7 +119,11 @@ class EnergyOutput : public Module {
 
   EnergiesStorage energiesStorage{};
   real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceMomentRateBelowThreshold = 0.0;
   double terminatorMaxTimePostRupture;
+  double energyOutputInterval;
+  double terminatorMomentRateThreshold;
+  double seismicMomentPrevious = 0.0;
 };
 
 } // namespace writer
