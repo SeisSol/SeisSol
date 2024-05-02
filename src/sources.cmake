@@ -47,8 +47,12 @@ src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 src/Initializer/PointMapper.cpp
 src/Modules/Module.cpp
 src/Modules/Modules.cpp
+
+src/Monitoring/FlopCounter.cpp
 src/Monitoring/ActorStateStatistics.cpp
 src/Monitoring/LoopStatistics.cpp
+src/Monitoring/Stopwatch.cpp
+src/Monitoring/Unit.cpp
 
 src/Kernels/Receiver.cpp
 src/Model/common.cpp
@@ -131,10 +135,6 @@ src/Initializer/time_stepping/GlobalTimestep.cpp
 src/Initializer/time_stepping/LtsLayout.cpp
 
 src/Initializer/tree/Lut.cpp
-
-src/Monitoring/FlopCounter.cpp
-src/Monitoring/Stopwatch.cpp
-src/Monitoring/Unit.cpp
 
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
