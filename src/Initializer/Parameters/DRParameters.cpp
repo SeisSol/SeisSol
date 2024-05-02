@@ -88,8 +88,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
-  const auto terminatorSlipRateThreshold =
-      static_cast<real>(abortCriteriaReader->readWithDefault("terminatorslipratethreshold", 0.5));
+  const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
+      "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
