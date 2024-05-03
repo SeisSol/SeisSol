@@ -257,7 +257,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
+    // kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
+    // This is changed because sometimes the alignment is messed up usig
+    // the generator LIBXSMM or PSpaMM
+    alignas(ALIGNMENT) real localTinv[tensor::Tinv::size()];
+    kernel.Tinv = localTinv;
+    std::memcpy(localTinv, outputData->glbToFaceAlignedData[i].data(),
+      sizeof(localTinv));
 
     kernel.Q = dofsStressPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
