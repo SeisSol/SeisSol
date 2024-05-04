@@ -29,7 +29,7 @@ Run ``pwd`` and copy the path there. Run the following script there.
     mkdir -p $SEISSOL_PREFIX
 
 Next, we load the necessary modules for our SeisSol build.
-We need to set ``CC`` and ``CXX`` explicitly here.
+We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
 
 .. code-block:: bash
 
@@ -45,8 +45,9 @@ We need to set ``CC`` and ``CXX`` explicitly here.
     module load cray-netcdf-hdf5parallel/4.9.0.7
     module load cray-python/3.10.10
 
-    export CC=amdclang
-    export CXX=amdclang++
+    export CC=cc
+    export CXX=CC
+    export FC=ftn
 
 Next, we also start up our Python installation.
 
@@ -201,7 +202,7 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
 
     chmod +x ./select_gpu
 
-    CPU_BIND="mask_cpu:7e000000000000,7e00000000000000"
+    CPU_BIND="7e000000000000,7e00000000000000"
     CPU_BIND="${CPU_BIND},7e0000,7e000000"
     CPU_BIND="${CPU_BIND},7e,7e00"
     CPU_BIND="${CPU_BIND},7e00000000,7e0000000000"
@@ -216,8 +217,4 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
     export DEVICE_STACK_MEM_SIZE=4
     export SEISSOL_FREE_CPUS_MASK="52-54,60-62,20-22,28-30,4-6,12-14,36-38,44-46"
 
-    proxy=SeisSol_proxy_${build_mode}_sgfx90a_hip_6_elastic
-    exe=SeisSol_${build_mode}_sgfx90a_hip_6_elastic
-    file=parameters.par
-
-    srun --cpu-bind=${CPU_BIND} ./select_gpu ./${exe} ./${file}
+    srun --cpu-bind=mask_cpu:${CPU_BIND} ./select_gpu SeisSol_Release_sgfx90a_hip_6_elastic parameters.par
