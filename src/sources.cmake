@@ -65,6 +65,7 @@ src/ResultWriter/ClusteringWriter.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
+src/SourceTerm/Manager.cpp
 
 src/Solver/Simulator.cpp
 src/ResultWriter/AnalysisWriter.cpp
@@ -154,7 +155,6 @@ src/Reader/AsagiReader.cpp
 set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/Manager.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES

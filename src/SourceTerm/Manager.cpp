@@ -90,7 +90,7 @@
 
 #ifdef ACL_DEVICE
 #include <Kernels/PointSourceClusterOnDevice.h>
-#include <Parallel/AcceleratorDevice.h>
+#include <device.h>
 #include "Device/UsmAllocator.h"
 #endif
 
