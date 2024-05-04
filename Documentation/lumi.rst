@@ -68,6 +68,7 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/chainforge.git
 
 Then, we can start installing the modules. For convenience, we also add Ninja as a build tool here first.
+(TODO: remove and replace by module load buildtools/23.09)
 
 .. code-block:: bash
 
