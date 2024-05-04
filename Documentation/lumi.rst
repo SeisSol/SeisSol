@@ -6,14 +6,16 @@ Website: https://www.lumi-supercomputer.eu/
 Here, we concern ourselves with running SeisSol on the **LUMI-G** partition; that is, on the GPU partition.
 
 The nodes then consist of:
-* 1× AMD Epyc 7A53 (Zen 3) CPU, configured with 4 NUMA domains
-* 4× AMD Instinct MI250x GPUs, thus 8 GCDs in total
+
+- 1× AMD Epyc 7A53 (Zen 3) CPU, configured with 4 NUMA domains
+- 4× AMD Instinct MI250x GPUs, thus 8 GCDs in total
 
 Due to the 8 GCDs, we will launch SeisSol with 8 processes per node. The architecture settings we will need for SeisSol are
 ``milan`` for the CPU architecture (optimizing for Zen 3), and ``gfx90a`` for the GPU architecture (targeting the MI250X).
 As device backend, we use HIP, and for the SYCL implementation, we use AdaptiveCpp.
 
-1. Installing Modules
+Installing Modules (without Spack)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Here, we go for a build using amdclang and AdaptiveCpp. We begin by setting up an environment. Firstly, choose a folder you want to install SeisSol to and navigate to it.
 Run ``pwd`` and copy the path there. Run the following script there.
@@ -152,7 +154,8 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
     cd ..
 
-2. Compiling SeisSol
+Compiling SeisSol
+~~~~~~~~~~~~~~~~~
 
 Finally, it's time to clone SeisSol and build it.
 
@@ -166,13 +169,14 @@ Finally, it's time to clone SeisSol and build it.
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
 
-3. Running Jobs
+Running Jobs
+~~~~~~~~~~~~
 
 Attached is a job script which does the pinning for us.
 The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
 
 .. code-block:: bash
-    
+
     #!/usr/bin/env bash
     #SBATCH --job-name=seissol   # Job name
     #SBATCH --nodes=<NUMBER-OF-NODES>               # Total number of nodes 
