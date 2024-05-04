@@ -151,6 +151,8 @@ For easi (depending on the former two):
     ninja install
     cd ../..
 
+**WARNING: libxsmm gives errors at the moment. We recommend to only resort to PSpaMM for the time being (add ``-DGEMM_TOOLS_LIST=PSpaMM`` to your CMake configuration of SeisSol)**
+
 For libxsmm (note that we need 1.17 sharp; the latest main will not work as intended with the generator):
 
 .. code-block:: bash
