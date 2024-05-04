@@ -34,6 +34,8 @@ format() {
     local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp

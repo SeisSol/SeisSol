@@ -56,26 +56,7 @@
 
 namespace seissol::sourceterm {
 
-void computeMInvJInvPhisAtSources(
-    Eigen::Vector3d const& centre,
-    AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>& mInvJInvPhisAtSources,
-    unsigned meshId,
-    seissol::geometry::MeshReader const& mesh);
-void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
-                                        unsigned meshId,
-                                        seissol::geometry::MeshReader const& mesh,
-                                        Subfault const& subfault,
-                                        Offsets const& offsets,
-                                        Offsets const& nextOffsets,
-                                        std::array<std::vector<double>, 3> const& sliprates,
-                                        seissol::model::Material* material,
-                                        PointSources& pointSources,
-                                        unsigned index,
-                                        AllocatorT const& alloc);
-class Manager;
-} // namespace seissol::sourceterm
-
-class seissol::sourceterm::Manager {
+class Manager {
   public:
   Manager() = default;
   ~Manager() = default;
@@ -87,36 +68,8 @@ class seissol::sourceterm::Manager {
                    seissol::initializer::LTS* lts,
                    seissol::initializer::Lut* ltsLut,
                    time_stepping::TimeManager& timeManager);
-
-  private:
-  auto mapPointSourcesToClusters(const unsigned* meshIds,
-                                 unsigned numberOfSources,
-                                 seissol::initializer::LTSTree* ltsTree,
-                                 seissol::initializer::LTS* lts,
-                                 seissol::initializer::Lut* ltsLut,
-                                 AllocatorT const& alloc)
-      -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
-
-  auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
-      -> PointSourceClusterPair;
-
-  auto loadSourcesFromFSRM(char const* fileName,
-                           seissol::geometry::MeshReader const& mesh,
-                           seissol::initializer::LTSTree* ltsTree,
-                           seissol::initializer::LTS* lts,
-                           seissol::initializer::Lut* ltsLut,
-                           AllocatorT const& alloc)
-      -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>>;
-
-#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-  auto loadSourcesFromNRF(char const* fileName,
-                          seissol::geometry::MeshReader const& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
-                          seissol::initializer::LTS* lts,
-                          seissol::initializer::Lut* ltsLut,
-                          AllocatorT const& alloc)
-      -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>>;
-#endif
 };
+
+} // namespace seissol::sourceterm
 
 #endif
