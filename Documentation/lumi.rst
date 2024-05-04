@@ -49,7 +49,13 @@ We set the compilers to the cray compiler wrappers (which in our case use ``amdc
     export CXX=CC
     export FC=ftn
 
-Next, we also start up our Python installation.
+We also require a small hotfix for pkg-config, as required by easi (and subsequently also SeisSol) right now. It is needed to work correctly with the Cray environment (only the folders ``hdf5-parallel`` and ``netcdf-hdf5parallel`` are included by default; but these do not contain the non-parallel pkgconfigs):
+
+.. code-block:: bash
+
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.7/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+
+Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
 
 .. code-block:: bash
 
