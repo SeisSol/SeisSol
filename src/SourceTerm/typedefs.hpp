@@ -163,6 +163,8 @@ struct ClusterMapping {
   seissol::memory::MemkindArray<CellToPointSourcesMapping> cellToSources;
 
   ClusterMapping(seissol::memory::Memkind memkind) : sources(memkind), cellToSources(memkind) {}
+  ClusterMapping(const ClusterMapping& mapping, seissol::memory::Memkind memkind)
+      : sources(mapping.sources, memkind), cellToSources(mapping.cellToSources, memkind) {}
 };
 } // namespace seissol::sourceterm
 
