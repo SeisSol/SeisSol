@@ -1,4 +1,5 @@
-// Copyright (C) 2023 Intel Corporation
+// Copyright (c) 2024 SeisSol Group
+// Copyright (c) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef KERNELS_POINTSOURCECLUSTERONHOST_H_
@@ -11,8 +12,11 @@
 namespace seissol::kernels {
 class PointSourceClusterOnHost : public PointSourceCluster {
   public:
-  PointSourceClusterOnHost(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
-  void addTimeIntegratedPointSources(double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) override;
+  PointSourceClusterOnHost(std::shared_ptr<sourceterm::ClusterMapping> mapping,
+                           std::shared_ptr<sourceterm::PointSources> sources);
+  void addTimeIntegratedPointSources(double from,
+                                     double to,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
   unsigned size() const override;
 
   private:
@@ -25,8 +29,8 @@ class PointSourceClusterOnHost : public PointSourceCluster {
                                         double to,
                                         real dofs[tensor::Q::size()]);
 
-  sourceterm::ClusterMapping clusterMapping_;
-  sourceterm::PointSources sources_;
+  std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
+  std::shared_ptr<sourceterm::PointSources> sources_;
 };
 } // namespace seissol::kernels
 

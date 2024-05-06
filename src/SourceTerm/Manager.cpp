@@ -84,9 +84,11 @@
 
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/tree/Layer.hpp>
 #include <Kernels/PointSourceClusterOnHost.h>
 #include <Parallel/Helper.hpp>
 #include <SourceTerm/typedefs.hpp>
+#include <memory>
 #include <utils/logger.h>
 #include <string>
 #include <cstring>
@@ -94,7 +96,6 @@
 #ifdef ACL_DEVICE
 #include <Kernels/PointSourceClusterOnDevice.h>
 #include <Parallel/AcceleratorDevice.h>
-#include "Device/UsmAllocator.h"
 #endif
 
 namespace seissol::sourceterm {
@@ -184,6 +185,36 @@ void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
   }
 }
 
+auto mapClusterToMesh(ClusterMapping& clusterMapping,
+                      const unsigned* meshIds,
+                      seissol::initializer::LTSTree* ltsTree,
+                      seissol::initializer::LTS* lts,
+                      seissol::initializer::Lut* ltsLut,
+                      seissol::initializer::AllocationPlace place) {
+  unsigned clusterSource = 0;
+  unsigned mapping = 0;
+  while (clusterSource < clusterMapping.sources.size()) {
+    unsigned meshId = meshIds[clusterMapping.sources[clusterSource]];
+    unsigned next = clusterSource + 1;
+    while (next < clusterMapping.sources.size() &&
+           meshIds[clusterMapping.sources[next]] == meshId) {
+      ++next;
+    }
+
+    for (unsigned ltsId, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
+                                  (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
+                                      std::numeric_limits<unsigned>::max();
+         ++dup) {
+      clusterMapping.cellToSources[mapping].dofs = &ltsTree->var(lts->dofs, place)[ltsId];
+      clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
+      clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
+      ++mapping;
+    }
+
+    clusterSource = next;
+  }
+}
+
 auto mapPointSourcesToClusters(const unsigned* meshIds,
                                unsigned numberOfSources,
                                seissol::initializer::LTSTree* ltsTree,
@@ -239,29 +270,12 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
                 clusterMappings[cluster].sources.end(),
                 [&](unsigned i, unsigned j) { return meshIds[i] < meshIds[j]; });
 
-      unsigned clusterSource = 0;
-      unsigned mapping = 0;
-      while (clusterSource < clusterMappings[cluster].sources.size()) {
-        unsigned meshId = meshIds[clusterMappings[cluster].sources[clusterSource]];
-        unsigned next = clusterSource + 1;
-        while (next < clusterMappings[cluster].sources.size() &&
-               meshIds[clusterMappings[cluster].sources[next]] == meshId) {
-          ++next;
-        }
-
-        for (unsigned ltsId, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
-                                      (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
-                                          std::numeric_limits<unsigned>::max();
-             ++dup) {
-          clusterMappings[cluster].cellToSources[mapping].dofs = &ltsTree->var(lts->dofs)[ltsId];
-          clusterMappings[cluster].cellToSources[mapping].pointSourcesOffset = clusterSource;
-          clusterMappings[cluster].cellToSources[mapping].numberOfPointSources =
-              next - clusterSource;
-          ++mapping;
-        }
-
-        clusterSource = next;
-      }
+      mapClusterToMesh(clusterMappings[cluster],
+                       meshIds,
+                       ltsTree,
+                       lts,
+                       ltsLut,
+                       seissol::initializer::AllocationPlace::Host);
       assert(mapping == clusterMappings[cluster].cellToSources.size());
     }
   }
@@ -270,19 +284,44 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
 }
 
 auto makePointSourceCluster(ClusterMapping mapping,
-                            PointSources sources) -> PointSourceClusterPair {
+                            PointSources sources,
+                            const unsigned* meshIds,
+                            seissol::initializer::LTSTree* ltsTree,
+                            seissol::initializer::LTS* lts,
+                            seissol::initializer::Lut* ltsLut) -> PointSourceClusterPair {
+  auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
+      std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
+
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
-  using GpuImpl = kernels::PointSourceClusterOnDevice;
-  memory::Memkind gpuMemkind = memory::Memkind::DeviceGlobalMemory;
+  using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
+  auto gpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
+
+  auto deviceData =
+      [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>> {
+    if (useUSM()) {
+      return hostData;
+    } else {
+      auto predeviceClusterMapping = mapping;
+      mapClusterToMesh(predeviceClusterMapping,
+                       meshIds,
+                       ltsTree,
+                       lts,
+                       ltsLut,
+                       seissol::initializer::AllocationPlace::Device);
+      auto deviceClusterMapping =
+          std::make_shared<ClusterMapping>(predeviceClusterMapping, gpuMemkind);
+      auto devicePointSources = std::make_shared<PointSources>(sources, gpuMemkind);
+      return {deviceClusterMapping, devicePointSources};
+    }
+  }();
 #else
-  using GpuImpl = kernels::PointSourceClusterOnHost;
-  memory::Memkind gpuMemkind = memory::Memkind::Standard;
+  using GpuImpl = seissol::kernels::PointSourceClusterOnHost;
+  auto deviceData = hostData;
 #endif
-  // currently suboptimal (in terms of memory consumption, if we don't have split host-device
-  // buffers)
+
   return PointSourceClusterPair{
-      std::make_unique<kernels::PointSourceClusterOnHost>(std::move(mapping), std::move(sources)),
-      std::make_unique<GpuImpl>(std::move(mapping), std::move(PointSources(sources, gpuMemkind)))};
+      std::make_unique<kernels::PointSourceClusterOnHost>(hostData.first, hostData.second),
+      std::make_unique<GpuImpl>(deviceData.first, deviceData.second)};
 }
 
 auto loadSourcesFromFSRM(char const* fileName,
@@ -383,7 +422,8 @@ auto loadSourcesFromFSRM(char const* fileName,
             sources.sampleOffsets[0][clusterSource] + fsrm.timeHistories[fsrmIndex].size();
       }
 
-      sourceCluster[cluster] = makePointSourceCluster(std::move(clusterMappings[cluster]), sources);
+      sourceCluster[cluster] = makePointSourceCluster(
+          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 
@@ -491,7 +531,8 @@ auto loadSourcesFromNRF(char const* fileName,
             clusterSource,
             memkind);
       }
-      sourceCluster[cluster] = makePointSourceCluster(std::move(clusterMappings[cluster]), sources);
+      sourceCluster[cluster] = makePointSourceCluster(
+          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 

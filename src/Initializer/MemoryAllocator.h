@@ -177,10 +177,8 @@ class MemkindArray {
       : MemkindArray(source.size(), memkind) {
     copyFrom(source);
   }
-  MemkindArray(std::size_t capacity, Memkind memkind) : capacity(capacity), memkind(memkind) {
-    resize(capacity);
-  }
-  MemkindArray(Memkind memkind) : dataPtr(nullptr), capacity(0) {}
+  MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
+  MemkindArray(Memkind memkind) : memkind(memkind), dataPtr(nullptr), capacity(0) {}
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);
