@@ -1,6 +1,13 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Parallel/AcceleratorDevice.h"
-#include <device.h>
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Typedefs.hpp>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Kernels/precision.hpp>
+#include <cstddef>
+#include <hipSYCL/sycl/usm.hpp>
+#include <init.h>
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(

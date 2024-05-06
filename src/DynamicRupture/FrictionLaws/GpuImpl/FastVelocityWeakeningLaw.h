@@ -117,6 +117,7 @@ class FastVelocityWeakeningLaw
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
+      // NOLINTNEXTLINE
       sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);
 

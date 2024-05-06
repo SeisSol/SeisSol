@@ -17,10 +17,10 @@
 #include "ThermalPressurization/NoTP.h"
 
 #ifdef ACL_DEVICE
-#include "GpuImpl/LinearSlipWeakening.h"
 #include "GpuImpl/AgingLaw.h"
-#include "GpuImpl/SlipLaw.h"
 #include "GpuImpl/FastVelocityWeakeningLaw.h"
+#include "GpuImpl/LinearSlipWeakening.h"
+#include "GpuImpl/SlipLaw.h"
 #include "GpuImpl/ThermalPressurization/NoTP.h"
 #endif
 

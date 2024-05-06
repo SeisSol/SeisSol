@@ -19,9 +19,11 @@
 #include <functional>
 #include <init.h>
 #include <memory>
+#include <tensor.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 #include <yateto/TensorView.h>
 
 namespace seissol::dr::output {

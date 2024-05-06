@@ -245,7 +245,7 @@ class LinearSlipWeakeningLaw
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        real resampledSlipRate = SpecializationT::resampleSlipRate(
+        real const resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
         // integrate slip rate to get slip = state variable
