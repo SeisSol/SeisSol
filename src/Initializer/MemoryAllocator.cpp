@@ -184,6 +184,13 @@ void memcopy(void* dst,
   }
 }
 
+void memzero(void* dst, std::size_t size, enum Memkind memkind) {
+  auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  device::DeviceInstance::getInstance().algorithms.fillArray(
+      reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+}
+
 void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment) {
   logDebug() << "printing memory alignment per struct";
   for (unsigned long long i = 0; i < memoryAlignment.size(); i++) {

@@ -137,6 +137,19 @@ void memcopyTyped(
   memcopy(dst, src, count * sizeof(T), dstMemkind, srcMemkind);
 }
 
+void memzero(void* dst, std::size_t size, enum Memkind memkind);
+
+template <typename T>
+void memzeroTyped(T* dst, std::size_t count, enum Memkind memkind) {
+  memzero(dst, count * sizeof(T), memkind);
+}
+
+template <typename T>
+void meminit(T* dst, std::size_t count, enum Memkind memkind) {
+  std::vector<T> local(count);
+  memcopyTyped<T>(dst, local, count, memkind, Memkind::Standard);
+}
+
 /**
  * Prints the memory alignment of in terms of relative start and ends in bytes.
  *

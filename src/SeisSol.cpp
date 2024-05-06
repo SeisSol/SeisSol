@@ -96,6 +96,11 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   printUSMInfo(MPI::mpi);
   printMPIUSMInfo(MPI::mpi);
   printDeviceHostSwitch(MPI::mpi);
+
+  if (!useUSM() && deviceHostSwitch() > 0) {
+    logWarning(rank) << "Using the host-device execution on non-USM systems is not fully supported "
+                        "yet. Expect incorrect results.";
+  }
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
