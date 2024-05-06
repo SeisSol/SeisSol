@@ -189,7 +189,9 @@ class MemkindArray {
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
     if (memkind == DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().api->copyTo(dataPtr, source.data(), capacity);
+#endif
     } else {
       std::copy(source.begin(), source.end(), dataPtr);
     }
@@ -197,11 +199,17 @@ class MemkindArray {
   void copyFrom(const MemkindArray<T>& source) {
     assert(source.size() <= capacity);
     if (memkind == DeviceGlobalMemory && source.memkind != DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().api->copyTo(dataPtr, source.data(), capacity);
+#endif
     } else if (memkind != DeviceGlobalMemory && source.memkind == DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().api->copyFrom(dataPtr, source.data(), capacity);
+#endif
     } else if (memkind == DeviceGlobalMemory && source.memkind == DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().api->copyBetween(dataPtr, source.data(), capacity);
+#endif
     } else {
       std::copy(source.begin(), source.end(), dataPtr);
     }
