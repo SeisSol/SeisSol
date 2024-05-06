@@ -317,7 +317,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
                              streamRuntime);
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
-      m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->fluxSolverMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->fluxSolverPlus, initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->imposedStateMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->imposedStatePlus, initializer::AllocationPlace::Device, streamRuntime.stream());
     }
     streamRuntime.wait();
   }
@@ -719,6 +722,30 @@ void TimeCluster::predict() {
   }
 #endif
 }
+
+void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
+#ifdef ACL_DEVICE
+  if (executor == Executor::Device) {
+    computeDynamicRuptureDevice(layerData);
+  }
+  else {
+    computeDynamicRupture(layerData);
+  }
+
+  // TODO(David): restrict to copy/interior of same cluster type
+  if (hasDifferentExecutorNeighbor()) {
+    auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
+    layerData.varSynchronizeTo(m_dynRup->fluxSolverMinus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->fluxSolverPlus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->imposedStateMinus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->imposedStatePlus, other, streamRuntime.stream());
+    streamRuntime.wait();
+  }
+#else
+  computeDynamicRupture(layerData);
+#endif
+}
+
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
@@ -747,31 +774,13 @@ void TimeCluster::correct() {
   // We need to avoid computing it twice.
   if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
-#ifdef ACL_DEVICE
-  if (executor == Executor::Device) {
-    computeDynamicRuptureDevice(*dynRupInteriorData);
-  }
-  else {
-    computeDynamicRupture(*dynRupInteriorData);
-  }
-#else
-  computeDynamicRupture(*dynRupInteriorData);
-#endif
+      handleDynamicRupture(*dynRupInteriorData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
     if (layerType == Copy) {
-#ifdef ACL_DEVICE
-  if (executor == Executor::Device) {
-    computeDynamicRuptureDevice(*dynRupCopyData);
-  }
-  else {
-    computeDynamicRupture(*dynRupCopyData);
-  }
-#else
-  computeDynamicRupture(*dynRupCopyData);
-#endif
+      handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
@@ -957,6 +966,21 @@ template<bool usePlasticity>
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
+
+void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
+#ifdef ACL_DEVICE
+  if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) || (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
+    m_clusterData->varSynchronizeTo(m_lts->dofs, place, stream);
+    m_clusterData->varSynchronizeTo(m_lts->pstrain, place, stream);
+    if (layerType == Interior) {
+      dynRupInteriorData->synchronizeTo(place, stream);
+    }
+    if (layerType == Copy) {
+      dynRupCopyData->synchronizeTo(place, stream);
+    }
+  }
+#endif
+}
 
 } // namespace seissol::time_stepping
 

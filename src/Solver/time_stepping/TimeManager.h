@@ -189,6 +189,8 @@ class seissol::time_stepping::TimeManager {
 
     void freeDynamicResources();
 
+    void synchronizeTo(seissol::initializer::AllocationPlace place);
+
     inline const TimeStepping* getTimeStepping() {
       return &m_timeStepping;
     }

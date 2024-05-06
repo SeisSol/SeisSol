@@ -220,6 +220,8 @@ private:
      **/
     void computeDynamicRupture( seissol::initializer::Layer&  layerData );
 
+    void handleDynamicRupture( seissol::initializer::Layer&  layerData );
+
     /**
      * Computes all cell local integration.
      *
@@ -376,6 +378,8 @@ public:
   void setReceiverTime(double receiverTime);
 
   std::vector<NeighborCluster>* getNeighborClusters();
+
+  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
 };
 
 #endif

@@ -49,6 +49,10 @@
 #include <ResultWriter/ClusteringWriter.h>
 #include "Parallel/Helper.hpp"
 
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
+
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
   m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
    actorStateStatisticsManager(m_loopStatistics)
@@ -389,4 +393,14 @@ void seissol::time_stepping::TimeManager::freeDynamicResources() {
     cluster->finalize();
   }
   communicationManager.reset(nullptr);
+}
+
+void seissol::time_stepping::TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
+#ifdef ACL_DEVICE
+  auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  for (auto& cluster : clusters) {
+    cluster->synchronizeTo(place, stream);
+  }
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#endif
 }

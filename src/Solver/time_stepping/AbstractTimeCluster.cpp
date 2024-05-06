@@ -183,6 +183,9 @@ bool AbstractTimeCluster::mayCorrect() {
   return stepBasedCorrect;
 }
 
+Executor AbstractTimeCluster::getExecutor() const {
+  return executor;
+}
 
 bool AbstractTimeCluster::maySync() {
     return ct.stepsSinceLastSync >= ct.stepsUntilSync;

@@ -1,10 +1,10 @@
 #ifndef SEISSOL_ACTOR_H
 #define SEISSOL_ACTOR_H
 
-#include <vector>
-#include <memory>
-#include <chrono>
 #include "ActorState.h"
+#include <chrono>
+#include <memory>
+#include <vector>
 
 namespace seissol::time_stepping {
 
@@ -47,6 +47,8 @@ protected:
 
 public:
   virtual ~AbstractTimeCluster() = default;
+
+  Executor getExecutor() const;
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
