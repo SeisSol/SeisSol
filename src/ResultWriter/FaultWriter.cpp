@@ -167,8 +167,8 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	removeBuffer(FaultWriterExecutor::FAULTTAGS);
 
 	// Register for the synchronization point hook
-	Modules::registerHook(*this, SIMULATION_START);
-	Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+	Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
 }
 

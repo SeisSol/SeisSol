@@ -298,7 +298,6 @@ void seissol::physics::PressureInjection::evaluate(
     const auto x_2 = x[1];
     const auto x_3 = x[2];
     const auto r_squared = std::pow(x_1 - o_1, 2) + std::pow(x_2 - o_2, 2) + std::pow(x_3 - o_3, 2);
-    const auto t = time;
     dofsQp(i, 0) = 0.0;                                      // sigma_xx
     dofsQp(i, 1) = 0.0;                                      // sigma_yy
     dofsQp(i, 2) = 0.0;                                      // sigma_yy

@@ -161,7 +161,7 @@ where :math:`S(t) = \int_0^t |V(s)| ds` is the accumulated fault slip, and the o
 Friction parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| symbol           | quantity                               | seisSol name                  |
+| symbol           | quantity                               | SeisSol name                  |
 +==================+========================================+===============================+
 | :math:`\mu_s(x)` | static friction coefficient            | :code:`mu_s`                  |
 +------------------+----------------------------------------+-------------------------------+
@@ -173,13 +173,17 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`   |
 +------------------+----------------------------------------+-------------------------------+
+| :math:`v_0`      | threshold velocity                     | :code:`lsw_healingThreshold`  |
++------------------+----------------------------------------+-------------------------------+
 
 Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter `forced_rupture_time` in the fault `yaml` file.
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
 For friction law :code:`16`, we resample the slip rate in every step to suppress spurious oscillations.
 In the case of Prakash-Clifton regularization, we do not resample the slip rate.
-
+If the slip rate :math:`V` drops below the threshold velocity :math:`v_0`, we reset the friction parameter :math:`\mu = \mu_s`.
+Also, we reset the state variable :math:`S = 0`.
+The threshold :math:`v_0` is set to :math:`-1.0` by default, such that healing is disabled.
 
 
 Examples of input files for the friction laws :code:`6` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
@@ -194,6 +198,20 @@ Linear slip weakening can be seen as a special case of rate-and-state friction w
 
 Now the state variable stores the accumulated slip.
 
+TP proxy slip-weakening friction (:code:`FL=1058`)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The TP proxy slip-weakening friction has been proposed by Herrera et al. (2024), GJI, to approximate thermal pressurization in a computationally efficient way.
+The fault strength is determined by
+
+.. math::
+ 
+  \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_d + \frac{{(\mu_s - \mu_d)}}{{\left(1 + \frac{S}{d_c}\right)^{\alpha}}} \right),
+
+
+All variables are the same as defined in previous section for :code:`FL=16`.
+The friction law also supports forced rupture time.
+You can modify the default value 1/3 of :math:`\alpha`, by adjusting the :code:`TpProxyExponent` parameter in the main parameter file (namelist: :code:`DynamicRupture`).
 
 Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^

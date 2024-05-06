@@ -43,4 +43,13 @@ real BiMaterialFault::strengthHook(real faultStrength,
   return newStrength;
 }
 
+#pragma omp declare simd
+real TPApprox::stateVariableHook(real localAccumulatedSlip,
+                                 real localDc,
+                                 unsigned int ltsFace,
+                                 unsigned int pointIndex) {
+  const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+  return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
+}
+
 } // namespace seissol::dr::friction_law

@@ -14,7 +14,7 @@
 namespace seissol::dr::output {
 class ReceiverOutput {
   public:
-  virtual ~ReceiverOutput();
+  virtual ~ReceiverOutput() = default;
 
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::LTS* userWpDescr,
@@ -22,7 +22,6 @@ class ReceiverOutput {
                   seissol::initializer::LTSTree* userDrTree,
                   seissol::initializer::DynamicRupture* userDrDescr);
 
-  void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
