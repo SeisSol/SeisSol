@@ -74,9 +74,9 @@
 #ifndef MEMORYALLOCATOR_H_
 #define MEMORYALLOCATOR_H_
 
+#include "Kernels/precision.hpp"
 #include <cassert>
 #include <cstdlib>
-#include <iostream>
 #include <vector>
 
 #ifdef USE_MEMKIND
