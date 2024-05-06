@@ -128,6 +128,15 @@ T* allocTyped(size_t count, size_t alignment = 1, enum Memkind memkind = Standar
 
 void free(void* pointer, enum Memkind memkind = Standard);
 
+void memcopy(
+    void* dst, const void* src, std::size_t size, enum Memkind dstMemkind, enum Memkind srcMemkind);
+
+template <typename T>
+void memcopyTyped(
+    T* dst, const T* src, std::size_t count, enum Memkind dstMemkind, enum Memkind srcMemkind) {
+  memcopy(dst, src, count * sizeof(T), dstMemkind, srcMemkind);
+}
+
 /**
  * Prints the memory alignment of in terms of relative start and ends in bytes.
  *
@@ -186,31 +195,11 @@ class MemkindArray {
   }
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
-    if (memkind == DeviceGlobalMemory) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->copyTo(dataPtr, source.data(), capacity);
-#endif
-    } else {
-      std::copy(source.begin(), source.end(), dataPtr);
-    }
+    memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, Memkind::Standard);
   }
   void copyFrom(const MemkindArray<T>& source) {
     assert(source.size() <= capacity);
-    if (memkind == DeviceGlobalMemory && source.memkind != DeviceGlobalMemory) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->copyTo(dataPtr, source.data(), capacity);
-#endif
-    } else if (memkind != DeviceGlobalMemory && source.memkind == DeviceGlobalMemory) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->copyFrom(dataPtr, source.data(), capacity);
-#endif
-    } else if (memkind == DeviceGlobalMemory && source.memkind == DeviceGlobalMemory) {
-#ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->copyBetween(dataPtr, source.data(), capacity);
-#endif
-    } else {
-      std::copy(source.begin(), source.end(), dataPtr);
-    }
+    memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
   ~MemkindArray() { free(dataPtr, memkind); }
   inline T* data() noexcept { return dataPtr; }

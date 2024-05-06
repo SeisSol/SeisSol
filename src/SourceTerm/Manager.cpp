@@ -294,13 +294,13 @@ auto makePointSourceCluster(ClusterMapping mapping,
 
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
-  auto gpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
 
   auto deviceData =
       [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>> {
     if (useUSM()) {
       return hostData;
     } else {
+      constexpr auto gpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
       auto predeviceClusterMapping = mapping;
       mapClusterToMesh(predeviceClusterMapping,
                        meshIds,
@@ -550,7 +550,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           seissol::initializer::Lut* ltsLut,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
-  auto memkind = seissol::memory::DeviceUnifiedMemory;
+  auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
 #else
   auto memkind = seissol::memory::Standard;
 #endif

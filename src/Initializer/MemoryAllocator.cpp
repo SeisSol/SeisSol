@@ -73,6 +73,7 @@
 #include "MemoryAllocator.h"
 #include <Parallel/MPI.h>
 
+#include <cstring>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
@@ -159,6 +160,28 @@ void free(void* pointer, enum Memkind memkind) {
                << "). Please, refer to the documentation";
   }
 #endif
+}
+
+void memcopy(void* dst,
+             const void* src,
+             std::size_t size,
+             enum Memkind dstMemkind,
+             enum Memkind srcMemkind) {
+  if (dstMemkind == DeviceGlobalMemory && srcMemkind != DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
+#endif
+  } else if (dstMemkind != DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->copyFrom(dst, src, size);
+#endif
+  } else if (dstMemkind == DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
+    device::DeviceInstance::getInstance().api->copyBetween(dst, src, size);
+#endif
+  } else {
+    std::memcpy(dst, src, size);
+  }
 }
 
 void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment) {
