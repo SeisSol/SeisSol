@@ -11,20 +11,23 @@
 #include <Kernels/precision.hpp>
 #include <Model/common.hpp>
 #include <Numerical_aux/Transformation.h>
-#include <Parallel/DataCollector.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <functional>
 #include <init.h>
-#include <memory>
-#include <tensor.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <yateto/TensorView.h>
+
+#ifdef ACL_DEVICE
+#include <Parallel/DataCollector.h>
+#include <memory>
+#include <tensor.h>
+#endif
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
