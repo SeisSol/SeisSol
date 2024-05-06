@@ -144,12 +144,7 @@ static void
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
   std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-  /*auto meshReader = new seissol::geometry::CubeGenerator(
-      commRank, commSize, realMeshFileName.c_str(), cubeParameters);
 
-  // Replace call to NetcdfReader with adapted Geometry/CubeGenerator
-  seissol::SeisSol::main.setMeshReader(
-      new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));*/
   seissol::SeisSol::main.setMeshReader(new seissol::geometry::CubeGenerator(
       commRank, commSize, realMeshFileName.c_str(), cubeParameters));
 #else

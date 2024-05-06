@@ -109,8 +109,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   bndSize = buf[0];
   bndElemSize = buf[1];
   
-  //TODO: delete!
-  logInfo(rank) << "----------bndElemSize=" << bndElemSize;
 #endif // USE_MPI
 
   if (masterRank >= 0) {
@@ -239,17 +237,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemVertices, start, count, reinterpret_cast<int*>(elemVertices)));
 
-      //TODO: delete!
-      logInfo(0) << "----- checking elemVertices after creation from NetcdfReader and compare with CubeGenerator";
-      std::vector<int> temp;
-      for (int j = 0; j < maxSize; j++) {
-        temp.push_back(*(elemVertices[j]));
-        temp.push_back(*(elemVertices[j]+1));
-        temp.push_back(*(elemVertices[j]+2));
-        temp.push_back(*(elemVertices[j]+3));
-      }
-      logInfo(0) << temp;
-
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemNeighbors, start, count, reinterpret_cast<int*>(elemNeighbors)));
       checkNcError(nc_get_vara_int(
@@ -355,36 +342,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i], sizeof(ElemNeighborRanks));
     memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i], sizeof(ElemMPIIndices));
     m_elements[i].group = elemGroup[i];
-
-    logInfo(0) << "m_elements[" << i << "].vertices:" << std::vector<int>(m_elements[i].vertices, m_elements[i].vertices + 4);
-    logInfo(0) << "m_elements[" << i << "].neighbors:" << std::vector<int>(m_elements[i].neighbors, m_elements[i].neighbors + 4);
-    logInfo(0) << "m_elements[" << i << "].neighborSides:" << std::vector<int>(m_elements[i].neighborSides, m_elements[i].neighborSides + 4);
-    logInfo(0) << "m_elements[" << i << "].sideOrientations:" << std::vector<int>(m_elements[i].sideOrientations, m_elements[i].sideOrientations + 4);
-    logInfo(0) << "m_elements[" << i << "].boundaries:" << std::vector<int>(m_elements[i].boundaries, m_elements[i].boundaries + 4);
-    logInfo(0) << "m_elements[" << i << "].neighborRanks:" << std::vector<int>(m_elements[i].neighborRanks, m_elements[i].neighborRanks + 4);
-    logInfo(0) << "m_elements[" << i << "].mpiIndices:" << std::vector<int>(m_elements[i].mpiIndices, m_elements[i].mpiIndices + 4);
-    logInfo(0) << "m_elements[" << i << "].group:" <<  m_elements[i].group;
-
   }
-
-  //TODO: delete
-  logInfo(0) << "----- maxSize =" << maxSize;
-  logInfo(0) << "m_elements[" << 0 << "].vertices:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].vertices, m_elements[0].vertices + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].neighbors:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].neighbors, m_elements[0].neighbors + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].neighborSides:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].neighborSides, m_elements[0].neighborSides + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].sideOrientations:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].sideOrientations, m_elements[0].sideOrientations + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].boundaries:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].boundaries, m_elements[0].boundaries + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].neighborRanks:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].neighborRanks, m_elements[0].neighborRanks + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].mpiIndices:"; 
-  logInfo(0) << std::vector<int>(m_elements[0].mpiIndices, m_elements[0].mpiIndices + maxSize);
-  logInfo(0) << "m_elements[" << 0 << "].group:"; 
-  logInfo(0) << m_elements[0].group;
 
   //        SCOREP_USER_REGION_END( r_read_elements )
 
@@ -475,21 +433,9 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   //        SCOREP_USER_REGION_END( r_read_vertices )
 
   // Copy buffers to vertices
-  //TODO: delete!
-  std::vector<double> vrtxVec;
   for (int i = 0; i < sizes[0]; i++) {
     memcpy(m_vertices[i].coords, &vrtxCoords[i], sizeof(VrtxCoords));
-    vrtxVec.push_back(*(vrtxCoords[i]));
-    vrtxVec.push_back(*(vrtxCoords[i]+1));
-    vrtxVec.push_back(*(vrtxCoords[i]+2)); 
   }
-
-  //TODO: delete!
-  int vrtxSize = sizes[0];
-  logInfo(0) << "------ Netcdf: sizes[0]:" << sizes[0];
-  logInfo(0) << "----- comparing vrtxCoords, do the same for CubeGenerator";
-  logInfo(0) << vrtxVec;
-
 
   delete[] vrtxCoords;
 
@@ -504,10 +450,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
       sizes[i] = size;
-
-      // TODO: delete!
-      logInfo(0) << "Netcdf recalc. of sizes:";
-      logInfo(0) << "sizes[" << i << "] =" << sizes[i];
 
       if (i != 0) {
 #ifdef USE_MPI
@@ -537,8 +479,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
-    //TODO: delete!
-    logInfo(rank) << "i=" << i;
     bndStart[1] = static_cast<size_t>(i);
 
     if (masterRank >= 0) {
@@ -546,9 +486,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
       assert(false);
 #else // NETCDF_PASSIVE
       for (int j = groupSize - 1; j >= 0; j--) {
-        //TODO: delete!
-        logInfo(rank) << "j=" << j;
-
         bndStart[0] = static_cast<size_t>(j + rank);
 
         // Get neighbor rank from netcdf
@@ -562,12 +499,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
         size_t bndCount[3] = {1, 1, bndElemSize};
         checkNcError(
             nc_get_vara_int(ncFile, ncVarBndElemLocalIds, bndStart, bndCount, bndElemLocalIds));
-
-        //TODO: delete!
-        for (int k = 0; k < bndElemSize; ++k) {
-          logInfo(rank) << "---------- bndElemLocalIds[" << k <<"]=" << bndElemLocalIds[k];
-        }
-
+  
         if (i < sizes[j]) {
           if (j == 0) {
             addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
@@ -607,15 +539,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     }
   }
 
-
-
-        //TODO: delete!
-  logInfo(rank) << "====================================";
-        for (int k = 0; k < bndElemSize; ++k) {
-          logInfo(rank) << "---------- bndElemLocalIds[" << k <<"]=" << bndElemLocalIds[k];
-        }
-
-
   delete[] bndElemLocalIds;
 
   //        SCOREP_USER_REGION_END( r_read_boundaries )
@@ -637,15 +560,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   // Recompute additional information
   findElementsPerVertex();
 
-  //TODO: delete!
-  logInfo(0) << "----- comparing vrtxElements, do the same for CubeGenerator";
-  std::vector<int> elementsVec;
-  for (int k = 0; k < vrtxSize; ++k) {
-    for (int e : m_vertices[k].elements)
-      elementsVec.push_back(e);
-  }
-  logInfo(0) << elementsVec;
-
 }
 
 void NetcdfReader::addMPINeighbor(int localID,
@@ -656,11 +570,9 @@ void NetcdfReader::addMPINeighbor(int localID,
   neighbor.localID = localID;
 
   neighbor.elements.resize(elemSize);
-  logInfo(0) << "NetcdfReader::addMpiNeighbor";
-  for (int i = 0; i < elemSize; i++) {
+
+  for (int i = 0; i < elemSize; i++)
     neighbor.elements[i].localElement = bndElemLocalIds[i];
-    logInfo(0) << "bndElemLocalIds[" << i << "]=" << bndElemLocalIds[i];
-  }
 
   m_MPINeighbors[bndRank] = neighbor;
 }
