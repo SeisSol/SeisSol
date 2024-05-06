@@ -111,7 +111,8 @@ class seissol::kernels::Local : public LocalBase {
       const CellDRMapping (*drMapping)[4],
       kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
       double timeStepSize,
-      const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation);                             
+      const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation,
+      double subTimeStart=0.0);                             
     #endif
 };
 

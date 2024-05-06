@@ -332,7 +332,8 @@ private:
                                                         drMapping,
                                                         m_nonlSurfIntPrototype,
                                                         timeStepSize(),
-                                                        m_nonlinearInterpolation);
+                                                        m_nonlinearInterpolation,
+                                                        subTimeStart);
       }
 
       const long long nonZeroFlopsPlasticity =

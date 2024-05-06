@@ -343,16 +343,17 @@ class LinearADERDG(ADERDGBase):
           derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
         for j in range(3):
           derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
+        ## nonlinear source term
         self.addAdditionalTerms(i, derivativeSum)
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
         self.dQs.append(dQ)
 
-        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target)
+        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target) #This was changed for non-linear. Check if the implementation is sufficient for LTS
         generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',
                       self.I['kp'] <= self.I['kp'] + power * dQ['kp'],
-                      target=target)
+                      target=target) # TODO: this was not changed, this needs to be changed for LTS
 
         derivatives.append(dQ)
 

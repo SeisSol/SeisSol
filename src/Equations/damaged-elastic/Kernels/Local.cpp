@@ -752,7 +752,8 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
     const CellDRMapping (*drMapping)[4],
     kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
     double timeStepSize,
-    const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation) {
+    const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation, 
+    double subTimeStart) {
   double timePoints[CONVERGENCE_ORDER];
   double timeWeights[CONVERGENCE_ORDER];
   seissol::kernels::Time m_timeKernel;
@@ -788,8 +789,10 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
 
         // !!! Make sure every time after entering this function, the last input should be
         // reinitialized to zero
+        // use the respective subTimeStart to compute the taylor expansion in expansion points
+
         m_timeKernel.computeTaylorExpansion(
-            timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+            timePoints[timeInterval], subTimeStart, derivatives[l_cell], degreesOfFreedomPlus);
         m_timeKernel.computeTaylorExpansion(
             timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
 
