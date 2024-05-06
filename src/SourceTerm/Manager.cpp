@@ -501,8 +501,8 @@ auto loadSourcesFromNRF(char const* fileName,
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
-        so[0] = 0;
         so.resize(numberOfSources + 1);
+        so[0] = 0;
       }
 
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
