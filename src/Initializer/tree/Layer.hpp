@@ -247,7 +247,7 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 
   template <typename T>
-  T varSynchronizeTo(Variable<T> const& handle, AllocationPlace place, void* stream) {
+  void varSynchronizeTo(Variable<T> const& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars.size() > handle.index);
     m_vars[handle.index].synchronizeTo(place, stream);
