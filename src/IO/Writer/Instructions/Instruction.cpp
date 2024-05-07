@@ -1,6 +1,8 @@
 #include "Instruction.hpp"
 #include <IO/Writer/Instructions/Hdf5.hpp>
 #include <memory>
+#include <string>
+#include <yaml-cpp/node/node.h>
 
 namespace seissol::io::writer::instructions {
 

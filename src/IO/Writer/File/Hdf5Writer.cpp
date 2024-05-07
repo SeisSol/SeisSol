@@ -1,13 +1,21 @@
 #include "Hdf5Writer.hpp"
 
-#include <H5Ppublic.h>
+#include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/HDF5Type.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
+#include <IO/Writer/Instructions/Data.hpp>
+#include <IO/Writer/Instructions/Hdf5.hpp>
+#include <algorithm>
+#include <async/ExecInfo.h>
+#include <cassert>
+#include <cstddef>
 #include <hdf5.h>
+#include <memory>
+#include <mpi.h>
 #include <stack>
 #include <string>
-#include <yaml-cpp/yaml.h>
+#include <vector>
 
 #include "utils/logger.h"
 
@@ -25,7 +33,7 @@ namespace seissol::io::writer::file {
 Hdf5File::Hdf5File(MPI_Comm comm) : comm(comm) {}
 
 void Hdf5File::openFile(const std::string& name) {
-  hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
+  const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
 #ifdef H5F_LIBVER_V18
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_V18, H5F_LIBVER_V18));
 #else
@@ -63,8 +71,8 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
     std::vector<hsize_t> hshape(shape.begin(), shape.end());
     h5space = _eh(H5Screate_simple(shape.size(), hshape.data(), nullptr));
   }
-  hid_t h5type = datatype::convertToHdf5(source->datatype());
-  hid_t handle =
+  const hid_t h5type = datatype::convertToHdf5(source->datatype());
+  const hid_t handle =
       _eh(H5Acreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, H5P_DEFAULT));
   _eh(H5Awrite(handle, h5type, source->getPointer(info)));
   _eh(H5Aclose(handle));
@@ -109,7 +117,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   std::vector<hsize_t> globalSizes;
   std::vector<hsize_t> localSizes;
 
-  std::size_t chunkcount = std::min(chunksize, count);
+  const std::size_t chunkcount = std::min(chunksize, count);
 
   if (source->distributed()) {
     globalSizes.push_back(allcount);
@@ -119,8 +127,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     globalSizes.push_back(dim);
     localSizes.push_back(dim);
   }
-  hid_t h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr));
-  hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
+  const hid_t h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr));
+  const hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
 
   std::vector<hsize_t> writeStart;
   std::vector<hsize_t> writeLength;
@@ -134,11 +142,11 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     writeLength.push_back(dim);
   }
 
-  hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
+  const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
   _eh(H5Pset_dxpl_mpio(h5dxlist, H5FD_MPIO_COLLECTIVE));
 
-  hid_t h5memtype = datatype::convertToHdf5(source->datatype());
+  const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
   hid_t h5type = datatype::convertToHdf5(targetType);
   h5type = _eh(H5Tcopy(h5type));
@@ -153,11 +161,11 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   if (compress > 0) {
     h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
     _eh(H5Pset_chunk(h5filter, actualDimensions, writeLength.data()));
-    int deflateStrength = compress;
+    const int deflateStrength = compress;
     _eh(H5Pset_deflate(h5filter, deflateStrength));
   }
 
-  hid_t h5data =
+  const hid_t h5data =
       H5Dcreate(handles.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT);
 
   std::size_t written = 0;

@@ -7,6 +7,8 @@
 #include "DynamicRupture/Output/Geometry.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include "IO/Instance/Mesh/VtkHdf.hpp"
+#include "IO/Writer/Writer.hpp"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -19,14 +21,13 @@
 #include "Kernels/precision.hpp"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
-#include "IO/Instance/Mesh/VtkHdf.hpp"
-#include "IO/Writer/Writer.hpp"
-#include "Initializer/Parameters/OutputParameters.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <init.h>
 #include <iomanip>
 #include <ios>
 #include <memory>

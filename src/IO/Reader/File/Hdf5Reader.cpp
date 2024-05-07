@@ -1,15 +1,24 @@
 #include "Hdf5Reader.hpp"
 
+#include <H5Apublic.h>
 #include <H5Dpublic.h>
+#include <H5FDmpi.h>
+#include <H5FDmpio.h>
 #include <H5Fpublic.h>
+#include <H5Gpublic.h>
+#include <H5Ipublic.h>
+#include <H5Ppublic.h>
 #include <H5Spublic.h>
+#include <H5public.h>
 #include <H5version.h>
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/HDF5Type.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
-#include <hdf5.h>
+#include <algorithm>
+#include <cstddef>
 #include <memory>
+#include <mpi.h>
 #include <stack>
 #include <string>
 #include <vector>
@@ -28,26 +37,26 @@ static hid_t _eh(hid_t data) {
 namespace seissol::io::reader::file {
 Hdf5Reader::Hdf5Reader(MPI_Comm comm) : comm(comm) {}
 void Hdf5Reader::openFile(const std::string& name) {
-  hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
+  const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
 #ifdef H5F_LIBVER_V18
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_V18, H5F_LIBVER_V18));
 #else
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
   _eh(H5Pset_fapl_mpio(h5falist, comm, MPI_INFO_NULL));
-  hid_t file = _eh(H5Fopen(name.c_str(), H5F_ACC_RDONLY, h5falist));
+  const hid_t file = _eh(H5Fopen(name.c_str(), H5F_ACC_RDONLY, h5falist));
   _eh(H5Pclose(h5falist));
 
   handles.push(file);
 }
 void Hdf5Reader::openGroup(const std::string& name) {
-  hid_t handle = _eh(H5Gopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t handle = _eh(H5Gopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
-  hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  hid_t attrspace = _eh(H5Aget_space(attr));
-  hid_t rank = _eh(H5Sget_simple_extent_ndims(attrspace));
+  const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t attrspace = _eh(H5Aget_space(attr));
+  const hid_t rank = _eh(H5Sget_simple_extent_ndims(attrspace));
   std::vector<hsize_t> dims(rank);
   _eh(H5Sget_simple_extent_dims(attrspace, dims.data(), nullptr));
   _eh(H5Sclose(attrspace));
@@ -57,14 +66,14 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
 void Hdf5Reader::readAttributeRaw(void* data,
                                   const std::string& name,
                                   std::shared_ptr<datatype::Datatype> type) {
-  hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
 }
 std::size_t Hdf5Reader::dataCount(const std::string& name) {
-  hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  hid_t dataspace = _eh(H5Dget_space(dataset));
-  hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
+  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataspace = _eh(H5Dget_space(dataset));
+  const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
   std::vector<hsize_t> dims(rank);
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
   _eh(H5Sclose(dataspace));
@@ -80,7 +89,7 @@ void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
                              std::size_t count,
                              std::shared_ptr<datatype::Datatype> targetType) {
-  hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
+  const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
 #ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
@@ -102,12 +111,12 @@ void Hdf5Reader::readDataRaw(void* data,
              MPI_SUM,
              comm);
 
-  hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  hid_t dataspace = _eh(H5Dget_space(dataset));
+  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataspace = _eh(H5Dget_space(dataset));
 
-  hid_t datatype = datatype::convertToHdf5(targetType);
+  const hid_t datatype = datatype::convertToHdf5(targetType);
 
-  hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
+  const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
   std::vector<hsize_t> dims(rank);
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
 
@@ -122,7 +131,7 @@ void Hdf5Reader::readDataRaw(void* data,
 
   filepos[0] = start;
 
-  hid_t memspace = _eh(H5Screate_simple(rank, readcount.data(), nullptr));
+  const hid_t memspace = _eh(H5Screate_simple(rank, readcount.data(), nullptr));
 
   std::size_t read = 0;
 

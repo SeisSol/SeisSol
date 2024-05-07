@@ -1,10 +1,10 @@
+#include "InitIO.hpp"
 #include "Common/filesystem.h"
 #include "DynamicRupture/Misc.h"
-#include "Init.hpp"
-#include "InitIO.hpp"
-#include "Initializer/BasicTypedefs.hpp"
 #include "IO/Instance/Mesh/VtkHdf.hpp"
 #include "IO/Writer/Writer.hpp"
+#include "Init.hpp"
+#include "Initializer/BasicTypedefs.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "SeisSol.h"
 #include <cstring>

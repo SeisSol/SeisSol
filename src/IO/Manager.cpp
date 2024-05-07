@@ -1,10 +1,7 @@
 #include "Manager.hpp"
 
 #include "Writer/Module/WriterModule.hpp"
-#include <IO/Instance/Checkpoint/CheckpointManager.hpp>
 #include <IO/Writer/Writer.hpp>
-#include <Modules/Module.h>
-#include <Modules/Modules.h>
 #include <SeisSol.h>
 #include <memory>
 #include <vector>

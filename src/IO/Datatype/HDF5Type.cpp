@@ -1,8 +1,12 @@
 #include "HDF5Type.hpp"
 
 #include "Datatype.hpp"
+#include <H5Ipublic.h>
 #include <H5Tpublic.h>
-#include <hdf5.h>
+#include <H5public.h>
+#include <H5version.h>
+#include <memory>
+#include <vector>
 
 #include "utils/logger.h"
 
@@ -19,7 +23,7 @@ static hid_t convertOpaque(const seissol::io::datatype::Datatype& datatype) {
 }
 
 static hid_t convertString(const seissol::io::datatype::Datatype& datatype) {
-  hid_t handle = _eh(H5Tcopy(H5T_C_S1));
+  const hid_t handle = _eh(H5Tcopy(H5T_C_S1));
   _eh(H5Tset_size(handle, datatype.size()));
   return handle;
 }
@@ -31,7 +35,7 @@ static hid_t convertArray(const seissol::io::datatype::ArrayDatatype& datatype) 
 }
 
 static hid_t convertStruct(const seissol::io::datatype::StructDatatype& datatype) {
-  hid_t handle = _eh(H5Tcreate(H5T_COMPOUND, datatype.size()));
+  const hid_t handle = _eh(H5Tcreate(H5T_COMPOUND, datatype.size()));
   for (const auto& member : datatype.members()) {
     _eh(H5Tinsert(handle,
                   member.name.c_str(),
@@ -52,7 +56,7 @@ static hid_t convertInteger(const seissol::io::datatype::IntegerDatatype& dataty
   } else if (datatype.size() == 8) {
     return datatype.sign() ? H5T_STD_I64LE : H5T_STD_U64LE;
   } else {
-    hid_t copy = _eh(H5Tcopy(H5T_STD_I32LE));
+    const hid_t copy = _eh(H5Tcopy(H5T_STD_I32LE));
     _eh(H5Tset_sign(copy, datatype.sign() ? H5T_SGN_2 : H5T_SGN_NONE));
     _eh(H5Tset_size(copy, datatype.size()));
     return copy;

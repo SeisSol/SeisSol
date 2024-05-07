@@ -1,12 +1,13 @@
 #include "Datatype.hpp"
 
+#include <algorithm>
 #include <cassert>
-#include <exception>
+#include <cstddef>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
-#include <yaml-cpp/yaml.h>
+#include <yaml-cpp/node/node.h>
 
 namespace {
 static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>

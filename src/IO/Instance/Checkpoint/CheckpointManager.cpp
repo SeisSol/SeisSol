@@ -1,18 +1,23 @@
 #include "CheckpointManager.hpp"
 
-#include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
 #include <IO/Reader/Distribution.hpp>
 #include <IO/Reader/File/Hdf5Reader.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
+#include <IO/Writer/Instructions/Hdf5.hpp>
 #include <IO/Writer/Writer.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Layer.hpp>
+#include <cassert>
+#include <cstddef>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <mpi.h>
 #include <string>
 #include <unordered_map>
-
-#include "utils/logger.h"
+#include <vector>
 
 namespace seissol::io::instance::checkpoint {
 
@@ -69,7 +74,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     distributor.setup(groupIds, ckpTree.ids);
     for (auto& variable : ckpTree.variables) {
       const std::size_t count = reader.dataCount(variable.name);
-      std::size_t currsize = count * variable.datatype->size();
+      const std::size_t currsize = count * variable.datatype->size();
       if (currsize > storesize) {
         datastore = std::realloc(datastore, currsize);
         storesize = currsize;
@@ -80,7 +85,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
 
     reader.closeGroup();
   }
-  double time = reader.readAttributeScalar<double>("__time");
+  const double time = reader.readAttributeScalar<double>("__time");
   reader.closeGroup();
   reader.closeFile();
 

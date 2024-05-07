@@ -1,9 +1,12 @@
 #include "MPIType.hpp"
 #include <IO/Datatype/Datatype.hpp>
-#include <mpi.h>
-#include <unordered_map>
 #include <iosfwd>
-#include <yaml-cpp/yaml.h>
+#include <memory>
+#include <mpi.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <yaml-cpp/emitter.h>
 
 namespace {
 static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;

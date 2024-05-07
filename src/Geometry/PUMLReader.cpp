@@ -247,7 +247,7 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
   auto nodeWeights = std::vector<double>(MPI::mpi.size());
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
   double sum = 0.0;
-  for (auto const& w : nodeWeights) {
+  for (const auto& w : nodeWeights) {
     sum += w;
   }
   for (auto& w : nodeWeights) {

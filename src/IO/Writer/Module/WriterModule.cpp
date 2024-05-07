@@ -1,8 +1,14 @@
 #include "WriterModule.hpp"
 #include "utils/logger.h"
 #include <IO/Writer/Instructions/Data.hpp>
-#include <Modules/Module.h>
+#include <IO/Writer/Module/AsyncWriter.hpp>
+#include <IO/Writer/Writer.hpp>
 #include <Modules/Modules.h>
+#include <Parallel/Pin.h>
+#include <cassert>
+#include <cstring>
+#include <mpi.h>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -146,7 +152,7 @@ void WriterModule::syncPoint(double time) {
   sendBuffer(planId, serialized.size());
 
   // send the plan data
-  for (int id : idsToSend) {
+  for (const int id : idsToSend) {
     sendBuffer(id);
   }
 

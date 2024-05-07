@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/logger.h"
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
@@ -11,7 +12,6 @@
 #include <Initializer/MemoryManager.h>
 #include <functional>
 #include <memory>
-#include "utils/logger.h"
 
 namespace seissol::io::instance::mesh {
 class VtkHdfWriter {

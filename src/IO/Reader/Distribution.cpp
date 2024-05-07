@@ -1,11 +1,14 @@
 #include "Distribution.hpp"
 
+#include <IO/Datatype/Inference.hpp>
+#include <IO/Datatype/MPIType.hpp>
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <mpi.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -162,10 +165,10 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   int commsize;
   int commrank;
 
-  constexpr int TagToIntermediateSource = 20;
-  constexpr int TagToIntermediateTarget = 21;
-  constexpr int TagFromIntermediateSource = 22;
-  constexpr int TagFromIntermediateTarget = 23;
+  constexpr int tagToIntermediateSource = 20;
+  constexpr int tagToIntermediateTarget = 21;
+  constexpr int tagFromIntermediateSource = 22;
+  constexpr int tagFromIntermediateTarget = 23;
 
   MPI_Comm_size(comm, &commsize);
   MPI_Comm_rank(comm, &commrank);
@@ -197,9 +200,9 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto intermediateSource =
-      distributeIds<std::size_t>(source, comm, sizetype, sizetype, TagToIntermediateSource);
+      distributeIds<std::size_t>(source, comm, sizetype, sizetype, tagToIntermediateSource);
   auto intermediateTarget =
-      distributeIds<std::size_t>(target, comm, sizetype, sizetype, TagToIntermediateTarget);
+      distributeIds<std::size_t>(target, comm, sizetype, sizetype, tagToIntermediateTarget);
 
   auto sendResult = matchRanks(intermediateSource,
                                intermediateTarget,
@@ -207,7 +210,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                                comm,
                                sizetype,
                                pairtype,
-                               TagFromIntermediateSource);
+                               tagFromIntermediateSource);
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
@@ -217,13 +220,13 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                                comm,
                                sizetype,
                                pairtype,
-                               TagFromIntermediateTarget);
+                               tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 }
 
 void Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
-  constexpr int Tag = 30;
+  constexpr int tag = 30;
 
   int commsize;
   int commrank;
@@ -233,7 +236,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
 
   int typesizeInt;
   MPI_Type_size(datatype, &typesizeInt);
-  std::size_t typesize = typesizeInt;
+  const std::size_t typesize = typesizeInt;
 
   std::vector<MPI_Request> requests(static_cast<std::size_t>(commsize) * 2, MPI_REQUEST_NULL);
 
@@ -253,7 +256,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
                 sendOffsets[i + 1] - sendOffsets[i],
                 datatype,
                 i,
-                Tag,
+                tag,
                 comm,
                 &requests[i]);
     }
@@ -262,7 +265,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
                 recvOffsets[i + 1] - recvOffsets[i],
                 datatype,
                 i,
-                Tag,
+                tag,
                 comm,
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }

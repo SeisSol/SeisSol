@@ -1,4 +1,14 @@
 #include "Data.hpp"
+#include <IO/Datatype/Datatype.hpp>
+#include <algorithm>
+#include <async/ExecInfo.h>
+#include <cstddef>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <vector>
+#include <yaml-cpp/binary.h>
+#include <yaml-cpp/node/node.h>
 
 namespace seissol::io::writer {
 
@@ -22,7 +32,7 @@ WriteInline::WriteInline(const void* dataPtr,
 WriteInline::WriteInline(YAML::Node node)
     : DataSource(datatype::Datatype::deserialize(node["datatype"]),
                  node["shape"].as<std::vector<std::size_t>>()) {
-  YAML::Binary rawData = node["data"].as<YAML::Binary>();
+  const YAML::Binary rawData = node["data"].as<YAML::Binary>();
   data.resize(rawData.size());
   std::copy_n(rawData.data(), rawData.size(), data.begin());
 }

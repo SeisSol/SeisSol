@@ -1,7 +1,7 @@
 #pragma once
 
-#include "async/Module.h"
 #include "async/ExecInfo.h"
+#include "async/Module.h"
 #include <IO/Writer/Writer.hpp>
 
 namespace seissol::io::writer::module {
@@ -18,7 +18,7 @@ class AsyncWriter {
   void finalize();
 
   private:
-  static constexpr int PlanId = 0;
+  static constexpr int planId = 0;
   bool printPlan{true};
   seissol::io::writer::Writer writer;
   std::optional<seissol::io::writer::WriteInstance> instance;
