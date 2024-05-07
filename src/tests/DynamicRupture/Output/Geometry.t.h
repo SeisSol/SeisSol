@@ -1,15 +1,15 @@
 #ifndef SEISSOL_GEOMETRY_T_H
 #define SEISSOL_GEOMETRY_T_H
 
-#include "DynamicRupture/Output/OutputAux.hpp"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Output/OutputAux.hpp"
+#include "Geometry/MeshReader.h"
+#include "Initializer/PointMapper.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Transformation.h"
-#include "Initializer/PointMapper.h"
-#include "Geometry/MeshReader.h"
 #include "tests/Geometry/MockReader.h"
-#include <iostream>
 #include <Eigen/Dense>
+#include <iostream>
 #include <tests/TestHelper.h>
 
 namespace seissol::unit_test::dr {

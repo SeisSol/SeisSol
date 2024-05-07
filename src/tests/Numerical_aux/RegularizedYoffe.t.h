@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include <Numerical_aux/RegularizedYoffe.h>
+#include "Numerical_aux/RegularizedYoffe.h"
 #include <cassert>
 
 namespace seissol::unit_test {

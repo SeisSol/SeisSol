@@ -1,5 +1,5 @@
-#include <Parallel/MPI.h>
-#include <Solver/time_stepping/DirectGhostTimeCluster.h>
+#include "Parallel/MPI.h"
+#include "Solver/time_stepping/DirectGhostTimeCluster.h"
 
 
 namespace seissol::time_stepping {

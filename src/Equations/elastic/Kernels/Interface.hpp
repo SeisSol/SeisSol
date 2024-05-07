@@ -40,8 +40,8 @@
 #ifndef KERNELS_INTERFACE_H_
 #define KERNELS_INTERFACE_H_
 
-#include <Initializer/tree/InterfaceHelper.hpp>
-#include <Initializer/LTS.h>
+#include "Initializer/tree/InterfaceHelper.hpp"
+#include "Initializer/LTS.h"
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {

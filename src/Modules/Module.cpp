@@ -12,7 +12,7 @@ Module::Module()
 
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
   if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
-    int const rank = seissol::MPI::mpi.rank();
+    const int rank = seissol::MPI::mpi.rank();
     logInfo(rank) << "Ignoring duplicate synchronisation point at time" << currentTime
                   << "; the last sync point was at " << lastSyncPoint;
   } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint) < timeTolerance) {

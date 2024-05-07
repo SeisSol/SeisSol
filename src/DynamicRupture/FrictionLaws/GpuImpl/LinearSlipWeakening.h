@@ -172,10 +172,10 @@ class LinearSlipWeakeningLaw
         specialization(drParameters){};
 
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                      seissol::initializer::DynamicRupture const* const dynRup,
+                                      const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -245,7 +245,7 @@ class LinearSlipWeakeningLaw
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        real resampledSlipRate = SpecializationT::resampleSlipRate(
+        const real resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
         // integrate slip rate to get slip = state variable
@@ -279,14 +279,14 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
+  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  static real resampleSlipRate(real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+  static real resampleSlipRate(const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
                                size_t pointIndex) {
 
     // perform matrix vector multiplication
@@ -328,18 +328,18 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters){};
+  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 
-  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+  static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
@@ -389,14 +389,14 @@ class BiMaterialFault {
 
 class TPApprox {
   public:
-  TPApprox(seissol::initializer::parameters::DRParameters* parameters){};
+  TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+  static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };

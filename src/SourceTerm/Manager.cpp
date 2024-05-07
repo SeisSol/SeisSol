@@ -72,26 +72,25 @@
 
 #include "Parallel/MPI.h"
 
-#include "Manager.h"
 #include "FSRMReader.h"
+#include "Manager.h"
 #include "NRFReader.h"
-#include "PointSource.h"
 #include "Numerical_aux/Transformation.h"
-#include "generated_code/kernel.h"
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
 #include "Parallel/MPI.h"
+#include "PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 
-#include <Initializer/PointMapper.h>
-#include <Kernels/PointSourceClusterOnHost.h>
-#include <utils/logger.h>
-#include <string>
+#include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceClusterOnHost.h"
 #include <cstring>
+#include <string>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <Kernels/PointSourceClusterOnDevice.h>
-#include <device.h>
 #include "Device/UsmAllocator.h"
+#include "Kernels/PointSourceClusterOnDevice.h"
 #endif
 
 /**
@@ -99,20 +98,20 @@
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void seissol::sourceterm::computeMInvJInvPhisAtSources(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>& mInvJInvPhisAtSources,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh) {
-  auto const& elements = mesh.getElements();
-  auto const& vertices = mesh.getVertices();
+    const seissol::geometry::MeshReader& mesh) {
+  const auto& elements = mesh.getElements();
+  const auto& vertices = mesh.getVertices();
 
-  double const* coords[4];
+  const double* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
-  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+  const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
-  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);
@@ -127,17 +126,17 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(
 }
 
 void seissol::sourceterm::transformNRFSourceToInternalSource(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh,
-    Subfault const& subfault,
-    Offsets const& offsets,
-    Offsets const& nextOffsets,
-    std::array<std::vector<double>, 3> const& sliprates,
+    const seissol::geometry::MeshReader& mesh,
+    const Subfault& subfault,
+    const Offsets& offsets,
+    const Offsets& nextOffsets,
+    const std::array<std::vector<double>, 3>& sliprates,
     seissol::model::Material* material,
     PointSources& pointSources,
     unsigned index,
-    AllocatorT const& alloc) {
+    const AllocatorT& alloc) {
   computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   auto& faultBasis = pointSources.tensor[index];
@@ -183,7 +182,7 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(const unsigned* mes
                                                              seissol::initializer::LTSTree* ltsTree,
                                                              seissol::initializer::LTS* lts,
                                                              seissol::initializer::Lut* ltsLut,
-                                                             AllocatorT const& alloc)
+                                                             const AllocatorT& alloc)
     -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
   auto layerClusterToPointSources =
       std::unordered_map<LayerType, std::vector<std::vector<unsigned>>>{};
@@ -265,8 +264,8 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(const unsigned* mes
 
 void seissol::sourceterm::Manager::loadSources(
     seissol::initializer::parameters::PointSourceType sourceType,
-    char const* fileName,
-    seissol::geometry::MeshReader const& mesh,
+    const char* fileName,
+    const seissol::geometry::MeshReader& mesh,
     seissol::initializer::LTSTree* ltsTree,
     seissol::initializer::LTS* lts,
     seissol::initializer::Lut* ltsLut,
@@ -301,9 +300,8 @@ void seissol::sourceterm::Manager::loadSources(
   timeManager.setPointSourcesForClusters(std::move(sourceClusters));
 }
 
-auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping,
-                                                          PointSources sources)
-    -> std::unique_ptr<kernels::PointSourceCluster> {
+auto seissol::sourceterm::Manager::makePointSourceCluster(
+    ClusterMapping mapping, PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster> {
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
   using Impl = kernels::PointSourceClusterOnDevice;
 #else
@@ -312,12 +310,12 @@ auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping
   return std::make_unique<Impl>(std::move(mapping), std::move(sources));
 }
 
-auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
-                                                       seissol::geometry::MeshReader const& mesh,
+auto seissol::sourceterm::Manager::loadSourcesFromFSRM(const char* fileName,
+                                                       const seissol::geometry::MeshReader& mesh,
                                                        seissol::initializer::LTSTree* ltsTree,
                                                        seissol::initializer::LTS* lts,
                                                        seissol::initializer::Lut* ltsLut,
-                                                       AllocatorT const& alloc)
+                                                       const AllocatorT& alloc)
     -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
@@ -421,12 +419,12 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
 
 // TODO Add support for passive netCDF
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
-                                                      seissol::geometry::MeshReader const& mesh,
+auto seissol::sourceterm::Manager::loadSourcesFromNRF(const char* fileName,
+                                                      const seissol::geometry::MeshReader& mesh,
                                                       seissol::initializer::LTSTree* ltsTree,
                                                       seissol::initializer::LTS* lts,
                                                       seissol::initializer::Lut* ltsLut,
-                                                      AllocatorT const& alloc)
+                                                      const AllocatorT& alloc)
     -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> {
   int rank = seissol::MPI::mpi.rank();
 
