@@ -1,5 +1,7 @@
 import tensorforge.functions as forge
+from kernelforge.common.basic_types import FloatingPointType
 from yateto.type import Tensor, Scalar
+import numpy as np
 
 def smoothStep(currentTime, t0):
     tau = currentTime - t0
@@ -8,14 +10,41 @@ def smoothStep(currentTime, t0):
 def smoothStepIncrement(currentTime, dt, t0):
     return smoothStep(currentTime, t0) - smoothStep(currentTime - dt, t0)
 
-class FrictionLawBase:
+class ScalarBase:
     def __init__(self, aderdg, numberOfPoints):
         self.numberOfPoints = numberOfPoints
-        self.plusQ = self.drvarcoll('plusQ', (aderdg.order, aderdg.numberOfQuantities(),))
-        self.minusQ = self.drvarcoll('minusQ', (aderdg.order, aderdg.numberOfQuantities(),))
-        self.plusImposedState = self.drvarcoll('plusImposedState', (aderdg.numberOfQuantities(),))
-        self.minusImposedState = self.drvarcoll('minusImposedState', (aderdg.numberOfQuantities(),))
         self.aderdg = aderdg
+
+    def drvarcell(self, name, subshape = ()):
+        tensor = Tensor(name, tuple(list(subshape) + []))
+        spareIndices = 'ZYXVUW'
+        def handleDim(curr, indices, dimid):
+            if dimid == len(subshape):
+                return forge.tensor(curr[indices])
+            else:
+                return [handleDim(curr.slice(dimid, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
+        return handleDim(tensor, '', 0)
+
+    def drvar(self, name, subshape = ()):
+        tensor = Tensor(name, tuple(list(subshape) + [self.numberOfPoints]))
+        spareIndices = 'ZYXVUW'
+        def handleDim(curr, indices, dimid):
+            if dimid == len(subshape):
+                return forge.tensor(curr[indices + 'P'])
+            else:
+                return [handleDim(curr.slice(dimid, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
+        return handleDim(tensor, '', 0)
+    
+    def drscalar(self, name):
+        return forge.scalar(Scalar(name))
+
+class FrictionLawBase(ScalarBase):
+    def __init__(self, aderdg, numberOfPoints):
+        super().__init__(aderdg, numberOfPoints)
+        self.plusQ = self.drvar('plusQ', (aderdg.order, aderdg.numberOfQuantities(),))
+        self.minusQ = self.drvar('minusQ', (aderdg.order, aderdg.numberOfQuantities(),))
+        self.plusImposedState = self.drvar('plusImposedState', (aderdg.numberOfQuantities(),))
+        self.minusImposedState = self.drvar('minusImposedState', (aderdg.numberOfQuantities(),))
 
         self.fullUpdateTime = self.drscalar('fullUpdateTime')
         self.t0 = self.drscalar('t0')
@@ -62,33 +91,23 @@ class FrictionLawBase:
         self.slipRate2 = self.drvar('slipRate2')
         self.strength = self.drvar('strength')
 
-        self.faultStressesNormalStress = self.drvarcoll('faultStressesNormalStress', (aderdg.order,))
-        self.faultStressesTraction1 = self.drvarcoll('faultStressesTraction1', (aderdg.order,))
-        self.faultStressesTraction2 = self.drvarcoll('faultStressesTraction2', (aderdg.order,))
+        self.faultStressesNormalStress = self.drvar('faultStressesNormalStress', (aderdg.order,))
+        self.faultStressesTraction1 = self.drvar('faultStressesTraction1', (aderdg.order,))
+        self.faultStressesTraction2 = self.drvar('faultStressesTraction2', (aderdg.order,))
 
-        self.tractionResultsTraction1 = self.drvarcoll('tractionResultsTraction1', (aderdg.order,))
-        self.tractionResultsTraction2 = self.drvarcoll('tractionResultsTraction2', (aderdg.order,))
+        self.tractionResultsTraction1 = self.drvar('tractionResultsTraction1', (aderdg.order,))
+        self.tractionResultsTraction2 = self.drvar('tractionResultsTraction2', (aderdg.order,))
 
         self.ruptureTime = self.drvar('ruptureTime')
         self.ruptureTimePending = self.drvar('ruptureTimePending')
 
         self.terminatorSlipRateThreshold = self.drscalar('terminatorSlipRateThreshold')
 
-    def drvar(self, name):
-        return forge.tensor(Tensor(name, tuple([self.numberOfPoints]))['P']) # TODO: align stride
-    
-    def drvarcoll(self, name, subshape):
-        tensor = Tensor(name, tuple(list(subshape) + [self.numberOfPoints]))
-        spareIndices = 'ZYXVUW'
-        def handleDim(curr, indices, dimid):
-            if dimid == len(subshape):
-                return forge.tensor(curr[indices + 'P'])
-            else:
-                return [handleDim(curr.slice(dimid, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
-        return handleDim(tensor, '', 0)
-    
-    def drscalar(self, name):
-        return forge.scalar(Scalar(name))
+        self.energyDataSlip = self.drvar('energyDataSlip', (3,))
+
+        self.spaceWeights = self.drvar('spaceWeights')
+
+        self.doubledSurfaceArea = self.drvarcell('doubledSurfaceArea')
     
     def generate(self, routineName, generator):
         routine = []
@@ -125,7 +144,7 @@ class FrictionLawBase:
     def saveRuptureFrontOutput(self, routine):
         ruptureFrontThreshold = 0.001
         routine += [
-            forge.conditional(self.ruptureTimePending and abs(self.slipRateMagnitude) >= ruptureFrontThreshold, [
+            forge.conditional(self.ruptureTimePending & (abs(self.slipRateMagnitude) >= ruptureFrontThreshold), [
                 forge.assign(self.ruptureTime, self.fullUpdateTime),
                 forge.assign(self.ruptureTimePending, False)
             ])
@@ -139,8 +158,14 @@ class FrictionLawBase:
     def postcomputeImposedStateFromNewStress(self, routine):
         U,V,W,N,T1,T2 = 6,7,8,0,3,5
         # TODO: init to zero
-        minusImposedState = [0] * self.aderdg.numberOfQuantities()
-        plusImposedState = [0] * self.aderdg.numberOfQuantities()
+        minusImposedState = [forge.TempVar()] * self.aderdg.numberOfQuantities()
+        plusImposedState = [forge.TempVar()] * self.aderdg.numberOfQuantities()
+        routine += [
+            minusImposedState[i] for i in range(self.aderdg.numberOfQuantities())
+        ]
+        routine += [
+            plusImposedState[i] for i in range(self.aderdg.numberOfQuantities())
+        ]
         for i in range(self.aderdg.order):
             minusImposedState[N] = minusImposedState[N] + self.timeWeights[i] * self.faultStressesNormalStress[i]
             minusImposedState[T1] = minusImposedState[T1] + self.timeWeights[i] * self.tractionResultsTraction1[i]
@@ -171,13 +196,13 @@ class FrictionLawBase:
         ]
 
     def computeFrictionEnergy(self, routine):
-        """
         U,V,W,N,T1,T2 = 6,7,8,0,3,5
         accumulatedSlip = self.accumulatedSlip
         frictionalEnergy = self.frictionalEnergy
         bPlus = self.etaS * self.invZs
         bMinus = self.etaS * self.invZsNeig
-        energyDataSlip = 0
+        energyDataSlip = [forge.TempVar() for _ in range(3)]
+        routine += [forge.assign(energyDataSlip[i], 0) for i in range(3)]
         for i in range(self.aderdg.order):
             interpolatedSlipRate1 = self.minusQ[i][U] - self.plusQ[i][U]
             interpolatedSlipRate2 = self.minusQ[i][V] - self.plusQ[i][V]
@@ -192,13 +217,15 @@ class FrictionLawBase:
             interpolatedTraction12 = bPlus * self.minusQ[i][T1] + bMinus * self.plusQ[i][T1]
             interpolatedTraction13 = bPlus * self.minusQ[i][T2] + bMinus * self.plusQ[i][T2]
 
-            weight = -self.timeWeights[i] * self.spaceWeights * doubledSurfaceArea
+            weight = -self.timeWeights[i] * self.spaceWeights * self.doubledSurfaceArea
             frictionalEnergy = frictionalEnergy + weight * (interpolatedTraction12 * interpolatedSlipRate2 + interpolatedTraction13 * interpolatedSlipRate3)
         routine += [
-            self.assign(self.accumulatedSlip, accumulatedSlip),
-            self.assign(self.frictionalEnergy, frictionalEnergy)
+            forge.assign(self.accumulatedSlip, accumulatedSlip),
+            forge.assign(self.frictionalEnergy, frictionalEnergy),
+            forge.assign(self.energyDataSlip[0], energyDataSlip[0]),
+            forge.assign(self.energyDataSlip[1], energyDataSlip[1]),
+            forge.assign(self.energyDataSlip[2], energyDataSlip[2]),
         ]
-        """
 
     def updateTimeSinceSlipRateBelowThreshold(self, routine):
         forge.assign(self.timeSinceSlipRateBelowThreshold, forge.ternary(
@@ -246,7 +273,7 @@ class LinearSlipWeakeningBase(FrictionLawBase):
     
     def saveDynamicStressOutput(self, routine):
         routine += [
-            forge.conditional(self.dynStressTimePending and abs(self.accumulatedSlipMagnitude) >= self.dC, [
+            forge.conditional(self.dynStressTimePending & (abs(self.accumulatedSlipMagnitude) >= self.dC), [
                 forge.assign(self.dynStressTime, self.fullUpdateTime),
                 forge.assign(self.dynStressTimePending, False)
             ])
@@ -255,9 +282,8 @@ class LinearSlipWeakeningBase(FrictionLawBase):
     def calcStrengthHook(self, routine, i):
         totalNormalStress = self.initialStressInFaultCS[0] + self.faultStressesNormalStress[i]
         strength = -self.cohesion - self.mu * forge.min(totalNormalStress, 0)
-        # only FL=16 for now
         routine += [
-            forge.assign(self.strength, strength)
+            forge.assign(self.strength, self.strengthHook(routine, strength))
         ]
 
     def calcSlipRateAndTraction(self, routine, i):
@@ -289,7 +315,7 @@ class LinearSlipWeakeningBase(FrictionLawBase):
     def calcStateVariableHook(self, routine, i):
         # resampledSlipRate = self.resampleMatrix @ self.slipRateMagnitude
         # self.accumulatedSlipMagnitude.pretensor <= self.accumulatedSlipMagnitude.pretensor + self.resampleMatrix['PS'] * self.slipRateMagnitude.pretensor.tensor['S']
-        resampledSlipRate = self.slipRateMagnitude
+        resampledSlipRate = self.resampleSlipRate(routine)
         accumulatedSlipMagnitude = self.accumulatedSlipMagnitude + resampledSlipRate * self.dt[i]
         localStateVariable = forge.min(abs(accumulatedSlipMagnitude) / self.dC, 1)
         tn = self.fullUpdateTime + self.dt[i]
@@ -312,47 +338,80 @@ class LinearSlipWeakeningBase(FrictionLawBase):
 
 
 class LinearSlipWeakening(LinearSlipWeakeningBase):
-    def strengthHook(self, routine):
-        pass
+    def strengthHook(self, routine, strength):
+        return strength
 
     def stateVariableHook(self, routine):
-        pass
+        return forge.min(abs(accumulatedSlipMagnitude) / self.dC, 1)
 
     def resampleSlipRate(self, routine):
-        pass
+        # TODO: false
+        return self.slipRateMagnitude
 
 class BiMaterialFault(LinearSlipWeakeningBase):
-    def strengthHook(self, routine):
-        pass
+    def __init__(self, aderdg, numberOfPoints):
+        super().__init__(aderdg, numberOfPoints)
+
+        self.regularizedStrength = self.drvar('regularisedStrength')
+
+        self.vStar = self.drscalar('vStar')
+        self.prakashLength = self.drscalar('prakashLength')
+
+    def strengthHook(self, routine, strength):
+        expterm = forge.exp(-(forge.max(0, self.slipRateMagnitude) + self.vStar) * self.dt[i] / self.prakashLength)
+        newStrength = self.regularizedStrength * expterm + strength * (1 - expterm)
+
+        routine += [
+            forge.assign(self.regularizedStrength, newStrength)
+        ]
+        return newStrength
 
     def stateVariableHook(self, routine):
-        pass
+        return forge.min(abs(accumulatedSlipMagnitude) / self.dC, 1)
 
     def resampleSlipRate(self, routine):
-        pass
+        return self.slipRateMagnitude
 
 class TPApprox(LinearSlipWeakeningBase):
-    def strengthHook(self, routine):
-        pass
+    def __init__(self, aderdg, numberOfPoints):
+        super().__init__(aderdg, numberOfPoints)
+
+        self.tpProxyExponent = self.drscalar('tpProxyExponent')
+
+    def strengthHook(self, routine, strength):
+        return strength
 
     def stateVariableHook(self, routine):
-        pass
+        factor = (1.0 + abs(self.accumulatedSlipMagnitude) / self.dC)
+        return 1.0 - forge.pow(factor, -tpProxyExponent)
 
     def resampleSlipRate(self, routine):
-        pass
+        return self.slipRateMagnitude
 
-"""
 class RateAndState(FrictionLawBase):
     def __init__(self, aderdg, numberOfPoints, tpmethod):
         super().__init__(aderdg, numberOfPoints)
         self.a = self.drvar('a')
         self.sl0 = self.drvar('sl0')
+
+        self.localSlipRate = self.drvar('localSlipRate')
+
         self.newtonTolerance = self.drscalar('newtonTolerance')
         self.maxNumberSlipRateUpdates = self.drscalar('maxNumberSlipRateUpdates')
         self.stateVariableBuffer = forge.temp()
+        self.stateVarReference = forge.temp()
         self.tpmethod = tpmethod
 
+        self.rsSr0 = self.drscalar('rsSr0')
+        self.rsF0 = self.drscalar('rsF0')
+        self.rsB = self.drscalar('rsB')
+
+        self.muW = self.drvar('muW')
+
         self.initialVariablesNormalStress = self.drvar('initialVariablesNormalStress')
+        self.absoluteShearStress = self.drvar('absoluteShearStress')
+        self.absoluteTraction = self.drvar('absoluteTraction')
+        self.localRuptureTime = self.drvar('localRuptureTime')
 
     def preHook(self, routine):
         routine += [
@@ -360,11 +419,23 @@ class RateAndState(FrictionLawBase):
         ]
     
     def postHook(self, routine):
-        pass
+        routine += [
+            forge.assign(self.stateVariable, self.stateVariableBuffer)
+        ]
 
     def calcInitialVariables(self, routine, i):
+        almostZero = 1e-30 # TODO: adjust
+
+        totalTraction1 = self.initialStressInFaultCS[3] + self.faultStressesTraction1[i]
+        totalTraction2 = self.initialStressInFaultCS[5] + self.faultStressesTraction2[i]
+        absoluteShearTraction = forge.sqrt(totalTraction1**2 + totalTraction2**2)
+        localSlipRateMagnitude = forge.sqrt(self.slipRate1**2 + self.slipRate2**2)
+        localSlipRateMagnitude = forge.max(localSlipRateMagnitude, almostZero)
+
         routine += [
-            
+            forge.assign(self.stateVarReference, self.stateVariableBuffer),
+            forge.assign(self.slipRateMagnitude, localSlipRateMagnitude),
+            forge.assign(self.localSlipRate, localSlipRateMagnitude)
         ]
     
     def updateStateVariableIterative(self, routine, i):
@@ -377,13 +448,13 @@ class RateAndState(FrictionLawBase):
 
         almostZero = 1e-30 # TODO: adjust
 
-        muF = self.updateMu(routine)
-        dMuF = self.updateMuDerivative(routine)
-        g = -self.invEtaS * (abs(self.normalStress) * muF - self.absoluteShearStress) - slipRateTest
-        dG = -self.invEtaS * (abs(self.normalStress) * dMuF) - 1.0
+        muF = self.updateMu(slipRateTest, self.localSlipRate)
+        dMuF = self.updateMuDerivative(slipRateTest, self.localSlipRate)
+        g = -self.invEtaS * (abs(self.initialVariablesNormalStress) * muF - self.absoluteShearStress) - slipRateTest
+        dG = -self.invEtaS * (abs(self.initialVariablesNormalStress) * dMuF) - 1.0
         slipRateTestNew = forge.max(almostZero, slipRateTest - (g / dG))
         iteration = forge.loop(
-            abs(g) >= self.newtonTolerance and iterator < self.maxNumberSlipRateUpdates,
+            (abs(g) >= self.newtonTolerance) & (iterator < self.maxNumberSlipRateUpdates),
             [
                 forge.assign(slipRateTest, slipRateTestNew),
                 forge.assign(iterator, iterator + 1)
@@ -400,26 +471,63 @@ class RateAndState(FrictionLawBase):
 
     def updateNormalStress(self, routine, i):
         routine += [
-            forge.assign(self.initialVariablesNormalStress, forge.min(0, self.faultStressesNormalStress + self.initialStressInFaultCS[0] - self.tpmethod.calcFluidPressure()))
+            forge.assign(self.initialVariablesNormalStress, forge.min(0, self.faultStressesNormalStress[i] + self.initialStressInFaultCS[0] - self.tpmethod.getFluidPressure()))
         ]
 
     def calcSlipRateAndTraction(self, routine, i):
-        pass
+        mu = self.updateMu(self.slipRateMagnitude, self.stateVariableBuffer)
+        strength = mu * self.faultStressesNormalStress[i]
+
+        totalTraction1 = self.initialStressInFaultCS[3] + self.faultStressesTraction1[i]
+        totalTraction2 = self.initialStressInFaultCS[5] + self.faultStressesTraction2[i]
+
+        traction1 = (totalTraction1 / self.absoluteTraction) * strength - self.initialStressInFaultCS[3]
+        traction2 = (totalTraction2 / self.absoluteTraction) * strength - self.initialStressInFaultCS[5]
+
+        slipRate1 = -self.invEtaS * (traction1 - self.faultStressesTraction1[i])
+        slipRate2 = -self.invEtaS * (traction2 - self.faultStressesTraction2[i])
+
+        localSlipRateMagnitude = forge.sqrt(slipRate1**2 + slipRate2**2)
+
+        slipRateScale = forge.ternary(localSlipRateMagnitude != 0.0, self.slipRateMagnitude / localSlipRateMagnitude, 1)
+
+        slipRate1 = slipRate1 * slipRateScale
+        slipRate2 = slipRate2 * slipRateScale
+
+        routine += [
+            forge.assign(self.accumulatedSlipMagnitude, self.accumulatedSlipMagnitude + self.slipRateMagnitude * self.dt[i]),
+            forge.assign(self.traction1, traction1),
+            forge.assign(self.traction2, traction2),
+            forge.assign(self.slip1, self.slip1 * slipRate1 * self.dt[i]),
+            forge.assign(self.slip2, self.slip2 * slipRate2 * self.dt[i]),
+            forge.assign(self.slipRate1, slipRate1),
+            forge.assign(self.slipRate2, slipRate2),
+        ]
 
     def updateFrictionAndSlip(self, routine, i):
         self.calcInitialVariables(routine, i)
         self.updateStateVariableIterative(routine, i)
-        self.tpmethod.calcFluidPressure()
+        self.tpmethod.calcFluidPressure(self.dt[i], self.slipRateMagnitude, routine)
         self.updateNormalStress(routine, i)
         self.calcSlipRateAndTraction(routine, i)
+    
+    def saveDynamicStressOutput(self, routine):
+        routine += [
+            forge.conditional((self.localRuptureTime > 0) & (self.localRuptureTime <= self.fullUpdateTime) & self.dynStressTimePending & (self.mu <= (self.muW + 0.05 * (self.rsF0 - self.muW))),
+                [
+                    forge.assign(self.dynStressTime, self.fullUpdateTime),
+                    forge.assign(self.dynStressTimePending, False),
+                ]
+            )
+        ]
 
 class FastVelocityWeakeningLaw(RateAndState):
-    def updateMu(self, routine):
+    def updateMu(self, localSlipRateMagnitude, localStateVariable):
         localA = forge.cast(self.a, FloatingPointType.DOUBLE)
         x = 0.5 / self.rsSr0 * forge.exp(localStateVariable / localA) * localSlipRateMagnitude
         return localA * forge.asinh(x)
     
-    def updateMuDerivative(self, routine):
+    def updateMuDerivative(self, localSlipRateMagnitude, localStateVariable):
         localA = forge.cast(self.a, FloatingPointType.DOUBLE)
         c = 0.5 / self.rsSr0 * forge.exp(localStateVariable / localA)
         return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
@@ -427,17 +535,20 @@ class FastVelocityWeakeningLaw(RateAndState):
 class SlowVelocityWeakeningLaw(RateAndState):
     def __init__(self, aderdg, numberOfPoints, tpmethod):
         super().__init__(aderdg, numberOfPoints, tpmethod)
-        # self.a = self.drvar('a')
     
-    def updateMu(self, routine):
+    def updateMu(self, localSlipRateMagnitude, localStateVariable):
         localA = forge.cast(self.a, FloatingPointType.DOUBLE)
         localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
         log1 = forge.log(self.rsSr0 * localStateVariable / localSl0)
-        x = 0.5 * (localSlipRateMagnitude / self.rsSr0) * forge.exp((details.rsF0 + details.rsB * log1) / localA)
+        x = 0.5 * (localSlipRateMagnitude / self.rsSr0) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
         return localA * forge.asinh(x)
     
-    def updateMuDerivative(self, routine):
-        pass
+    def updateMuDerivative(self, localSlipRateMagnitude, localStateVariable):
+        localA = forge.cast(self.a, FloatingPointType.DOUBLE)
+        localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
+        log1 = forge.log(self.rsSr0 * localStateVariable / localSl0)
+        c = (0.5 / self.rsSr0) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
+        return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
 
 class SlipLaw(SlowVelocityWeakeningLaw):
     def updateStateVariable(self, routine, i):
@@ -457,16 +568,50 @@ class AgingLaw(SlowVelocityWeakeningLaw):
         stateVarReference = forge.cast(self.stateVariable, FloatingPointType.DOUBLE)
         self.stateVariableBuffer = forge.cast(stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1), self.fptype)
 
-class TPMethod:
+class TPMethod(ScalarBase):
     def calcFluidPressure(self):
         raise NotImplementedError()
 
 class NoTP(TPMethod):
-    def calcFluidPressure(self):
+    def calcFluidPressure(self, dt, slipRateMagnitude, routine):
+        pass
+    
+    def getFluidPressure(self):
         return 0
 
 class TP(TPMethod):
-    def calcFluidPressure(self, slipRateMagnitude, routine):
+    def __init__(self, aderdg, numberOfPoints):
+        super().__init__(aderdg, numberOfPoints)
+        self.numberOfTPGridPoints = 60
+
+        constant1 = np.sqrt(2 / np.pi)
+        factor = 1 / np.sqrt(2 * np.pi)
+        tpLogDz = 0.3
+        tpMaxWaveNumber = 10
+
+        # TODO: pow 2 for heasource
+
+        self.tpGridPoints = [tpMaxWaveNumber * np.exp(-tpLogDz * (self.numberOfTPGridPoints - i - 1)) for i in range(self.numberOfTPGridPoints)]
+        self.tpInverseFourierCoefficients = [constant1 * (tpLogDz + 1) * self.tpGridPoints[0]] + [constant1 * tpLogDz * self.tpGridPoints[i] for i in range(1, self.numberOfTPGridPoints - 1)] + [constant1 * tpLogDz * 0.5 * self.tpGridPoints[-1]]
+        self.heatSource = [factor * np.exp(-0.5 * self.tpGridPoints[i]) for i in range(self.numberOfTPGridPoints)]
+
+        self.temperature = self.drvar('temperature')
+        self.pressure = self.drvar('pressure')
+        self.theta = self.drvar('theta', (self.numberOfTPGridPoints,))
+        self.sigma = self.drvar('sigma', (self.numberOfTPGridPoints,))
+        self.thetaBuffer = self.drvar('thetaBuffer', (self.numberOfTPGridPoints,))
+        self.sigmaBuffer = self.drvar('sigmaBuffer', (self.numberOfTPGridPoints,))
+        self.faultStrength = self.drvar('faultStrength')
+        self.halfWidthShearZone = self.drvar('halfWidthShearZone')
+        self.hydraulicDiffusivity = self.drvar('hydraulicDiffusivity')
+
+        self.heatCapacity = self.drscalar('heatCapacity')
+        self.undrainedTPResponse = self.drscalar('undrainedTPResponse')
+        self.thermalDiffusivity = self.drscalar('thermalDiffusivity')
+        self.initialTemperature = self.drscalar('initialTemperature')
+        self.initialPressure = self.drscalar('initialPressure')
+
+    def calcFluidPressure(self, dt, slipRateMagnitude, routine):
         temperatureUpdate = forge.TempVar()
         pressureUpdate = forge.TempVar()
 
@@ -478,32 +623,39 @@ class TP(TPMethod):
         tauV = self.faultStrength * slipRateMagnitude
         lambdaPrime = self.undrainedTPResponse * self.thermalDiffusivity / (self.hydraulicDiffusivity - self.thermalDiffusivity)
 
-        for i in range(TODO):
-            squaredNormalizedTPGrid = pow2(tpGridPoints[i] / self.halfWidthShearZone)
-            expTheta = forge.exp(-self.thermalDiffusivity * self.dt * squaredNormalizedTPGrid)
-            expSigma = forge.exp(-self.hydraulicDiffusivity * self.dt * squaredNormalizedTPGrid)
+        for i in range(self.numberOfTPGridPoints):
+            squaredNormalizedTPGrid = (self.tpGridPoints[i] / self.halfWidthShearZone) # pow 2
+            expTheta = forge.exp(-self.thermalDiffusivity * dt * squaredNormalizedTPGrid)
+            expSigma = forge.exp(-self.hydraulicDiffusivity * dt * squaredNormalizedTPGrid)
 
-            thetaDiffusion = thetaBuffer[i] * expTheta
-            sigmaDiffusion = sigmaBuffer[i] * expSigma
+            thetaDiffusion = self.thetaBuffer[i] * expTheta
+            sigmaDiffusion = self.sigmaBuffer[i] * expSigma
 
-            omega = tauV * heatSource[i]
+            omega = tauV * self.heatSource[i]
             thetaGeneration = omega / (self.heatCapacity * squaredNormalizedTPGrid * self.thermalDiffusivity) * (1 - expTheta)
             sigmaGeneration = omega * (self.undrainedTPResponse + lambdaPrime) / (self.heatCapacity * squaredNormalizedTPGrid * self.hydraulicDiffusivity) * (1 - expSigma)
 
-            thetaBuffer[i] = thetaBuffer[i] + thetaGeneration
-            sigmaBuffer[i] = sigmaBuffer[i] + sigmaDiffusion
+            thetaBuffer = thetaDiffusion + thetaGeneration
+            sigmaBuffer = sigmaDiffusion + sigmaGeneration
 
-            scaledInverseFourierCoefficient = tpInverseFourierCoefficients[i] / self.halfWidthShearZone
-            temperatureUpdate += scaledInverseFourierCoefficient * thetaBuffer[i]
-            pressureUpdate += scaledInverseFourierCoefficient * sigmaBuffer[i]
+            scaledInverseFourierCoefficient = self.tpInverseFourierCoefficients[i] / self.halfWidthShearZone
+            temperatureUpdate += scaledInverseFourierCoefficient * thetaBuffer
+            pressureUpdate += scaledInverseFourierCoefficient * sigmaBuffer
+
+            routine += [
+                forge.assign(self.thetaBuffer[i], thetaBuffer),
+                forge.assign(self.sigmaBuffer[i], sigmaBuffer)
+            ]
         
         pressureUpdate -= lambdaPrime * temperatureUpdate
 
         routine += [
             forge.assign(self.temperature, temperatureUpdate + self.initialTemperature),
-            forge.assign(self.pressure, .pressureUpdate + self.initialPressure)
+            forge.assign(self.pressure, pressureUpdate + self.initialPressure)
         ]
-        return 0
+
+    def getFluidPressure(self):
+        return self.pressure
 
 class ImposedSlipLaw(FrictionLawBase):
     def preHook(self, routine):
@@ -607,4 +759,3 @@ class YoffeSTF(ImposedSlipLaw):
             )
             )
         )
-"""
