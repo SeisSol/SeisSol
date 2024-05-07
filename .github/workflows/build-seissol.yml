@@ -5,7 +5,7 @@ on:
 jobs:
   dependencies:
     name: dependencies
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: apt-get
         run: |
