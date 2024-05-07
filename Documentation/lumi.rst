@@ -230,4 +230,4 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
     export DEVICE_STACK_MEM_SIZE=4
     export SEISSOL_FREE_CPUS_MASK="52-54,60-62,20-22,28-30,4-6,12-14,36-38,44-46"
 
-    srun --cpu-bind=mask_cpu:${CPU_BIND} ./select_gpu SeisSol_Release_sgfx90a_hip_6_elastic parameters.par
+    srun --cpu-bind=mask_cpu:${CPU_BIND} ./select_gpu ./SeisSol_Release_sgfx90a_hip_6_elastic parameters.par
