@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  **/
  
-#include <Model/common.hpp>
+#include "Model/common.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -88,6 +88,18 @@ void seissol::model::getBondMatrix( VrtxCoords const i_normal,
   o_N[5*6 + 3] = i_normal[1]*i_tangent1[2] + i_normal[2]*i_tangent1[1];
   o_N[5*6 + 4] = i_normal[0]*i_tangent1[2] + i_normal[2]*i_tangent1[0];
   o_N[5*6 + 5] = i_normal[1]*i_tangent1[0] + i_normal[0]*i_tangent1[1];
+}
+void seissol::model::getFaceRotationMatrix( Eigen::Vector3d const i_normal,
+                                            Eigen::Vector3d const i_tangent1,
+                                            Eigen::Vector3d const i_tangent2,
+                                            init::T::view::type& o_T,
+                                            init::Tinv::view::type& o_Tinv )
+{
+  VrtxCoords n = {i_normal(0), i_normal(1), i_normal(2)};
+  VrtxCoords s = {i_tangent1(0), i_tangent1(1), i_tangent1(2)};
+  VrtxCoords t = {i_tangent2(0), i_tangent2(1), i_tangent2(2)};
+  getFaceRotationMatrix(n, s, t, o_T, o_Tinv);
+
 }
 
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,

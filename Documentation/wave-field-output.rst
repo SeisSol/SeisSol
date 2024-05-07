@@ -1,3 +1,5 @@
+.. _wave_field_output:
+
 Wave field output
 =================
 

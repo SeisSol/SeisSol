@@ -48,40 +48,41 @@
 #include "mpio/WavefieldAsync.h"
 #include "mpio/Fault.h"
 #include "mpio/FaultAsync.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
 #endif // USE_SIONLIB
 
-void seissol::checkpoint::createBackend(Backend backend, Wavefield* &waveField, Fault* &fault)
+void seissol::checkpoint::createBackend(seissol::initializer::parameters::CheckpointingBackend backend, Wavefield* &waveField, Fault* &fault)
 {
-	switch (backend) {
-	case POSIX:
-		waveField = new posix::Wavefield();
-		fault = new posix::Fault();
-		break;
-	case HDF5:
-		waveField = new h5::Wavefield();
-		fault = new h5::Fault();
-		break;
-	case MPIO:
-		waveField = new mpio::Wavefield();
-		fault = new mpio::Fault();
-		break;
-	case MPIO_ASYNC:
-		waveField = new mpio::WavefieldAsync();
-		fault = new mpio::FaultAsync();
-		break;
-	case SIONLIB:
+  switch (backend) {
+    case seissol::initializer::parameters::CheckpointingBackend::POSIX:
+      waveField = new posix::Wavefield();
+      fault = new posix::Fault();
+      break;
+    case seissol::initializer::parameters::CheckpointingBackend::HDF5:
+      waveField = new h5::Wavefield();
+      fault = new h5::Fault();
+      break;
+    case seissol::initializer::parameters::CheckpointingBackend::MPIO:
+      waveField = new mpio::Wavefield();
+      fault = new mpio::Fault();
+      break;
+    case seissol::initializer::parameters::CheckpointingBackend::MPIO_ASYNC:
+      waveField = new mpio::WavefieldAsync();
+      fault = new mpio::FaultAsync();
+      break;
+    case seissol::initializer::parameters::CheckpointingBackend::SIONLIB:
 #ifdef USE_SIONLIB
-		waveField = new sionlib::Wavefield();
-		fault = new sionlib::Fault();
-		break;
+      waveField = new sionlib::Wavefield();
+      fault = new sionlib::Fault();
+      break;
 #else //USE_SIONLIB
-		logError() << "SIONlib checkpoint backend unsupported";
-		break;
+      logError() << "SIONlib checkpoint backend unsupported";
+      break;
 #endif //USE_SIONLIB
-	default:
-		logError() << "Unsupported checkpoint backend";
-	}
+    default:
+      logError() << "Unsupported checkpoint backend";
+  }
 }

@@ -1,7 +1,34 @@
 Environment Variables
 =====================
 
-SeisSol can be tuned with several environment variables:
+SeisSol can be tuned with several environment variables.
+
+Communication Thread
+--------------------
+
+By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
+For that, you will need to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
+
+If you do not want to use a communication thread, you may set `SEISSOL_COMMTHREAD=0`; then SeisSol polls on the progress from time to time.
+
+Load Balancing
+--------------
+
+When running with multiple ranks, SeisSol will estimate the performance of a node, to enable better load balancing for it.
+For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints at, it simulates a small test workload on each node;
+thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
+
+As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer; especially when running only on a single node with multiple ranks.
+To disable it, set `SEISSOL_MINISEISSOL=0`.
+
+Persistent MPI Operations
+-------------------------
+
+Since SeisSol has a static communication pattern (in the sense of: per iteration, we issue the same MPI transfer requests),
+we may use persistent MPI communication—it may reduce the communication latency.
+
+You may enable persistent communication by setting `SEISSOL_MPI_PERSISTENT=1`,
+and explicitly disable it with `SEISSOL_MPI_PERSISTENT=0`. Right now, it is disabled by default.
 
 Output
 ------
@@ -21,49 +48,21 @@ In addition to the variables in SeisSol, the
 `ASYNC <https://github.com/TUM-I5/ASYNC>`__ library provides some tuning
 variables listed in the `wiki <https://github.com/TUM-I5/ASYNC/wiki>`__.
 
-Typical example
-^^^^^^^^^^^^^^^
-
-We want to run a 130 nodes job. We dedicate 2 nodes for writing the
-asynchronous outputs, the remaining 128 nodes for computing. We then use
-a mesh partitioned in 128 regions. In our batch file, we write the
-following environment variables:
-
-
-.. code:: bash
-
-   export ASYNC_MODE=MPI
-   export ASYNC_MPI_COPY=1
-   export ASYNC_GROUP_SIZE=64
-   export XDMFWRITER_ALIGNMENT=8388608
-   export XDMFWRITER_BLOCK_SIZE=8388608
-
-Note that in the current implementation, at least 2 output nodes have to
-be used.
-
-
 Checkpointing
 ~~~~~~~~~~~~~
 
 Some environment variables related to checkpointing are described in the :ref:`Checkpointing section <Checkpointing>`.
 
+.. _optimal_environment_variables_on_supermuc_ng:
 
-Optimal environment variables on SuperMuc
------------------------------------------
+Optimal environment variables on SuperMUC-NG
+--------------------------------------------
 
-NG
-~~
-
-On NG, we recommend using SeisSol with asyn output in thread mode.
-That is SeisSol should be compiled with commThread='yes', and then run with the environment variables proposed below.
+On SuperMUC-NG, we recommend using SeisSol with async output in thread mode.
 Also, we recommend using hyperthreading capabilities (that is using 96 CPUs instead of 48. 2 threads out of 96 are used as communication threads).
 Here are some proposed environment variables, to be added prior to invoking SeisSol in your batch file:
 
 .. code:: bash
-
-   #SBATCH --nodes=
-   #SBATCH --ntasks-per-node=1 
-   #SBATCH --cpus-per-task=96
 
    export MP_SINGLE_THREAD=no
    unset KMP_AFFINITY
@@ -79,50 +78,7 @@ Here are some proposed environment variables, to be added prior to invoking Seis
    export ASYNC_MODE=THREAD
    export ASYNC_BUFFER_ALIGNMENT=8388608
 
+A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
 
-.. _environement_variables_supermuc_phase_2:
-
-Phase 2
-~~~~~~~
-
-.. _for-order-up-to-5-(included):
-
-For order up to 5 (included)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-| Add the following lines prior to invoking SeisSol in your batch file:
-
-.. code:: bash
-
-   export MP_SINGLE_THREAD=no
-   export OMP_NUM_THREADS=28
-   export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
-
-SeisSol has to be compiled with commThread ='no'.
-
-
-For higher orders
-^^^^^^^^^^^^^^^^^
-
-Add the following lines prior to invoking SeisSol in your batch file (similarly with NG):
-
-.. code:: bash
-
-   export MP_SINGLE_THREAD=no
-   unset KMP_AFFINITY
-   export OMP_NUM_THREADS=54
-   export OMP_PLACES="cores(27)"
-
-   export XDMFWRITER_ALIGNMENT=8388608
-   export XDMFWRITER_BLOCK_SIZE=8388608
-   export SC_CHECKPOINT_ALIGNMENT=8388608
-   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
-   export SEISSOL_CHECKPOINT_DIRECT=1
-
-   export ASYNC_MODE=THREAD
-   export ASYNC_BUFFER_ALIGNMENT=8388608
-
-SeisSol has to be compiled with commThread='yes'.
-
-
-
+In previous versions of SeisSol, you had to explicitly compile the software with `-DCOMMTHREAD=ON`. That is not necessary anymore, as
+any configuration with more than one MPI rank uses the communication thread by default.

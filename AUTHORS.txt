@@ -1,21 +1,12 @@
-The SeisSol core group is:
- * Brietzke, Gilbert - LRZ
- * Bader, Michael - TUM
- * Gabriel, Alice-Agnes - LMU
- * Madden, Elizabeth - LMU
- * Rannabauer, Leonhard - TUM
- * Rettenberger, Sebastian - TUM
- * Ulrich, Thomas - LMU
- * Uphoff, Carsten - TUM
- * Wollherr, Stephanie - LMU
-
+For recent authors (after 2017): also consult the contributors list on github.com/SeisSol/SeisSol and CITATION.cff.
 
 The SeisSol group appreciates the work of following contributors and former core group members:
  * Ampuero, Jean-Paul - Caltech
  * Atanasov, Atanas - TUM
  * Breuer, Alexander - UCSD
+ * Brietzke, Gilbert - LRZ
  * Castro, Cristobal E.
- * de la Puente, Josep - BSC
+ * Dorozhinskii, Ravil - TUM
  * van Driel, Martin - ETH
  * Dumbser, Michael - UniTN
  * Gratl, Fabio
@@ -26,15 +17,24 @@ The SeisSol group appreciates the work of following contributors and former core
  * Imperatori, Walter - KAUST
  * Jordan, Kirk - IBM Research
  * Kaeser, Martin - MunichRE
+ * Krenz, Lukas - TUM
  * Li, Yang - TUM
+ * Madden, Elizabeth - LMU
  * Mai, Martin - KAUST
  * Nerger, Amaryllis
  * Passone, Luca - KAUST
  * Pelties, Christian - MunichRE
  * Pinaev, Dmitry - TUM
+ * de la Puente, Josep - BSC
+ * Rannabauer, Leonhard - TUM
+ * Rettenberger, Sebastian - TUM
  * Sachdeva, Vipin - IBM Research
+ * Schneller, David - TUM
  * Simon, Marek
+ * Uphoff, Carsten - TUM, LMU, Intel
  * Wenk, Stefan
+ * Wolf, Sebastian - TUM
+ * Wollherr, Stephanie - LMU
 
 The SeisSol group appreciates the work of the developers of Hydsol, the early roots of the SeisSol code:
  * Dumbser, Michael - UniTN, UniS
@@ -42,14 +42,16 @@ The SeisSol group appreciates the work of the developers of Hydsol, the early ro
  * Utzmann, Jens - UniS
  * Munz, Claus-Dieter - UniS
 
-website: http://www.seissol.org/
+SeisSol webpage: https://seissol.org/
 
 TUM: 
-Technische Universitaet Muenchen
-Department of Informatics
+Technical University of Munich
+TUM School of Computation, Information and Technology
 Chair of Scientific Computing
+Boltzmannstrasse 3
+85748 Garching
 Germany
-http://www5.in.tum.de/
+https://www.cs.cit.tum.de/sccs/
 
 LMU:
 Geophysik
@@ -74,7 +76,6 @@ Boltzmannstraße 1
 85748 Garching bei München
 Germany
 http://www.lrz.de/
-
 
 KAUST:
 King Abdullah University of Science and Technology

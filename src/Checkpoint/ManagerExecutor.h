@@ -44,12 +44,9 @@
 
 #include "Backend.h"
 #include "Monitoring/Stopwatch.h"
+#include "Initializer/Parameters/OutputParameters.h"
 
-namespace seissol
-{
-
-namespace checkpoint
-{
+namespace seissol::checkpoint {
 
 /** Buffer ids for asynchronous IO */
 enum BufferTags {
@@ -64,7 +61,7 @@ enum BufferTags {
  */
 struct CheckpointInitParam
 {
-	Backend backend;
+        seissol::initializer::parameters::CheckpointingBackend backend;
 	unsigned int numBndGP;
 	bool loaded;
 };
@@ -112,7 +109,7 @@ public:
 		m_fault->setFilename(filename);
 
 		m_waveField->init(info.bufferSize(HEADER), info.bufferSize(DOFS) / sizeof(real));
-		m_fault->init(info.bufferSize(DR_DOFS0) / param.numBndGP / sizeof(double), param.numBndGP);
+		m_fault->init(info.bufferSize(DR_DOFS0) / param.numBndGP / sizeof(real), param.numBndGP);
 
 		if (param.loaded) {
 			m_waveField->setLoaded();
@@ -120,9 +117,9 @@ public:
 		}
 
 		const real* dofs = static_cast<const real*>(info.buffer(DOFS));
-		const double* drDofs[8];
+		const real* drDofs[8];
 		for (unsigned int i = 0; i < 8; i++)
-			drDofs[i] = static_cast<const double*>(info.buffer(DR_DOFS0 + i));
+			drDofs[i] = static_cast<const real*>(info.buffer(DR_DOFS0 + i));
 
 		m_waveField->initLate(dofs);
 		m_fault->initLate(drDofs[0], drDofs[1], drDofs[2], drDofs[3], drDofs[4], drDofs[5],
@@ -166,8 +163,6 @@ public:
 	}
 };
 
-}
-
-}
+} // namespace seissol::checkpoint
 
 #endif // CHECKPOINT_MANAGER_EXECUTOR_H

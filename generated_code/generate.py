@@ -66,9 +66,14 @@ cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
-cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
+cmdLineParser.add_argument('--drQuadRule')
+cmdLineParser.add_argument('--enable_premultiply_flux', action='store_true')
+cmdLineParser.add_argument('--disable_premultiply_flux', dest='enable_premultiply_flux', action='store_false')
+cmdLineParser.add_argument('--executable_libxsmm', default='')
+cmdLineParser.add_argument('--executable_pspamm', default='')
+cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
@@ -130,7 +135,7 @@ adg.add_include_tensors(include_tensors)
 include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
                                                  adg,
                                                  cmdLineArgs.matricesDir,
-                                                 cmdLineArgs.dynamicRuptureMethod,
+                                                 cmdLineArgs.drQuadRule,
                                                  targets))
 
 Plasticity.addKernels(generator, 
@@ -138,7 +143,7 @@ Plasticity.addKernels(generator,
                       cmdLineArgs.matricesDir,
                       cmdLineArgs.PlasticityMethod,
                       targets)
-NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
+NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
 SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
 Point.addKernels(generator, adg)
 
@@ -149,7 +154,13 @@ gemm_generators = []
 for tool in gemm_tool_list:
   if hasattr(gemm_configuration, tool):
     specific_gemm_class = getattr(gemm_configuration, tool)
-    gemm_generators.append(specific_gemm_class(arch))
+    # take executable arguments, but only if they are not empty
+    if specific_gemm_class is gemm_configuration.LIBXSMM and cmdLineArgs.executable_libxsmm != '':
+      gemm_generators.append(specific_gemm_class(arch, cmdLineArgs.executable_libxsmm))
+    elif specific_gemm_class is gemm_configuration.PSpaMM and cmdLineArgs.executable_pspamm != '':
+      gemm_generators.append(specific_gemm_class(arch, cmdLineArgs.executable_pspamm))
+    else:
+      gemm_generators.append(specific_gemm_class(arch))
   else:
     print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
           "Please, refer to the documentation".format(tool))

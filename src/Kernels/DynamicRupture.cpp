@@ -44,9 +44,10 @@
 #include <cstring>
 #include <stdint.h>
 
-#include <generated_code/kernel.h>
-#include <Kernels/common.hpp>
-#include <Numerical_aux/Quadrature.h>
+#include "generated_code/kernel.h"
+#include "Kernels/common.hpp"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/BasisFunction.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -78,8 +79,6 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
   m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
   m_timeKernel.setGlobalData(global);
 #endif
-  real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER+1);
 }
 
 
@@ -108,6 +107,10 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
   // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+#ifdef USE_STP
+    double tau = timePoints[point];
+    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER, tau);
+#endif
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
@@ -117,7 +120,7 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
                                                                 GlobalData const*           global,
                                                                 DRGodunovData const*        godunovData,
-                                                                DROutput*                   drOutput,
+                                                                DREnergyOutput*             drEnergyOutput,
                                                                 real const*                 timeDerivativePlus,
                                                                 real const*                 timeDerivativeMinus,
                                                                 real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
@@ -138,36 +141,15 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
-  alignas(ALIGNMENT) real slipRateInterpolated[tensor::slipRateInterpolated::size()];
-  alignas(ALIGNMENT) real squaredNormSlipRateInterpolated[tensor::squaredNormSlipRateInterpolated::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
-
-  dynamicRupture::kernel::computeSlipRateInterpolated srKrnl;
-  srKrnl.selectVelocity = init::selectVelocity::Values;
-
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData->tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData->tractionMinusMatrix;
-
-  dynamicRupture::kernel::accumulateSlipInterpolated addKrnl;
-  addKrnl.slipInterpolated = drOutput->slip;
-  addKrnl.slipRateInterpolated = slipRateInterpolated;
-
-  dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated sqKrnl;
-  sqKrnl.squaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated;
-  sqKrnl.slipRateInterpolated = slipRateInterpolated;
-
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
-  feKrnl.slipRateInterpolated = slipRateInterpolated;
-  feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &drOutput->frictionalEnergy;
-
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+#ifdef USE_STP
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
+#else
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+#endif
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
@@ -183,31 +165,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
-
-    srKrnl.QInterpolatedPlus = &QInterpolatedPlus[timeInterval][0];
-    srKrnl.QInterpolatedMinus = &QInterpolatedMinus[timeInterval][0];
-    srKrnl.slipRateInterpolated = slipRateInterpolated;
-    srKrnl.execute();
-
-    trKrnl.QInterpolatedPlus = &QInterpolatedPlus[timeInterval][0];
-    trKrnl.QInterpolatedMinus = &QInterpolatedMinus[timeInterval][0];
-    trKrnl.tractionInterpolated = tractionInterpolated;
-    trKrnl.execute();
-
-    addKrnl.timeWeight = timeWeights[timeInterval];
-    addKrnl.execute();
-
-    sqKrnl.execute();
-    for (unsigned i = 0; i < tensor::squaredNormSlipRateInterpolated::size(); ++i) {
-      drOutput->accumulatedSlip[i] += timeWeights[timeInterval] * std::sqrt(squaredNormSlipRateInterpolated[i]);
-    }
-
-    feKrnl.timeWeight = - timeWeights[timeInterval] * godunovData->doubledSurfaceArea;
-    feKrnl.execute();
   }
 }
 
-void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(ConditionalBatchTableT& table) {
+void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table) {
 #ifdef ACL_DEVICE
 
   real** degreesOfFreedomPlus{nullptr};
@@ -217,7 +178,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
@@ -225,11 +186,11 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
-      BatchTable &entry = table[timeIntegrationKey];
+      auto &entry = table[timeIntegrationKey];
 
-      unsigned maxNumElements = (entry.content[*EntityId::DrDerivativesPlus])->getSize();
-      real** timeDerivativePlus = (entry.content[*EntityId::DrDerivativesPlus])->getPointers();
-      degreesOfFreedomPlus = (entry.content[*EntityId::DrIdofsPlus])->getPointers();
+      unsigned maxNumElements = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getSize();
+      real** timeDerivativePlus = (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
 
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
@@ -237,8 +198,8 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
                                                  degreesOfFreedomPlus,
                                                  maxNumElements);
 
-      real** timeDerivativeMinus = (entry.content[*EntityId::DrDerivativesMinus])->getPointers();
-      degreesOfFreedomMinus = (entry.content[*EntityId::DrIdofsMinus])->getPointers();
+      real** timeDerivativeMinus = (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+      degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
                                                  timeDerivativeMinus,
@@ -246,13 +207,14 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
                                                  maxNumElements);
     }
 
-    device.api->fastStreamsSync(); // finish all previous work in the default stream
+    // finish all previous work in the default stream
     size_t streamCounter{0};
+    device.api->forkCircularStreamsFromDefault();
     for (unsigned side = 0; side < 4; ++side) {
       ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
       if (table.find(plusSideKey) != table.end()) {
-        BatchTable &entry = table[plusSideKey];
-        const size_t numElements = (entry.content[*EntityId::DrIdofsPlus])->getSize();
+        auto& entry = table[plusSideKey];
+        const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
         auto krnl = m_gpuKrnlPrototype;
         real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
@@ -261,18 +223,18 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
         krnl.streamPtr = device.api->getNextCircularStream();
         krnl.numElements = numElements;
 
-        krnl.QInterpolated = (entry.content[*EntityId::DrQInterpolatedPlus])->getPointers();
+        krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
         krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-        krnl.Q = const_cast<real const **>((entry.content[*EntityId::DrIdofsPlus])->getPointers());
-        krnl.TinvT = const_cast<real const **>((entry.content[*EntityId::DrTinvT])->getPointers());
+        krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
+        krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
         krnl.execute(side, 0);
       }
 
       for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
         ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
         if (table.find(minusSideKey) != table.end()) {
-          BatchTable &entry = table[minusSideKey];
-          const size_t numElements = (entry.content[*EntityId::DrIdofsMinus])->getSize();
+          auto &entry = table[minusSideKey];
+          const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
           auto krnl = m_gpuKrnlPrototype;
           real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
@@ -281,17 +243,16 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
           krnl.streamPtr = device.api->getNextCircularStream();
           krnl.numElements = numElements;
 
-          krnl.QInterpolated = (entry.content[*EntityId::DrQInterpolatedMinus])->getPointers();
+          krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<real const **>((entry.content[*EntityId::DrIdofsMinus])->getPointers());
-          krnl.TinvT = const_cast<real const **>((entry.content[*EntityId::DrTinvT])->getPointers());
+          krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
+          krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
         }
       }
     }
     resetDeviceCurrentState(streamCounter);
   }
-  device.api->synchDevice();
 #else
   assert(false && "no implementation provided");
 #endif
@@ -313,20 +274,6 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
   o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
 
-  o_nonZeroFlops += dynamicRupture::kernel::computeSlipRateInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeSlipRateInterpolated::HardwareFlops;
-
-  o_nonZeroFlops += dynamicRupture::kernel::computeTractionInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeTractionInterpolated::HardwareFlops;
-
-  o_nonZeroFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::HardwareFlops;
-  o_nonZeroFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
-  o_hardwareFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
-
-  o_nonZeroFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::HardwareFlops;
-  
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;
 }

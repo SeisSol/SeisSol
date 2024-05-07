@@ -42,9 +42,9 @@
 #ifndef KERNELS_TIMECOMMON_H_
 #define KERNELS_TIMECOMMON_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Kernels/Time.h>
-#include <generated_code/tensor.h>
+#include "Initializer/typedefs.hpp"
+#include "Kernels/Time.h"
+#include "generated_code/tensor.h"
 
 namespace seissol {
   namespace kernels {
@@ -104,7 +104,7 @@ namespace seissol {
       void computeBatchedIntegrals(Time& i_time,
                                    const double i_timeStepStart,
                                    const double i_timeStepWidth,
-                                   ConditionalBatchTableT &table);
+                                   ConditionalPointersToRealsTable &table);
     }
   }
 }

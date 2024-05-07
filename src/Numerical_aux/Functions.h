@@ -31,12 +31,23 @@
 #ifndef FUNCTIONS_20201026_H
 #define FUNCTIONS_20201026_H
 
+#include <cmath>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
-namespace seissol {
-namespace functions {
+namespace seissol::functions {
+
+/**
+ * @brief host standard math functions used in template metaprogramming
+ */
+struct HostStdFunctions {
+  template <typename T> static inline T exp(T value) { return std::exp(value); }
+  template <typename T1, typename ...T> static inline T1 max(T1 value1, T... value) { return std::max(value1, value...); }
+  template <typename T1, typename ...T> static inline T1 min(T1 value1, T... value) { return std::min(value1, value...); }
+  template <typename T> static inline T ceil(T value) { return std::ceil(value); }
+  template <typename T> static inline T floor(T value) { return std::floor(value); }
+};
 
 /**
  * @brief Computes \prod_{i=from}^{to} i. Returns 1 if from > to.
@@ -161,7 +172,6 @@ template <std::size_t D>
 std::array<double, D> gradDubinerP(std::array<unsigned, D> const& i,
                                    std::array<double, D> const& xi);
 
-} // namespace functions
-} // namespace seissol
+} // namespace seissol::functions
 
 #endif // FUNCTIONS_20201026_H

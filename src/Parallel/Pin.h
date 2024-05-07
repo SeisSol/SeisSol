@@ -41,32 +41,35 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
-#include <sys/sysinfo.h>
-#include <string>
+#include "async/as/Pin.h"
+#include "Common/IntegerMaskParser.h"
 #include <deque>
+#include <string>
 
 namespace seissol::parallel {
 
 class Pinning {
 private:
-  cpu_set_t openmpMask{};
-  cpu_set_t onlineMask{};
+  async::as::CpuMask openmpMask{};
+  async::as::CpuMask onlineMask{};
+  IntegerMaskParser::MaskType parsedFreeCPUsMask{};
 
 public:
   Pinning();
 
   static std::deque<bool> parseOnlineCpuMask(std::string mask, unsigned numberOfConfiguredCpus) ;
-  cpu_set_t computeOnlineCpuMask() ;
-  [[nodiscard]] static cpu_set_t getWorkerUnionMask() ;
-  [[nodiscard]] cpu_set_t getFreeCPUsMask() const;
-  static bool freeCPUsMaskEmpty(cpu_set_t const& set);
-  [[nodiscard]] cpu_set_t getOnlineMask() const;
+  async::as::CpuMask computeOnlineCpuMask() ;
+  [[nodiscard]] static async::as::CpuMask getWorkerUnionMask();
+  [[nodiscard]] async::as::CpuMask getFreeCPUsMask() const;
+  static bool freeCPUsMaskEmpty(const async::as::CpuMask& set);
+  [[nodiscard]] async::as::CpuMask getOnlineMask() const;
   [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
-  static std::string maskToString(cpu_set_t const& set);
-  [[nodiscard]] cpu_set_t getNodeMask() const;
+  static std::string maskToString(const async::as::CpuMask& set);
+  [[nodiscard]] async::as::CpuMask getNodeMask() const;
+  void checkEnvVariables();
 };
 
-}
+} // namespace seissol::parallel
 
 #endif

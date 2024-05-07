@@ -40,29 +40,57 @@ Installing Main Libraries and Packages
   $ source ./launch.sh
   $ mkdir -p $SEISSOL_INSTALL
 
-  $ module load gnu/8.4.0
-  $ module load cmake/3.20.0
   $ module load python/3.8.2
+  $ module load profile/candidate
+  $ module load gnu/11.2.0
+  $ module load cmake/3.20.0
+  $ module load cuda/11.6
 
-3. Create any directory where you are going to configure and build libraries and packages. For example, 
+3. Create any directory where you are going to configure and build libraries and packages. For example,
 
 ::
 
   mkdir -p $HOME/Download
   cd $HOME/Download
 
-4. Install UCX:
+4. Install SYCL:
+
+See section :ref:`Installing SYCL <installing_SYCL>`. Note, you will need to adjust
+install-prefixes for both `LLVM`, `Boost` and `hipSYCL` to point to the content of `SEISSOL_INSTALL` environment
+variable.
+
+5. Install hwloc:
 
 ::
 
-  $ wget https://github.com/openucx/ucx/archive/refs/tags/v1.10.1.tar.gz
-  $ tar -xvf v1.10.1.tar.gz
-  $ cd ucx-1.10.1
-  $ ./autogen.sh
-  $ mkdir build && cd build
+  $ wget http://www.open-mpi.org/software/hwloc/v2.7/downloads/hwloc-2.7.1.tar.gz && \
+  $ tar -xvf ./hwloc-2.7.1.tar.gz
+  $ cd hwloc-2.7.1 && \
+  $ CC=$(which gcc) CXX=$(which g++) FC=$(which gfortran) ./configure --prefix=${SEISSOL_INSTALL} \
+    --disable-opencl --disable-cairo \
+    --disable-nvml --disable-gl \
+    --enable-cuda \
+    --with-cuda=/cineca/prod/opt/compilers/cuda/11.6/none/bin/nvcc \
+    --disable-libudev --enable-shared
+
+  $ make -j
+  $ make install
+  $ cd ..
+
+6. Install UCX:
+
+Note, CINECAs' system administrators manually added `CUDA_CFLAGS` env. variable to all `cuda` modules. This prevents
+compilation of many versions of UCX and OpenMPI. Please, disable it during SeisSol's installation.
+
+::
+
+  $ wget https://github.com/openucx/ucx/releases/download/v1.10.0/ucx-1.10.0.tar.gz
+  $ tar -xvf ucx-1.10.0.tar.gz
+  $ unset CUDA_CFLAGS
+  $ mkdir -p ucx-1.10.0/build && cd ucx-1.10.0/build
 
   $ CC=$(which gcc) CXX=$(which g++) FC=$(which gfortran) \
-  ../contrib/configure-opt \
+  ../configure \
   --prefix=$SEISSOL_INSTALL \
   --build=powerpc64le-redhat-linux-gnu \
   --host=powerpc64le-redhat-linux-gnu \
@@ -72,7 +100,7 @@ Installing Main Libraries and Packages
   --disable-assertions --disable-logging --with-pic \
   --without-java \
   --enable-mt \
-  --with-cuda=/cineca/prod/opt/compilers/cuda/11.0/none \
+  --with-cuda=/cineca/prod/opt/compilers/cuda/11.6/none/bin/nvcc \
   --with-gdrcopy \
   --with-knem=/opt/knem-1.1.3.90mlnx1 \
   --without-xpmem
@@ -81,15 +109,15 @@ Installing Main Libraries and Packages
   $ make install
   $ cd ../..
 
-5. Install OpenMPI:
+7. Install OpenMPI:
 
 ::
 
-  $ wget https://github.com/open-mpi/ompi/archive/refs/tags/v4.1.1.tar.gz
-  $ tar -xvf ./v4.1.1.tar.gz
-  $ cd ompi-4.1.1
+  $ wget https://github.com/open-mpi/ompi/archive/refs/tags/v4.1.4.tar.gz
+  $ tar -xvf ./v4.1.4.tar.gz
+  $ cd ./ompi-4.1.4
   $ ./autogen.pl
-  $ mkdir build && cd build
+  $ mkdir -p ./build && cd ./build
 
   $ CC=$(which gcc) CXX=$(which g++) FC=$(which gfortran) \
   CFLAGS="-I/opt/pmix/3.1.5/include" CPPFLAGS="-I/opt/pmix/3.1.5/include" \
@@ -102,12 +130,12 @@ Installing Main Libraries and Packages
   --with-pmix=/opt/pmix/3.1.5 \
   --with-ucx=$SEISSOL_INSTALL \
   --with-libevent=/usr \
-  --with-hwloc=/usr \
+  --with-hwloc=${SEISSOL_INSTALL} \
   --with-verbs \
   --enable-mpirun-prefix-by-default \
   --with-platform=/cineca/prod/build/compilers/openmpi/4.0.3/gnu--8.4.0/BA_WORK/openmpi-4.0.3/contrib/platform/mellanox/optimized \
   --with-hcoll=/opt/mellanox/hcoll \
-  --with-cuda=/cineca/prod/opt/compilers/cuda/11.0/none \
+  --with-cuda=/cineca/prod/opt/compilers/cuda/11.6/none/bin/nvcc \
   --with-knem=/opt/knem-1.1.3.90mlnx1 \
   --without-xpmem
 
@@ -115,7 +143,7 @@ Installing Main Libraries and Packages
   $ make install
   $ cd ../..
 
-6. Install HDF5:
+8. Install HDF5:
 
 ::
 
@@ -137,7 +165,7 @@ Installing Main Libraries and Packages
   $ make install
   $ cd ../..
 
-7. Installing netCDF:
+9. Installing netCDF:
 
 ::
 
@@ -158,11 +186,11 @@ Installing Main Libraries and Packages
   $ make install
   $ cd ..
 
-8. Installing ParMetis:
+10. Installing ParMetis:
 
 ::
 
-  $ wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+  $ https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
   $ tar -xvf ./parmetis-4.0.3.tar.gz
   $ cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
@@ -172,13 +200,63 @@ Installing Main Libraries and Packages
   $ cp metis/include/metis.h $SEISSOL_INSTALL/include
   $ cd ..
 
-9. Install GemmForge. Please, follow steps described :ref:`here <gemmforge_installation>`. 
+11. Install GemmForge and ChainForge. Please, follow steps described :ref:`here <gemmforge_installation>`.
 
-10. Install SeisSol:
+12. Install easi with LUA backend:
 
 ::
 
-  $ module load cuda/11.0
+  # yaml-cpp
+  $ wget https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.tar.gz
+  $ tar -xvf yaml-cpp-0.7.0.tar.gz
+  $ cd yaml-cpp-yaml-cpp-0.7.0
+  $ sed -i 's/$<${not-msvc}/#$<${not-msvc}/g' ./CMakeLists.txt
+  $ mkdir -p build && cd build
+  $ cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_INSTALL \
+    -DYAML_BUILD_SHARED_LIBS=ON \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_MOCK=OFF \
+    -DBUILD_GMOCK=OFF
+  $ make -j4 && make install
+  $ cd ../..
+
+  # LUA
+  $ wget https://www.lua.org/ftp/lua-5.3.6.tar.gz
+  $ tar -xzvf lua-5.3.6.tar.gz
+  $ cd lua-5.3.6
+  $ make linux CC=mpicc
+  $ make local
+  $ cp -r install/* $SEISSOL_INSTALL
+  $ cd ..
+
+  # easi
+  $ git clone https://github.com/SeisSol/easi.git
+  $ cd easi
+  $ mkdir -p build && cd build
+  $ CC=mpicc CXX=mpicxx FC=mpifort cmake .. \
+    -DASAGI=OFF \
+    -DLUA=ON \
+    -DIMPALAJIT=OF \
+    -DCMAKE_INSTALL_PREFIX=$SEISSOL_INSTALL
+  $ make -j4 && make install
+  $ cd ../..
+
+13. Install Eigen3:
+
+::
+
+  $ git clone https://gitlab.com/libeigen/eigen.git
+  $ mkdir -p eigen/build && cd eigen/build
+  $ CXX=g++ CC=gcc FC=gfortran cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_INSTALL
+  $ make -j
+  $ make install
+  $ cd ../..
+
+14. Install SeisSol:
+
+::
+
+  $ module load cuda/11.6
   $ git clone --recurse-submodules https://github.com/SeisSol/SeisSol.git
   $ cd SeisSol
   $ mkdir build && cd build
@@ -188,16 +266,15 @@ Installing Main Libraries and Packages
   -DDEVICE_BACKEND=cuda \
   -DDEVICE_ARCH=sm_70 \
   -DHOST_ARCH=power9 \
-  -DPRECISION=single \
-  -DCOMMTHREAD=ON
+  -DPRECISION=single
 
   $ make -j
 
-11. Run SeisSol-proxy as a sanity check:
+15. Run SeisSol-proxy as a sanity check:
 
 ::
 
-  ./SeisSol_proxy_Release_ssm70_cuda_6_elastic 100000 100 all
+  ./launch ./SeisSol_proxy_Release_ssm70_cuda_6_elastic 100000 100 all
 
 
 Running SeisSol
@@ -214,7 +291,8 @@ we enforce UCX to utilize both. Moreover, we reserve one 1 core for each MPI pro
 
 In this particular case it is not necessary to provide a number of processes after **mpirun** because OpenMPI was compiled 
 with PMIX (see step 5).
- 
+
+Please, do not forget to launch SeisSol via `launch` bash script generated with CMake during SeisSol's configuration.
 
 ::
 
@@ -250,7 +328,7 @@ with PMIX (see step 5).
   mpirun --report-bindings --map-by ppr:$SLURM_NTASKS_PER_NODE:node:pe=$NUM_CORES \
   -x UCX_MAX_EAGER_RAILS=2 -x UCX_MAX_RNDV_RAILS=2 -x UCX_NET_DEVICES=mlx5_0:1,mlx5_1:1 \
   -x UCX_MEM_MMAP_HOOK_MODE=none \
-  ./SeisSol_Release_ssm70_cuda_6_elastic ./parameters.par
+  ./launch ./SeisSol_Release_ssm70_cuda_6_elastic ./parameters.par
 
 
 

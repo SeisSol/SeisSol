@@ -40,11 +40,16 @@
 
 #include "InitialFieldProjection.h"
 
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
+#include "Initializer/tree/LTSSync.hpp"
+
+#include "Initializer/MemoryManager.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
+
+#include "Initializer/preProcessorMacros.hpp"
 
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
@@ -58,9 +63,10 @@ namespace seissol {
   }
 }
 
-void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+void seissol::initializer::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                                                 GlobalData const& globalData,
-                                                MeshReader const& meshReader,
+                                                seissol::geometry::MeshReader const& meshReader,
+                                                seissol::initializer::MemoryManager& memoryManager,
                                                 LTS const& lts,
                                                 Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
@@ -73,7 +79,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   #pragma omp parallel
   {
 #endif
@@ -89,7 +95,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
   kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   #pragma omp for schedule(static)
 #endif
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
@@ -117,7 +123,12 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
     }
     krnl.execute();
   }
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
   }
 #endif
+
+  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs, memoryManager);
+  if (kernels::size<tensor::Qane>() > 0) {
+    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne, memoryManager);
+  }
 }

@@ -42,17 +42,19 @@
 #ifndef LTSLAYOUT_H_
 #define LTSLAYOUT_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <array>
 #include <limits>
 #include <cassert>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     namespace time_stepping {
       class LtsLayout;
     }
@@ -62,7 +64,7 @@ namespace seissol {
 /**
  * Layout used by the LTS schemes for computation.
  **/
-class seissol::initializers::time_stepping::LtsLayout {
+class seissol::initializer::time_stepping::LtsLayout {
   //private:
     //! used clustering strategy
     enum TimeClustering m_clusteringStrategy;
@@ -74,7 +76,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     std::vector<Fault> m_fault;
 
     //! time step widths of the cells (cfl)
-    double       *m_cellTimeStepWidths;
+    std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
     unsigned int *m_cellClusterIds;
@@ -186,6 +188,8 @@ class seissol::initializers::time_stepping::LtsLayout {
      * [ ][ ].second[*]: cell id in the neighboring domain
      **/
     std::vector< std::vector< std::pair< unsigned int, std::vector< unsigned int > > > > m_clusteredGhost;
+
+    const seissol::initializer::parameters::SeisSolParameters& seissolParams;
 
     /**
      * Gets the associated plain local region of the given mpi rank.
@@ -458,7 +462,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     /**
      * Constructor which initializes all pointers to NULL.
      **/
-    LtsLayout();
+    LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters);
 
     /**
      * Destructor which frees all dynamically allocated memory of the class members.
@@ -470,16 +474,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      *
      * @param i_mesh mesh.
      **/
-    void setMesh( const MeshReader &i_mesh );
-
-    /**
-     * Sets the time step width of a specidic cell.
-     *
-     * @param i_cellId id of the cell.
-     * @param i_timeStepWidth time step width of the cell.
-     **/
-    void setTimeStepWidth( unsigned int i_cellId,
-                           double       i_timeStepWidth );
+    void setMesh( const seissol::geometry::MeshReader &i_mesh );
 
     /**
      * Derives the layout of the LTS scheme.

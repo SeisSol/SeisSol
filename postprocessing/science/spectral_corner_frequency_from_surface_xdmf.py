@@ -128,7 +128,8 @@ def ComputeCornerFrequency(tuples):
     """Preproccesing of a single waveform before calling fc_Qzero_gridsearch to determine the corner frequency"""
     
     fc_arr = np.zeros(tuples[0].shape[0])
-    endfreq=args.maxFreq[0]
+    endfreq = args.maxFreq[0]
+    startfreq = np.max([minFreq, 0.01])
     
     for i in range(0, fc_arr.size):
         
@@ -152,7 +153,7 @@ def ComputeCornerFrequency(tuples):
         # integrate within the frequency domain and convert to amplitude spectrum
         data = np.abs(data*(1/(1j*2*np.pi*freqs)))
 
-        newfreqs = np.arange(0.01, endfreq+0.005, 0.005)
+        newfreqs = np.arange(startfreq, endfreq+0.005, 0.005)
         data = np.interp(newfreqs, freqs, data)
 
         fc_arr[i] = fc_Qzero_gridsearch(data, newfreqs, misfit="SSM", n=2, 
@@ -222,7 +223,7 @@ def fc_Qzero_gridsearch(amplitude_tr, freq_tr, misfit="SSM", n=2, fc_end=0., q_d
     if q_dim != 0:
         q = q_zero[0,0,index[1]]
     else:
-        q = q_zero[0,index[1],0]
+        q = q_zero[0,index[0],0]
         
     return fc, q
 
@@ -243,7 +244,11 @@ def ApproximateEventDurationAndHypocenter(faultxdmf, faultxyz):
         ASl = LoadSingleComponentParallel("ASl", surfaceData=False)
     ASR = np.abs(np.gradient(ASl, dtFault, axis=1))
     slippingElement = np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0)
-    duration = slippingElement[np.argmax(slippingElement):-np.argmax(np.flip(slippingElement))].size * dtFault
+    if np.all(slippingElement == 1):
+        print("Warning: at least one element is always slipping")
+    elif np.argmax(np.flip(slippingElement)) == 0:
+        print("Warning: at least one element is still slipping at the last time step")
+    duration = np.trim_zeros(slippingElement).size * dtFault
     slippingFault = np.where(ASR > slipRateThreshold, 1, 0)
     indHypocenter = np.argmax(slippingFault[:,np.argmax(np.amax(slippingFault, axis=0))])
     hypocenter = faultxyz[indHypocenter,:]
@@ -293,6 +298,8 @@ if stepsize != 1 and args.output != "numpy":
     sys.exit("Xdmf output is not compatible with stepsize != 1")
 
 timeIndices = GetTimeIndices(surfacexdmf)
+minFreq = 1. / ((timeIndices[1]-timeIndices[0]-1.) * dt)
+print(f"Minimum frequency: {minFreq}")
 
 nprocs  = args.MP[0]
 assert(nprocs<=cpu_count())

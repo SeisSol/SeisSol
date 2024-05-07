@@ -43,6 +43,5 @@ Necessary files
 Optional files depending on settings in the parameter file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
--  receiver files in \*.dat format (if nRecordPoints >0 in the parameter
-   file)
+-  receiver files in \*.dat format
 -  fault receiver files in \*.dat format (in the parameter file)

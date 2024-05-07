@@ -48,12 +48,15 @@
 #endif
 
 #include "BasicTypedefs.hpp"
-#include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/equations.hpp>
+#include "Initializer/preProcessorMacros.hpp"
+#include "Kernels/common.hpp"
 #include "Equations/datastructures.hpp"
-#include <generated_code/tensor.h>
+#include "generated_code/tensor.h"
+#include "DynamicRupture/Typedefs.hpp"
+#include "DynamicRupture/Misc.h"
 
 #include <cstddef>
+#include <vector>
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -303,6 +306,10 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+#if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
+  seissol::tensor::plusFluxMatrices::Container<real const*> plusFluxMatrices;
+  seissol::tensor::minusFluxMatrices::Container<real const*> minusFluxMatrices;
+#endif //ACL_DEVICE
  
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
@@ -388,33 +395,6 @@ struct CellMaterialData {
 #endif
 };
 
-/** A piecewise linear function.
- * 
- *  Say t \in I_j, then
- *    f(t) = m_j * t + n_j,
- *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
- *  j runs through 0,...,n-1.
- **/
-struct PiecewiseLinearFunction1D {
-   /** slopes[i] = m_i */
-  real* slopes;
-
-  /** intercepts[i] = n_i */
-  real* intercepts;
-  
-  /** numberOfPieces = n */
-  unsigned numberOfPieces;
-  
-  /** onsetTime = t_o */
-  real onsetTime;
-  
-  /** samplingInterval = dt */
-  real samplingInterval;
-  
-  PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
-  ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
-};
-
 struct DRFaceInformation {
   unsigned meshFace;
   unsigned plusSide;
@@ -427,13 +407,23 @@ struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  // When integrating quantities over the fault
+  // we need to integrate over each physical element.
+  // The integration is effectively done in the reference element, and the scaling factor of
+  // the transformation, the surface Jacobian (e.g. |n^e(\chi)| in eq. (35) of Uphoff et al. (2023))
+  // is incorporated. This explains the factor 2 (doubledSurfaceArea)
+  //
+  // Uphoff, C., May, D. A., & Gabriel, A. A. (2023). A discontinuous Galerkin method for
+  // sequences of earthquakes and aseismic slip on multiple faults using unstructured curvilinear
+  // grids. Geophysical Journal International, 233(1), 586-626.
   double doubledSurfaceArea;
 };
 
-struct DROutput {
+struct DREnergyOutput {
   real slip[seissol::tensor::slipInterpolated::size()];
-  real accumulatedSlip[seissol::tensor::squaredNormSlipRateInterpolated::size()];
-  real frictionalEnergy;
+  real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
+  real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
+  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::numPaddedPoints];
 };
 
 struct CellDRMapping {
@@ -460,6 +450,7 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
+
 /*
  * \class MemoryProperties
  *
@@ -481,10 +472,23 @@ struct GravitationSetup {
 } // namespace seissol
 
 struct TravellingWaveParameters {
-  std::array<double, 3> origin;
-  std::array<double, 3> kVec;
+  Eigen::Vector3d origin;
+  Eigen::Vector3d kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
+};
+
+struct AcousticTravellingWaveParametersITM {
+  double k;
+  double itmStartingTime;
+  double itmDuration;
+  double itmVelocityScalingFactor;
+};
+
+struct PressureInjectionParameters {
+  std::array<double, 3> origin;
+  double magnitude;
+  double width;
 };
 
 #endif

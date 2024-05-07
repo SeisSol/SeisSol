@@ -30,7 +30,11 @@ The Gaussian source time functions are parametrized by ``rupture_onset`` and  ``
 The slip distribution is defined by the ``strike_slip`` and ``dip_slip`` variables.  
 All these parameters are read by easi from the dynamic rupture yaml file.
 
-Warning: the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting).   
+
+
+Warning: 
+ - the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting).   
+ - Select `SlipRateOutputType=0` in the parameter file to calculate slip-rate output properly.  
 
 A fully working example based on Northridge is given at https://github.com/SeisSol/Examples/tree/master/Northridge_FL33.
 

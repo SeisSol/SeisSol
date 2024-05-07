@@ -110,9 +110,13 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
 
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+#else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
   deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+#endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
 }
@@ -121,10 +125,10 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
                                                           CellDRMapping const (&cellDrMapping)[4],
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0);
 
   for (unsigned int l_face = 0; l_face < 4; l_face++) {
-    switch (data.cellInformation.faceTypes[l_face]) {
+    switch (data.cellInformation().faceTypes[l_face]) {
     case FaceType::regular:
       // Fallthrough intended
     case FaceType::periodic:
@@ -132,15 +136,15 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
-      assert(data.cellInformation.faceRelations[l_face][0] < 4
-             && data.cellInformation.faceRelations[l_face][1] < 3);
+      assert(data.cellInformation().faceRelations[l_face][0] < 4
+             && data.cellInformation().faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
-      nfKrnl.Q = data.dofs;
+      nfKrnl.Q = data.dofs();
       nfKrnl.I = i_timeIntegrated[l_face];
-      nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
+      nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[l_face];
       nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-      nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
-		     data.cellInformation.faceRelations[l_face][0],
+      nfKrnl.execute(data.cellInformation().faceRelations[l_face][1],
+		     data.cellInformation().faceRelations[l_face][0],
 		     l_face);
       break;
       }
@@ -152,7 +156,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
-      drKrnl.Q = data.dofs;
+      drKrnl.Q = data.dofs();
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
       break;
@@ -165,7 +169,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatchTableT &table) {
+void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
@@ -176,12 +180,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
-  device.api->fastStreamsSync(); // finish all previous work in the default stream
   for(size_t face = 0; face < 4; face++) {
+    this->device.api->forkCircularStreamsFromDefault();
     size_t streamCounter{0};
 
     // regular and periodic
@@ -193,16 +197,16 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
                          faceRelation);
 
       if(table.find(key) != table.end()) {
-        BatchTable &entry = table[key];
+        auto &entry = table[key];
 
-        const auto NUM_ELEMENTS = (entry.content[*EntityId::Dofs])->getSize();
-        neighFluxKrnl.numElements = NUM_ELEMENTS;
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        neighFluxKrnl.numElements = numElements;
 
-        neighFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-        neighFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
-        neighFluxKrnl.AminusT = const_cast<const real **>((entry.content[*EntityId::AminusT])->getPointers());
+        neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
-        tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
         neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
@@ -220,16 +224,16 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
                          faceRelation);
 
       if(table.find(Key) != table.end()) {
-        BatchTable &entry = table[Key];
+        auto &entry = table[Key];
 
-        const auto NUM_ELEMENTS = (entry.content[*EntityId::Dofs])->getSize();
-        drKrnl.numElements = NUM_ELEMENTS;
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        drKrnl.numElements = numElements;
 
-        drKrnl.fluxSolver = const_cast<const real **>((entry.content[*EntityId::FluxSolver])->getPointers());
-        drKrnl.QInterpolated = const_cast<real const**>((entry.content[*EntityId::Godunov])->getPointers());
-        drKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+        drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-        tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
         drKrnl.linearAllocator.initialize(tmpMem);
 
         drKrnl.streamPtr = device.api->getNextCircularStream();

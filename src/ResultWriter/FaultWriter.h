@@ -49,19 +49,25 @@
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 #include "Monitoring/Stopwatch.h"
 
-namespace seissol
-{
+namespace seissol {
+  class SeisSol;
+  namespace dr::output {
+    class OutputManager;
+  }
+}
 
-namespace writer
-{
+
+namespace seissol::writer {
 
 class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>,
 	public seissol::Module
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	/** Is enabled? */
 	bool m_enabled;
 
@@ -77,9 +83,12 @@ private:
 	/** Frontend stopwatch */
 	Stopwatch m_stopwatch;
 
+	dr::output::OutputManager* callbackObject{nullptr};
+
 public:
-	FaultWriter()
-		: m_enabled(false),
+	FaultWriter(seissol::SeisSol& seissolInstance) : 
+                seissolInstance(seissolInstance),
+                m_enabled(false),
 		m_numVariables(0),
 		m_timestep(0)
 	{
@@ -96,11 +105,13 @@ public:
 	}
 
 	void init(const unsigned int* cells, const double* vertices,
+		const unsigned int* faultTags,
 		unsigned int nCells, unsigned int nVertices,
 		int* outputMask, const real** dataBuffer,
 		const char* outputPrefix,
 		double interval,
-    xdmfwriter::BackendType backend);
+		xdmfwriter::BackendType backend,
+		const std::string& backupTimeStamp);
 
 	/**
 	 * @return The current time step of the fault output
@@ -159,6 +170,10 @@ public:
 		m_executor.finalize();
 	}
 
+	void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
+		callbackObject = faultOutputManager;
+	}
+
 	//
 	// Hooks
 	//
@@ -166,8 +181,6 @@ public:
 
 	void syncPoint(double currentTime);
 };
-
-}
 
 }
 

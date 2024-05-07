@@ -52,8 +52,8 @@ bool seissol::checkpoint::posix::Fault::init(unsigned int numSides, unsigned int
 	return exists();
 }
 
-void seissol::checkpoint::posix::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-	double* slip, double* slip1, double* slip2, double* state, double* strength)
+void seissol::checkpoint::posix::Fault::load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+	real* slip, real* slip1, real* slip2, real* state, real* strength)
 {
 	if (numSides() == 0)
 		return;
@@ -68,18 +68,26 @@ void seissol::checkpoint::posix::Fault::load(int &timestepFault, double* mu, dou
 	// Read header
 	readHeader(file, timestepFault);
 
-	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+	real* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
 	// Read data
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
 		// Skip other processes before this in the group
-		checkErr(lseek64(file, groupOffset() * numBndGP() * sizeof(real), SEEK_CUR));
+#ifdef __APPLE__
+          checkErr(lseek(file, groupOffset() * numBndGP() * sizeof(real), SEEK_CUR));
 
-		checkErr(read(file, data[i], numSides() * numBndGP() * sizeof(real)));
+          // Skip other processes after this in the group
+          checkErr(lseek(file, (numGroupElems() - numSides() - groupOffset()) * numBndGP() * sizeof(real),
+                           SEEK_CUR));
+#else
+          checkErr(lseek64(file, groupOffset() * numBndGP() * sizeof(real), SEEK_CUR));
 
-		// Skip other processes after this in the group
-		checkErr(lseek64(file, (numGroupElems() - numSides() - groupOffset()) * numBndGP() * sizeof(real),
-			SEEK_CUR));
+          // Skip other processes after this in the group
+          checkErr(lseek64(file, (numGroupElems() - numSides() - groupOffset()) * numBndGP() * sizeof(real),
+            SEEK_CUR));
+#endif // __APPLE__
+          checkErr(read(file, data[i], numSides() * numBndGP() * sizeof(real)));
+
 	}
 
 	// Close the file
@@ -97,7 +105,11 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	// Start at the beginning
-	checkErr(lseek64(file(), 0, SEEK_SET));
+#ifdef __APPLE__
+	checkErr(lseek(file(), 0, SEEK_SET));
+#else
+        checkErr(lseek64(file(), 0, SEEK_SET));
+#endif // __APPLE__
 
 	// Write the header
 	EPIK_USER_REG(r_write_header, "checkpoint_write_fault_header");

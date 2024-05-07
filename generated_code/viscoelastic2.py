@@ -87,6 +87,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
                           namespace='nodal')
     )
 
+    self.kwargs = kwargs
+
   def numberOfQuantities(self):
     return 9
 
@@ -164,27 +166,46 @@ class Viscoelastic2ADERDG(ADERDGBase):
     dQext = [OptionalDimTensor('dQext({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True) for d in range(self.order)]
     dQane = [OptionalDimTensor('dQane({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeAnelastic, alignStride=True) for d in range(self.order)]
 
-    power = Scalar('power')
+    powers = [Scalar(f'power({i})') for i in range(self.order)]
 
-    derivativeTaylorExpansionEla = lambda d: (self.I['kp'] <= self.I['kp'] + power * dQ[d]['kp']) if d > 0 else (self.I['kp'] <= power * dQ[0]['kp'])
-    derivativeTaylorExpansionAne = lambda d: (self.Iane['kpm'] <= self.Iane['kpm'] + power * dQane[d]['kpm']) if d > 0 else (self.Iane['kpm'] <= power * dQane[0]['kpm'])
+    derivativeTaylorExpansionEla = Add()
+    # derivativeTaylorExpansionAne = Add()
+    for d in range(0, self.order):
+      derivativeTaylorExpansionEla += powers[d] * dQ[d]['kp']
+      # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
+    derivativeTaylorExpansionElaExpr = self.I['kp'] <= derivativeTaylorExpansionEla
+    # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
     def derivative(kthDer):
       derivativeSum = Add()
       for j in range(3):
         derivativeSum += self.db.kDivMT[j][self.t('kl')] * dQ[kthDer-1]['lq'] * self.db.star[j]['qp']
       return derivativeSum
+    
+    # WARNING: the following kernel may produce incorrect results, if not executed in the order as specified here
+    # the reason for that is that dQext, dQane (except dQane(0)) and potentially dQ (except dQ(0)) are allocated in temporary arrays
+    # which are smaller than the whole tensor families (even indices share the same buffer, and odd indices share the same buffer)
+    derivativeExpr = [
+      self.I['kp'] <= powers[0] * dQ[0]['kp'],
+      self.Iane['kpm'] <= powers[0] * dQane[0]['kpm'],
+    ]
+    for d in range(1, self.order):
+      derivativeExpr += [
+        dQext[d]['kp'] <= derivative(d),
+        dQ[d]['kp'] <= dQext[d]['kq'] * self.selectEla['qp'] + dQane[d-1]['kqm'] * self.E['qmp'],
+        dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm'],
+        self.I['kp'] <= self.I['kp'] + powers[d] * dQ[d]['kp'],
+        self.Iane['kpm'] <= self.Iane['kpm'] + powers[d] * dQane[d]['kpm'],
+      ]
+    # TODO(David): we'll need to add intermediate results to Yateto, then the temporary storage needed can be reduced.
+    # for now, we'll interleave the Taylor expansion with the derivative computation
+    # derivativeExpr += [
+    #   derivativeTaylorExpansionElaExpr,
+    #   derivativeTaylorExpansionAneExpr
+    # ]
 
-    generator.addFamily('derivative', parameterSpaceFromRanges(range(1,self.order)), lambda d: [
-      dQext[d]['kp'] <= derivative(d),
-      dQ[d]['kp'] <= dQext[d]['kq'] * self.selectEla['qp'] + dQane[d-1]['kqm'] * self.E['qmp'],
-      dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm']
-    ])
-    generator.addFamily('derivativeTaylorExpansion', simpleParameterSpace(self.order), lambda d: [
-      derivativeTaylorExpansionEla(d),
-      derivativeTaylorExpansionAne(d)
-    ])
-    generator.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(self.order), derivativeTaylorExpansionEla)
+    generator.add('derivative', derivativeExpr)
+    generator.add('derivativeTaylorExpansionEla', derivativeTaylorExpansionElaExpr)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

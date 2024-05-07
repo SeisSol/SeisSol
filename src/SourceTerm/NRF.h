@@ -2,22 +2,24 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2023, Intel Corporation
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -41,55 +43,41 @@
 #ifndef SOURCETERM_NRF_H_
 #define SOURCETERM_NRF_H_
 
-#include <cstddef>
 #include <Eigen/Dense>
+#include <array>
+#include <cstddef>
+#include <vector>
 
-namespace seissol {
-  namespace sourceterm {
-    typedef struct Subfault_units {
-        char* tinit;
-        char* timestep;
-        char* mu;
-        char* area;
-        char* tan1;
-        char* tan2;
-        char* normal;
-    } Subfault_units;
+namespace seissol::sourceterm {
+typedef struct Subfault_units {
+  char* tinit;
+  char* timestep;
+  char* mu;
+  char* area;
+  char* tan1;
+  char* tan2;
+  char* normal;
+} Subfault_units;
 
-    typedef struct Subfault {
-        double tinit;
-        double timestep;
-        double mu;
-        double area;
-        Eigen::Vector3d tan1;
-        Eigen::Vector3d tan2;
-        Eigen::Vector3d normal;
-    } Subfault;
-    
-    typedef unsigned Offsets[3];
+typedef struct Subfault {
+  double tinit;
+  double timestep;
+  double mu;
+  double area;
+  Eigen::Vector3d tan1;
+  Eigen::Vector3d tan2;
+  Eigen::Vector3d normal;
+} Subfault;
 
-    struct NRF {
-      Eigen::Vector3d* centres;
-      Subfault* subfaults;
-      Offsets* sroffsets;
-      double* sliprates[3];
-      size_t source;
-      NRF() : centres(NULL), subfaults(NULL), sroffsets(NULL), source(0) {
-        sliprates[0] = NULL;
-        sliprates[1] = NULL;
-        sliprates[2] = NULL;
-      }
-      ~NRF() {
-        delete[] centres;
-        delete[] subfaults;
-        delete[] sroffsets;
-        source = 0;
-        delete[] sliprates[0];
-        delete[] sliprates[1];
-        delete[] sliprates[2];
-      }
-    };
-  }
-}
+using Offsets = std::array<unsigned, 3u>;
+
+struct NRF {
+  std::vector<Eigen::Vector3d> centres;
+  std::vector<Subfault> subfaults;
+  std::vector<Offsets> sroffsets;
+  std::array<std::vector<double>, 3u> sliprates;
+  inline std::size_t size() { return centres.size(); }
+};
+} // namespace seissol::sourceterm
 
 #endif

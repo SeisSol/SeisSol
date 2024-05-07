@@ -70,14 +70,29 @@
 
 #include "PointMapper.h"
 #include <cstring>
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 #include <utils/logger.h>
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReader const& mesh, unsigned numPoints, short* contained, unsigned* meshIds)
-{
-  std::vector<Vertex> const& vertices = mesh.getVertices();
-  std::vector<Element> const& elements = mesh.getElements();
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
+                                        seissol::geometry::MeshReader const& mesh,
+                                        unsigned numPoints,
+                                        short* contained,
+                                        unsigned* meshIds) {
+  findMeshIds(points,
+              mesh.getVertices(),
+              mesh.getElements(),
+              numPoints,
+              contained,
+              meshIds);
+}
+
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
+                                        std::vector<Vertex> const& vertices,
+                                        std::vector<Element> const& elements,
+                                        unsigned numPoints,
+                                        short* contained,
+                                        unsigned* meshIds) {
 
   memset(contained, 0, numPoints * sizeof(short));
 
@@ -105,11 +120,11 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReade
 
 /// @TODO Could use the code generator for the following
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
 #if 0 //defined(__AVX__)
-      __m256d zero = _mm256_setzero_pd();
+    __m256d zero = _mm256_setzero_pd();
       __m256d planeDims[4];
       for (unsigned i = 0; i < 4; ++i) {
         planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
@@ -139,7 +154,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReade
 #endif
       if (l_notInside == 0) {
 #ifdef _OPENMP
-        #pragma omp critical
+#pragma omp critical
         {
 #endif
           /* It might actually happen that a point is found in two tetrahedrons
@@ -149,9 +164,10 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReade
           /*if (contained[point] != 0) {
              logError() << "point with id " << point << " was already found in a different element!";
           }*/
-          if (contained[point] == 0 || meshIds[point] > elem) {
+          auto localId = static_cast<unsigned>(elements[elem].localId);
+          if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
-            meshIds[point] = elem;
+            meshIds[point] = elements[elem].localId;
           }
 #ifdef _OPENMP
         }
@@ -165,7 +181,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReade
 }
 
 #ifdef USE_MPI
-void seissol::initializers::cleanDoubles(short* contained, unsigned numPoints)
+void seissol::initializer::cleanDoubles(short* contained, unsigned numPoints)
 {
   int myrank = seissol::MPI::mpi.rank();
   int size = seissol::MPI::mpi.size();

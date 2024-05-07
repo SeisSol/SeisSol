@@ -43,20 +43,16 @@ from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
+from copy import deepcopy
+import numpy as np
 
-def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
-  if dynamicRuptureMethod == 'quadrature':
-    numberOfPoints = (aderdg.order+1)**2
-  elif dynamicRuptureMethod == 'cellaverage':
-    numberOfPoints = int(4**math.ceil(math.log(aderdg.order*(aderdg.order+1)/2,4)))
-  else:
-    raise ValueError('Unknown dynamic rupture method.')
+def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
-  db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
+  db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  numberOfPoints = db.resample.shape()[0]
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -68,10 +64,33 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
+  stressRotationMatrix = Tensor("stressRotationMatrix", (6, 6))
+  initialStress = Tensor("initialStress", (6, ))
+  rotatedStress = Tensor("rotatedStress", (6, ))
+  rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
+  generator.add('rotateStress', rotationKernel)
+
+  reducedFaceAlignedMatrix = Tensor("reducedFaceAlignedMatrix", (6, 6))
+  generator.add('rotateInitStress',
+                rotatedStress['k'] <= stressRotationMatrix['ki'] * reducedFaceAlignedMatrix['ij'] * initialStress['j'])
+
+  originalQ = Tensor('originalQ', (numberOfPoints,))
+  resampledQ = Tensor('resampledQ', (numberOfPoints,))
+  resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
+  generator.add('resampleParameter', resampleKernel )
+
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 
-  fluxScale = Scalar('fluxScale')
+  fluxScale = Scalar('fluxScaleDR')
   generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * aderdg.starMatrix(0)['qk'] * aderdg.T['pk'])
+
+  numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOfQuantities = aderdg.numberOfQuantities()
+  basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
+  QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
+
+  generator.add('evaluateFaceAlignedDOFSAtPoint',
+                QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
 
   def interpolateQGenerator(i,h):
     return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
@@ -101,27 +120,49 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3))
-  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3))
-  squaredNormSlipRateInterpolated = Tensor('squaredNormSlipRateInterpolated', (numberOfPoints,))
-  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3))
-  frictionalEnergy = Tensor('frictionalEnergy', ())
-  timeWeight = Scalar('timeWeight')
-  spaceWeights = Tensor('spaceWeights', (numberOfPoints,))
-
-  computeSlipRateInterpolated = slipRateInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.selectVelocity['qp'] - QInterpolatedPlus['kq'] * aderdg.selectVelocity['qp']
-  generator.add('computeSlipRateInterpolated', computeSlipRateInterpolated)
+  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3), alignStride=True)
+  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
+  staticFrictionalWork = Tensor('staticFrictionalWork', ())
+  minusSurfaceArea = Scalar('minusSurfaceArea')
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  accumulateSlipInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
-  generator.add('accumulateSlipInterpolated', accumulateSlipInterpolated)
+  accumulateStaticFrictionalWork = staticFrictionalWork[''] <= staticFrictionalWork[''] + minusSurfaceArea * tractionInterpolated['kp'] * slipInterpolated['kp'] * spaceWeights['k']
+  generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
-  computeSquaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated['k'] <= slipRateInterpolated['kp'] * slipRateInterpolated['kp']
-  generator.add('computeSquaredNormSlipRateInterpolated', computeSquaredNormSlipRateInterpolated)
+  ## Dynamic Rupture Precompute
+  qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  qMinus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
-  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
-  generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
+  extractVelocitiesSPP = aderdg.extractVelocities()
+  extractVelocities = Tensor('extractVelocities', extractVelocitiesSPP.shape, spp=extractVelocitiesSPP)
+  extractTractionsSPP = aderdg.extractTractions()
+  extractTractions = Tensor('extractTractions', extractTractionsSPP.shape, spp=extractTractionsSPP)
 
-  return {db.resample}
+  N = extractTractionsSPP.shape[0]
+  eta = Tensor('eta', (N,N))
+  zPlus = Tensor('Zplus', (N,N))
+  zMinus = Tensor('Zminus', (N,N))
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (numberOfPoints, N), alignStride=True)
+
+  velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
+  tractionsPlus = extractTractions['mn'] * qPlus['in']
+  tractionsMinus = extractTractions['mn'] * qMinus['in']
+  computeTheta = theta['ik'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
+  generator.add('computeTheta', computeTheta)
+
+  mapToVelocitiesSPP = aderdg.mapToVelocities()
+  mapToVelocities = Tensor('mapToVelocities', mapToVelocitiesSPP.shape, spp=mapToVelocitiesSPP)
+  mapToTractionsSPP = aderdg.mapToTractions()
+  mapToTractions = Tensor('mapToTractions', mapToTractionsSPP.shape, spp=mapToTractionsSPP)
+  imposedState = OptionalDimTensor('imposedState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  weight = Scalar('weight')
+  computeImposedStateM = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qMinus['im'] - zMinus['lm'] * theta['im'] + zMinus['lm'] * tractionsMinus) + weight * mapToTractions['kl'] * theta['il']
+  computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']
+  generator.add('computeImposedStateM', computeImposedStateM)
+  generator.add('computeImposedStateP', computeImposedStateP)
+
+
+  return {db.resample, db.quadpoints, db.quadweights}

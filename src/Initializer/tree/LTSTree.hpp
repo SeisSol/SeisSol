@@ -44,15 +44,15 @@
 #include "LTSInternalNode.hpp"
 #include "TimeCluster.hpp"
 
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class LTSTree;
   }
 }
 
-class seissol::initializers::LTSTree : public seissol::initializers::LTSInternalNode {
+class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNode {
 private:
   void** m_vars;
   void** m_buckets;
@@ -220,6 +220,15 @@ public:
 
   const std::vector<size_t>& getBucketSizes() {
     return bucketSizes;
+  }
+
+  size_t getMaxClusterSize(LayerMask mask) {
+    size_t maxClusterSize{0};
+    for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
+      size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+      maxClusterSize = std::max(currClusterSize, maxClusterSize);
+    }
+    return maxClusterSize;
   }
 };
 

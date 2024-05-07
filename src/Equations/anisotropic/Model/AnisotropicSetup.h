@@ -41,13 +41,13 @@
 #ifndef ANISOTROPIC_SETUP_H_
 #define ANISOTROPIC_SETUP_H_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
-#include <Model/common.hpp>
-#include <Kernels/common.hpp>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/init.h>
+#include "Model/common.hpp"
+#include "Kernels/common.hpp"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/init.h"
 
 namespace seissol {
   namespace model {

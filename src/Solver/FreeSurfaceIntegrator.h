@@ -42,13 +42,13 @@
 
 #include <memory>
 
-#include <Geometry/MeshReader.h>
-#include <Geometry/refinement/TriangleRefiner.h>
-#include <Kernels/precision.hpp>
-#include <Kernels/equations.hpp>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
+#include "Geometry/MeshReader.h"
+#include "Geometry/refinement/TriangleRefiner.h"
+#include "Kernels/precision.hpp"
+#include "Kernels/common.hpp"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
 
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
@@ -64,13 +64,13 @@ private:
     FreeSurfaceWithGravity = 3
   };
   struct SurfaceLTS {
-    seissol::initializers::Variable<real*> dofs;
-    seissol::initializers::Variable<real*> displacementDofs;
-    seissol::initializers::Variable<unsigned> side;
-    seissol::initializers::Variable<unsigned> meshId;
-    seissol::initializers::Variable<CellBoundaryMapping*> boundaryMapping;
+    seissol::initializer::Variable<real*> dofs;
+    seissol::initializer::Variable<real*> displacementDofs;
+    seissol::initializer::Variable<unsigned> side;
+    seissol::initializer::Variable<unsigned> meshId;
+    seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
 
-    void addTo(seissol::initializers::LTSTree& surfaceLtsTree);
+    void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
 
   std::unique_ptr<real> projectionMatrixMemory;
@@ -90,9 +90,9 @@ private:
   void computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
                                            const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
                                            double const* weights) const;
-  void initializeSurfaceLTSTree(  seissol::initializers::LTS* lts,
-                                  seissol::initializers::LTSTree* ltsTree,
-                                  seissol::initializers::Lut* ltsLut );
+  void initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
+                                  seissol::initializer::LTSTree* ltsTree,
+                                  seissol::initializer::Lut* ltsLut );
 
   static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 public:
@@ -100,12 +100,12 @@ public:
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
 public:
-  std::vector<double> locationFlags;
+  std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
 
   SurfaceLTS surfaceLts;
-  seissol::initializers::LTSTree surfaceLtsTree;
+  seissol::initializer::LTSTree surfaceLtsTree;
   seissol::refinement::TriangleRefiner triRefiner;
   
   explicit FreeSurfaceIntegrator();
@@ -113,9 +113,9 @@ public:
   
   void initialize(  unsigned maxRefinementDepth,
                     GlobalData* globalData,
-                    seissol::initializers::LTS* lts,
-                    seissol::initializers::LTSTree* ltsTree,
-                    seissol::initializers::Lut* ltsLut );
+                    seissol::initializer::LTS* lts,
+                    seissol::initializer::LTSTree* ltsTree,
+                    seissol::initializer::Lut* ltsLut );
 
   void calculateOutput();
   

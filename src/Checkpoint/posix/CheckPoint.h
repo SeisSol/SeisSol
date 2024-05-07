@@ -58,7 +58,7 @@
 #include "utils/stringutils.h"
 
 #include "Checkpoint/CheckPoint.h"
-#include "Initializer/preProcessorMacros.fpp"
+#include "Initializer/preProcessorMacros.hpp"
 
 namespace seissol
 {
@@ -177,7 +177,11 @@ protected:
 	 */
 	int open()
 	{
-		int fh = open64(linkFile().c_str(), O_RDONLY);
+#ifdef __APPLE__
+                int fh = ::open(linkFile().c_str(), O_RDONLY);
+#else
+                int fh = open64(linkFile().c_str(), O_RDONLY);
+#endif
 
 		if (fh < 0)
 			logWarning() << "Could not open checkpoint file";
@@ -235,13 +239,20 @@ protected:
 
 		int oflags = O_WRONLY | O_CREAT;
 		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
+#ifndef __APPLE__
 			oflags |= O_DIRECT;
+#endif // __APPLE__
 			logInfo(rank()) << "Using direct I/O for checkpointing";
 		}
 
 		for (unsigned int i = 0; i < 2; i++) {
-			m_files[i] = open64(dataFile(i).c_str(), oflags,
+#ifdef __APPLE__
+			m_files[i] = ::open(dataFile(i).c_str(), oflags,
 					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+#else
+                        m_files[i] = open64(dataFile(i).c_str(), oflags,
+                                            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+#endif // __APPLE__
 			checkErr(m_files[i]);
 
 			// Sync file (required for performance measure)

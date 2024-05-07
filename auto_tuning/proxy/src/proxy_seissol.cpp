@@ -56,9 +56,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-extern long long libxsmm_num_total_flops;
-extern long long pspamm_num_total_flops;
-
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -76,11 +73,12 @@ extern long long pspamm_num_total_flops;
 #define __USE_RDTSC
 #endif
 
-#include <Kernels/TimeCommon.h>
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
+#include "Kernels/TimeCommon.h"
+#include "Kernels/Time.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/DynamicRupture.h"
+#include "Monitoring/FlopCounter.hpp"
 #include "utils/logger.h"
 #include <cassert>
 
@@ -152,14 +150,14 @@ ProxyOutput runProxy(ProxyConfig config) {
   }
 
 #ifdef ACL_DEVICE
-  deviceT &device = deviceT::getInstance();
+  deviceType &device = deviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
   device.api->allocateStackMem();
 #endif
 
-  m_ltsTree = new seissol::initializers::LTSTree;
-  m_dynRupTree = new seissol::initializers::LTSTree;
+  m_ltsTree = new seissol::initializer::LTSTree;
+  m_dynRupTree = new seissol::initializer::LTSTree;
   m_allocator = new seissol::memory::ManagedAllocator;
 
   print_hostname();
@@ -185,9 +183,8 @@ ProxyOutput runProxy(ProxyConfig config) {
 
   // init OpenMP and LLC
   testKernel(config.kernel, 1);
-  
-  libxsmm_num_total_flops = 0;
-  pspamm_num_total_flops = 0;
+
+  seissol::monitoring::FlopCounter flopCounter;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC

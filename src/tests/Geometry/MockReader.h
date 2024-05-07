@@ -6,9 +6,9 @@
 #include "Geometry/MeshReader.h"
 
 namespace seissol {
-class MockReader : public MeshReader {
+class MockReader : public seissol::geometry::MeshReader {
   public:
-  MockReader(std::array<Eigen::Vector3d, 4> vertices) : MeshReader(0) {
+  MockReader(std::array<Eigen::Vector3d, 4> vertices) : seissol::geometry::MeshReader(0) {
     m_vertices.resize(4);
     for (int i = 0; i < 4; i++) {
       std::copy(vertices[i].data(), vertices[i].data() + 3, m_vertices.at(i).coords);

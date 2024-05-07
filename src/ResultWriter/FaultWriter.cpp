@@ -47,16 +47,14 @@
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
 #include "Modules/Modules.h"
-#include "Solver/Interoperability.h"
-
-extern seissol::Interoperability e_interoperability;
+#include "DynamicRupture/Output/OutputManager.hpp"
 
 void seissol::writer::FaultWriter::setUp()
 {
   setExecutor(m_executor);
 
   if (isAffinityNecessary()) {
-    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:"
       << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -67,11 +65,13 @@ void seissol::writer::FaultWriter::setUp()
 }
 
 void seissol::writer::FaultWriter::init(const unsigned int* cells, const double* vertices,
+	const unsigned int* faultTags,
 	unsigned int nCells, unsigned int nVertices,
 	int* outputMask, const real** dataBuffer,
 	const char* outputPrefix,
 	double interval,
-  xdmfwriter::BackendType backend)
+	xdmfwriter::BackendType backend,
+	const std::string& backupTimeStamp)
 {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -84,19 +84,23 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 
 	FaultInitParam param;
 	param.timestep = m_timestep;
-  param.backend = backend;
+	param.backend = backend;
+	param.backupTimeStamp = backupTimeStamp;
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
 	assert(bufferId == FaultWriterExecutor::OUTPUT_PREFIX); NDBG_UNUSED(bufferId);
 
-	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
 
 	// Create mesh buffers
 	bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
 	assert(bufferId == FaultWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FaultWriterExecutor::VERTICES);
+
+	bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
+	assert(bufferId == FaultWriterExecutor::FAULTTAGS);
 
 	// Create data buffers
 	std::fill_n(param.outputMask, FaultInitParam::OUTPUT_MASK_SIZE, false);
@@ -151,6 +155,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 
 	sendBuffer(FaultWriterExecutor::CELLS);
 	sendBuffer(FaultWriterExecutor::VERTICES);
+	sendBuffer(FaultWriterExecutor::FAULTTAGS);
 
 	// Initialize the executor
 	callInit(param);
@@ -159,10 +164,11 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	removeBuffer(FaultWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FaultWriterExecutor::CELLS);
 	removeBuffer(FaultWriterExecutor::VERTICES);
+	removeBuffer(FaultWriterExecutor::FAULTTAGS);
 
 	// Register for the synchronization point hook
-	Modules::registerHook(*this, SIMULATION_START);
-	Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+	Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
 }
 
@@ -175,6 +181,8 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime)
 {
 	SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-	e_interoperability.calcElementwiseFaultoutput(currentTime);
+	if (callbackObject) {
+		callbackObject->updateElementwiseOutput();
+	}
 	write(currentTime);
 }

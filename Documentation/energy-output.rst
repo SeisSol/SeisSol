@@ -1,3 +1,5 @@
+.. _energy_output:
+
 Energy output
 ==============
 
@@ -19,12 +21,17 @@ The energy output computes the energy of the simulation. It is divided into mult
     - Elastic energy 
         :math:`\int_{\Omega_e} \frac{1}{2} \epsilon_{ij} \sigma_{kl} \,\mathbf{dx}`, with  :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress tensor. It reduces for isotropic materials to :math:`\int_{\Omega_e} \frac{1}{2\mu} (\sigma_{ij} \sigma_{ij} -\frac{\lambda}{3\lambda+2\mu} \sigma_{kk}^2)\,\mathbf{dx}`, with :math:`\lambda` and :math:`\mu` the Lame coefficients.
 - Earthquake source energy
-    - Total frictional work 
-        :math:`\int_{0}^{t_f} \int_{\Sigma} \frac{1}{2} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{u}(t) \,\mathbf{dx}dt` with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t)` the shear traction change, and :math:`\Delta\mathbf{u}(t)` the fault slip, and :math:`t_f` the end time of the simulation.
-    - Static frictional work 
-        :math:`\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}`.
+    - Total frictional work done by the stress change
+        :math:`W_\mathrm{total} = -\int_{0}^{t_f} \int_{\Sigma} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{\dot{u}}(t) \,\mathbf{dx}dt`, with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t) = \mathbf{\sigma}(t) - \mathbf{\sigma}(0)` the shear traction change, and :math:`\Delta\mathbf{\dot{u}}(t)` the fault slip rate, and :math:`t_f` the end time of the simulation (see eq. 3 in Ma and Archuleta, 2006). 
+    - Static frictional work done by the stress change
+        :math:`W_\mathrm{static} = -\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}` (see eq. 4 in Ma and Archuleta, 2006).
+    - Radiated energy can then be computed with:
+        :math:`E_\mathrm{r} = W_\mathrm{total} - W_\mathrm{static}` (see eq. 5 in Ma and Archuleta, 2006).
+
+- Potency
+        :math:`\int_{\Sigma} \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
 - Seismic moment
-        :math:`\int_{\Sigma} \frac{1}{2} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
+        :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient.
 - Plastic moment 
     :math:`\int_{\Omega_e} \mu \eta  \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and \eta a scalar quantity measuring the accumulated material damage.
 
@@ -40,6 +47,7 @@ Configuration
     EnergyOutput = 1
     EnergyTerminalOutput = 1
     EnergyOutputInterval = 0.05
+    ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval 
     /
 
 Energy output
@@ -61,3 +69,26 @@ Output interval
 ~~~~~~~~~~~~~~~~
 The output interval is controlled by EnergyOutputInterval.
 If the output interval is not specified, the energy will be computed at the start of the simulation and at the end of the simulation.
+
+
+Postprocessing and plotting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The code below suggests a way to process and plot variables of the energy output file:
+
+.. code-block:: python
+
+	import pandas as pd
+	import numpy as np
+	import matplotlib.pylab as plt
+
+	df = pd.read_csv("prefix-energy.csv")
+	df = df.pivot_table(index="time", columns="variable", values="measurement")
+	df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], df.index[1])
+	df.plot(y="seismic_moment_rate", use_index=True)
+
+	# if ComputeVolumeEnergiesEveryOutput > 1
+	volume_output = df.dropna()
+	volume_output.plot(y="elastic_energy", use_index=True)
+
+	plt.show()

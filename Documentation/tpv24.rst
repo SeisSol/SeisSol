@@ -1,3 +1,5 @@
+.. _tpv24:
+
 SCEC TPV24
 ==========
 
@@ -136,9 +138,9 @@ The friction parameters are listed in Table [table:tpv24fric].
 +-------------+--------------------------------+---------+--------+
 | Parameter   | Description                    | Value   | Unit   |
 +=============+================================+=========+========+
-| mu\_s       | static friction coefficient    | 0.12    |        |
+| mu\_s       | static friction coefficient    | 0.18    |        |
 +-------------+--------------------------------+---------+--------+
-| mu\_d       | dynamic friction coefficient   | 0.18    |        |
+| mu\_d       | dynamic friction coefficient   | 0.12    |        |
 +-------------+--------------------------------+---------+--------+
 | d\_c        | critical distance              | 0.30    | m      |
 +-------------+--------------------------------+---------+--------+

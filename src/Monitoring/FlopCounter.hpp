@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alex Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -41,24 +42,46 @@
 #ifndef FLOPCOUNTER_HPP
 #define FLOPCOUNTER_HPP
 
-//! floating point operations performed in the matrix kernels.
-//!   Remark: This variable is updated by the matrix kernels.
+#include <fstream>
+
+// Floating point operations performed in the matrix kernels.
+// Remark: These variables are updated by the matrix kernels (subroutine.cpp) only in debug builds.
 extern long long libxsmm_num_total_flops;
 extern long long pspamm_num_total_flops;
 
-// global variables for summing-up SeisSol internal counters
-extern long long g_SeisSolNonZeroFlopsLocal;
-extern long long g_SeisSolHardwareFlopsLocal;
-extern long long g_SeisSolNonZeroFlopsNeighbor;
-extern long long g_SeisSolHardwareFlopsNeighbor;
-extern long long g_SeisSolNonZeroFlopsOther;
-extern long long g_SeisSolHardwareFlopsOther;
-extern long long g_SeisSolNonZeroFlopsDynamicRupture;
-extern long long g_SeisSolHardwareFlopsDynamicRupture;
-extern long long g_SeisSolNonZeroFlopsPlasticity;
-extern long long g_SeisSolHardwareFlopsPlasticity;
+namespace seissol::monitoring {
+struct FlopCounter {
+  public:
+  void init(std::string outputFileNamePrefix);
+  void printPerformanceUpdate(double wallTime);
+  void printPerformanceSummary(double wallTime);
+  void incrementNonZeroFlopsLocal(long long update);
+  void incrementHardwareFlopsLocal(long long update);
+  void incrementNonZeroFlopsNeighbor(long long update);
+  void incrementHardwareFlopsNeighbor(long long update);
+  void incrementNonZeroFlopsOther(long long update);
+  void incrementHardwareFlopsOther(long long update);
+  void incrementNonZeroFlopsDynamicRupture(long long update);
+  void incrementHardwareFlopsDynamicRupture(long long update);
+  void incrementNonZeroFlopsPlasticity(long long update);
+  void incrementHardwareFlopsPlasticity(long long update);
 
-void printPerformance(double wallTime);
-void printFlops();
+  private:
+  std::ofstream out;
+  long long previousTotalFlops = 0;
+  double previousWallTime = 0;
+  // global variables for summing-up SeisSol internal counters
+  long long nonZeroFlopsLocal = 0;
+  long long hardwareFlopsLocal = 0;
+  long long nonZeroFlopsNeighbor = 0;
+  long long hardwareFlopsNeighbor = 0;
+  long long nonZeroFlopsOther = 0;
+  long long hardwareFlopsOther = 0;
+  long long nonZeroFlopsDynamicRupture = 0;
+  long long hardwareFlopsDynamicRupture = 0;
+  long long nonZeroFlopsPlasticity = 0;
+  long long hardwareFlopsPlasticity = 0;
+};
+} // namespace seissol::monitoring
 
 #endif

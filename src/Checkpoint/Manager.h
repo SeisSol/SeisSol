@@ -44,6 +44,7 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
+#include "Initializer/Parameters/OutputParameters.h"
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -61,6 +62,7 @@
 
 namespace seissol
 {
+  class SeisSol;
 
 namespace checkpoint
 {
@@ -68,10 +70,12 @@ namespace checkpoint
 class Manager : private async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	ManagerExecutor m_executor;
 
 	/** The backend that should be used */
-	Backend m_backend;
+        seissol::initializer::parameters::CheckpointingBackend m_backend;
 
 	/** The filename for the checkpoints */
 	std::string m_filename;
@@ -89,16 +93,14 @@ private:
 	Stopwatch m_stopwatch;
 
 public:
-	Manager()
-		: m_backend(DISABLED),
-		  m_numDofs(0), m_numDRDofs(0)
-	{
-	}
+	Manager(seissol::SeisSol& seissolInstance) :
+                  seissolInstance(seissolInstance),
+                  m_backend(initializer::parameters::DISABLED),
+                  m_numDofs(0),
+                  m_numDRDofs(0) {}
 
-	virtual ~Manager()
-	{ }
-
-	void setBackend(Backend backend)
+	virtual ~Manager() {}
+	void setBackend(seissol::initializer::parameters::CheckpointingBackend backend)
 	{
 		m_backend = backend;
 	}
@@ -133,8 +135,8 @@ public:
 	 * @return True is a checkpoint was loaded, false otherwise
 	 */
 	bool init(real* dofs, unsigned int numDofs,
-			double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-			double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
+			real* mu, real* slipRate1, real* slipRate2, real* slip, real* slip1, real* slip2,
+			real* state, real* strength, unsigned int numSides, unsigned int numBndGP,
 			int &faultTimeStep);
 
 	/**
@@ -147,8 +149,9 @@ public:
 	{
 		SCOREP_USER_REGION("CheckpointManager_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-		if (m_backend == DISABLED)
+		if (m_backend == initializer::parameters::DISABLED) {
 			return;
+                }
 
 		m_stopwatch.start();
 
@@ -169,7 +172,7 @@ public:
 		sendBuffer(HEADER);
 		sendBuffer(DOFS, m_numDofs * sizeof(real));
 		for (unsigned int i = 0; i < 8; i++)
-			sendBuffer(DR_DOFS0+i, m_numDRDofs * sizeof(double));
+			sendBuffer(DR_DOFS0+i, m_numDRDofs * sizeof(real));
 
 
 		SCOREP_USER_REGION_DEFINE(r_call);
@@ -190,7 +193,7 @@ public:
 	 */
 	void close()
 	{
-		if (m_backend == DISABLED)
+		if (m_backend == initializer::parameters::DISABLED)
 			return;
 
 		// Terminate the executor

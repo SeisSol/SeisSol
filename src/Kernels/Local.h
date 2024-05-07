@@ -41,17 +41,15 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include <cassert>
-#include <Kernels/common.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/LocalBase.h>
-#include <generated_code/tensor.h>
+#include "Kernels/common.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/LocalBase.h"
+#include "generated_code/tensor.h"
 
-namespace seissol {
-  namespace kernels {
-    class Local;
-  }
+namespace seissol::kernels {
+  class Local;
 }
 
 class seissol::kernels::Local : public LocalBase {
@@ -67,7 +65,18 @@ class seissol::kernels::Local : public LocalBase {
                          double time,
                          double timeStepWidth);
 
-    void computeBatchedIntegral(ConditionalBatchTableT &table, LocalTmp& tmp);
+    void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                ConditionalMaterialTable& materialTable,
+                                ConditionalIndicesTable& indicesTable,
+                                kernels::LocalData::Loader& loader,
+                                LocalTmp& tmp,
+                                double timeStepWidth);
+
+    void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                        ConditionalIndicesTable& indicesTable,
+                                        kernels::LocalData::Loader& loader,
+                                        double time,
+                                        double timeStepWidt);
 
     void flopsIntegral(FaceType const i_faceTypes[4],
                        unsigned int &o_nonZeroFlops,

@@ -40,6 +40,7 @@
 
 #include "Transformation.h"
 #include <Eigen/Dense>
+#include <utils/logger.h>
 
 void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
                                                              double const v1[3],
@@ -50,6 +51,15 @@ void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
   for (unsigned i = 0; i < 3; ++i) {
     xyz[i] = v0[i] + (v1[i]-v0[i])*xiEtaZeta[0] + (v2[i]-v0[i])*xiEtaZeta[1] + (v3[i]-v0[i])*xiEtaZeta[2];
   }
+}
+
+Eigen::Vector3d seissol::transformations::tetrahedronReferenceToGlobal(
+                                                             const Eigen::Vector3d& v0,
+                                                             const Eigen::Vector3d& v1,
+                                                             const Eigen::Vector3d& v2,
+                                                             const Eigen::Vector3d& v3,
+                                                             double const xiEtaZeta[3]) {
+  return v0 + (v1 - v0) * xiEtaZeta[0] + (v2 - v0) * xiEtaZeta[1] + (v3 - v0) * xiEtaZeta[2];
 }
 
 Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference( double const           v0[3],
@@ -127,55 +137,6 @@ void seissol::transformations::tensor1RotationMatrix( VrtxCoords const i_normal,
     o_T(row+i,col+1) = i_tangent1[i];
     o_T(row+i,col+2) = i_tangent2[i];
   }
-}
-
-void seissol::transformations::inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
-                                                                      VrtxCoords const i_tangent1,
-                                                                      VrtxCoords const i_tangent2,
-                                                                      yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
-                                                                      unsigned row,
-                                                                      unsigned col )
-{
-  real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
-  real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
-  real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
-  
-  o_Tinv(row+0,col+0) = nx * nx;
-  o_Tinv(row+1,col+0) = sx * sx;
-  o_Tinv(row+2,col+0) = tx * tx;
-  o_Tinv(row+3,col+0) = nx * sx;
-  o_Tinv(row+4,col+0) = sx * tx;
-  o_Tinv(row+5,col+0) = nx * tx;
-  o_Tinv(row+0,col+1) = ny * ny;
-  o_Tinv(row+1,col+1) = sy * sy;
-  o_Tinv(row+2,col+1) = ty * ty;
-  o_Tinv(row+3,col+1) = ny * sy;
-  o_Tinv(row+4,col+1) = sy * ty;
-  o_Tinv(row+5,col+1) = ny * ty;
-  o_Tinv(row+0,col+2) = nz * nz;
-  o_Tinv(row+1,col+2) = sz * sz;
-  o_Tinv(row+2,col+2) = tz * tz;
-  o_Tinv(row+3,col+2) = nz * sz;
-  o_Tinv(row+4,col+2) = sz * tz;
-  o_Tinv(row+5,col+2) = nz * tz;
-  o_Tinv(row+0,col+3) = 2.0 * ny * nx;
-  o_Tinv(row+1,col+3) = 2.0 * sy * sx;
-  o_Tinv(row+2,col+3) = 2.0 * ty * tx;
-  o_Tinv(row+3,col+3) = ny * sx + nx * sy;
-  o_Tinv(row+4,col+3) = sy * tx + sx * ty;
-  o_Tinv(row+5,col+3) = ny * tx + nx * ty;
-  o_Tinv(row+0,col+4) = 2.0 * nz * ny;
-  o_Tinv(row+1,col+4) = 2.0 * sz * sy;
-  o_Tinv(row+2,col+4) = 2.0 * tz * ty;
-  o_Tinv(row+3,col+4) = nz * sy + ny * sz;
-  o_Tinv(row+4,col+4) = sz * ty + sy * tz;
-  o_Tinv(row+5,col+4) = nz * ty + ny * tz;
-  o_Tinv(row+0,col+5) = 2.0 * nz * nx;
-  o_Tinv(row+1,col+5) = 2.0 * sz * sx;
-  o_Tinv(row+2,col+5) = 2.0 * tz * tx;
-  o_Tinv(row+3,col+5) = nz * sx + nx * sz;
-  o_Tinv(row+4,col+5) = sz * tx + sx * tz;
-  o_Tinv(row+5,col+5) = nz * tx + nx * tz;
 }
 
 void seissol::transformations::symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
@@ -274,5 +235,38 @@ void seissol::transformations::chiTau2XiEtaZeta(unsigned face, double const chiT
       break;
     default:
       break;
+  }
+}
+
+void seissol::transformations::XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]) {
+  constexpr double EPS = 1e-6;
+
+  switch (face) {
+  case 0: {
+    chiTau[1] = xiEtaZeta[0];
+    chiTau[0] = xiEtaZeta[1];
+    assert((std::abs(xiEtaZeta[2]) < EPS) && "reference coord is not on the 1st face");
+    break;
+  }
+  case 1: {
+    chiTau[0] = xiEtaZeta[0];
+    chiTau[1] = xiEtaZeta[2];
+    assert((std::abs(xiEtaZeta[1]) < EPS) && "reference coord is not on the 2nd face");
+    break;
+  }
+  case 2: {
+    chiTau[1] = xiEtaZeta[1];
+    chiTau[0] = xiEtaZeta[2];
+    assert((std::abs(xiEtaZeta[0]) < EPS) && "reference coord is not on the 3rd face");
+    break;
+  }
+  case 3: {
+    chiTau[0] = xiEtaZeta[1];
+    chiTau[1] = xiEtaZeta[2];
+    assert((std::abs(xiEtaZeta[0] + xiEtaZeta[1] + xiEtaZeta[2] - 1.0) < EPS) && "reference coord is not on the 4th face");
+    break;
+  }
+  default:
+    logError() << "Tried to get the XiEtaZeta2chiTau transformation for face" << face << ", which is not possible. Provide 0 <= face <= 3.";
   }
 }

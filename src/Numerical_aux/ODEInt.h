@@ -1,10 +1,11 @@
 #ifndef SEISSOL_ODEINT_H
 #define SEISSOL_ODEINT_H
 
-#include "Eigen/Dense"
+#include <Eigen/Dense>
 
 #include "ODEVector.h"
 #include "Kernels/precision.hpp"
+#include <cassert>
 
 namespace seissol::ode {
 

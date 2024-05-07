@@ -40,19 +40,20 @@
 #ifndef KERNELS_INTERFACE_H_
 #define KERNELS_INTERFACE_H_
 
-#include <Initializer/tree/InterfaceHelper.hpp>
-#include <Initializer/LTS.h>
-#include <Kernels/precision.hpp>
+#include "Initializer/tree/InterfaceHelper.hpp"
+#include "Initializer/LTS.h"
+#include "Kernels/precision.hpp"
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {
     struct alignas(ALIGNMENT) LocalTmp {
       alignas(ALIGNMENT) real timeIntegratedAne[tensor::Iane::size()]{};
       alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
-      GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+      GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
+      LocalTmp(double gravitationalAcceleration) : gravitationalFreeSurfaceBc(gravitationalAcceleration) {};
     };
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
-  LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 }
 
 #endif

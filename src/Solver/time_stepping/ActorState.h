@@ -1,6 +1,7 @@
 #ifndef SEISSOL_ACTORSTATE_H
 #define SEISSOL_ACTORSTATE_H
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <variant>
@@ -78,6 +79,16 @@ struct ClusterTimes {
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
                                                double newSyncTime) const;
 
+//  [[nodiscard]] double& getTimeStepSize();
+
+  double getTimeStepSize() const {
+    return maxTimeStepSize;
+  }
+
+  void setTimeStepSize(double newTimeStepSize) {
+    maxTimeStepSize = newTimeStepSize;
+  }
+
 };
 
 struct NeighborCluster {
@@ -94,9 +105,10 @@ class DynamicRuptureScheduler {
   long lastCorrectionStepsCopy = -1;
   long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
+  bool firstClusterWithDynamicRuptureFaces;
 
 public:
-  explicit DynamicRuptureScheduler(long numberOfDynamicRuptureFaces);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
@@ -109,6 +121,8 @@ public:
   void setLastFaultOutput(long steps);
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
+
+  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
 };
 
 struct ActResult {

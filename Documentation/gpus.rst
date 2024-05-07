@@ -47,10 +47,33 @@ does not use a workload manager but is equipped with multiple GPUs per node.
    Correct process pinning of 4 MPI processes where each process
    controls 3 OpenMP threads and one communication thread.
 
+Some systems have complex numbering of processing units and/or NUMA domains.
+Sometime it is very difficult to achieve desirable pinning of the communication and/or
+output-writing threads with HPC resource managers like SLURM. Therefore, SeisSol provides
+*SEISSOL_FREE_CPUS_MASK* environment variable which helps to describe locations
+of the auxiliary threads per local MPI process. The variable accepts a comma separated
+list of elements where an element can be either 1) an integer, or 2) a range of
+integers defined as *[start, end]* or 3) a comma separated list of integers
+surrounded by the curly brackets. The *i*-th list element describes the free cpus
+locations for the *i*-th local MPI process.
+
+.. code-block:: bash
+
+  # SEISSOL_FREE_CPUS_MASK="(int | range: <int-int> | list: {int,+})+"
+  # Examples,
+  export SEISSOL_FREE_CPUS_MASK="24,28,32,36"
+  export SEISSOL_FREE_CPUS_MASK="24-27,28-31,32-35,36-39"
+  export SEISSOL_FREE_CPUS_MASK="{24,25},{28,29},{32,33},{36,37}"
+
+  # Note, it is allowed to mix the formats of list elements. For example,
+  export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
+
 Supported SeisSol Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- elastic wave propagation model with kinematic point sources
+- elastic wave propagation model 
+- kinematic point sources
+- dynamic rupture: linear slip weakening, slow and fast velocity weakening friction laws
 - off-fault plasticity model
 
 
@@ -72,8 +95,13 @@ Compile SeisSol with (e.g.)
 
     mkdir -p seissol-gpu/build && cd seissol-gpu/build 
     cmake -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_70 -DHOST_ARCH=skx \
-    -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
+    -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
+
+The following two CMake options can be useful to improve performance:
+
+* `USE_GRAPH_CAPTURING`: enables CUDA/HIP graphs. These are used to speed up the kernel execution for elastic or anisotropic equations.
+* `PREMULTIPLY_FLUX`: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
 
 Execution
 ~~~~~~~~~
@@ -96,54 +124,27 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
+The following device-specific environment variables are supported right now:
 
-heisenbug
-~~~~~~~~~
+* SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE
+* SEISSOL_SERIAL_NODE_DEVICE_INIT
 
-`heisenbug <https://www.geophysik.uni-muenchen.de/research/geocomputing/heisenbug>`_ is a computing cluster of the computational seismology group at LMU.
-It is an AMD EPYC based machine with 128 cores that can run 256 threads (near) simultaneously. 
-It also has 2 GPGPUs (NVIDIA GeForce RTX 3090), that can be used to run the GPU version of SeisSol.
-The RTX 3090 belongs to a consumer kind of graphics cards and thus does not perform well with double precision. 
-Therefore, it is preferable to compile SeisSol with single precision.
+Currently, SeisSol allocates MPI buffers using the global memory type.
+Some MPI implementations are not GPU-aware and do not support direct point-to-point
+communication on device buffers. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+environment variable that can be used to select the memory type for the buffers.
+The *host* value means that the data will be copied to/from the host memory
+before/after each *MPI_Isend* / *MPI_Irecv*.
+The default value is *direct* which means that the communication
+goes over the global memory and thus does not involve explicit data
+copies.
 
+.. figure:: LatexFigures/gpu-comm-layer-data-flow.png
+   :alt: Data Flow Diagram 
+   :width: 10.0cm
+   :align: center
 
-A CUDA-Aware MPI on heisenbug is loaded with:
-
-.. code-block:: bash
-
-    module load gcc/10.2.0
-    module load mpi.ompi/4.1.0
-
-GemmForge and ChainForge (for GPU) can be installed with:
-
-.. code-block:: bash
-
-    pip3 install git+https://github.com/ravil-mobile/gemmforge.git
-    pip3 install git+https://github.com/ravil-mobile/chainforge.git
-
-All dependencies required for the CPU version of SeisSol should also be installed.
-A folder containing all precompiled requirements is available at:
-
-.. code-block:: bash
-
-    /export/dump/ulrich/SeisSol-GPU-build
-
-To compile the GPU version of SeisSol on heisenbug, use the following cmake options ``-DDEVICE_ARCH=sm_86 -DHOST_ARCH=hsw``.
-Use ``-DCOMMTHREAD=ON`` for multiple GPUs, and ``-DCOMMTHREAD=OFF`` for one GPU.
-
-To run on one GPU (here with order 4, elastic), use simply:
-
-.. code-block:: bash
-
-    export OMPI_COMM_WORLD_LOCAL_RANK=0
-    export OMPI_COMM_WORLD_LOCAL_SIZE=1
-    export OMPI_MCA_btl=vader,self
-    SeisSol_Release_ssm_86_cuda_4_elastic parameters.par
-
-On 2 ranks, use:
-
-.. code-block:: bash
-
-    export OMPI_MCA_btl=vader,self
-    mpirun -n 2 SeisSol_Release_ssm_86_cuda_4_elastic parameters.par
-
+The variable "SEISSOL_SERIAL_NODE_DEVICE_INIT" exists to mitigate some possible execution bugs
+with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
+To enable it, set "SEISSOL_SERIAL_NODE_DEVICE_INIT=1". To explicitly disable it,
+write "SEISSOL_SERIAL_NODE_DEVICE_INIT=0".

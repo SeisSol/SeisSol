@@ -41,8 +41,8 @@
 #define TRANSFORMATION_H_
 
 #include <yateto.h>
-#include <Initializer/typedefs.hpp>
-#include <Geometry/MeshDefinition.h>
+#include "Initializer/typedefs.hpp"
+#include "Geometry/MeshDefinition.h"
 #include <Eigen/Dense>
 
 namespace seissol {
@@ -57,6 +57,13 @@ namespace seissol {
                                        double const v3[3],
                                        double const xiEtaZeta[3],
                                        double       xyz[3] );
+
+    Eigen::Vector3d tetrahedronReferenceToGlobal( const Eigen::Vector3d& v0,
+                                                  const Eigen::Vector3d& v1,
+                                                  const Eigen::Vector3d& v2,
+                                                  const Eigen::Vector3d& v3,
+                                                  double const xiEtaZeta[3]);
+
     /**
      * Calculates the reference tetrahedron coordinates from
      * global tetrahedron coordinates.
@@ -105,13 +112,56 @@ namespace seissol {
     /**
      * Inverse of SymmetricTensor2RotationMatrix().
      **/
+    template<typename Tmatrix>
     void inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                 VrtxCoords const i_tangent1,
                                                 VrtxCoords const i_tangent2,
-                                                yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                                Tmatrix& o_Tinv,
                                                 unsigned row = 0,
-                                                unsigned col = 0 );
-    
+                                                unsigned col = 0 )
+  {
+    real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
+    real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
+    real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
+
+    o_Tinv(row+0,col+0) = nx * nx;
+    o_Tinv(row+1,col+0) = sx * sx;
+    o_Tinv(row+2,col+0) = tx * tx;
+    o_Tinv(row+3,col+0) = nx * sx;
+    o_Tinv(row+4,col+0) = sx * tx;
+    o_Tinv(row+5,col+0) = nx * tx;
+    o_Tinv(row+0,col+1) = ny * ny;
+    o_Tinv(row+1,col+1) = sy * sy;
+    o_Tinv(row+2,col+1) = ty * ty;
+    o_Tinv(row+3,col+1) = ny * sy;
+    o_Tinv(row+4,col+1) = sy * ty;
+    o_Tinv(row+5,col+1) = ny * ty;
+    o_Tinv(row+0,col+2) = nz * nz;
+    o_Tinv(row+1,col+2) = sz * sz;
+    o_Tinv(row+2,col+2) = tz * tz;
+    o_Tinv(row+3,col+2) = nz * sz;
+    o_Tinv(row+4,col+2) = sz * tz;
+    o_Tinv(row+5,col+2) = nz * tz;
+    o_Tinv(row+0,col+3) = 2.0 * ny * nx;
+    o_Tinv(row+1,col+3) = 2.0 * sy * sx;
+    o_Tinv(row+2,col+3) = 2.0 * ty * tx;
+    o_Tinv(row+3,col+3) = ny * sx + nx * sy;
+    o_Tinv(row+4,col+3) = sy * tx + sx * ty;
+    o_Tinv(row+5,col+3) = ny * tx + nx * ty;
+    o_Tinv(row+0,col+4) = 2.0 * nz * ny;
+    o_Tinv(row+1,col+4) = 2.0 * sz * sy;
+    o_Tinv(row+2,col+4) = 2.0 * tz * ty;
+    o_Tinv(row+3,col+4) = nz * sy + ny * sz;
+    o_Tinv(row+4,col+4) = sz * ty + sy * tz;
+    o_Tinv(row+5,col+4) = nz * ty + ny * tz;
+    o_Tinv(row+0,col+5) = 2.0 * nz * nx;
+    o_Tinv(row+1,col+5) = 2.0 * sz * sx;
+    o_Tinv(row+2,col+5) = 2.0 * tz * tx;
+    o_Tinv(row+3,col+5) = nz * sx + nx * sz;
+    o_Tinv(row+4,col+5) = sz * tx + sx * tz;
+    o_Tinv(row+5,col+5) = nz * tx + nx * tz;
+  }
+
     /**
      * Returns a column-major matrix that rotates a symmetric second-order
      * tensor, given as vector (u_xx, u_yy, u_zz, u_xy, u_yz, u_xz),
@@ -126,6 +176,7 @@ namespace seissol {
                                          unsigned col = 0 );
 
     void chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3], int sideOrientation = -1);
+    void XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]);
   }
 }
 

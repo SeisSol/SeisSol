@@ -61,7 +61,8 @@ struct FaultInitParam
 
 	bool outputMask[OUTPUT_MASK_SIZE];
 	int timestep;
-  xdmfwriter::BackendType backend;
+	xdmfwriter::BackendType backend;
+	std::string backupTimeStamp;
 };
 
 struct FaultParam
@@ -76,7 +77,8 @@ public:
 		OUTPUT_PREFIX = 0,
 		CELLS = 1,
 		VERTICES = 2,
-		VARIABLES0 = 3
+		FAULTTAGS = 3,
+		VARIABLES0 = 4
 	};
 
 private:
@@ -125,6 +127,10 @@ public:
 		m_stopwatch.pause();
 	}
 
+	void setFaultTagsData(const unsigned int *faultTags) {
+		m_xdmfWriter->writeExtraIntCellData(faultTags);
+	}
+
 	void finalize()
 	{
 		if (m_xdmfWriter) {
@@ -144,6 +150,10 @@ public:
 
 		delete m_xdmfWriter;
 		m_xdmfWriter = 0L;
+	}
+
+    static std::string getLabelName(size_t index) {
+	  return LABELS[index];
 	}
 
 private:

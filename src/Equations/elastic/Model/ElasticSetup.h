@@ -40,10 +40,11 @@
 #ifndef ELASTIC_SETUP_H_
 #define ELASTIC_SETUP_H_
 
-#include <Model/common.hpp>
-#include <Kernels/common.hpp>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/init.h>
+#include "Model/common.hpp"
+#include "Kernels/common.hpp"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/init.h"
+#include "Numerical_aux/Eigenvalues.h"
 
 namespace seissol {
   namespace model {
