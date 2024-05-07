@@ -111,14 +111,7 @@ class CubeGenerator : public seissol::geometry::MeshReader {
 
   private:
   void findElementsPerVertex();
-  /**
-   * Switch to collective access for a netCDf variable
-   */
-  static void collectiveAccess(int ncFile, int ncVar);
-  void addMPINeighbor(int localID,
-                    int bndRank,
-                    int elemSize,
-                    const int* bndElemLocalIds);
+  void addMPINeighbor(int localID, int bndRank, int elemSize, const int* bndElemLocalIds);
 };
 } // namespace seissol::geometry
 #endif // CUBEGENERATOR_H
