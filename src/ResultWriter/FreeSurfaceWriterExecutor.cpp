@@ -42,7 +42,7 @@
 #include <string>
 #include <vector>
 
-#include <Solver/FreeSurfaceIntegrator.h>
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "utils/logger.h"
 #include "FreeSurfaceWriterExecutor.h"
 

@@ -2,11 +2,11 @@
 #define SEISSOL_RECORDERS_H
 
 #include "DataTypes/ConditionalTable.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/Interface.hpp"
 #include "utils/logger.h"
-#include <Initializer/LTS.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/Interface.hpp>
 #include <vector>
 
 namespace seissol::initializer::recording {

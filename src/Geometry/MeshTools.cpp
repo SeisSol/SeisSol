@@ -80,9 +80,9 @@ void MeshTools::normal(const Element& e,
   cross(ab, ac, normal);
 }
 
-void MeshTools::normalAndTangents(Element const& e,
+void MeshTools::normalAndTangents(const Element& e,
                                   int face,
-                                  std::vector<Vertex> const& vertices,
+                                  const std::vector<Vertex>& vertices,
                                   VrtxCoords nrmal,
                                   VrtxCoords tangent1,
                                   VrtxCoords tangent2) {
@@ -138,13 +138,13 @@ double MeshTools::surface(VrtxCoords faceNormal) {
   return 0.5 * norm(faceNormal);
 }
 
-double MeshTools::surface(Element const& e, int face, const std::vector<Vertex>& vertices) {
+double MeshTools::surface(const Element& e, int face, const std::vector<Vertex>& vertices) {
   VrtxCoords N;
   normal(e, face, vertices, N);
   return surface(N);
 }
 
-double MeshTools::volume(Element const& e, const std::vector<Vertex>& vertices) {
+double MeshTools::volume(const Element& e, const std::vector<Vertex>& vertices) {
   VrtxCoords ab;
   VrtxCoords ac;
   VrtxCoords ad;
@@ -156,13 +156,13 @@ double MeshTools::volume(Element const& e, const std::vector<Vertex>& vertices) 
   return fabs(dot(ad, area)) / 6.0;
 }
 
-void MeshTools::normalize(VrtxCoords const v, VrtxCoords vnormalized) {
+void MeshTools::normalize(const VrtxCoords v, VrtxCoords vnormalized) {
   mul(v, 1.0 / norm(v), vnormalized);
 }
 
-void MeshTools::pointOnPlane(Element const& e,
+void MeshTools::pointOnPlane(const Element& e,
                              int face,
-                             std::vector<Vertex> const& vertices,
+                             const std::vector<Vertex>& vertices,
                              VrtxCoords result) {
   const size_t index = e.vertices[FACE2NODES[face][0]];
   assert(index < vertices.size());
@@ -171,7 +171,7 @@ void MeshTools::pointOnPlane(Element const& e,
   }
 }
 
-bool MeshTools::inside(Element const& e, std::vector<Vertex> const& vertices, VrtxCoords const p) {
+bool MeshTools::inside(const Element& e, const std::vector<Vertex>& vertices, const VrtxCoords p) {
   VrtxCoords nrm;
   /* Our tetrahedron has 4 faces with the normals pointing outward.
    * The point is inside the tetrahedron if it lies on the backside

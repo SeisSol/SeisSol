@@ -1,17 +1,17 @@
+#include "Common/filesystem.h"
+#include "DynamicRupture/Misc.h"
 #include "Init.hpp"
 #include "InitIO.hpp"
 #include "Initializer/BasicTypedefs.hpp"
-#include <IO/Instance/Mesh/VtkHdf.hpp>
-#include <IO/Writer/Writer.hpp>
-#include <Numerical_aux/Transformation.h>
-#include <SeisSol.h>
+#include "IO/Instance/Mesh/VtkHdf.hpp"
+#include "IO/Writer/Writer.hpp"
+#include "Numerical_aux/Transformation.h"
+#include "SeisSol.h"
 #include <cstring>
 #include <kernel.h>
 #include <string>
 #include <tensor.h>
 #include <vector>
-#include "DynamicRupture/Misc.h"
-#include "Common/filesystem.h"
 
 #include "Parallel/MPI.h"
 

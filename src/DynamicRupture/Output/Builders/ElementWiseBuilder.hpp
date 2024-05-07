@@ -2,11 +2,11 @@
 #define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
-#include "ReceiverBasedOutputBuilder.hpp"
+#include "DynamicRupture/Output/Geometry.hpp"
+#include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/Parameters/OutputParameters.h"
-#include <DynamicRupture/Output/Geometry.hpp>
-#include <DynamicRupture/Output/OutputAux.hpp>
-#include <Numerical_aux/Transformation.h>
+#include "Numerical_aux/Transformation.h"
+#include "ReceiverBasedOutputBuilder.hpp"
 #include <init.h>
 
 namespace seissol::dr::output {

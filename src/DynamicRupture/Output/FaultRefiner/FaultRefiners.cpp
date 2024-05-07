@@ -1,6 +1,10 @@
 #include "FaultRefiners.hpp"
 
+#include "DynamicRupture/Output/Geometry.hpp"
+#include <array>
+#include <cstddef>
 #include <memory>
+#include <utility>
 
 #include "utils/logger.h"
 

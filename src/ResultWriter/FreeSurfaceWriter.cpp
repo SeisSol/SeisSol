@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  */
 
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "FreeSurfaceWriter.h"
 
 #include <algorithm>
@@ -48,8 +48,8 @@
 
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
-#include <Geometry/MeshTools.h>
-#include <Modules/Modules.h>
+#include "Geometry/MeshTools.h"
+#include "Modules/Modules.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                                                                 unsigned*&        cells,

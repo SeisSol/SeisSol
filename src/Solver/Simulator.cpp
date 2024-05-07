@@ -54,7 +54,8 @@
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
-  m_usePlasticity(  false ) {}
+  m_usePlasticity(  false ),
+  m_abort( false ) {}
 
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
   assert( i_finalTime > 0 );
@@ -69,6 +70,11 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 	assert( i_currentTime > 0 );
 	m_currentTime = i_currentTime;
 }
+
+void seissol::Simulator::abort() {
+	m_abort = true;
+}
+
 
 void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -113,6 +119,10 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
     if (upcomingTime < m_currentTime + l_timeTolerance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
+    }
+    if (m_abort) {
+        logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
+        break; 
     }
 
     // update the DOFs

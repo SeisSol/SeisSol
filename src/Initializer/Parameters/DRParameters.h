@@ -18,6 +18,7 @@ enum class FrictionLawType : unsigned int {
   NoFault = 0,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
+  LinearSlipWeakeningTPApprox = 1058,
   RateAndStateAgingLaw = 3,
   RateAndStateSlipLaw = 4,
   RateAndStateFastVelocityWeakening = 103,
@@ -52,6 +53,7 @@ struct DRParameters {
   FrictionLawType frictionLawType{0};
   real healingThreshold{-1.0};
   real t0{0.0};
+  real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
   real rsSr0{0.0};
@@ -68,6 +70,7 @@ struct DRParameters {
   std::string faultFileName{""};
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
+  double etaHack{1.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

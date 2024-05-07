@@ -39,10 +39,10 @@
 #ifndef PUMLREADER_H
 #define PUMLREADER_H
 
-#include "MeshReader.h"
-#include "Parallel/MPI.h"
 #include "Initializer/Parameters/MeshParameters.h"
+#include "MeshReader.h"
 #include "PUML/PUML.h"
+#include "Parallel/MPI.h"
 
 namespace seissol::initializer::time_stepping {
 class LtsWeights;

@@ -64,13 +64,13 @@ struct Tetrahedron {
   unsigned int i, j, k, l;
   Eigen::Matrix<T, 3, 1> a, b, c, d;
 
-  Tetrahedron() : i(0), j(0), k(0), l(0){};
+  Tetrahedron() : i(0), j(0), k(0), l(0) {};
 
   Tetrahedron(const Eigen::Matrix<T, 3, 1>& A,
               const Eigen::Matrix<T, 3, 1>& B,
               const Eigen::Matrix<T, 3, 1>& C,
               const Eigen::Matrix<T, 3, 1>& D)
-      : i(0), j(0), k(0), l(0), a(A), b(B), c(C), d(D){};
+      : i(0), j(0), k(0), l(0), a(A), b(B), c(C), d(D) {};
 
   Tetrahedron(const Eigen::Matrix<T, 3, 1>& A,
               const Eigen::Matrix<T, 3, 1>& B,
@@ -80,7 +80,7 @@ struct Tetrahedron {
               unsigned int J,
               unsigned int K,
               unsigned int L)
-      : i(I), j(J), k(K), l(L), a(A), b(B), c(C), d(D){};
+      : i(I), j(J), k(K), l(L), a(A), b(B), c(C), d(D) {};
 
   Tetrahedron(const T A[3],
               const T B[3],
@@ -91,7 +91,7 @@ struct Tetrahedron {
               unsigned int K,
               unsigned int L)
       : i(I), j(J), k(K), l(L), a(Eigen::Matrix<T, 3, 1>(A)), b(Eigen::Matrix<T, 3, 1>(B)),
-        c(Eigen::Matrix<T, 3, 1>(C)), d(Eigen::Matrix<T, 3, 1>(D)){};
+        c(Eigen::Matrix<T, 3, 1>(C)), d(Eigen::Matrix<T, 3, 1>(D)) {};
 
   static const Tetrahedron<T> unitTetrahedron() {
     return Tetrahedron(Eigen::Matrix<T, 3, 1>(0, 0, 0),

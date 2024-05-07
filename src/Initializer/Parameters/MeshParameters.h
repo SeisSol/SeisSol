@@ -1,8 +1,8 @@
 #ifndef SEISSOL_MESH_PARAMETERS_H
 #define SEISSOL_MESH_PARAMETERS_H
 
-#include <string>
 #include <Eigen/Dense>
+#include <string>
 
 #include "Initializer/InputAux.hpp"
 #include "ParameterReader.h"

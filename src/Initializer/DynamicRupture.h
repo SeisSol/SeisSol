@@ -40,11 +40,11 @@
 #ifndef INITIALIZER_DR_H_
 #define INITIALIZER_DR_H_
 
-#include <IO/Instance/Checkpoint/CheckpointManager.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/tensor.h>
-#include <DynamicRupture/Misc.h>
+#include "IO/Instance/Checkpoint/CheckpointManager.hpp"
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "generated_code/tensor.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol {
   namespace initializer {

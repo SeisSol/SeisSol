@@ -64,7 +64,14 @@ format() {
     local formatter="${1}"
 
     if [ ! -f "${formatter}" ]; then
-        echo "Could not find a clang-format. Please specify one as the first argument"
+        echo "Could not find clang-format. Please specify one as the first argument"
+        exit 176
+    fi
+
+    local formatter_version=$(${formatter} --version)
+    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
         exit 176
     fi
 

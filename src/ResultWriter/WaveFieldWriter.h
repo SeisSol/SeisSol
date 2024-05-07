@@ -45,21 +45,21 @@
 #include "Parallel/Pin.h"
 
 #include <algorithm>
-#include <cassert>
-#include <string>
-#include <vector>
 #include <array>
+#include <cassert>
 #include <memory>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "utils/logger.h"
 
 #include "async/Module.h"
 
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
-#include <Modules/Module.h>
 
 // for OutputBounds
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -147,7 +147,7 @@ class WaveFieldWriter
 
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
-  unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+  const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
                                     const std::vector<unsigned>& LtsClusteringData,

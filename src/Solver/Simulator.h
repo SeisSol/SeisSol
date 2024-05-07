@@ -61,6 +61,8 @@ class seissol::Simulator {
     //! usePlasticity = true if plasticity is on
     bool m_usePlasticity;
 
+    //! If true, the while loop of the simulation will be aborted (see terminator)
+    bool m_abort;
   public:
     /**
      * Constructor, which initializes all values.
@@ -90,6 +92,11 @@ class seissol::Simulator {
      * @param i_currentTime current time
      */
     void setCurrentTime( double i_currentTime );
+
+    /**
+     * update m_abort to abort the main loop of the simulation (see terminator)
+     */
+    void abort();
 
     /**
      * Simulates until finished.

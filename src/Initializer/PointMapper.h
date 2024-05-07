@@ -40,7 +40,7 @@
 #ifndef INITIALIZER_POINTMAPPER_H_
 #define INITIALIZER_POINTMAPPER_H_
 
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
 #include <Eigen/Dense>
 
 namespace seissol {

@@ -1,4 +1,4 @@
-#include <Numerical_aux/Quadrature.h>
+#include "Numerical_aux/Quadrature.h"
 
 namespace seissol::unit_test {
 
