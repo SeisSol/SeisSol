@@ -1,17 +1,17 @@
 #ifndef SEISSOL_FRICTION_SOLVER_INTERFACE_H
 #define SEISSOL_FRICTION_SOLVER_INTERFACE_H
 
-#include "DynamicRupture/Parameters.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "Initializer/Parameters/DRParameters.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
   public:
-  explicit FrictionSolverInterface(dr::DRParameters* drParameters)
+  explicit FrictionSolverInterface(seissol::initializer::parameters::DRParameters* drParameters)
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
-  ~FrictionSolverInterface() override{};
+  ~FrictionSolverInterface() override {};
 
   virtual void initSyclQueue() = 0;
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }

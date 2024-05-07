@@ -1,10 +1,10 @@
+#include "Kernels/Interface.hpp"
 #include "Recorders.h"
-#include <Kernels/Interface.hpp>
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   kernels::LocalData::Loader loader;
@@ -24,11 +24,11 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
-      dofsPtrs[cell] = static_cast<real*>(data.dofs);
+      dofsPtrs[cell] = static_cast<real*>(data.dofs());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity.initialLoading);
+      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
     }
 
     ConditionalKey key(*KernelNames::Plasticity);

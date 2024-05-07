@@ -1,8 +1,7 @@
-
 #ifndef GLOBAL_TIMESTEP_HPP_
 #define GLOBAL_TIMESTEP_HPP_
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "Initializer/ParameterDB.h"
 
@@ -13,10 +12,16 @@ struct GlobalTimestep {
   double globalMaxTimeStep;
 };
 
-GlobalTimestep computeTimesteps(double cfl,
-                                double maximumAllowedTimeStep,
-                                const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& cellToVertex);
+namespace parameters {
+struct SeisSolParameters;
+}
+
+GlobalTimestep
+    computeTimesteps(double cfl,
+                     double maximumAllowedTimeStep,
+                     const std::string& velocityModel,
+                     const seissol::initializer::CellToVertexArray& cellToVertex,
+                     const seissol::initializer::parameters::SeisSolParameters& seissolParams);
 } // namespace seissol::initializer
 
 #endif

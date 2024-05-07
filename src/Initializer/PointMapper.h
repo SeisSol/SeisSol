@@ -40,11 +40,11 @@
 #ifndef INITIALIZER_POINTMAPPER_H_
 #define INITIALIZER_POINTMAPPER_H_
 
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
 #include <Eigen/Dense>
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     /** Finds the tetrahedrons that contain the points.
      *  In "contained" we save if the point source is contained in the mesh.
      *  We use short here as bool. For MPI use cleanDoubles afterwards.

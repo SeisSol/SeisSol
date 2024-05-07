@@ -1,4 +1,4 @@
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 
@@ -116,4 +116,5 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
         << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
+
 } // namespace seissol::time_stepping

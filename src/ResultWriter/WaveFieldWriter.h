@@ -45,12 +45,12 @@
 #include "Parallel/Pin.h"
 
 #include <algorithm>
-#include <cassert>
-#include <string>
-#include <vector>
 #include <array>
+#include <cassert>
 #include <memory>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "utils/logger.h"
 
@@ -58,14 +58,15 @@
 
 #include "Checkpoint/DynStruct.h"
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
-#include <Modules/Module.h>
 
 // for OutputBounds
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
+class SeisSol;
 namespace refinement {
 template <typename T>
 class MeshRefiner;
@@ -76,6 +77,8 @@ namespace writer {
 class WaveFieldWriter
     : private async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>,
       public seissol::Module {
+  seissol::SeisSol& seissolInstance;
+
   /** True if wave field output is enabled */
   bool m_enabled;
 
@@ -148,17 +151,17 @@ class WaveFieldWriter
 
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
-  unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+  const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
                                     const std::vector<unsigned>& LtsClusteringData,
                                     std::map<int, int>& newToOldCellMap);
 
   public:
-  WaveFieldWriter()
-      : m_enabled(false), isExtractRegionEnabled(false), m_numVariables(0), m_outputFlags(0L),
-        m_lowOutputFlags(0L), m_numCells(0), m_numLowCells(0), m_dofs(0L), m_pstrain(0L),
-        m_integrals(0L), m_map(0L) {}
+  WaveFieldWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance), m_enabled(false), isExtractRegionEnabled(false),
+        m_numVariables(0), m_outputFlags(0L), m_lowOutputFlags(0L), m_numCells(0), m_numLowCells(0),
+        m_dofs(0L), m_pstrain(0L), m_integrals(0L), m_map(0L) {}
 
   /**
    * Activate the wave field output

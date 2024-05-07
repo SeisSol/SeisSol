@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -40,8 +41,8 @@
 #ifndef VARIABLE_SUBSAMPLER_H_
 #define VARIABLE_SUBSAMPLER_H_
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 
 #include <Eigen/Dense>
 
@@ -49,104 +50,92 @@
 #include "Numerical_aux/BasisFunction.h"
 #include "RefinerUtils.h"
 
-namespace seissol
-{
-namespace refinement
-{
+namespace seissol {
+namespace refinement {
 
 //------------------------------------------------------------------------------
 
-template<class T>
-class VariableSubsampler
-{
-private:
-    std::vector<basisFunction::SampledBasisFunctions<T> > m_BasisFunctions;
+template <class T>
+class VariableSubsampler {
+  private:
+  std::vector<basisFunction::SampledBasisFunctions<T>> m_BasisFunctions;
 
-    /** The original number of cells (without refinement) */
-    const unsigned int m_numCells;
+  /** The original number of cells (without refinement) */
+  const unsigned int m_numCells;
 
-    const unsigned int kSubCellsPerCell;
-    const unsigned int kNumVariables;
-    const unsigned int kNumAlignedDOF;
+  const unsigned int kSubCellsPerCell;
+  const unsigned int kNumVariables;
+  const unsigned int kNumAlignedDOF;
 
+  std::size_t
+      getInVarOffset(unsigned int cell, unsigned int variable, const unsigned int* cellMap) const {
+    return (cellMap[cell] * kNumVariables + variable) * kNumAlignedDOF;
+  }
 
-    std::size_t getInVarOffset(unsigned int cell, unsigned int variable,
-    		const unsigned int* cellMap) const
-    {
-        return (cellMap[cell]*kNumVariables + variable) * kNumAlignedDOF;
-    }
+  std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const {
+    return kSubCellsPerCell * cell + subcell;
+  }
 
-    std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const
-    {
-        return kSubCellsPerCell * cell + subcell;
-    }
+  public:
+  VariableSubsampler(unsigned int numCells,
+                     const TetrahedronRefiner<T>& tetRefiner,
+                     unsigned int order,
+                     unsigned int numVariables,
+                     unsigned int numAlignedDOF);
 
-public:
-    VariableSubsampler(
-    		unsigned int numCells,
-            const TetrahedronRefiner<T>& tetRefiner,
-            unsigned int order,
-            unsigned int numVariables,
-            unsigned int numAlignedDOF
-            );
-
-    void get(const real* inData, const unsigned int* cellMap,
-            int variable, real* outData) const;
+  void get(const real* inData, const unsigned int* cellMap, int variable, real* outData) const;
 };
 
 //------------------------------------------------------------------------------
 
-template<typename T>
-VariableSubsampler<T>::VariableSubsampler(
-		unsigned int numCells,
-        const TetrahedronRefiner<T>& tetRefiner,
-        unsigned int order,
-        unsigned int numVariables,
-        unsigned int numAlignedDOF)
-		: m_numCells(numCells),
-		  kSubCellsPerCell(tetRefiner.getDivisionCount()),
-    kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF)
-{
-    // Generate cell centerpoints in the reference or unit tetrahedron.
-	Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-        Eigen::Matrix<T, 3, 1>* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
+template <typename T>
+VariableSubsampler<T>::VariableSubsampler(unsigned int numCells,
+                                          const TetrahedronRefiner<T>& tetRefiner,
+                                          unsigned int order,
+                                          unsigned int numVariables,
+                                          unsigned int numAlignedDOF)
+    : m_numCells(numCells), kSubCellsPerCell(tetRefiner.getDivisionCount()),
+      kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF) {
+  // Generate cell centerpoints in the reference or unit tetrahedron.
+  Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+  Eigen::Matrix<T, 3, 1>* additionalVertices =
+      new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
-    tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0,
-    		subCells, additionalVertices);
+  tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0, subCells, additionalVertices);
 
-    // Generate sampled basicfunctions
-    for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
-        const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
-        m_BasisFunctions.push_back(
-                basisFunction::SampledBasisFunctions<T>(
-                    order, pnt(0), pnt(1), pnt(2)));
-    }
+  // Generate sampled basicfunctions
+  for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
+    const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
+    m_BasisFunctions.push_back(
+        basisFunction::SampledBasisFunctions<T>(order, pnt(0), pnt(1), pnt(2)));
+  }
 
-    delete [] subCells;
-    delete [] additionalVertices;
+  delete[] subCells;
+  delete[] additionalVertices;
 }
 
 //------------------------------------------------------------------------------
 
-template<typename T>
-void VariableSubsampler<T>::get(const real* inData,  const unsigned int* cellMap,
-        int variable, real* outData) const
-{
+template <typename T>
+void VariableSubsampler<T>::get(const real* inData,
+                                const unsigned int* cellMap,
+                                int variable,
+                                real* outData) const {
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
-    // Iterate over original Cells
-    for (unsigned int c = 0; c < m_numCells; ++c) {
-        for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
-            outData[getOutVarOffset(c, sc)] =
-            		m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
-        }
+  // Iterate over original Cells
+  for (unsigned int c = 0; c < m_numCells; ++c) {
+    for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
+      outData[getOutVarOffset(c, sc)] =
+          m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
     }
+  }
 }
 
 //------------------------------------------------------------------------------
 
-} // namespace
-}
+} // namespace refinement
+} // namespace seissol
 
 #endif // VARIABLE_SUBSAMPLER_H_

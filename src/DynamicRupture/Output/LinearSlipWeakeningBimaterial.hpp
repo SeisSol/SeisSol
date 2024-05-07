@@ -6,8 +6,8 @@
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   real computeLocalStrength(LocalInfo& local) override {
-    using DrLtsDescrType = seissol::initializers::LTSLinearSlipWeakeningBimaterial;
-    auto const* const regularisedStrengths =
+    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
+    const auto* const regularisedStrengths =
         local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->regularisedStrength);
     return regularisedStrengths[local.ltsId][local.nearestGpIndex];
   }

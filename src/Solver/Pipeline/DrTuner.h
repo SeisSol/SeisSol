@@ -43,7 +43,7 @@
 #ifndef DR_TUNER_H
 #define DR_TUNER_H
 
-#include <Solver/Pipeline/GenericPipeline.h>
+#include "Solver/Pipeline/GenericPipeline.h"
 
 
 namespace seissol::dr::pipeline {

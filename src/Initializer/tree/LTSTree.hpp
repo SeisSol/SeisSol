@@ -44,15 +44,15 @@
 #include "LTSInternalNode.hpp"
 #include "TimeCluster.hpp"
 
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     class LTSTree;
   }
 }
 
-class seissol::initializers::LTSTree : public seissol::initializers::LTSInternalNode {
+class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNode {
 private:
   void** m_vars;
   void** m_buckets;

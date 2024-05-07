@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -11,12 +11,12 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
 
@@ -111,8 +111,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSpaceWeights{this->devSpaceWeights};
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
+      auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
+      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -133,6 +137,17 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      pointIndex);
 
           if (isFrictionEnergyRequired) {
+
+            if (isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                  devSlipRateMagnitude[ltsFace],
+                  devRuptureTimePending[ltsFace],
+                  devEnergyData[ltsFace],
+                  devSumDt,
+                  devTerminatorSlipRateThreshold,
+                  pointIndex);
+            }
+
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
                                                         devQInterpolatedMinus[ltsFace],

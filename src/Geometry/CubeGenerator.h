@@ -40,50 +40,27 @@
 #ifndef CUBEGENERATOR_H
 #define CUBEGENERATOR_H
 
-#include "utils/logger.h"
-#include "utils/args.h"
-#include "MeshReader.h"
-
-#include <omp.h>
-
 #include <algorithm>
 #include <cstring>
 #include <map>
 #include <utility>
 #include <vector>
 
-#include <iostream>
+#include <omp.h>
+
+#include "utils/logger.h"
+
+#include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
 
 namespace seissol::geometry {
-
-struct CubeGeneratorParameters {
-  unsigned int cubeMinX;
-  unsigned int cubeMaxX;
-  unsigned int cubeMinY;
-  unsigned int cubeMaxY;
-  unsigned int cubeMinZ;
-  unsigned int cubeMaxZ;
-  unsigned cubeX;
-  unsigned cubeY;
-  unsigned cubeZ;
-  unsigned cubePx;
-  unsigned cubePy;
-  unsigned cubePz;
-  double cubeS;
-  double cubeSx;
-  double cubeSy;
-  double cubeSz;
-  double cubeTx;
-  double cubeTy;
-  double cubeTz;
-};
 
 class CubeGenerator : public seissol::geometry::MeshReader {
   public:
   CubeGenerator(int rank,
                 int nProcs,
                 const std::string& meshFile,
-                const seissol::geometry::CubeGeneratorParameters& cubeParams);
+                const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams);
 
   /*
     inline void loadBar(int x, int n, int r = 100, int w = 50);
