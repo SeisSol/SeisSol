@@ -4,7 +4,7 @@
 #ifndef KERNELS_TOUCH_H_
 #define KERNELS_TOUCH_H_
 
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
 
 namespace seissol::kernels {
 

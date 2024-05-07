@@ -1,11 +1,11 @@
 #include "Stopwatch.h"
 
-#include <time.h>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <time.h>
 
-#include <string>
 #include "Unit.hpp"
+#include <string>
 
 namespace seissol {
 

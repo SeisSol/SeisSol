@@ -42,8 +42,8 @@
 #ifdef USE_ASAGI
 
 #include "AsagiModule.h"
-#include "utils/env.h"
 #include "Parallel/Helper.hpp"
+#include "utils/env.h"
 #include <string>
 
 #ifdef _OPENMP

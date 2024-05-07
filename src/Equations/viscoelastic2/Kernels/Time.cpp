@@ -51,8 +51,8 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
-#include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/init.h>
+#include "Kernels/denseMatrixOps.hpp"
+#include "generated_code/init.h"
 
 void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );

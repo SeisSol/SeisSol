@@ -5,8 +5,8 @@
 extern long long libxsmm_num_total_flops;
 #endif
 
-#include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
+#include "Kernels/common.hpp"
+#include "Kernels/denseMatrixOps.hpp"
 
 #include <cstring>
 #include <cassert>

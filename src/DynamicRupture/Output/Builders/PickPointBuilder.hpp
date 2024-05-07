@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
 #define SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
 
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/PointMapper.h"
 #include "ReceiverBasedOutputBuilder.hpp"
-#include <Initializer/PointMapper.h>
-#include <Initializer/Parameters/OutputParameters.h>
 
 namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {

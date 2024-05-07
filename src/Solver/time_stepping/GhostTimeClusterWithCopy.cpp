@@ -1,7 +1,7 @@
 #include "Initializer/typedefs.hpp"
 #ifdef ACL_DEVICE
 
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
 #include "device.h"
 

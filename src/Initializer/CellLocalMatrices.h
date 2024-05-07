@@ -41,13 +41,13 @@
 #ifndef CELLLOCALMATRICES_H_
 #define CELLLOCALMATRICES_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Boundary.h>
+#include "Initializer/typedefs.hpp"
+#include "Geometry/MeshReader.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/Boundary.h"
 
 namespace seissol {
   namespace initializer {

@@ -39,15 +39,15 @@
 
 #include "FreeSurfaceIntegrator.h"
 
-#include <Initializer/MemoryAllocator.h>
-#include <Initializer/MemoryManager.h>
-#include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
-#include <Numerical_aux/Functions.h>
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/MPI.h>
-#include <generated_code/kernel.h>
+#include "Initializer/MemoryAllocator.h"
+#include "Initializer/MemoryManager.h"
+#include "Kernels/common.hpp"
+#include "Kernels/denseMatrixOps.hpp"
+#include "Numerical_aux/Functions.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/Transformation.h"
+#include "Parallel/MPI.h"
+#include "generated_code/kernel.h"
 #include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)

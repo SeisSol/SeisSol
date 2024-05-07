@@ -1,6 +1,6 @@
 #include "InstantaneousTimeMirrorManager.h"
-#include "Modules/Modules.h"
 #include "Initializer/CellLocalMatrices.h"
+#include "Modules/Modules.h"
 #include "SeisSol.h"
 
 namespace seissol::ITM {

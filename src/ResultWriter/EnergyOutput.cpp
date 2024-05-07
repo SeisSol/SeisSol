@@ -226,17 +226,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           stream);
       device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     }
-    auto const timeDerivativePlusPtr = [&](unsigned i) {
+    const auto timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+    const auto timeDerivativeMinusPtr = [&](unsigned i) {
       return timeDerivativeMinusHost + qSize * i;
     };
 #else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
-    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+    const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+    const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
@@ -285,8 +285,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     real localMin = std::numeric_limits<real>::max();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min                                                             \
-                                   : localMin) default(none)                                       \
+#pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
@@ -317,8 +316,8 @@ void EnergyOutput::computeVolumeEnergies() {
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
   auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
-  std::vector<Element> const& elements = meshReader->getElements();
-  std::vector<Vertex> const& vertices = meshReader->getVertices();
+  const std::vector<Element>& elements = meshReader->getElements();
+  const std::vector<Vertex>& vertices = meshReader->getVertices();
 
   const auto g = seissolInstance.getGravitationSetup().acceleration;
 

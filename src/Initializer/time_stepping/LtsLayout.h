@@ -42,12 +42,12 @@
 #ifndef LTSLAYOUT_H_
 #define LTSLAYOUT_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
 
-#include <Initializer/Parameters/SeisSolParameters.h>
+#include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <array>
 #include <limits>

@@ -18,7 +18,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
-  void updateFrictionAndSlip(FaultStresses const& faultStresses,
+  void updateFrictionAndSlip(const FaultStresses& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
@@ -40,10 +40,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -56,7 +56,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  void calcSlipRateAndTraction(FaultStresses const& faultStresses,
+  void calcSlipRateAndTraction(const FaultStresses& faultStresses,
                                TractionResults& tractionResults,
                                std::array<real, misc::numPaddedPoints>& strength,
                                unsigned int timeIndex,
@@ -100,10 +100,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-               unsigned int ltsFace){};
+  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  };
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                unsigned int ltsFace){};
+                unsigned int ltsFace) {};
 
   /**
    * evaluate friction law: updated mu -> friction law
@@ -140,7 +140,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void calcStrengthHook(FaultStresses const& faultStresses,
+  void calcStrengthHook(const FaultStresses& faultStresses,
                         std::array<real, misc::numPaddedPoints>& strength,
                         unsigned int timeIndex,
                         unsigned int ltsFace) {
@@ -214,11 +214,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
+  explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
-                          real fullUpdateTime){};
+                          const seissol::initializer::DynamicRupture* const dynRup,
+                          real fullUpdateTime) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
@@ -226,7 +226,7 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        real const (&slipRate)[dr::misc::numPaddedPoints]);
+                        const real (&slipRate)[dr::misc::numPaddedPoints]);
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
                          real localDc,
@@ -251,10 +251,10 @@ class NoSpecialization {
 class BiMaterialFault {
   public:
   explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters(parameters){};
+      : drParameters(parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
@@ -262,7 +262,7 @@ class BiMaterialFault {
    * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
+                        const real (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
@@ -292,16 +292,16 @@ class BiMaterialFault {
 class TPApprox {
   public:
   explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
-      : drParameters(parameters){};
+      : drParameters(parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
+                        const real (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 

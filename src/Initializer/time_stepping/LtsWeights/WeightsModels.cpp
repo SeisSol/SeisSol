@@ -1,14 +1,14 @@
-#include <PUML/PUML.h>
-#include <PUML/Downward.h>
-#include <PUML/Upward.h>
+#include "PUML/PUML.h"
+#include "PUML/Downward.h"
+#include "PUML/Upward.h"
 
 #include "WeightsModels.h"
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/ParameterDB.h>
-#include <Parallel/MPI.h>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/ParameterDB.h"
+#include "Parallel/MPI.h"
 
-#include <generated_code/init.h>
+#include "generated_code/init.h"
 
 
 namespace seissol::initializer::time_stepping {

@@ -5,7 +5,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 

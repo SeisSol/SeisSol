@@ -1,11 +1,11 @@
 #ifndef SEISSOL_ACTORSTATESTATISTICS_H
 #define SEISSOL_ACTORSTATESTATISTICS_H
 
-#include <unordered_map>
-#include <list>
-#include <optional>
 #include "LoopStatistics.h"
 #include "Solver/time_stepping/ActorState.h"
+#include <list>
+#include <optional>
+#include <unordered_map>
 
 namespace seissol {
 class ActorStateStatistics {

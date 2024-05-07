@@ -1,11 +1,11 @@
-#include "Init.hpp"
 #include "InitIO.hpp"
+#include "Common/filesystem.h"
+#include "DynamicRupture/Misc.h"
+#include "Init.hpp"
 #include "Initializer/BasicTypedefs.hpp"
-#include <SeisSol.h>
+#include "SeisSol.h"
 #include <cstring>
 #include <vector>
-#include "DynamicRupture/Misc.h"
-#include "Common/filesystem.h"
 
 #include "Parallel/MPI.h"
 
