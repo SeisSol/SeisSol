@@ -46,7 +46,8 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 #endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       const auto& fault = seissolInstance.meshReader().getFault()[ltsToFace[i]];
-      faceIdentifiers[i] = seissolInstance.meshReader().getElements()[fault.element].globalId * 4 + fault.side;
+      faceIdentifiers[i] =
+          seissolInstance.meshReader().getElements()[fault.element].globalId * 4 + fault.side;
     }
     checkpoint.registerTree<void>("dynrup", tree, faceIdentifiers);
     seissolInstance.getMemoryManager().getDynamicRupture()->registerCheckpointVariables(checkpoint,
@@ -60,8 +61,8 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     tree);
     }*/
 
-  // seissolInstance.getOutputManager().loadCheckpoint(
-  //     seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName);
+  seissolInstance.simulator().setCurrentTime(seissolInstance.getOutputManager().loadCheckpoint(
+      seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName));
 
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
     // TODO: for now, allow only _one_ checkpoint interval which checkpoints everything existent
