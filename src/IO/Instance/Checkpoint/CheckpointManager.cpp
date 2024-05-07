@@ -21,7 +21,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   auto dataRegistry = this->dataRegistry;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
-    const auto filename = std::string("checkpoint-") + std::to_string(counter) + ".h5";
+    const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
     for (auto& [_, ckpTree] : dataRegistry) {
       const std::size_t cells = ckpTree.tree->getNumberOfCells(Ghost);
       assert(cells == ckpTree.ids.size());
@@ -54,7 +54,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   };
 }
 
-void CheckpointManager::loadCheckpoint(const std::string& file) {
+double CheckpointManager::loadCheckpoint(const std::string& file) {
   std::size_t storesize = 1;
   void* datastore = std::malloc(1);
 
@@ -85,6 +85,8 @@ void CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.closeFile();
 
   std::free(datastore);
+
+  return time;
 }
 
 } // namespace seissol::io::instance::checkpoint

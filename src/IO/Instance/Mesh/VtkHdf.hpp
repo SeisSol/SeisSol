@@ -207,6 +207,16 @@ class VtkHdfWriter {
       for (auto& instruction : self.instructions) {
         writer.addInstruction(instruction(filename, time));
       }
+      std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+          "Time",
+          writer::WriteInline::create(time),
+          datatype::inferDatatype<decltype(time)>());
+      std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+          "Index",
+          writer::WriteInline::create(counter),
+          datatype::inferDatatype<decltype(counter)>());
       return writer;
     };
   }

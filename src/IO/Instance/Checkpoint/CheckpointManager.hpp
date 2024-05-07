@@ -54,7 +54,7 @@ class CheckpointManager {
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
 
-  void loadCheckpoint(const std::string& file);
+  double loadCheckpoint(const std::string& file);
 
   private:
   std::unordered_map<initializer::LTSTree*, CheckpointTree> dataRegistry;
