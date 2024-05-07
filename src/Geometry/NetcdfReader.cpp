@@ -108,7 +108,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   MPI_Bcast(buf, 2, MPI_UNSIGNED_LONG, 0, seissol::MPI::mpi.comm());
   bndSize = buf[0];
   bndElemSize = buf[1];
-  
+
 #endif // USE_MPI
 
   if (masterRank >= 0) {
@@ -250,7 +250,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
           ncFile, ncVarElemBoundaries, start, count, reinterpret_cast<int*>(elemBoundaries)));
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemNeighborRanks, start, count, reinterpret_cast<int*>(elemNeighborRanks)));
-      
+
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemMPIIndices, start, count, reinterpret_cast<int*>(elemMPIIndices)));
       if (hasGroup)
@@ -500,7 +500,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
         size_t bndCount[3] = {1, 1, bndElemSize};
         checkNcError(
             nc_get_vara_int(ncFile, ncVarBndElemLocalIds, bndStart, bndCount, bndElemLocalIds));
-  
+
         if (i < sizes[j]) {
           if (j == 0) {
             addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
@@ -560,7 +560,6 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
   // Recompute additional information
   findElementsPerVertex();
-
 }
 
 void NetcdfReader::addMPINeighbor(int localID,

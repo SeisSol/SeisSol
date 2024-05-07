@@ -23,7 +23,6 @@
 #include <sstream>
 #include <string>
 
-
 namespace {
 using t_vertex = int[3];
 
@@ -105,9 +104,6 @@ static std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
 }
 } // anonymous namespace
 
-
-
-
 seissol::geometry::CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
@@ -136,8 +132,10 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   double cubeTy = cubeParams.cubeTy;
   double cubeTz = cubeParams.cubeTz;
 
-  if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 || cubeMinZ == 6 || cubeMaxZ == 6))
-    logWarning(rank) << "Atleast one boundary condition is set to 6 (periodic boundary), leading to incorrect results when using more than 1 MPI process";
+  if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 ||
+                     cubeMinZ == 6 || cubeMaxZ == 6))
+    logWarning(rank) << "Atleast one boundary condition is set to 6 (periodic boundary), leading "
+                        "to incorrect results when using more than 1 MPI process";
 
   // create additional variables necessary for cubeGenerator()
   unsigned int numCubes[4];
@@ -242,7 +240,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
             << numPartitions[2] << '=' << numPartitions[3];
   logInfo() << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
             << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
-  //TODO: do 5 * numCubesPerPart[0-2]
+  // TODO: do 5 * numCubesPerPart[0-2]
   logInfo() << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
             << numElemPerPart[1] << 'x' << numElemPerPart[2] << '=' << numElemPerPart[3];
   logInfo() << "Using" << omp_get_max_threads() << "threads";
@@ -269,9 +267,9 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 #else  // USE_MPI
   masterRank = rank; // = 0;
 #endif // USE_MPI
-  size_t bndSize = -1; 
+  size_t bndSize = -1;
   size_t bndElemSize = -1;
-  
+
   bool hasGroup = false;
 
   int* sizes = 0L;
@@ -284,7 +282,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       logError() << "Number of partitions in netCDF file does not match number of MPI ranks.";
 
     bndSize = 6;
-    bndElemSize = *std::max_element(numBndElements, numBndElements+3);
+    bndElemSize = *std::max_element(numBndElements, numBndElements + 3);
   }
 
 #ifdef USE_MPI
@@ -321,7 +319,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
     maxSize = sizes[0];
 #else  // USE_MPI
-  assert(false);
+    assert(false);
 #endif // USE_MPI
   }
 
@@ -369,7 +367,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int* elemVertices = new int[numElemPerPart[3] * 4];
   std::map<CubeVertex, int> vertexMap;
 
-  //Calculate elemVertices
+  // Calculate elemVertices
   for (unsigned int i = 0; i < vertices.size(); i++) {
     std::map<CubeVertex, int>::iterator it = vertexMap.find(vertices[i]);
     if (it != vertexMap.end()) {
@@ -572,164 +570,161 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // Calculate elemBoundaries
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-        unsigned int x = rank;
-        memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
+      unsigned int x = rank;
+      memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
-        if (x == 0) { // first partition in x dimension
+      if (x == 0) { // first partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy) % 2;
-              if (odd) {
-                elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
-                    boundaryMinx;
-                elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                    boundaryMinx;
-              } else {
-                elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                    boundaryMinx;
-                elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                    boundaryMinx;
-              }
-            }
-          }
-        }
-        if (x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy + 1) % 2;
-              if (odd) {
-                elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               7] = boundaryMaxx;
-                elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               12] = boundaryMaxx;
-              } else {
-                elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               6] = boundaryMaxx;
-                elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               9] = boundaryMaxx;
-              }
-            }
-          }
-        }
-        if (y == 0) { // first partition in y dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx) % 2;
-              if (odd) {
-                elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
-                    boundaryMiny;
-                elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
-                    boundaryMiny;
-              } else {
-                elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
-                    boundaryMiny;
-                elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                    boundaryMiny;
-              }
-            }
-          }
-        }
-        if (y == numPartitions[1] - 1) { // last partition in y dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx + 1) % 2;
-              if (odd) {
-                elemBoundaries[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               3] = boundaryMaxy;
-                elemBoundaries[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               14] = boundaryMaxy;
-              } else {
-                elemBoundaries[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               7] = boundaryMaxy;
-                elemBoundaries[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               13] = boundaryMaxy;
-              }
-            }
-          }
-        }
-        if (z == 0) { // first partition in z dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (yy + xx) % 2;
-              if (odd) {
-                elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
-                elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
-              } else {
-                elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20] = boundaryMinz;
-                elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
-              }
+            int odd = (zz + yy) % 2;
+            if (odd) {
+              elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
+                  boundaryMinx;
+              elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
+                  boundaryMinx;
+            } else {
+              elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
+                  boundaryMinx;
+              elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
+                  boundaryMinx;
             }
           }
         }
-        if (z == numPartitions[2] - 1) { // last partition in z dimension
+      }
+      if (x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-//                                                                    int odd = (yy+xx+1) % 2;
-//                                                                    if (odd) {
-              elemBoundaries[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                  numCubesPerPart[0] +
-                              xx) *
+            int odd = (zz + yy + 1) % 2;
+            if (odd) {
+              elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
                                  20 +
-                             11] = boundaryMaxz;
-              elemBoundaries[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                  numCubesPerPart[0] +
-                              xx) *
+                             7] = boundaryMaxx;
+              elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
                                  20 +
-                             15] = boundaryMaxz;
-//                                                                    } else {
-//                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 11] =
-//                                                                            boundaryMaxz;
-//                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 15] =
-//                                                                            boundaryMaxz;
-//                                                                    }
+                             12] = boundaryMaxx;
+            } else {
+              elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
+                                 20 +
+                             6] = boundaryMaxx;
+              elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
+                                 20 +
+                             9] = boundaryMaxx;
             }
           }
         }
+      }
+      if (y == 0) { // first partition in y dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx) % 2;
+            if (odd) {
+              elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
+                  boundaryMiny;
+              elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
+                  boundaryMiny;
+            } else {
+              elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
+                  boundaryMiny;
+              elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
+                  boundaryMiny;
+            }
+          }
+        }
+      }
+      if (y == numPartitions[1] - 1) { // last partition in y dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx + 1) % 2;
+            if (odd) {
+              elemBoundaries
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   3] = boundaryMaxy;
+              elemBoundaries
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   14] = boundaryMaxy;
+            } else {
+              elemBoundaries
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   7] = boundaryMaxy;
+              elemBoundaries
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   13] = boundaryMaxy;
+            }
+          }
+        }
+      }
+      if (z == 0) { // first partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (yy + xx) % 2;
+            if (odd) {
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+            } else {
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20] = boundaryMinz;
+              elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
+            }
+          }
+        }
+      }
+      if (z == numPartitions[2] - 1) { // last partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            //                                                                    int odd =
+            //                                                                    (yy+xx+1) % 2; if
+            //                                                                    (odd) {
+            elemBoundaries
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 11] = boundaryMaxz;
+            elemBoundaries
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 15] = boundaryMaxz;
+            //                                                                    } else {
+            //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 11]
+            //                                                                            =
+            //                                                                            boundaryMaxz;
+            //                                                                            elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 15]
+            //                                                                            =
+            //                                                                            boundaryMaxz;
+            //                                                                    }
+          }
+        }
+      }
 
-        for (int i = 0; i < sizes[0]; i++) {
-          // ElemBoundaries is an int array of size 4
-          memcpy(m_elements[i].boundaries, &elemBoundaries[i*4], sizeof(ElemBoundaries));
-        }
+      for (int i = 0; i < sizes[0]; i++) {
+        // ElemBoundaries is an int array of size 4
+        memcpy(m_elements[i].boundaries, &elemBoundaries[i * 4], sizeof(ElemBoundaries));
+      }
     }
   }
   writes_done += numPartitions[3];
@@ -753,157 +748,151 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // Calculate elemNeighborSides
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-        unsigned int x = rank;
-        memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
+      unsigned int x = rank;
+      memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
 
-        if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
+      if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy) % 2;
-              if (odd) {
-                elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
-                elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                    0;
-              } else {
-                elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] = 0;
-                elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                    0;
-              }
-            }
-          }
-        }
-        if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy + 1) % 2;
-              if (odd) {
-                elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  7] = 0;
-                elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  12] = 0;
-              } else {
-                elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  6] = 0;
-                elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  9] = 0;
-              }
-            }
-          }
-        }
-        if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx) % 2;
-              if (odd) {
-                elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] = 0;
-                elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] = 0;
-              } else {
-                elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] = 0;
-                elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                    0;
-              }
-            }
-          }
-        }
-        if (boundaryMaxy != 6 && y == numPartitions[1] - 1) { // last partition in y dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx + 1) % 2;
-              if (odd) {
-                elemNeighborSides[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  3] = 0;
-                elemNeighborSides[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  14] = 0;
-              } else {
-                elemNeighborSides[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  7] = 0;
-                elemNeighborSides[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  13] = 0;
-              }
-            }
-          }
-        }
-        if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (yy + xx) % 2;
-              if (odd) {
-                elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
-                elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
-              } else {
-                elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20] = 0;
-                elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
-              }
+            int odd = (zz + yy) % 2;
+            if (odd) {
+              elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
+              elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] = 0;
+            } else {
+              elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] = 0;
+              elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] = 0;
             }
           }
         }
-        if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
+      }
+      if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-//                                                                    int odd = (yy+xx+1) % 2;
-//                                                                    if (odd) {
-              elemNeighborSides[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                     numCubesPerPart[0] +
-                                 xx) *
+            int odd = (zz + yy + 1) % 2;
+            if (odd) {
+              elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
                                     20 +
-                                11] = 0;
-              elemNeighborSides[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                     numCubesPerPart[0] +
-                                 xx) *
+                                7] = 0;
+              elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
                                     20 +
-                                15] = 0;
-//                                                                    } else {
-//                                                                            elemNeighborSides[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 11] = 0;
-//                                                                            elemNeighborSides[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 15] = 0;
-//                                                                    }
+                                12] = 0;
+            } else {
+              elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
+                                    20 +
+                                6] = 0;
+              elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
+                                    20 +
+                                9] = 0;
             }
           }
         }
+      }
+      if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx) % 2;
+            if (odd) {
+              elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] = 0;
+              elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] = 0;
+            } else {
+              elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] = 0;
+              elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] = 0;
+            }
+          }
+        }
+      }
+      if (boundaryMaxy != 6 && y == numPartitions[1] - 1) { // last partition in y dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx + 1) % 2;
+            if (odd) {
+              elemNeighborSides
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   3] = 0;
+              elemNeighborSides
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   14] = 0;
+            } else {
+              elemNeighborSides
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   7] = 0;
+              elemNeighborSides
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   13] = 0;
+            }
+          }
+        }
+      }
+      if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (yy + xx) % 2;
+            if (odd) {
+              elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
+              elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
+            } else {
+              elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20] = 0;
+              elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
+            }
+          }
+        }
+      }
+      if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            //                                                                    int odd =
+            //                                                                    (yy+xx+1) % 2; if
+            //                                                                    (odd) {
+            elemNeighborSides
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 11] = 0;
+            elemNeighborSides
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 15] = 0;
+            //                                                                    } else {
+            //                                                                            elemNeighborSides[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 11]
+            //                                                                            = 0;
+            //                                                                            elemNeighborSides[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 15]
+            //                                                                            = 0;
+            //                                                                    }
+          }
+        }
+      }
 
-        for (int i = 0; i < sizes[0]; i++) {
-          // ElemNeighborSides is an int array of size 4
-          memcpy(m_elements[i].neighborSides, &elemNeighborSides[i*4], sizeof(ElemNeighborSides));
-        }
+      for (int i = 0; i < sizes[0]; i++) {
+        // ElemNeighborSides is an int array of size 4
+        memcpy(m_elements[i].neighborSides, &elemNeighborSides[i * 4], sizeof(ElemNeighborSides));
+      }
     }
   }
   writes_done += numPartitions[3];
@@ -929,157 +918,160 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // Calculate elemSideOrientations
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-        unsigned int x = rank;
+      unsigned int x = rank;
 
-        memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
+      memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
 
-        if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
+      if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy) % 2;
-              if (odd) {
-                elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
-                elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 +
-                                     10] = 0;
-              } else {
-                elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                    0;
-                elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 +
-                                     12] = 0;
-              }
-            }
-          }
-        }
-        if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy + 1) % 2;
-              if (odd) {
-                elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                      numCubesPerPart[0] - 1) *
-                                         20 +
-                                     7] = 0;
-                elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                      numCubesPerPart[0] - 1) *
-                                         20 +
-                                     12] = 0;
-              } else {
-                elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                      numCubesPerPart[0] - 1) *
-                                         20 +
-                                     6] = 0;
-                elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                      numCubesPerPart[0] - 1) *
-                                         20 +
-                                     9] = 0;
-              }
-            }
-          }
-        }
-        // There are zero anyway
-        //                              if (boundaryMiny != 6 && y == 0) { // first partition in y
-        //                              dimension
-        //                                      #ifdef _OPENMP
-        //                                      #pragma omp parallel for
-        //                                      #endig // _OPENMP
-        //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
-        //                                      zz++) {
-        //                                              for (unsigned int xx = 0; xx <
-        //                                              numCubesPerPart[0]; xx++) {
-        //                                                      int odd = (zz+xx) % 2;
-        //                                                      if (odd) {
-        //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 6] = 0;
-        //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 9] = 0;
-        //                                                      } else {
-        //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 1] = 0;
-        //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 10] = 0;
-        //                                                      }
-        //                                              }
-        //                                      }
-        //                              }
-        //                              if (boundaryMaxy != 6 && y == numPartitions[1]-1) { //
-        //                              last partition in y dimension
-        //                                      #ifdef _OPENMP
-        //                                      #pragma omp parallel for
-        //                                      #endig // _OPENMP
-        //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
-        //                                      zz++) {
-        //                                              for (unsigned int xx = 0; xx <
-        //                                              numCubesPerPart[0]; xx++) {
-        //                                                      int odd = (zz+xx+1) % 2;
-        //                                                      if (odd) {
-        //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 3] = 0;
-        //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 14] = 0;
-        //                                                      } else {
-        //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 7] = 0;
-        //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
-        //                                                              * 20 + 13] = 0;
-        //                                                      }
-        //                                              }
-        //                                      }
-        //                              }
-        if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (yy + xx) % 2;
-              if (odd) {
-                elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
-                elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
-              } else {
-                elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20] = 0;
-                elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
-              }
+            int odd = (zz + yy) % 2;
+            if (odd) {
+              elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
+              elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
+                  0;
+            } else {
+              elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
+                  0;
+              elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
+                  0;
             }
           }
         }
-        if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
+      }
+      if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-//                                                                    int odd = (yy+xx+1) % 2;
-//                                                                    if (odd) {
-              elemSideOrientations[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                        numCubesPerPart[0] +
-                                    xx) *
+            int odd = (zz + yy + 1) % 2;
+            if (odd) {
+              elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                    numCubesPerPart[0] - 1) *
                                        20 +
-                                   11] = 0;
-              elemSideOrientations[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                        numCubesPerPart[0] +
-                                    xx) *
+                                   7] = 0;
+              elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                    numCubesPerPart[0] - 1) *
                                        20 +
-                                   15] = 0;
-//                                                                    } else {
-//                                                                            elemSideOrientations[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 11] = 0;
-//                                                                            elemSideOrientations[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 15] = 0;
-//                                                                    }
+                                   12] = 0;
+            } else {
+              elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                    numCubesPerPart[0] - 1) *
+                                       20 +
+                                   6] = 0;
+              elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                    numCubesPerPart[0] - 1) *
+                                       20 +
+                                   9] = 0;
             }
           }
         }
-
-        for (int i = 0; i < sizes[0]; i++) {
-          // ElemSideOrientations is an int array of size 4
-          memcpy(m_elements[i].sideOrientations, &elemSideOrientations[i*4], sizeof(ElemSideOrientations));
+      }
+      // There are zero anyway
+      //                              if (boundaryMiny != 6 && y == 0) { // first partition in y
+      //                              dimension
+      //                                      #ifdef _OPENMP
+      //                                      #pragma omp parallel for
+      //                                      #endig // _OPENMP
+      //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
+      //                                      zz++) {
+      //                                              for (unsigned int xx = 0; xx <
+      //                                              numCubesPerPart[0]; xx++) {
+      //                                                      int odd = (zz+xx) % 2;
+      //                                                      if (odd) {
+      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 6] = 0;
+      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 9] = 0;
+      //                                                      } else {
+      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 1] = 0;
+      //                                                              elemSideOrientations[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 10] = 0;
+      //                                                      }
+      //                                              }
+      //                                      }
+      //                              }
+      //                              if (boundaryMaxy != 6 && y == numPartitions[1]-1) { //
+      //                              last partition in y dimension
+      //                                      #ifdef _OPENMP
+      //                                      #pragma omp parallel for
+      //                                      #endig // _OPENMP
+      //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
+      //                                      zz++) {
+      //                                              for (unsigned int xx = 0; xx <
+      //                                              numCubesPerPart[0]; xx++) {
+      //                                                      int odd = (zz+xx+1) % 2;
+      //                                                      if (odd) {
+      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 3] = 0;
+      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 14] = 0;
+      //                                                      } else {
+      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 7] = 0;
+      //                                                              elemSideOrientations[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx)
+      //                                                              * 20 + 13] = 0;
+      //                                                      }
+      //                                              }
+      //                                      }
+      //                              }
+      if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (yy + xx) % 2;
+            if (odd) {
+              elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
+              elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
+            } else {
+              elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20] = 0;
+              elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
+            }
+          }
         }
+      }
+      if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            //                                                                    int odd =
+            //                                                                    (yy+xx+1) % 2; if
+            //                                                                    (odd) {
+            elemSideOrientations
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 11] = 0;
+            elemSideOrientations
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 15] = 0;
+            //                                                                    } else {
+            //                                                                            elemSideOrientations[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 11]
+            //                                                                            = 0;
+            //                                                                            elemSideOrientations[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 15]
+            //                                                                            = 0;
+            //                                                                    }
+          }
+        }
+      }
+
+      for (int i = 0; i < sizes[0]; i++) {
+        // ElemSideOrientations is an int array of size 4
+        memcpy(m_elements[i].sideOrientations,
+               &elemSideOrientations[i * 4],
+               sizeof(ElemSideOrientations));
+      }
     }
   }
 
@@ -1092,189 +1084,183 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-        unsigned int x = rank;
-        int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
+      unsigned int x = rank;
+      int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
 
-        std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
+      std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
 
-        if ((boundaryMinx == 6 && numPartitions[0] > 1) ||
-            x != 0) { // first partition in x dimension
-          int rank = (z * numPartitions[1] + y) * numPartitions[0] +
-                     (x - 1 + numPartitions[0]) % numPartitions[0];
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy) % 2;
-              if (odd) {
-                elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = rank;
-                elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                    rank;
-              } else {
-                elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                    rank;
-                elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                    rank;
-              }
-            }
-          }
-        }
-        if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
-            x != numPartitions[0] - 1) { // last partition in x dimension
-          int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
+      if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
+        int rank = (z * numPartitions[1] + y) * numPartitions[0] +
+                   (x - 1 + numPartitions[0]) % numPartitions[0];
 
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy + 1) % 2;
-              if (odd) {
-                elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  7] = rank;
-                elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  12] = rank;
-              } else {
-                elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  6] = rank;
-                elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                   numCubesPerPart[0] - 1) *
-                                      20 +
-                                  9] = rank;
-              }
-            }
-          }
-        }
-        if ((boundaryMiny == 6 && numPartitions[1] > 1) ||
-            y != 0) { // first partition in y dimension
-          int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
-                         numPartitions[0] +
-                     x;
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx) % 2;
-              if (odd) {
-                elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
-                    rank;
-                elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
-                    rank;
-              } else {
-                elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
-                    rank;
-                elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                    rank;
-              }
-            }
-          }
-        }
-        if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
-            y != numPartitions[1] - 1) { // last partition in y dimension
-          int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx + 1) % 2;
-              if (odd) {
-                elemNeighborRanks[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  3] = rank;
-                elemNeighborRanks[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  14] = rank;
-              } else {
-                elemNeighborRanks[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  7] = rank;
-                elemNeighborRanks[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                       numCubesPerPart[0] +
-                                   xx) *
-                                      20 +
-                                  13] = rank;
-              }
-            }
-          }
-        }
-        if ((boundaryMinz == 6 && numPartitions[2] > 1) ||
-            z != 0) { // first partition in z dimension
-          int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
-                         numPartitions[0] +
-                     x;
-
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (yy + xx) % 2;
-              if (odd) {
-                elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 1] = rank;
-                elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
-              } else {
-                elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20] = rank;
-                elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
-              }
+            int odd = (zz + yy) % 2;
+            if (odd) {
+              elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = rank;
+              elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
+                  rank;
+            } else {
+              elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
+                  rank;
+              elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
+                  rank;
             }
           }
         }
-        if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
-            z != numPartitions[2] - 1) { // last partition in z dimension
-          int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
+      }
+      if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
+          x != numPartitions[0] - 1) { // last partition in x dimension
+        int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
 
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-//                                                                    int odd = (yy+xx+1) % 2;
-//                                                                    if (odd) {
-              elemNeighborRanks[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                     numCubesPerPart[0] +
-                                 xx) *
+            int odd = (zz + yy + 1) % 2;
+            if (odd) {
+              elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
                                     20 +
-                                11] = rank;
-              elemNeighborRanks[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                     numCubesPerPart[0] +
-                                 xx) *
+                                7] = rank;
+              elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
                                     20 +
-                                15] = rank;
-//                                                                    } else {
-//                                                                            elemNeighborRanks[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 11] = rank;
-//                                                                            elemNeighborRanks[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
-//                                                                            * 20 + 15] = rank;
-//                                                                    }
+                                12] = rank;
+            } else {
+              elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
+                                    20 +
+                                6] = rank;
+              elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                                 numCubesPerPart[0] - 1) *
+                                    20 +
+                                9] = rank;
             }
           }
         }
+      }
+      if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
+        int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
+                       numPartitions[0] +
+                   x;
 
-        for (int i = 0; i < sizes[0]; i++) {
-          // ElemNeighborRanks is an int array of size 4
-          memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i*4], sizeof(ElemNeighborRanks));
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx) % 2;
+            if (odd) {
+              elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
+                  rank;
+              elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
+                  rank;
+            } else {
+              elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
+                  rank;
+              elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
+                  rank;
+            }
+          }
         }
+      }
+      if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
+          y != numPartitions[1] - 1) { // last partition in y dimension
+        int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx + 1) % 2;
+            if (odd) {
+              elemNeighborRanks
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   3] = rank;
+              elemNeighborRanks
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   14] = rank;
+            } else {
+              elemNeighborRanks
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   7] = rank;
+              elemNeighborRanks
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   13] = rank;
+            }
+          }
+        }
+      }
+      if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
+        int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
+                       numPartitions[0] +
+                   x;
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (yy + xx) % 2;
+            if (odd) {
+              elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 1] = rank;
+              elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
+            } else {
+              elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20] = rank;
+              elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
+            }
+          }
+        }
+      }
+      if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
+          z != numPartitions[2] - 1) { // last partition in z dimension
+        int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            //                                                                    int odd =
+            //                                                                    (yy+xx+1) % 2; if
+            //                                                                    (odd) {
+            elemNeighborRanks
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 11] = rank;
+            elemNeighborRanks
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 15] = rank;
+            //                                                                    } else {
+            //                                                                            elemNeighborRanks[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 11]
+            //                                                                            = rank;
+            //                                                                            elemNeighborRanks[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx)
+            //                                                                            * 20 + 15]
+            //                                                                            = rank;
+            //                                                                    }
+          }
+        }
+      }
+
+      for (int i = 0; i < sizes[0]; i++) {
+        // ElemNeighborRanks is an int array of size 4
+        memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i * 4], sizeof(ElemNeighborRanks));
+      }
     }
   }
-  
+
   writes_done += numPartitions[3];
   loadBar(writes_done, netcdf_writes, rank);
 
@@ -1292,283 +1278,281 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // calculate bndElem variables, bndLocalIds and elemMPIIndices
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-        unsigned int x = rank;
-        memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
+      unsigned int x = rank;
+      memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
 
-        unsigned int bndSize = 0;
+      unsigned int bndSize = 0;
 
-        if ((boundaryMinz == 6 && numPartitions[2] > 1) ||
-            z != 0) { // first partition in z dimension
-          int nextMPIIndex = 0;
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (yy + xx) % 2;
-              if (odd) {
-                bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
-                elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5;
-                elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 1] = nextMPIIndex++;
-              } else {
-                bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5;
-                elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
-                elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
-              }
+      if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
+        int nextMPIIndex = 0;
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (yy + xx) % 2;
+            if (odd) {
+              bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
+              elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5;
+              elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 1] = nextMPIIndex++;
+            } else {
+              bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5;
+              elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20] = nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
+              elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
             }
           }
-
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-// TODO: for next 6(?) count variables: maybe use nextMPIIndex directly instead of defining count?
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
-                         numPartitions[0] +
-                     x;
-
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
-
-          bndSize++;
         }
-        if ((boundaryMiny == 6 && numPartitions[1] > 1) ||
-            y != 0) { // first partition in y dimension
-          int nextMPIIndex = 0;
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx) % 2;
-              if (odd) {
-                bndLocalIds[nextMPIIndex] =
-                    (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 1;
-                elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
-                    nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 2;
-                elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
-                    nextMPIIndex++;
-              } else {
-                bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5;
-                elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
-                    nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 2;
-                elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
-                    nextMPIIndex++;
-              }
-            }
-          }
 
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
-                         numPartitions[0] +
-                     x;
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        // TODO: for next 6(?) count variables: maybe use nextMPIIndex directly instead of defining
+        // count?
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
+                       numPartitions[0] +
+                   x;
 
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
 
-          bndSize++;
-        }
-        if ((boundaryMinx == 6 && numPartitions[0] > 1) ||
-            x != 0) { // first partition in x dimension
-          int nextMPIIndex = 0;
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy) % 2;
-              if (odd) {
-                bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
-                elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
-                    nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5 + 2;
-                elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
-                    nextMPIIndex++;
-              } else {
-                bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
-                elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
-                    nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5 + 3;
-                elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
-                    nextMPIIndex++;
-              }
-            }
-          }
-
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (z * numPartitions[1] + y) * numPartitions[0] +
-                     (x - 1 + numPartitions[0]) % numPartitions[0];
-
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
-
-          bndSize++;
-        }
-        if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
-            x != numPartitions[0] - 1) { // last partition in x dimension
-          int nextMPIIndex = 0;
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-              int odd = (zz + yy + 1) % 2;
-              if (odd) {
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
-                        5 +
-                    1;
-                elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               7] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
-                        5 +
-                    3;
-                elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               12] = nextMPIIndex++;
-              } else {
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
-                        5 +
-                    1;
-                elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               6] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
-                        5 +
-                    2;
-                elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
-                                numCubesPerPart[0] - 1) *
-                                   20 +
-                               9] = nextMPIIndex++;
-              }
-            }
-          }
-
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
-          rank = (rank + numPartitions[3]) % numPartitions[3];
-
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
-
-          bndSize++;
-        }
-        if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
-            y != numPartitions[1] - 1) { // last partition in y dimension
-          int nextMPIIndex = 0;
-          for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-              int odd = (zz + xx + 1) % 2;
-              if (odd) {
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
-                    5;
-                elemMPIIndices[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               3] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
-                        5 +
-                    3;
-                elemMPIIndices[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               14] = nextMPIIndex++;
-              } else {
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
-                        5 +
-                    1;
-                elemMPIIndices[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               7] = nextMPIIndex++;
-                bndLocalIds[nextMPIIndex] =
-                    ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
-                        5 +
-                    3;
-                elemMPIIndices[((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) *
-                                    numCubesPerPart[0] +
-                                xx) *
-                                   20 +
-                               13] = nextMPIIndex++;
-              }
-            }
-          }
-
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
-          rank = (rank + numPartitions[3]) % numPartitions[3];
-
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
-
-          bndSize++;
-        }
-        if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
-            z != numPartitions[2] - 1) { // last partition in z dimension
-          int nextMPIIndex = 0;
-          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+        bndSize++;
+      }
+      if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
+        int nextMPIIndex = 0;
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx) % 2;
+            if (odd) {
               bndLocalIds[nextMPIIndex] =
-                  (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                  (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 1;
+              elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
+                  nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 2;
+              elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] =
+                  nextMPIIndex++;
+            } else {
+              bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5;
+              elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 1] =
+                  nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 2;
+              elemMPIIndices[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 10] =
+                  nextMPIIndex++;
+            }
+          }
+        }
+
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
+                       numPartitions[0] +
+                   x;
+
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
+
+        bndSize++;
+      }
+      if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
+        int nextMPIIndex = 0;
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+            int odd = (zz + yy) % 2;
+            if (odd) {
+              bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
+              elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
+                  nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5 + 2;
+              elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
+                  nextMPIIndex++;
+            } else {
+              bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
+              elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 2] =
+                  nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5 + 3;
+              elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 12] =
+                  nextMPIIndex++;
+            }
+          }
+        }
+
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (z * numPartitions[1] + y) * numPartitions[0] +
+                   (x - 1 + numPartitions[0]) % numPartitions[0];
+
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
+
+        bndSize++;
+      }
+      if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
+          x != numPartitions[0] - 1) { // last partition in x dimension
+        int nextMPIIndex = 0;
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+            int odd = (zz + yy + 1) % 2;
+            if (odd) {
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
                       5 +
-                  2;
-              elemMPIIndices[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                  numCubesPerPart[0] +
-                              xx) *
+                  1;
+              elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
                                  20 +
-                             11] = nextMPIIndex++;
+                             7] = nextMPIIndex++;
               bndLocalIds[nextMPIIndex] =
-                  (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                  ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
                       5 +
                   3;
-              elemMPIIndices[(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) *
-                                  numCubesPerPart[0] +
-                              xx) *
+              elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
                                  20 +
-                             15] = nextMPIIndex++;
+                             12] = nextMPIIndex++;
+            } else {
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
+                      5 +
+                  1;
+              elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
+                                 20 +
+                             6] = nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
+                      5 +
+                  2;
+              elemMPIIndices[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
+                              numCubesPerPart[0] - 1) *
+                                 20 +
+                             9] = nextMPIIndex++;
             }
           }
-
-          size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-          size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-          int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
-          rank = (rank + numPartitions[3]) % numPartitions[3];
-
-          bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
-          bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
-          memcpy(&bndElemLocalIdsPtr[(start[0]*bndSizeGlobal + start[1])*bndElemSize + start[2]], bndLocalIds,
-                 sizeof(int)*count[2]);
-
-          bndSize++;
         }
 
-        for (int i = 0; i < sizes[0]; i++) {
-          // ElemMPIIndices is an int array of size 4
-          memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i*4], sizeof(ElemMPIIndices));
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
+        rank = (rank + numPartitions[3]) % numPartitions[3];
+
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
+
+        bndSize++;
+      }
+      if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
+          y != numPartitions[1] - 1) { // last partition in y dimension
+        int nextMPIIndex = 0;
+        for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            int odd = (zz + xx + 1) % 2;
+            if (odd) {
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                  5;
+              elemMPIIndices
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   3] = nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                      5 +
+                  3;
+              elemMPIIndices
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   14] = nextMPIIndex++;
+            } else {
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                      5 +
+                  1;
+              elemMPIIndices
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   7] = nextMPIIndex++;
+              bndLocalIds[nextMPIIndex] =
+                  ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                      5 +
+                  3;
+              elemMPIIndices
+                  [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
+                       20 +
+                   13] = nextMPIIndex++;
+            }
+          }
         }
 
-        bndSizePtr[(z * numPartitions[1] + y) * numPartitions[0] + x] = bndSize; 
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
+        rank = (rank + numPartitions[3]) % numPartitions[3];
+
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
+
+        bndSize++;
+      }
+      if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
+          z != numPartitions[2] - 1) { // last partition in z dimension
+        int nextMPIIndex = 0;
+        for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
+          for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
+            bndLocalIds[nextMPIIndex] =
+                (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                    5 +
+                2;
+            elemMPIIndices
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 11] = nextMPIIndex++;
+            bndLocalIds[nextMPIIndex] =
+                (((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                    5 +
+                3;
+            elemMPIIndices
+                [(((numCubesPerPart[2] - 1) * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) *
+                     20 +
+                 15] = nextMPIIndex++;
+          }
+        }
+
+        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
+        rank = (rank + numPartitions[3]) % numPartitions[3];
+
+        bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
+        bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
+        memcpy(&bndElemLocalIdsPtr[(start[0] * bndSizeGlobal + start[1]) * bndElemSize + start[2]],
+               bndLocalIds,
+               sizeof(int) * count[2]);
+
+        bndSize++;
+      }
+
+      for (int i = 0; i < sizes[0]; i++) {
+        // ElemMPIIndices is an int array of size 4
+        memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i * 4], sizeof(ElemMPIIndices));
+      }
+
+      bndSizePtr[(z * numPartitions[1] + y) * numPartitions[0] + x] = bndSize;
     }
   }
 
@@ -1578,7 +1562,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   // Set material zone to 1
   int* elemGroup = new int[numElemPerPart[3]];
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
-  
+
   if (masterRank >= 0) {
     for (int i = groupSize - 1; i >= 0; i--) {
       if (i != 0) {
@@ -1656,7 +1640,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   // copy the remaining Elem variables to m_elements
   ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
-  ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors); 
+  ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors);
 
   for (int i = 0; i < sizes[0]; i++) {
     m_elements[i].localId = i;
@@ -1664,7 +1648,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     memcpy(m_elements[i].vertices, &elemVerticesCast[i], sizeof(ElemVertices));
     memcpy(m_elements[i].neighbors, &elemNeighborsCast[i], sizeof(ElemNeighbors));
     m_elements[i].group = elemGroup[i];
- }
+  }
 
   delete[] elemVerticesCast;
   delete[] elemNeighborsCast;
@@ -1697,31 +1681,31 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-        for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
-          vrtxCoords[i * 3] = 
-              static_cast<double>(uniqueVertices.at(i).v[0] + x * numCubesPerPart[0]) /
-                  static_cast<double>(numCubes[0]) * scaleX -
-              halfWidthX + tx;
-          vrtxCoords[i * 3 + 1] =
-              static_cast<double>(uniqueVertices.at(i).v[1] + y * numCubesPerPart[1]) /
-                  static_cast<double>(numCubes[1]) * scaleY -
-              halfWidthY + ty;
-          vrtxCoords[i * 3 + 2] =
-              static_cast<double>(uniqueVertices.at(i).v[2] + z * numCubesPerPart[2]) /
-                  static_cast<double>(numCubes[2]) * scaleZ -
-              halfWidthZ + tz;
-        }
+      for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
+        vrtxCoords[i * 3] =
+            static_cast<double>(uniqueVertices.at(i).v[0] + x * numCubesPerPart[0]) /
+                static_cast<double>(numCubes[0]) * scaleX -
+            halfWidthX + tx;
+        vrtxCoords[i * 3 + 1] =
+            static_cast<double>(uniqueVertices.at(i).v[1] + y * numCubesPerPart[1]) /
+                static_cast<double>(numCubes[1]) * scaleY -
+            halfWidthY + ty;
+        vrtxCoords[i * 3 + 2] =
+            static_cast<double>(uniqueVertices.at(i).v[2] + z * numCubesPerPart[2]) /
+                static_cast<double>(numCubes[2]) * scaleZ -
+            halfWidthZ + tz;
+      }
 
-        writes_done++;
+      writes_done++;
     }
   }
   loadBar(writes_done, netcdf_writes, rank);
-  
+
   // Copy buffers to vertices
   for (int i = 0; i < uniqueVertices.size(); i++) {
-    // VrtxCoord is defined as an int array of size 3 
+    // VrtxCoord is defined as an int array of size 3
     memcpy(m_vertices[i].coords, &vrtxCoords[i * 3], sizeof(VrtxCoords));
- }
+  }
 
   delete[] vrtxCoords;
 
@@ -1764,18 +1748,20 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         bndStart[0] = static_cast<size_t>(j + rank);
 
         // Get neighbor rank
-        int bndRank = bndElemRankPtr[bndStart[0]*bndSize + bndStart[1]];
+        int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
 
         // Get size of this boundary
-        int elemSize = bndElemSizePtr[bndStart[0]*bndSize + bndStart[1]];
+        int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
 
         size_t bndCount[3] = {1, 1, bndElemSize};
-        memcpy(bndElemLocalIds, &bndElemLocalIdsPtr[(bndStart[0]*bndSize + bndStart[1])*bndElemSize], sizeof(int)*bndCount[2]);
+        memcpy(bndElemLocalIds,
+               &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
+               sizeof(int) * bndCount[2]);
 
         if (i < sizes[j]) {
 
           if (j == 0) {
- 
+
             addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
           } else {
 #ifdef USE_MPI
@@ -1839,8 +1825,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   logInfo(rank) << "Finished";
 }
 
-
-
 void seissol::geometry::CubeGenerator::findElementsPerVertex() {
   for (std::vector<Element>::const_iterator i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
@@ -1852,9 +1836,9 @@ void seissol::geometry::CubeGenerator::findElementsPerVertex() {
 }
 
 void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
-                    int bndRank,
-                    int elemSize,
-                    const int* bndElemLocalIds) {
+                                                      int bndRank,
+                                                      int elemSize,
+                                                      const int* bndElemLocalIds) {
 
   MPINeighbor neighbor;
   neighbor.localID = localID;

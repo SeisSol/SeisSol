@@ -21,7 +21,7 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
   Eigen::Matrix4d A;
   A << x[0](0), x[0](1), x[0](2), 1.0, x[1](0), x[1](1), x[1](2), 1.0, x[2](0), x[2](1), x[2](2),
       1.0, x[3](0), x[3](1), x[3](2), 1.0;
- 
+
   double alpha = A.determinant();
   double Nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
   double Nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();

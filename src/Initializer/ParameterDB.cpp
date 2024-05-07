@@ -73,7 +73,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
- 
+
   return CellToVertexArray(
       elements.size(),
       [&](size_t index) {
