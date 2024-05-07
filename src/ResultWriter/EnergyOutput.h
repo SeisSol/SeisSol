@@ -71,8 +71,8 @@ class EnergyOutput : public Module {
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
-                         DRFaceInformation const& faceInfo,
-                         DRGodunovData const& godunovData,
+                         const DRFaceInformation& faceInfo,
+                         const DRGodunovData& godunovData,
                          const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();

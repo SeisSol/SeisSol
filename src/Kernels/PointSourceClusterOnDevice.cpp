@@ -98,7 +98,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
   }
 }
 
-void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(std::array<real, 3> const& slip,
+void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                                                  real* mInvJInvPhisAtSources,
                                                                  real* tensor,
                                                                  real A,

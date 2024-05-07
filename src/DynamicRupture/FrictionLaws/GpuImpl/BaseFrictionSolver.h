@@ -16,7 +16,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   ~BaseFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializer::Layer& layerData,
-                seissol::initializer::DynamicRupture const* const dynRup,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
 

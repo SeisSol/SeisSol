@@ -55,9 +55,9 @@ class LoopStatistics {
   public:
   void enableSampleOutput(bool enabled);
 
-  void addRegion(std::string const& name, bool includeInSummary = true);
+  void addRegion(const std::string& name, bool includeInSummary = true);
 
-  unsigned getRegion(std::string const& name) const;
+  unsigned getRegion(const std::string& name) const;
 
   void begin(unsigned region);
 

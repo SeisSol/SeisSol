@@ -78,7 +78,7 @@ class AsagiReader : public easi::AsagiReader {
 #endif
   );
 
-  virtual ::asagi::Grid* open(char const* file, char const* varname);
+  virtual ::asagi::Grid* open(const char* file, const char* varname);
   virtual unsigned numberOfThreads() const;
 
   private:

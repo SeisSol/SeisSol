@@ -5,7 +5,7 @@
 #include <array>
 
 namespace seissol::dr::friction_law {
-void NoFault::updateFrictionAndSlip(FaultStresses const& faultStresses,
+void NoFault::updateFrictionAndSlip(const FaultStresses& faultStresses,
                                     TractionResults& tractionResults,
                                     std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                                     std::array<real, misc::numPaddedPoints>& strengthBuffer,

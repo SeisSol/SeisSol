@@ -16,7 +16,7 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 #else
     syclDevice = sycl::device(sycl::cpu_selector());
 #endif // __DPCPP_COMPILER
-  } catch (sycl::exception const& err) {
+  } catch (const sycl::exception& err) {
     {
       std::ostringstream warn;
       warn << "SYCL error: " << err.what();

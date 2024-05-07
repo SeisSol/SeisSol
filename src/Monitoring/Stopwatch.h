@@ -52,7 +52,7 @@
 namespace seissol {
 
 /** Returns the time difference in nanoseconds. */
-inline long long difftime(timespec const& start, timespec const& end) {
+inline long long difftime(const timespec& start, const timespec& end) {
   return 1000000000L * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
 }
 

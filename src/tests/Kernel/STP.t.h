@@ -21,8 +21,8 @@ namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
   protected:
   const int N = NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS * CONVERGENCE_ORDER;
-  constexpr static double const epsilon = std::numeric_limits<real>::epsilon();
-  constexpr static double const dt = 1.05109e-06;
+  constexpr static const double epsilon = std::numeric_limits<real>::epsilon();
+  constexpr static const double dt = 1.05109e-06;
   real starMatrices0[tensor::star::size(0)];
   real starMatrices1[tensor::star::size(1)];
   real starMatrices2[tensor::star::size(2)];

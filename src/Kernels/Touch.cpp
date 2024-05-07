@@ -39,7 +39,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 
 void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
   // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
-  auto const stuff = [](unsigned n) { return static_cast<real>((214013 * n + 2531011) / 65536); };
+  const auto stuff = [](unsigned n) { return static_cast<real>((214013 * n + 2531011) / 65536); };
 #ifdef ACL_DEVICE
   if (onDevice) {
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();

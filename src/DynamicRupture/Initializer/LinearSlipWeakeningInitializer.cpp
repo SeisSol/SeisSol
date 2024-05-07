@@ -14,12 +14,12 @@
 namespace seissol::dr::initializer {
 
 void LinearSlipWeakeningInitializer::initializeFault(
-    seissol::initializer::DynamicRupture const* const dynRup,
+    const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
 
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
   for (seissol::initializer::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
@@ -49,10 +49,10 @@ void LinearSlipWeakeningInitializer::initializeFault(
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::DynamicRupture const* const dynRup,
+    const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
   real(*dC)[misc::numPaddedPoints] = it->var(concreteLts->dC);
   real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
   real(*muD)[misc::numPaddedPoints] = it->var(concreteLts->muD);
@@ -68,11 +68,11 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
-    seissol::initializer::DynamicRupture const* const dynRup,
+    const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
 
   for (seissol::initializer::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));

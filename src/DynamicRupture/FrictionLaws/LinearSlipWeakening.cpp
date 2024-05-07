@@ -11,7 +11,7 @@ namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+    const real (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
   resampleKrnl.originalQ = slipRateMagnitude;
@@ -19,10 +19,10 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                         seissol::initializer::DynamicRupture const* const dynRup,
+                                         const seissol::initializer::DynamicRupture* const dynRup,
                                          real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 

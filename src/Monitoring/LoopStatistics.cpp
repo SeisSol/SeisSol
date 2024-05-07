@@ -59,14 +59,14 @@ namespace seissol {
 
 void LoopStatistics::enableSampleOutput(bool enabled) { outputSamples = enabled; }
 
-LoopStatistics::Region::Region(std::string const& name, bool includeInSummary)
+LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
     : name(name), includeInSummary(includeInSummary) {}
 
-void LoopStatistics::addRegion(std::string const& name, bool includeInSummary) {
+void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
   regions.push_back(Region(name, includeInSummary));
 }
 
-unsigned LoopStatistics::getRegion(std::string const& name) const {
+unsigned LoopStatistics::getRegion(const std::string& name) const {
   auto first = regions.cbegin();
   auto it =
       std::find_if(first, regions.cend(), [&name](const auto& elem) { return elem.name == name; });
@@ -183,9 +183,9 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     const double y2 = getTimeSquared(region);
     const double n = getNumberOfSamples(region);
 
-    double const det = n * x2 - x * x;
-    double const constant = (x2 * y - x * xy) / det;
-    double const slope = (-x * y + n * xy) / det;
+    const double det = n * x2 - x * x;
+    const double constant = (x2 * y - x * xy) / det;
+    const double slope = (-x * y + n * xy) / det;
     regressionCoeffs[2 * region + 0] = constant;
     regressionCoeffs[2 * region + 1] = slope;
 
@@ -214,13 +214,13 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       const double y = getTime(region);
       const double n = getNumberOfSamples(region);
 
-      double const xm = x / n;
-      double const xv = x2 - 2 * x * xm + xm * xm;
+      const double xm = x / n;
+      const double xv = x2 - 2 * x * xm + xm * xm;
 
       // https://en.wikipedia.org/wiki/Simple_linear_regression#Normality_assumption
-      double const se = std::sqrt((stderror[region] / (n - 2)) / xv);
+      const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
-      char const* names[] = {"constant", "per element"};
+      const char* names[] = {"constant", "per element"};
       logInfo(rank) << regions[region].name << "(total time):" << y
                     << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {

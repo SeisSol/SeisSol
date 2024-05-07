@@ -151,7 +151,7 @@ class WaveFieldWriter
 
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
 
-  unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+  const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
                                     const std::vector<unsigned>& LtsClusteringData,
