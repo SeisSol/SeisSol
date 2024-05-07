@@ -52,9 +52,6 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
-
-  //TODO: delete!
-  std::cout << "From " << __FILE__ << ": Exited getLtsLayout().setMesh(meshReader)" << std::endl;
 }
 
 static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {

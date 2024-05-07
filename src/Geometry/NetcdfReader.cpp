@@ -250,6 +250,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
           ncFile, ncVarElemBoundaries, start, count, reinterpret_cast<int*>(elemBoundaries)));
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemNeighborRanks, start, count, reinterpret_cast<int*>(elemNeighborRanks)));
+      
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemMPIIndices, start, count, reinterpret_cast<int*>(elemMPIIndices)));
       if (hasGroup)

@@ -253,33 +253,24 @@ seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaul
 }
 
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
-  //TODO: delete logInfos
-
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // We should always move forward in time
   assert(m_timeStepping.synchronizationTime <= synchronizationTime);
-  logInfo(0) << "After assert(m_timeStepping.synchronizationTime <= synchronizationTime)";
 
   m_timeStepping.synchronizationTime = synchronizationTime;
-  logInfo(0) << "After m_timeStepping.synchronizationTime = synchronizationTime";
 
   for (auto& cluster : clusters) {
     cluster->setSyncTime(synchronizationTime);
     cluster->reset();
   }
 
-  logInfo(0) << "After for loop";
-
   communicationManager->reset(synchronizationTime);
-  logInfo(0) << "After communicationManager->reset(synchronizationTime)";
 
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 #ifdef ACL_DEVICE
   device::DeviceInstance &device = device::DeviceInstance::getInstance();
-  logInfo(0) << "After device::DeviceInstance &device = device::DeviceInstance::getInstance()";
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
-  logInfo(0) << "After device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue)";
 #endif
 
   // Move all clusters from RestartAfterSync to Corrected
@@ -290,16 +281,10 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     assert(cluster->getState() == ActorState::Corrected);
   }
 
-  logInfo(0) << "After for loop";
-
   bool finished = false; // Is true, once all clusters reached next sync point
-
-  logInfo(0) << "Enter huge while loop";
-
   while (!finished) {
     finished = true;
     communicationManager->progression();
-    logInfo(0) << "After communicationManager->progression()";
 
     // Update all high priority clusters
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
@@ -308,14 +293,12 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
         cluster->act();
       }
     });
-    logInfo(0) << "After first std::for_each;";
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
       if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
         communicationManager->progression();
         cluster->act();
       }
     });
-    logInfo(0) << "After second std::for_each;";
 
     // Update one low priority cluster
     if (auto predictable = std::find_if(
@@ -324,8 +307,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
           }
       );
         predictable != lowPrioClusters.end()) {
-
-      logInfo(0) << "In if predictable call";
       (*predictable)->act();
     } else {
     }
@@ -335,8 +316,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
           }
       );
         correctable != lowPrioClusters.end()) {
-
-       logInfo(0) << "in if correctable call";
       (*correctable)->act();
     } else {
     }
@@ -345,14 +324,10 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       return c->synced();
     });
     finished &= communicationManager->checkIfFinished();
-    logInfo(0) << "After finished &= communicationManager->checkIfFinished()";
   }
-
-  logInfo(0) << "After huge while loop";
 
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
-  logInfo(0) << "After device.api->popLastProfilingMark()";
 #endif
 }
 
