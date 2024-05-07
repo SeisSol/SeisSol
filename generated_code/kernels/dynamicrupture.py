@@ -67,11 +67,9 @@ class FrictionLawBase(ScalarBase):
         self.invZpNeig = self.drscalar('invZpNeig')
         self.invZsNeig = self.drscalar('invZsNeig')
         
-        self.initialStressInFaultCS = []
-        self.nucleationStressInFaultCS = []
-        for i in range(6):
-            self.initialStressInFaultCS += [self.drvar(f'initialStressInFaultCS({i})')]
-            self.nucleationStressInFaultCS += [self.drvar(f'nucleationStressInFaultCS({i})')]
+        self.initialStressInFaultCS = self.drvar('initialStressInFaultCS', (6,))
+        self.nucleationStressInFaultCS = self.drvar('nucleationStressInFaultCS', (6,))
+
         self.initialPressure = self.drvar('initialPressure')
         self.nucleationPressure = self.drvar('nucleationPressure')
         self.mu = self.drvar('mu')
@@ -283,7 +281,7 @@ class LinearSlipWeakeningBase(FrictionLawBase):
         totalNormalStress = self.initialStressInFaultCS[0] + self.faultStressesNormalStress[i]
         strength = -self.cohesion - self.mu * forge.min(totalNormalStress, 0)
         routine += [
-            forge.assign(self.strength, self.strengthHook(routine, strength))
+            forge.assign(self.strength, self.strengthHook(routine, strength, i))
         ]
 
     def calcSlipRateAndTraction(self, routine, i):
@@ -309,7 +307,9 @@ class LinearSlipWeakeningBase(FrictionLawBase):
             forge.assign(self.traction1, traction1),
             forge.assign(self.traction2, traction2),
             forge.assign(self.slip1, slip1),
-            forge.assign(self.slip2, slip2)
+            forge.assign(self.slip2, slip2),
+            forge.assign(self.tractionResultsTraction1[i], traction1),
+            forge.assign(self.tractionResultsTraction2[i], traction2)
         ]
 
     def calcStateVariableHook(self, routine, i):
@@ -338,7 +338,7 @@ class LinearSlipWeakeningBase(FrictionLawBase):
 
 
 class LinearSlipWeakening(LinearSlipWeakeningBase):
-    def strengthHook(self, routine, strength):
+    def strengthHook(self, routine, strength, i):
         return strength
 
     def stateVariableHook(self, routine):
@@ -357,7 +357,7 @@ class BiMaterialFault(LinearSlipWeakeningBase):
         self.vStar = self.drscalar('vStar')
         self.prakashLength = self.drscalar('prakashLength')
 
-    def strengthHook(self, routine, strength):
+    def strengthHook(self, routine, strength, i):
         expterm = forge.exp(-(forge.max(0, self.slipRateMagnitude) + self.vStar) * self.dt[i] / self.prakashLength)
         newStrength = self.regularizedStrength * expterm + strength * (1 - expterm)
 
@@ -378,7 +378,7 @@ class TPApprox(LinearSlipWeakeningBase):
 
         self.tpProxyExponent = self.drscalar('tpProxyExponent')
 
-    def strengthHook(self, routine, strength):
+    def strengthHook(self, routine, strength, i):
         return strength
 
     def stateVariableHook(self, routine):
@@ -498,10 +498,12 @@ class RateAndState(FrictionLawBase):
             forge.assign(self.accumulatedSlipMagnitude, self.accumulatedSlipMagnitude + self.slipRateMagnitude * self.dt[i]),
             forge.assign(self.traction1, traction1),
             forge.assign(self.traction2, traction2),
-            forge.assign(self.slip1, self.slip1 * slipRate1 * self.dt[i]),
-            forge.assign(self.slip2, self.slip2 * slipRate2 * self.dt[i]),
+            forge.assign(self.slip1, self.slip1 + slipRate1 * self.dt[i]),
+            forge.assign(self.slip2, self.slip2 + slipRate2 * self.dt[i]),
             forge.assign(self.slipRate1, slipRate1),
             forge.assign(self.slipRate2, slipRate2),
+            forge.assign(self.tractionResultsTraction1[i], traction1),
+            forge.assign(self.tractionResultsTraction2[i], traction2)
         ]
 
     def updateFrictionAndSlip(self, routine, i):
@@ -597,8 +599,8 @@ class TP(TPMethod):
 
         self.temperature = self.drvar('temperature')
         self.pressure = self.drvar('pressure')
-        self.theta = self.drvar('theta', (self.numberOfTPGridPoints,))
-        self.sigma = self.drvar('sigma', (self.numberOfTPGridPoints,))
+        #self.theta = self.drvar('theta', (self.numberOfTPGridPoints,))
+        #self.sigma = self.drvar('sigma', (self.numberOfTPGridPoints,))
         self.thetaBuffer = self.drvar('thetaBuffer', (self.numberOfTPGridPoints,))
         self.sigmaBuffer = self.drvar('sigmaBuffer', (self.numberOfTPGridPoints,))
         self.faultStrength = self.drvar('faultStrength')
@@ -658,6 +660,11 @@ class TP(TPMethod):
         return self.pressure
 
 class ImposedSlipLaw(FrictionLawBase):
+    def __init__(self, aderdg, numberOfPoints):
+        super().__init__(aderdg, numberOfPoints)
+        self.imposedSlipDirection1 = self.drvar('imposedSlipDirection1')
+        self.imposedSlipDirection2 = self.drvar('imposedSlipDirection2')
+
     def preHook(self, routine):
         pass
     
@@ -665,13 +672,15 @@ class ImposedSlipLaw(FrictionLawBase):
         pass
 
     def updateFrictionAndSlip(self, routine, i):
+        timeIncrement = self.dt[i]
+        currentTime = self.fullUpdateTime + self.sumDt
         stfEvaluated = self.evaluateSTF(currentTime, timeIncrement)
 
-        traction1 = self.faultStressesTraction1 - self.etaS * self.imposedSlipDirection1 * stfEvaluated
-        traction2 = self.faultStressesTraction2 - self.etaS * self.imposedSlipDirection2 * stfEvaluated
+        traction1 = self.faultStressesTraction1[i] - self.etaS * self.imposedSlipDirection1 * stfEvaluated
+        traction2 = self.faultStressesTraction2[i] - self.etaS * self.imposedSlipDirection2 * stfEvaluated
         slipRate1 = self.imposedSlipDirection1 * stfEvaluated
         slipRate2 = self.imposedSlipDirection2 * stfEvaluated
-        slipRateMagnitude = forge.sqrt(slipRate1**2, slipRate2**2)
+        slipRateMagnitude = forge.sqrt(slipRate1**2 + slipRate2**2)
 
         slip1 = self.slip1 + slipRate1 * timeIncrement
         slip2 = self.slip2 + slipRate2 * timeIncrement
@@ -685,7 +694,9 @@ class ImposedSlipLaw(FrictionLawBase):
             forge.assign(self.slip1, slip1),
             forge.assign(self.slip2, slip2),
             forge.assign(self.slipRateMagnitude, slipRateMagnitude),
-            forge.assign(self.accumulatedSlipMagnitude, accumulatedSlipMagnitude)
+            forge.assign(self.accumulatedSlipMagnitude, accumulatedSlipMagnitude),
+            forge.assign(self.tractionResultsTraction1[i], traction1),
+            forge.assign(self.tractionResultsTraction2[i], traction2)
             # TODO traction results
         ]
     
