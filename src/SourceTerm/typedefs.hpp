@@ -43,12 +43,12 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include <cstdlib>
+#include "Kernels/precision.hpp"
+#include "generated_code/tensor.h"
 #include <array>
-#include <vector>
-#include <Kernels/precision.hpp>
-#include <generated_code/tensor.h>
 #include <cstdint>
+#include <cstdlib>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Device/UsmAllocator.h"

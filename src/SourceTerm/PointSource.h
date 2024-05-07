@@ -45,7 +45,7 @@
 #ifndef SOURCETERM_POINTSOURCE_H_
 #define SOURCETERM_POINTSOURCE_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include "SourceTerm/typedefs.hpp"
 #include <array>
 

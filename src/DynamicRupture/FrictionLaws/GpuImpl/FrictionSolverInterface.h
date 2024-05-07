@@ -1,8 +1,8 @@
 #ifndef SEISSOL_FRICTION_SOLVER_INTERFACE_H
 #define SEISSOL_FRICTION_SOLVER_INTERFACE_H
 
-#include "Initializer/Parameters/DRParameters.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "Initializer/Parameters/DRParameters.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL

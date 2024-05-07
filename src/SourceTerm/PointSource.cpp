@@ -43,8 +43,8 @@
  **/
 
 #include "PointSource.h"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 void seissol::sourceterm::transformMomentTensor(
     const real i_localMomentTensor[3][3],

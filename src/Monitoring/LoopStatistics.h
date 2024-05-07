@@ -41,14 +41,14 @@
 #ifndef MONITORING_LOOPSTATISTICS_H_
 #define MONITORING_LOOPSTATISTICS_H_
 
-#include <cassert>
+#include "Parallel/MPI.h"
 #include <algorithm>
-#include <unordered_map>
+#include <cassert>
 #include <fstream>
 #include <iomanip>
 #include <time.h>
+#include <unordered_map>
 #include <vector>
-#include "Parallel/MPI.h"
 
 namespace seissol {
 class LoopStatistics {

@@ -41,7 +41,7 @@
 #ifndef MINISEISSOL_H_
 #define MINISEISSOL_H_
 
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 
 namespace seissol {
   void localIntegration(GlobalData* globalData,

@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {

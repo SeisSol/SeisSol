@@ -45,9 +45,9 @@
 #ifndef STOPWATCH_H
 #define STOPWATCH_H
 
-#include <time.h>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <time.h>
 
 namespace seissol {
 

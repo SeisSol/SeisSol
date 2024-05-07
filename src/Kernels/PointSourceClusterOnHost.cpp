@@ -4,9 +4,9 @@
 
 #include "PointSourceClusterOnHost.h"
 
-#include <generated_code/kernel.h>
-#include <generated_code/init.h>
-#include <SourceTerm/PointSource.h>
+#include "SourceTerm/PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
 
 #include <utility>
 

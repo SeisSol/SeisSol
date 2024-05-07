@@ -45,13 +45,13 @@
 #define INITIALIZER_PARAMETERDB_H_
 
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
-#include <set>
 
 #include "Geometry/MeshReader.h"
-#include "Kernels/precision.hpp"
 #include "Initializer/typedefs.hpp"
+#include "Kernels/precision.hpp"
 
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
@@ -60,7 +60,7 @@
 #include "Equations/datastructures.hpp"
 
 #ifdef USE_HDF
-#include <PUML/PUML.h>
+#include "PUML/PUML.h"
 #endif
 
 #include <Eigen/Dense>

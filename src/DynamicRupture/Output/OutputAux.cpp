@@ -1,12 +1,12 @@
+#include "OutputAux.hpp"
+#include "DynamicRupture/Output/DataTypes.hpp"
+#include "DynamicRupture/Output/Geometry.hpp"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Kernels/precision.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Transformation.h"
-#include "OutputAux.hpp"
-#include <DynamicRupture/Output/DataTypes.hpp>
-#include <DynamicRupture/Output/Geometry.hpp>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Kernels/precision.hpp>
 #include <cstddef>
 #include <init.h>
 #include <limits>

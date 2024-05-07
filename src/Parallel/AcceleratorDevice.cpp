@@ -1,8 +1,8 @@
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
-#include <string>
 #include <sstream>
+#include <string>
 
 namespace seissol {
 void AcceleratorDevice::bindSyclDevice(int deviceId) {

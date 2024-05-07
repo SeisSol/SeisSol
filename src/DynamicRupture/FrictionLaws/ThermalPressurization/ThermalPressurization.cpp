@@ -1,8 +1,8 @@
 #include "ThermalPressurization.h"
-#include <DynamicRupture/Misc.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/precision.hpp>
+#include "DynamicRupture/Misc.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>

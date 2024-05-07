@@ -1,17 +1,17 @@
 #include "BaseDRInitializer.h"
 
+#include "DynamicRupture/Misc.h"
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/DynamicRupture.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/tree/LTSInternalNode.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
+#include "Numerical_aux/Transformation.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
-#include <DynamicRupture/Misc.h>
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/LTSInternalNode.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/precision.hpp>
-#include <Numerical_aux/Transformation.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>

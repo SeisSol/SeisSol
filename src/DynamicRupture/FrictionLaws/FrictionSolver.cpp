@@ -1,7 +1,7 @@
 #include "FrictionSolver.h"
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/precision.hpp>
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
 

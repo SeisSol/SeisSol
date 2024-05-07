@@ -5,7 +5,7 @@
 #define KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 
 #include "PointSourceCluster.h"
-#include <SourceTerm/typedefs.hpp>
+#include "SourceTerm/typedefs.hpp"
 
 #include <array>
 

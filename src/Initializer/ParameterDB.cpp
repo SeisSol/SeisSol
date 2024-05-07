@@ -42,22 +42,25 @@
  **/
 
 #ifdef USE_HDF
+// PUML.h needs to be included before Downward.h
 
-#include <generated_code/kernel.h>
 #include "PUML/PUML.h"
-#include "PUML/Downward.h"
-#endif
-#include <cmath>
-#include <algorithm>
-#include "ParameterDB.h"
 
-#include "SeisSol.h"
-#include "easi/YAMLParser.h"
-#include "easi/ResultAdapter.h"
+#include "PUML/Downward.h"
+
+#include "generated_code/kernel.h"
+#endif
+#include "ParameterDB.h"
+#include <algorithm>
+#include <cmath>
+
+#include "DynamicRupture/Misc.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
-#include "DynamicRupture/Misc.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
+#include "SeisSol.h"
+#include "easi/ResultAdapter.h"
+#include "easi/YAMLParser.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif

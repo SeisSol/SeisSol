@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  */
 
-#include <Modules/Module.h>
+#include "Modules/Module.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

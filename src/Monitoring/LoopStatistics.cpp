@@ -42,8 +42,8 @@
 #include "Unit.hpp"
 
 #include <cmath>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #ifdef USE_NETCDF
 #include <netcdf.h>
 #ifdef USE_MPI
@@ -51,8 +51,8 @@
 #endif // USE_MPI
 #endif // USE_NETCDF
 
-#include "Numerical_aux/Statistics.h"
 #include "Monitoring/Stopwatch.h"
+#include "Numerical_aux/Statistics.h"
 #include <utils/env.h>
 
 namespace seissol {

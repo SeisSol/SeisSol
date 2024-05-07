@@ -1,9 +1,9 @@
 #include "GlobalTimestep.hpp"
 
-#include <vector>
+#include <Eigen/Dense>
 #include <array>
 #include <functional>
-#include <Eigen/Dense>
+#include <vector>
 
 #include "Equations/datastructures.hpp"
 #include "Initializer/ParameterDB.h"

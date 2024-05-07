@@ -2,10 +2,10 @@
 
 #include "FrictionLaws/FrictionLaws.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
+#include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Output/Output.hpp"
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Parameters/DRParameters.h>
 #include <memory>
 #include <utils/logger.h>
 

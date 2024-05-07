@@ -1,20 +1,20 @@
 
-#include <vector>
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Equations/datastructures.hpp"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/common.hpp"
-#include "Physics/Attenuation.hpp"
-#include "Equations/datastructures.hpp"
-#include "Initializer/tree/Lut.hpp"
 #include "Initializer/tree/LTSSync.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
+#include "Physics/Attenuation.hpp"
+#include <vector>
 
-#include "SeisSol.h"
 #include "Init.hpp"
 #include "InitModel.hpp"
+#include "SeisSol.h"
 
 #include "Parallel/MPI.h"
 

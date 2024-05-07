@@ -41,17 +41,17 @@
 #ifndef SOURCETERM_MANAGER_H_
 #define SOURCETERM_MANAGER_H_
 
-#include "typedefs.hpp"
 #include "NRF.h"
+#include "typedefs.hpp"
 #include <cstdarg>
 
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/PointSourceCluster.h>
-#include <Solver/time_stepping/TimeManager.h>
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Kernels/PointSourceCluster.h"
+#include "Solver/time_stepping/TimeManager.h"
+#include <array>
 #include <inttypes.h>
 #include <memory>
-#include <array>
 #include <vector>
 
 namespace seissol::sourceterm {

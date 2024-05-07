@@ -1,7 +1,7 @@
 #include "NoFault.h"
-#include <DynamicRupture/Misc.h>
-#include <DynamicRupture/Typedefs.hpp>
-#include <Kernels/precision.hpp>
+#include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.hpp"
+#include "Kernels/precision.hpp"
 #include <array>
 
 namespace seissol::dr::friction_law {

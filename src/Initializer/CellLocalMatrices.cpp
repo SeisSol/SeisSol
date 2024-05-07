@@ -43,14 +43,14 @@
 
 #include <cassert>
 
-#include <Initializer/ParameterDB.h>
+#include "Initializer/ParameterDB.h"
 #include "Initializer/MemoryManager.h"
-#include <Numerical_aux/Transformation.h>
-#include <Equations/Setup.h>
-#include <Model/common.hpp>
-#include <Geometry/MeshTools.h>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
+#include "Numerical_aux/Transformation.h"
+#include "Equations/Setup.h"
+#include "Model/common.hpp"
+#include "Geometry/MeshTools.h"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
 #include <utils/logger.h>
 #ifdef ACL_DEVICE
 #include <device.h>

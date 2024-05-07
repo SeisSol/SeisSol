@@ -2,20 +2,20 @@
 #define ENERGYOUTPUT_H
 
 #include <array>
-#include <string>
 #include <fstream>
 #include <iostream>
+#include <string>
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
+#include "Geometry/MeshReader.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/typedefs.hpp"
 
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;

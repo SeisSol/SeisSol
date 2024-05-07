@@ -1,30 +1,30 @@
-#include "Init.hpp"
 #include "InitMesh.hpp"
+#include "Init.hpp"
 
 #include <algorithm>
 #include <cstring>
 #include <iostream>
 
-#include "Eigen/Dense"
-#include "utils/logger.h"
 #include "utils/env.h"
+#include "utils/logger.h"
+#include <Eigen/Dense>
 
 #ifdef USE_NETCDF
-#include "Geometry/NetcdfReader.h"
 #include "Geometry/CubeGenerator.h"
+#include "Geometry/NetcdfReader.h"
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "Modules/Modules.h"
-#include "Monitoring/instrumentation.hpp"
-#include "Monitoring/Stopwatch.h"
-#include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
-#include "Solver/time_stepping/MiniSeisSol.h"
-#include "SeisSol.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Stopwatch.h"
+#include "Monitoring/instrumentation.hpp"
+#include "Numerical_aux/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
+#include "SeisSol.h"
+#include "Solver/time_stepping/MiniSeisSol.h"
 
 #include "Parallel/MPI.h"
 

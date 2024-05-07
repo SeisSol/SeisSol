@@ -1,13 +1,13 @@
 // Copyright (C) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/precision.hpp>
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/precision.hpp"
 
 #include "doctest.h"
 
-#include <vector>
 #include <cmath>
+#include <vector>
 
 namespace seissol::unit_test {
 TEST_CASE("computeSampleTimeIntegral") {

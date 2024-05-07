@@ -2,8 +2,8 @@
 #define SEISSOL_OUTPUT_PARAMETERS_H
 
 #include <list>
-#include <unordered_set>
 #include <string>
+#include <unordered_set>
 
 #include <xdmfwriter/backends/Backend.h>
 

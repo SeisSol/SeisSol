@@ -1,15 +1,15 @@
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <numeric>
 
-#include <Kernels/precision.hpp>
-#include <Physics/InitialField.h>
-#include <Equations/Setup.h>
-#include <Model/common.hpp>
+#include "Equations/Setup.h"
+#include "Kernels/precision.hpp"
+#include "Model/common.hpp"
+#include "Numerical_aux/Eigenvalues.h"
+#include "Physics/InitialField.h"
 #include <utility>
-#include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Numerical_aux/Eigenvalues.h>
+#include <yateto/TensorView.h>
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,

@@ -72,26 +72,26 @@
 
 #include "Parallel/MPI.h"
 
-#include "Manager.h"
 #include "FSRMReader.h"
+#include "Manager.h"
 #include "NRFReader.h"
-#include "PointSource.h"
 #include "Numerical_aux/Transformation.h"
-#include "generated_code/kernel.h"
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
 #include "Parallel/MPI.h"
+#include "PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 
-#include <Initializer/PointMapper.h>
-#include <Kernels/PointSourceClusterOnHost.h>
-#include <utils/logger.h>
-#include <string>
+#include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceClusterOnHost.h"
 #include <cstring>
+#include <string>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <Kernels/PointSourceClusterOnDevice.h>
-#include <Parallel/AcceleratorDevice.h>
 #include "Device/UsmAllocator.h"
+#include "Kernels/PointSourceClusterOnDevice.h"
+#include "Parallel/AcceleratorDevice.h"
 #endif
 
 /**

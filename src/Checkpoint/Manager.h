@@ -44,7 +44,7 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include <Initializer/Parameters/OutputParameters.h>
+#include "Initializer/Parameters/OutputParameters.h"
 #include <cassert>
 #include <cstring>
 #include <string>
