@@ -5,7 +5,7 @@ on:
 jobs:
   clang-format:
     name: clang-format
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -14,11 +14,11 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install python3
 
-          # use once clang-19 or higher is needed
-          # wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          # sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main"
-          # sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main"
-          # sudo apt-get update
+          # keep, for once clang-19 or higher is needed
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          sudo apt-get update
 
           sudo apt-get -y install clang-format-18
 
