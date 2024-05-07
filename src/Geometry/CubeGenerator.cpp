@@ -4,7 +4,6 @@
 #include "CubeGenerator.h"
 #include "MeshReader.h"
 
-#ifdef USE_NETCDF
 #ifdef USE_MPI
 #include "Parallel/MPI.h"
 #endif // USE_MPI
@@ -104,11 +103,6 @@ template <typename A, typename B>
 static std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
   return std::pair<B, A>(p.second, p.first);
 }
-
-/*static void checkNcError(int error) {
-  if (error != NC_NOERR)
-    logError() << "Error while writing netCDF file:" << nc_strerror(error);
-}*/
 } // anonymous namespace
 
 
@@ -306,8 +300,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     sizes = new int[groupSize];
 
     for (int i = groupSize - 1; i >= 0; i--) {
-//      size_t start = static_cast<size_t>(i + rank);
-
       int size = numElemPerPart[3];
 
       sizes[i] = size;
@@ -350,6 +342,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   std::vector<CubeVertex> vertices;
   vertices.resize(numElemPerPart[3] * 4);
+
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
@@ -375,6 +368,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   int* elemVertices = new int[numElemPerPart[3] * 4];
   std::map<CubeVertex, int> vertexMap;
+
+  //Calculate elemVertices
   for (unsigned int i = 0; i < vertices.size(); i++) {
     std::map<CubeVertex, int>::iterator it = vertexMap.find(vertices[i]);
     if (it != vertexMap.end()) {
@@ -432,6 +427,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
        2,
        3}};
 
+  // Calculate elemNeighbors
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
@@ -570,9 +566,10 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   writes_done += numPartitions[3];
   loadBar(writes_done, netcdf_writes, rank);
-//  delete[] elemNeighbors;
 
   int* elemBoundaries = new int[numElemPerPart[3] * 4];
+
+  // Calculate elemBoundaries
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
         unsigned int x = rank;
@@ -753,6 +750,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
+  // Calculate elemNeighborSides
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
         unsigned int x = rank;
@@ -928,6 +926,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
+  // Calculate elemSideOrientations
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
         unsigned int x = rank;
@@ -1283,7 +1282,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int* bndLocalIds = new int[*std::max_element(numBndElements, numBndElements + 3)];
 
   size_t* bndSizePtr = new size_t[numPartitions[3]];
-
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
   int* bndElemRankPtr = new int[numPartitions[3] * bndSize];
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
@@ -1291,6 +1289,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   int bndSizeGlobal = bndSize;
 
+  // calculate bndElem variables, bndLocalIds and elemMPIIndices
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
         unsigned int x = rank;
@@ -1581,9 +1580,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
   
   if (masterRank >= 0) {
-#ifdef NETCDF_PASSIVE
-    assert(false);
-#else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
       if (i != 0) {
 #ifdef USE_MPI
@@ -1601,7 +1597,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 #endif // USE_MPI
       }
     }
-#endif // NETCDF_PASSIVE
   } else {
 #ifdef USE_MPI
     MPI_Recv(elemVertices,
@@ -1659,7 +1654,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 #endif // USE_MPI
   }
 
-  // copy the remaining elem variables to m_elements
+  // copy the remaining Elem variables to m_elements
   ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
   ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors); 
 
@@ -1689,11 +1684,12 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   m_vertices.resize(uniqueVertices.size());
 
-  double* vrtxCoords = new double[uniqueVertices.size() * 3];
-
   double halfWidthX = scaleX / 2.0;
   double halfWidthY = scaleY / 2.0;
   double halfWidthZ = scaleZ / 2.0;
+
+  // Calculate vrtxCoords
+  double* vrtxCoords = new double[uniqueVertices.size() * 3];
 
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
@@ -1731,14 +1727,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   if (masterRank >= 0) {
     for (int i = groupSize - 1; i >= 0; i--) {
-      size_t start = static_cast<size_t>(i + rank);
-
-      // TODO: Get ??
-      sizes[i] = bndSizePtr[start];
+      // Adjust sizes for the upcoming determination of neighbors
+      sizes[i] = bndSizePtr[static_cast<size_t>(i + rank)];
 
       if (i != 0) {
 #ifdef USE_MPI
-        // TODO: is passing &sizes[i] instead of size=bndSizePtr[start] correct here?
         MPI_Send(&sizes[i], 1, MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
 #else  // USE_MPI
         assert(false);
@@ -1799,7 +1792,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       if (i < sizes[0]) {
 #ifdef USE_MPI
 
-        // TODO: why does this happen? why redefine bndRank and elemSize
         int bndRank;
         MPI_Recv(&bndRank, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
         int elemSize;
@@ -1853,17 +1845,12 @@ void seissol::geometry::CubeGenerator::findElementsPerVertex() {
   for (std::vector<Element>::const_iterator i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
+      // push back the localIds for each element of a vertex
       m_vertices[i->vertices[j]].elements.push_back(i->localId);
     }
   }
 }
 
-/*void seissol::geometry::CubeGenerator::collectiveAccess(int ncFile, int ncVar) {
-#ifdef USE_MPI
-  checkNcError(nc_var_par_access(ncFile, ncVar, NC_COLLECTIVE));
-#endif // USE_MPI
-}
-*/
 void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
                     int bndRank,
                     int elemSize,
@@ -1880,4 +1867,3 @@ void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
 
   m_MPINeighbors[bndRank] = neighbor;
 }
-#endif // USE_NETCDF
