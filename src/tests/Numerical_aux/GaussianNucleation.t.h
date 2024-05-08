@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include <Numerical_aux/GaussianNucleationFunction.h>
+#include "Numerical_aux/GaussianNucleationFunction.h"
 #include <cassert>
 
 namespace seissol::unit_test {

@@ -4,8 +4,8 @@
 #include <array>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
@@ -23,7 +23,7 @@ class GridPoints {
           misc::tpMaxWaveNumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  const real& operator[](size_t i) const { return values[i]; };
 
   private:
   std::array<real, N> values;
@@ -44,7 +44,7 @@ class InverseFourierCoefficients {
     values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::tpLogDz);
     values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::tpLogDz;
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  const real& operator[](size_t i) const { return values[i]; };
 
   private:
   std::array<real, N> values;
@@ -65,7 +65,7 @@ class GaussianHeatSource {
       values[i] = factor * heatGeneration;
     }
   }
-  real const& operator[](size_t i) const { return values[i]; };
+  const real& operator[](size_t i) const { return values[i]; };
 
   private:
   std::array<real, N> values;
@@ -100,22 +100,23 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
+      : drParameters(drParameters) {};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
    */
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints> const& normalStress,
-                         real const (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints> const& slipRateMagnitude,
+  void calcFluidPressure(const std::array<real, misc::numPaddedPoints>& normalStress,
+                         const real (*mu)[misc::numPaddedPoints],
+                         const std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          unsigned int timeIndex,
@@ -137,7 +138,7 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
 
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.

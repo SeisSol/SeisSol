@@ -72,26 +72,26 @@
 
 #include "Parallel/MPI.h"
 
-#include "Manager.h"
 #include "FSRMReader.h"
+#include "Manager.h"
 #include "NRFReader.h"
-#include "PointSource.h"
 #include "Numerical_aux/Transformation.h"
-#include "generated_code/kernel.h"
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
 #include "Parallel/MPI.h"
+#include "PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 
-#include <Initializer/PointMapper.h>
-#include <Kernels/PointSourceClusterOnHost.h>
-#include <utils/logger.h>
-#include <string>
+#include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceClusterOnHost.h"
 #include <cstring>
+#include <string>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <Kernels/PointSourceClusterOnDevice.h>
-#include <Parallel/AcceleratorDevice.h>
 #include "Device/UsmAllocator.h"
+#include "Kernels/PointSourceClusterOnDevice.h"
+#include "Parallel/AcceleratorDevice.h"
 #endif
 
 /**
@@ -99,20 +99,20 @@
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void seissol::sourceterm::computeMInvJInvPhisAtSources(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>& mInvJInvPhisAtSources,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh) {
-  auto const& elements = mesh.getElements();
-  auto const& vertices = mesh.getVertices();
+    const seissol::geometry::MeshReader& mesh) {
+  const auto& elements = mesh.getElements();
+  const auto& vertices = mesh.getVertices();
 
-  double const* coords[4];
+  const double* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
-  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+  const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
-  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);
@@ -127,17 +127,17 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(
 }
 
 void seissol::sourceterm::transformNRFSourceToInternalSource(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh,
-    Subfault const& subfault,
-    Offsets const& offsets,
-    Offsets const& nextOffsets,
-    std::array<std::vector<double>, 3> const& sliprates,
+    const seissol::geometry::MeshReader& mesh,
+    const Subfault& subfault,
+    const Offsets& offsets,
+    const Offsets& nextOffsets,
+    const std::array<std::vector<double>, 3>& sliprates,
     seissol::model::Material* material,
     PointSources& pointSources,
     unsigned index,
-    AllocatorT const& alloc) {
+    const AllocatorT& alloc) {
   computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   auto& faultBasis = pointSources.tensor[index];
@@ -168,22 +168,23 @@ void seissol::sourceterm::transformNRFSourceToInternalSource(
     em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
     break;
   }
-
-  for (unsigned sr = 0; sr < pointSources.slipRates.size(); ++sr) {
-    unsigned numSamples = nextOffsets[sr] - offsets[sr];
-    double const* samples = (numSamples > 0) ? &sliprates[sr][offsets[sr]] : NULL;
-    pointSources.slipRates[sr][index] =
-        PiecewiseLinearFunction1D(samples, numSamples, subfault.tinit, subfault.timestep, alloc);
+  pointSources.onsetTime[index] = subfault.tinit;
+  pointSources.samplingInterval[index] = subfault.timestep;
+  for (unsigned sr = 0; sr < Offsets().size(); ++sr) {
+    pointSources.sample[sr].insert(std::end(pointSources.sample[sr]),
+                                   sliprates[sr].begin() + offsets[sr],
+                                   sliprates[sr].begin() + nextOffsets[sr]);
+    pointSources.sampleOffsets[sr][index + 1] = pointSources.sample[sr].size();
   }
 }
 
-auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
-    const unsigned* meshIds,
-    unsigned numberOfSources,
-    seissol::initializers::LTSTree* ltsTree,
-    seissol::initializers::LTS* lts,
-    seissol::initializers::Lut* ltsLut,
-    AllocatorT const& alloc) -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
+auto seissol::sourceterm::Manager::mapPointSourcesToClusters(const unsigned* meshIds,
+                                                             unsigned numberOfSources,
+                                                             seissol::initializer::LTSTree* ltsTree,
+                                                             seissol::initializer::LTS* lts,
+                                                             seissol::initializer::Lut* ltsLut,
+                                                             const AllocatorT& alloc)
+    -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
   auto layerClusterToPointSources =
       std::unordered_map<LayerType, std::vector<std::vector<unsigned>>>{};
   layerClusterToPointSources[Copy].resize(ltsTree->numChildren());
@@ -215,7 +216,7 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
       for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
         unsigned meshId = *it;
         for (unsigned dup = 0;
-             dup < seissol::initializers::Lut::MaxDuplicates &&
+             dup < seissol::initializer::Lut::MaxDuplicates &&
              ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max();
              ++dup) {
           ++numberOfMappings;
@@ -242,7 +243,7 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
           ++next;
         }
 
-        for (unsigned ltsId, dup = 0; dup < seissol::initializers::Lut::MaxDuplicates &&
+        for (unsigned ltsId, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
                                       (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
                                           std::numeric_limits<unsigned>::max();
              ++dup) {
@@ -262,13 +263,14 @@ auto seissol::sourceterm::Manager::mapPointSourcesToClusters(
   return layeredClusterMapping;
 }
 
-void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
-                                               char const* fileName,
-                                               seissol::geometry::MeshReader const& mesh,
-                                               seissol::initializers::LTSTree* ltsTree,
-                                               seissol::initializers::LTS* lts,
-                                               seissol::initializers::Lut* ltsLut,
-                                               time_stepping::TimeManager& timeManager) {
+void seissol::sourceterm::Manager::loadSources(
+    seissol::initializer::parameters::PointSourceType sourceType,
+    const char* fileName,
+    const seissol::geometry::MeshReader& mesh,
+    seissol::initializer::LTSTree* ltsTree,
+    seissol::initializer::LTS* lts,
+    seissol::initializer::Lut* ltsLut,
+    time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
   auto& instance = device::DeviceInstance::getInstance();
   auto alloc = device::UsmAllocator<real>(instance);
@@ -277,7 +279,7 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
 #endif
   auto sourceClusters =
       std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>{};
-  if (sourceType == SourceType::NrfSource) {
+  if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, alloc);
@@ -285,10 +287,10 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
-  } else if (sourceType == SourceType::FsrmSource) {
+  } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
     sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, alloc);
-  } else if (sourceType == SourceType::None) {
+  } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
     logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
   } else {
     logError() << "The source type" << static_cast<int>(sourceType)
@@ -299,9 +301,8 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
   timeManager.setPointSourcesForClusters(std::move(sourceClusters));
 }
 
-auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping,
-                                                          PointSources sources)
-    -> std::unique_ptr<kernels::PointSourceCluster> {
+auto seissol::sourceterm::Manager::makePointSourceCluster(
+    ClusterMapping mapping, PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster> {
 #if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
   using Impl = kernels::PointSourceClusterOnDevice;
 #else
@@ -310,12 +311,12 @@ auto seissol::sourceterm::Manager::makePointSourceCluster(ClusterMapping mapping
   return std::make_unique<Impl>(std::move(mapping), std::move(sources));
 }
 
-auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
-                                                       seissol::geometry::MeshReader const& mesh,
-                                                       seissol::initializers::LTSTree* ltsTree,
-                                                       seissol::initializers::LTS* lts,
-                                                       seissol::initializers::Lut* ltsLut,
-                                                       AllocatorT const& alloc)
+auto seissol::sourceterm::Manager::loadSourcesFromFSRM(const char* fileName,
+                                                       const seissol::geometry::MeshReader& mesh,
+                                                       seissol::initializer::LTSTree* ltsTree,
+                                                       seissol::initializer::LTS* lts,
+                                                       seissol::initializer::Lut* ltsLut,
+                                                       const AllocatorT& alloc)
     -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
@@ -329,12 +330,12 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
   auto contained = std::vector<short>(fsrm.numberOfSources);
   auto meshIds = std::vector<unsigned>(fsrm.numberOfSources);
 
-  initializers::findMeshIds(
+  initializer::findMeshIds(
       fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  initializers::cleanDoubles(contained.data(), fsrm.numberOfSources);
+  initializer::cleanDoubles(contained.data(), fsrm.numberOfSources);
 #endif
 
   auto originalIndex = std::vector<unsigned>(fsrm.numberOfSources);
@@ -362,7 +363,10 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.slipRates[0].resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
+      sources.onsetTime.resize(numberOfSources);
+      sources.samplingInterval.resize(numberOfSources);
+      sources.sampleOffsets[0].resize(numberOfSources + 1, 0);
+      sources.sample[0].reserve(fsrm.numberOfSamples * numberOfSources);
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
@@ -396,12 +400,12 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
                         "to the documentation of SeisSol.";
 #endif
 
-        sources.slipRates[0][clusterSource] =
-            PiecewiseLinearFunction1D(fsrm.timeHistories[fsrmIndex].data(),
-                                      fsrm.numberOfSamples,
-                                      fsrm.onsets[fsrmIndex],
-                                      fsrm.timestep,
-                                      alloc);
+        sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
+        sources.samplingInterval[clusterSource] = fsrm.timestep;
+        sources.sample[0].insert(std::end(sources.sample[0]),
+                                 std::begin(fsrm.timeHistories[fsrmIndex]),
+                                 std::end(fsrm.timeHistories[fsrmIndex]));
+        sources.sampleOffsets[0][clusterSource + 1] = sources.sample[0].size();
       }
 
       sourceCluster[cluster] =
@@ -416,12 +420,12 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
 
 // TODO Add support for passive netCDF
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
-                                                      seissol::geometry::MeshReader const& mesh,
-                                                      seissol::initializers::LTSTree* ltsTree,
-                                                      seissol::initializers::LTS* lts,
-                                                      seissol::initializers::Lut* ltsLut,
-                                                      AllocatorT const& alloc)
+auto seissol::sourceterm::Manager::loadSourcesFromNRF(const char* fileName,
+                                                      const seissol::geometry::MeshReader& mesh,
+                                                      seissol::initializer::LTSTree* ltsTree,
+                                                      seissol::initializer::LTS* lts,
+                                                      seissol::initializer::Lut* ltsLut,
+                                                      const AllocatorT& alloc)
     -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> {
   int rank = seissol::MPI::mpi.rank();
 
@@ -437,11 +441,11 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
   auto meshIds = std::vector<unsigned>(nrf.size());
 
   logInfo(rank) << "Finding meshIds for point sources...";
-  initializers::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
+  initializer::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  initializers::cleanDoubles(contained.data(), nrf.size());
+  initializer::cleanDoubles(contained.data(), nrf.size());
 #endif
 
   auto originalIndex = std::vector<unsigned>(nrf.size());
@@ -485,8 +489,20 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      for (auto& sr : sources.slipRates) {
-        sr.resize(numberOfSources, PiecewiseLinearFunction1D{alloc});
+      sources.onsetTime.resize(numberOfSources);
+      sources.samplingInterval.resize(numberOfSources);
+      for (auto& so : sources.sampleOffsets) {
+        so.resize(numberOfSources + 1, 0);
+      }
+
+      for (std::size_t i = 0; i < Offsets().size(); ++i) {
+        std::size_t sampleSize = 0;
+        for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
+          unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+          unsigned nrfIndex = originalIndex[sourceIndex];
+          sampleSize += nrf.sroffsets[nrfIndex + 1][i] - nrf.sroffsets[nrfIndex][i];
+        }
+        sources.sample[i].reserve(sampleSize);
       }
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {

@@ -47,7 +47,7 @@
 #ifndef GENERIC_PIPELINE_H
 #define GENERIC_PIPELINE_H
 
-#include <Monitoring/Stopwatch.h>
+#include "Monitoring/Stopwatch.h"
 #include <limits>
 #include <array>
 #include <cassert>

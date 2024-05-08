@@ -71,6 +71,9 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   frontera
   marconi
   heisenbug
+  leonardo
+  lumi
+  supermuc-ng-phase2
 
 .. toctree::
   :maxdepth: 2

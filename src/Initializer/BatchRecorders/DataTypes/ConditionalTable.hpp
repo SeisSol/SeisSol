@@ -1,12 +1,12 @@
 #ifndef SEISSOL_CONDITIONALTABLE_HPP
 #define SEISSOL_CONDITIONALTABLE_HPP
 
-#include "Table.hpp"
 #include "Condition.hpp"
 #include "ConditionalKey.hpp"
 #include "EncodedConstants.hpp"
+#include "Table.hpp"
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 using ConditionalPointersToRealsTable =
     std::unordered_map<ConditionalKey, PointersToRealsTable, ConditionalHash<ConditionalKey>>;
 
@@ -18,6 +18,6 @@ using ConditionalMaterialTable =
 
 using ConditionalIndicesTable =
     std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #endif // SEISSOL_CONDITIONALTABLE_HPP

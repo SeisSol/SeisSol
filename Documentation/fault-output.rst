@@ -83,6 +83,19 @@ Here's what each bit in the OutputMask array represents:
 11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c. With RS, the time at which mu <= (f0 + mu_w). DS can be used to evaluate the process zone size.
 12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
+Initial fault tractions
+-----------------------
+
+It is worth noticing that **Ts0**,  **Td0**, and  **Pn0** outputted at t=0s are the initial tractions after a first step through the friction routines.
+In particular, if the shear traction read in the input files locally exceeds fault strength, the outputted traction at t=0s is reduced compared with the one read in the input files.
+To visualize the initial shear tractions (or any other parameters, e.g. d_c) given in the easi file, the script `read_ini_fault_parameter.py <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/read_ini_fault_parameter.py>`__ can be used. It depends on the `easi python bindings <https://easyinit.readthedocs.io/en/latest/python_bindings.html>`__.
+
+.. code-block:: bash
+
+    ./read_ini_fault_parameter.py output/data-fault.xdmf fault.yaml --ref_vector " -0.1,0,-1.0"
+
+
+
 seissolxdmf python module
 -------------------------
 

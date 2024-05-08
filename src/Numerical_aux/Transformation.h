@@ -41,8 +41,8 @@
 #define TRANSFORMATION_H_
 
 #include <yateto.h>
-#include <Initializer/typedefs.hpp>
-#include <Geometry/MeshDefinition.h>
+#include "Initializer/typedefs.hpp"
+#include "Geometry/MeshDefinition.h"
 #include <Eigen/Dense>
 
 namespace seissol {

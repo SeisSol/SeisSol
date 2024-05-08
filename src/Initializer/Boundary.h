@@ -1,8 +1,8 @@
 #ifndef INITIALIZER_BOUNDARY_H_
 #define INITIALIZER_BOUNDARY_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/LTSTree.hpp"
 
 
 #ifndef ACL_DEVICE
@@ -12,12 +12,12 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
     struct Boundary;
   }
 }
 
-struct seissol::initializers::Boundary {
+struct seissol::initializer::Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
   
   void addTo(LTSTree& tree) {

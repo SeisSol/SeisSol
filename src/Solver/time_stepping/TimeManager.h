@@ -47,14 +47,14 @@
 #include <cassert>
 #include <memory>
 
-#include <Initializer/typedefs.hpp>
-#include <SourceTerm/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
+#include "SourceTerm/typedefs.hpp"
 #include <utils/logger.h>
-#include <Initializer/MemoryManager.h>
-#include <Initializer/time_stepping/LtsLayout.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <ResultWriter/ReceiverWriter.h>
+#include "Initializer/MemoryManager.h"
+#include "Initializer/time_stepping/LtsLayout.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "ResultWriter/ReceiverWriter.h"
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "Solver/time_stepping/GhostTimeClusterFactory.h"
@@ -99,6 +99,8 @@ class seissol::time_stepping::TimeManager {
     //! last #updates of log
     unsigned int m_logUpdates;
 
+    seissol::SeisSol& seissolInstance;
+
     //! time stepping
     TimeStepping m_timeStepping;
 
@@ -124,7 +126,7 @@ class seissol::time_stepping::TimeManager {
     /**
      * Construct a new time manager.
      **/
-    TimeManager();
+    TimeManager(seissol::SeisSol& seissolInstance);
 
     /**
      * Destruct the time manager.
@@ -141,7 +143,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters(TimeStepping& i_timeStepping,
                      MeshStructure* i_meshStructure,
-                     initializers::MemoryManager& memoryManager,
+                     initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
     void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
@@ -186,6 +188,10 @@ class seissol::time_stepping::TimeManager {
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
     void freeDynamicResources();
+
+    inline const TimeStepping* getTimeStepping() {
+      return &m_timeStepping;
+    }
 };
 
 #endif

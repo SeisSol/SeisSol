@@ -1,20 +1,24 @@
 #include "FrictionSolver.h"
-#include "generated_code/kernel.h"
-#include <yateto/TensorView.h>
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
 
 void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
   deltaT[0] = timePoints[0];
+  sumDt = deltaT[0];
   for (unsigned timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
+    sumDt += deltaT[timeIndex];
   }
   // to fill last segment of Gaussian integration
   deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
+  sumDt += deltaT[0];
 }
 
-void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                        seissol::initializers::DynamicRupture const* const dynRup,
+void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                                        const seissol::initializer::DynamicRupture* const dynRup,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices);

@@ -1,10 +1,10 @@
 #ifndef SEISSOL_FRICTION_SOLVER_DETAILS_H
 #define SEISSOL_FRICTION_SOLVER_DETAILS_H
 
-#include <yaml-cpp/yaml.h>
-#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/Misc.h"
 #include <CL/sycl.hpp>
+#include <yaml-cpp/yaml.h>
 
 #ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
@@ -13,7 +13,7 @@ namespace sycl = cl::sycl;
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(dr::DRParameters* drParameters);
+  explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
   void initSyclQueue() override;
@@ -21,8 +21,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   void copyStaticDataToDevice() override;
 
   virtual void
-      copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                     seissol::initializers::DynamicRupture const* const dynRup,
+      copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
                                      real fullUpdateTime) = 0;
 
   protected:

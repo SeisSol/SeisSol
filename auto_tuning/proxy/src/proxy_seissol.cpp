@@ -73,12 +73,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __USE_RDTSC
 #endif
 
-#include <Kernels/TimeCommon.h>
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
-#include <Monitoring/FlopCounter.hpp>
+#include "Kernels/TimeCommon.h"
+#include "Kernels/Time.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/DynamicRupture.h"
+#include "Monitoring/FlopCounter.hpp"
 #include "utils/logger.h"
 #include <cassert>
 
@@ -156,8 +156,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   device.api->allocateStackMem();
 #endif
 
-  m_ltsTree = new seissol::initializers::LTSTree;
-  m_dynRupTree = new seissol::initializers::LTSTree;
+  m_ltsTree = new seissol::initializer::LTSTree;
+  m_dynRupTree = new seissol::initializer::LTSTree;
   m_allocator = new seissol::memory::ManagedAllocator;
 
   print_hostname();

@@ -40,21 +40,22 @@
 #ifndef KERNELS_INTERFACE_H_
 #define KERNELS_INTERFACE_H_
 
-#include <Initializer/tree/InterfaceHelper.hpp>
-#include <Initializer/LTS.h>
+#include "Initializer/tree/InterfaceHelper.hpp"
+#include "Initializer/LTS.h"
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {
     struct LocalTmp {
         alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
-        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
+        LocalTmp(double graviationalAcceleration) : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
 #else
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
 #endif
   }
 

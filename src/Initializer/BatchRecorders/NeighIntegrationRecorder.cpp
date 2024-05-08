@@ -1,11 +1,11 @@
+#include "Kernels/Interface.hpp"
 #include "Recorders.h"
 #include "utils/logger.h"
-#include <Kernels/Interface.hpp>
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
   kernels::NeighborData::Loader loader;
@@ -41,15 +41,16 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighbourBuffer != nullptr) {
 
-            if (data.cellInformation.faceTypes[face] != FaceType::outflow &&
-                data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
+            if (data.cellInformation().faceTypes[face] != FaceType::outflow &&
+                data.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
 
-              bool isNeighbProvidesDerivatives = ((data.cellInformation.ltsSetup >> face) % 2) == 1;
+              bool isNeighbProvidesDerivatives =
+                  ((data.cellInformation().ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
                 real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                bool isGtsNeigbour = ((data.cellInformation.ltsSetup >> (face + 4)) % 2) == 1;
+                bool isGtsNeigbour = ((data.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {
 
                   idofsAddressRegistry[neighbourBuffer] = NextTempIDofsPtr;
@@ -104,7 +105,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   for (unsigned cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
     for (unsigned int face = 0; face < 4; face++) {
-      switch (data.cellInformation.faceTypes[face]) {
+      switch (data.cellInformation().faceTypes[face]) {
       case FaceType::regular:
         [[fallthrough]];
       case FaceType::periodic: {
@@ -113,17 +114,17 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         real* neighbourBufferPtr = faceNeighbors[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighbourBufferPtr != nullptr) {
-          unsigned faceRelation = data.cellInformation.faceRelations[face][1] +
-                                  3 * data.cellInformation.faceRelations[face][0] + 12 * face;
+          unsigned faceRelation = data.cellInformation().faceRelations[face][1] +
+                                  3 * data.cellInformation().faceRelations[face][0] + 12 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
 
-          regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs));
+          regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighbourBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighIntegrationOnDevice.nAmNm1[face]));
+              static_cast<real*>(data.neighIntegrationOnDevice().nAmNm1[face]));
         }
         break;
       }
@@ -134,7 +135,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         unsigned faceRelation = drMapping[cell][face].side + 4 * drMapping[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
-        drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs));
+        drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
         drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
 
@@ -154,7 +155,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
       }
       default: {
         logError() << "unknown boundary condition type: "
-                   << static_cast<int>(data.cellInformation.faceTypes[face]);
+                   << static_cast<int>(data.cellInformation().faceTypes[face]);
       }
       }
     }

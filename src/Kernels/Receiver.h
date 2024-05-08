@@ -41,19 +41,23 @@
 #define KERNELS_RECEIVER_H_
 
 #include <Eigen/Dense>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/PointMapper.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/Time.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/init.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/LTS.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/Time.h"
+#include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "generated_code/init.h"
+#include <optional>
 #include <vector>
 
 struct GlobalData;
 namespace seissol {
+  class SeisSol;
+
   namespace kernels {
     struct Receiver {
       Receiver(unsigned pointId,
@@ -80,20 +84,23 @@ namespace seissol {
 
     class ReceiverCluster {
     public:
-      ReceiverCluster()
+      ReceiverCluster(seissol::SeisSol& seissolInstance)
         : m_nonZeroFlops(0), m_hardwareFlops(0),
-          m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
+          m_samplingInterval(1.0e99), m_syncPointInterval(0.0),
+          seissolInstance(seissolInstance)
       {}
 
       ReceiverCluster(  GlobalData const*             global,
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
                         double                        syncPointInterval,
-                        bool                          computeRotation)
+                        bool                          computeRotation,
+                        seissol::SeisSol&             seissolInstance)
         : m_quantities(quantities),
           m_samplingInterval(samplingInterval),
           m_syncPointInterval(syncPointInterval),
-          m_computeRotation(computeRotation){
+          m_computeRotation(computeRotation),
+          seissolInstance(seissolInstance) {
         m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
@@ -102,8 +109,8 @@ namespace seissol {
                         unsigned          pointId,
                         Eigen::Vector3d   const& point,
                         seissol::geometry::MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
+                        seissol::initializer::Lut const& ltsLut,
+                        seissol::initializer::LTS const& lts );
 
       //! Returns new receiver time
       double calcReceivers( double time,
@@ -129,7 +136,12 @@ namespace seissol {
         return 1 + ncols;
       }
 
+      void allocateData();
+      void freeData();
+
     private:
+      std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+      std::vector<size_t> deviceIndices;
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;
       std::vector<unsigned> m_quantities;
@@ -138,6 +150,7 @@ namespace seissol {
       double m_samplingInterval;
       double m_syncPointInterval;
       bool m_computeRotation;
+      seissol::SeisSol& seissolInstance;
 
     };
   }

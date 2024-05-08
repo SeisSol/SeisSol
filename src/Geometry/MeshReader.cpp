@@ -3,13 +3,13 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Parallel/MPI.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
-#include <vector>
-#include <array>
 #include <unordered_map>
-#include "Parallel/MPI.h"
+#include <vector>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -41,7 +41,7 @@ bool MeshReader::hasFault() const { return m_fault.size() > 0; }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
-void MeshReader::displaceMesh(const std::array<double, 3>& displacement) {
+void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
   for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     for (unsigned i = 0; i < 3; ++i) {
       m_vertices[vertexNo].coords[i] += displacement[i];
@@ -49,16 +49,17 @@ void MeshReader::displaceMesh(const std::array<double, 3>& displacement) {
   }
 }
 
-// scalingMatrix is stored column-major, i.e.
-// scalingMatrix_ij = scalingMatrix[j][i]
-void MeshReader::scaleMesh(const std::array<std::array<double, 3>, 3>& scalingMatrix) {
+// TODO: Test proper scaling
+//  scalingMatrix is stored column-major, i.e.
+//  scalingMatrix_ij = scalingMatrix[j][i]
+void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
   for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
-    double x = m_vertices[vertexNo].coords[0];
-    double y = m_vertices[vertexNo].coords[1];
-    double z = m_vertices[vertexNo].coords[2];
+    Eigen::Vector3d point;
+    point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1],
+        m_vertices[vertexNo].coords[2];
+    const auto result = scalingMatrix * point;
     for (unsigned i = 0; i < 3; ++i) {
-      m_vertices[vertexNo].coords[i] =
-          scalingMatrix[0][i] * x + scalingMatrix[1][i] * y + scalingMatrix[2][i] * z;
+      m_vertices[vertexNo].coords[i] = result[i];
     }
   }
 }
@@ -66,7 +67,8 @@ void MeshReader::scaleMesh(const std::array<std::array<double, 3>, 3>& scalingMa
 /**
  * Reconstruct the fault information from the boundary conditions
  */
-void MeshReader::extractFaultInformation(const VrtxCoords refPoint, const int refPointMethod) {
+void MeshReader::extractFaultInformation(
+    const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
     for (int j = 0; j < 4; j++) {
@@ -127,7 +129,7 @@ void MeshReader::extractFaultInformation(const VrtxCoords refPoint, const int re
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      tmp2);
       bool isPlus;
-      if (refPointMethod == 0) {
+      if (refPointMethod == seissol::initializer::parameters::RefPointMethod::Point) {
         isPlus = MeshTools::dot(tmp1, f.normal) * MeshTools::dot(tmp2, f.normal) > 0;
       } else {
         isPlus = MeshTools::dot(refPoint, f.normal) > 0;
@@ -175,11 +177,13 @@ void MeshReader::extractFaultInformation(const VrtxCoords refPoint, const int re
         f.side = j;
         f.neighborElement = neighborIndex;
         f.neighborSide = i.neighborSides[j];
+        f.tag = i.faultTags[j];
       } else {
         f.element = neighborIndex;
         f.side = i.neighborSides[j];
         f.neighborElement = i.localId;
         f.neighborSide = j;
+        f.tag = i.faultTags[j];
       }
 
       m_fault.push_back(f);

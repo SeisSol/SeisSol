@@ -5,14 +5,14 @@
 
 #include "Condition.hpp"
 #include "EncodedConstants.hpp"
+#include <array>
 #include <device.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <array>
 #include <vector>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 
 template <typename Type>
 class GenericTableEntry {
@@ -97,16 +97,16 @@ using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
 using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #else  // ACL_DEVICE
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 // Provide a dummy implementations for a pure CPU execution
 struct PointersToRealsTable {};
 struct DrPointersToRealsTable {};
 struct MaterialTable {};
 struct IndicesTable {};
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 #endif // ACL_DEVICE
 
 #endif // SEISSOL_POINTERSTABLE_HPP

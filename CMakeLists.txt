@@ -23,6 +23,20 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   endif()
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  set(GNU_REQUIRED_VERSION "9.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
+    message(WARNING "GNU versions below ${GNU_REQUIRED_VERSION} are not supported")
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+  set(INTEL_REQUIRED_VERSION "2021")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS INTEL_REQUIRED_VERSION)
+    message(WARNING "INTEL versions below ${INTEL_REQUIRED_VERSION} are not supported")
+  endif()
+endif()
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -33,7 +47,7 @@ endif()
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
-#                     MEMORY_LAYOUT, COMMTHREAD,
+#                     MEMORY_LAYOUT,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
@@ -59,7 +73,7 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   # Note: hip 4.x has a bug during setting rpath while compiling
   #       device code for nvidia gpus. This scenario is used in
   #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX})
+  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
 # Generate version.h
@@ -110,6 +124,8 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+find_package(GemmTools REQUIRED)
+
 add_custom_command(
   COMMAND
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
@@ -156,7 +172,6 @@ add_custom_command(
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(SeisSol-common-properties INTERFACE IMPORTED)
 
-find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
 # enforce code generation to run before any other target
@@ -223,14 +238,6 @@ if (MPI)
   target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
-
-  if (MINI_SEISSOL)
-    target_compile_definitions(SeisSol-common-properties INTERFACE USE_MINI_SEISSOL)
-  endif()
-endif()
-
-if (COMMTHREAD)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_COMM_THREAD)
 endif()
 
 if (NUMA_AWARE_PINNING)
