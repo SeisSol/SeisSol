@@ -61,20 +61,18 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     tree);
     }*/
 
-  seissolInstance.simulator().setCurrentTime(seissolInstance.getOutputManager().loadCheckpoint(
-      seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName));
+  if (seissolInstance.getCheckpointLoadFile().has_value()) {
+    double time = seissolInstance.getOutputManager().loadCheckpoint(
+        seissolInstance.getCheckpointLoadFile().value());
+    seissolInstance.simulator().setCurrentTime(time);
+  }
 
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
-    // TODO: for now, allow only _one_ checkpoint interval which checkpoints everything existent
+    // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything existent
     seissolInstance.getOutputManager().setupCheckpoint(
         seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName,
         seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
   }
-
-  /*if (hasCheckpoint) {
-    seissolInstance.simulator().setCurrentTime(seissolInstanc7e.checkPointManager().header().time());
-    seissolInstance.faultWriter().setTimestep(faultTimeStep);
-  }*/
 }
 
 static void setupOutput(seissol::SeisSol& seissolInstance) {

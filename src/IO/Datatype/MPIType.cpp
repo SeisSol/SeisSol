@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <yaml-cpp/emitter.h>
+#include <yaml-cpp/yaml.h>
 
 namespace {
 static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;

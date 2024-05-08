@@ -7,7 +7,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
-#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/yaml.h>
 
 namespace {
 static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>

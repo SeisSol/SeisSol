@@ -94,6 +94,8 @@ class SeisSol {
    */
   void finalize();
 
+  void loadCheckpoint(const std::string& file);
+
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
   initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
@@ -140,6 +142,8 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+
+  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile; }
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
@@ -277,6 +281,8 @@ class SeisSol {
 
   //! time stamp which can be used for backuping files of previous runs
   std::string m_backupTimeStamp{};
+
+  std::optional<std::string> checkpointLoadFile;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)

@@ -177,4 +177,6 @@ void seissol::SeisSol::setBackupTimeStamp(const std::string& stamp) {
   MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
 }
 
-// seissol::SeisSol seissolInstance;
+void seissol::SeisSol::loadCheckpoint(const std::string& file) {
+  checkpointLoadFile = std::make_optional<std::string>(file);
+}

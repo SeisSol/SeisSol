@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol::io::datatype {
 
