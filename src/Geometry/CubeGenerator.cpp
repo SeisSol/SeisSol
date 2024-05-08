@@ -1,7 +1,7 @@
-#include "utils/logger.h"
-#include "utils/env.h"
-#include "utils/args.h"
 #include "CubeGenerator.h"
+#include "utils/args.h"
+#include "utils/env.h"
+#include "utils/logger.h"
 
 #ifdef USE_MPI
 #include "Parallel/MPI.h"
