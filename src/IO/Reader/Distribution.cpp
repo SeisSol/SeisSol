@@ -118,13 +118,15 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
   std::vector<std::size_t> sendOffsets, sendReorder;
 
   std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap(
-      intermediateSource.size());
+      intermediateTarget.size());
   {
-    std::unordered_multimap<std::size_t, int> intermediateSourceMap;
+    // for multiple source locations, we assume that all contain the same data, thus take one of
+    // them for multiple target locations, we need to write to them all
+    std::unordered_map<std::size_t, int> intermediateSourceMap;
     for (const auto& i : intermediateSource) {
       intermediateSourceMap.insert(i);
     }
-    for (std::size_t i = 0; i < intermediateSource.size(); ++i) {
+    for (std::size_t i = 0; i < intermediateTarget.size(); ++i) {
       for (auto it = intermediateSourceMap.find(intermediateTarget[i].first);
            it != intermediateSourceMap.end() && it->first == intermediateTarget[i].first;
            ++it) { // TODO: handle the multimap properly
@@ -143,7 +145,7 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
 
     // TODO: we already have that: sourceToRecvHistogram
     std::vector<std::size_t> sourceCounter(commsize);
-    for (std::size_t i = 0; i < source.size(); ++i) {
+    for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
       ++sourceCounter[sourceToTarget[i].first.second];
     }
     sendOffsets = computeHistogram(sourceCounter);

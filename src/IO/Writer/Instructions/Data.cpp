@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-#include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer {
 

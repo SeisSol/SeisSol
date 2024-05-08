@@ -46,8 +46,15 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 #endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       const auto& fault = seissolInstance.meshReader().getFault()[ltsToFace[i]];
-      faceIdentifiers[i] =
-          seissolInstance.meshReader().getElements()[fault.element].globalId * 4 + fault.side;
+      if (fault.element >= 0) {
+        faceIdentifiers[i] =
+            seissolInstance.meshReader().getElements()[fault.element].globalId * 4 + fault.side;
+      } else {
+        // TODO(David): remove this one (it's a dummy entry right now)
+        faceIdentifiers[i] =
+            seissolInstance.meshReader().getElements()[fault.neighborElement].globalId * 4 +
+            fault.neighborSide;
+      }
     }
     checkpoint.registerTree<void>("dynrup", tree, faceIdentifiers);
     seissolInstance.getMemoryManager().getDynamicRupture()->registerCheckpointVariables(checkpoint,
