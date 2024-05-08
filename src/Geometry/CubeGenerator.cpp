@@ -113,7 +113,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
     const std::string& meshFile,
-    const seissol::geometry::CubeGeneratorParameters& cubeParams)
+    const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
     : seissol::geometry::MeshReader(rank), // init base class
       rank(rank), nProcs(nProcs) {
   // get cubeGenerator parameters
