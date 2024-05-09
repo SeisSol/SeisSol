@@ -162,6 +162,8 @@ public:
   }
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager, LTSTree* tree) {
+    manager.registerData("initialStressInFaultCS", tree, initialStressInFaultCS);
+    manager.registerData("initialPressure", tree, initialPressure);
     manager.registerData("mu", tree, mu);
     manager.registerData("slipRate1", tree, slipRate1);
     manager.registerData("slipRate2", tree, slipRate2);
