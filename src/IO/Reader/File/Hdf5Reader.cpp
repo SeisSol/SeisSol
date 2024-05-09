@@ -95,7 +95,7 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
 #endif // USE_MPI
 
-  constexpr std::size_t chunksize = 1000000;
+  constexpr std::size_t chunksize = 1'000'000'000;
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
   MPI_Allreduce(MPI_IN_PLACE,

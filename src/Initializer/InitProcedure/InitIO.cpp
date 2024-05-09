@@ -38,19 +38,23 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
+    auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
     std::vector<std::size_t> faceIdentifiers(
         tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
-    const auto* ltsToFace = seissolInstance.getMemoryManager().ltsToFaceMap();
+    const auto* drFaceInformation = tree->var(dynrup->faceInformation);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      const auto& fault = seissolInstance.meshReader().getFault()[ltsToFace[i]];
+      auto faultFace = drFaceInformation[i].meshFace;
+      const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
+      // take the positive cell and side as fault face identifier
+      // (should result in roughly twice as large numbers as when indexing all faces; cf. handshake
+      // theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
     checkpoint.registerTree<void>("dynrup", tree, faceIdentifiers);
-    seissolInstance.getMemoryManager().getDynamicRupture()->registerCheckpointVariables(checkpoint,
-                                                                                        tree);
+    dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
   /*  {
