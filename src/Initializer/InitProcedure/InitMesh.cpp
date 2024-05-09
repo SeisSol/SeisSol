@@ -48,23 +48,22 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
-    logWarning(seissol::MPI::mpi.rank())
-        << "There are no local mesh elements on this rank. Is your mesh big enough?";
+    logWarning() << "There are no local mesh elements on this rank (" << seissol::MPI::mpi.rank()
+                 << "). Is your mesh big enough?";
   }
 
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
-  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
+  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
+  meshReader.exchangeGhostlayerMetadata();
 
+  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
   auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
   VrtxCoords center{drParameters->referencePoint[0],
                     drParameters->referencePoint[1],
                     drParameters->referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters->refPointMethod);
-
-  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
-  meshReader.exchangeGhostlayerMetadata();
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 }
