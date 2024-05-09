@@ -131,13 +131,16 @@ DynamicRuptureTuple LinearSlipWeakeningBimaterialFactory::produce() {
 }
 
 DynamicRuptureTuple LinearSlipWeakeningTPApproxFactory::produce() {
-  using Specialization = friction_law_impl::TPApprox;
-  using FrictionLawType = friction_law_impl::LinearSlipWeakeningLaw<Specialization>;
+  using Specialization = friction_law::TPApprox;
+  using FrictionLawType = friction_law::LinearSlipWeakeningLaw<Specialization>;
+  using SpecializationGpu = friction_law_gpu::TPApprox;
+  using FrictionLawTypeGpu = friction_law_gpu::LinearSlipWeakeningLaw<SpecializationGpu>;
 
   return {
       std::make_unique<seissol::initializer::LTSLinearSlipWeakening>(),
       std::make_unique<initializer::LinearSlipWeakeningInitializer>(drParameters, seissolInstance),
       std::make_unique<FrictionLawType>(drParameters.get()),
+      std::make_unique<FrictionLawTypeGpu>(drParameters.get()),
       std::make_unique<output::OutputManager>(std::make_unique<output::LinearSlipWeakening>(),
                                               seissolInstance)};
 }
