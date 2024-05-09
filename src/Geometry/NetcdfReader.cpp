@@ -18,11 +18,11 @@
 
 #endif // NETCDF_PASSIVE
 
-#include "MeshReader.h"
 #include "Initializer/preProcessorMacros.hpp"
+#include "MeshReader.h"
 
-#include "utils/logger.h"
 #include "utils/env.h"
+#include "utils/logger.h"
 
 namespace seissol::geometry {
 

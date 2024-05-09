@@ -79,23 +79,23 @@
 
 #include <utils/logger.h>
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include "MemoryAllocator.h"
 
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/InputAux.hpp>
-#include <Initializer/Boundary.h>
-#include <Initializer/ParameterDB.h>
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/InputAux.hpp"
+#include "Initializer/Boundary.h"
+#include "Initializer/ParameterDB.h"
 
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
 
 #include <vector>
 #include <memory>
 
-#include <DynamicRupture/Factory.h>
+#include "DynamicRupture/Factory.h"
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {

@@ -71,7 +71,7 @@
  * Aligned memory allocation.
  **/
 #include "MemoryAllocator.h"
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 
 #include <cstring>
 #include <utils/logger.h>

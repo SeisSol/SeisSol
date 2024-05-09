@@ -81,17 +81,17 @@
 
 #include "SeisSol.h"
 #include "TimeCluster.h"
-#include <SourceTerm/PointSource.h>
-#include <Kernels/TimeCommon.h>
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Receiver.h>
-#include <Monitoring/FlopCounter.hpp>
-#include <Monitoring/instrumentation.hpp>
+#include "SourceTerm/PointSource.h"
+#include "Kernels/TimeCommon.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Receiver.h"
+#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/instrumentation.hpp"
 
 #include <cassert>
 #include <cstring>
 
-#include <generated_code/kernel.h>
+#include "generated_code/kernel.h"
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  unsigned int profilingId,

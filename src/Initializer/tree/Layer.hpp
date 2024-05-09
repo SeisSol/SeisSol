@@ -42,8 +42,8 @@
 #define INITIALIZER_TREE_LAYER_HPP_
 
 #include "Node.hpp"
-#include <Initializer/MemoryAllocator.h>
-#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include "Initializer/MemoryAllocator.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
 #include "Initializer/DeviceGraph.h"
 #include <bitset>
 #include <limits>

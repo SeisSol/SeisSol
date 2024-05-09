@@ -74,13 +74,13 @@
 #include <Parallel/Runtime/Stream.hpp>
 #include <cassert>
 #include <limits>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/TimeBase.h>
-#include <generated_code/tensor.h>
+#include "Initializer/typedefs.hpp"
+#include "Kernels/common.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/TimeBase.h"
+#include "generated_code/tensor.h"
 #ifdef USE_STP
-#include <Numerical_aux/BasisFunction.h>
+#include "Numerical_aux/BasisFunction.h"
 #include <memory>
 #endif
 

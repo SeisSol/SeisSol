@@ -42,9 +42,9 @@
 #ifndef KERNELS_TIMECOMMON_H_
 #define KERNELS_TIMECOMMON_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Kernels/Time.h>
-#include <generated_code/tensor.h>
+#include "Initializer/typedefs.hpp"
+#include "Kernels/Time.h"
+#include "generated_code/tensor.h"
 
 namespace seissol {
   namespace kernels {

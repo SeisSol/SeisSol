@@ -40,11 +40,11 @@
 #ifndef INITIALIZER_DR_H_
 #define INITIALIZER_DR_H_
 
-#include <DynamicRupture/Misc.h>
-#include <generated_code/tensor.h>
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Parallel/Helper.hpp>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "generated_code/tensor.h"
+#include "DynamicRupture/Misc.h"
+#include "Parallel/Helper.hpp"
 
 namespace seissol {
   namespace initializer {

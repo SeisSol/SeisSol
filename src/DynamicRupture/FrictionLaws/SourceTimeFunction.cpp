@@ -1,11 +1,17 @@
 #include "SourceTimeFunction.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
+#include "Numerical_aux/GaussianNucleationFunction.h"
+#include "Numerical_aux/RegularizedYoffe.h"
+#include <cstddef>
 
 namespace seissol::dr::friction_law {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  seissol::initializer::DynamicRupture const* const dynRup,
+                                  const seissol::initializer::DynamicRupture* const dynRup,
                                   real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSImposedSlipRatesYoffe const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
   tauS = layerData.var(concreteLts->tauS);
   tauR = layerData.var(concreteLts->tauR);
@@ -21,10 +27,10 @@ real YoffeSTF::evaluate(real currentTime,
 }
 
 void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                     seissol::initializer::DynamicRupture const* const dynRup,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
                                      real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSImposedSlipRatesGaussian const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian* const>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
   riseTime = layerData.var(concreteLts->riseTime);
 }

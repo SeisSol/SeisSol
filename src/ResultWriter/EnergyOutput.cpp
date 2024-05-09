@@ -53,10 +53,13 @@ void EnergyOutput::init(
   const auto rank = MPI::mpi.rank();
   logInfo(rank) << "Initializing energy output.";
 
+  energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
-  isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  terminatorMomentRateThreshold = parameters.terminatorMomentRateThreshold;
+  isCheckAbortCriteraSlipRateEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  isCheckAbortCriteraMomentRateEnabled = (terminatorMomentRateThreshold > 0);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -81,15 +84,30 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
-  if (isCheckAbortCriteraEnabled) {
+  if (isCheckAbortCriteraSlipRateEnabled) {
     reduceMinTimeSinceSlipRateBelowThreshold();
   }
+  if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
+    double seismicMomentRate =
+        (energiesStorage.seismicMoment() - seismicMomentPrevious) / energyOutputInterval;
+    seismicMomentPrevious = energiesStorage.seismicMoment();
+    if (time > 0 && seismicMomentRate < terminatorMomentRateThreshold) {
+      minTimeSinceMomentRateBelowThreshold += energyOutputInterval;
+    } else {
+      minTimeSinceMomentRateBelowThreshold = 0.0;
+    }
+  }
+
   if (isTerminalOutputEnabled) {
     printEnergies();
   }
-  if (isCheckAbortCriteraEnabled) {
-    checkAbortCriterion();
+  if (isCheckAbortCriteraSlipRateEnabled) {
+    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip-rate are");
   }
+  if (isCheckAbortCriteraMomentRateEnabled) {
+    checkAbortCriterion(minTimeSinceMomentRateBelowThreshold, "The seismic moment rate is");
+  }
+
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
@@ -208,17 +226,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           stream);
       device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     }
-    auto const timeDerivativePlusPtr = [&](unsigned i) {
+    const auto timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+    const auto timeDerivativeMinusPtr = [&](unsigned i) {
       return timeDerivativeMinusHost + qSize * i;
     };
 #else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
-    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+    const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+    const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
@@ -298,8 +316,8 @@ void EnergyOutput::computeVolumeEnergies() {
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
   auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
-  std::vector<Element> const& elements = meshReader->getElements();
-  std::vector<Vertex> const& vertices = meshReader->getVertices();
+  const std::vector<Element>& elements = meshReader->getElements();
+  const std::vector<Vertex>& vertices = meshReader->getVertices();
 
   const auto g = seissolInstance.getGravitationSetup().acceleration;
 
@@ -586,23 +604,19 @@ void EnergyOutput::printEnergies() {
     }
   }
 }
-void EnergyOutput::checkAbortCriterion() {
+void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message) {
   const auto rank = MPI::mpi.rank();
   bool abort = false;
   if (rank == 0) {
-    if ((minTimeSinceSlipRateBelowThreshold > 0) and
-        (minTimeSinceSlipRateBelowThreshold < std::numeric_limits<real>::max())) {
-      if (static_cast<double>(minTimeSinceSlipRateBelowThreshold) < terminatorMaxTimePostRupture) {
-        logInfo(rank) << "all slip rates are below threshold since"
-                      << minTimeSinceSlipRateBelowThreshold
+    if ((timeSinceThreshold > 0) and (timeSinceThreshold < std::numeric_limits<real>::max())) {
+      if (static_cast<double>(timeSinceThreshold) < terminatorMaxTimePostRupture) {
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
                       << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
                       << "s)";
       } else {
-        logInfo(rank) << "all slip rates are below threshold since"
-                      << minTimeSinceSlipRateBelowThreshold
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
                       << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
                       << "s)";
-        logInfo(rank) << "aborting...";
         abort = true;
       }
     }
@@ -612,8 +626,7 @@ void EnergyOutput::checkAbortCriterion() {
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
 #endif
   if (abort) {
-    seissol::MPI::mpi.finalize();
-    exit(0);
+    seissolInstance.simulator().abort();
   }
 }
 

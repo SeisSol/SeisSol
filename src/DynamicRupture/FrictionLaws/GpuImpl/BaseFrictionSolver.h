@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -16,7 +16,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   ~BaseFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializer::Layer& layerData,
-                seissol::initializer::DynamicRupture const* const dynRup,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {

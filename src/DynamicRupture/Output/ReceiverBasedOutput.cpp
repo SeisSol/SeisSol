@@ -1,10 +1,28 @@
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Numerical_aux/BasisFunction.h"
 #include "ReceiverBasedOutput.hpp"
+#include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Output/DataTypes.hpp"
+#include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Layer.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Kernels/precision.hpp"
+#include "Numerical_aux/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <init.h>
+#include <memory>
+#include <vector>
 
 using namespace seissol::dr::misc::quantity_indices;
 

@@ -45,8 +45,8 @@
 #ifndef SOURCETERM_POINTSOURCE_H_
 #define SOURCETERM_POINTSOURCE_H_
 
+#include "Initializer/typedefs.hpp"
 #include "SourceTerm/typedefs.hpp"
-#include <Initializer/typedefs.hpp>
 
 namespace seissol::sourceterm {
 /** The local moment tensor shall be transformed into the global coordinate system.

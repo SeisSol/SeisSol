@@ -6,7 +6,7 @@
 #define KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 
 #include "PointSourceCluster.h"
-#include <SourceTerm/typedefs.hpp>
+#include "SourceTerm/typedefs.hpp"
 
 #include <array>
 
@@ -21,7 +21,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   unsigned size() const override;
 
   private:
-  static void addTimeIntegratedPointSourceNRF(std::array<real, 3> const& slip,
+  static void addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                               real* mInvJInvPhisAtSources,
                                               real* tensor,
                                               real A,

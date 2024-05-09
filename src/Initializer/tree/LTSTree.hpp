@@ -46,7 +46,7 @@
 #include "Layer.hpp"
 #include "TimeCluster.hpp"
 
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 
 namespace seissol {
 namespace initializer {

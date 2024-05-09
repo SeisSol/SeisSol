@@ -72,30 +72,32 @@
 
 #include "Parallel/MPI.h"
 
-#include "Manager.h"
 #include "FSRMReader.h"
+#include "Initializer/PointMapper.h"
+#include "Kernels/PointSourceClusterOnHost.h"
+#include "Manager.h"
 #include "NRFReader.h"
-#include "PointSource.h"
 #include "Numerical_aux/Transformation.h"
-#include "generated_code/kernel.h"
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
 #include "Parallel/MPI.h"
-
+#include "PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/PointMapper.h>
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/PointSourceClusterOnHost.h>
 #include <Parallel/Helper.hpp>
 #include <SourceTerm/typedefs.hpp>
-#include <memory>
-#include <utils/logger.h>
-#include <string>
 #include <cstring>
+#include <memory>
+#include <string>
+#include <string>
+#include <utils/logger.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include <Kernels/PointSourceClusterOnDevice.h>
-#include <Parallel/AcceleratorDevice.h>
+#include "Kernels/PointSourceClusterOnDevice.h"
 #endif
 
 namespace seissol::sourceterm {
@@ -109,17 +111,17 @@ void computeMInvJInvPhisAtSources(
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh) {
-  auto const& elements = mesh.getElements();
-  auto const& vertices = mesh.getVertices();
+    const seissol::geometry::MeshReader& mesh) {
+  const auto& elements = mesh.getElements();
+  const auto& vertices = mesh.getVertices();
 
-  double const* coords[4];
+  const double* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
-  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+  const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
-  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);

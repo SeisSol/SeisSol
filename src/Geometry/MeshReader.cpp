@@ -3,13 +3,13 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
-#include <Initializer/Parameters/SeisSolParameters.h>
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Parallel/MPI.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
-#include <vector>
 #include <unordered_map>
-#include "Parallel/MPI.h"
+#include <vector>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif

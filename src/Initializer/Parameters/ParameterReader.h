@@ -4,8 +4,8 @@
 #include <string>
 #include <unordered_set>
 
-#include <utils/stringutils.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>
 
 #include "Parallel/MPI.h"

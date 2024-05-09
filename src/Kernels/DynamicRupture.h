@@ -41,14 +41,14 @@
 #ifndef KERNELS_DYNAMICRUPTURE_H_
 #define KERNELS_DYNAMICRUPTURE_H_
 
-#include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
-#include <Kernels/Time.h>
+#include "Initializer/typedefs.hpp"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
+#include "Kernels/Time.h"
 #ifdef USE_STP
 #include <array>
 #include <memory>
-#include <Numerical_aux/BasisFunction.h>
+#include "Numerical_aux/BasisFunction.h"
 #endif
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))

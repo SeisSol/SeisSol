@@ -43,17 +43,12 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include <Initializer/MemoryAllocator.h>
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
+#include "Initializer/MemoryAllocator.h"
+#include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>
-#include <generated_code/tensor.h>
 #include <memory>
-#include <vector>
-
-#ifdef ACL_DEVICE
-#include "Device/UsmAllocator.h"
-#endif
 
 namespace seissol::kernels {
 class PointSourceCluster;

@@ -41,11 +41,11 @@
 #define INITIALIZER_LTS_H_
 
 #include "tree/Layer.hpp"
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/tensor.h>
-#include <Kernels/common.hpp>
-#include <Parallel/Helper.hpp>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "generated_code/tensor.h"
+#include "Kernels/common.hpp"
+#include "Parallel/Helper.hpp"
 
 #ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   AllocationMode::HostOnlyHBM

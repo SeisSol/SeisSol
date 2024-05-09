@@ -76,22 +76,22 @@
 #include <list>
 #endif
 
-#include <Initializer/typedefs.hpp>
-#include <SourceTerm/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
+#include "SourceTerm/typedefs.hpp"
 #include <utils/logger.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
 
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Plasticity.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/TimeCommon.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <Monitoring/LoopStatistics.h>
-#include <Monitoring/ActorStateStatistics.h>
+#include "Kernels/Time.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Plasticity.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/TimeCommon.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "Monitoring/LoopStatistics.h"
+#include "Monitoring/ActorStateStatistics.h"
 #include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.hpp"
@@ -101,7 +101,7 @@
 
 #ifdef ACL_DEVICE
 #include <device.h>
-#include <Solver/Pipeline/DrPipeline.h>
+#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 namespace seissol {

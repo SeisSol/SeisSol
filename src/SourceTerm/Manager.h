@@ -41,18 +41,10 @@
 #ifndef SOURCETERM_MANAGER_H_
 #define SOURCETERM_MANAGER_H_
 
-#include "typedefs.hpp"
-#include "NRF.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Solver/time_stepping/TimeManager.h"
 #include <cstdarg>
-
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/PointSourceCluster.h>
-#include <Solver/time_stepping/TimeManager.h>
-#include <Geometry/MeshReader.h>
-#include <inttypes.h>
-#include <memory>
-#include <array>
-#include <vector>
 
 namespace seissol::sourceterm {
 
@@ -62,8 +54,8 @@ class Manager {
   ~Manager() = default;
 
   void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
-                   char const* fileName,
-                   seissol::geometry::MeshReader const& mesh,
+                   const char* fileName,
+                   const seissol::geometry::MeshReader& mesh,
                    seissol::initializer::LTSTree* ltsTree,
                    seissol::initializer::LTS* lts,
                    seissol::initializer::Lut* ltsLut,
