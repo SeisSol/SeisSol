@@ -26,16 +26,12 @@ static MPI_Datatype convertString(const seissol::io::datatype::Datatype& datatyp
 }
 
 static MPI_Datatype convertArray(const seissol::io::datatype::ArrayDatatype& datatype) {
-  std::vector<int> dims(datatype.dimensions().begin(), datatype.dimensions().end());
-  std::vector<int> starts(dims.size(), 0);
+  std::size_t total = 1;
+  for (std::size_t dim : datatype.dimensions()) {
+    total *= dim;
+  }
   MPI_Datatype type;
-  MPI_Type_create_subarray(dims.size(),
-                           dims.data(),
-                           dims.data(),
-                           starts.data(),
-                           0,
-                           seissol::io::datatype::convertToMPI(datatype.base(), false),
-                           &type);
+  MPI_Type_contiguous(total, seissol::io::datatype::convertToMPI(datatype.base(), false), &type);
   return type;
 }
 

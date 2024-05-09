@@ -95,7 +95,7 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
 #endif // USE_MPI
 
-  constexpr std::size_t chunksize = 1'000'000'000;
+  constexpr std::size_t chunksize = 1'000'000;
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
   MPI_Allreduce(MPI_IN_PLACE,
@@ -124,8 +124,10 @@ void Hdf5Reader::readDataRaw(void* data,
   std::vector<hsize_t> readcount(rank);
   std::vector<hsize_t> filepos(rank);
 
+  std::size_t subsize = 1;
   for (std::size_t i = 1; i < readcount.size(); ++i) {
     readcount[i] = dims[i];
+    subsize *= dims[i];
   }
   readcount[0] = std::min(chunksize, count);
 
@@ -145,10 +147,10 @@ void Hdf5Reader::readDataRaw(void* data,
         memspace, H5S_SELECT_SET, nullstart.data(), nullptr, readcount.data(), nullptr));
     _eh(H5Sselect_hyperslab(
         dataspace, H5S_SELECT_SET, filepos.data(), nullptr, readcount.data(), nullptr));
-    _eh(H5Dread(dataset, datatype, memspace, dataspace, h5alist, data));
+    _eh(H5Dread(dataset, datatype, memspace, dataspace, h5alist, ptr));
 
     read += readcount[0];
-    ptr += readcount[0] * 1 * targetType->size(); // TODO:
+    ptr += readcount[0] * subsize * targetType->size();
   }
 
   _eh(H5Sclose(memspace));
