@@ -42,8 +42,8 @@
 #ifndef INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 #define INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 
-#include "Node.hpp"
 #include "Layer.hpp"
+#include "Node.hpp"
 
 namespace seissol {
 namespace initializer {
@@ -74,8 +74,8 @@ private:
     }
 
 public:
-    leaf_iterator(iterator const& end) : iterator(end) {}
-    leaf_iterator(iterator const& begin, iterator const& end, LayerMask layerMask)
+    leaf_iterator(const iterator& end) : iterator(end) {}
+    leaf_iterator(const iterator& begin, const iterator& end, LayerMask layerMask)
         : iterator(begin), m_end(end), m_layerMask(layerMask) {}
 
     inline leaf_iterator& operator++() {

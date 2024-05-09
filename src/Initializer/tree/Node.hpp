@@ -42,8 +42,8 @@
 #ifndef INITIALIZER_TREE_NODE_HPP_
 #define INITIALIZER_TREE_NODE_HPP_
 
-#include <iterator>
 #include <cassert>
+#include <iterator>
 
 namespace seissol {
 namespace initializer {
@@ -111,9 +111,9 @@ public:
 
     inline pointer operator->() { return m_node; }
 
-    inline bool operator==(iterator const& other) const { return other.m_node == m_node; }
+    inline bool operator==(const iterator& other) const { return other.m_node == m_node; }
 
-    inline bool operator!=(iterator const& other) const { return other.m_node != m_node; }
+    inline bool operator!=(const iterator& other) const { return other.m_node != m_node; }
 
 protected:
     value_type* m_node;

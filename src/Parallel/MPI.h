@@ -47,13 +47,13 @@
 #include "MPIDummy.h"
 #else // USE_MPI
 
-#include <mpi.h>
-#include "utils/logger.h"
 #include "MPIBasic.h"
-#include <numeric>
+#include "utils/logger.h"
 #include <algorithm>
-#include <string>
+#include <mpi.h>
+#include <numeric>
 #include <optional>
+#include <string>
 
 #endif // USE_MPI
 

@@ -41,13 +41,13 @@
 #ifndef INITIALIZER_TREE_LAYER_HPP_
 #define INITIALIZER_TREE_LAYER_HPP_
 
-#include "Node.hpp"
-#include "Initializer/MemoryAllocator.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
 #include "Initializer/DeviceGraph.h"
+#include "Initializer/MemoryAllocator.h"
+#include "Node.hpp"
 #include <bitset>
-#include <limits>
 #include <cstring>
+#include <limits>
 #include <type_traits>
 #include <vector>
 
@@ -240,33 +240,33 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 
   template <typename T>
-  T* var(Variable<T> const& handle, AllocationPlace place = AllocationPlace::Host) {
+  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars.size() > handle.index);
     return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
   template <typename T>
-  void varSynchronizeTo(Variable<T> const& handle, AllocationPlace place, void* stream) {
+  void varSynchronizeTo(const Variable<T>& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars.size() > handle.index);
     m_vars[handle.index].synchronizeTo(place, stream);
   }
 
-  void* bucket(Bucket const& handle, AllocationPlace place = AllocationPlace::Host) {
+  void* bucket(const Bucket& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_buckets.size() > handle.index);
     return m_buckets[handle.index].get(place);
   }
 
-  void bucketSynchronizeTo(Bucket const& handle, AllocationPlace place, void* stream) {
+  void bucketSynchronizeTo(const Bucket& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_buckets.size() > handle.index);
     m_buckets[handle.index].synchronizeTo(place, stream);
   }
 
 #ifdef ACL_DEVICE
-  void* getScratchpadMemory(ScratchpadMemory const& handle,
+  void* getScratchpadMemory(const ScratchpadMemory& handle,
                             AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_scratchpads.size() > handle.index);
@@ -303,24 +303,24 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 #endif
 
-  inline void setBucketSize(Bucket const& handle, size_t size) {
+  inline void setBucketSize(const Bucket& handle, size_t size) {
     assert(m_bucketSizes.size() > handle.index);
     m_bucketSizes[handle.index] = size;
   }
 
 #ifdef ACL_DEVICE
-  inline void setScratchpadSize(ScratchpadMemory const& handle, size_t size) {
+  inline void setScratchpadSize(const ScratchpadMemory& handle, size_t size) {
     assert(m_scratchpadSizes.size() > handle.index);
     m_scratchpadSizes[handle.index] = size;
   }
 #endif
 
-  inline size_t getBucketSize(Bucket const& handle) {
+  inline size_t getBucketSize(const Bucket& handle) {
     assert(m_bucketSizes.size() > handle.index);
     return m_bucketSizes[handle.index];
   }
 
-  void addVariableSizes(std::vector<MemoryInfo> const& vars, std::vector<size_t>& bytes) {
+  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) {
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
         bytes[var] += m_numberOfCells * vars[var].bytes;
@@ -344,7 +344,7 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 #endif
 
-  void setMemoryRegionsForVariables(std::vector<MemoryInfo> const& vars,
+  void setMemoryRegionsForVariables(const std::vector<MemoryInfo>& vars,
                                     const std::vector<DualMemoryContainer>& memory,
                                     const std::vector<size_t>& offsets) {
     assert(m_vars.size() >= vars.size());
@@ -372,7 +372,7 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 #endif
 
-  void touchVariables(std::vector<MemoryInfo> const& vars) {
+  void touchVariables(const std::vector<MemoryInfo>& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
 
       // NOTE: we don't touch device global memory because it is in a different address space

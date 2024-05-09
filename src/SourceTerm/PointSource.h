@@ -68,10 +68,10 @@ namespace seissol::sourceterm {
  *
  **/
 void transformMomentTensor(
-    real const localMomentTensor[3][3],
-    real const localSolidVelocityComponent[3],
+    const real localMomentTensor[3][3],
+    const real localSolidVelocityComponent[3],
     real localPressureComponent,
-    real const localFluidVelocityComponent[3],
+    const real localFluidVelocityComponent[3],
     real strike,
     real dip,
     real rake,

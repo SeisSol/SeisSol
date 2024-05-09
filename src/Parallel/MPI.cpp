@@ -40,9 +40,9 @@
 
 #include "MPI.h"
 #include "utils/stringutils.h"
-#include <unistd.h>
-#include <cstdlib>
 #include <cctype>
+#include <cstdlib>
+#include <unistd.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"

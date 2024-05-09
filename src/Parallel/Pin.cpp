@@ -41,12 +41,12 @@
 
 #include "Pin.h"
 
-#include <sched.h>
-#include <sstream>
-#include <set>
-#include <cstdlib>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <cstdlib>
+#include <sched.h>
+#include <set>
+#include <sstream>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>

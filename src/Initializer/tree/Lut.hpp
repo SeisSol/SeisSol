@@ -53,7 +53,7 @@ class Lut;
 
 class seissol::initializer::Lut {
   public:
-  static unsigned const MaxDuplicates = 4;
+  static const unsigned MaxDuplicates = 4;
 
   private:
   /** Creates lookup tables (lut) for a given layer mask.
@@ -128,7 +128,7 @@ class seissol::initializer::Lut {
   inline unsigned* getMeshToClusterLut() const { return m_meshToClusters; }
 
   template <typename T>
-  T& lookup(Variable<T> const& handle,
+  T& lookup(const Variable<T>& handle,
             unsigned meshId,
             AllocationPlace place = AllocationPlace::Host) const {
     return m_ltsTree->var(handle, place)[ltsId(handle.mask, meshId) * handle.count];

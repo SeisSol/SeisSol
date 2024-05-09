@@ -133,18 +133,18 @@ class StreamRuntime {
   void syncToSycl(void* queue);
   void syncFromSycl(void* queue);
 
-/*
-// disabled unless using a modern compiler
-  template <typename F>
-  void envOMP(omp_depend_t& depobj, F&& handler) {
-    syncToOMP(depobj);
-    std::invoke(handler);
-    syncFromOMP(depobj);
-  }
-  
-  void syncToOMP(omp_depend_t& depobj);
-  void syncFromOMP(omp_depend_t& depobj);
-*/
+  /*
+  // disabled unless using a modern compiler
+    template <typename F>
+    void envOMP(omp_depend_t& depobj, F&& handler) {
+      syncToOMP(depobj);
+      std::invoke(handler);
+      syncFromOMP(depobj);
+    }
+
+    void syncToOMP(omp_depend_t& depobj);
+    void syncFromOMP(omp_depend_t& depobj);
+  */
 
   private:
   bool disposed;

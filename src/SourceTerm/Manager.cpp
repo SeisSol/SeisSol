@@ -92,8 +92,6 @@
 #include <cstring>
 #include <memory>
 #include <string>
-#include <string>
-#include <utils/logger.h>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
@@ -107,7 +105,7 @@ namespace seissol::sourceterm {
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void computeMInvJInvPhisAtSources(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     unsigned meshId,
@@ -135,13 +133,13 @@ void computeMInvJInvPhisAtSources(
   krnl.execute();
 }
 
-void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
+void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
                                         unsigned meshId,
-                                        seissol::geometry::MeshReader const& mesh,
-                                        Subfault const& subfault,
-                                        Offsets const& offsets,
-                                        Offsets const& nextOffsets,
-                                        std::array<std::vector<double>, 3> const& sliprates,
+                                        const seissol::geometry::MeshReader& mesh,
+                                        const Subfault& subfault,
+                                        const Offsets& offsets,
+                                        const Offsets& nextOffsets,
+                                        const std::array<std::vector<double>, 3>& sliprates,
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
                                         unsigned index,
@@ -326,8 +324,8 @@ auto makePointSourceCluster(ClusterMapping mapping,
       std::make_unique<GpuImpl>(deviceData.first, deviceData.second)};
 }
 
-auto loadSourcesFromFSRM(char const* fileName,
-                         seissol::geometry::MeshReader const& mesh,
+auto loadSourcesFromFSRM(const char* fileName,
+                         const seissol::geometry::MeshReader& mesh,
                          seissol::initializer::LTSTree* ltsTree,
                          seissol::initializer::LTS* lts,
                          seissol::initializer::Lut* ltsLut,
@@ -436,8 +434,8 @@ auto loadSourcesFromFSRM(char const* fileName,
 
 // TODO Add support for passive netCDF
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-auto loadSourcesFromNRF(char const* fileName,
-                        seissol::geometry::MeshReader const& mesh,
+auto loadSourcesFromNRF(const char* fileName,
+                        const seissol::geometry::MeshReader& mesh,
                         seissol::initializer::LTSTree* ltsTree,
                         seissol::initializer::LTS* lts,
                         seissol::initializer::Lut* ltsLut,
@@ -545,8 +543,8 @@ auto loadSourcesFromNRF(char const* fileName,
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
-                          char const* fileName,
-                          seissol::geometry::MeshReader const& mesh,
+                          const char* fileName,
+                          const seissol::geometry::MeshReader& mesh,
                           seissol::initializer::LTSTree* ltsTree,
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,

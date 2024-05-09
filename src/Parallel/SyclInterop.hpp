@@ -1,8 +1,8 @@
 #pragma once
 
 #include "utils/logger.h"
-#include <utility>
 #include <Parallel/AcceleratorDevice.h>
+#include <utility>
 
 #if defined(__HIPSYCL_ENABLE_CUDA_TARGET__) || defined(__ACPP_ENABLE_CUDA_TARGET__)
 #define SEISSOL_SYCL_BACKEND_CUDA

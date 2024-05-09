@@ -84,8 +84,8 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include <device.h>
 #include <UsmAllocator.h>
+#include <device.h>
 #endif
 
 namespace seissol::memory {
@@ -102,9 +102,9 @@ template <typename T, std::size_t N>
 class AlignedArray {
   public:
   inline T* data() { return data_; }
-  inline T const* data() const { return data_; }
+  inline const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
-  constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+  constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
   constexpr std::size_t size() const noexcept { return N; }
 
   private:
@@ -222,7 +222,7 @@ class MemkindArray {
   inline const T* begin() const noexcept { return dataPtr; }
   inline const T* end() const noexcept { return dataPtr + capacity; }
   constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
-  constexpr T const& operator[](std::size_t index) const { return dataPtr[index]; }
+  constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
   constexpr std::size_t size() const noexcept { return capacity; }
 
   private:

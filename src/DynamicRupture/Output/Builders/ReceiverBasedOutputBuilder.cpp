@@ -11,6 +11,7 @@
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
+#include <Parallel/Helper.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>

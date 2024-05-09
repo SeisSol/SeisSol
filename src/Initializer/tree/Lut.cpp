@@ -38,8 +38,8 @@
  * @section DESCRIPTION
  **/
 
-#include <array>
 #include "Lut.hpp"
+#include <array>
 
 seissol::initializer::Lut::LutsForMask::LutsForMask()
     : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0) {

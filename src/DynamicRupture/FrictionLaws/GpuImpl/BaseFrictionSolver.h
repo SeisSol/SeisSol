@@ -20,7 +20,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    
+
     runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -163,7 +163,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         });
       });
     }
-    
+
     runtime.syncFromSycl(&this->queue);
   }
 };

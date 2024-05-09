@@ -109,18 +109,18 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     return *static_cast<TimeCluster*>(m_children[index]);
   }
 
-  inline TimeCluster const& child(unsigned index) const {
+  inline const TimeCluster& child(unsigned index) const {
     return *static_cast<TimeCluster*>(m_children[index]);
   }
 
   template <typename T>
-  T* var(Variable<T> const& handle, AllocationPlace place = AllocationPlace::Host) {
+  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars.size() > handle.index);
     return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
-  MemoryInfo const& info(unsigned index) const { return varInfo[index]; }
+  const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
 
   inline unsigned getNumberOfVariables() const { return varInfo.size(); }
 

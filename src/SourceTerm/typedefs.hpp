@@ -43,8 +43,8 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include "Kernels/precision.hpp"
 #include "Initializer/MemoryAllocator.h"
+#include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>

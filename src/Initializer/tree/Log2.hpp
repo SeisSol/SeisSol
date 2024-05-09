@@ -45,12 +45,12 @@ namespace seissol {
 namespace initializer {
 template <unsigned N>
 struct Log2 {
-  static unsigned const Result = 1 + Log2<(N >> 1)>::Result;
+  static const unsigned Result = 1 + Log2<(N >> 1)>::Result;
 };
 
 template <>
 struct Log2<1> {
-  static unsigned const Result = 0;
+  static const unsigned Result = 0;
 };
 } // namespace initializer
 } // namespace seissol

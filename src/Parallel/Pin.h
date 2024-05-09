@@ -42,8 +42,8 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
-#include "async/as/Pin.h"
 #include "Common/IntegerMaskParser.h"
+#include "async/as/Pin.h"
 #include <sched.h>
 #include <string>
 
