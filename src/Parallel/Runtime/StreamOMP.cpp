@@ -19,7 +19,7 @@ device().api->syncStreamWithEvent(stream, forkEventSycl);
 
 // currently completely disabled... Needs a modern compiler (OMP 5.0-capable)
 #ifdef ACL_DEVICE
-#if 0
+/*
 void StreamRuntime::syncToOMP(omp_depend_t& dep) {
   omp_event_handle_t handle;
 #pragma omp task detach(handle) depend(depobj : dep)
@@ -32,7 +32,7 @@ void StreamRuntime::syncFromOMP(omp_depend_t& dep) {
   { device().api->recordEventOnHost(event); }
   device().api->syncStreamWithEvent(streamPtr, event);
 }
-#endif
+*/
 #endif
 
 } // namespace seissol::parallel::runtime

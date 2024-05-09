@@ -80,8 +80,27 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
 #endif
 #ifdef ONEAPI
     h.host_task([=](sycl::interop_handle& handle) {
-      auto stream = handle.get_native_queue();
-      std::invoke(function, stream);
+#ifdef SEISSOL_SYCL_BACKEND_CUDA
+      if (queue.get_device().get_backend() == sycl::backend::cuda) {
+        auto stream = handle.get_native<sycl::backend::cuda, sycl::queue>();
+        std::invoke(function, stream);
+        return;
+      }
+#endif
+#ifdef SEISSOL_SYCL_BACKEND_HIP
+      if (queue.get_device().get_backend() == sycl::backend::hip) {
+        auto stream = handle.get_native<sycl::backend::hip, sycl::queue>();
+        std::invoke(function, stream);
+        return;
+      }
+#endif
+#ifdef SEISSOL_SYCL_BACKEND_ZE
+      if (queue.get_device().get_backend() == sycl::backend::ze) {
+        auto stream = handle.get_native<sycl::backend::ze, sycl::queue>();
+        std::invoke(function, stream);
+        return;
+      }
+#endif
     });
 #endif
   });

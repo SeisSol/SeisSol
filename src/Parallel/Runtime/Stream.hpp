@@ -133,7 +133,8 @@ class StreamRuntime {
   void syncToSycl(void* queue);
   void syncFromSycl(void* queue);
 
-#if 0
+/*
+// disabled unless using a modern compiler
   template <typename F>
   void envOMP(omp_depend_t& depobj, F&& handler) {
     syncToOMP(depobj);
@@ -143,7 +144,7 @@ class StreamRuntime {
   
   void syncToOMP(omp_depend_t& depobj);
   void syncFromOMP(omp_depend_t& depobj);
-#endif
+*/
 
   private:
   bool disposed;
