@@ -67,7 +67,7 @@ void seissol::Simulator::setUsePlasticity( bool plasticity ) {
 }
 
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
-	assert( i_currentTime > 0 );
+	assert( i_currentTime >= 0 );
 	m_currentTime = i_currentTime;
 }
 
