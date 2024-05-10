@@ -214,8 +214,8 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }
-    MPI::mpi.barrier(MPI::mpi.comm());
   }
+  MPI::mpi.barrier(MPI::mpi.comm());
 
   // always enable checkpointing first
   enableCheckpointing(seissolInstance);
