@@ -72,6 +72,7 @@ src/ResultWriter/AnalysisWriter.cpp
 )
 
 # target_link_options(SeisSol-common-lib PUBLIC SeisSol-kernel-lib)
+target_compile_options(SeisSol-kernel-lib PRIVATE -fPIC)
 target_compile_options(SeisSol-common-lib PRIVATE -fPIC)
 
 if (SHARED)
