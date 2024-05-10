@@ -1,4 +1,5 @@
 #include "ReceiverBasedOutput.hpp"
+#include "Common/constants.hpp"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "Geometry/MeshDefinition.h"

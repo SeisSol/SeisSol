@@ -184,7 +184,7 @@ trueOutputDir = os.path.join(cmdLineArgs.outputDir, 'equation')
 if not os.path.exists(trueOutputDir):
   os.mkdir(trueOutputDir)
 
-subfolders += ['generated_code/equation']
+subfolders += ['equation']
 
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)
@@ -201,7 +201,7 @@ def generate_general(subfolders):
   if not os.path.exists(outputDir):
     os.mkdir(outputDir)
 
-  subfolders += [f'generated_code/general']
+  subfolders += [f'general']
 
   # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
   generator = Generator(arch)

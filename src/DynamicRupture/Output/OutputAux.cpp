@@ -1,4 +1,5 @@
 #include "OutputAux.hpp"
+#include "Common/constants.hpp"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/Geometry.hpp"
 #include "Geometry/MeshDefinition.h"

@@ -1,4 +1,5 @@
 #include "FrictionSolver.h"
+#include "Common/constants.hpp"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/tree/Layer.hpp"
 #include "Kernels/precision.hpp"

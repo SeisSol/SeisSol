@@ -43,13 +43,10 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include "Kernels/precision.hpp"
-#include "generated_code/tensor.h"
-#include <array>
-#include <vector>
 #include "Common/constants.hpp"
 #include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <vector>

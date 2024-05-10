@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Kernels/precision.hpp>
 #include "Model/common_datastructures.hpp"
+#include <Kernels/precision.hpp>
 #include <cmath>
 #include <string>
 

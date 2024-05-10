@@ -5,7 +5,7 @@
 #include "Monitoring/instrumentation.hpp"
 #include <cstddef>
 
-#include <Common/constants.hpp>
+#include "Common/constants.hpp"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
