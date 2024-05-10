@@ -150,6 +150,13 @@ void meminit(T* dst, std::size_t count, enum Memkind memkind) {
   memcopyTyped<T>(dst, local, count, memkind, Memkind::Standard);
 }
 
+void* hostToDevicePointer(void* host, enum Memkind memkind);
+
+template <typename T>
+T* hostToDevicePointerTyped(T* host, enum Memkind memkind) {
+  return hostToDevicePointer(host, memkind);
+}
+
 /**
  * Prints the memory alignment of in terms of relative start and ends in bytes.
  *

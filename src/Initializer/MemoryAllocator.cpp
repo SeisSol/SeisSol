@@ -185,10 +185,30 @@ void memcopy(void* dst,
 }
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
-  auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  device::DeviceInstance::getInstance().algorithms.fillArray(
-      reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  if (memkind == Memkind::DeviceGlobalMemory) {
+#ifdef ACL_DEVICE
+    auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    device::DeviceInstance::getInstance().algorithms.fillArray(
+        reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+#else
+    assert(false);
+#endif
+  } else {
+    std::memset(dst, 0, size);
+  }
+}
+
+void* hostToDevicePointer(void* host, enum Memkind memkind) {
+  if (memkind == Memkind::PinnedMemory) {
+#ifdef ACL_DEVICE
+    return device::DeviceInstance::getInstance().api->devicePointer(host);
+#else
+    return host;
+#endif
+  } else {
+    return host;
+  }
 }
 
 void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment) {

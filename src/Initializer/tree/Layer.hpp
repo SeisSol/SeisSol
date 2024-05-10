@@ -119,7 +119,7 @@ struct DualMemoryContainer {
     }
     if (mode == AllocationMode::HostDevicePinned) {
       host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::PinnedMemory);
-      device = host;
+      device = seissol::memory::hostToDevicePointer(host, seissol::memory::Memkind::PinnedMemory);
     }
     if (mode == AllocationMode::HostDeviceSplit) {
       host = allocator.allocateMemory(size, alignment, seissol::memory::Memkind::Standard);
