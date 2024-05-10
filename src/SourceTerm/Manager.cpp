@@ -213,6 +213,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
     clusterSource = next;
   }
+  assert(mapping == clusterMapping.cellToSources.size());
 }
 
 auto mapPointSourcesToClusters(const unsigned* meshIds,
@@ -276,7 +277,6 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
                        lts,
                        ltsLut,
                        seissol::initializer::AllocationPlace::Host);
-      assert(mapping == clusterMappings[cluster].cellToSources.size());
     }
   }
 
