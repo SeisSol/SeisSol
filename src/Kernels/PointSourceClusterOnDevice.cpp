@@ -1,15 +1,18 @@
-// Copyright (C) 2023 Intel Corporation
+// Copyright (c) 2024 Seissol Group
+// Copyright (c) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "PointSourceClusterOnDevice.h"
 
-#include <generated_code/tensor.h>
-#include <generated_code/init.h>
-#include <SourceTerm/PointSource.h>
-#include <Parallel/AcceleratorDevice.h>
+#include "SourceTerm/PointSource.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
-#include <utility>
+// needs to be loaded after Eigen at the moment, due to SYCL
+#include "Parallel/AcceleratorDevice.h"
+
 #include <cstdint>
+#include <utility>
 
 #include "Numerical_aux/SyclFunctions.h"
 
@@ -98,7 +101,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
   }
 }
 
-void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(std::array<real, 3> const& slip,
+void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                                                  real* mInvJInvPhisAtSources,
                                                                  real* tensor,
                                                                  real A,

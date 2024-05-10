@@ -1,7 +1,7 @@
 #ifndef GLOBAL_TIMESTEP_HPP_
 #define GLOBAL_TIMESTEP_HPP_
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "Initializer/ParameterDB.h"
 

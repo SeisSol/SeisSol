@@ -40,8 +40,8 @@
 
 #include <cassert>
 #include <fstream>
-#include <string>
 #include <stdexcept>
+#include <string>
 
 #include "Initializer/BasicTypedefs.hpp"
 

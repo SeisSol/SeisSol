@@ -51,8 +51,8 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
-#include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/init.h>
+#include "Kernels/denseMatrixOps.hpp"
+#include "generated_code/init.h"
 
 namespace seissol::kernels {
 
@@ -87,40 +87,35 @@ void Time::computeAder(double i_timeStepWidth,
    * compute ADER scheme.
    */
   // temporary result
+  // TODO(David): move these temporary buffers into the Yateto kernel, maybe
   real temporaryBuffer[2][tensor::dQ::size(0)] alignas(PagesizeStack);
   real temporaryBufferExt[2][tensor::dQext::size(1)] alignas(PagesizeStack);
   real temporaryBufferAne[2][tensor::dQane::size(0)] alignas(PagesizeStack);
 
   kernel::derivative krnl = m_krnlPrototype;
-  kernel::derivativeTaylorExpansion intKrnl;
 
   krnl.dQ(0) = const_cast<real*>(data.dofs());
-  intKrnl.dQ(0) = data.dofs();
   if (o_timeDerivatives != nullptr) {
     streamstore(tensor::dQ::size(0), data.dofs(), o_timeDerivatives);
     real* derOut = o_timeDerivatives;
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derOut += tensor::dQ::size(i-1);
       krnl.dQ(i) = derOut;
-      intKrnl.dQ(i) = derOut;
     }
   } else {
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       krnl.dQ(i) = temporaryBuffer[i%2];
-      intKrnl.dQ(i) = temporaryBuffer[i%2];
     }
   }
 
   krnl.dQane(0) = const_cast<real*>(data.dofsAne());
-  intKrnl.dQane(0) = const_cast<real*>(data.dofsAne());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQane(i) = temporaryBufferAne[i%2];
-    intKrnl.dQane(i) = temporaryBufferAne[i%2];
     krnl.dQext(i) = temporaryBufferExt[i%2];
   }
 
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.Iane = tmp.timeIntegratedAne;
+  krnl.I = o_timeIntegrated;
+  krnl.Iane = tmp.timeIntegratedAne;
 
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration().starMatrices[i];
@@ -130,17 +125,14 @@ void Time::computeAder(double i_timeStepWidth,
   krnl.E = data.localIntegration().specific.E;
   
   // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
-
-  intKrnl.execute0();
+  krnl.power(0) = i_timeStepWidth;
   
   for (unsigned der = 1; der < ConvergenceOrder; ++der) {
-    krnl.execute(der);
-
     // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
-    intKrnl.execute(der);
+    krnl.power(der) = krnl.power(der-1) * i_timeStepWidth / real(der+1);
   }
+
+  krnl.execute();
 
   // TODO(Lukas) Implement!
   // Compute integrated displacement over time step if needed.
@@ -148,22 +140,8 @@ void Time::computeAder(double i_timeStepWidth,
 
 void Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {  
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
-
-  // initialization
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
-
-  // interate over derivatives
-  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
-    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(der);
-    o_hardwareFlops += kernel::derivative::hardwareFlops(der);
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
-  }
+  o_nonZeroFlops  = kernel::derivative::NonZeroFlops;
+  o_hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
 unsigned Time::bytesAder()
@@ -219,11 +197,11 @@ void Time::computeIntegral( double                                      i_expans
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= static_cast<real>(der+1);
 
-    intKrnl.power  = l_firstTerm - l_secondTerm;
-    intKrnl.power /= l_factorial;
-
-    intKrnl.execute(der);
+    intKrnl.power(der)  = l_firstTerm - l_secondTerm;
+    intKrnl.power(der) /= l_factorial;
   }
+
+  intKrnl.execute();
 }
 
 void Time::computeTaylorExpansion( real         time,
@@ -250,24 +228,20 @@ void Time::computeTaylorExpansion( real         time,
     intKrnl.dQ(i) = der;
     der += tensor::dQ::size(i);
   }
-  intKrnl.power = 1.0;
+  intKrnl.power(0) = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
+  for(int derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
+
+  intKrnl.execute();
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0; hardwareFlops = 0;
-
+void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // interate over derivatives
-  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
-    nonZeroFlops  += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
-    hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
-  }
+  nonZeroFlops  = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
+  hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
 }
 
 } // namespace seissol::kernels

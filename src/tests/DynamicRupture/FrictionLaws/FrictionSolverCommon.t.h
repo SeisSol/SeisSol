@@ -3,8 +3,8 @@
 
 #include <numeric>
 
-#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
+#include "DynamicRupture/Misc.h"
 #include "tests/TestHelper.h"
 
 namespace seissol::unit_test::dr {

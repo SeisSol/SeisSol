@@ -1,4 +1,11 @@
 #include "ThermalPressurization.h"
+#include "DynamicRupture/Misc.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
+#include <algorithm>
+#include <array>
+#include <cmath>
 
 namespace seissol::dr::friction_law {
 
@@ -8,10 +15,10 @@ static const GaussianHeatSource<misc::numberOfTPGridPoints> heatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
-    seissol::initializer::DynamicRupture const* const dynRup,
+    const seissol::initializer::DynamicRupture* const dynRup,
     real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSRateAndStateThermalPressurization const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);
@@ -24,9 +31,9 @@ void ThermalPressurization::copyLtsTreeToLocal(
 }
 
 void ThermalPressurization::calcFluidPressure(
-    std::array<real, misc::numPaddedPoints> const& normalStress,
-    real const (*mu)[misc::numPaddedPoints],
-    std::array<real, misc::numPaddedPoints> const& slipRateMagnitude,
+    const std::array<real, misc::numPaddedPoints>& normalStress,
+    const real (*mu)[misc::numPaddedPoints],
+    const std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
     unsigned int timeIndex,

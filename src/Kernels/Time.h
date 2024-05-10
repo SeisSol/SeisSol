@@ -73,13 +73,13 @@
 
 #include <cassert>
 #include <limits>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/TimeBase.h>
-#include <generated_code/tensor.h>
+#include "Initializer/typedefs.hpp"
+#include "Kernels/common.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/TimeBase.h"
+#include "generated_code/tensor.h"
 #ifdef USE_STP
-#include <Numerical_aux/BasisFunction.h>
+#include "Numerical_aux/BasisFunction.h"
 #include <memory>
 #endif
 
@@ -134,12 +134,6 @@ class Time : public TimeBase {
                                  real         expansionPoint,
                                  real const*  timeDerivatives,
                                  real         timeEvaluated[tensor::Q::size()] );
-
-    void computeDerivativeTaylorExpansion(real time,
-                                          real expansionPoint,
-                                          real const*  timeDerivatives,
-                                          real timeEvaluated[tensor::Q::size()],
-                                          unsigned derivativeOrder);
 
 
   void computeBatchedTaylorExpansion(real time,

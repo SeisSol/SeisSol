@@ -43,14 +43,14 @@
 
 #include <cassert>
 
-#include <Initializer/ParameterDB.h>
+#include "Initializer/ParameterDB.h"
 #include "Initializer/MemoryManager.h"
-#include <Numerical_aux/Transformation.h>
-#include <Equations/Setup.h>
-#include <Model/common.hpp>
-#include <Geometry/MeshTools.h>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
+#include "Numerical_aux/Transformation.h"
+#include "Equations/Setup.h"
+#include "Model/common.hpp"
+#include "Geometry/MeshTools.h"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
 #include <utils/logger.h>
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -394,7 +394,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
                                                               DynamicRupture*        dynRup,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
-                                                              TimeStepping const&/*    timeStepping*/ )
+                                                              double etaHack )
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
@@ -557,7 +557,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       impAndEta[ltsFace].invZs = 1/impAndEta[ltsFace].zs;
       impAndEta[ltsFace].invZsNeig = 1/impAndEta[ltsFace].zsNeig;
 
-      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+      impAndEta[ltsFace].etaP = etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
@@ -654,12 +654,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       krnl.T = TData;
 
       krnl.fluxSolver = fluxSolverPlus[ltsFace];
-      krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = APlusData;
       krnl.execute();
 
       krnl.fluxSolver = fluxSolverMinus[ltsFace];
-      krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();
     }

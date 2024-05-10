@@ -43,7 +43,7 @@
 #ifndef MODEL_COMMONDATASTRUCTURES_HPP_
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
 #include <array>
 #include <string>
 

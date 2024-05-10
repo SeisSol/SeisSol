@@ -41,12 +41,12 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include <cassert>
-#include <Kernels/common.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/LocalBase.h>
-#include <generated_code/tensor.h>
+#include "Kernels/common.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/LocalBase.h"
+#include "generated_code/tensor.h"
 
 namespace seissol::kernels {
 

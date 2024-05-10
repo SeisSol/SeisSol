@@ -34,7 +34,7 @@ class AbstractFactory {
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
                   seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance){};
+      : drParameters(drParameters), seissolInstance(seissolInstance) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
@@ -64,6 +64,12 @@ class RateAndStateSlipFactory : public AbstractFactory {
 };
 
 class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override;

@@ -42,22 +42,25 @@
  **/
 
 #ifdef USE_HDF
+// PUML.h needs to be included before Downward.h
 
-#include <generated_code/kernel.h>
 #include "PUML/PUML.h"
-#include "PUML/Downward.h"
-#endif
-#include <cmath>
-#include <algorithm>
-#include "ParameterDB.h"
 
-#include "SeisSol.h"
-#include "easi/YAMLParser.h"
-#include "easi/ResultAdapter.h"
+#include "PUML/Downward.h"
+
+#include "generated_code/kernel.h"
+#endif
+#include "ParameterDB.h"
+#include <algorithm>
+#include <cmath>
+
+#include "DynamicRupture/Misc.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
-#include "DynamicRupture/Misc.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
+#include "SeisSol.h"
+#include "easi/ResultAdapter.h"
+#include "easi/YAMLParser.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
@@ -181,13 +184,13 @@ easi::Query seissol::initializer::ElementAverageGenerator::generate() const {
 }
 
 easi::Query seissol::initializer::FaultBarycentreGenerator::generate() const {
-  std::vector<Fault> const& fault = m_meshReader.getFault();
-  std::vector<Element> const& elements = m_meshReader.getElements();
-  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
+  const std::vector<Fault>& fault = m_meshReader.getFault();
+  const std::vector<Element>& elements = m_meshReader.getElements();
+  const std::vector<Vertex>& vertices = m_meshReader.getVertices();
 
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
-  for (Fault const& f : fault) {
+  for (const Fault& f : fault) {
     int element, side;
     if (f.element >= 0) {
       element = f.element;
@@ -210,8 +213,8 @@ easi::Query seissol::initializer::FaultBarycentreGenerator::generate() const {
 }
 
 easi::Query seissol::initializer::FaultGPGenerator::generate() const {
-  std::vector<Fault> const& fault = m_meshReader.getFault();
-  std::vector<Element> const& elements = m_meshReader.getElements();
+  const std::vector<Fault>& fault = m_meshReader.getFault();
+  const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
   constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
@@ -333,8 +336,8 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 }
 
 template <class T>
-void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
-                                           QueryGenerator const* const queryGen) {
+void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
+                                           const QueryGenerator* const queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen->generate();
   const unsigned numPoints = query.numPoints();
@@ -375,8 +378,8 @@ void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
 template <class T>
 T MaterialParameterDB<T>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<T> const& materialsFromQuery) {
+    const std::array<double, NUM_QUADPOINTS>& quadratureWeights,
+    const std::vector<T>& materialsFromQuery) {
   logWarning() << "You want me to compute an average material for a generic type. In general, this "
                   "function should never be called, but always a proper specialization!";
   unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx;
@@ -386,8 +389,8 @@ T MaterialParameterDB<T>::computeAveragedMaterial(
 template <>
 ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<ElasticMaterial> const& materialsFromQuery) {
+    const std::array<double, NUM_QUADPOINTS>& quadratureWeights,
+    const std::vector<ElasticMaterial>& materialsFromQuery) {
   double muMeanInv = 0.0;
   double rhoMean = 0.0;
   // Average of v / E with v: Poisson's ratio, E: Young's modulus
@@ -438,8 +441,8 @@ ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
 template <>
 ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<ViscoElasticMaterial> const& materialsFromQuery) {
+    const std::array<double, NUM_QUADPOINTS>& quadratureWeights,
+    const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
   double muMeanInv = 0.0;
   double rhoMean = 0.0;
   double vERatioMean = 0.0;
@@ -477,8 +480,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 }
 
 template <>
-void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& fileName,
-                                                             QueryGenerator const* const queryGen) {
+void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
+                                                             const QueryGenerator* const queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen->generate();
   auto suppliedParameters = model->suppliedParameters();
@@ -506,8 +509,8 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& 
   delete model;
 }
 
-void FaultParameterDB::evaluateModel(std::string const& fileName,
-                                     QueryGenerator const* const queryGen) {
+void FaultParameterDB::evaluateModel(const std::string& fileName,
+                                     const QueryGenerator* const queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen->generate();
 
@@ -524,7 +527,7 @@ void FaultParameterDB::evaluateModel(std::string const& fileName,
 } // namespace seissol
 
 std::set<std::string>
-    seissol::initializer::FaultParameterDB::faultProvides(std::string const& fileName) {
+    seissol::initializer::FaultParameterDB::faultProvides(const std::string& fileName) {
   if (fileName.length() == 0) {
     return std::set<std::string>();
   }

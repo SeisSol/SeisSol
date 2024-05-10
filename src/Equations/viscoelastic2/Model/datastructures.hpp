@@ -44,11 +44,11 @@
 #define MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 
 #include "Initializer/preProcessorMacros.hpp"
-#include <Common/constants.hpp>
-#include <Model/common_datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
-#include <cstddef>
-#include <generated_code/tensor.h>
+#include "Common/constants.hpp"
+#include "Model/common_datastructures.hpp"
+#include "Equations/elastic/Model/datastructures.hpp"
+#include "cstddef"
+#include "generated_code/tensor.h"
 
 namespace seissol::model {
 template <std::size_t MechanismsP>

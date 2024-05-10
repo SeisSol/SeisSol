@@ -18,13 +18,13 @@ template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters){};
+      : FrictionSolver(drParameters) {};
 
   /**
    * evaluates the current friction model
    */
   void evaluate(seissol::initializer::Layer& layerData,
-                seissol::initializer::DynamicRupture const* const dynRup,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder]) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)

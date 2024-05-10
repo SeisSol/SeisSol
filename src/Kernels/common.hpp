@@ -44,13 +44,13 @@
 #ifndef COMMON_HPP_
 #define COMMON_HPP_
 
+#include "Initializer/typedefs.hpp"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include <algorithm>
+#include <cassert>
 #include <type_traits>
 #include <utility>
-#include <algorithm>
-#include <Initializer/typedefs.hpp>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
-#include <cassert>
 
 /**
  * Uses SFINAE to generate the following functions:

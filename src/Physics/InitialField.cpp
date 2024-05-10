@@ -1,15 +1,15 @@
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <numeric>
 
-#include <Kernels/precision.hpp>
-#include <Physics/InitialField.h>
-#include <Equations/Setup.h>
-#include <Model/common.hpp>
+#include "Equations/Setup.h"
+#include "Kernels/precision.hpp"
+#include "Model/common.hpp"
+#include "Numerical_aux/Eigenvalues.h"
+#include "Physics/InitialField.h"
 #include <utility>
-#include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Numerical_aux/Eigenvalues.h>
+#include <yateto/TensorView.h>
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
@@ -76,7 +76,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
 
 void seissol::physics::Planarwave::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
@@ -109,7 +109,7 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
 
 void seissol::physics::SuperimposedPlanarwave::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
@@ -180,7 +180,7 @@ void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& m
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
 #ifdef USE_ANISOTROPIC
@@ -251,7 +251,7 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
 
 void seissol::physics::TravellingWave::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
@@ -290,7 +290,7 @@ seissol::physics::PressureInjection::PressureInjection(
 
 void seissol::physics::PressureInjection::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const auto o_1 = m_parameters.origin[0];
@@ -323,7 +323,7 @@ void seissol::physics::PressureInjection::evaluate(
 
 void seissol::physics::ScholteWave::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
 #ifndef USE_ANISOTROPIC
@@ -400,7 +400,7 @@ void seissol::physics::ScholteWave::evaluate(
 
 void seissol::physics::SnellsLaw::evaluate(
     double time,
-    std::vector<std::array<double, 3>> const& points,
+    const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
 #ifndef USE_ANISOTROPIC
@@ -510,7 +510,7 @@ seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
   }
 }
 void seissol::physics::Ocean::evaluate(double time,
-                                       std::vector<std::array<double, 3>> const& points,
+                                       const std::vector<std::array<double, 3>>& points,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
 #ifndef USE_ANISOTROPIC

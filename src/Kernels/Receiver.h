@@ -41,16 +41,16 @@
 #define KERNELS_RECEIVER_H_
 
 #include <Eigen/Dense>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/PointMapper.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/Time.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/DataCollector.h>
-#include <generated_code/init.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/LTS.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/Time.h"
+#include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "generated_code/init.h"
 #include <optional>
 #include <vector>
 

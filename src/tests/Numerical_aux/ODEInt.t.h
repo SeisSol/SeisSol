@@ -1,7 +1,7 @@
 #include <Eigen/Dense>
 
 #include "Numerical_aux/ODEVector.h"
-#include <Numerical_aux/ODEInt.h>
+#include "Numerical_aux/ODEInt.h"
 
 namespace seissol::unit_test {
 

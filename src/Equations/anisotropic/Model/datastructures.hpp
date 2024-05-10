@@ -40,14 +40,14 @@
 #ifndef MODEL_ANISOTROPIC_DATASTRUCTURES_H_
 #define MODEL_ANISOTROPIC_DATASTRUCTURES_H_
 
-#include <Model/common_datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
+#include "Model/common_datastructures.hpp"
+#include "Equations/elastic/Model/datastructures.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <cstddef>
-#include <generated_code/init.h>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
 
 namespace seissol::model {
 struct AnisotropicMaterial : Material {

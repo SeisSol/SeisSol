@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Geometry/MeshDefinition.h>
+#include "Geometry/MeshDefinition.h"
 #include <algorithm>
 #include <cassert>
 #include <mpi.h>
@@ -46,20 +46,20 @@
 #include "PUMLReader.h"
 #include "PartitioningLib.h"
 
+#include "PUML/Downward.h"
+#include "PUML/Neighbor.h"
 #include "PUML/PUML.h"
 #include "PUML/Partition.h"
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
-#include "PUML/Downward.h"
-#include "PUML/Neighbor.h"
 
 #include "Monitoring/instrumentation.hpp"
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
+#include <fstream>
 #include <hdf5.h>
 #include <sstream>
-#include <fstream>
 
 namespace {
 /*
@@ -397,7 +397,7 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
         MPI_Allgather(
             &tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
         double sum = 0.0;
-        for (auto const& w : nodeWeights) {
+        for (const auto& w : nodeWeights) {
           sum += w;
         }
         for (auto& w : nodeWeights) {

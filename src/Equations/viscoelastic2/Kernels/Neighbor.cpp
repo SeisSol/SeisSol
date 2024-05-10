@@ -46,7 +46,7 @@
 #include <cstddef>
 #include <cstring>
 
-#include <generated_code/init.h>
+#include "generated_code/init.h"
 
 namespace seissol::kernels {
 

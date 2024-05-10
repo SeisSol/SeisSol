@@ -42,12 +42,12 @@
 
 #include "Initializer/tree/LTSSync.hpp"
 
-#include <Initializer/MemoryManager.h>
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
+#include "Initializer/MemoryManager.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 
 #include "Initializer/preProcessorMacros.hpp"
 

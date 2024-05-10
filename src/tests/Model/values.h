@@ -1,8 +1,8 @@
 #ifndef UNIT_TEST_GODUNOVSTATE_VALUES
 #define UNIT_TEST_GODUNOVSTATE_VALUES
 
-#include <array>
 #include "Kernels/precision.hpp"
+#include <array>
 
 namespace seissol::unit_test {
 // define material values

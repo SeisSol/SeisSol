@@ -71,9 +71,9 @@
 #ifndef KERNELS_NEIGHBOR_H_
 #define KERNELS_NEIGHBOR_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/NeighborBase.h>
+#include "Initializer/typedefs.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/NeighborBase.h"
 
 namespace seissol::kernels {
 

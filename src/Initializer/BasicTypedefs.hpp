@@ -1,7 +1,7 @@
 #ifndef SEISSOL_BASICTYPEDEFS_HPP
 #define SEISSOL_BASICTYPEDEFS_HPP
 
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
 
 enum mpiTag { localIntegrationData = 0, neighboringIntegrationData = 1, timeData = 2 };
 

@@ -42,12 +42,12 @@
 #define VISCOELASTIC2_SETUP_H_
 
 
-#include <Model/common.hpp>
-#include <Kernels/common.hpp>
-#include <Numerical_aux/Transformation.h>
+#include "Model/common.hpp"
+#include "Kernels/common.hpp"
+#include "Numerical_aux/Transformation.h"
 
 #include <yateto/TensorView.h>
-#include <generated_code/init.h>
+#include "generated_code/init.h"
 
 namespace seissol {
   namespace model {

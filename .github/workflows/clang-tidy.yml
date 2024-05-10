@@ -1,0 +1,64 @@
+name: clang-tidy
+on:
+  - push
+
+jobs:
+  clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-22.04
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-103 libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
+
+          # keep, for once clang-19 or higher is needed
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          sudo apt-get update
+
+          sudo apt-get -y install clang-18 clang-tidy-18 libomp-18-dev
+
+          sudo pip3 install numpy
+          sudo mkdir -p /opt/dependencies
+
+      - name: checkout-libxsmm
+        uses: actions/checkout@master
+        with:
+          repository: libxsmm/libxsmm
+          ref: 1.17
+
+      - name: build-libxsmm
+        run: |
+          mkdir -p /opt/dependencies/bin
+          make generator -j $(nproc) && cp bin/libxsmm_gemm_generator /opt/dependencies/bin/
+
+      - name: checkout-easi
+        uses: actions/checkout@master
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          make -j $(nproc) && make install
+
+      - name: checkout-seissol
+        uses: actions/checkout@v4
+        with:
+          repository: SeisSol/SeisSol
+
+      - name: clang-tidy
+        run: |
+          set -euo pipefail
+          clang-tidy-18 --version
+          which clang-tidy-18
+          git submodule update --init
+          mkdir -p build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          make SeisSol-codegen
+          # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
+          sed -i 's/-fprofile-abs-path //g' compile_commands.json
+          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-18) -quiet -j $(nproc)

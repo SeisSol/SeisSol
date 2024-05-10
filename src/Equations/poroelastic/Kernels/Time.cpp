@@ -5,8 +5,8 @@
 extern long long libxsmm_num_total_flops;
 #endif
 
-#include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
+#include "Kernels/common.hpp"
+#include "Kernels/denseMatrixOps.hpp"
 
 #include <cstring>
 #include <cassert>
@@ -184,7 +184,7 @@ void Time::computeIntegral( double                            i_expansionPoint,
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
                                               const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[tensor::I::size()])
+                                              real                              o_timeIntegrated[tensor::I::size()] )
 {
   /*
    * assert alignments.
@@ -220,11 +220,10 @@ void Time::computeIntegral( double                            i_expansionPoint,
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= (real)(der+1);
 
-    intKrnl.power  = l_firstTerm - l_secondTerm;
-    intKrnl.power /= l_factorial;
-
-    intKrnl.execute(der);
+    intKrnl.power(der)  = l_firstTerm - l_secondTerm;
+    intKrnl.power(der) /= l_factorial;
   }
+  intKrnl.execute();
 }
 
 void Time::computeTaylorExpansion( real         time,
@@ -249,24 +248,19 @@ void Time::computeTaylorExpansion( real         time,
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
-  intKrnl.power = 1.0;
+  intKrnl.power(0) = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
+  for(int derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
+
+  intKrnl.execute();
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0; hardwareFlops = 0;
-
-  // interate over derivatives
-  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
-    nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-    hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
-  }
+void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+  nonZeroFlops  = kernel::derivativeTaylorExpansion::NonZeroFlops;
+  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
 }

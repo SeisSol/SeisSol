@@ -1,6 +1,7 @@
 #include "FrictionSolver.h"
-#include "generated_code/kernel.h"
-#include <yateto/TensorView.h>
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
 
@@ -17,7 +18,7 @@ void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                        seissol::initializer::DynamicRupture const* const dynRup,
+                                        const seissol::initializer::DynamicRupture* const dynRup,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices);
