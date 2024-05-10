@@ -216,7 +216,9 @@ generate_general(subfolders)
 
 def forward_files(filename):
   with open(os.path.join(cmdLineArgs.outputDir, filename), 'w') as file:
+    file.writelines(['// IWYU pragma: begin_exports\n'])
     file.writelines([f'#include "{os.path.join(folder, filename)}"\n' for folder in subfolders])
+    file.writelines(['// IWYU pragma: end_exports\n'])
 
 forward_files('init.h')
 forward_files('kernel.h')
