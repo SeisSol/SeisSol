@@ -37,7 +37,6 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   ScheduledWriter settings;
   double lastWrite;
   const parallel::Pinning& pinning;
-  std::size_t writeCount{0};
 };
 
 } // namespace seissol::io::writer::module

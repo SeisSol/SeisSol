@@ -93,7 +93,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // Set start time (required for checkpointing)
   seissolInstance.timeManager().setInitialTimes(m_currentTime);
 
-  double l_timeTolerance = seissolInstance.timeManager().getTimeTolerance();
+  double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
@@ -116,8 +116,8 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
 
-  while( m_finalTime > m_currentTime + l_timeTolerance ) {
-    if (upcomingTime < m_currentTime + l_timeTolerance) {
+  while( m_finalTime > m_currentTime + timeTolerance ) {
+    if (upcomingTime < m_currentTime + timeTolerance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
     }
     if (m_abort) {
@@ -136,7 +136,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     m_currentTime = upcomingTime;
 
     // Check all synchronization point hooks and set the new upcoming time
-    upcomingTime = std::min(m_finalTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
+    upcomingTime = std::min(m_finalTime, Modules::callSyncHook(m_currentTime, timeTolerance));
 
     ioStopwatch.pause();
 
@@ -148,7 +148,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     lastSplit = currentSplit;
   }
 
-  Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
+  Modules::callSyncHook(m_currentTime, timeTolerance, true);
 
   double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());

@@ -6,6 +6,7 @@
 #include <Modules/Modules.h>
 #include <Parallel/Pin.h>
 #include <cassert>
+#include <cmath>
 #include <cstring>
 #include <mpi.h>
 #include <string>
@@ -54,10 +55,7 @@ void WriterModule::startup() {
   setSyncInterval(settings.interval);
 }
 
-void WriterModule::simulationStart() {
-  writeCount = 0;
-  syncPoint(0);
-}
+void WriterModule::simulationStart() { syncPoint(0); }
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
@@ -68,6 +66,7 @@ void WriterModule::syncPoint(double time) {
   logInfo(rank) << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
+  auto writeCount = static_cast<int>(std::round(time / syncInterval()));
   auto writer = settings.planWrite(prefix, writeCount, time);
 
   // prepare the data in the plan
@@ -155,8 +154,6 @@ void WriterModule::syncPoint(double time) {
   for (const int id : idsToSend) {
     sendBuffer(id);
   }
-
-  ++writeCount;
 
   logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
   call(AsyncWriterExec{});
