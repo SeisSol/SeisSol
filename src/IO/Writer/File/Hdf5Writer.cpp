@@ -150,7 +150,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t preh5type = datatype::convertToHdf5(targetType);
   const hid_t h5type = _eh(H5Tcopy(preh5type));
-  _eh(H5Tpack(h5type));
+  if (_eh(H5Tget_class(h5type)) == H5T_COMPOUND) {
+    _eh(H5Tpack(h5type));
+  }
   _eh(H5Tcommit(handles.top(),
                 (name + std::string("_Type")).c_str(),
                 h5type,
@@ -199,8 +201,6 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   if (compress > 0) {
     _eh(H5Pclose(h5filter));
   }
-  _eh(H5Tclose(h5memtype));
-  _eh(H5Tclose(preh5type));
   _eh(H5Tclose(h5type));
   _eh(H5Sclose(h5space));
   _eh(H5Sclose(h5memspace));
