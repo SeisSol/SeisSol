@@ -99,7 +99,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // we need to compute all model parameters before we can use them...
   // TODO(David): integrate this with the Viscoelastic material class or the ParameterDB directly?
   logDebug() << "Initializing attenuation.";
-#ifdef OPENMP
+#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
@@ -107,7 +107,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     seissol::physics::fitAttenuation(
         cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
   }
-#ifdef OPENMP
+#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
