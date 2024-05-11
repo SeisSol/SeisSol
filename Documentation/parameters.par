@@ -148,6 +148,7 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
+EnergyTerminalPrecision = 6 ! Number of significant digits to display in energy terminal output
 EnergyOutputInterval = 0.05
 ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
 

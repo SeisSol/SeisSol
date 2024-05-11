@@ -42,7 +42,6 @@ static hid_t convertStruct(const seissol::io::datatype::StructDatatype& datatype
                   member.offset,
                   seissol::io::datatype::convertToHdf5(member.datatype)));
   }
-  _eh(H5Tpack(handle));
   return handle;
 }
 

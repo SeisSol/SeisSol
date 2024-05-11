@@ -43,6 +43,7 @@
 
 #include <climits>
 #include <memory>
+#include <optional>
 #include <sys/resource.h>
 #include <utils/logger.h>
 

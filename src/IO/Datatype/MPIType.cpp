@@ -1,5 +1,6 @@
 #include "MPIType.hpp"
 #include <IO/Datatype/Datatype.hpp>
+#include <cstddef>
 #include <iosfwd>
 #include <memory>
 #include <mpi.h>
@@ -27,7 +28,7 @@ static MPI_Datatype convertString(const seissol::io::datatype::Datatype& datatyp
 
 static MPI_Datatype convertArray(const seissol::io::datatype::ArrayDatatype& datatype) {
   std::size_t total = 1;
-  for (std::size_t dim : datatype.dimensions()) {
+  for (const std::size_t dim : datatype.dimensions()) {
     total *= dim;
   }
   MPI_Datatype type;

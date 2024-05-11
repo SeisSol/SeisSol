@@ -81,7 +81,9 @@ YAML::Node F80Datatype::serialize() const {
   return node;
 }
 
-IntegerDatatype::IntegerDatatype(std::size_t size, bool sign) : sizeP(size), signP(sign) {}
+IntegerDatatype::IntegerDatatype(std::size_t size, bool sign) : sizeP(size), signP(sign) {
+  assert(size > 0);
+}
 
 IntegerDatatype::IntegerDatatype(YAML::Node node)
     : sizeP(node["size"].as<std::size_t>()), signP(node["sign"].as<bool>()) {}
@@ -160,7 +162,7 @@ YAML::Node StructDatatype::serialize() const {
     membernode["datatype"] = member.datatype->serialize();
     members.push_back(membernode);
   }
-  node["mebers"] = members;
+  node["members"] = members;
   return node;
 }
 

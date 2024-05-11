@@ -54,6 +54,8 @@
 #include "generated_code/tensor.h"
 #include "DynamicRupture/Typedefs.hpp"
 #include "DynamicRupture/Misc.h"
+#include "IO/Datatype/Datatype.hpp"
+#include "IO/Datatype/Inference.hpp"
 
 #include <cstddef>
 #include <vector>
@@ -424,6 +426,15 @@ struct DREnergyOutput {
   real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
   real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
   real timeSinceSlipRateBelowThreshold[seissol::dr::misc::numPaddedPoints];
+
+  static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
+    return {
+      seissol::io::datatype::StructDatatype::MemberInfo{"slip", offsetof(DREnergyOutput, slip), seissol::io::datatype::inferDatatype<decltype(slip)>()},
+      seissol::io::datatype::StructDatatype::MemberInfo{"accumulatedSlip", offsetof(DREnergyOutput, accumulatedSlip), seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>()},
+      seissol::io::datatype::StructDatatype::MemberInfo{"frictionalEnergy", offsetof(DREnergyOutput, frictionalEnergy), seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>()},
+      seissol::io::datatype::StructDatatype::MemberInfo{"timeSinceSlipRateBelowThreshold", offsetof(DREnergyOutput, timeSinceSlipRateBelowThreshold), seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>()},
+    };
+  }
 };
 
 struct CellDRMapping {

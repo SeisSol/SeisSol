@@ -42,6 +42,7 @@ struct EnergyOutputParameters {
   int computeVolumeEnergiesEveryOutput;
   double interval;
   bool terminalOutput;
+  int terminalPrecision;
   double terminatorMaxTimePostRupture;
   double terminatorMomentRateThreshold;
 };

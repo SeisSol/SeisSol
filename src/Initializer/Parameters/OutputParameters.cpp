@@ -81,6 +81,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
   const auto computeVolumeEnergiesEveryOutput =
       reader->readWithDefault("computevolumeenergieseveryoutput", 1);
   const auto terminalOutput = reader->readWithDefault("energyterminaloutput", false);
+  const auto termainlPrecision = reader->readWithDefault("energyterminalprecision", 6);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
@@ -92,6 +93,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 computeVolumeEnergiesEveryOutput,
                                 interval,
                                 terminalOutput,
+                                termainlPrecision,
                                 terminatorMaxTimePostRupture,
                                 terminatorMomentRateThreshold};
 }

@@ -87,7 +87,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefixMessage);
 
   void writeHeader();
 

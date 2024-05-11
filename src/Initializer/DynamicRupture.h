@@ -175,6 +175,7 @@ public:
     manager.registerData("ruptureTimePending", tree, ruptureTimePending);
     manager.registerData("dynStressTime", tree, dynStressTime);
     manager.registerData("dynStressTimePending", tree, dynStressTimePending);
+    manager.registerData("drEnergyOutput", tree, drEnergyOutput);
   }
 };
 
