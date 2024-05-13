@@ -334,7 +334,11 @@ private:
                                                         timeStepSize(),
                                                         m_nonlinearInterpolation,
                                                         subTimeStart);
-      }
+	for(unsigned int side=0; side < 4 ; side++){
+	if(cellInformation[l_cell].clusterId!=cellInformation[cellInformation[l_cell].faceNeighborIds[side]].clusterId){
+	logError() << cellInformation[l_cell].clusterId << "    " << cellInformation[cellInformation[l_cell].faceNeighborIds[side]].clusterId;
+}      }
+}
 
       const long long nonZeroFlopsPlasticity =
           i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +

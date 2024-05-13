@@ -838,8 +838,6 @@ void seissol::time_stepping::TimeCluster::updateDerivatives() {
 }
 
 void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializer::Layer& i_layerData) {
-
-#ifdef USE_DAMAGEDELASTIC
   // TODO(NONLINEAR) add new scorep region
   // TODO(NONLINEAR) This function seems to be copy-pasted from somewhere else
   // SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -1007,8 +1005,6 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
     }
 #endif
 
-  // m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
-#endif
 }
 
 namespace seissol::time_stepping {
@@ -1046,8 +1042,9 @@ void TimeCluster::predict() {
   if (ct.stepsSinceLastSync == 0) {
     resetBuffers = true;
   }
+  #ifdef USE_DAMAGEDELASTIC
   updateMaterialLocal(*m_clusterData);
-
+#endif
   writeReceivers();
   computeLocalIntegration(*m_clusterData, resetBuffers);
   computeSources();
