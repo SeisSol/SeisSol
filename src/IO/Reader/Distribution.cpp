@@ -152,13 +152,12 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
       sendOffsets = computeHistogram(sourceCounter);
     }
     {
-      std::vector<std::size_t> sourceCounter(commsize);
+      std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
       sendReorder.resize(sourceToTarget.size());
       for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        auto reorderPos = sendReorder[sourceToTarget[i].first.second] +
-                          sourceCounter[sourceToTarget[i].first.second];
-        sendReorder[reorderPos] = sourceMap.at(sourceToTarget[i].first.first);
-        ++sourceCounter[sourceToTarget[i].first.second];
+        auto& position = tempHistogram[sourceToTarget[i].first.second];
+        sendReorder[position] = sourceMap.at(sourceToTarget[i].first.first);
+        ++position;
       }
     }
   }
