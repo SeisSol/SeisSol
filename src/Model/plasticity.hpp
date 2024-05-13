@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SEISSOL_MODEL_PLASTICITY_HPP_
+#define SEISSOL_MODEL_PLASTICITY_HPP_
 
 #include "Model/common_datastructures.hpp"
 #include <Kernels/precision.hpp>
@@ -38,3 +39,5 @@ struct PlasticityData {
 };
 
 } // namespace seissol::model
+
+#endif // SEISSOL_MODEL_PLASTICITY_HPP_

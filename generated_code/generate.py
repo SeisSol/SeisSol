@@ -180,11 +180,13 @@ if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
   except:
     print('WARNING: ChainForge was not found. Falling back to GemmForge.')
 
-trueOutputDir = os.path.join(cmdLineArgs.outputDir, 'equation')
+precision = 'double' if cmdLineArgs.host_arch[0] == 'd' else 'single'
+outputDirName = f'equation-{cmdLineArgs.equations}-{cmdLineArgs.order}-{precision}'
+trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
 if not os.path.exists(trueOutputDir):
   os.mkdir(trueOutputDir)
 
-subfolders += ['equation']
+subfolders += [outputDirName]
 
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)
