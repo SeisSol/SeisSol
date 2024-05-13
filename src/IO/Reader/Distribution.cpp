@@ -141,11 +141,11 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
       }
     }
 
-    sendReorder.reserve(source.size());
+    sendReorder.resize(sendOffsets.back());
     for (std::size_t i = 0; i < source.size(); ++i) {
       for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
            ++it) {
-        sendReorder.push_back(it->second);
+        sendReorder[it->second] = i;
         if (single) {
           break;
         }
@@ -242,12 +242,12 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto sendResult = matchRanks(
-      sourceToTargetRankMap, sourceIds, true, comm, sizetype, pairtype, tagFromIntermediateSource);
+      sourceToTargetRankMap, sourceIds, false, comm, sizetype, pairtype, tagFromIntermediateSource);
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
   auto recvResult = matchRanks(
-      targetToSourceRankMap, targetIds, false, comm, sizetype, pairtype, tagFromIntermediateTarget);
+      targetToSourceRankMap, targetIds, true, comm, sizetype, pairtype, tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
@@ -289,7 +289,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
-    std::memcpy(sourceReordered + sendReorder[i] * typesize, sourceChar + i * typesize, typesize);
+    std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
   }
 
   for (int i = 0; i < commsize; ++i) {
@@ -318,7 +318,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-    std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
+    std::memcpy(targetChar + recvReorder[i] * typesize, targetReordered + i * typesize, typesize);
   }
 
   std::free(sourceReordered);
