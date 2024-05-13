@@ -790,9 +790,6 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
         // reinitialized to zero
         // use the respective subTimeStart to compute the taylor expansion in expansion points
 
-        unsigned int clusterId = cellInformation[l_cell].clusterId;
-        unsigned int l_neighbor = cellInformation[l_cell].faceNeighborIds[side];
-        unsigned int neighborId = cellInformation[l_neighbor].clusterId;
 
 /**
 m_timeKernel.computeTaylorExpansion(
@@ -800,29 +797,16 @@ m_timeKernel.computeTaylorExpansion(
         m_timeKernel.computeTaylorExpansion(
             subTimeStart + timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
 */
-
-        if (clusterId == neighborId) {
-	logError() << "Condition 1: " << clusterId << "  " << neighborId;         
- m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(timePoints[timeInterval],
-                                              subTimeStart,
-                                              faceNeighbors[l_cell][side],
-                                              degreesOfFreedomMinus);
-        } else if (clusterId < neighborId) {
-logError() << "Condition 2: " << clusterId << "  "<< neighborId << "   " << static_cast<int>(cellInformation[l_cell].faceTypes[side]);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        }
+if(cellInformation->ltsSetup & (1 << (side+4))){
+	logInfo() << "Equal Time Steps";        
+m_timeKernel.computeTaylorExpansion(
+               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+           m_timeKernel.computeTaylorExpansion(
+               timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+          } else if(cellInformation->ltsSetup & (1 << side)){
+logError() << "TimeStep local < TimeStep Neighbor";}
         else {
- logError() << "Condition 3: " << clusterId << "   "<< neighborId;
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        }
+ logError() << "TimeStep Neighbor < TimeStep Local";}
 
 
         // Prototype is necessary for openmp
