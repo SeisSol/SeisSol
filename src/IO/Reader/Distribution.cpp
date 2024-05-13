@@ -183,7 +183,7 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
   auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
   {
-    std::unordered_map<std::size_t, std::size_t> reorderMap;
+    std::unordered_multimap<std::size_t, std::size_t> reorderMap;
     {
       std::vector<std::size_t> sourceCounter(commsize);
       for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
@@ -195,14 +195,17 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
       std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
       for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
         auto& position = tempHistogram[sourceToTarget[i].first.second];
-        reorderMap[sourceToTarget[i].first.first] = position;
+        reorderMap.insert({sourceToTarget[i].first.first, position});
         ++position;
       }
     }
 
-    sendReorder.resize(source.size());
+    sendReorder.reserve(source.size());
     for (std::size_t i = 0; i < source.size(); ++i) {
-      sendReorder[i] = reorderMap.at(source[i]);
+      for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
+           ++it) {
+        sendReorder.push_back(it->second);
+      }
     }
   }
 
