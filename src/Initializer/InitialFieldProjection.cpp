@@ -42,11 +42,12 @@
 
 #include "Initializer/tree/LTSSync.hpp"
 
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
+#include "Initializer/MemoryManager.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 
 #include "Initializer/preProcessorMacros.hpp"
 
@@ -62,9 +63,10 @@ namespace seissol {
   }
 }
 
-void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+void seissol::initializer::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                                                 GlobalData const& globalData,
                                                 seissol::geometry::MeshReader const& meshReader,
+                                                seissol::initializer::MemoryManager& memoryManager,
                                                 LTS const& lts,
                                                 Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
@@ -125,8 +127,8 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   }
 #endif
 
-  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs);
+  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs, memoryManager);
   if (kernels::size<tensor::Qane>() > 0) {
-    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne);
+    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne, memoryManager);
   }
 }

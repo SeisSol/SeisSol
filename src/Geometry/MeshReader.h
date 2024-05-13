@@ -43,18 +43,19 @@
 #define MESH_READER_H
 
 #include "MeshDefinition.h"
-#include "MeshTools.h"
 
 #include <cmath>
 #include <map>
-#include <vector>
-#include <array>
 #include <unordered_map>
+#include <vector>
+
+#include <Eigen/Dense>
+
+#include "Initializer/Parameters/DRParameters.h"
+#include "MeshTools.h"
 #include "Parallel/MPI.h"
 
 namespace seissol::geometry {
-
-enum class MeshFormat : int { Netcdf, PUML, CubeGenerator };
 
 struct GhostElementMetadata {
   double vertices[4][3];
@@ -105,16 +106,17 @@ class MeshReader {
   bool hasFault() const;
   bool hasPlusFault() const;
 
-  void displaceMesh(const std::array<double, 3>& displacement);
+  void displaceMesh(const Eigen::Vector3d& displacement);
 
   // scalingMatrix is stored column-major, i.e.
   // scalingMatrix_ij = scalingMatrix[j][i]
-  void scaleMesh(const std::array<std::array<double, 3>, 3>& scalingMatrix);
+  void scaleMesh(const Eigen::Matrix3d& scalingMatrix);
 
   /**
    * Reconstruct the fault information from the boundary conditions
    */
-  void extractFaultInformation(const VrtxCoords refPoint, const int refPointMethod);
+  void extractFaultInformation(const VrtxCoords& refPoint,
+                               seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
 };

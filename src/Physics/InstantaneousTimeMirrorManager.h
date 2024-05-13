@@ -1,40 +1,44 @@
 #ifndef SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
 #define SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
 
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include "Modules/Module.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
-#include "Solver/time_stepping/TimeCluster.h"
+#include "Modules/Module.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/time_stepping/TimeCluster.h"
 
-namespace seissol::ITM {
+namespace seissol {
+class SeisSol;
+namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
+  seissol::SeisSol& seissolInstance;
   bool isEnabled;
   double velocityScalingFactor{};
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
-  initializers::LTSTree* ltsTree{};
-  initializers::LTS* lts{};
-  initializers::Lut* ltsLut{};
+  initializer::LTSTree* ltsTree{};
+  initializer::LTS* lts{};
+  initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
   std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
 
   public:
-  InstantaneousTimeMirrorManager() : isEnabled(false){};
+  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance), isEnabled(false) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,
             seissol::geometry::MeshReader* meshReader,
-            initializers::LTSTree* ltsTree,
-            initializers::LTS* lts,
-            initializers::Lut* ltsLut,
+            initializer::LTSTree* ltsTree,
+            initializer::LTS* lts,
+            initializer::Lut* ltsLut,
             const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss
                                                // what exactly is to be sent here
 
@@ -55,13 +59,15 @@ void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
     seissol::geometry::MeshReader* meshReader,
-    initializers::LTSTree* ltsTree,
-    initializers::LTS* lts,
-    initializers::Lut* ltsLut,
+    initializer::LTSTree* ltsTree,
+    initializer::LTS* lts,
+    initializer::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
+    seissol::SeisSol& seissolInstance,
     const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
-} // namespace seissol::ITM
+} // namespace ITM
+} // namespace seissol
 
 #endif // SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H

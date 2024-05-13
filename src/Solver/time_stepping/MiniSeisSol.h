@@ -41,22 +41,29 @@
 #ifndef MINISEISSOL_H_
 #define MINISEISSOL_H_
 
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 
 namespace seissol {
   void localIntegration(GlobalData* globalData,
-                        initializers::LTS& lts,
-                        initializers::Layer& layer);
+                        initializer::LTS& lts,
+                        initializer::Layer& layer,
+                        seissol::SeisSol& seissolInstance);
 
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
-                                initializers::LTS& lts,
-                                initializers::Layer& layer);
+                                initializer::LTS& lts,
+                                initializer::Layer& layer,
+                                seissol::SeisSol& seissolInstance);
+  
+  void fillWithStuff(real* buffer,
+                     unsigned nValues);
 
-  void fakeData(initializers::LTS& lts,
-                initializers::Layer& layer,
+  void fakeData(initializer::LTS& lts,
+                initializer::Layer& layer,
                 FaceType faceTp = FaceType::regular);
   
-  double miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity);
+  double miniSeisSol(initializer::MemoryManager& memoryManager,
+                     bool usePlasticity,
+                     seissol::SeisSol& seissolInstance);
   constexpr real miniSeisSolTimeStep = 1.0;
 } //namespace seissol
 

@@ -52,7 +52,7 @@ void check_err(const int stat, const int line, const char* file) {
   }
 }
 
-void seissol::sourceterm::readNRF(char const* filename, NRF& nrf) {
+void seissol::sourceterm::readNRF(const char* filename, NRF& nrf) {
   int ncid;
   int stat;
 

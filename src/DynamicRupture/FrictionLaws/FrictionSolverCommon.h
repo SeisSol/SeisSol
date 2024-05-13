@@ -1,12 +1,14 @@
 #ifndef SEISSOL_FRICTIONSOLVER_COMMON_H
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
+#include <limits>
+#include <type_traits>
+
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
-#include <type_traits>
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -449,7 +451,44 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedP
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
+/**
+ * update timeSinceSlipRateBelowThreshold (used in Abort Criteria)
+ *
+ * param[in] slipRateMagnitude
+ * param[in] ruptureTimePending
+ * param[in, out] timeSinceSlipRateBelowThreshold
+ * param[in] sumDt
+ */
+template <RangeType Type = RangeType::CPU>
+inline void
+    updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::numPaddedPoints],
+                                          const bool ruptureTimePending[misc::numPaddedPoints],
+                                          // See https://github.com/llvm/llvm-project/issues/60163
+                                          // NOLINTNEXTLINE
+                                          DREnergyOutput& energyData,
+                                          const real sumDt,
+                                          const real slipRateThreshold,
+                                          unsigned startIndex = 0) {
 
+  using Range = typename NumPoints<Type>::Range;
+  auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::start; index < Range::end; index += Range::step) {
+    auto pointIndex{startIndex + index};
+    if (not ruptureTimePending[pointIndex]) {
+      if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
+        timeSinceSlipRateBelowThreshold[pointIndex] += sumDt;
+      } else {
+        timeSinceSlipRateBelowThreshold[pointIndex] = 0;
+      }
+    } else {
+      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::max();
+    }
+  }
+}
 template <RangeType Type = RangeType::CPU>
 inline void computeFrictionEnergy(
     DREnergyOutput& energyData,

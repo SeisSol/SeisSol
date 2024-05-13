@@ -53,8 +53,11 @@
 
 struct LocalIntegrationData;
 struct GlobalData;
-namespace seissol::initializer::parameters {
-  struct ReceiverOutputParameters;
+namespace seissol {
+  class SeisSol;
+  namespace initializer::parameters {
+    struct ReceiverOutputParameters;
+  }
 }
 
 namespace seissol::writer {
@@ -62,13 +65,18 @@ namespace seissol::writer {
     std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
 
     class ReceiverWriter : public seissol::Module {
+    private:
+      seissol::SeisSol& seissolInstance;
+
     public:
+      ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+
       void init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
           const seissol::geometry::MeshReader& mesh,
-          const seissol::initializers::Lut& ltsLut,
-          const seissol::initializers::LTS& lts,
+          const seissol::initializer::Lut& ltsLut,
+          const seissol::initializer::LTS& lts,
           const GlobalData* global);
 
       kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
@@ -84,6 +92,8 @@ namespace seissol::writer {
       // Hooks
       //
       void syncPoint(double) override;
+      void simulationStart() override;
+      void shutdown() override;
 
     private:
       [[nodiscard]] std::string fileName(unsigned pointId) const;

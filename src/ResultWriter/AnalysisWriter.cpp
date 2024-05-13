@@ -9,7 +9,7 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
 #include "Initializer/preProcessorMacros.hpp"
 
 namespace seissol::writer {
@@ -48,7 +48,7 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
-  const auto initialConditionType =  seissol::SeisSol::main.getSeisSolParameters().initialization.type;
+  const auto initialConditionType =  seissolInstance.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
      initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
@@ -59,11 +59,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
     << " at time " << simulationTime;
   
-  auto& iniFields = seissol::SeisSol::main.getMemoryManager().getInitialConditions();
+  auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = seissol::SeisSol::main.getMemoryManager().getLtsLut();
-  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
+  auto* lts = seissolInstance.getMemoryManager().getLts();
+  auto* ltsLut = seissolInstance.getMemoryManager().getLtsLut();
+  auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();

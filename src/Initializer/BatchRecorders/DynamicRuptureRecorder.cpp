@@ -1,10 +1,10 @@
+#include "Kernels/Interface.hpp"
 #include "Recorders.h"
-#include <Kernels/Interface.hpp>
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
   setUpContext(handler, layer);

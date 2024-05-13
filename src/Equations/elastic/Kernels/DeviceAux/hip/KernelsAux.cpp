@@ -1,6 +1,7 @@
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
 #include <generated_code/tensor.h>
+#include <vector>
 #include <yateto.h>
 #include <hip/hip_runtime.h>
 #include <cstdio>

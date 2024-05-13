@@ -5,13 +5,13 @@
 #include <limits>
 #include <utility>
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 struct ConditionalKey {
   ConditionalKey(size_t kernel,
                  size_t type = std::numeric_limits<size_t>::max(),
                  size_t face = std::numeric_limits<size_t>::max(),
                  size_t relation = std::numeric_limits<size_t>::max())
-      : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation){};
+      : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation) {};
 
   bool operator==(const ConditionalKey& other) const {
     return ((kernelId == other.kernelId) && (typeId == other.typeId) && (faceId == other.faceId) &&
@@ -35,7 +35,7 @@ struct ConditionalHash;
 
 template <>
 struct ConditionalHash<ConditionalKey> {
-  std::size_t operator()(ConditionalKey const& key) const {
+  std::size_t operator()(const ConditionalKey& key) const {
     std::size_t result = 0;
     hashCombine(result, key.kernelId);
     hashCombine(result, key.typeId);
@@ -44,6 +44,6 @@ struct ConditionalHash<ConditionalKey> {
     return result;
   }
 };
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #endif // SEISSOL_CONDITIONALKEY_HPP

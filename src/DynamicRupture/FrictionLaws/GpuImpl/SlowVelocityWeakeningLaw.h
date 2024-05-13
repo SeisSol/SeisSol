@@ -10,8 +10,8 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
@@ -22,9 +22,9 @@ class SlowVelocityWeakeningLaw
   struct Details {
     decltype(SlowVelocityWeakeningLaw::a) a;
     decltype(SlowVelocityWeakeningLaw::sl0) sl0;
-    decltype(dr::DRParameters::rsSr0) rsSr0;
-    decltype(dr::DRParameters::rsF0) rsF0;
-    decltype(dr::DRParameters::rsB) rsB;
+    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
+    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
+    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
   };
 
   Details getCurrentLtsLayerDetails() {
@@ -60,7 +60,7 @@ class SlowVelocityWeakeningLaw
     const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
     const double c =
         (0.5 / details.rsSr0) * sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   /**

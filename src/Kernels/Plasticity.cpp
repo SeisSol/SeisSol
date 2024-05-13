@@ -44,8 +44,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-#include <generated_code/kernel.h>
-#include <generated_code/init.h>
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
 #include "common.hpp"
 
 #ifdef ACL_DEVICE
@@ -249,7 +249,7 @@ namespace seissol::kernels {
                                                 double timeStepWidth,
                                                 double T_v,
                                                 GlobalData const *global,
-                                                initializers::recording::ConditionalPointersToRealsTable &table,
+                                                initializer::recording::ConditionalPointersToRealsTable &table,
                                                 PlasticityData *plasticityData) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
