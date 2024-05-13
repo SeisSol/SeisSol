@@ -290,7 +290,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
-    std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
+    std::memcpy(sourceReordered + sendReorder[i] * typesize, sourceChar + i * typesize, typesize);
   }
 
   for (int i = 0; i < commsize; ++i) {
@@ -316,7 +316,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
   for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-    std::memcpy(targetChar + recvReorder[i] * typesize, targetReordered + i * typesize, typesize);
+    std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
   }
 
   std::free(sourceReordered);
