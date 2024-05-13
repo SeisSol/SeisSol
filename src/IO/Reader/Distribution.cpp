@@ -289,8 +289,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
       while (intermediateSource[iSource].first != intermediateTarget[i].first) {
         ++iSource;
       }
-      sourceToTargetRankMap[i] = {intermediateSource[iSource], intermediateTarget[i].second};
-      targetToSourceRankMap[i] = {intermediateTarget[iSource], intermediateSource[i].second};
+      targetToSourceRankMap[i] = {intermediateSource[iSource], intermediateTarget[i].second};
+      sourceToTargetRankMap[i] = {intermediateTarget[i], intermediateSource[iSource].second};
     }
   }
 
@@ -300,7 +300,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   sendReorder = sendResult.second;
 
   auto recvResult = matchRanks(
-      sourceToTargetRankMap, targetIds, comm, sizetype, pairtype, tagFromIntermediateTarget);
+      targetToSourceRankMap, targetIds, comm, sizetype, pairtype, tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
