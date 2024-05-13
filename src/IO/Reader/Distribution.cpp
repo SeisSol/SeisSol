@@ -9,6 +9,7 @@
 #include <cstring>
 #include <mpi.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -138,12 +139,8 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
   auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
   {
-    std::unordered_map<std::size_t, std::size_t> sourceMap;
-    for (std::size_t i = 0; i < source.size(); ++i) {
-      sourceMap[source[i]] = i;
-    }
-
     // TODO: we already have that: sourceToRecvHistogram
+    std::unordered_map<std::size_t, std::size_t> reorderMap;
     {
       std::vector<std::size_t> sourceCounter(commsize);
       for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
@@ -153,12 +150,16 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
     }
     {
       std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
-      sendReorder.resize(sourceToTarget.size());
       for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
         auto& position = tempHistogram[sourceToTarget[i].first.second];
-        sendReorder[position] = sourceMap.at(sourceToTarget[i].first.first);
+        reorderMap[sourceToTarget[i].first.first] = position;
         ++position;
       }
+    }
+
+    sendReorder.resize(source.size());
+    for (std::size_t i = 0; i < source.size(); ++i) {
+      sendReorder[i] = reorderMap[source[i]];
     }
   }
 
@@ -197,15 +198,29 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   // note that the following operations all need to be stable (i.e. order-preserving) for these
   // methods to work correctly right now
 
-  std::vector<std::pair<std::size_t, int>> source(sourceIds.size());
-  for (std::size_t i = 0; i < source.size(); ++i) {
-    source[i] =
-        std::pair<std::size_t, int>(sourceIds[i], getRank(sourceIds[i], globalCount, commsize));
+  std::vector<std::pair<std::size_t, int>> source;
+  std::vector<std::pair<std::size_t, int>> target;
+
+  source.reserve(sourceIds.size());
+  target.reserve(targetIds.size());
+
+  {
+    std::unordered_set<std::size_t> seenIds;
+    for (std::size_t i = 0; i < source.size(); ++i) {
+      if (seenIds.find(sourceIds[i]) == seenIds.end()) {
+        seenIds.insert(sourceIds[i]);
+        source.push_back({sourceIds[i], getRank(sourceIds[i], globalCount, commsize)});
+      }
+    }
   }
-  std::vector<std::pair<std::size_t, int>> target(targetIds.size());
-  for (std::size_t i = 0; i < target.size(); ++i) {
-    target[i] =
-        std::pair<std::size_t, int>(targetIds[i], getRank(targetIds[i], globalCount, commsize));
+  {
+    std::unordered_set<std::size_t> seenIds;
+    for (std::size_t i = 0; i < target.size(); ++i) {
+      if (seenIds.find(targetIds[i]) == seenIds.end()) {
+        seenIds.insert(targetIds[i]);
+        target.push_back({targetIds[i], getRank(targetIds[i], globalCount, commsize)});
+      }
+    }
   }
 
   auto intermediateSource =
