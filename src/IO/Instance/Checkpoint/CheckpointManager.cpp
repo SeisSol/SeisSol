@@ -19,6 +19,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "utils/logger.h"
+
 namespace seissol::io::instance::checkpoint {
 
 std::function<writer::Writer(const std::string&, std::size_t, double)>
@@ -63,6 +65,8 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   std::size_t storesize = 1;
   void* datastore = std::malloc(1);
 
+  logInfo(seissol::MPI::mpi.rank()) << "Loading checkpoint...";
+
   auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
   reader.openFile(file);
   reader.openGroup("checkpoint");
@@ -70,9 +74,12 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     reader.openGroup(ckpTree.name);
     auto distributor = reader::Distributor(seissol::MPI::mpi.comm());
 
+    logInfo(seissol::MPI::mpi.rank()) << "Reading group IDs for" << ckpTree.name;
     auto groupIds = reader.readData<std::size_t>("__ids");
     distributor.setup(groupIds, ckpTree.ids);
     for (auto& variable : ckpTree.variables) {
+      logInfo(seissol::MPI::mpi.rank())
+          << "Reading variable" << ckpTree.name << "/" << variable.name;
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();
       if (currsize > storesize) {
@@ -88,6 +95,8 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   const double time = reader.readAttributeScalar<double>("__time");
   reader.closeGroup();
   reader.closeFile();
+
+  logInfo(seissol::MPI::mpi.rank()) << "Checkpoint loading complete.";
 
   std::free(datastore);
 
