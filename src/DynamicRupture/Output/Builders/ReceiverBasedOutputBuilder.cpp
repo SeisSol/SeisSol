@@ -11,7 +11,6 @@
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
-#include <Parallel/Helper.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -26,6 +25,7 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
+#include "Parallel/Helper.hpp"
 #include <memory>
 #include <tensor.h>
 #endif
