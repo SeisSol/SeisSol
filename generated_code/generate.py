@@ -197,6 +197,7 @@ generator.generate(outputDir=trueOutputDir,
                    include_tensors=include_tensors)
 
 def generate_general(subfolders):
+  # we use always use double here, since these kernels are only used in the initialization
   arch = useArchitectureIdentifiedBy('d' + cmdLineArgs.host_arch[1:])
 
   outputDir = os.path.join(cmdLineArgs.outputDir, 'general')
