@@ -101,6 +101,11 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
   }
 }
 
+// workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
+constexpr std::size_t QSpan = init::Q::Stop[0] - init::Q::Start[0];
+constexpr std::size_t momentFSRMSpan = tensor::momentFSRM::Shape[0];
+constexpr std::size_t mInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
+
 void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                                                  real* mInvJInvPhisAtSources,
                                                                  real* tensor,
@@ -128,18 +133,17 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(const std::arra
 
   real moment[6] = {mom(0, 0), mom(1, 1), mom(2, 2), mom(0, 1), mom(1, 2), mom(0, 2)};
   for (unsigned t = 0; t < 6; ++t) {
-    for (unsigned k = 0; k < tensor::mInvJInvPhisAtSources::Shape[0]; ++k) {
-      dofs[k + t * (init::Q::Stop[0] - init::Q::Start[0])] += mInvJInvPhisAtSources[k] * moment[t];
+    for (unsigned k = 0; k < mInvJInvPhisAtSourcesSpan; ++k) {
+      dofs[k + t * QSpan] += mInvJInvPhisAtSources[k] * moment[t];
     }
   }
 }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSourceFSRM(
     real slip, real* mInvJInvPhisAtSources, real* tensor, double from, double to, real* dofs) {
-  for (unsigned p = 0; p < tensor::momentFSRM::Shape[0]; ++p) {
-    for (unsigned k = 0; k < tensor::mInvJInvPhisAtSources::Shape[0]; ++k) {
-      dofs[k + p * (init::Q::Stop[0] - init::Q::Start[0])] +=
-          slip * mInvJInvPhisAtSources[k] * tensor[p];
+  for (unsigned p = 0; p < momentFSRMSpan; ++p) {
+    for (unsigned k = 0; k < mInvJInvPhisAtSourcesSpan; ++k) {
+      dofs[k + p * QSpan] += slip * mInvJInvPhisAtSources[k] * tensor[p];
     }
   }
 }
