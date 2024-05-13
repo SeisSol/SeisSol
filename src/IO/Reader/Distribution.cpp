@@ -121,25 +121,27 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
 
   std::vector<std::size_t> sendOffsets, sendReorder;
 
-  std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap(
-      intermediateTarget.size());
+  std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
+  sourceToTargetRankMap.reserve(intermediateTarget.size());
   {
     // for multiple source locations, we assume that all contain the same data, thus take one of
     // them for multiple target locations, we need to write to them all
-    std::unordered_map<std::size_t, int> intermediateSourceMap;
+    std::unordered_multimap<std::size_t, int> intermediateSourceMap;
     for (const auto& i : intermediateSource) {
       intermediateSourceMap.insert(i);
     }
     for (std::size_t i = 0; i < intermediateTarget.size(); ++i) {
-      sourceToTargetRankMap[i] = {intermediateTarget[i],
-                                  intermediateSourceMap.at(intermediateTarget[i].first)};
+      for (auto it = intermediateSourceMap.find(intermediateTarget[i].first);
+           it != intermediateSourceMap.end() && it->first == intermediateTarget[i].first;
+           ++it) {
+        sourceToTargetRankMap.push_back({intermediateTarget[i], it->second});
+      }
     }
   }
 
   auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
   {
-    // TODO: we already have that: sourceToRecvHistogram
     std::unordered_map<std::size_t, std::size_t> reorderMap;
     {
       std::vector<std::size_t> sourceCounter(commsize);
@@ -159,7 +161,7 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
 
     sendReorder.resize(source.size());
     for (std::size_t i = 0; i < source.size(); ++i) {
-      sendReorder[i] = reorderMap[source[i]];
+      sendReorder[i] = reorderMap.at(source[i]);
     }
   }
 
