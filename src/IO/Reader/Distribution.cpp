@@ -109,20 +109,20 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
 }
 
 static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
-    matchRanks(const std::vector<std::pair<std::size_t, int>>& intermediateSource,
-               const std::vector<std::pair<std::size_t, int>>& intermediateTarget,
-               const std::vector<std::size_t>& source,
-               MPI_Comm comm,
-               MPI_Datatype sizetype,
-               MPI_Datatype datatype,
-               int tag) {
+    matchRanks2(const std::vector<std::pair<std::size_t, int>>& intermediateSource,
+                const std::vector<std::pair<std::size_t, int>>& intermediateTarget,
+                const std::vector<std::size_t>& source,
+                MPI_Comm comm,
+                MPI_Datatype sizetype,
+                MPI_Datatype datatype,
+                int tag) {
   int commsize;
   MPI_Comm_size(comm, &commsize);
 
   std::vector<std::size_t> sendOffsets, sendReorder;
 
   std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
-  sourceToTargetRankMap.reserve(intermediateTarget.size());
+  sourceToTargetRankMap.reserve(std::max(intermediateTarget.size(), intermediateSource.size()));
   {
     // for multiple source locations, we assume that all contain the same data, thus take one of
     // them for multiple target locations, we need to write to them all
@@ -167,6 +167,48 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
 
   return {sendOffsets, sendReorder};
 }
+
+static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
+    const std::vector<std::pair<std::pair<std::size_t, int>, int>>& sourceToTargetRankMap,
+    const std::vector<std::size_t>& source,
+    MPI_Comm comm,
+    MPI_Datatype sizetype,
+    MPI_Datatype datatype,
+    int tag) {
+  int commsize;
+  MPI_Comm_size(comm, &commsize);
+
+  std::vector<std::size_t> sendOffsets, sendReorder;
+
+  auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
+      sourceToTargetRankMap, comm, sizetype, datatype, tag);
+  {
+    std::unordered_map<std::size_t, std::size_t> reorderMap;
+    {
+      std::vector<std::size_t> sourceCounter(commsize);
+      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
+        ++sourceCounter[sourceToTarget[i].first.second];
+      }
+      sendOffsets = computeHistogram(sourceCounter);
+    }
+    {
+      std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
+      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
+        auto& position = tempHistogram[sourceToTarget[i].first.second];
+        reorderMap[sourceToTarget[i].first.first] = position;
+        ++position;
+      }
+    }
+
+    sendReorder.resize(source.size());
+    for (std::size_t i = 0; i < source.size(); ++i) {
+      sendReorder[i] = reorderMap.at(source[i]);
+    }
+  }
+
+  return {sendOffsets, sendReorder};
+}
+
 } // namespace
 
 namespace seissol::io::reader {
@@ -235,23 +277,30 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   std::sort(intermediateSource.begin(), intermediateSource.end());
   std::sort(intermediateTarget.begin(), intermediateTarget.end());
 
-  auto sendResult = matchRanks(intermediateSource,
-                               intermediateTarget,
-                               sourceIds,
-                               comm,
-                               sizetype,
-                               pairtype,
-                               tagFromIntermediateSource);
+  std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
+  std::vector<std::pair<std::pair<std::size_t, int>, int>> targetToSourceRankMap;
+
+  sourceToTargetRankMap.resize(intermediateTarget.size());
+  targetToSourceRankMap.resize(intermediateTarget.size());
+
+  {
+    std::size_t iSource = 0;
+    for (std::size_t i = 0; i < intermediateTarget.size(); ++i) {
+      while (intermediateSource[iSource].first != intermediateTarget[i].first) {
+        ++iSource;
+      }
+      sourceToTargetRankMap[i] = {intermediateSource[iSource], intermediateTarget[i].second};
+      targetToSourceRankMap[i] = {intermediateTarget[iSource], intermediateSource[i].second};
+    }
+  }
+
+  auto sendResult = matchRanks(
+      sourceToTargetRankMap, sourceIds, comm, sizetype, pairtype, tagFromIntermediateSource);
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
-  auto recvResult = matchRanks(intermediateTarget,
-                               intermediateSource,
-                               targetIds,
-                               comm,
-                               sizetype,
-                               pairtype,
-                               tagFromIntermediateTarget);
+  auto recvResult = matchRanks(
+      sourceToTargetRankMap, targetIds, comm, sizetype, pairtype, tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
