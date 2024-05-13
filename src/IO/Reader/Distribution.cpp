@@ -213,6 +213,11 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   auto intermediateTarget =
       distributeIds<std::size_t>(target, comm, sizetype, sizetype, tagToIntermediateTarget);
 
+  // we need the same ordering, to transfer the IDs in the right order
+  // TODO(David): may be removable
+  std::sort(intermediateSource.begin(), intermediateSource.end());
+  std::sort(intermediateTarget.begin(), intermediateTarget.end());
+
   auto sendResult = matchRanks(intermediateSource,
                                intermediateTarget,
                                sourceIds,
