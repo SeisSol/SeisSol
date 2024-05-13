@@ -3,6 +3,7 @@
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -225,6 +226,15 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                                tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
+
+  // selftest
+#ifndef NDEBUG
+  std::vector<std::size_t> targetCompare(targetIds.size());
+  distribute(targetCompare.data(), sourceIds.data());
+  for (std::size_t i = 0; i < targetIds.size(); ++i) {
+    assert(targetIds[i] == targetCompare[i]);
+  }
+#endif
 }
 
 void Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
