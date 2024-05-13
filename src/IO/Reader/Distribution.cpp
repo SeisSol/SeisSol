@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "utils/logger.h"
+
 namespace {
 static int getRank(std::size_t id, std::size_t count, int commsize) {
   const std::size_t piece1 = (count + commsize - 1) / commsize;
@@ -128,11 +130,8 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
       intermediateSourceMap.insert(i);
     }
     for (std::size_t i = 0; i < intermediateTarget.size(); ++i) {
-      for (auto it = intermediateSourceMap.find(intermediateTarget[i].first);
-           it != intermediateSourceMap.end() && it->first == intermediateTarget[i].first;
-           ++it) { // TODO: handle the multimap properly
-        sourceToTargetRankMap[i] = {{it->first, intermediateTarget[i].second}, it->second};
-      }
+      sourceToTargetRankMap[i] = {intermediateTarget[i],
+                                  intermediateSourceMap.at(intermediateTarget[i].first)};
     }
   }
 
@@ -145,14 +144,22 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
     }
 
     // TODO: we already have that: sourceToRecvHistogram
-    std::vector<std::size_t> sourceCounter(commsize);
-    for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-      ++sourceCounter[sourceToTarget[i].first.second];
+    {
+      std::vector<std::size_t> sourceCounter(commsize);
+      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
+        ++sourceCounter[sourceToTarget[i].first.second];
+      }
+      sendOffsets = computeHistogram(sourceCounter);
     }
-    sendOffsets = computeHistogram(sourceCounter);
-    sendReorder.resize(sourceToTarget.size());
-    for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-      sendReorder[i] = sourceMap.at(sourceToTarget[i].first.first);
+    {
+      std::vector<std::size_t> sourceCounter(commsize);
+      sendReorder.resize(sourceToTarget.size());
+      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
+        auto reorderPos = sendReorder[sourceToTarget[i].first.second] +
+                          sourceCounter[sourceToTarget[i].first.second];
+        sendReorder[reorderPos] = sourceMap.at(sourceToTarget[i].first.first);
+        ++sourceCounter[sourceToTarget[i].first.second];
+      }
     }
   }
 
@@ -217,8 +224,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
-  auto recvResult = matchRanks(intermediateSource,
-                               intermediateTarget,
+  auto recvResult = matchRanks(intermediateTarget,
+                               intermediateSource,
                                targetIds,
                                comm,
                                sizetype,
@@ -227,14 +234,17 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
-  // selftest
-#ifndef NDEBUG
-  std::vector<std::size_t> targetCompare(targetIds.size());
-  distribute(targetCompare.data(), sourceIds.data());
-  for (std::size_t i = 0; i < targetIds.size(); ++i) {
-    assert(targetIds[i] == targetCompare[i]);
+  // selftest (maybe only activate for debug?)
+  {
+    std::vector<std::size_t> targetCompare(targetIds.size());
+    distribute(targetCompare.data(), sourceIds.data());
+    for (std::size_t i = 0; i < targetIds.size(); ++i) {
+      assert(targetIds[i] == targetCompare[i]);
+      if (targetIds[i] != targetCompare[i]) {
+        logError() << "Global ID redistribution mismatch. Checkpoint loading failed.";
+      }
+    }
   }
-#endif
 }
 
 void Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
@@ -259,7 +269,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
-    std::memcpy(sourceReordered + sendReorder[i] * typesize, sourceChar + i * typesize, typesize);
+    std::memcpy(sourceReordered + i * typesize, sourceChar + sendReorder[i] * typesize, typesize);
   }
 
   for (int i = 0; i < commsize; ++i) {
@@ -285,7 +295,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
   for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-    std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
+    std::memcpy(targetChar + recvReorder[i] * typesize, targetReordered + i * typesize, typesize);
   }
 
   std::free(sourceReordered);
