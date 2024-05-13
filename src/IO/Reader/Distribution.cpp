@@ -108,69 +108,10 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
   return outputIntermediate;
 }
 
-static std::pair<std::vector<std::size_t>, std::vector<std::size_t>>
-    matchRanks2(const std::vector<std::pair<std::size_t, int>>& intermediateSource,
-                const std::vector<std::pair<std::size_t, int>>& intermediateTarget,
-                const std::vector<std::size_t>& source,
-                MPI_Comm comm,
-                MPI_Datatype sizetype,
-                MPI_Datatype datatype,
-                int tag) {
-  int commsize;
-  MPI_Comm_size(comm, &commsize);
-
-  std::vector<std::size_t> sendOffsets, sendReorder;
-
-  std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
-  sourceToTargetRankMap.reserve(std::max(intermediateTarget.size(), intermediateSource.size()));
-  {
-    // for multiple source locations, we assume that all contain the same data, thus take one of
-    // them for multiple target locations, we need to write to them all
-    std::unordered_multimap<std::size_t, int> intermediateSourceMap;
-    for (const auto& i : intermediateSource) {
-      intermediateSourceMap.insert(i);
-    }
-    for (std::size_t i = 0; i < intermediateTarget.size(); ++i) {
-      for (auto it = intermediateSourceMap.find(intermediateTarget[i].first);
-           it != intermediateSourceMap.end() && it->first == intermediateTarget[i].first;
-           ++it) {
-        sourceToTargetRankMap.push_back({intermediateTarget[i], it->second});
-      }
-    }
-  }
-
-  auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
-      sourceToTargetRankMap, comm, sizetype, datatype, tag);
-  {
-    std::unordered_map<std::size_t, std::size_t> reorderMap;
-    {
-      std::vector<std::size_t> sourceCounter(commsize);
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        ++sourceCounter[sourceToTarget[i].first.second];
-      }
-      sendOffsets = computeHistogram(sourceCounter);
-    }
-    {
-      std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        auto& position = tempHistogram[sourceToTarget[i].first.second];
-        reorderMap[sourceToTarget[i].first.first] = position;
-        ++position;
-      }
-    }
-
-    sendReorder.resize(source.size());
-    for (std::size_t i = 0; i < source.size(); ++i) {
-      sendReorder[i] = reorderMap.at(source[i]);
-    }
-  }
-
-  return {sendOffsets, sendReorder};
-}
-
 static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     const std::vector<std::pair<std::pair<std::size_t, int>, int>>& sourceToTargetRankMap,
     const std::vector<std::size_t>& source,
+    bool single,
     MPI_Comm comm,
     MPI_Datatype sizetype,
     MPI_Datatype datatype,
@@ -205,6 +146,9 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
       for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
            ++it) {
         sendReorder.push_back(it->second);
+        if (single) {
+          break;
+        }
       }
     }
   }
@@ -298,12 +242,12 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto sendResult = matchRanks(
-      sourceToTargetRankMap, sourceIds, comm, sizetype, pairtype, tagFromIntermediateSource);
+      sourceToTargetRankMap, sourceIds, true, comm, sizetype, pairtype, tagFromIntermediateSource);
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
   auto recvResult = matchRanks(
-      targetToSourceRankMap, targetIds, comm, sizetype, pairtype, tagFromIntermediateTarget);
+      targetToSourceRankMap, targetIds, false, comm, sizetype, pairtype, tagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
