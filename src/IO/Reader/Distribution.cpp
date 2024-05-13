@@ -111,7 +111,7 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
 static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     const std::vector<std::pair<std::pair<std::size_t, int>, int>>& sourceToTargetRankMap,
     const std::vector<std::size_t>& source,
-    bool single,
+    bool recv,
     MPI_Comm comm,
     MPI_Datatype sizetype,
     MPI_Datatype datatype,
@@ -141,13 +141,20 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
       }
     }
 
-    sendReorder.resize(sendOffsets.back());
-    for (std::size_t i = 0; i < source.size(); ++i) {
-      for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
-           ++it) {
-        sendReorder[it->second] = i;
-        if (single) {
-          break;
+    // TODO(David): a bit too hacky...
+    if (recv) {
+      sendReorder.resize(source.size());
+      for (std::size_t i = 0; i < source.size(); ++i) {
+        auto it = reorderMap.find(source[i]);
+        sendReorder[i] = it->second;
+      }
+    }
+    else {
+      sendReorder.resize(sendOffsets.back());
+      for (std::size_t i = 0; i < source.size(); ++i) {
+        for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
+            ++it) {
+          sendReorder[it->second] = i;
         }
       }
     }
@@ -318,7 +325,7 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-    std::memcpy(targetChar + recvReorder[i] * typesize, targetReordered + i * typesize, typesize);
+    std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
   }
 
   std::free(sourceReordered);
