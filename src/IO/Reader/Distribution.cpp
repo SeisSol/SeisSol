@@ -289,6 +289,9 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   char* sourceReordered = reinterpret_cast<char*>(std::malloc(typesize * sendReorder.size()));
   char* targetReordered = reinterpret_cast<char*>(std::malloc(typesize * recvReorder.size()));
 
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
   for (std::size_t i = 0; i < sendReorder.size(); ++i) {
     std::memcpy(sourceReordered + sendReorder[i] * typesize, sourceChar + i * typesize, typesize);
   }
@@ -315,6 +318,9 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
   }
   MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
   for (std::size_t i = 0; i < recvReorder.size(); ++i) {
     std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
   }

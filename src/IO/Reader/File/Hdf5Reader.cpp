@@ -95,7 +95,22 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
 #endif // USE_MPI
 
-  constexpr std::size_t chunksize = 1'000'000;
+  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataspace = _eh(H5Dget_space(dataset));
+
+  const hid_t datatype = datatype::convertToHdf5(targetType);
+
+  const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
+  std::vector<hsize_t> dims(rank);
+  _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
+
+  std::size_t dimprod = 1;
+  for (auto dim : dims) {
+    dimprod *= dim;
+  }
+
+  const std::size_t chunksize =
+      std::max(std::size_t(1), std::size_t(2'000'000'000) / (targetType->size() * dimprod));
   std::size_t rounds = (count + chunksize - 1) / chunksize;
   std::size_t start = 0;
   MPI_Allreduce(MPI_IN_PLACE,
@@ -110,15 +125,6 @@ void Hdf5Reader::readDataRaw(void* data,
              datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
              MPI_SUM,
              comm);
-
-  const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
-  const hid_t dataspace = _eh(H5Dget_space(dataset));
-
-  const hid_t datatype = datatype::convertToHdf5(targetType);
-
-  const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
-  std::vector<hsize_t> dims(rank);
-  _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
 
   std::vector<hsize_t> nullstart(rank);
   std::vector<hsize_t> readcount(rank);
