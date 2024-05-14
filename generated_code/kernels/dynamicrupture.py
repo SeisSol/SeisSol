@@ -533,6 +533,9 @@ class FastVelocityWeakeningLaw(RateAndState):
         localA = forge.cast(self.a, FloatingPointType.DOUBLE)
         c = 0.5 / self.rsSr0 * forge.exp(localStateVariable / localA)
         return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
+    
+    def updateStateVariable(self, routine):
+        pass
 
 class SlowVelocityWeakeningLaw(RateAndState):
     def __init__(self, aderdg, numberOfPoints, tpmethod):
@@ -543,6 +546,25 @@ class SlowVelocityWeakeningLaw(RateAndState):
         localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
         log1 = forge.log(self.rsSr0 * localStateVariable / localSl0)
         x = 0.5 * (localSlipRateMagnitude / self.rsSr0) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
+        return localA * forge.asinh(x)
+    
+    def updateMuDerivative(self, localSlipRateMagnitude, localStateVariable):
+        localA = forge.cast(self.a, FloatingPointType.DOUBLE)
+        localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
+        log1 = forge.log(self.rsSr0 * localStateVariable / localSl0)
+        c = (0.5 / self.rsSr0) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
+        return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
+
+class FL7(RateAndState):
+    def __init__(self, aderdg, numberOfPoints, tpmethod):
+        super().__init__(aderdg, numberOfPoints, tpmethod)
+    
+    def updateMu(self, localSlipRateMagnitude, localStateVariable):
+        # mu_0 + a V / (V+V_C) + b Psi / (Psi + V_C)
+        localA = forge.cast(self.a, FloatingPointType.DOUBLE)
+        localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
+        div = self.rsF0 + self.rsB * localSlipRateMagnitude / (localSlipRateMagnitude + self.rsSr0)
+        x = 0.5 * forge.exp(localSlipRateMagnitude / (localSlipRateMagnitude + self.rsSr0)) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
         return localA * forge.asinh(x)
     
     def updateMuDerivative(self, localSlipRateMagnitude, localStateVariable):
@@ -697,7 +719,6 @@ class ImposedSlipLaw(FrictionLawBase):
             forge.assign(self.accumulatedSlipMagnitude, accumulatedSlipMagnitude),
             forge.assign(self.tractionResultsTraction1[i], traction1),
             forge.assign(self.tractionResultsTraction2[i], traction2)
-            # TODO traction results
         ]
     
     def saveDynamicStressOutput(self, routine):
