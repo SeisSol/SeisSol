@@ -797,16 +797,25 @@ m_timeKernel.computeTaylorExpansion(
         m_timeKernel.computeTaylorExpansion(
             subTimeStart + timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
 */
-if(cellInformation->ltsSetup & (1 << (side+4))){
-	logInfo() << "Equal Time Steps";        
-m_timeKernel.computeTaylorExpansion(
-               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-           m_timeKernel.computeTaylorExpansion(
-               timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-          } else if(cellInformation->ltsSetup & (1 << side)){
-logError() << "TimeStep local < TimeStep Neighbor";}
-        else {
- logError() << "TimeStep Neighbor < TimeStep Local";}
+        if (cellInformation->ltsSetup & (1 << (side + 4))) {
+          // "Equal Time Steps";
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        } else if (cellInformation->ltsSetup & (1 << side)) {
+          // "TimeStep local < TimeStep Neighbor";
+          m_timeKernel.computeTaylorExpansion(
+              subTimeStart + timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], subTimeStart, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        } else {
+          // "TimeStep Neighbor < TimeStep Local";
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], subTimeStart, derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              subTimeStart + timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        }
 
 
         // Prototype is necessary for openmp
