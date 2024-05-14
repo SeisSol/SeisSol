@@ -665,7 +665,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol:
     computeNeighboringIntegrationImplementation<true>(i_layerData, subTimeStart);
   } else {
     computeNeighboringIntegrationImplementation<false>(i_layerData, subTimeStart);
-  }
+}
 }
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializer::Layer&  i_layerData,
@@ -1019,11 +1019,13 @@ void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& nei
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
     lastSubTime = neighborCluster.ct.correctionTime;
   }
+/*
   #ifdef USE_DAMAGEDELASTIC
   else{
     lastSubTime = neighborCluster.ct.correctionTime;
   }
   #endif
+*/
 }
 void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
   // Doesn't do anything

@@ -799,24 +799,46 @@ m_timeKernel.computeTaylorExpansion(
 */
         if (cellInformation->ltsSetup & (1 << (side + 4))) {
           // "Equal Time Steps";
-          m_timeKernel.computeTaylorExpansion(
+/*
+	//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
+if(std::abs(subTimeStart) > 1e-10)
+{
+	logError() << "subTimeStart condition 1: " << subTimeStart;
+}
+*/          
+m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
           m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
         } else if (cellInformation->ltsSetup & (1 << side)) {
           // "TimeStep local < TimeStep Neighbor";
+/*
+//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
+if(std::abs(subTimeStart) > 1e-10) 
+{
+         logError() << "subTimeStart condition 2: " << subTimeStart;
+ }
+*/
+	//logInfo() << subTimeStart;
           m_timeKernel.computeTaylorExpansion(
-              subTimeStart + timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
           m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], subTimeStart, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
         } else {
           // "TimeStep Neighbor < TimeStep Local";
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], subTimeStart, derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              subTimeStart + timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        }
+/*
+//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
+if(std::abs(subTimeStart) > 1e-10) 
+{
+         logError() << "subTimeStart condition 3: " << subTimeStart;
+ }
+*/
 
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], subTimeStart , derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        }
 
         // Prototype is necessary for openmp
         kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
