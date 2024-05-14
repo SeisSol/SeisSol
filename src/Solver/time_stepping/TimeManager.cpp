@@ -43,10 +43,10 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include <Initializer/preProcessorMacros.hpp>
-#include <Initializer/time_stepping/common.hpp>
+#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/time_stepping/common.hpp"
 #include "SeisSol.h"
-#include <ResultWriter/ClusteringWriter.h>
+#include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.hpp"
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):

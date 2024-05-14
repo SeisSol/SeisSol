@@ -70,9 +70,9 @@
 
 #include "PointMapper.h"
 #include <cstring>
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 #include <utils/logger.h>
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 
 void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
                                         seissol::geometry::MeshReader const& mesh,

@@ -1,30 +1,30 @@
-#include "Init.hpp"
 #include "InitMesh.hpp"
+#include "Init.hpp"
 
 #include <algorithm>
 #include <cstring>
 #include <iostream>
 
-#include "Eigen/Dense"
-#include "utils/logger.h"
 #include "utils/env.h"
+#include "utils/logger.h"
+#include <Eigen/Dense>
 
 #ifdef USE_NETCDF
-#include "Geometry/NetcdfReader.h"
 #include "Geometry/CubeGenerator.h"
+#include "Geometry/NetcdfReader.h"
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "Modules/Modules.h"
-#include "Monitoring/instrumentation.hpp"
-#include "Monitoring/Stopwatch.h"
-#include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
-#include "Solver/time_stepping/MiniSeisSol.h"
-#include "SeisSol.h"
+#include "Modules/Modules.h"
+#include "Monitoring/Stopwatch.h"
+#include "Monitoring/instrumentation.hpp"
+#include "Numerical_aux/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
+#include "SeisSol.h"
+#include "Solver/time_stepping/MiniSeisSol.h"
 
 #include "Parallel/MPI.h"
 
@@ -107,25 +107,49 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
     _eh(H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info));
     hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plist_id));
-    hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
-    hid_t boundaryType = _eh(H5Dget_type(boundaryDataset));
-    hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
+    hid_t existenceTest = _eh(H5Aexists(dataFile, "boundary-format"));
+    if (existenceTest > 0) {
+      logInfo(rank) << "Boundary format given in PUML file.";
+      hid_t boundaryAttribute = _eh(H5Aopen(dataFile, "boundary-format", H5P_DEFAULT));
 
-    auto boundaryTypeSize = _eh(H5Tget_size(boundaryType));
-    auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+      char* formatRaw;
+      hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
+      _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
+      _eh(H5Aclose(boundaryAttribute));
+      _eh(H5Tclose(boundaryAttributeType));
 
-    _eh(H5Sclose(boundarySpace));
-    _eh(H5Dclose(boundaryDataset));
+      auto format = std::string(formatRaw);
+      _eh(H5free_memory(formatRaw));
+      if (format == "i32x4") {
+        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
+      } else if (format == "i64") {
+        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
+      } else if (format == "i32") {
+        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+      } else {
+        logError() << "Unkown boundary format given in PUML file:" << format;
+      }
+    } else {
+      logInfo(rank) << "Boundary format not given in PUML file; inferring from array shape.";
+      hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
+      hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
+      auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+
+      _eh(H5Sclose(boundarySpace));
+      _eh(H5Dclose(boundaryDataset));
+
+      // avoid checking the type size here
+      if (boundaryTypeRank == 2) {
+        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
+      } else if (boundaryTypeRank == 1) {
+        boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
+      } else {
+        logError() << "Unknown boundary format of rank" << boundaryTypeRank;
+      }
+    }
+
     _eh(H5Fclose(dataFile));
     _eh(H5Pclose(plist_id));
-
-    if (boundaryTypeRank == 2) {
-      boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-    } else if (boundaryTypeSize > 4) {
-      boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-    } else {
-      boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
-    }
   }
 
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {

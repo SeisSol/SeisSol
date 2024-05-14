@@ -50,8 +50,8 @@
 
 #include "utils/logger.h"
 
-#include "MeshReader.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
 
 namespace seissol::geometry {
 

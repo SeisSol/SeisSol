@@ -38,7 +38,7 @@
  * Common kernel-level functions
  **/
  
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
 
 #include <immintrin.h>
 

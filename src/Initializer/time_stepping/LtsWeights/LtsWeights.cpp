@@ -41,13 +41,13 @@
 #include "LtsWeights.h"
 
 #include <Eigen/Eigenvalues>
-#include <Geometry/PUMLReader.h>
-#include <Kernels/precision.hpp>
-#include <Initializer/typedefs.hpp>
+#include "Geometry/PUMLReader.h"
+#include "Kernels/precision.hpp"
+#include "Initializer/typedefs.hpp"
 
-#include <PUML/PUML.h>
-#include <PUML/Downward.h>
-#include <PUML/Upward.h>
+#include "PUML/PUML.h"
+#include "PUML/Downward.h"
+#include "PUML/Upward.h"
 
 #include "Initializer/time_stepping/GlobalTimestep.hpp"
 #include "Parallel/MPI.h"

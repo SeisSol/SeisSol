@@ -1,8 +1,8 @@
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
-#include <SourceTerm/NRFReader.h>
-#include <SourceTerm/NRF.h>
+#include "SourceTerm/NRF.h"
+#include "SourceTerm/NRFReader.h"
 
 #include "slipRatesData.h"
 

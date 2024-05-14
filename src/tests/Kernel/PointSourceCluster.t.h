@@ -1,13 +1,13 @@
 // Copyright (C) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include <Kernels/PointSourceCluster.h>
-#include <Kernels/precision.hpp>
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/precision.hpp"
 
 #include "doctest.h"
 
-#include <vector>
 #include <cmath>
+#include <vector>
 
 namespace seissol::unit_test {
 TEST_CASE("computeSampleTimeIntegral") {
@@ -20,12 +20,12 @@ TEST_CASE("computeSampleTimeIntegral") {
     sr[i] = std::sin(pi * i * samplingInterval);
   }
 
-  auto const computeIntegral = [&](double from, double to, double onsetTime) {
+  const auto computeIntegral = [&](double from, double to, double onsetTime) {
     return kernels::computeSampleTimeIntegral(
         from, to, onsetTime, samplingInterval, sr.data(), sampleSize);
   };
 
-  auto const ref = [&](double from, double to) {
+  const auto ref = [&](double from, double to) {
     return (-std::cos(pi * to) + std::cos(pi * from)) / pi;
   };
 

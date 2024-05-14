@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include <Numerical_aux/Functions.h>
+#include "Numerical_aux/Functions.h"
 
 namespace seissol::unit_test {
 

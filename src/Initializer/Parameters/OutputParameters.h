@@ -2,8 +2,8 @@
 #define SEISSOL_OUTPUT_PARAMETERS_H
 
 #include <list>
-#include <unordered_set>
 #include <string>
+#include <unordered_set>
 
 #include <xdmfwriter/backends/Backend.h>
 
@@ -42,6 +42,7 @@ struct EnergyOutputParameters {
   double interval;
   bool terminalOutput;
   double terminatorMaxTimePostRupture;
+  double terminatorMomentRateThreshold;
 };
 
 struct FreeSurfaceOutputParameters {
@@ -81,7 +82,7 @@ struct OutputBounds {
                OutputInterval intervalX,
                OutputInterval intervalY,
                OutputInterval intervalZ)
-      : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ){};
+      : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ) {};
 
   bool contains(double x, double y, double z) const {
     if (enabled) {
