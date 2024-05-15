@@ -7,8 +7,8 @@ namespace seissol::parallel::runtime {
 
 void StreamRuntime::syncToSycl(void* queuePtr) {
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(localForkEventSycl, streamPtr);
-  device().api->syncStreamWithEvent(queuePtr, localForkEventSycl);
+  device().api->recordEventOnStream(forkEventSycl, streamPtr);
+  device().api->syncStreamWithEvent(queuePtr, forkEventSycl);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
   auto* localForkEventSycl{forkEventSycl};
@@ -20,8 +20,8 @@ void StreamRuntime::syncToSycl(void* queuePtr) {
 }
 void StreamRuntime::syncFromSycl(void* queuePtr) {
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(localJoinEventSycl, queuePtr);
-  device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
+  device().api->recordEventOnStream(joinEventSycl, queuePtr);
+  device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
   queue->wait();
