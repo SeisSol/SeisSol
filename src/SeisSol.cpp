@@ -64,7 +64,7 @@
 namespace seissol {
 
 bool SeisSol::init(int argc, char* argv[]) {
-  const int rank = MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
@@ -80,19 +80,20 @@ bool SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
 #endif
 
-  if (MPI::mpi.rank() == 0) {
-    const auto& hostNames = MPI::mpi.getHostNames();
+  if (seissol::MPI::mpi.rank() == 0) {
+    const auto& hostNames = seissol::MPI::mpi.getHostNames();
     logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
 #ifdef USE_MPI
-  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
-  logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:" << MPI::mpi.sharedMemMpiSize();
-  MPI::mpi.printAcceleratorDeviceInfo();
+  logInfo(rank) << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
+  logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:"
+                << seissol::MPI::mpi.sharedMemMpiSize();
+  seissol::MPI::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  MPI::mpi.setDataTransferModeFromEnv();
+  seissol::MPI::mpi.setDataTransferModeFromEnv();
 
-  printPersistentMpiInfo(MPI::mpi);
+  printPersistentMpiInfo(seissol::MPI::mpi);
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
@@ -102,8 +103,8 @@ bool SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "OpenMP worker affinity (this node)   :"
                 << parallel::Pinning::maskToString(pinning.getNodeMask());
 
-  seissol::printCommThreadInfo(MPI::mpi);
-  if (seissol::useCommThread(MPI::mpi)) {
+  seissol::printCommThreadInfo(seissol::MPI::mpi);
+  if (seissol::useCommThread(seissol::MPI::mpi)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo(rank) << "Communication thread affinity        :"
                   << parallel::Pinning::maskToString(freeCpus);
@@ -165,18 +166,18 @@ void SeisSol::finalize() {
 
   Modules::callHook<ModuleHook::Shutdown>();
 
-  const int rank = MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
 
   m_timeManager.freeDynamicResources();
 
-  MPI::mpi.finalize();
+  seissol::MPI::mpi.finalize();
 
   logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
   m_backupTimeStamp = stamp;
-  MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
+  seissol::MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
 }
 
 } // namespace seissol
