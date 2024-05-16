@@ -3,14 +3,7 @@
 #include "utils/env.h"
 #include "utils/logger.h"
 
-#ifdef USE_MPI
 #include "Parallel/MPI.h"
-#endif // USE_MPI
-
-#include <netcdf.h>
-#include <netcdf_par.h>
-
-#include <omp.h>
 
 #include <algorithm>
 #include <cstring>
@@ -21,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include <netcdf.h>
 #include <omp.h>
 
 #include "MeshReader.h"
@@ -255,7 +247,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     size_t partitions = numPartitions[3];
 
     if (partitions != static_cast<unsigned int>(nProcs))
-      logError() << "Number of partitions in netCDF file does not match number of MPI ranks.";
+      logError() << "Number of partitions does not match number of MPI ranks.";
 
     bndSize = 6;
     bndElemSize = *std::max_element(numBndElements, numBndElements + 3);
@@ -1760,7 +1752,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   delete[] bndElemLocalIdsPtr;
   delete[] elemMPIIndicesPtr;
 
-  // Close netcdf file
+  // Close MPI communicator
   if (masterRank >= 0) {
 #ifdef USE_MPI
     MPI_Comm_free(&commMaster);
