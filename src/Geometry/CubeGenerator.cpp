@@ -61,33 +61,6 @@ static const int TET_SIDE_ORIENTATIONS[2][5 * 4] = {
     {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
     {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
 
-static inline void loadBar(int x, int n, int rank, int r = 100, int w = 50) {
-  std::ostringstream bar;
-  r = std::min(r, n);
-
-  // Only update r times.
-  if (x % (n / r) != 0)
-    return;
-
-  // Calculuate the ratio of complete-to-incomplete.
-  float ratio = x / (float)n;
-  int c = ratio * w;
-
-  // Show the percentage complete.
-  bar << std::setw(3) << (int)(ratio * 100) << "% [";
-
-  // Show the load bar.
-  for (int x = 0; x < c; x++)
-    bar << '=';
-
-  for (int x = c; x < w; x++)
-    bar << ' ';
-
-  bar << ']';
-
-  logInfo(rank) << bar.str();
-}
-
 static const char* dim2str(unsigned int dim) {
   switch (dim) {
   case 0:
@@ -250,8 +223,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
             << numElemPerPart[1] << 'x' << numElemPerPart[2] << '=' << numElemPerPart[3];
   logInfo() << "Using" << omp_get_max_threads() << "threads";
 
-  int netcdf_writes = 2 + numPartitions[3] * 8;
-
   int masterRank;
   unsigned int groupSize = 1;
 #ifdef USE_MPI
@@ -335,13 +306,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   hasGroup = iHasGroup != 0;
 #endif // USE_MPI
 
-  int writes_done = 0;
-  loadBar(writes_done, netcdf_writes, rank);
-
   m_elements.resize(sizes[0]);
-
-  writes_done++;
-  loadBar(writes_done, netcdf_writes, rank);
 
   std::vector<CubeVertex> vertices;
   vertices.resize(numElemPerPart[3] * 4);
@@ -383,9 +348,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       elemVertices[i] = n;
     }
   }
-
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
 
   int* elemNeighbors = new int[numElemPerPart[3] * 4];
   const int TET_NEIGHBORS[2][5 * 4] = {
@@ -567,9 +529,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
-
   int* elemBoundaries = new int[numElemPerPart[3] * 4];
 
   // Calculate elemBoundaries
@@ -732,8 +691,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
     }
   }
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
 
   int* elemNeighborSides = new int[numElemPerPart[3] * 4];
   int* elemNeighborSidesDef = new int[numElemPerPart[3] * 4];
@@ -900,8 +857,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
     }
   }
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
 
   delete[] elemNeighborSidesDef;
 
@@ -1079,9 +1034,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
     }
   }
-
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
 
   delete[] elemSideOrientationsDef;
 
@@ -1265,9 +1217,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
     }
   }
-
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
 
   int* elemMPIIndices = new int[numElemPerPart[3] * 4];
   int* bndLocalIds = new int[*std::max_element(numBndElements, numBndElements + 3)];
@@ -1561,9 +1510,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     }
   }
 
-  writes_done += numPartitions[3];
-  loadBar(writes_done, netcdf_writes, rank);
-
   // Set material zone to 1
   int* elemGroup = new int[numElemPerPart[3]];
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
@@ -1700,11 +1646,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                 static_cast<double>(numCubes[2]) * scaleZ -
             halfWidthZ + tz;
       }
-
-      writes_done++;
     }
   }
-  loadBar(writes_done, netcdf_writes, rank);
 
   // Copy buffers to vertices
   for (int i = 0; i < uniqueVertices.size(); i++) {
