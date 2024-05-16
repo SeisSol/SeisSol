@@ -16,11 +16,6 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   const size_t size = info.bufferSize(planId);
   const char* strData = reinterpret_cast<const char*>(data);
 
-  //  AsyncIO::groupComm()
-  logInfo() << info.buffer(0);
-  logInfo() << info.buffer(1);
-  logInfo() << info.buffer(2);
-
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (printPlan && rank == 0) {

@@ -37,7 +37,7 @@ void WriterModule::setUp() {
 }
 
 void WriterModule::startup() {
-  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
+  logInfo(rank) << "Output Writer" << settings.name << ": startup, running at interval"
             << settings.interval;
   init();
 
