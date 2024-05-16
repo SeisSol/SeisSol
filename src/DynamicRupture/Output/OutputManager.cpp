@@ -246,6 +246,11 @@ void OutputManager::initElementwiseOutput() {
       }
     });
 
+    auto& self = *this;
+    writer.addHook([&](std::size_t, double) {
+      self.updateElementwiseOutput();
+    });
+
     io::writer::ScheduledWriter schedWriter;
     schedWriter.interval = printTime;
     schedWriter.name = "fault-elementwise";

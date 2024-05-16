@@ -196,9 +196,16 @@ class VtkHdfWriter {
     });
   }
 
+  void addHook(const std::function<void(std::size_t, double)>& hook) {
+    hooks.push_back(hook);
+  }
+
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     auto self = *this;
     return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
+      for (const auto& hook : self.hooks) {
+        hook(counter, time);
+      }
       const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".hdf";
       auto writer = writer::Writer();
       for (auto& instruction : self.instructionsConst) {
@@ -230,6 +237,7 @@ class VtkHdfWriter {
   std::size_t globalPointCount;
   std::size_t pointOffset;
   std::size_t pointsPerElement;
+  std::vector<std::function<void(std::size_t, double)>> hooks;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
       instructionsConst;
