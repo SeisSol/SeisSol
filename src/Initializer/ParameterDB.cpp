@@ -74,7 +74,6 @@ seissol::initializer::CellToVertexArray::CellToVertexArray(
 
 seissol::initializer::CellToVertexArray seissol::initializer::CellToVertexArray::fromMeshReader(
     const seissol::geometry::MeshReader& meshReader) {
-
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 

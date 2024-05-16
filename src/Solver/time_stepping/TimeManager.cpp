@@ -332,7 +332,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     });
     finished &= communicationManager->checkIfFinished();
   }
-
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
 #endif

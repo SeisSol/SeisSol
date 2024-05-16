@@ -196,7 +196,6 @@ class seissol::initializer::time_stepping::MultiRate {
                static_cast<unsigned int>(i_maxNumberOfClusters)
        );
        assert(o_numberOfClusters > 0);
-
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
        o_timeStepRates         = new unsigned int [ o_numberOfClusters ];
@@ -211,7 +210,7 @@ class seissol::initializer::time_stepping::MultiRate {
        o_timeStepRates[o_numberOfClusters-1] = 1; // last cluster has a rate of 1 (resets buffers in every time step)
        for( unsigned int l_cluster = 0; l_cluster < o_numberOfClusters-1; l_cluster++ ) {
          o_timeStepRates[l_cluster] = i_multiRate; // constant time step rate for the rest
-       }     
+       }
      }
 
 

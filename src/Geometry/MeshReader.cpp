@@ -251,7 +251,6 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_commit(&ghostElementType);
 
   size_t counter = 0;
-
   for (auto it = m_MPINeighbors.begin(); it != m_MPINeighbors.end(); ++it, counter += 2) {
     const auto targetRank = it->first;
     const auto count = it->second.elements.size();

@@ -161,7 +161,6 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
       seissolInstance.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
-
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
     ioStopwatch.pause();
