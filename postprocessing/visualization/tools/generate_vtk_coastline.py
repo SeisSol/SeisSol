@@ -5,6 +5,7 @@ import numpy as np
 import seissolxdmf as sx
 from pyproj import Transformer
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Create coastline VTK file from GMT")
     parser.add_argument(
@@ -57,6 +58,7 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 def infer_domain_from_fault_output(args):
     fn, added_deg = args.from_fault_output[0].split()
     s = sx.seissolxdmf(fn)
@@ -64,17 +66,21 @@ def infer_domain_from_fault_output(args):
     xyz = s.ReadGeometry()
     if args.proj:
         transformer = Transformer.from_crs(args.proj[0], "epsg:4326", always_xy=True)
-        xyz[:, 0], xyz[:, 1], xyz[:, 2] = transformer.transform(xyz[:, 0], xyz[:, 1], xyz[:, 2])
+        xyz[:, 0], xyz[:, 1], xyz[:, 2] = transformer.transform(
+            xyz[:, 0], xyz[:, 1], xyz[:, 2]
+        )
         args.lon = [0, 0]
         args.lat = [0, 0]
         args.lon[1], args.lat[1], _ = np.amax(xyz, axis=0) + added_deg
         args.lon[0], args.lat[0], _ = np.amin(xyz, axis=0) - added_deg
         print(f"Inferred domain dims, lon: {args.lon}, lat: {args.lat}")
 
+
 def run_gmt_pscoast(args):
     os.system(
         f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W > coastline.dat"
     )
+
 
 def read_gmt_file():
     xyz = []
@@ -95,17 +101,23 @@ def read_gmt_file():
                 new_polyline = False
     return xyz, segments
 
+
 def project_coordinates(args, xyz):
     transformer = Transformer.from_crs("epsg:4326", args.proj[0], always_xy=True)
-    xyz[:, 0], xyz[:, 1], xyz[:, 2] = transformer.transform(xyz[:, 0], xyz[:, 1], xyz[:, 2])
+    xyz[:, 0], xyz[:, 1], xyz[:, 2] = transformer.transform(
+        xyz[:, 0], xyz[:, 1], xyz[:, 2]
+    )
+
 
 def translate_coordinates(args, xyz):
     xyz[:, 0] -= args.translate[0]
     xyz[:, 1] -= args.translate[1]
 
+
 def write_vtk_file(xyz, segments):
     nvert = xyz.shape[0]
     nseg = segments.shape[0]
+    fname = "coastLine.vtk"
     with open("CoastLine.vtk", "w") as fout:
         fout.write(
             f"""# vtk DataFile Version 2.0
@@ -119,7 +131,8 @@ POINTS {nvert} float
         fout.write(f"\nLINES {nseg} {3*nseg}\n")
         np.savetxt(fout, segments - 1, "2 %d %d")
         fout.write("\n")
-    print("CoastLine.vtk successfully created")
+    print(f"{fname} successfully created")
+
 
 def main():
     args = parse_args()
@@ -137,6 +150,6 @@ def main():
         translate_coordinates(args, xyz)
     write_vtk_file(xyz, segments)
 
+
 if __name__ == "__main__":
     main()
-
