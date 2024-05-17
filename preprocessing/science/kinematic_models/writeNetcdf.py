@@ -19,7 +19,7 @@ def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
 
     with Dataset(fname, "w", format="NETCDF4") as rootgrp:
         # Create dimension and 1d variables
-        sdimVarNames = "uvwxyz"
+        sdimVarNames = "abcdef"
         dims = []
         for i, xi in enumerate(lDimVar):
             nxi = xi.shape[0]
