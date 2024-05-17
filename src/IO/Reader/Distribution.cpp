@@ -148,12 +148,11 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
         auto it = reorderMap.find(source[i]);
         sendReorder[i] = it->second;
       }
-    }
-    else {
+    } else {
       sendReorder.resize(sendOffsets.back());
       for (std::size_t i = 0; i < source.size(); ++i) {
         for (auto it = reorderMap.find(source[i]); it != reorderMap.end() && it->first == source[i];
-            ++it) {
+             ++it) {
           sendReorder[it->second] = i;
         }
       }

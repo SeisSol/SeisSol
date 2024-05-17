@@ -38,7 +38,7 @@ void WriterModule::setUp() {
 
 void WriterModule::startup() {
   logInfo(rank) << "Output Writer" << settings.name << ": startup, running at interval"
-            << settings.interval;
+                << settings.interval;
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here

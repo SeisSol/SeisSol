@@ -7,6 +7,7 @@
 #include "Initializer/BasicTypedefs.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "SeisSol.h"
+#include <Solver/FreeSurfaceIntegrator.h>
 #include <cstring>
 #include <kernel.h>
 #include <string>
@@ -180,8 +181,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         writer.addPointData<real>(
             quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, index);
-              const auto* dofsSingleQuantity =
-                  dofsAllQuantities + NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * quantity;
+              const auto* dofsSingleQuantity = dofsAllQuantities + tensor::Q::Shape[0] * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xv(order) = target;
@@ -198,7 +198,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
               plasticityLabels[quantity], {}, [=](real* target, std::size_t index) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, index);
                 const auto* dofsSingleQuantity =
-                    dofsAllQuantities + NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * quantity;
+                    dofsAllQuantities + tensor::QStress::Shape[0] * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
@@ -226,8 +226,85 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.freeSurfaceParameters.enabled &&
       seissolParams.output.freeSurfaceParameters.vtkorder >= 0) {
-    logWarning() << "High-order free surface output has not yet been implemented. The output will "
-                    "be disabled.";
+    auto order = seissolParams.output.freeSurfaceParameters.vtkorder;
+    auto& freeSurfaceIntegrator = seissolInstance.freeSurfaceIntegrator();
+    auto& meshReader = seissolInstance.meshReader();
+    io::writer::ScheduledWriter schedWriter;
+    schedWriter.name = "free-surface";
+    schedWriter.interval = seissolParams.output.freeSurfaceParameters.interval;
+    auto* surfaceMeshIds =
+        freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.meshId);
+    auto* surfaceMeshSides =
+        freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
+    auto writer = io::instance::mesh::VtkHdfWriter(
+        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.getNumberOfCells(), 2, order);
+    writer.addPointProjector([=](double* target, std::size_t index) {
+      auto meshId = surfaceMeshIds[index];
+      auto side = surfaceMeshSides[index];
+      const auto& element = meshReader.getElements()[meshId];
+      const auto& vertexArray = meshReader.getVertices();
+
+      // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
+      const double zero[2] = {0, 0};
+      double xez[3];
+      seissol::transformations::chiTau2XiEtaZeta(side, zero, xez);
+      seissol::transformations::tetrahedronReferenceToGlobal(
+          vertexArray[element.vertices[0]].coords,
+          vertexArray[element.vertices[1]].coords,
+          vertexArray[element.vertices[2]].coords,
+          vertexArray[element.vertices[3]].coords,
+          xez,
+          &target[0]);
+      for (std::size_t i = 1; i < tensor::vtk2d::Shape[order][1]; ++i) {
+        double point[2] = {init::vtk2d::Values[order][i * 2 - 2 + 0],
+                           init::vtk2d::Values[order][i * 2 - 2 + 1]};
+        seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
+        seissol::transformations::tetrahedronReferenceToGlobal(
+            vertexArray[element.vertices[0]].coords,
+            vertexArray[element.vertices[1]].coords,
+            vertexArray[element.vertices[2]].coords,
+            vertexArray[element.vertices[3]].coords,
+            xez,
+            &target[i * 2]);
+      }
+    });
+    std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
+    for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
+      writer.addPointData<real>(quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
+        auto meshId = surfaceMeshIds[index];
+        auto side = surfaceMeshSides[index];
+        const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
+        const auto* dofsSingleQuantity =
+            dofsAllQuantities + tensor::Q::Shape[0] * (6 + quantity); // velocities
+        kernel::projectBasisToVtkFaceFromVolume vtkproj;
+        vtkproj.qb = dofsSingleQuantity;
+        vtkproj.xf(order) = target;
+        vtkproj.collvf(CONVERGENCE_ORDER, order, side) =
+            init::collvf::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) *
+                                                         (order + (CONVERGENCE_ORDER + 1) * side)];
+        vtkproj.execute(order, side);
+      });
+    }
+    for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
+      writer.addPointData<real>(
+          quantityLabels[quantity + FREESURFACE_NUMBER_OF_COMPONENTS],
+          {},
+          [=](real* target, std::size_t index) {
+            auto meshId = surfaceMeshIds[index];
+            auto side = surfaceMeshSides[index];
+            const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
+            const auto* faceDisplacementVariable =
+                faceDisplacements[side] + tensor::faceDisplacement::Shape[0] * quantity;
+            kernel::projectBasisToVtkFace vtkproj;
+            vtkproj.pb = faceDisplacementVariable;
+            vtkproj.xf(order) = target;
+            vtkproj.collff(CONVERGENCE_ORDER, order) =
+                init::collff::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
+            vtkproj.execute(order);
+          });
+    }
+    schedWriter.planWrite = writer.makeWriter();
+    seissolInstance.getOutputManager().addOutput(schedWriter);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {
@@ -284,16 +361,19 @@ static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
-  if (seissolParams.output.freeSurfaceParameters.enabled &&
-      seissolParams.output.freeSurfaceParameters.vtkorder < 0) {
-    seissolInstance.freeSurfaceWriter().enable();
+  if (seissolParams.output.freeSurfaceParameters.enabled) {
+    int refinement = seissolParams.output.freeSurfaceParameters.refinement;
+    if (seissolParams.output.freeSurfaceParameters.vtkorder < 0) {
+      seissolInstance.freeSurfaceWriter().enable();
+    } else {
+      refinement = 0;
+    }
 
-    seissolInstance.freeSurfaceIntegrator().initialize(
-        seissolParams.output.freeSurfaceParameters.refinement,
-        memoryManager.getGlobalDataOnHost(),
-        memoryManager.getLts(),
-        memoryManager.getLtsTree(),
-        memoryManager.getLtsLut());
+    seissolInstance.freeSurfaceIntegrator().initialize(refinement,
+                                                       memoryManager.getGlobalDataOnHost(),
+                                                       memoryManager.getLts(),
+                                                       memoryManager.getLtsTree(),
+                                                       memoryManager.getLtsLut());
   }
 }
 

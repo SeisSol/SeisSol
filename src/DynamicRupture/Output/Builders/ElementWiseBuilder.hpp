@@ -158,7 +158,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             receiverPoint.faultFaceIndex = faceIdx;
             receiverPoint.localFaceSideId = faceSideIdx;
             receiverPoint.elementIndex = element.localId;
-            receiverPoint.globalReceiverIndex = faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
+            receiverPoint.globalReceiverIndex =
+                faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
             receiverPoint.faultTag = fault.tag;
           }
 

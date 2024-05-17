@@ -185,11 +185,13 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
     const char* dataloc = data;
 
-    _eh(H5Sselect_hyperslab(
-        h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
+    if (!nullstart.empty()) {
+      _eh(H5Sselect_hyperslab(
+          h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
 
-    _eh(H5Sselect_hyperslab(
-        h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
+      _eh(H5Sselect_hyperslab(
+          h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
+    }
 
     _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
 

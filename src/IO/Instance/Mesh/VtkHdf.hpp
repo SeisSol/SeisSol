@@ -196,9 +196,7 @@ class VtkHdfWriter {
     });
   }
 
-  void addHook(const std::function<void(std::size_t, double)>& hook) {
-    hooks.push_back(hook);
-  }
+  void addHook(const std::function<void(std::size_t, double)>& hook) { hooks.push_back(hook); }
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     auto self = *this;
@@ -217,12 +215,12 @@ class VtkHdfWriter {
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
           "Time",
-          writer::WriteInline::create(time),
+          writer::WriteInline::createArray<double>({1}, {time}),
           datatype::inferDatatype<decltype(time)>()));
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
           "Index",
-          writer::WriteInline::create(counter),
+          writer::WriteInline::createArray<std::size_t>({1}, {counter}),
           datatype::inferDatatype<decltype(counter)>()));
       return writer;
     };
