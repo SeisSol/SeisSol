@@ -8,7 +8,10 @@ import numpy as np
 from GaussianSTF import GaussianSTF, SmoothStep
 
 parser = argparse.ArgumentParser(
-    description="infer spatial zoom to match fault mesh size"
+    description=(
+        "compute moment rate release from kinematic model. Assumptions: Gaussian source"
+        " time function, no bimaterial conditions"
+    )
 )
 parser.add_argument(
     "--dt",
