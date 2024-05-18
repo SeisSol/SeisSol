@@ -104,7 +104,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
 
   if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 ||
                      cubeMinZ == 6 || cubeMaxZ == 6))
-    logWarning(rank) << "Atleast one boundary condition is set to 6 (periodic boundary), leading "
+    logWarning(rank) << "Atleast one boundary condition is set to 6 (periodic boundary), currently leading "
                         "to incorrect results when using more than 1 MPI process";
 
   // create additional variables necessary for cubeGenerator()
@@ -259,7 +259,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       assert(false);
 #endif // USE_MPI
     }
-
     maxSize = std::max(maxSize, size);
   }
   
@@ -276,7 +275,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   vertices.resize(numElemPerPart[3] * 4);
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -358,7 +357,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   // Calculate elemNeighbors
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -503,7 +502,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
       if (x == 0) { // first partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -524,7 +523,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -553,7 +552,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (y == 0) { // first partition in y dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -574,7 +573,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (y == numPartitions[1] - 1) { // last partition in y dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -603,7 +602,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (z == 0) { // first partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -620,7 +619,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (z == numPartitions[2] - 1) { // last partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -659,7 +658,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int* elemNeighborSides = new int[numElemPerPart[3] * 4];
   int* elemNeighborSidesDef = new int[numElemPerPart[3] * 4];
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -679,7 +678,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -696,7 +695,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -725,7 +724,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -742,7 +741,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMaxy != 6 && y == numPartitions[1] - 1) { // last partition in y dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -771,7 +770,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -788,7 +787,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -827,7 +826,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int* elemSideOrientations = new int[numElemPerPart[3] * 4];
   int* elemSideOrientationsDef = new int[numElemPerPart[3] * 4];
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(3)
 #endif // _OPENMP
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -848,7 +847,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -868,7 +867,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMaxx != 6 && x == numPartitions[0] - 1) { // last partition in x dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -899,7 +898,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       //                              if (boundaryMiny != 6 && y == 0) { // first partition in y
       //                              dimension
       //                                      #ifdef _OPENMP
-      //                                      #pragma omp parallel for
+      //                                      #pragma omp parallel for schedule(static) collapse(2)
       //                                      #endig // _OPENMP
       //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
       //                                      zz++) {
@@ -923,7 +922,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       //                              if (boundaryMaxy != 6 && y == numPartitions[1]-1) { //
       //                              last partition in y dimension
       //                                      #ifdef _OPENMP
-      //                                      #pragma omp parallel for
+      //                                      #pragma omp parallel for schedule(static) collapse(2)
       //                                      #endig // _OPENMP
       //                                      for (unsigned int zz = 0; zz < numCubesPerPart[2];
       //                                      zz++) {
@@ -946,7 +945,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       //                              }
       if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -963,7 +962,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
       }
       if (boundaryMaxz != 6 && z == numPartitions[2] - 1) { // last partition in z dimension
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1015,7 +1014,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                    (x - 1 + numPartitions[0]) % numPartitions[0];
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -1038,7 +1037,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -1071,7 +1070,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                    x;
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1095,7 +1094,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1128,7 +1127,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                    x;
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1148,7 +1147,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1538,7 +1537,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
       unsigned int x = rank;
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
 #endif // _OPENMP
       for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
         vrtxCoords[i * 3] =
