@@ -9,6 +9,7 @@
 #include <IO/Writer/Writer.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Layer.hpp>
+#include <Parallel/MPI.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>

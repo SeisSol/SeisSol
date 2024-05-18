@@ -122,6 +122,11 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         backupTimeStamp);
   }
 
+  // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
+  constexpr auto QDofSizePadded = tensor::Q::Size / tensor::Q::Shape[1];
+  constexpr auto FaceDisplacementPadded =
+      tensor::faceDisplacement::Size / tensor::faceDisplacement::Shape[1];
+
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder >= 0) {
     auto order = seissolParams.output.waveFieldParameters.vtkorder;
@@ -181,7 +186,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         writer.addPointData<real>(
             quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, index);
-              const auto* dofsSingleQuantity = dofsAllQuantities + tensor::Q::Shape[0] * quantity;
+              const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xv(order) = target;
@@ -197,8 +202,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
           writer.addPointData<real>(
               plasticityLabels[quantity], {}, [=](real* target, std::size_t index) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, index);
-                const auto* dofsSingleQuantity =
-                    dofsAllQuantities + tensor::QStress::Shape[0] * quantity;
+                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
@@ -275,13 +279,12 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         auto side = surfaceMeshSides[index];
         const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
         const auto* dofsSingleQuantity =
-            dofsAllQuantities + tensor::Q::Shape[0] * (6 + quantity); // velocities
+            dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
         kernel::projectBasisToVtkFaceFromVolume vtkproj;
         vtkproj.qb = dofsSingleQuantity;
         vtkproj.xf(order) = target;
         vtkproj.collvf(CONVERGENCE_ORDER, order, side) =
-            init::collvf::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) *
-                                                         (order + 8 * side)];
+            init::collvf::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * (order + 8 * side)];
         vtkproj.execute(order, side);
       });
     }
@@ -294,7 +297,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
             auto side = surfaceMeshSides[index];
             const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
             const auto* faceDisplacementVariable =
-                faceDisplacements[side] + tensor::faceDisplacement::Shape[0] * quantity;
+                faceDisplacements[side] + FaceDisplacementPadded * quantity;
             kernel::projectNodalToVtkFace vtkproj;
             vtkproj.pn = faceDisplacementVariable;
             vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
