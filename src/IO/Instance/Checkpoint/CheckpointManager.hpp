@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Geometry/MeshReader.h>
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
@@ -32,7 +31,6 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
-  template <typename F>
   void registerTree(const std::string& name,
                     initializer::LTSTree* tree,
                     const std::vector<std::size_t>& ids) {

@@ -16,6 +16,7 @@ def addKernels(generator, aderdg, matricesDir, targets=['cpu']):
 
         qb = Tensor('qb', (aderdg.numberOf3DBasisFunctions(),))
         pb = Tensor('pb', (aderdg.numberOf2DBasisFunctions(),))
+        pn = Tensor('pn', (aderdg.numberOf2DBasisFunctions(),))
         xv = [Tensor(f'xv({i})', (((i+1)*(i+2)*(i+3))//6,)) for i in range(8)]
         xf = [Tensor(f'xf({i})', (((i+1)*(i+2))//2,)) for i in range(8)]
 
@@ -26,6 +27,10 @@ def addKernels(generator, aderdg, matricesDir, targets=['cpu']):
         generator.addFamily(f'{name_prefix}projectBasisToVtkFace',
                   simpleParameterSpace(8),
                   lambda i: xf[i]['p'] <= vtko.byName(f'collff({aderdg.order},{i})')['pb'] * pb['b'],
+                  target=target)
+        generator.addFamily(f'{name_prefix}projectNodalToVtkFace',
+                  simpleParameterSpace(8),
+                  lambda i: xf[i]['p'] <= vtko.byName(f'collff({aderdg.order},{i})')['pb'] * aderdg.db.MV2nTo2m['bm'] * pn['m'],
                   target=target)
 
         generator.addFamily(f'{name_prefix}projectBasisToVtkFaceFromVolume',

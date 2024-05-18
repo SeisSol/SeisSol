@@ -33,7 +33,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     for (std::size_t i = 0; i < globalIds.size(); ++i) {
       globalIds[i] = seissolInstance.meshReader().getElements()[ltsToMesh[i]].globalId;
     }
-    checkpoint.registerTree<void>("lts", tree, globalIds);
+    checkpoint.registerTree("lts", tree, globalIds);
     seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
   }
 
@@ -54,13 +54,13 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
-    checkpoint.registerTree<void>("dynrup", tree, faceIdentifiers);
+    checkpoint.registerTree("dynrup", tree, faceIdentifiers);
     dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
   /*  {
       auto* tree = seissolInstance.getMemoryManager().getBoundaryTree();
-      checkpoint.registerTree<void>("boundary", tree, nullptr);
+      checkpoint.registerTree("boundary", tree, nullptr);
       seissolInstance.getMemoryManager().getBoundary()->registerCheckpointVariables(checkpoint,
     tree);
     }*/
@@ -265,7 +265,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
             vertexArray[element.vertices[2]].coords,
             vertexArray[element.vertices[3]].coords,
             xez,
-            &target[i * 2]);
+            &target[i * 3]);
       }
     });
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
@@ -281,7 +281,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         vtkproj.xf(order) = target;
         vtkproj.collvf(CONVERGENCE_ORDER, order, side) =
             init::collvf::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) *
-                                                         (order + (CONVERGENCE_ORDER + 1) * side)];
+                                                         (order + 8 * side)];
         vtkproj.execute(order, side);
       });
     }
@@ -295,8 +295,9 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
             const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
             const auto* faceDisplacementVariable =
                 faceDisplacements[side] + tensor::faceDisplacement::Shape[0] * quantity;
-            kernel::projectBasisToVtkFace vtkproj;
-            vtkproj.pb = faceDisplacementVariable;
+            kernel::projectNodalToVtkFace vtkproj;
+            vtkproj.pn = faceDisplacementVariable;
+            vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
             vtkproj.xf(order) = target;
             vtkproj.collff(CONVERGENCE_ORDER, order) =
                 init::collff::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
