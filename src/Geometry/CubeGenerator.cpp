@@ -216,16 +216,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   logInfo() << "Using" << omp_get_max_threads() << "threads";
 
   // Setup MPI Communicator
-  unsigned int groupSize = 1;
 #ifdef USE_MPI
-  groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
-  if (nProcs % groupSize != 0)
-    logError() << "#Processes must be a multiple of the group size" << groupSize;
-
-  int master = (rank / groupSize) * groupSize;
+  int master = rank;
   MPI_Comm commMaster;
   MPI_Comm_split(
-      seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+      seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 #endif // USE_MPI
 
   size_t bndSize = -1;
@@ -244,22 +239,10 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   bndElemSize = *std::max_element(numBndElements, numBndElements + 3);
 
   // Elements
-  sizes = new int[groupSize];
-  for (int i = groupSize - 1; i >= 0; i--) {
-    int size = numElemPerPart[3];
-
-    sizes[i] = size;
-    if (i != 0) {
-#ifdef USE_MPI
-      // Forward size (except the own)
-      MPI_Send(&size, 1, MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-#else  // USE_MPI
-      assert(false);
-#endif // USE_MPI
-    }
-    maxSize = std::max(maxSize, size);
-  }
-  
+  sizes = new int[1];
+  int size = numElemPerPart[3];
+  sizes[0] = size;
+  maxSize = std::max(maxSize, size);
   m_elements.resize(sizes[0]);
 
   std::vector<CubeVertex> vertices;
@@ -1468,25 +1451,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   int* elemGroup = new int[numElemPerPart[3]];
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
 
-  for (int i = groupSize - 1; i >= 0; i--) {
-    if (i != 0) {
-#ifdef USE_MPI
-      MPI_Send(elemVertices, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemNeighbors, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemNeighborSides, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(
-          elemSideOrientations, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemBoundaries, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemNeighborRanks, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemMPIIndices, 4 * sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-      MPI_Send(elemGroup, sizes[i], MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-#else  // USE_MPI
-      assert(false);
-#endif // USE_MPI
-    }
-  }
-  
-
   // copy the remaining Elem variables to m_elements
   ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
   ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors);
@@ -1555,19 +1519,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   delete[] vrtxCoords;
 
-  for (int i = groupSize - 1; i >= 0; i--) {
-    // Adjust sizes for the upcoming determination of neighbors
-    sizes[i] = bndSizePtr[static_cast<size_t>(i + rank)];
-
-    if (i != 0) {
-#ifdef USE_MPI
-      MPI_Send(&sizes[i], 1, MPI_INT, i + rank, 0, seissol::MPI::mpi.comm());
-#else  // USE_MPI
-      assert(false);
-#endif // USE_MPI
-    }
-  }
-  
+  // Adjust sizes for the upcoming determination of neighbors
+  sizes[0] = bndSizePtr[static_cast<size_t>(rank)];
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
   int maxNeighbors = bndSize;
@@ -1580,10 +1533,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
 
   size_t bndStart[3] = {0, 0, 0};
   for (int i = 0; i < maxNeighbors; i++) {
+    bndStart[0] = static_cast<size_t>(rank);
     bndStart[1] = static_cast<size_t>(i);
-
-    for (int j = groupSize - 1; j >= 0; j--) {
-      bndStart[0] = static_cast<size_t>(j + rank);
 
       // Get neighbor rank
       int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
@@ -1596,22 +1547,9 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
              &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
              sizeof(int) * bndCount[2]);
 
-      if (i < sizes[j]) {
-
-        if (j == 0) {
-
+      if (i < sizes[0]) {
           addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
-        } else {
-#ifdef USE_MPI
-          MPI_Send(&bndRank, 1, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
-          MPI_Send(&elemSize, 1, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
-          MPI_Send(bndElemLocalIds, elemSize, MPI_INT, j + rank, 0, seissol::MPI::mpi.comm());
-#else  // USE_MPI
-          assert(false);
-#endif // USE_MPI
-        }
       }
-    }
   }
 
   delete[] bndLocalIds;
