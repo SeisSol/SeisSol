@@ -231,8 +231,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   size_t bndSize = -1;
   size_t bndElemSize = -1;
 
-  bool hasGroup = false;
-
   int* sizes = 0L;
   int maxSize = 0;
 
@@ -262,13 +260,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     maxSize = std::max(maxSize, size);
   }
   
-#ifdef USE_MPI
-  // Broadcast group information
-  int iHasGroup = hasGroup;
-  MPI_Bcast(&iHasGroup, 1, MPI_INT, 0, seissol::MPI::mpi.comm());
-  hasGroup = iHasGroup != 0;
-#endif // USE_MPI
-
   m_elements.resize(sizes[0]);
 
   std::vector<CubeVertex> vertices;
