@@ -36,7 +36,6 @@ TEST_CASE("LTS Weights") {
   seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5",
                                            "Default",
                                            5000.0,
-                                           "",
                                            seissol::initializer::parameters::BoundaryFormat::I32,
                                            ltsWeights.get());
   std::cout.clear();
