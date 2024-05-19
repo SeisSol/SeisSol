@@ -6,7 +6,7 @@
 #include "utils/timeutils.h"
 
 #ifdef EXPERIMENTAL_FS
-#include <experimental/filesystem>
+#include <experimental/filesystem> // IWYU pragma: export
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -22,7 +22,7 @@ inline bool directoryExists(seissol::filesystem::directory_entry entry) {
 
 #else
 
-#include <filesystem>
+#include <filesystem> // IWYU pragma: export
 namespace seissol {
 namespace filesystem = std::filesystem;
 

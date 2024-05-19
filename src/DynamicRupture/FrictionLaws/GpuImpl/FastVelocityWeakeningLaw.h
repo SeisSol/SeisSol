@@ -12,14 +12,14 @@ class FastVelocityWeakeningLaw
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                      seissol::initializer::DynamicRupture const* const dynRup,
+                                      const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    auto* concreteLts = dynamic_cast<SelfInitializerType const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const SelfInitializerType* const>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW);
 
     using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
@@ -117,6 +117,7 @@ class FastVelocityWeakeningLaw
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
+      // NOLINTNEXTLINE
       sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
           deltaStateVar(misc::numPaddedPoints, cgh);
 

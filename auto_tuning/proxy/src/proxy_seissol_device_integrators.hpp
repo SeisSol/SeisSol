@@ -28,7 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
 #define SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
 
-#include <generated_code/tensor.h>
+#include "generated_code/tensor.h"
 #include <device.h>
 #include <stdio.h>
 

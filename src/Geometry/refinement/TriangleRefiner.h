@@ -41,9 +41,9 @@
 #ifndef TRIANGLE_REFINER_H
 #define TRIANGLE_REFINER_H
 
-#include <vector>
 #include <Eigen/Dense>
 #include <cmath>
+#include <vector>
 
 namespace seissol {
 namespace refinement {

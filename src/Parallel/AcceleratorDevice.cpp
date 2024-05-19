@@ -1,8 +1,8 @@
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
-#include <string>
 #include <sstream>
+#include <string>
 
 namespace seissol {
 void AcceleratorDevice::bindSyclDevice(int deviceId) {
@@ -16,7 +16,7 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 #else
     syclDevice = sycl::device(sycl::cpu_selector());
 #endif // __DPCPP_COMPILER
-  } catch (sycl::exception const& err) {
+  } catch (const sycl::exception& err) {
     {
       std::ostringstream warn;
       warn << "SYCL error: " << err.what();

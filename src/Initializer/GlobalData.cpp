@@ -38,7 +38,7 @@
  **/
 
 #include "GlobalData.h"
-#include <generated_code/init.h>
+#include "generated_code/init.h"
 #include <yateto.h>
 #include <type_traits>
 

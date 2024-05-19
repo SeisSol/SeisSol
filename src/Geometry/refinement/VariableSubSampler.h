@@ -41,8 +41,8 @@
 #ifndef VARIABLE_SUBSAMPLER_H_
 #define VARIABLE_SUBSAMPLER_H_
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 
 #include <Eigen/Dense>
 

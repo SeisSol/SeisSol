@@ -40,10 +40,10 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/tensor.h>
-#include <Kernels/common.hpp>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "generated_code/tensor.h"
+#include "Kernels/common.hpp"
 
 #if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.

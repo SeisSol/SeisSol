@@ -41,37 +41,37 @@
 #ifndef SOURCETERM_MANAGER_H_
 #define SOURCETERM_MANAGER_H_
 
-#include "typedefs.hpp"
 #include "NRF.h"
+#include "typedefs.hpp"
 #include <cstdarg>
 
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/PointSourceCluster.h>
-#include <Solver/time_stepping/TimeManager.h>
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Kernels/PointSourceCluster.h"
+#include "Solver/time_stepping/TimeManager.h"
+#include <array>
 #include <inttypes.h>
 #include <memory>
-#include <array>
 #include <vector>
 
 namespace seissol::sourceterm {
 
 void computeMInvJInvPhisAtSources(
-    Eigen::Vector3d const& centre,
+    const Eigen::Vector3d& centre,
     AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>& mInvJInvPhisAtSources,
     unsigned meshId,
-    seissol::geometry::MeshReader const& mesh);
-void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
+    const seissol::geometry::MeshReader& mesh);
+void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
                                         unsigned meshId,
-                                        seissol::geometry::MeshReader const& mesh,
-                                        Subfault const& subfault,
-                                        Offsets const& offsets,
-                                        Offsets const& nextOffsets,
-                                        std::array<std::vector<double>, 3> const& sliprates,
+                                        const seissol::geometry::MeshReader& mesh,
+                                        const Subfault& subfault,
+                                        const Offsets& offsets,
+                                        const Offsets& nextOffsets,
+                                        const std::array<std::vector<double>, 3>& sliprates,
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
                                         unsigned index,
-                                        AllocatorT const& alloc);
+                                        const AllocatorT& alloc);
 class Manager;
 } // namespace seissol::sourceterm
 
@@ -81,8 +81,8 @@ class seissol::sourceterm::Manager {
   ~Manager() = default;
 
   void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
-                   char const* fileName,
-                   seissol::geometry::MeshReader const& mesh,
+                   const char* fileName,
+                   const seissol::geometry::MeshReader& mesh,
                    seissol::initializer::LTSTree* ltsTree,
                    seissol::initializer::LTS* lts,
                    seissol::initializer::Lut* ltsLut,
@@ -94,27 +94,27 @@ class seissol::sourceterm::Manager {
                                  seissol::initializer::LTSTree* ltsTree,
                                  seissol::initializer::LTS* lts,
                                  seissol::initializer::Lut* ltsLut,
-                                 AllocatorT const& alloc)
+                                 const AllocatorT& alloc)
       -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
 
-  auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
-      -> std::unique_ptr<kernels::PointSourceCluster>;
+  auto makePointSourceCluster(ClusterMapping mapping,
+                              PointSources sources) -> std::unique_ptr<kernels::PointSourceCluster>;
 
-  auto loadSourcesFromFSRM(char const* fileName,
-                           seissol::geometry::MeshReader const& mesh,
+  auto loadSourcesFromFSRM(const char* fileName,
+                           const seissol::geometry::MeshReader& mesh,
                            seissol::initializer::LTSTree* ltsTree,
                            seissol::initializer::LTS* lts,
                            seissol::initializer::Lut* ltsLut,
-                           AllocatorT const& alloc)
+                           const AllocatorT& alloc)
       -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-  auto loadSourcesFromNRF(char const* fileName,
-                          seissol::geometry::MeshReader const& mesh,
+  auto loadSourcesFromNRF(const char* fileName,
+                          const seissol::geometry::MeshReader& mesh,
                           seissol::initializer::LTSTree* ltsTree,
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
-                          AllocatorT const& alloc)
+                          const AllocatorT& alloc)
       -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 #endif
 };

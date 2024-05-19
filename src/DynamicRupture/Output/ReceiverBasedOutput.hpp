@@ -5,8 +5,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
-#include <Initializer/Parameters/SeisSolParameters.h>
 
 #include <memory>
 #include <vector>
@@ -96,7 +96,7 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress){};
+                                          const std::array<real, 6>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

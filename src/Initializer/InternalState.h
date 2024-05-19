@@ -42,7 +42,7 @@
 #define INTERNALSTATE_H_
 
 #include <cstddef>
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 
 namespace seissol {
   namespace initializer {

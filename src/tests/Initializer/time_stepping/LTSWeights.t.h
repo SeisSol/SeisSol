@@ -1,10 +1,10 @@
-#include <Initializer/Parameters/LtsParameters.h>
+#include "Initializer/Parameters/LtsParameters.h"
 #include <memory>
 #include <numeric>
 
 #include "Geometry/PUMLReader.h"
-#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
 #include "Initializer/typedefs.hpp"
 #include "SeisSol.h"
 
