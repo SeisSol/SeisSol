@@ -21,7 +21,7 @@
 #include "utils/logger.h"
 
 namespace {
-using t_vertex = int[3];
+using t_vertex = std::array<int, 3>;
 
 struct CubeVertex {
   t_vertex v;
@@ -104,22 +104,16 @@ seissol::geometry::CubeGenerator::CubeGenerator(
 
   if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 ||
                      cubeMinZ == 6 || cubeMaxZ == 6))
-    logWarning(rank) << "Atleast one boundary condition is set to 6 (periodic boundary), currently leading "
-                        "to incorrect results when using more than 1 MPI process";
+    logWarning(rank)
+        << "Atleast one boundary condition is set to 6 (periodic boundary), currently leading "
+           "to incorrect results when using more than 1 MPI process";
 
   // create additional variables necessary for cubeGenerator()
-  unsigned int numCubes[4];
-  unsigned int numPartitions[4];
+  const std::array<unsigned int, 4> numCubes = {cubeX, cubeY, cubeZ, cubeX * cubeY * cubeZ};
+  const std::array<unsigned int, 4> numPartitions = {
+      cubePx, cubePy, cubePz, cubePx * cubePy * cubePz};
 
   // check input arguments
-  numCubes[0] = cubeX;
-  numCubes[1] = cubeY;
-  numCubes[2] = cubeZ;
-
-  numPartitions[0] = cubePx;
-  numPartitions[1] = cubePy;
-  numPartitions[2] = cubePz;
-
   for (int i = 0; i < 3; i++) {
     if (numCubes[i] < 2)
       logError() << "Number of cubes in" << dim2str(i) << "dimension must be at least 2";
@@ -137,25 +131,22 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   }
 
   // Compute additional sizes
-  numCubes[3] = numCubes[0] * numCubes[1] * numCubes[2];
-  numPartitions[3] = numPartitions[0] * numPartitions[1] * numPartitions[2];
-
-  unsigned int numCubesPerPart[4];
-  unsigned long numElemPerPart[4];
-  for (int i = 0; i < 4; i++) {
-    numCubesPerPart[i] = numCubes[i] / numPartitions[i];
-    numElemPerPart[i] = numCubesPerPart[i] * 5;
-  }
-
-  unsigned int numVrtxPerPart[4];
-  for (int i = 0; i < 3; i++)
-    numVrtxPerPart[i] = numCubesPerPart[i] + 1;
-  numVrtxPerPart[3] = numVrtxPerPart[0] * numVrtxPerPart[1] * numVrtxPerPart[2];
-
-  unsigned int numBndElements[3];
-  numBndElements[0] = 2 * numCubesPerPart[1] * numCubesPerPart[2];
-  numBndElements[1] = 2 * numCubesPerPart[0] * numCubesPerPart[2];
-  numBndElements[2] = 2 * numCubesPerPart[0] * numCubesPerPart[1];
+  const std::array<unsigned int, 4> numCubesPerPart = {numCubes[0] / numPartitions[0],
+                                                       numCubes[1] / numPartitions[1],
+                                                       numCubes[2] / numPartitions[2],
+                                                       numCubes[3] / numPartitions[3]};
+  const std::array<unsigned long, 4> numElemPerPart = {numCubesPerPart[0] * 5,
+                                                       numCubesPerPart[1] * 5,
+                                                       numCubesPerPart[2] * 5,
+                                                       numCubesPerPart[3] * 5};
+  const std::array<unsigned int, 4> numVrtxPerPart = {numCubesPerPart[0] + 1,
+                                                      numCubesPerPart[1] + 1,
+                                                      numCubesPerPart[2] + 1,
+                                                      numVrtxPerPart[0] * numVrtxPerPart[1] *
+                                                          numVrtxPerPart[2]};
+  const std::array<unsigned int, 3> numBndElements = {2 * numCubesPerPart[1] * numCubesPerPart[2],
+                                                      2 * numCubesPerPart[0] * numCubesPerPart[2],
+                                                      2 * numCubesPerPart[0] * numCubesPerPart[1]};
 
   // output file name
   std::string fileName = meshFile;
@@ -183,44 +174,44 @@ seissol::geometry::CubeGenerator::CubeGenerator(
                                                   fileName.c_str());
 }
 
-void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
-                                                     unsigned int numPartitions[4],
-                                                     unsigned int boundaryMinx,
-                                                     unsigned int boundaryMaxx,
-                                                     unsigned int boundaryMiny,
-                                                     unsigned int boundaryMaxy,
-                                                     unsigned int boundaryMinz,
-                                                     unsigned int boundaryMaxz,
-                                                     unsigned int numCubesPerPart[4],
-                                                     unsigned long numElemPerPart[4],
-                                                     unsigned int numVrtxPerPart[4],
-                                                     unsigned int numBndElements[3],
-                                                     double scale,
-                                                     double scaleX,
-                                                     double scaleY,
-                                                     double scaleZ,
-                                                     double tx,
-                                                     double ty,
-                                                     double tz,
-                                                     const std::string& meshFile) {
+void seissol::geometry::CubeGenerator::cubeGenerator(
+    const std::array<unsigned int, 4> numCubes,
+    const std::array<unsigned int, 4> numPartitions,
+    unsigned int boundaryMinx,
+    unsigned int boundaryMaxx,
+    unsigned int boundaryMiny,
+    unsigned int boundaryMaxy,
+    unsigned int boundaryMinz,
+    unsigned int boundaryMaxz,
+    const std::array<unsigned int, 4> numCubesPerPart,
+    const std::array<unsigned long, 4> numElemPerPart,
+    const std::array<unsigned int, 4> numVrtxPerPart,
+    const std::array<unsigned int, 3> numBndElements,
+    double scale,
+    double scaleX,
+    double scaleY,
+    double scaleZ,
+    double tx,
+    double ty,
+    double tz,
+    const std::string& meshFile) {
 
-  logInfo(rank) << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x' << numCubes[2]
-            << '=' << numCubes[3];
-  logInfo(rank) << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1] << 'x'
-            << numPartitions[2] << '=' << numPartitions[3];
+  logInfo(rank) << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x'
+                << numCubes[2] << '=' << numCubes[3];
+  logInfo(rank) << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1]
+                << 'x' << numPartitions[2] << '=' << numPartitions[3];
   logInfo(rank) << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
-            << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
-  // TODO: do 5 * numCubesPerPart[0-2]
+                << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
   logInfo(rank) << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
-            << numElemPerPart[1] << 'x' << numElemPerPart[2] << '=' << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
+                << numElemPerPart[1] << 'x' << numElemPerPart[2] << '='
+                << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
   logInfo(rank) << "Using" << omp_get_max_threads() << "threads";
 
   // Setup MPI Communicator
 #ifdef USE_MPI
   int master = rank;
   MPI_Comm commMaster;
-  MPI_Comm_split(
-      seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
+  MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 #endif // USE_MPI
 
   size_t bndSize = -1;
@@ -236,7 +227,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     logError() << "Number of partitions does not match number of MPI ranks.";
 
   bndSize = 6;
-  bndElemSize = *std::max_element(numBndElements, numBndElements + 3);
+  bndElemSize = *std::max_element(numBndElements.begin(), numBndElements.end());
 
   // Elements
   sizes = new int[1];
@@ -1156,7 +1147,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
   }
 
   int* elemMPIIndices = new int[numElemPerPart[3] * 4];
-  int* bndLocalIds = new int[*std::max_element(numBndElements, numBndElements + 3)];
+  int* bndLocalIds = new int[*std::max_element(numBndElements.begin(), numBndElements.end())];
 
   size_t* bndSizePtr = new size_t[numPartitions[3]];
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
@@ -1534,20 +1525,20 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
     bndStart[0] = static_cast<size_t>(rank);
     bndStart[1] = static_cast<size_t>(i);
 
-      // Get neighbor rank
-      int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
+    // Get neighbor rank
+    int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
 
-      // Get size of this boundary
-      int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
+    // Get size of this boundary
+    int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
 
-      size_t bndCount[3] = {1, 1, bndElemSize};
-      memcpy(bndElemLocalIds,
-             &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
-             sizeof(int) * bndCount[2]);
+    size_t bndCount[3] = {1, 1, bndElemSize};
+    memcpy(bndElemLocalIds,
+           &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
+           sizeof(int) * bndCount[2]);
 
-      if (i < sizes[0]) {
-          addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
-      }
+    if (i < sizes[0]) {
+      addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
+    }
   }
 
   delete[] bndLocalIds;
