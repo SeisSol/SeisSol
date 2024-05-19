@@ -204,16 +204,16 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
                                                      double tz,
                                                      const std::string& meshFile) {
 
-  logInfo() << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x' << numCubes[2]
+  logInfo(rank) << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x' << numCubes[2]
             << '=' << numCubes[3];
-  logInfo() << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1] << 'x'
+  logInfo(rank) << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1] << 'x'
             << numPartitions[2] << '=' << numPartitions[3];
-  logInfo() << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
+  logInfo(rank) << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
             << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
   // TODO: do 5 * numCubesPerPart[0-2]
-  logInfo() << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
-            << numElemPerPart[1] << 'x' << numElemPerPart[2] << '=' << numElemPerPart[3];
-  logInfo() << "Using" << omp_get_max_threads() << "threads";
+  logInfo(rank) << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
+            << numElemPerPart[1] << 'x' << numElemPerPart[2] << '=' << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
+  logInfo(rank) << "Using" << omp_get_max_threads() << "threads";
 
   // Setup MPI Communicator
 #ifdef USE_MPI
@@ -1194,8 +1194,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(unsigned int numCubes[4],
         }
 
         size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-        // TODO: for next 6(?) count variables: maybe use nextMPIIndex directly instead of defining
-        // count?
         size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
         int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
                        numPartitions[0] +
