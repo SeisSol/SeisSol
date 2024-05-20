@@ -1,6 +1,6 @@
 #include "hip/hip_runtime.h"
 #include "Kernels/DeviceAux/PlasticityAux.h"
-#include <init.h>
+#include <generated_code/init.h>
 #include <cmath>
 #include <type_traits>
 
