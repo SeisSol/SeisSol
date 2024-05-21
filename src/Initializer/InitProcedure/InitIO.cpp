@@ -168,10 +168,6 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     std::size_t* cellIndices = new std::size_t[celllist.size()];
     std::copy(celllist.begin(), celllist.end(), cellIndices);
 
-    if (celllist.empty()) {
-      logError() << "Empty volume output. Please check you boundary box and group restrictions for the output.";
-    }
-
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
