@@ -131,13 +131,54 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
       seissolParams.output.waveFieldParameters.vtkorder >= 0) {
     auto order = seissolParams.output.waveFieldParameters.vtkorder;
     auto& meshReader = seissolInstance.meshReader();
+
+    // TODO: store somewhere
+    std::vector<std::size_t> celllist;
+    celllist.reserve(meshReader.getElements().size());
+    if (seissolParams.output.waveFieldParameters.bounds.enabled ||
+        !seissolParams.output.waveFieldParameters.groups.empty()) {
+      const auto& vertexArray = meshReader.getVertices();
+      for (std::size_t i = 0; i < meshReader.getElements().size(); ++i) {
+        const auto& element = meshReader.getElements()[i];
+        const auto& vertex0 = vertexArray[element.vertices[0]].coords;
+        const auto& vertex1 = vertexArray[element.vertices[1]].coords;
+        const auto& vertex2 = vertexArray[element.vertices[2]].coords;
+        const auto& vertex3 = vertexArray[element.vertices[3]].coords;
+        bool inGroup = seissolParams.output.waveFieldParameters.groups.empty() ||
+                       seissolParams.output.waveFieldParameters.groups.find(element.group) !=
+                           seissolParams.output.waveFieldParameters.groups.end();
+        bool inRegion = !seissolParams.output.waveFieldParameters.bounds.enabled ||
+                        (seissolParams.output.waveFieldParameters.bounds.contains(
+                             vertex0[0], vertex0[1], vertex0[2]) ||
+                         seissolParams.output.waveFieldParameters.bounds.contains(
+                             vertex1[0], vertex1[1], vertex1[2]) ||
+                         seissolParams.output.waveFieldParameters.bounds.contains(
+                             vertex2[0], vertex2[1], vertex2[2]) ||
+                         seissolParams.output.waveFieldParameters.bounds.contains(
+                             vertex3[0], vertex3[1], vertex3[2]));
+        if (inGroup && inRegion) {
+          celllist.push_back(i);
+        }
+      }
+    } else {
+      for (std::size_t i = 0; i < meshReader.getElements().size(); ++i) {
+        celllist.push_back(i);
+      }
+    }
+    std::size_t* cellIndices = new std::size_t[celllist.size()];
+    std::copy(celllist.begin(), celllist.end(), cellIndices);
+
+    if (celllist.empty()) {
+      logError() << "Empty volume output. Please check you boundary box and group restrictions for the output.";
+    }
+
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
-    auto writer = io::instance::mesh::VtkHdfWriter(
-        "wavefield", seissolInstance.meshReader().getElements().size(), 3, order);
+    auto writer = io::instance::mesh::VtkHdfWriter("wavefield", celllist.size(), 3, order);
+
     writer.addPointProjector([=](double* target, std::size_t index) {
-      const auto& element = meshReader.getElements()[index];
+      const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
 
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
@@ -185,7 +226,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
         writer.addPointData<real>(
             quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
-              const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, index);
+              const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
@@ -201,7 +242,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
           writer.addPointData<real>(
               plasticityLabels[quantity], {}, [=](real* target, std::size_t index) {
-                const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, index);
+                const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
