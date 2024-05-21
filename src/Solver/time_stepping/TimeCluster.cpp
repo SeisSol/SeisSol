@@ -971,8 +971,7 @@ template<bool usePlasticity>
 void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
 #ifdef ACL_DEVICE
   if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) || (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
-    m_clusterData->varSynchronizeTo(m_lts->dofs, place, stream);
-    m_clusterData->varSynchronizeTo(m_lts->pstrain, place, stream);
+    m_clusterData->synchronizeTo(place, stream);
     if (layerType == Interior) {
       dynRupInteriorData->synchronizeTo(place, stream);
     }
