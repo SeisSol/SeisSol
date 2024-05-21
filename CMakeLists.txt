@@ -175,10 +175,7 @@ add_library(SeisSol-common-properties INTERFACE IMPORTED)
 include(src/sources.cmake)
 
 # enforce code generation to run before any other target
-add_dependencies(SeisSol-lib SeisSol-codegen)
-add_dependencies(SeisSol-kernel-lib SeisSol-codegen)
-add_dependencies(SeisSol-common-lib SeisSol-codegen)
-add_dependencies(SeisSol-io SeisSol-codegen)
+add_dependencies(SeisSol-common-properties SeisSol-codegen)
 
 target_link_libraries(SeisSol-lib PUBLIC SeisSol-common-properties)
 target_link_libraries(SeisSol-kernel-lib PUBLIC SeisSol-common-properties)
