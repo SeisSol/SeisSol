@@ -178,6 +178,7 @@ include(src/sources.cmake)
 add_dependencies(SeisSol-lib SeisSol-codegen)
 add_dependencies(SeisSol-kernel-lib SeisSol-codegen)
 add_dependencies(SeisSol-common-lib SeisSol-codegen)
+add_dependencies(SeisSol-io SeisSol-codegen)
 
 target_link_libraries(SeisSol-lib PUBLIC SeisSol-common-properties)
 target_link_libraries(SeisSol-kernel-lib PUBLIC SeisSol-common-properties)
