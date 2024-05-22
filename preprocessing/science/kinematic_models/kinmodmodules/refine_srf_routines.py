@@ -6,7 +6,7 @@ from .FaultPlane import FaultPlane
 def refine(
     filename,
     projection,
-    YoffePSRthreshold,
+    yoffePSRthreshold,
     spatial_order,
     spatial_zoom,
     temporal_zoom,
@@ -18,9 +18,9 @@ def refine(
     p1.compute_xy_from_latlon(projection)
     p1.compute_time_array()
 
-    use_Yoffe = True if YoffePSRthreshold else False
+    use_Yoffe = True if yoffePSRthreshold else False
     if use_Yoffe:
-        p1.assess_STF_parameters(YoffePSRthreshold)
+        p1.assess_STF_parameters(yoffePSRthreshold)
 
     p2 = p1.upsample_fault(
         spatial_order=spatial_order,

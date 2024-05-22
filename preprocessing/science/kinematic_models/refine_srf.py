@@ -59,12 +59,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-YoffePSRthreshold= args.use_Yoffe[0]
+yoffePSRthreshold= args.use_Yoffe[0]
 
 refine(
     ags.filename,
     args.proj,
-    YoffePSRthreshold,
+    yoffePSRthreshold,
     args.spatial_order[0],
     args.spatial_zoom[0],
     args.temporal_zoom[0],
