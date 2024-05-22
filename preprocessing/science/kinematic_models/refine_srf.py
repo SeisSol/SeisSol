@@ -1,6 +1,6 @@
 import os
 import argparse
-from FaultPlane import FaultPlane
+from faultplane.FaultPlane import FaultPlane
 
 parser = argparse.ArgumentParser(
     description="upsample temporally and spatially a kinematic model (should consist of only one segment) in the standard rupture format"

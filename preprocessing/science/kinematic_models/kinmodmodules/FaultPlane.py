@@ -3,12 +3,12 @@ import pyproj
 import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
-from Yoffe import regularizedYoffe
+from .stf.Yoffe import regularizedYoffe
 from scipy import ndimage
-from GaussianSTF import GaussianSTF
+from .stf.GaussianSTF import GaussianSTF
 from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
-from writeNetcdf import writeNetcdf
+from .asagiwriter.writeNetcdf import writeNetcdf
 import os
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
