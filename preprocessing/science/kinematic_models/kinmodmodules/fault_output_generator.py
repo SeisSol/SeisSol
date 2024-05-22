@@ -4,9 +4,9 @@ import seissolxdmf
 import seissolxdmfwriter as sxw
 import argparse
 import numpy as np
-from stf.GaussianSTF import GaussianSTF, SmoothStep
-from stf.Yoffe import regularizedYoffe
-from stf.AsymmetricCosineSTF import asymmetric_cosine
+from stf.gaussianSTF import GaussianSTF, SmoothStep
+from stf.yoffe import regularizedYoffe
+from stf.asymmetricCosineSTF import asymmetric_cosine
 from tqdm import tqdm
 
 

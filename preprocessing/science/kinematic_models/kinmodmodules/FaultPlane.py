@@ -3,9 +3,9 @@ import pyproj
 import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
-from .stf.Yoffe import regularizedYoffe
+from .stf.yoffe import regularizedYoffe
 from scipy import ndimage
-from .stf.GaussianSTF import GaussianSTF
+from .stf.gaussianSTF import gaussianSTF
 from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
 from .asagiwriter.writeNetcdf import writeNetcdf

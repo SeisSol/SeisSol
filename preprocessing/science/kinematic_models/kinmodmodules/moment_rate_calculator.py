@@ -5,7 +5,7 @@ import argparse
 from .FaultPlane import FaultPlane, MultiFaultPlane
 import os.path
 import numpy as np
-from .stf.GaussianSTF import GaussianSTF, SmoothStep
+from .stf.gaussianSTF import GaussianSTF, SmoothStep
 
 def compute(filename, yaml_filename, projection, dt=0.5):
     prefix, ext = os.path.splitext(filename)
