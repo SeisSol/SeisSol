@@ -178,7 +178,7 @@ gpu_run_tpv:
         - ulimit -Ss unlimited
         - ./SeisSol_Release_${LPREC}sm_60_${BACKEND}_6_${EQUATION} ./parameters.par
         - mv ./precomputed/${PRECISION} ./output/precomputed
-        - mv ./output ../output-tpv{$tpv}-${PRECISION}-${BACKEND}-${EQUATION}
+        - mv ./output ../output-tpv${tpv}-${PRECISION}-${BACKEND}-${EQUATION}
     artifacts:
         paths:
             - output-*
@@ -206,9 +206,9 @@ check_faultoutput:
     before_script:
         - pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
     script: 
-        - echo "check TPV{$tpv} with ${PRECISION} PRECISION and ${BACKEND} backend"
+        - echo "check TPV${tpv} with ${PRECISION} PRECISION and ${BACKEND} backend"
         - ls
-        - cd output-tpv{$tpv}-${PRECISION}-${BACKEND}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - python3 ../postprocessing/validation/compare-faults.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
@@ -233,7 +233,7 @@ check_receivers:
     script:
         - echo "check TPV${tpv}"
         - ls
-        - cd output-tpv{$tpv}-${PRECISION}-${BACKEND}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
             python3 ../postprocessing/validation/compare-receivers.py . ./precomputed --epsilon ${epsilon} --mode $mode
@@ -259,7 +259,7 @@ gpu_check_energies:
     script:
         - echo "check TPV${tpv}"
         - ls
-        - cd output-tpv{$tpv}-${PRECISION}-${BACKEND}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - python3 ../postprocessing/validation/compare-energies.py ./${energy_file} ./precomputed/${energy_file} --epsilon ${epsilon}
 
