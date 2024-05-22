@@ -72,6 +72,14 @@ namespace seissol {
       double c56;
       double c66;
 
+      double getLambda() const override {
+        return (c11 + c22 + c33) / 3.0 - 2.0*getMu();
+      }
+
+      double getMu() const override {
+        return (c44 + c55 + c66) / 3.0;;
+      }
+
       AnisotropicMaterial() {}
 
       explicit AnisotropicMaterial(ElasticMaterial m) {
