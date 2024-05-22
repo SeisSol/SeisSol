@@ -370,7 +370,7 @@ class MultiFaultPlane:
         fault_planes = []
         fault_planes.append(FaultPlane())
         fp = fault_planes[0]
-        df = pd.read_csv(fname, delim_whitespace=True, skiprows=25, usecols=range(8), comment=":")
+        df = pd.read_csv(fname, sep='\s+', skiprows=25, usecols=range(8), comment=":")
         df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[True, True, True]).reset_index()
         rows_with_same_depth = df[df["depth(km)"] == df.iloc[0]["depth(km)"]]
         nx = len(rows_with_same_depth)
