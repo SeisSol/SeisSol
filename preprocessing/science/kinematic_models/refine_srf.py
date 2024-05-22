@@ -1,6 +1,7 @@
 import os
 import argparse
-from faultplane.FaultPlane import FaultPlane
+from kinmodmodules.refine_srf_routines import refine
+
 
 parser = argparse.ArgumentParser(
     description="upsample temporally and spatially a kinematic model (should consist of only one segment) in the standard rupture format"
@@ -52,27 +53,20 @@ parser.add_argument(
     nargs=1,
     metavar=("PSRthreshold"),
     type=float,
+    default=[None]
 )
 
 args = parser.parse_args()
 
-p1 = FaultPlane()
-p1.init_from_srf(args.filename)
-p1.compute_xy_from_latlon(args.proj)
-p1.compute_time_array()
 
-use_Yoffe = True if args.use_Yoffe else False
-if use_Yoffe:
-    p1.assess_STF_parameters(args.use_Yoffe[0])
+YoffePSRthreshold= args.use_Yoffe[0]
 
-p2 = p1.upsample_fault(
-    spatial_order=args.spatial_order[0],
-    spatial_zoom=args.spatial_zoom[0],
-    temporal_zoom=args.temporal_zoom[0],
-    proj=args.proj,
-    use_Yoffe=use_Yoffe,
-    time_smoothing_kernel_as_dt_fraction=args.time_smoothing_kernel_as_dt_fraction[0],
+refine(
+    ags.filename,
+    args.proj,
+    YoffePSRthreshold,
+    args.spatial_order[0],
+    args.spatial_zoom[0],
+    args.temporal_zoom[0],
+    args.time_smoothing_kernel_as_dt_fraction[0],
 )
-prefix, ext = os.path.splitext(args.filename)
-fnout = prefix + "_resampled" + ".srf"
-p2.write_srf(fnout)
