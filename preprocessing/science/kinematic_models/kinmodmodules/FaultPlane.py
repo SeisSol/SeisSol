@@ -677,7 +677,7 @@ class FaultPlane:
                     tr = max(tr, ts)
                     for k, tk in enumerate(self.myt):
                         newSR[k, 0] = regularizedYoffe(tk - t0_increment, ts, tr)
-                        newSR[k, 1] = GaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
+                        newSR[k, 1] = gaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
                     integral_aSTF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
                     integral_Yoffe = np.trapz(np.abs(newSR[:, 0]), dx=self.dt)
                     integral_Gaussian = np.trapz(np.abs(newSR[:, 1]), dx=self.dt)

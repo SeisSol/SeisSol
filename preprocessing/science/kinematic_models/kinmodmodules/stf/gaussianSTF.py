@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def SmoothStep(time, Tnuc):
+def smoothStep(time, Tnuc):
     positive_ids = time > 0
     result = np.zeros_like(time)
     result[positive_ids] = np.exp(
@@ -12,10 +12,10 @@ def SmoothStep(time, Tnuc):
     return result
 
 
-def GaussianSTF(time, Tnuc, dt):
+def gaussianSTF(time, Tnuc, dt):
     Gnuc = np.where(
         (time > 0) & (time < Tnuc),
-        SmoothStep(time, Tnuc) - SmoothStep(time - dt, Tnuc),
+        smoothStep(time, Tnuc) - smoothStep(time - dt, Tnuc),
         0,
     )
     return Gnuc / dt

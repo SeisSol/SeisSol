@@ -5,7 +5,7 @@ import argparse
 from .FaultPlane import FaultPlane, MultiFaultPlane
 import os.path
 import numpy as np
-from .stf.gaussianSTF import GaussianSTF, SmoothStep
+from .stf.gaussianSTF import gaussianSTF, smoothStep
 
 def compute(filename, yaml_filename, projection, dt=0.5):
     prefix, ext = os.path.splitext(filename)
@@ -43,7 +43,7 @@ def compute(filename, yaml_filename, projection, dt=0.5):
         )
         mu = out["mu"].reshape(fp.x.shape)
         for k, tk in enumerate(time):
-            STF = GaussianSTF(tk - fp.t0[:, :], fp.rise_time[:, :], dt)
+            STF = gaussianSTF(tk - fp.t0[:, :], fp.rise_time[:, :], dt)
             for j in range(fp.ny):
                 for i in range(fp.nx):
                     moment_rate[k] += (

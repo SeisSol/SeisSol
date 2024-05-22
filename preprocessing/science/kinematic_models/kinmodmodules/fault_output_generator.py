@@ -4,7 +4,7 @@ import seissolxdmf
 import seissolxdmfwriter as sxw
 import argparse
 import numpy as np
-from stf.gaussianSTF import GaussianSTF, SmoothStep
+from stf.gaussianSTF import gaussianSTF, smoothStep
 from stf.yoffe import regularizedYoffe
 from stf.asymmetricCosineSTF import asymmetric_cosine
 from tqdm import tqdm
@@ -101,8 +101,8 @@ def generate(filename, stf, dt_output=0.5):
     print(time)
     for k, ti in enumerate(tqdm(time)):
         if stf == "Gaussian":
-            STF = GaussianSTF(ti - onset, rise_time, dt_output)
-            intSTF = SmoothStep(ti - onset, rise_time)
+            STF = gaussianSTF(ti - onset, rise_time, dt_output)
+            intSTF = smoothStep(ti - onset, rise_time)
         elif stf == "AsymmetricCosine":
             STF = asymmetric_cosine(ti - onset, acc_time, rise_time - acc_time)
             intSTF += dt * STF
