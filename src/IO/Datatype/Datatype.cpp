@@ -109,10 +109,11 @@ ArrayDatatype::ArrayDatatype(YAML::Node node)
       dimensionsP(node["shape"].as<std::vector<std::size_t>>()) {}
 
 std::size_t ArrayDatatype::size() const {
-  return baseP->size() * std::reduce(dimensionsP.begin(),
-                                     dimensionsP.end(),
-                                     static_cast<std::size_t>(1),
-                                     [](auto a, auto b) { return a * b; });
+  std::size_t totalSize = baseP->size();
+  for (const auto& dim : dimensionsP) {
+    totalSize *= dim;
+  }
+  return totalSize;
 }
 
 Array ArrayDatatype::unwrap(std::size_t maxDimensions) { return Array(baseP, dimensionsP); }
