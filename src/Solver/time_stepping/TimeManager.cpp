@@ -175,6 +175,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     increaseManager.setTimeClusterVector(&clusters);
     decreaseManager.setTimeClusterVector(&clusters);
 #ifdef USE_MPI
+    void* comm;
+
+#ifdef USE_CCL
+    ncclComm_t preComm;
+    ncclUniqueId cclId;
+    ncclGetUniqueId(&cclId);
+    ncclCommInitRank(&preComm, MPI::mpi.size(), cclId, MPI::mpi.rank());
+    comm = static_cast<void*>(preComm);
+#endif
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi();
@@ -201,7 +210,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                          otherGlobalClusterId,
                                                          meshStructure,
                                                          preferredDataTransferMode,
-                                                         persistent);
+                                                         persistent,
+                                                         comm);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.

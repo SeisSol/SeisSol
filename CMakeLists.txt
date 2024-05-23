@@ -481,6 +481,14 @@ else()
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
+# RCCL
+find_package(rccl REQUIRED)
+target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
+target_include_directories(SeisSol-common-properties INTERFACE ${HIP_PATH}/include/rccl)
+target_link_libraries(SeisSol-common-properties INTERFACE ${HIP_PATH}/lib/librccl.so)
+# end RCCL
+
+
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib INTERFACE -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)

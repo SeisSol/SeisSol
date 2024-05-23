@@ -18,10 +18,13 @@ public:
                            int globalTimeClusterId,
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure,
-                           bool persistent);
+                           bool persistent,
+                           void* comm
+                           );
     void finalize() override;
 private:
   bool persistent;
+  void* comm;
 };
 } // namespace seissol::time_stepping
 

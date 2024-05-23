@@ -32,12 +32,18 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
+#ifdef USE_CCL
+  void* stream;
+#endif
+
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,
                           int timeStepRate,
                           int globalTimeClusterId,
                           int otherGlobalTimeClusterId,
                           const MeshStructure* meshStructure);
+
+  void finalize() override;
 
   void reset() override;
   ActResult act() override;

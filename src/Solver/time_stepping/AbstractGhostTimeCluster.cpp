@@ -5,6 +5,9 @@
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
                                          std::list<unsigned int>& regions) {
+#ifdef USE_CCL
+  return ::device::DeviceInstance::getInstance().api->isStreamWorkDone(stream);
+#else
   for (auto region = regions.begin(); region != regions.end();) {
     MPI_Request *request = &requests[*region];
     int testSuccess = 0;
@@ -16,6 +19,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
     }
   }
   return regions.empty();
+#endif
 }
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
@@ -87,7 +91,17 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure) {}
+      meshStructure(meshStructure) {
+#ifdef USE_CCL
+  stream = ::device::DeviceInstance::getInstance().api->createGenericStream();
+#endif
+}
+
+void AbstractGhostTimeCluster::finalize() {
+#ifdef USE_CCL
+::device::DeviceInstance::getInstance().api->->destroyGenericStream(stream);
+#endif
+}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

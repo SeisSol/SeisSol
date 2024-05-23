@@ -16,7 +16,8 @@ struct GhostTimeClusterFactory {
                                                        int otherGlobalTimeClusterId,
                                                        const MeshStructure* meshStructure,
                                                        MPI::DataTransferMode mode,
-                                                       bool persistent) {
+                                                       bool persistent,
+                                                       void* comm) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case MPI::DataTransferMode::CopyInCopyOutHost: {
@@ -35,7 +36,7 @@ struct GhostTimeClusterFactory {
                                                       globalTimeClusterId,
                                                       otherGlobalTimeClusterId,
                                                       meshStructure,
-                                                      persistent);
+                                                      persistent, comm);
     }
     default: {
       return nullptr;
