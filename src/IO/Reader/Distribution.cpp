@@ -147,6 +147,9 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
       sendReorder.resize(source.size());
       for (std::size_t i = 0; i < source.size(); ++i) {
         auto it = reorderMap.find(source[i]);
+        if (it == reorderMap.end()) {
+          logError() << "Element requested for target" << source[i] << "but no source given.";
+        }
         sendReorder[i] = it->second;
       }
     } else {
@@ -204,6 +207,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
 
   {
     std::unordered_set<std::size_t> seenIds;
+    seenIds.reserve(sourceIds.size());
     for (std::size_t i = 0; i < sourceIds.size(); ++i) {
       if (seenIds.find(sourceIds[i]) == seenIds.end()) {
         seenIds.insert(sourceIds[i]);
@@ -213,6 +217,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
   {
     std::unordered_set<std::size_t> seenIds;
+    seenIds.reserve(targetIds.size());
     for (std::size_t i = 0; i < targetIds.size(); ++i) {
       if (seenIds.find(targetIds[i]) == seenIds.end()) {
         seenIds.insert(targetIds[i]);
