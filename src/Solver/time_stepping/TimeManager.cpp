@@ -189,7 +189,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     if (seissol::MPI::mpi.rank() == 0) {
       ncclGetUniqueId(&cclId);
     }
-    MPI_Bcast(&cclId, sizeof(cclId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
+    MPI_Bcast(&cclId, sizeof(ncclUniqueId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
     ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
     comm = static_cast<void*>(preComm);
 #endif
