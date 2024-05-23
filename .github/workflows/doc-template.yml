@@ -1,0 +1,24 @@
+name: seissol-documentation
+on:
+  - push
+
+jobs:
+  seissol-documentation:
+    name: seissol-documentation
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install-packages
+        run: |
+          set -euo pipefail
+          export IFS=$'\n\t'
+          sudo apt-get update
+          sudo apt-get install -qq python3 python3-pip
+          sudo pip3 install --upgrade pip
+          sudo pip3 install sphinx
+          sudo pip3 install sphinx_rtd_theme
+
+      - name: build-documentation
+        run: |
+          cd Documentation && make html && cd ..
