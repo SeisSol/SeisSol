@@ -482,10 +482,10 @@ else()
 endif()
 
 # RCCL
-find_package(rccl REQUIRED)
+find_package(RCCL REQUIRED)
 target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
-target_include_directories(SeisSol-common-properties INTERFACE ${HIP_PATH}/include/rccl)
-target_link_libraries(SeisSol-common-properties INTERFACE ${HIP_PATH}/lib/librccl.so)
+target_include_directories(SeisSol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
+target_link_libraries(SeisSol-common-properties INTERFACE ${RCCL_LIBRARY})
 # end RCCL
 
 
