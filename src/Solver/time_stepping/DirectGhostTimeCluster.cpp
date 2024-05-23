@@ -3,12 +3,13 @@
 #include "Solver/time_stepping/DirectGhostTimeCluster.h"
 
 #ifdef USE_CCL
-#include <rccl.h>
+#include <rccl/rccl.h>
+#include <device.h>
 
 #if REAL_SIZE == 8
-using CCLReal = ncclFloat64;
+constexpr ncclDataType_t CCLReal = ncclDataType_t::ncclFloat64;
 #elif REAL_SIZE == 4
-using CCLReal = ncclFloat32;
+constexpr ncclDataType_t CCLReal = ncclDataType_t::ncclFloat32;
 #endif
 #endif
 

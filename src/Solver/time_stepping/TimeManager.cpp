@@ -50,7 +50,8 @@
 #include "Parallel/Helper.hpp"
 
 #ifdef USE_CCL
-#include <rccl.h>
+#include <rccl/rccl.h>
+#include <device.h>
 #endif
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
