@@ -33,7 +33,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
 #ifdef USE_CCL
-  void* stream;
+  void* sendStream;
+  void* recvStream;
 #endif
 
   public:

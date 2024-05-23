@@ -29,7 +29,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          static_cast<hipStream_t>(stream));
+          static_cast<hipStream_t>(sendStream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->sendRequests + region);
@@ -67,7 +67,7 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          static_cast<hipStream_t>(stream));
+          static_cast<hipStream_t>(recvStream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->receiveRequests + region);
@@ -92,7 +92,11 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
 
 bool DirectGhostTimeCluster::testForGhostLayerReceives() {
   SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
+#ifdef USE_CCL
+  return ::device::DeviceInstance::getInstance().api->isStreamWorkDone(recvStream);
+#else
   return testQueue(meshStructure->receiveRequests, receiveQueue);
+#endif
 }
 
 DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,

@@ -10,7 +10,7 @@ namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
                                          std::list<unsigned int>& regions) {
 #ifdef USE_CCL
-  return ::device::DeviceInstance::getInstance().api->isStreamWorkDone(stream);
+  return true; // should never be called
 #else
   for (auto region = regions.begin(); region != regions.end();) {
     MPI_Request *request = &requests[*region];
@@ -28,7 +28,11 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
+#ifdef USE_CCL
+  return ::device::DeviceInstance::getInstance().api->isStreamWorkDone(sendStream);
+#else
   return testQueue(meshStructure->sendRequests, sendQueue);
+#endif
 }
 
 ActResult AbstractGhostTimeCluster::act() {
@@ -97,13 +101,15 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {
 #ifdef USE_CCL
-  stream = ::device::DeviceInstance::getInstance().api->createGenericStream();
+  sendStream = ::device::DeviceInstance::getInstance().api->createGenericStream();
+  recvStream = ::device::DeviceInstance::getInstance().api->createGenericStream();
 #endif
 }
 
 void AbstractGhostTimeCluster::finalize() {
 #ifdef USE_CCL
-::device::DeviceInstance::getInstance().api->destroyGenericStream(stream);
+::device::DeviceInstance::getInstance().api->destroyGenericStream(sendStream);
+::device::DeviceInstance::getInstance().api->destroyGenericStream(recvStream);
 #endif
 }
 
