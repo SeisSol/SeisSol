@@ -84,7 +84,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   bool foundDynamicRuptureCluster = false;
 
-  void* comm;
+  std::vector<void*> comms(m_timeStepping.numberOfGlobalClusters);
 
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
@@ -95,7 +95,11 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   }
   MPI_Bcast(&cclId, sizeof(ncclUniqueId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
   ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
-  comm = static_cast<void*>(preComm);
+  for (std::size_t i = 0; i < comms.size(); ++i) {
+    ncclComm_t newComm;
+    ncclCommSplit(preComm, 0, 0, &newComm, nullptr);
+    comms[i] = static_cast<void*>(newComm);
+  }
 #endif
 
   // iterate over local time clusters
@@ -221,7 +225,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                          meshStructure,
                                                          preferredDataTransferMode,
                                                          persistent,
-                                                         comm);
+                                                         comms[l_globalClusterId]);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.
