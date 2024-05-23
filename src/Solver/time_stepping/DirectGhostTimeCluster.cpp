@@ -29,7 +29,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          stream);
+          static_cast<hipStream_t>(stream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->sendRequests + region);
@@ -67,7 +67,7 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          stream);
+          static_cast<hipStream_t>(stream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->receiveRequests + region);

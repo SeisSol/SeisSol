@@ -103,7 +103,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
 
 void AbstractGhostTimeCluster::finalize() {
 #ifdef USE_CCL
-::device::DeviceInstance::getInstance().api->->destroyGenericStream(stream);
+::device::DeviceInstance::getInstance().api->destroyGenericStream(stream);
 #endif
 }
 
