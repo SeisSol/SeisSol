@@ -49,6 +49,10 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.hpp"
 
+#ifdef USE_CCL
+#include <rccl.h>
+#endif
+
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
   m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
    actorStateStatisticsManager(m_loopStatistics)
