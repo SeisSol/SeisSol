@@ -529,13 +529,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       //   alpha_ave += alphaNodal[q] * w_ave;
       // }
 
-      // Determine based on the max value
-      real alpha_ave = alphaNodal[0];
-      real break_ave = breakNodal[0];
-      for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
-        break_ave = std::max(break_ave, breakNodal[q+1]);
-        alpha_ave = std::max(alpha_ave, alphaNodal[q+1]);
-      }
+      // // Determine based on the max value
+      // real alpha_ave = alphaNodal[0];
+      // real break_ave = breakNodal[0];
+      // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
+      //   break_ave = std::max(break_ave, breakNodal[q+1]);
+      //   alpha_ave = std::max(alpha_ave, alphaNodal[q+1]);
+      // }
 
       // Determine based on the ave value
       real alpha_ave = 0.0;

@@ -266,20 +266,20 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
 
-  // real alpha_ave = 0.0;
-  // real break_ave = 0.0;
-  // real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
-  // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-  //   break_ave += breakNodal[q] * w_ave;
-  //   alpha_ave += alphaNodal[q] * w_ave;
-  // }
-
-  real alpha_ave = alphaNodal[0];
-  real break_ave = breakNodal[0];
-  for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
-    break_ave = std::max(break_ave, breakNodal[q]);
-    alpha_ave = std::max(alpha_ave, alphaNodal[q]);
+  real alpha_ave = 0.0;
+  real break_ave = 0.0;
+  real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
+  for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+    break_ave += breakNodal[q] * w_ave;
+    alpha_ave += alphaNodal[q] * w_ave;
   }
+
+  // real alpha_ave = alphaNodal[0];
+  // real break_ave = breakNodal[0];
+  // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
+  //   break_ave = std::max(break_ave, breakNodal[q]);
+  //   alpha_ave = std::max(alpha_ave, alphaNodal[q]);
+  // }
 
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
