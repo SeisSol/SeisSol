@@ -183,10 +183,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     void* comm;
 
 #ifdef USE_CCL
+    // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
     ncclComm_t preComm;
     ncclUniqueId cclId;
-    ncclGetUniqueId(&cclId);
-    ncclCommInitRank(&preComm, MPI::mpi.size(), cclId, MPI::mpi.rank());
+    if (seissol::MPI::mpi.rank() == 0) {
+      ncclGetUniqueId(&cclId);
+    }
+    MPI_Bcast(&cclId, sizeof(cclId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
+    ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
     comm = static_cast<void*>(preComm);
 #endif
     // Create ghost time clusters for MPI
