@@ -529,11 +529,20 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       //   alpha_ave += alphaNodal[q] * w_ave;
       // }
 
+      // Determine based on the max value
       real alpha_ave = alphaNodal[0];
       real break_ave = breakNodal[0];
       for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
-        break_ave = std::max(break_ave, breakNodal[q]);
-        alpha_ave = std::max(alpha_ave, alphaNodal[q]);
+        break_ave = std::max(break_ave, breakNodal[q+1]);
+        alpha_ave = std::max(alpha_ave, alphaNodal[q+1]);
+      }
+
+      // Determine based on the ave value
+      real alpha_ave = 0.0;
+      real break_ave = 0.0;
+      for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+        break_ave += breakNodal[q]/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
+        alpha_ave += alphaNodal[q]/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
       }
 
       for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
@@ -572,7 +581,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
             alphaCRq = std::min(1.0,
               std::min( alphaCR1q, alphaCR2q )
             );
-          } 
+          }
         }
 
         if (xi + data.material.local.xi0 > 0) {
