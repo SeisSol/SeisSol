@@ -28,7 +28,6 @@ void DirectGhostTimeCluster::sendCopyLayer() {
           static_cast<size_t>(meshStructure->copyRegionSizes[region]),
           CCLReal,
           meshStructure->neighboringClusters[region][0],
-          timeData + meshStructure->sendIdentifiers[region],
           static_cast<ncclComm_t>(comm),
           stream);
 #else
@@ -63,11 +62,10 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId) ) {
 #ifdef USE_CCL
-        ncclRecv(meshStructure->copyRegions[region],
-          static_cast<size_t>(meshStructure->copyRegionSizes[region]),
+        ncclRecv(meshStructure->ghostRegions[region],
+          static_cast<size_t>(meshStructure->ghostRegionSizes[region]),
           CCLReal,
           meshStructure->neighboringClusters[region][0],
-          timeData + meshStructure->sendIdentifiers[region],
           static_cast<ncclComm_t>(comm),
           stream);
 #else

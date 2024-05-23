@@ -1,6 +1,10 @@
 #include "Parallel/MPI.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
+#ifdef USE_CCL
+#include <device.h>
+#endif
+
 
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
