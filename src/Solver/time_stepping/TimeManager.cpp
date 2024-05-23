@@ -88,17 +88,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
-  ncclComm_t preComm;
-  ncclUniqueId cclId;
-  if (seissol::MPI::mpi.rank() == 0) {
-    ncclGetUniqueId(&cclId);
-  }
-  MPI_Bcast(&cclId, sizeof(ncclUniqueId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
-  ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
   for (std::size_t i = 0; i < comms.size(); ++i) {
-    ncclComm_t newComm;
-    ncclCommSplit(preComm, 0, 0, &newComm, nullptr);
-    comms[i] = static_cast<void*>(newComm);
+    ncclComm_t preComm;
+    ncclUniqueId cclId;
+    if (seissol::MPI::mpi.rank() == 0) {
+      ncclGetUniqueId(&cclId);
+    }
+    MPI_Bcast(&cclId, sizeof(ncclUniqueId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
+    ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
+    comms[i] = static_cast<void*>(preComm);
   }
 #endif
 
