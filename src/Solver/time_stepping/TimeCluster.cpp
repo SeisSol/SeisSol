@@ -184,7 +184,7 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (m_receiverCluster != nullptr) {
-    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize(), executor, nullptr);
+    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize(), executor, streamRuntime);
   }
 }
 
@@ -528,8 +528,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
     }
   });
 
-  streamRuntime.wait();
-
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
   device.api->popLastProfilingMark();
 }
@@ -719,6 +717,8 @@ void TimeCluster::predict() {
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
     m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, other, streamRuntime.stream());
+  }
+  if (!concurrentClusters()) {
     streamRuntime.wait();
   }
 #endif

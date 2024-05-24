@@ -220,8 +220,12 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
                                       scratchpadMemInfo[id].allocMode);
     }
 
+    auto scratchpadOffsets = std::vector<std::size_t>(scratchpadMemInfo.size());
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories);
+      it->setMemoryRegionsForScratchpads(scratchpadMemories, scratchpadOffsets);
+      if (concurrentClusters()) {
+        it->findMaxScratchpadSizes(scratchpadOffsets);
+      }
     }
   }
 #endif

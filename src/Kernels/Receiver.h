@@ -51,6 +51,7 @@
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Transformation.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/Stream.hpp"
 #include "generated_code/init.h"
 #include <optional>
 #include <vector>
@@ -120,7 +121,7 @@ namespace seissol {
                             double expansionPoint,
                             double timeStepWidth,
                             Executor executor,
-                            void* stream );
+                            seissol::parallel::runtime::StreamRuntime& runtime );
 
       std::vector<Receiver>::iterator begin() {
         return m_receivers.begin();

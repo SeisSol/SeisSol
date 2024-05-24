@@ -77,7 +77,7 @@ class StreamRuntime {
     enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler);
+        std::invoke(handler, i);
       }
     });
   }
@@ -159,6 +159,21 @@ class StreamRuntime {
   public:
   void wait() {}
   void dispose() {}
+
+  template <typename F>
+  void enqueueHost(F&& handler) {
+    std::invoke(std::forward<F>(handler));
+  }
+
+  template <typename F>
+  void enqueueOmpFor(std::size_t elemCount, F&& handler) {
+    enqueueHost([=]() {
+#pragma omp parallel for schedule(static)
+      for (std::size_t i = 0; i < elemCount; ++i) {
+        std::invoke(handler, i);
+      }
+    });
+  }
 #endif
 };
 

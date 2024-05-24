@@ -123,6 +123,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
     }
   }
 #endif // _OPENMP
+  printConcurrentClusters(MPI::mpi);
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.

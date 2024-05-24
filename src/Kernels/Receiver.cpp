@@ -80,45 +80,49 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth,
                                                           Executor executor,
-                                                          void* stream ) {
-  
-  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
-#ifdef USE_STP
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
-  kernel::evaluateDOFSAtPointSTP krnl;
-  krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.spaceTimePredictor = stp;
-  kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
-  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-  derivativeKrnl.spaceTimePredictor = stp;
-#else
-  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+                                                          seissol::parallel::runtime::StreamRuntime& runtime ) {
 
-  kernel::evaluateDOFSAtPoint krnl;
-  krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.Q = timeEvaluated;
-  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
-  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-  derivativeKrnl.Q = timeEvaluated;
-#endif
-
-
-  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+  double outReceiverTime = time;
+  while (outReceiverTime < expansionPoint + timeStepWidth) {
+    outReceiverTime += m_samplingInterval;
+  }
 
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
-    deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    deviceCollector->gatherToHost(runtime.stream());
   }
 #endif
 
-  double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    for (size_t i = 0; i < m_receivers.size(); ++i) {
+    runtime.enqueueOmpFor(m_receivers.size(), [=](size_t i) {
+      alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+      alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+      alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+    #ifdef USE_STP
+      alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+      kernel::evaluateDOFSAtPointSTP krnl;
+      krnl.QAtPoint = timeEvaluatedAtPoint;
+      krnl.spaceTimePredictor = stp;
+      kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
+      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+      derivativeKrnl.spaceTimePredictor = stp;
+    #else
+      alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+
+      kernel::evaluateDOFSAtPoint krnl;
+      krnl.QAtPoint = timeEvaluatedAtPoint;
+      krnl.Q = timeEvaluated;
+      kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+      derivativeKrnl.Q = timeEvaluated;
+    #endif
+
+
+      auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+      auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+
+      double receiverTime = time;
       auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
@@ -199,9 +203,9 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 
         receiverTime += m_samplingInterval;
       }
-    }
+    });
   }
-  return receiverTime;
+  return outReceiverTime;
 }
 
 void seissol::kernels::ReceiverCluster::allocateData() {

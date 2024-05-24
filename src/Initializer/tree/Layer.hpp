@@ -45,6 +45,7 @@
 #include "Initializer/DeviceGraph.h"
 #include "Initializer/MemoryAllocator.h"
 #include "Node.hpp"
+#include "Parallel/Helper.hpp"
 #include <bitset>
 #include <cstring>
 #include <limits>
@@ -339,7 +340,11 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   // scratchpad mem. size is bigger then the one inside of the array
   void findMaxScratchpadSizes(std::vector<size_t>& bytes) {
     for (size_t id = 0; id < bytes.size(); ++id) {
-      bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+      if (concurrentClusters()) {
+        bytes[id] += m_scratchpadSizes[id];
+      } else {
+        bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+      }
     }
   }
 #endif
@@ -364,10 +369,11 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 
 #ifdef ACL_DEVICE
-  void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory) {
+  void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory,
+                                      const std::vector<std::size_t>& offsets) {
     assert(m_scratchpads.size() == memory.size());
     for (size_t id = 0; id < m_scratchpads.size(); ++id) {
-      m_scratchpads[id] = memory[id];
+      m_scratchpads[id].offsetFrom(memory[id], offsets[id], m_scratchpadSizes[id]);
     }
   }
 #endif

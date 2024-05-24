@@ -76,6 +76,17 @@ void printDeviceHostSwitch(const T& mpiBasic) {
 }
 #endif
 
+inline bool concurrentClusters() { return utils::Env::get<bool>("SEISSOL_CONCURRENT", false); }
+
+template <typename T>
+void printConcurrentClusters(const T& mpiBasic) {
+  if (concurrentClusters()) {
+    logInfo(mpiBasic.rank()) << "Running with concurrent clusters.";
+  } else {
+    logInfo(mpiBasic.rank()) << "Running with sequential clusters.";
+  }
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_PARALLEL_HELPER_HPP_
