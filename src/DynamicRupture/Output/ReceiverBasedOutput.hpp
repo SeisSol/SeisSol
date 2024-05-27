@@ -27,6 +27,7 @@ class ReceiverOutput {
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        std::shared_ptr<ReceiverOutputData> state,
+                       seissol::parallel::runtime::StreamRuntime& runtime,
                        double time = 0.0);
 
   protected:

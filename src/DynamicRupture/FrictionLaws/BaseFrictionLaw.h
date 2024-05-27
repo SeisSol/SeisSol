@@ -20,6 +20,10 @@ class BaseFrictionLaw : public FrictionSolver {
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolver(drParameters) {};
 
+  void dependency(seissol::parallel::runtime::StreamRuntime& runtime) override {
+    // TODO
+  }
+
   /**
    * evaluates the current friction model
    */

@@ -15,6 +15,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 
+  void dependency(seissol::parallel::runtime::StreamRuntime& runtime) override {
+    runtime.syncFromSycl(&this->queue);
+  }
+
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,

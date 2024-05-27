@@ -27,7 +27,9 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(double time,
+                            double dt,
+                            seissol::parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 

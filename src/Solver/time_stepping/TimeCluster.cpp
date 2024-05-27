@@ -782,13 +782,24 @@ void TimeCluster::correct() {
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
+    else {
+#ifdef ACL_DEVICE
+  if (executor == Executor::Device) {
+    frictionSolverDevice->dependency(runtime);
+  }
+  else {
+    frictionSolver->dependency(runtime);
+  }
+#else
+  frictionSolver->dependency(runtime);
+#endif
+    }
     if (layerType == Copy) {
       handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
     }
-
   }
 
 #ifdef ACL_DEVICE
@@ -816,7 +827,7 @@ void TimeCluster::correct() {
   // TODO: Change from iteration based to time based
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces()
       && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize(), streamRuntime);
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
 

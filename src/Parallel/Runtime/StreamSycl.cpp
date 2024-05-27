@@ -15,9 +15,8 @@ void StreamRuntime::syncToSycl(void* queuePtr) {
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
   device().api->recordEventOnStream(event, streamPtr);
-  syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->syncStreamWithEvent(stream, event);
-  });
+  syclNativeOperation(
+      *queue, true, [=](void* stream) { device().api->syncStreamWithEvent(stream, event); });
 #endif
 }
 void StreamRuntime::syncFromSycl(void* queuePtr) {
@@ -27,9 +26,8 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
   device().api->syncStreamWithEvent(streamPtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto syclEvent = syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->recordEventOnStream(event, stream);
-  });
+  auto syclEvent = syclNativeOperation(
+      *queue, true, [=](void* stream) { device().api->recordEventOnStream(event, stream); });
   // needs a submission barrier here
 #if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
   // a bit hacky right now; but it works

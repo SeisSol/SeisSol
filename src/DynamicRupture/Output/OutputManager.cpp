@@ -300,7 +300,9 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::writePickpointOutput(double time,
+                                         double dt,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -309,6 +311,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
+                            runtime,
                             time);
 
       const bool isMaxCacheLevel =
