@@ -60,7 +60,6 @@ src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
-src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
 
 src/SourceTerm/FSRMReader.cpp

@@ -609,7 +609,6 @@ if (TESTING)
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Pipeline/TestPipeline.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
           src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
