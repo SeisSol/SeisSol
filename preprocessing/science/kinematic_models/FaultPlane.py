@@ -3,15 +3,14 @@ import pyproj
 import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
-from .stf.yoffe import regularizedYoffe
 from scipy import ndimage
-from .stf.gaussianSTF import gaussianSTF
 from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
-from .asagiwriter.writeNetcdf import writeNetcdf
 import os
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
+from stf import regularizedYoffe, gaussianSTF, smoothStep, asymmetric_cosine
+from asagiwriter import writeNetcdf
 
 def cosine_taper(npts, p=0.1, freqs=None, flimit=None, halfcosine=True, sactaper=False):
     """
