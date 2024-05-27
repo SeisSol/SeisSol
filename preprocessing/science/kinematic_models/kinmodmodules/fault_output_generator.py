@@ -4,9 +4,9 @@ import seissolxdmf
 import seissolxdmfwriter as sxw
 import argparse
 import numpy as np
-from stf.gaussianSTF import gaussianSTF, smoothStep
-from stf.yoffe import regularizedYoffe
-from stf.asymmetricCosineSTF import asymmetric_cosine
+from .stf.gaussianSTF import gaussianSTF, smoothStep
+from .stf.yoffe import regularizedYoffe
+from .stf.asymmetricCosineSTF import asymmetric_cosine
 from tqdm import tqdm
 
 
@@ -28,8 +28,9 @@ class seissolxdmfExtended(seissolxdmf.seissolxdmf):
             + self.xyz[self.connect[:, 2]]
         ) / 3.0
 
-def generate(filename, stf, dt_output=0.5):
-    sx = seissolxdmfExtended(args.fault_filename)
+
+def generate(fault_filename, yaml_filename, output_file, stf, dt_output):
+    sx = seissolxdmfExtended(fault_filename)
     centers = sx.ComputeCellCenters()
     tags = sx.ReadFaultTags()
 
@@ -39,7 +40,7 @@ def generate(filename, stf, dt_output=0.5):
             centers,
             tags,
             ["strike_slip", "dip_slip", "tau_S", "tau_R", "rupture_onset"],
-            args.yaml_filename,
+            yaml_filename,
         )
         ts = out["tau_S"]
         tr = out["tau_R"]
@@ -55,7 +56,7 @@ def generate(filename, stf, dt_output=0.5):
             centers,
             tags,
             ["strike_slip", "dip_slip", "tau_S", "rupture_rise_time", "rupture_onset"],
-            args.yaml_filename,
+            yaml_filename,
         )
         acc_time = np.maximum(out["tau_S"], 0) * 1.27
         rise_time = out["rupture_rise_time"]
@@ -70,10 +71,9 @@ def generate(filename, stf, dt_output=0.5):
             centers,
             tags,
             ["strike_slip", "dip_slip", "rupture_rise_time", "rupture_onset"],
-            args.yaml_filename,
+            yaml_filename,
         )
         rise_time = out["rupture_rise_time"]
-
 
     onset = out["rupture_onset"]
     onset[onset > 1e50] = np.nan
@@ -128,7 +128,7 @@ def generate(filename, stf, dt_output=0.5):
     dictTime = {time_out[i]: i for i in range(time_out.shape[0])}
 
     sxw.write(
-        args.output_file[0],
+        output_file,
         sx.xyz,
         sx.connect,
         {"ASl": ASl, "SR": SR, "Sls": Sls, "Sld": Sld},

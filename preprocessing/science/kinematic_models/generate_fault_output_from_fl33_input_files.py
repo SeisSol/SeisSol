@@ -33,4 +33,10 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    generate(args.filename, args.stf, args.dt[0])
+    generate(
+        args.fault_filename,
+        args.yaml_filename,
+        args.output_file[0],
+        args.stf,
+        args.dt[0],
+    )
