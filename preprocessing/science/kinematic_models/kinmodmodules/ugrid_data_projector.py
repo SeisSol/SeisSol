@@ -47,9 +47,11 @@ class Grid2D:
         self.ug, self.vg = np.meshgrid(u, v)
 
 
-def Gridto2Dlocal(
+def gridto2Dlocal(
+    sx: SeissolxdmfExtended,
     coords: np.ndarray,
     lengths: List[float],
+    dx: float,
     myAffineMap: AffineMap,
     ldataName: List[str],
     ids: np.ndarray,
@@ -60,8 +62,10 @@ def Gridto2Dlocal(
     Project fault coordinates to 2D local coordinate system and grid data.
 
     Parameters:
+    sx: seissolxdmf reader,
     coords (np.ndarray): Fault coordinates.
     lengths (List[float]): Lengths for grid calculation.
+    dx (float): Grid spacing.
     myAffineMap (AffineMap): AffineMap object containing matrix and translation data.
     ldataName (List[str]): List of data names to be processed.
     ids (np.ndarray): Indices of the data points.
@@ -79,6 +83,8 @@ def Gridto2Dlocal(
     v = np.arange(min(0.0, np.amin(xb)), max(lengths[1], np.amax(xb)) + dx, dx)
     mygrid = Grid2D(u, v)
 
+    ndt = sx.ReadNdt()
+
     lgridded_myData = []
     for dataName in ldataName:
         # Read Data
@@ -92,12 +98,10 @@ def Gridto2Dlocal(
         ids_in = ~np.isnan(gridded_myData_lin)
         gridded_myData[ids_in] = gridded_myData_lin[ids_in]
         if gaussian_kernel:
-            gridded_myData = gaussian_filter(
-                gridded_myData, sigma=gaussian_kernel[0] / dx
-            )
+            gridded_myData = gaussian_filter(gridded_myData, sigma=gaussian_kernel / dx)
 
         if taper:
-            taper_value = taper[0] * 1e6
+            taper_value = taper * 1e6
             gridded_myData[gridded_myData > taper_value] = taper_value
             gridded_myData[gridded_myData < -taper_value] = -taper_value
 
@@ -152,9 +156,9 @@ def writeAllNetcdf(
 def generate_input_files(
     fault_filename: str,
     dx: float,
-    gaussian_kernel: Optional[List[float]],
-    taper: Optional[List[float]],
-    paraview_readable: bool,
+    gaussian_kernel: Optional[float] = None,
+    taper: Optional[float] = None,
+    paraview_readable: bool = False,
 ) -> None:
     """
     Generate input files for the given fault data.
@@ -162,8 +166,8 @@ def generate_input_files(
     Parameters:
     fault_filename (str): Filename of the fault data.
     dx (float): Grid spacing.
-    gaussian_kernel (Optional[List[float]]): Gaussian kernel for smoothing.
-    taper (Optional[List[float]]): Taper values for clipping data in MPa.
+    gaussian_kernel (Optional[float]): Gaussian kernel for smoothing.
+    taper (Optional[float]): Taper values for clipping data.
     paraview_readable (bool): Whether to make the NetCDF files ParaView readable.
     """
     if not os.path.exists("ASAGI_files"):
@@ -179,8 +183,6 @@ def generate_input_files(
     )
 
     unique_tags = np.unique(tags)
-    # Read ndt and nElements
-    ndt = sx.ReadNdt()
 
     template_yaml = f"""!Any
     components:
@@ -224,9 +226,11 @@ def generate_input_files(
                 Td0: 0.0\n"""
         myAffineMap = AffineMap(ua, ub, ta, tb)
         ldataName = ["Ts0", "Td0", "Pn0"]
-        grid, lgridded_myData = Gridto2Dlocal(
+        grid, lgridded_myData = gridto2Dlocal(
+            sx,
             faultCentroids[ids],
             [la, lb],
+            dx,
             myAffineMap,
             ldataName,
             ids,
