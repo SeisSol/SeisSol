@@ -25,12 +25,8 @@ class StreamRuntime {
   StreamRuntime() : disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
-    forkEvents.resize(RingbufferSize);
-    joinEvents.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
       ringbufferPtr[i] = device().api->createGenericStream();
-      forkEvents[i] = device().api->createEvent();
-      joinEvents[i] = device().api->createEvent();
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -39,8 +35,9 @@ class StreamRuntime {
       allStreams[i + 1] = ringbufferPtr[i];
     }
 
-    forkEventSycl = device().api->createEvent();
-    joinEventSycl = device().api->createEvent();
+    for (size_t i = 0; i < 2 * RingbufferSize + 2; ++i) {
+      events.push_back(device().api->createEvent());
+    }
   }
 
   void dispose() {
@@ -48,11 +45,10 @@ class StreamRuntime {
       device().api->destroyGenericStream(streamPtr);
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
-        device().api->destroyEvent(forkEvents[i]);
-        device().api->destroyEvent(joinEvents[i]);
       }
-      device().api->destroyEvent(forkEventSycl);
-      device().api->destroyEvent(joinEventSycl);
+      for (auto* event : events) {
+        device().api->destroyEvent(event);
+      }
       disposed = true;
     }
   }
@@ -85,15 +81,17 @@ class StreamRuntime {
   template <typename F>
   void envMany(size_t count, F&& handler) {
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(forkEvents[i], streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, streamPtr);
+      device().api->syncStreamWithEvent(ringbufferPtr[i], event);
     }
     for (size_t i = 0; i < count; ++i) {
       std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
     }
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(joinEvents[i], ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, joinEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, ringbufferPtr[i]);
+      device().api->syncStreamWithEvent(streamPtr, event);
     }
   }
 
@@ -146,15 +144,29 @@ class StreamRuntime {
     void syncFromOMP(omp_depend_t& depobj);
   */
 
+  void* getEvent() {
+    for (auto* event : events) {
+      if (device().api->isEventCompleted(event)) {
+        return event;
+      }
+    }
+    void* newEvent = device().api->createEvent();
+    events.push_back(newEvent);
+    return newEvent;
+  }
+
+  void dependency(StreamRuntime& other) {
+    void* event = getEvent();
+    device().api->recordEventOnStream(event, other.stream());
+    device().api->syncStreamWithEvent(stream(), event);
+  }
+
   private:
   bool disposed;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> forkEvents;
-  std::vector<void*> joinEvents;
-  void* forkEventSycl;
-  void* joinEventSycl;
+  std::vector<void*> events;
 #else
   public:
   void wait() {}

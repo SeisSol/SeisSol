@@ -8,27 +8,27 @@
 namespace seissol::parallel::runtime {
 
 void StreamRuntime::syncToSycl(void* queuePtr) {
+  void* event = getEvent();
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(forkEventSycl, streamPtr);
-  device().api->syncStreamWithEvent(queuePtr, forkEventSycl);
+  device().api->recordEventOnStream(event, streamPtr);
+  device().api->syncStreamWithEvent(queuePtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto* localForkEventSycl{forkEventSycl};
-  device().api->recordEventOnStream(localForkEventSycl, streamPtr);
+  device().api->recordEventOnStream(event, streamPtr);
   syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->syncStreamWithEvent(stream, localForkEventSycl);
+    device().api->syncStreamWithEvent(stream, event);
   });
 #endif
 }
 void StreamRuntime::syncFromSycl(void* queuePtr) {
+  void* event = getEvent();
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(joinEventSycl, queuePtr);
-  device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
+  device().api->recordEventOnStream(event, queuePtr);
+  device().api->syncStreamWithEvent(streamPtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto* localJoinEventSycl{joinEventSycl};
-  auto event = syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->recordEventOnStream(localJoinEventSycl, stream);
+  auto syclEvent = syclNativeOperation(*queue, true, [=](void* stream) {
+    device().api->recordEventOnStream(event, stream);
   });
   // needs a submission barrier here
 #if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
@@ -39,9 +39,9 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
 #else
   // note that polling on the info value for "is not pending" may not advance the DAG
   // (at least in the case of AdaptiveCpp)
-  event.wait();
+  syclEvent.wait();
 #endif
-  device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
+  device().api->syncStreamWithEvent(streamPtr, event);
 #endif
 }
 
