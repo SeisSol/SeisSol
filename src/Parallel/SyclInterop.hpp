@@ -105,4 +105,28 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
 #endif
   });
 }
+
+sycl::event syclQueueSynchronize(sycl::queue& queueFrom, sycl::queue& queueTo) {
+#ifdef SYCL_EXT_ONEAPI_ENQUEUE_BARRIER
+  auto eventFrom = queueFrom.ext_oneapi_submit_barrier();
+  auto eventTo = queueTo.ext_oneapi_submit_barrier({eventFrom});
+  return eventTo;
+#elif defined(HIPSYCL_EXT_QUEUE_WAIT_LIST) || defined(ACPP_EXT_QUEUE_WAIT_LIST)
+  auto waitList1 = queueFrom.get_wait_list();
+  auto waitList2 = queueTo.get_wait_list();
+  auto queueEvent = queueTo.submit([&](sycl::handler& h) {
+    h.depends_on(waitList1);
+    h.depends_on(waitList2);
+#if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
+    h.hipSYCL_enqueue_custom_operation([=](auto&) {});
+#else
+    h.single_task([=](auto&) {});
+#endif
+  });
+  return queueEvent;
+#else
+  logError() << "Queue synchronization is not implemented for this SYCL implementation.";
+#endif
+}
+
 } // namespace seissol::parallel
