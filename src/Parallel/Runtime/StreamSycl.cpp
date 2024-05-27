@@ -27,29 +27,22 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
   auto* localJoinEventSycl{joinEventSycl};
-  sem_t* backsync = new sem_t;
-  sem_init(backsync, 0, 0);
-  syclNativeOperation(*queue, true, [=](void* stream) {
+  auto event = syclNativeOperation(*queue, true, [=](void* stream) {
     device().api->recordEventOnStream(localJoinEventSycl, stream);
-    sem_post(backsync);
   });
-  sem_wait(backsync);
-  sem_destroy(backsync);
-  delete backsync;
+  // needs a submission barrier here
+#if defined(HIPSYCL_EXT_ENQUEUE_CUSTOM_OPERATION) || defined(ACPP_EXT_ENQUEUE_CUSTOM_OPERATION)
+  // a bit hacky right now; but it works
+  if (queue->get_context().hipSYCL_runtime() != nullptr) {
+    queue->get_context().hipSYCL_runtime()->dag().flush_sync();
+  }
+#else
+  // note that polling on the info value for "is not pending" may not advance the DAG
+  // (at least in the case of AdaptiveCpp)
+  event.wait();
+#endif
   device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
 #endif
-
-  /*
-  // the following will not work, because SYCL may decide to postpone execution a bit
-  // effectively, there may be no solution but removing SYCL entirely, or making SYCL the
-  over-arching runtime
-  // or, potentially OpenMP could play as glue, once it gains its interop functionality
-  auto* localJoinEventSycl{joinEventSycl};
-  syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->recordEventOnStream(localJoinEventSycl, stream);
-  });
-  device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
-  */
 }
 
 } // namespace seissol::parallel::runtime
