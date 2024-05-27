@@ -3,6 +3,8 @@
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/SyclInterop.hpp"
 
+#include <semaphore.h>
+
 namespace seissol::parallel::runtime {
 
 void StreamRuntime::syncToSycl(void* queuePtr) {
@@ -24,7 +26,17 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
   device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  queue->wait();
+  auto* localJoinEventSycl{joinEventSycl};
+  sem_t* backsync = new sem_t;
+  sem_init(backsync, 0, 0);
+  syclNativeOperation(*queue, true, [=](void* stream) {
+    device().api->recordEventOnStream(localJoinEventSycl, stream);
+    sem_post(backsync);
+  });
+  sem_wait(backsync);
+  sem_destroy(backsync);
+  delete backsync;
+  device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
 #endif
 
   /*
