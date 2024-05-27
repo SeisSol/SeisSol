@@ -312,10 +312,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       }
     });
 
-#ifdef ACL_DEVICE
-    device.api->syncDevice();
-#endif
-
     // Update one low priority cluster
     if (auto predictable = std::find_if(
           lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
