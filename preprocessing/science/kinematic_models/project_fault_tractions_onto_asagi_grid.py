@@ -1,42 +1,46 @@
 #!/usr/bin/env python3
+
 import argparse
 from kinmodmodules.ugrid_data_projector import generate_input_files
 
-if __name__ == "__main__":
-    # parsing python arguments
+
+def main() -> None:
+    """
+    Main function to parse arguments and generate input files
+    by projecting 3D fault output onto 2D grids for ASAGI.
+    """
     parser = argparse.ArgumentParser(
         description=(
-            "project 3d fault output onto 2d grids to be read with Asagi. One grid per"
-            " fault tag"
+            "Project 3D fault output onto 2D grids to be read with ASAGI. "
+            "One grid per fault tag."
         )
     )
-    parser.add_argument("fault_filename", help="fault.xdmf filename")
+    parser.add_argument("fault_filename", help="Fault.xdmf filename")
     parser.add_argument(
         "--dx",
         nargs=1,
-        help="grid smapling",
+        help="Grid sampling",
         type=float,
-        default=([100]),
+        default=[100.0],
     )
     parser.add_argument(
         "--gaussian_kernel",
         metavar="sigma_m",
         nargs=1,
-        help="apply a gaussian kernel to smooth out intput stresses",
+        help="Apply a Gaussian kernel to smooth out input stresses",
         type=float,
     )
-
     parser.add_argument(
         "--taper",
         nargs=1,
-        help="tapper stress value (MPa)",
+        help="Taper stress value (MPa)",
         type=float,
     )
     parser.add_argument(
         "--paraview_readable",
         dest="paraview_readable",
         action="store_true",
-        help="write also netcdf readable by paraview",
+        help="Write NetCDF files readable by ParaView",
         default=False,
     )
 
@@ -44,7 +48,11 @@ if __name__ == "__main__":
     generate_input_files(
         args.fault_filename,
         args.dx[0],
-        args.gaussian_kernel,
-        args.taper,
+        args.gaussian_kernel[0] if args.gaussian_kernel else None,
+        args.taper[0] if args.taper else None,
         args.paraview_readable,
     )
+
+
+if __name__ == "__main__":
+    main()
