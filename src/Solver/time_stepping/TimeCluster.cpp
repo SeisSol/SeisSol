@@ -429,12 +429,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    real epsInitxx = 3.7986e-4; // eps_xx0
-    real epsInityy = -1.0383e-3; // eps_yy0
-    real epsInitzz = -1.0072e-3; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    // // tpv5 28.0 deg
+    // real epsInitxx = 3.7986e-4; // eps_xx0
+    // real epsInityy = -1.0383e-3; // eps_yy0
+    // real epsInitzz = -1.0072e-3; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
 
     // // tpv5 45.0 deg
     // real epsInitxx = -7.4861e-4; // eps_xx0
@@ -451,6 +452,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInitxy = 1.0909e-3; // eps_xy0
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
+
+    // tpv5 44.6 deg, Zhao's
+    real epsInitxx = -9.5732e-4; // eps_xx0
+    real epsInityy = -9.8849e-4; // eps_yy0
+    real epsInitzz = 1.8035e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInityz = -0e-1; // eps_yz0
+    real epsInitzx = -0e-1; // eps_zx0
 
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     real const break_coeff = 1e2*damage_para1;
@@ -1189,12 +1198,13 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
 
-      real epsInitxx = 3.7986e-4; // eps_xx0
-      real epsInityy = -1.0383e-3; // eps_yy0
-      real epsInitzz = -1.0072e-3; // eps_zz0
-      real epsInitxy = 1.0909e-3; // eps_xy0
-      real epsInityz = -0e-1; // eps_yz0
-      real epsInitzx = -0e-1; // eps_zx0
+      // // tpv5 28.0 deg
+      // real epsInitxx = 3.7986e-4; // eps_xx0
+      // real epsInityy = -1.0383e-3; // eps_yy0
+      // real epsInitzz = -1.0072e-3; // eps_zz0
+      // real epsInitxy = 1.0909e-3; // eps_xy0
+      // real epsInityz = -0e-1; // eps_yz0
+      // real epsInitzx = -0e-1; // eps_zx0
 
       // // tpv5 45.0 deg
       // real epsInitxx = -7.4861e-4; // eps_xx0
@@ -1211,6 +1221,14 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInitxy = 1.0909e-3; // eps_xy0
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
+
+      // tpv5 44.6 deg, Zhao's
+      real epsInitxx = -9.5732e-4; // eps_xx0
+      real epsInityy = -9.8849e-4; // eps_yy0
+      real epsInitzz = 1.8035e-4; // eps_zz0
+      real epsInitxy = 1.0909e-3; // eps_xy0
+      real epsInityz = -0e-1; // eps_yz0
+      real epsInitzx = -0e-1; // eps_zx0
 
       // END TODO
       real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
