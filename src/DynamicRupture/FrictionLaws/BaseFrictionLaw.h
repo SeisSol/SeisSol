@@ -28,115 +28,87 @@ class BaseFrictionLaw : public FrictionSolver {
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    SCOREP_USER_REGION_DEFINE(myRegionHandle)
-    BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    auto& self = *this;
+    runtime.enqueueHost([=, &self, &layerData] {
+      BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+      static_cast<Derived&>(self).copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-    // loop over all dynamic rupture faces, in this LTS layer
+      // loop over all dynamic rupture faces, in this LTS layer
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(ALIGNMENT) FaultStresses faultStresses{};
-      SCOREP_USER_REGION_BEGIN(
-          myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
-      LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
-      common::precomputeStressFromQInterpolated(faultStresses,
-                                                impAndEta[ltsFace],
-                                                impedanceMatrices[ltsFace],
-                                                qInterpolatedPlus[ltsFace],
-                                                qInterpolatedMinus[ltsFace]);
-      LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
-      SCOREP_USER_REGION_END(myRegionHandle)
+      for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+        alignas(ALIGNMENT) FaultStresses faultStresses{};
+        common::precomputeStressFromQInterpolated(faultStresses,
+                                                  self.impAndEta[ltsFace],
+                                                  self.impedanceMatrices[ltsFace],
+                                                  self.qInterpolatedPlus[ltsFace],
+                                                  self.qInterpolatedMinus[ltsFace]);
 
-      SCOREP_USER_REGION_BEGIN(
-          myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
-      LIKWID_MARKER_START("computeDynamicRupturePreHook");
-      // define some temporary variables
-      std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-      std::array<real, misc::numPaddedPoints> strengthBuffer{0};
+        // define some temporary variables
+        std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
+        std::array<real, misc::numPaddedPoints> strengthBuffer{0};
 
-      static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
-      LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
-      SCOREP_USER_REGION_END(myRegionHandle)
+        static_cast<Derived&>(self).preHook(stateVariableBuffer, ltsFace);
+        TractionResults tractionResults = {};
 
-      SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                               "computeDynamicRuptureUpdateFrictionAndSlip",
-                               SCOREP_USER_REGION_TYPE_COMMON)
-      LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-      TractionResults tractionResults = {};
+        // loop over sub time steps (i.e. quadrature points in time)
+        for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+          common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
+                                      self.nucleationStressInFaultCS[ltsFace],
+                                      self.initialPressure[ltsFace],
+                                      self.nucleationPressure[ltsFace],
+                                      self.mFullUpdateTime,
+                                      self.drParameters->t0,
+                                      self.deltaT[timeIndex]);
 
-      // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-        common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                    nucleationStressInFaultCS[ltsFace],
-                                    initialPressure[ltsFace],
-                                    nucleationPressure[ltsFace],
-                                    this->mFullUpdateTime,
-                                    this->drParameters->t0,
-                                    this->deltaT[timeIndex]);
-
-        static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
-                                                           tractionResults,
-                                                           stateVariableBuffer,
-                                                           strengthBuffer,
-                                                           ltsFace,
-                                                           timeIndex);
-      }
-      LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
-      SCOREP_USER_REGION_END(myRegionHandle)
-
-      SCOREP_USER_REGION_BEGIN(
-          myRegionHandle, "computeDynamicRupturePostHook", SCOREP_USER_REGION_TYPE_COMMON)
-      LIKWID_MARKER_START("computeDynamicRupturePostHook");
-      static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
-
-      common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
-                                     ruptureTime[ltsFace],
-                                     slipRateMagnitude[ltsFace],
-                                     mFullUpdateTime);
-
-      static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
-
-      common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
-      LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
-      SCOREP_USER_REGION_END(myRegionHandle)
-
-      SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                               "computeDynamicRupturePostcomputeImposedState",
-                               SCOREP_USER_REGION_TYPE_COMMON)
-      LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
-      common::postcomputeImposedStateFromNewStress(faultStresses,
-                                                   tractionResults,
-                                                   impAndEta[ltsFace],
-                                                   impedanceMatrices[ltsFace],
-                                                   imposedStatePlus[ltsFace],
-                                                   imposedStateMinus[ltsFace],
-                                                   qInterpolatedPlus[ltsFace],
-                                                   qInterpolatedMinus[ltsFace],
-                                                   timeWeights);
-      LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
-      SCOREP_USER_REGION_END(myRegionHandle)
-
-      if (this->drParameters->isFrictionEnergyRequired) {
-
-        if (this->drParameters->isCheckAbortCriteraEnabled) {
-          common::updateTimeSinceSlipRateBelowThreshold(
-              slipRateMagnitude[ltsFace],
-              ruptureTimePending[ltsFace],
-              energyData[ltsFace],
-              this->sumDt,
-              this->drParameters->terminatorSlipRateThreshold);
+          static_cast<Derived&>(self).updateFrictionAndSlip(faultStresses,
+                                                            tractionResults,
+                                                            stateVariableBuffer,
+                                                            strengthBuffer,
+                                                            ltsFace,
+                                                            timeIndex);
         }
-        common::computeFrictionEnergy(energyData[ltsFace],
-                                      qInterpolatedPlus[ltsFace],
-                                      qInterpolatedMinus[ltsFace],
-                                      impAndEta[ltsFace],
-                                      timeWeights,
-                                      spaceWeights,
-                                      godunovData[ltsFace]);
+        static_cast<Derived&>(self).postHook(stateVariableBuffer, ltsFace);
+
+        common::saveRuptureFrontOutput(self.ruptureTimePending[ltsFace],
+                                       self.ruptureTime[ltsFace],
+                                       self.slipRateMagnitude[ltsFace],
+                                       self.mFullUpdateTime);
+
+        static_cast<Derived&>(self).saveDynamicStressOutput(ltsFace);
+
+        common::savePeakSlipRateOutput(self.slipRateMagnitude[ltsFace], self.peakSlipRate[ltsFace]);
+        common::postcomputeImposedStateFromNewStress(faultStresses,
+                                                     tractionResults,
+                                                     self.impAndEta[ltsFace],
+                                                     self.impedanceMatrices[ltsFace],
+                                                     self.imposedStatePlus[ltsFace],
+                                                     self.imposedStateMinus[ltsFace],
+                                                     self.qInterpolatedPlus[ltsFace],
+                                                     self.qInterpolatedMinus[ltsFace],
+                                                     timeWeights);
+
+        if (self.drParameters->isFrictionEnergyRequired) {
+
+          if (self.drParameters->isCheckAbortCriteraEnabled) {
+            common::updateTimeSinceSlipRateBelowThreshold(
+                self.slipRateMagnitude[ltsFace],
+                self.ruptureTimePending[ltsFace],
+                self.energyData[ltsFace],
+                self.sumDt,
+                self.drParameters->terminatorSlipRateThreshold);
+          }
+          common::computeFrictionEnergy(self.energyData[ltsFace],
+                                        self.qInterpolatedPlus[ltsFace],
+                                        self.qInterpolatedMinus[ltsFace],
+                                        self.impAndEta[ltsFace],
+                                        timeWeights,
+                                        spaceWeights,
+                                        self.godunovData[ltsFace]);
+        }
       }
-    }
+    });
   }
 };
 } // namespace seissol::dr::friction_law
