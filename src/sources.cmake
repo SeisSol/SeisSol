@@ -61,7 +61,6 @@ src/Numerical/Functions.cpp
 src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
-src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
 src/ResultWriter/AsyncIO.cpp
 
