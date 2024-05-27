@@ -53,6 +53,11 @@ void AcceleratorDevice::bindNativeDevice(int deviceId) {
   device.api->setDevice(deviceId);
 }
 
+sycl::queue AcceleratorDevice::getInorderSyclQueue() {
+  sycl::property_list property{sycl::property::queue::in_order()};
+  return sycl::queue(syclDevice, property);
+}
+
 void AcceleratorDevice::printInfo() {
   const auto rank = seissol::MPI::mpi.rank();
   for (const auto& warn : warnMessages) {
