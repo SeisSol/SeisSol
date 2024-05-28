@@ -754,11 +754,12 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
     double timeStepSize,
     const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation, 
     double subTimeStart) {
-  double timePoints[CONVERGENCE_ORDER];
-  double timeWeights[CONVERGENCE_ORDER];
+
   seissol::kernels::Time m_timeKernel;
   m_timeKernel.setDamagedElasticParameters(m_damagedElasticParameters);
 
+  double timePoints[CONVERGENCE_ORDER];
+  double timeWeights[CONVERGENCE_ORDER];
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
 
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
@@ -790,57 +791,30 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
         // reinitialized to zero
         // use the respective subTimeStart to compute the taylor expansion in expansion points
 
-
-/**
-m_timeKernel.computeTaylorExpansion(
-            subTimeStart + timePoints[timeInterval], 0.0 , derivatives[l_cell], degreesOfFreedomPlus);
-        m_timeKernel.computeTaylorExpansion(
-            subTimeStart + timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-*/
         if (cellInformation->ltsSetup & (1 << (side + 4))) {
           // "Equal Time Steps";
-/*
-	//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
-if(std::abs(subTimeStart) > 1e-10)
-{
-	logError() << "subTimeStart condition 1: " << subTimeStart;
-}
-*/          
-m_timeKernel.computeTaylorExpansion(
+          m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
           m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        } else if (cellInformation->ltsSetup & (1 << side)) {
+                kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
+
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(side, 0);
+
+        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomMinus;
+        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
+                              cellInformation[l_cell].faceRelations[side][1] + 1);
+        } 
+        else if (cellInformation->ltsSetup & (1 << side)) {
           // "TimeStep local < TimeStep Neighbor";
-/*
-//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
-if(std::abs(subTimeStart) > 1e-10) 
-{
-         logError() << "subTimeStart condition 2: " << subTimeStart;
- }
-*/
-	//logInfo() << subTimeStart;
           m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
           m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], subTimeStart, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        } else {
-          // "TimeStep Neighbor < TimeStep Local";
-/*
-//if(subTimeStart < 0 && std::abs(subTimeStart) > 1e-10)
-if(std::abs(subTimeStart) > 1e-10) 
-{
-         logError() << "subTimeStart condition 3: " << subTimeStart;
- }
-*/
-
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], subTimeStart , derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        }
-
-        // Prototype is necessary for openmp
+              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
         kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
             m_nonlinearInterpolation;
 
@@ -852,6 +826,24 @@ if(std::abs(subTimeStart) > 1e-10)
         m_nonLinInter.Q = degreesOfFreedomMinus;
         m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
                               cellInformation[l_cell].faceRelations[side][1] + 1);
+        } else {
+          // "TimeStep Neighbor < TimeStep Local";
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0 , derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
+
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(side, 0);
+
+        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomMinus;
+        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
+                              cellInformation[l_cell].faceRelations[side][1] + 1);
+        }
       }
 
       // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
@@ -882,6 +874,8 @@ if(std::abs(subTimeStart) > 1e-10)
                                   localIntegration);
 
       /// S5: Integrate in space using quadrature.
+      // Need to separate the flux integration from dofs... accumulate for the third case -> would probably help solving the 
+      //LTS issue
       kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
       m_surfIntegral.Q = data.dofs;
       m_surfIntegral.Flux = rusanovFluxPlus;
