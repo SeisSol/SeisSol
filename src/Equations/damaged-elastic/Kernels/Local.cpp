@@ -808,45 +808,7 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
         m_nonLinInter.Q = degreesOfFreedomMinus;
         m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
                               cellInformation[l_cell].faceRelations[side][1] + 1);
-        } 
-        else if (cellInformation->ltsSetup & (1 << side)) {
-          // "TimeStep local < TimeStep Neighbor";
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
-            m_nonlinearInterpolation;
-
-        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomPlus;
-        m_nonLinInter.execute(side, 0);
-
-        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomMinus;
-        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
-                              cellInformation[l_cell].faceRelations[side][1] + 1);
-        } else {
-          // "TimeStep Neighbor < TimeStep Local";
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0 , derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
-            m_nonlinearInterpolation;
-
-        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomPlus;
-        m_nonLinInter.execute(side, 0);
-
-        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomMinus;
-        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
-                              cellInformation[l_cell].faceRelations[side][1] + 1);
-        }
-      }
-
-      // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+                                    // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
       // Reshape the interpolated results
       using QInterpolatedShapeT =
           const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
@@ -881,6 +843,113 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
       m_surfIntegral.Flux = rusanovFluxPlus;
       m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
       m_surfIntegral.execute(side, 0);
+        } 
+        else if (cellInformation->ltsSetup & (1 << side)) {
+          // "TimeStep local < TimeStep Neighbor";
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
+
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(side, 0);
+
+        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomMinus;
+        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
+                              cellInformation[l_cell].faceRelations[side][1] + 1);
+                                    // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+      // Reshape the interpolated results
+      using QInterpolatedShapeT =
+          const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+
+      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
+
+      alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
+        rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+      }
+
+      using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
+      auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
+
+      // S4: Compute the Rusanov flux
+      computeNonLinearRusanovFlux(materialData,
+                                  l_cell,
+                                  side,
+                                  timeWeights,
+                                  *qIPlus[0],
+                                  *qIMinus[0],
+                                  *rusanovFluxP,
+                                  localIntegration);
+
+      /// S5: Integrate in space using quadrature.
+      // Need to separate the flux integration from dofs... accumulate for the third case -> would probably help solving the 
+      //LTS issue
+      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      m_surfIntegral.Q = data.dofs;
+      m_surfIntegral.Flux = rusanovFluxPlus;
+      m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+      m_surfIntegral.execute(side, 0);
+        } else {
+          // "TimeStep Neighbor < TimeStep Local";
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0 , derivatives[l_cell], degreesOfFreedomPlus);
+          m_timeKernel.computeTaylorExpansion(
+              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
+
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(side, 0);
+
+        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomMinus;
+        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
+                              cellInformation[l_cell].faceRelations[side][1] + 1);
+                                    // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+      // Reshape the interpolated results
+      using QInterpolatedShapeT =
+          const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+
+      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
+
+      alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
+        rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+      }
+
+      using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
+      auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
+
+      // S4: Compute the Rusanov flux
+      computeNonLinearRusanovFlux(materialData,
+                                  l_cell,
+                                  side,
+                                  timeWeights,
+                                  *qIPlus[0],
+                                  *qIMinus[0],
+                                  *rusanovFluxP,
+                                  localIntegration);
+
+      /// S5: Integrate in space using quadrature.
+      // Need to separate the flux integration from dofs... accumulate for the third case -> would probably help solving the 
+      //LTS issue
+      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      m_surfIntegral.Q = data.dofs;
+      m_surfIntegral.Flux = rusanovFluxPlus;
+      m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+      m_surfIntegral.execute(side, 0);
+        }
+      }
     } else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(drMapping[l_cell][side].godunov) % ALIGNMENT == 0);
