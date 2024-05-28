@@ -1,6 +1,6 @@
 #include <CL/sycl.hpp>
-#include <Kernels/precision.hpp>
-#include <Kernels/common.hpp>
+#include "Kernels/common.hpp"
+#include "Kernels/precision.hpp"
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>

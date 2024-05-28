@@ -297,3 +297,7 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.VirtualMethodSuffix
 #    value:           CamelCase
+
+    # ignore Eigen, fty manually, until added to IWYU
+  - key:             misc-include-cleaner.IgnoreHeaders
+    value:           'Eigen/src/.*'

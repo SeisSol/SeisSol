@@ -9,8 +9,8 @@
 #ifndef ACCELERATOR_DEVICE_H
 #define ACCELERATOR_DEVICE_H
 
-#include <device.h>
 #include <CL/sycl.hpp>
+#include <device.h>
 #include <string>
 #include <vector>
 

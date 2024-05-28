@@ -13,7 +13,7 @@
 #include "Parallel/MPI.h"
 #include "Initializer/tree/Lut.hpp"
 
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
 
 namespace seissol {
   class SeisSol;

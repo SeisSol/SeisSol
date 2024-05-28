@@ -1,11 +1,11 @@
+#include "Kernels/Interface.hpp"
 #include "Recorders.h"
-#include <Kernels/Interface.hpp>
 #include <yateto.h>
 
-#include "DataTypes/Table.hpp"
 #include "DataTypes/Condition.hpp"
 #include "DataTypes/ConditionalTable.hpp"
 #include "DataTypes/EncodedConstants.hpp"
+#include "DataTypes/Table.hpp"
 
 using namespace device;
 using namespace seissol::initializer;

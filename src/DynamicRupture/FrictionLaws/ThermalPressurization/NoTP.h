@@ -4,10 +4,10 @@
 namespace seissol::dr::friction_law {
 class NoTP {
   public:
-  NoTP(seissol::initializer::parameters::DRParameters* drParameters){};
+  NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
   void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,

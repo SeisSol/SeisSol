@@ -42,9 +42,9 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
-#include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
-#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include "Initializer/typedefs.hpp"
+#include "generated_code/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
 #include <limits>
 
 namespace seissol {

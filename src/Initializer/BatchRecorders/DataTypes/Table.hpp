@@ -5,11 +5,11 @@
 
 #include "Condition.hpp"
 #include "EncodedConstants.hpp"
+#include <array>
 #include <device.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <array>
 #include <vector>
 
 namespace seissol::initializer::recording {

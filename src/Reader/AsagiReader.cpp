@@ -1,6 +1,6 @@
-#include "AsagiReader.h"
-
 #ifdef USE_ASAGI
+
+#include "AsagiReader.h"
 
 namespace seissol::asagi {
 /**

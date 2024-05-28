@@ -42,10 +42,10 @@
 
 #include <vector>
 #include <array>
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/preProcessorMacros.hpp>
+#include "Initializer/typedefs.hpp"
+#include "Initializer/tree/Layer.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/preProcessorMacros.hpp"
 
 namespace seissol
 {

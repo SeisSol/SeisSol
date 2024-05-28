@@ -1,8 +1,8 @@
 #include <cmath>
 
-#include <Equations/datastructures.hpp>
-#include <Model/common.hpp>
-#include <Equations/Setup.h>
+#include "Equations/Setup.h"
+#include "Equations/datastructures.hpp"
+#include "Model/common.hpp"
 
 #include "values.h"
 

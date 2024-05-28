@@ -3,7 +3,7 @@
 #include "Common/filesystem.h"
 #include <fstream>
 
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 namespace seissol::writer {
 
 ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {
