@@ -419,10 +419,8 @@ class RateAndState(FrictionLawBase):
         ]
     
     def postHook(self, routine):
-        routine += [
-            forge.assign(self.stateVariable, self.stateVariableBuffer)
-        ]
-
+        self.resampleStateVariable(routine)
+        
     def calcInitialVariables(self, routine, i):
         almostZero = 1e-30 # TODO: adjust
 
@@ -535,7 +533,27 @@ class FastVelocityWeakeningLaw(RateAndState):
         return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
     
     def updateStateVariable(self, routine):
-        pass
+        localA = forge.cast(self.a, FloatingPointType.DOUBLE)
+        localSl0 = forge.cast(self.sl0, FloatingPointType.DOUBLE)
+        localSrW = forge.cast(self.srW, FloatingPointType.DOUBLE)
+        localSlipRate = forge.cast(self.localSlipRate, FloatingPointType.DOUBLE)
+        lowVelocityFriction = self.rsF0 - (self.rsB - localA) * forge.log(localSlipRate / self.rsSr0)
+        steadyStateFrictionCoefficient = self.muW + (lowVelocityFriction - muW) / forge.pow(1.0 + forge.pow(localSlipRate / localSrW, 8), 1.0 / 8.0)
+
+        # FIXME: numerically unstable? Maybe exp(x) - exp(-x) = exp(x) * (1 - exp(-2*x)), and employ special function?
+        steadyStateStateVariable = localA * forge.log(self.rsSr0 / localSlipRate * (forge.exp(steadyStateFrictionCoefficient / localA) - forge.exp(-steadyStateFrictionCoefficient / localA)))
+        exp1 = forge.exp(-localSlipRate * (timeIncrement / localSl0))
+        localStateVariable = forge.cast(steadyStateStateVariable * (1 - exp1) + exp1 * self.stateVarReference, FloatingPointType.FLOAT)
+
+        routine += [
+            forge.assign(self.stateVariableBuffer, localStateVariable)
+        ]
+
+    def resampleStateVariable(self, routine):
+        # TODO: matmul
+        routine += [
+            forge.assign(self.stateVariable, self.stateVariableBuffer)
+        ]
 
 class SlowVelocityWeakeningLaw(RateAndState):
     def __init__(self, aderdg, numberOfPoints, tpmethod):
@@ -554,6 +572,11 @@ class SlowVelocityWeakeningLaw(RateAndState):
         log1 = forge.log(self.rsSr0 * localStateVariable / localSl0)
         c = (0.5 / self.rsSr0) * forge.exp((self.rsF0 + self.rsB * log1) / localA)
         return localA * c / forge.sqrt((localSlipRateMagnitude * c)**2 + 1.0)
+
+    def resampleStateVariable(self, routine):
+        routine += [
+            forge.assign(self.stateVariable, self.stateVariableBuffer)
+        ]
 
 class FL7(RateAndState):
     def __init__(self, aderdg, numberOfPoints, tpmethod):
