@@ -212,10 +212,18 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // tpv5 44.6 deg, Zhao's
-    real epsInitxx = -9.5732e-4; // eps_xx0
+    // // tpv5 44.6 deg, Zhao's
+    // real epsInitxx = -9.5732e-4; // eps_xx0
+    // real epsInityy = -9.8849e-4; // eps_yy0
+    // real epsInitzz = 1.8035e-4; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
+
+    // tpv5 44.6 deg, Zhao's y-x
+    real epsInitxx = 1.8035e-4; // eps_xx0
     real epsInityy = -9.8849e-4; // eps_yy0
-    real epsInitzz = 1.8035e-4; // eps_zz0
+    real epsInitzz = -9.5732e-4; // eps_zz0
     real epsInitxy = 1.0909e-3; // eps_xy0
     real epsInityz = -0e-1; // eps_yz0
     real epsInitzx = -0e-1; // eps_zx0
