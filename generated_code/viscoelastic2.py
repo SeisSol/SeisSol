@@ -230,8 +230,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
       #   derivativeTaylorExpansionAneExpr
       # ]
 
-      generator.add('{name_prefix}derivative', derivativeExpr)
-      generator.add('{name_prefix}derivativeTaylorExpansionEla', derivativeTaylorExpansionElaExpr)
+      generator.add(f'{name_prefix}derivative', derivativeExpr, target=target)
+      generator.add(f'{name_prefix}derivativeTaylorExpansionEla', derivativeTaylorExpansionElaExpr, target=target)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
