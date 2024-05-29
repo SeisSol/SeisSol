@@ -185,7 +185,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
 
 void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
 #ifdef ACL_DEVICE
-  kernel::gpu_neighboringFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
+  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
   real* tmpMem = nullptr;
@@ -258,13 +258,15 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
     resetDeviceCurrentState(streamCounter);
 
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-    if (dataTable.find(key) != dataTable.end()) {
+    if (table.find(key) != table.end()) {
+      auto &entry = table[key];
       kernel::gpu_neighbor nKrnl;
       nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-      nKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+      nKrnl.Qext = const_cast<const real **>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
       nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-      nKrnl.w = (entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr();
+      nKrnl.w = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
+      nKrnl.streamPtr = device.api->getDefaultStream();
 
       nKrnl.execute();
     }

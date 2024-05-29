@@ -41,7 +41,9 @@ struct Wp {
     E,
     IdofsAne,
     DofsAne,
-    DofsExt
+    DofsExt,
+    DerivativesAne,
+    DerivativesExt
   };
 };
 

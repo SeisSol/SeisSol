@@ -55,6 +55,12 @@ namespace seissol {
       kernel::localFluxExt m_localFluxKernelPrototype;
       kernel::local m_localKernelPrototype;
       const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+
+#ifdef ACL_DEVICE
+    kernel::gpu_volumeExt deviceVolumeKernelPrototype;
+    kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
     public:
       virtual void setInitConds(decltype(initConds) initConds) {
         this->initConds = initConds;

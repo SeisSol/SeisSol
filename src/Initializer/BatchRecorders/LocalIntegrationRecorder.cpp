@@ -37,6 +37,9 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> starPtrs(size, nullptr);
     std::vector<real*> idofsPtrs{};
+    std::vector<real*> idofsAnePtrs(size, nullptr);
+    std::vector<real*> derivativesAnePtrs(size, nullptr);
+    std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
 
@@ -88,13 +91,22 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       // stars
       starPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().starMatrices[0]);
 #ifdef USE_POROELASTIC
-      zinvPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().Zinv);
+      zinvPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().specific.Zinv);
 #endif
 #ifdef USE_VISCOELASTIC2
-      wPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().W);
-      omegaPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().Omega);
-      ePtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().E);
+      wPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().specific.W);
+      omegaPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().specific.w);
+      ePtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice().specific.E);
       dofsAnePtrs[cell] = dofsAne[cell];
+
+      auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch);
+      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
+
+      auto* derivativesExt = currentLayer->getScratchpadMemory(currentHandler->derivativesExtScratch);
+      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) + (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
+
+      auto* derivativesAne = currentLayer->getScratchpadMemory(currentHandler->derivativesAneScratch);
+      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) + (tensor::dQane::size(0) + tensor::dQane::size(1)) * cell;
 #endif
 
       // derivatives
@@ -130,6 +142,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 #endif
 #ifdef USE_VISCOELASTIC2
     (*currentTable)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::W, wPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::Omega, omegaPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::E, ePtrs);

@@ -49,6 +49,11 @@ namespace seissol {
     class TimeBase {
     protected:
       kernel::derivative m_krnlPrototype;
+
+#ifdef ACL_DEVICE
+    kernel::gpu_derivative deviceKrnlPrototype;
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
     };
   }
 }

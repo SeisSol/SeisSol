@@ -183,7 +183,6 @@ void seissol::kernels::Local::computeBatchedIntegral(
     // volume kernel always contains more elements than any local one
     tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
-    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     unsigned starOffset = 0;
@@ -204,7 +203,6 @@ void seissol::kernels::Local::computeBatchedIntegral(
     if (dataTable.find(key) != dataTable.end()) {
       auto &entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
       localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
@@ -220,7 +218,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
     localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
     localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    localKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    localKrnl.Qext = const_cast<const real **>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
     localKrnl.Iane = const_cast<const real **>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
     localKrnl.W = const_cast<const real **>(entry.get(inner_keys::Wp::Id::W)->getDeviceDataPtr());
     localKrnl.w = const_cast<const real **>(entry.get(inner_keys::Wp::Id::Omega)->getDeviceDataPtr());
@@ -236,3 +234,11 @@ void seissol::kernels::Local::computeBatchedIntegral(
   assert(false && "no implementation provided");
 #endif
 }
+
+void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    kernels::LocalData::Loader& loader,
+    double time,
+    double timeStepWidth) {
+    }

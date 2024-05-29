@@ -51,6 +51,12 @@ namespace seissol {
       kernel::neighborFluxExt m_nfKrnlPrototype;
       kernel::neighbor m_nKrnlPrototype;
       dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
     };
   }
 }
