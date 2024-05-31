@@ -168,7 +168,13 @@ class seissol::initializer::time_stepping::LtsLayout {
      * first[2]: number of derivatives cells communicated
      * second  : cluster cells in the copy region
      **/
-    typedef std::pair< std::array<unsigned int, 3>, std::vector< clusterCell > > clusterCopyRegion;
+    template<typename T1, typename T2, typename T3>
+    struct Triple {
+      T1 first;
+      T2 second;
+      T3 third;
+    };
+    typedef Triple< std::array<unsigned int, 3>, std::vector< clusterCell >, std::vector<bool> > clusterCopyRegion;
 
     /**
      * per cluster copy layer.
@@ -336,7 +342,7 @@ class seissol::initializer::time_stepping::LtsLayout {
     void addClusteredCopyCell( unsigned int i_cellId,
                                unsigned int i_globalClusterId,
                                unsigned int i_neighboringRank,
-                               unsigned int i_neighboringGlobalClusterId );
+                               unsigned int i_neighboringGlobalClusterId, bool );
 
     /**
      * Derives the layout of the copy regions and interior regions with respect to the clustering.

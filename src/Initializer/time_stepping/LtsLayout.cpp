@@ -724,7 +724,8 @@ void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( doub
 void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsigned int i_cellId,
                                                                             unsigned int i_globalClusterId,
                                                                             unsigned int i_neighboringRank,
-                                                                            unsigned int i_neighboringGlobalClusterId ) {
+                                                                            unsigned int i_neighboringGlobalClusterId,
+                                                                            bool gts ) {
   // get local cluster id
   unsigned int l_localClusterId = getLocalClusterId( i_globalClusterId );
 
@@ -734,6 +735,7 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
     m_clusteredCopy[l_localClusterId][0].first[0] = i_neighboringRank;
     m_clusteredCopy[l_localClusterId][0].first[1] = i_neighboringGlobalClusterId;
     m_clusteredCopy[l_localClusterId][0].second.push_back( i_cellId );
+    m_clusteredCopy[l_localClusterId][0].third.push_back( gts );
     return;
   }
 
@@ -749,6 +751,9 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       if( *(m_clusteredCopy[l_localClusterId][l_region].second.end()-1) != i_cellId ) {
         m_clusteredCopy[l_localClusterId][l_region].second.push_back( i_cellId );
       }
+      else if (*(m_clusteredCopy[l_localClusterId][l_region].third.end()-1) != gts) {
+        logWarning() << "Potential error encountered (GTS-LTS mismatch).";
+      }
       break;
     }
     // copy region with higher rank or same rank and higher neighboring cluster present: insert before
@@ -759,6 +764,7 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       m_clusteredCopy[l_localClusterId][l_region].first[0] = i_neighboringRank;
       m_clusteredCopy[l_localClusterId][l_region].first[1] = i_neighboringGlobalClusterId;
       m_clusteredCopy[l_localClusterId][l_region].second.push_back( i_cellId );
+      m_clusteredCopy[l_localClusterId][l_region].third.push_back( gts );
       break;
     }
     // no matches: this cell comes into a new copy region at the very end
@@ -767,6 +773,7 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       m_clusteredCopy[l_localClusterId][l_region+1].first[0] = i_neighboringRank;
       m_clusteredCopy[l_localClusterId][l_region+1].first[1] = i_neighboringGlobalClusterId;
       m_clusteredCopy[l_localClusterId][l_region+1].second.push_back( i_cellId );
+      m_clusteredCopy[l_localClusterId][l_region+1].third.push_back( gts );
     }
   }
 }
@@ -886,7 +893,8 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
         addClusteredCopyCell( l_cell,
                               m_cellClusterIds[l_cell],
                               m_cells[l_cell].neighborRanks[l_face],
-                              l_neighboringClusterId );
+                              l_neighboringClusterId,
+                              getFaceType(m_cells[l_cell].boundaries[l_face]) == FaceType::dynamicRupture );
       }
     }
 
