@@ -67,6 +67,18 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
+
+#ifdef ACL_DEVICE
+  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+#else
+  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+#endif
+  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
+  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+#endif
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -169,7 +181,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
   kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl;
+  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
@@ -184,6 +196,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
     tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -212,6 +225,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
     }
   }
 
+  key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(key) != dataTable.end()) {
     auto &entry = dataTable[key];
 

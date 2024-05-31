@@ -32,7 +32,6 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
-    Count,
     Zinv,
     Stp,
     StpRhs,
@@ -43,7 +42,8 @@ struct Wp {
     DofsAne,
     DofsExt,
     DerivativesAne,
-    DerivativesExt
+    DerivativesExt,
+    Count,
   };
 };
 

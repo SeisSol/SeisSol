@@ -99,7 +99,14 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
+  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
+
   CellDRMapping(*drMapping)[4] = currentLayer->var(currentHandler->drMapping);
+
+#ifdef USE_VISCOELASTIC2
+  auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch);
+#endif
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
@@ -125,6 +132,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               idofsAddressRegistry[neighbourBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
               static_cast<real*>(data.neighIntegrationOnDevice().nAmNm1[face]));
+#ifdef USE_VISCOELASTIC2
+          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+#endif
         }
         break;
       }
@@ -138,7 +148,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
         drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
-
+#ifdef USE_VISCOELASTIC2
+        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+#endif
         break;
       }
       case FaceType::outflow:
@@ -176,6 +188,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::AminusT,
                                  regularPeriodicAminusT[face][faceRelation]);
+#ifdef USE_VISCOELASTIC2
+        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
+#endif
       }
     }
 
@@ -189,6 +204,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
+#ifdef USE_VISCOELASTIC2
+        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
+#endif
       }
     }
   }

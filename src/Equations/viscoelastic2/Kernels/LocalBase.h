@@ -42,9 +42,9 @@
 #ifndef KERNELS_LOCALBASE_H_
 #define KERNELS_LOCALBASE_H_
 
-#include <memory>
 #include "generated_code/kernel.h"
 #include "Physics/InitialField.h"
+#include <memory>
 
 namespace seissol {
   namespace kernels {
@@ -59,6 +59,7 @@ namespace seissol {
 #ifdef ACL_DEVICE
     kernel::gpu_volumeExt deviceVolumeKernelPrototype;
     kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
+    kernel::gpu_local deviceLocalKernelPrototype;
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
     public:
@@ -70,8 +71,8 @@ namespace seissol {
         gravitationalAcceleration = g;
       }
     };
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 #endif
 

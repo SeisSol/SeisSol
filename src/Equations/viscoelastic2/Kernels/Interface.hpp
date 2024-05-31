@@ -41,9 +41,9 @@
 #define KERNELS_INTERFACE_H_
 
 #include "Initializer/tree/InterfaceHelper.hpp"
+#include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 #include "Initializer/LTS.h"
 #include "Kernels/precision.hpp"
-#include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {
     struct alignas(ALIGNMENT) LocalTmp {
@@ -59,6 +59,6 @@ namespace seissol::kernels {
     LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, localIntegrationOnDevice, neighIntegrationOnDevice, dofs, dofsAne, faceDisplacements, plasticity, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, neighIntegrationOnDevice, dofs, dofsAne)
 #endif
-}
+} // namespace seissol::kernels
 
 #endif

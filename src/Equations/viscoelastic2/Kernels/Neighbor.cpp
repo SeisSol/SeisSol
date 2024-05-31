@@ -76,6 +76,18 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
+#ifdef ACL_DEVICE
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+#else
+  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+#endif
+  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
+  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
+#endif
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
@@ -188,6 +200,18 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
   kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
+  {
+    ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+    if (table.find(key) != table.end()) {
+      auto &entry = table[key];
+      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+                                        static_cast<real>(0.0),
+                                        tensor::Qext::Size,
+                                        (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+                                        device.api->getDefaultStream());
+    }
+  }
+
   real* tmpMem = nullptr;
   device.api->resetCircularStreamCounter();
   auto resetDeviceCurrentState = [this](size_t counter) {
@@ -256,20 +280,20 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
       }
     }
     resetDeviceCurrentState(streamCounter);
+  }
 
-    ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-    if (table.find(key) != table.end()) {
-      auto &entry = table[key];
-      kernel::gpu_neighbor nKrnl;
-      nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-      nKrnl.Qext = const_cast<const real **>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-      nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-      nKrnl.w = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
-      nKrnl.streamPtr = device.api->getDefaultStream();
+  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  if (table.find(key) != table.end()) {
+    auto &entry = table[key];
+    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype;
+    nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    nKrnl.Qext = const_cast<const real **>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+    nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    nKrnl.w = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
+    nKrnl.streamPtr = device.api->getDefaultStream();
 
-      nKrnl.execute();
-    }
+    nKrnl.execute();
   }
 #else
   assert(false && "no implementation provided");

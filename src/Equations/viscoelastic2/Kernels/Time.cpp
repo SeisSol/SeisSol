@@ -70,6 +70,8 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
 #ifdef ACL_DEVICE
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   // the selectAne/selectEla are inlined
+  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
+  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
 #endif
 }
 
@@ -356,17 +358,16 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
     krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
 
-    unsigned derivativesOffset = 0;
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    unsigned derivativesOffset = tensor::dQ::size(0);
+    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       krnl.extraOffset_dQ(i) = derivativesOffset;
-
       krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
-      krnl.extraOffset_dQane(i) = 0 ? i % 2 == 0 : tensor::dQane::size(0);
-      if (i > 0) {
-        krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
-        krnl.extraOffset_dQext(i) = 0 ? i % 2 == 1 : tensor::dQext::size(1);
-      }
+      krnl.extraOffset_dQane(i) = i % 2 == 1 ? 0 : tensor::dQane::size(1);
+      krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
+      krnl.extraOffset_dQext(i) = i % 2 == 1 ? 0 : tensor::dQext::size(1);
 
       // TODO: compress
       derivativesOffset += tensor::dQ::size(i);
@@ -390,6 +391,12 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
       // update scalar for this derivative
       krnl.power(der) = krnl.power(der-1) * i_timeStepWidth / real(der+1);
     }
+
+    device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+                                        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
+                                        tensor::Q::Size,
+                                        krnl.numElements,
+                                        device.api->getDefaultStream());
 
     krnl.streamPtr = device.api->getDefaultStream();
     krnl.execute();

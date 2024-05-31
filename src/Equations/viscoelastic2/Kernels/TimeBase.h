@@ -55,8 +55,8 @@ namespace seissol {
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
     };
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 #endif
 
