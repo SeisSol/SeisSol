@@ -43,29 +43,33 @@
 
 #include "async/as/Pin.h"
 #include "Common/IntegerMaskParser.h"
-#include <sched.h>
+#include <deque>
 #include <string>
 
-namespace seissol {
-  namespace parallel {
+namespace seissol::parallel {
 
 class Pinning {
 private:
   async::as::CpuMask openmpMask{};
+  async::as::CpuMask onlineMask{};
   IntegerMaskParser::MaskType parsedFreeCPUsMask{};
+
 public:
   Pinning();
 
-  async::as::CpuMask getWorkerUnionMask() const;
-  void checkEnvVariables();
-  async::as::CpuMask getFreeCPUsMask() const;
-  static bool freeCPUsMaskEmpty(const async::as::CpuMask& mask);
+  static std::deque<bool> parseOnlineCpuMask(std::string mask, unsigned numberOfConfiguredCpus) ;
+  async::as::CpuMask computeOnlineCpuMask() ;
+  [[nodiscard]] static async::as::CpuMask getWorkerUnionMask();
+  [[nodiscard]] async::as::CpuMask getFreeCPUsMask() const;
+  static bool freeCPUsMaskEmpty(const async::as::CpuMask& set);
+  [[nodiscard]] async::as::CpuMask getOnlineMask() const;
+  [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
-  static std::string maskToString(const async::as::CpuMask& mask);
-  async::as::CpuMask getNodeMask() const;
+  static std::string maskToString(const async::as::CpuMask& set);
+  [[nodiscard]] async::as::CpuMask getNodeMask() const;
+  void checkEnvVariables();
 };
 
-}
-}
+} // namespace seissol::parallel
 
 #endif
