@@ -750,6 +750,7 @@ void seissol::initializer::time_stepping::LtsLayout::addClusteredCopyCell( unsig
       // only add a cell if not present already
       if( *(m_clusteredCopy[l_localClusterId][l_region].second.end()-1) != i_cellId ) {
         m_clusteredCopy[l_localClusterId][l_region].second.push_back( i_cellId );
+        m_clusteredCopy[l_localClusterId][l_region].third.push_back( gts );
       }
       else if (*(m_clusteredCopy[l_localClusterId][l_region].third.end()-1) != gts) {
         logWarning() << "Potential error encountered (GTS-LTS mismatch).";
