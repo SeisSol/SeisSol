@@ -811,6 +811,13 @@ void TimeCluster::correct() {
   // TODO: Change from iteration based to time based
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces()
       && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
+#ifdef ACL_DEVICE
+    if (executor == Executor::Device) {
+      // TODO(David): replace by selective transfer (as for the derivatives right now)
+      seissolInstance.getMemoryManager().getDynamicRuptureTree()->synchronizeTo(initializer::AllocationPlace::Host, streamRuntime.stream());
+      streamRuntime.wait();
+    }
+#endif
     faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
