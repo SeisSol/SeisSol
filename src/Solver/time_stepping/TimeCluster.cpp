@@ -305,7 +305,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
     });
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
-      m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, initializer::AllocationPlace::Host, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->qInterpolatedPlus, initializer::AllocationPlace::Host, streamRuntime.stream());
+      layerData.varSynchronizeTo(m_dynRup->qInterpolatedMinus, initializer::AllocationPlace::Host, streamRuntime.stream());
       streamRuntime.wait();
     }
 
