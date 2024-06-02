@@ -397,10 +397,20 @@ void seissol::time_stepping::TimeManager::freeDynamicResources() {
 
 void seissol::time_stepping::TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
-  auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  Executor exec = clusters[0]->getExecutor();
+  bool sameExecutor = true;
   for (auto& cluster : clusters) {
-    cluster->synchronizeTo(place, stream);
+    sameExecutor &= exec == cluster->getExecutor();
   }
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  if (sameExecutor) {
+    seissolInstance.getMemoryManager().synchronizeTo(place);
+  }
+  else {
+    auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    for (auto& cluster : clusters) {
+      cluster->synchronizeTo(place, stream);
+    }
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  }
 #endif
 }
