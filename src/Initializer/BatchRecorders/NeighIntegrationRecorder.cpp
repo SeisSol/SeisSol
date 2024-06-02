@@ -133,7 +133,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           regularPeriodicAminusT[face][faceRelation].push_back(
               static_cast<real*>(data.neighIntegrationOnDevice().nAmNm1[face]));
 #ifdef USE_VISCOELASTIC2
-          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                       tensor::Qext::size() * cell);
 #endif
         }
         break;
@@ -149,7 +150,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
 #ifdef USE_VISCOELASTIC2
-        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                tensor::Qext::size() * cell);
 #endif
         break;
       }

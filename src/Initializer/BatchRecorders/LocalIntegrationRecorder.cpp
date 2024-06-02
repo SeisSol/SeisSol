@@ -103,11 +103,15 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch);
       idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
 
-      auto* derivativesExt = currentLayer->getScratchpadMemory(currentHandler->derivativesExtScratch);
-      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) + (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
+      auto* derivativesExt =
+          currentLayer->getScratchpadMemory(currentHandler->derivativesExtScratch);
+      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
+                                 (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
 
-      auto* derivativesAne = currentLayer->getScratchpadMemory(currentHandler->derivativesAneScratch);
-      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) + (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
+      auto* derivativesAne =
+          currentLayer->getScratchpadMemory(currentHandler->derivativesAneScratch);
+      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
+                                 (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
 
       auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
