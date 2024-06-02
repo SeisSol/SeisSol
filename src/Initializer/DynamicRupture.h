@@ -122,25 +122,25 @@ public:
   
   virtual void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      timeDerivativePlus,             mask,                 1,      AllocationMode::HostOnly );
-    tree.addVar(     timeDerivativeMinus,             mask,                 1,      AllocationMode::HostOnly );
-    tree.addVar(      timeDerivativePlusDevice,       mask,                 1,      AllocationMode::HostOnly );
-    tree.addVar(     timeDerivativeMinusDevice,       mask,                 1,      AllocationMode::HostOnly );
+    tree.addVar(      timeDerivativePlus,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(     timeDerivativeMinus,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(      timeDerivativePlusDevice,       mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(     timeDerivativeMinusDevice,       mask,                 1,      AllocationMode::HostOnly, true );
     tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
     tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
     tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
-    tree.addVar(         faceInformation,             mask,                 1,      AllocationMode::HostOnly );
-    tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(         faceInformation,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD, true );
+    tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
-    tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD, true );
+    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      initialPressure,                mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      nucleationPressure,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationPressure,             mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      ruptureTime,                    mask,                 1,      MEMKIND_STANDARD );
 
     tree.addVar(ruptureTimePending, mask, 1, MEMKIND_STANDARD);
@@ -177,11 +177,11 @@ struct seissol::initializer::LTSLinearSlipWeakening : public seissol::initialize
     virtual void addTo(initializer::LTSTree& tree) {
         seissol::initializer::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
-        tree.addVar(dC, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(muS, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(muD, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(cohesion, mask,1, MEMKIND_STANDARD);
-        tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
+        tree.addVar(dC, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(muS, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(muD, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(cohesion, mask,1, MEMKIND_STANDARD, true);
+        tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD, true);
     }
 };
 

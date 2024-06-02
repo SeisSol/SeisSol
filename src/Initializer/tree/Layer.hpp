@@ -84,6 +84,7 @@ struct DualMemoryContainer {
   AllocationMode allocationMode;
   std::size_t allocationSize;
   std::size_t allocationAlignment;
+  bool constant;
 
   void* get(AllocationPlace place) const {
     if (place == AllocationPlace::Host) {
@@ -140,8 +141,11 @@ struct DualMemoryContainer {
     if (allocationMode == AllocationMode::HostDeviceSplit ||
         allocationMode == AllocationMode::HostDeviceSplitPinned) {
       if (place == AllocationPlace::Host) {
-        device::DeviceInstance::getInstance().api->copyFromAsync(
-            host, device, allocationSize, stream);
+        // do not copy back constant data (we ignore the other direction for now)
+        if (!constant) {
+          device::DeviceInstance::getInstance().api->copyFromAsync(
+              host, device, allocationSize, stream);
+        }
       } else {
         device::DeviceInstance::getInstance().api->copyToAsync(
             device, host, allocationSize, stream);
@@ -201,6 +205,7 @@ struct seissol::initializer::MemoryInfo {
   LayerMask mask;
   // seissol::memory::Memkind memkind;
   AllocationMode allocMode;
+  bool constant{false};
 };
 
 class seissol::initializer::Layer : public seissol::initializer::Node {

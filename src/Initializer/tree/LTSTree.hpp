@@ -125,7 +125,11 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
   inline unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
-  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, AllocationMode allocMode) {
+  void addVar(Variable<T>& handle,
+              LayerMask mask,
+              size_t alignment,
+              AllocationMode allocMode,
+              bool constant = false) {
     handle.index = varInfo.size();
     handle.mask = mask;
     MemoryInfo m;
@@ -133,6 +137,7 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     m.alignment = alignment;
     m.mask = mask;
     m.allocMode = allocMode;
+    m.constant = constant;
     varInfo.push_back(m);
   }
 
@@ -165,6 +170,7 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     for (unsigned var = 0; var < varInfo.size(); ++var) {
       m_vars[var].allocate(
           m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
+      m_vars[var].constant = varInfo[var].constant;
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
