@@ -12,6 +12,7 @@ format() {
     local allowlist_dir="
         src/DynamicRupture
         src/Initializers/Parameters
+        src/IO
         src/Modules
         src/Reader
         "

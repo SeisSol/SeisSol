@@ -21,6 +21,7 @@ format() {
         src/tests/SourceTerm
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/IO
         src/Modules
         src/Monitoring
         src/Physics

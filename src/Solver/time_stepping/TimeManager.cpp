@@ -63,7 +63,7 @@ seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstan
 
 seissol::time_stepping::TimeManager::~TimeManager() {}
 
-void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping,
                                                       MeshStructure* i_meshStructure,
                                                       initializer::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
@@ -73,7 +73,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   assert( i_meshStructure         != NULL );
 
   // store the time stepping
-  m_timeStepping = i_timeStepping;
+  m_timeStepping = timeStepping;
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
@@ -366,13 +366,18 @@ void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWr
   }
 }
 
-void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
-  assert( i_time >= 0 );
+void seissol::time_stepping::TimeManager::setInitialTimes( double time ) {
+  assert( time >= 0 );
 
-  for(auto & cluster : clusters) {
-    cluster->setPredictionTime(i_time);
-    cluster->setCorrectionTime(i_time);
-    cluster->setReceiverTime(i_time);
+  for (auto& cluster : clusters) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
+    cluster->setReceiverTime(time);
+    cluster->setLastSubTime(time);
+  }
+  for (auto& cluster : *communicationManager->getGhostClusters()) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
   }
 }
 

@@ -51,7 +51,7 @@
 #include <utils/logger.h>
 #include <utils/timeutils.h>
 #include <xdmfwriter/scorep_wrapper.h>
-#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/yaml.h>
 
 #include "Initializer/InitProcedure/Init.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -124,6 +124,7 @@ int main(int argc, char* argv[]) {
   // Parse command line arguments
   utils::Args args;
   args.addAdditionalOption("file", "The parameter file", false);
+  args.addAdditionalOption("checkpoint", "The checkpoint file to restart from", false);
   switch (args.parse(argc, argv)) {
   case utils::Args::Help: {
     [[fallthrough]];
@@ -147,6 +148,14 @@ int main(int argc, char* argv[]) {
 
   // Initialize SeisSol
   seissol::SeisSol seissolInstance(parameters);
+
+  if (args.isSetAdditional("checkpoint")) {
+    const auto checkpointFile = args.getAdditionalArgument<const char*>("checkpoint");
+    seissolInstance.loadCheckpoint(checkpointFile);
+    logInfo(rank) << "Using the checkpoint file" << checkpointFile;
+  }
+
+  // run SeisSol
   const bool runSeisSol = seissolInstance.init(argc, argv);
 
   const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));

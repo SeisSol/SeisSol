@@ -49,7 +49,6 @@
 #include <async/Module.h>
 #include "Modules/Module.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Checkpoint/DynStruct.h"
 #include "Monitoring/Stopwatch.h"
 #include "FreeSurfaceWriterExecutor.h"
 
@@ -66,9 +65,6 @@ private:
 
 	/** Is enabled? */
 	bool m_enabled;
-
-	/** Timestep component in the checkpoint header */
-	DynStruct::Component<int> m_timestepComp;
 
 	/** The asynchronous executor */
 	FreeSurfaceWriterExecutor m_executor;
