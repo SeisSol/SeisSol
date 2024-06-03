@@ -52,11 +52,11 @@ namespace seissol {
       double lambda;
       double mu;
 
-      double getLambda() const override {
+      double getLambdaBar() const override {
         return lambda;
       }
 
-      double getMu() const override {
+      double getMuBar() const override {
         return mu;
       }
 
