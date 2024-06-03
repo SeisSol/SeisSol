@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  * @author Lukas Krenz
  *
  * @section LICENSE
@@ -41,11 +42,11 @@
 
 #include "Pin.h"
 
-#include <fstream>
-#include <cassert>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <cassert>
 #include <cstdlib>
+#include <fstream>
 #include <sched.h>
 #include <set>
 #include <sstream>
@@ -61,8 +62,7 @@ namespace seissol::parallel {
 
 using namespace async::as;
 
-std::deque<bool> Pinning::parseOnlineCpuMask(std::string s,
-                                                                unsigned numberOfConfiguredCpus) {
+std::deque<bool> Pinning::parseOnlineCpuMask(std::string s, unsigned numberOfConfiguredCpus) {
   std::deque<bool> onlineMask(numberOfConfiguredCpus, false);
 
   // The file has the format e.g. 0-1,12-59
@@ -112,14 +112,11 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
   if (file.good()) {
     std::stringstream buffer;
     buffer << file.rdbuf();
-    mask = parseOnlineCpuMask(buffer.str(),
-                              get_nprocs_conf());
+    mask = parseOnlineCpuMask(buffer.str(), get_nprocs_conf());
 
   } else {
-    logWarning(MPI::mpi.rank())
-        << "Could not read"
-        << onlineFilePath
-        << "Assuming that all cpus are online.";
+    logWarning(MPI::mpi.rank()) << "Could not read" << onlineFilePath
+                                << "Assuming that all cpus are online.";
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
@@ -249,7 +246,8 @@ CpuMask Pinning::getFreeCPUsMask() const {
   }
 #else
   // Set now contains all unused cores on the machine.
-  // Note that pinning of the communication thread is then not Numa-aware if there's more than one rank per node!
+  // Note that pinning of the communication thread is then not Numa-aware if there's more than one
+  // rank per node!
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
@@ -273,9 +271,7 @@ bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #endif // __APPLE__
 }
 
-CpuMask Pinning::getOnlineMask() const {
-  return onlineMask;
-}
+CpuMask Pinning::getOnlineMask() const { return onlineMask; }
 
 bool Pinning::areAllCpusOnline() {
 #ifndef __APPLE__
@@ -297,7 +293,7 @@ std::string Pinning::maskToString(const CpuMask& mask) {
   const auto& set = mask.set;
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs_conf()-1) {
+    if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs_conf() - 1) {
       st << '|';
     }
     if (CPU_ISSET(cpu, &set)) {
@@ -318,7 +314,7 @@ CpuMask Pinning::getNodeMask() const {
   const auto workerMask = getWorkerUnionMask().set;
 
   // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>( get_nprocs_conf(), 0);
+  auto workerMaskArray = std::vector<char>(get_nprocs_conf(), 0);
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }

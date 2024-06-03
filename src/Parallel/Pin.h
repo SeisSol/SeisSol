@@ -44,11 +44,12 @@
 
 #include "Common/IntegerMaskParser.h"
 #include "async/as/Pin.h"
+#include <deque>
 #include <sched.h>
 #include <string>
 
 namespace seissol::parallel {
-  
+
 class Pinning {
   private:
   async::as::CpuMask openmpMask{};
@@ -58,8 +59,8 @@ class Pinning {
   public:
   Pinning();
 
-  static std::deque<bool> parseOnlineCpuMask(std::string mask, unsigned numberOfConfiguredCpus) ;
-  async::as::CpuMask computeOnlineCpuMask() ;
+  static std::deque<bool> parseOnlineCpuMask(std::string mask, unsigned numberOfConfiguredCpus);
+  async::as::CpuMask computeOnlineCpuMask();
   [[nodiscard]] static async::as::CpuMask getWorkerUnionMask();
   [[nodiscard]] async::as::CpuMask getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(const async::as::CpuMask& set);
