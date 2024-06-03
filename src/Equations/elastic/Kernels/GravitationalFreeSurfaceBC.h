@@ -113,11 +113,9 @@ public:
       projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
     }
 
-#ifdef USE_ELASTIC
     const double rho = materialData.local.rho;
     const double g = gravitationalAcceleration; // [m/s^2]
-    const double Z = std::sqrt(materialData.local.lambda * rho) ;
-#endif
+    const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
     // Note: Probably need to increase CONVERGENCE_ORDER by 1 here!
     for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
@@ -139,13 +137,10 @@ public:
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
 
-#ifdef USE_ELASTIC
         const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
         // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
         // 2 add, 2 mul = 4 flops
-#else
-        const double curCoeff = uInside;
-#endif
+
         prevCoefficients[i] = curCoeff;
 
         // 2 * 3 = 6 flops for updating displacement
