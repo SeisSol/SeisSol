@@ -43,7 +43,9 @@
 
 #include "Kernels/Local.h"
 
+#include <Initializer/preProcessorMacros.hpp>
 #include <cstddef>
+#include <tensor.h>
 #include <yateto.h>
 
 #include <array>
@@ -753,7 +755,10 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
     kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
     double timeStepSize,
     const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation, 
-    double subTimeStart) {
+    seissol::SeisSol& seissolInstance,
+    initializer::LTS* m_lts,
+    double subTimeStart
+    ) {
 
   seissol::kernels::Time m_timeKernel;
   m_timeKernel.setDamagedElasticParameters(m_damagedElasticParameters);
@@ -849,7 +854,7 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
           m_timeKernel.computeTaylorExpansion(
               timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
           m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+              timePoints[timeInterval], subTimeStart, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
         kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
             m_nonlinearInterpolation;
 
@@ -870,6 +875,7 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
       auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
 
       alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+      alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
 
       for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
         rusanovFluxPlus[i_f] = static_cast<real>(0.0);
@@ -888,6 +894,10 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
                                   *rusanovFluxP,
                                   localIntegration);
 
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
+        rusanovFluxMinus[i_f] = -rusanovFluxPlus[i_f];
+      }
+
       /// S5: Integrate in space using quadrature.
       // Need to separate the flux integration from dofs... accumulate for the third case -> would probably help solving the 
       //LTS issue
@@ -896,58 +906,18 @@ void seissol::kernels::Local::computeNonLinearIntegralCorrection(
       m_surfIntegral.Flux = rusanovFluxPlus;
       m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
       m_surfIntegral.execute(side, 0);
+
+      auto cell = cellInformation->faceNeighborIds;
+      auto neighbordofs  = seissolInstance.getMemoryManager().getLtsTree()->var(m_lts->dofs)[cell[side]];
+
+      kernel::nonlinearSurfaceIntegral m_surfIntegralNeighbor = m_nonlSurfIntPrototype;
+      m_surfIntegralNeighbor.Q = neighbordofs;
+      m_surfIntegralNeighbor.Flux = rusanovFluxMinus;
+      m_surfIntegralNeighbor.fluxScale = localIntegration[l_cell].fluxScales[side];
+      m_surfIntegralNeighbor.execute(side, 0);
         } else {
           // "TimeStep Neighbor < TimeStep Local";
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0 , derivatives[l_cell], degreesOfFreedomPlus);
-          m_timeKernel.computeTaylorExpansion(
-              timePoints[timeInterval], 0.0 , faceNeighbors[l_cell][side], degreesOfFreedomMinus);
-        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
-            m_nonlinearInterpolation;
-
-        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomPlus;
-        m_nonLinInter.execute(side, 0);
-
-        m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
-        m_nonLinInter.Q = degreesOfFreedomMinus;
-        m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0],
-                              cellInformation[l_cell].faceRelations[side][1] + 1);
-                                    // S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
-      // Reshape the interpolated results
-      using QInterpolatedShapeT =
-          const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
-
-      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
-      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
-
-      alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
-
-      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
-        rusanovFluxPlus[i_f] = static_cast<real>(0.0);
-      }
-
-      using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
-      auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
-
-      // S4: Compute the Rusanov flux
-      computeNonLinearRusanovFlux(materialData,
-                                  l_cell,
-                                  side,
-                                  timeWeights,
-                                  *qIPlus[0],
-                                  *qIMinus[0],
-                                  *rusanovFluxP,
-                                  localIntegration);
-
-      /// S5: Integrate in space using quadrature.
-      // Need to separate the flux integration from dofs... accumulate for the third case -> would probably help solving the 
-      //LTS issue
-      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-      m_surfIntegral.Q = data.dofs;
-      m_surfIntegral.Flux = rusanovFluxPlus;
-      m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
-      m_surfIntegral.execute(side, 0);
+          // Do nothing by design. Delete the else in the end if everything works
         }
       }
     } else if (cellInformation[l_cell].faceTypes[side] == FaceType::dynamicRupture) {

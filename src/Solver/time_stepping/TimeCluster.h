@@ -333,6 +333,8 @@ private:
                                                         m_nonlSurfIntPrototype,
                                                         timeStepSize(),
                                                         m_nonlinearInterpolation,
+                                                        seissolInstance,
+                                                        m_lts,
                                                         subTimeStart);
 
 }

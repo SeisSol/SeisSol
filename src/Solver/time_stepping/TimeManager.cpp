@@ -344,6 +344,11 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #endif
 }
 
+bool seissol::time_stepping::TimeManager::clusterCompare::operator()(const TimeCluster* lFirst,
+                                                                     const TimeCluster* lSecond) {
+  return lFirst->getGlobalClusterId() > lSecond->getGlobalClusterId();
+}
+
 void seissol::time_stepping::TimeManager::printComputationTime(
     const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager.finish();

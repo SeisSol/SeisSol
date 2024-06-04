@@ -41,17 +41,21 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
+#include <Initializer/LTS.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/typedefs.hpp>
-#include <cassert>
-#include <Kernels/common.hpp>
 #include <Kernels/Interface.hpp>
 #include <Kernels/LocalBase.h>
+#include <Kernels/common.hpp>
+#include <cassert>
 #include <generated_code/tensor.h>
 
+namespace seissol {
+  class SeisSol;
+} // namespace seissol
 namespace seissol::kernels {
   class Local;
-}
+} // namespace seissol::kernels
 
 class seissol::kernels::Local : public LocalBase {
   protected:
@@ -112,6 +116,8 @@ class seissol::kernels::Local : public LocalBase {
       kernel::nonlinearSurfaceIntegral& m_nonlSurfIntPrototype,
       double timeStepSize,
       const kernel::nonlEvaluateAndRotateQAtInterpolationPoints& m_nonlinearInterpolation,
+      seissol::SeisSol& seissolInstance,
+      initializer::LTS* m_lts,
       double subTimeStart=0.0);                             
     #endif
 };

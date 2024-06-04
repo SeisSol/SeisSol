@@ -41,6 +41,8 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
+#include <Monitoring/ActorStateStatistics.h>
+#include <Monitoring/LoopStatistics.h>
 #include <vector>
 #include <queue>
 #include <list>
@@ -60,9 +62,12 @@
 #include "Solver/time_stepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
+  class LoopStatistics;
+  class ActorStateStatistics;
   namespace time_stepping {
     class TimeManager;
     class AbstractCommunicationManager;
+    class TimeCluster; 
 
       template<typename T>
       constexpr T ipow(T x, T y) {
@@ -78,8 +83,8 @@ namespace seissol {
           }
           return result;
       }
-  }
-}
+  } // namespace time_stepping
+} // namespace seissol
 
 
 /**
@@ -91,9 +96,7 @@ class seissol::time_stepping::TimeManager {
      * Compares to cluster pointer by their id.
      **/
     struct clusterCompare {
-      bool operator()( const TimeCluster* l_first, const TimeCluster* l_second ) {
-        return l_first->getGlobalClusterId() > l_second->getGlobalClusterId();
-      }
+      bool operator()(const TimeCluster* lFirst, const TimeCluster* lSecond);
     };
 
     //! last #updates of log
