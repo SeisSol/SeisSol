@@ -44,52 +44,41 @@
 
 #include <cassert>
 #include <iterator>
+#include <memory>
+#include <vector>
 
-namespace seissol {
-namespace initializer {
-class Node;
-}
-} // namespace seissol
+namespace seissol::initializer {
 
-class seissol::initializer::Node {
+class Node {
   protected:
-  Node** m_children;
-  unsigned m_numChildren;
+  std::vector<std::shared_ptr<Node>> m_children;
   Node* m_next;
 
-  void setPostOrderPointers(Node* previous = NULL) {
-    for (unsigned child = 0; child < m_numChildren; ++child) {
+  void setPostOrderPointers(Node* previous = nullptr) {
+    for (unsigned child = 0; child < m_children.size(); ++child) {
       m_children[child]->setPostOrderPointers(previous);
-      previous = m_children[child];
+      previous = m_children[child].get();
     }
-    if (previous != NULL) {
+    if (previous != nullptr) {
       previous->m_next = this;
     }
   }
 
   public:
-  Node() : m_children(NULL), m_numChildren(0), m_next(NULL) {}
-  virtual ~Node() {
-    for (unsigned child = 0; child < m_numChildren; ++child) {
-      delete m_children[child];
-    }
-    delete[] m_children;
-  }
+  Node() : m_children(), m_next(nullptr) {}
+  virtual ~Node() = default;
 
   template <typename T>
   void setChildren(unsigned numChildren) {
-    delete[] m_children;
-    m_children = new Node*[numChildren];
-    m_numChildren = numChildren;
-
-    for (unsigned child = 0; child < m_numChildren; ++child) {
-      m_children[child] = new T;
+    m_children.resize(numChildren);
+    for (unsigned child = 0; child < m_children.size(); ++child) {
+      m_children[child] = std::make_shared<T>();
     }
   }
 
-  inline bool isLeaf() const { return m_numChildren == 0; }
+  inline bool isLeaf() const { return m_children.empty(); }
 
-  inline unsigned numChildren() const { return m_numChildren; }
+  inline unsigned numChildren() const { return m_children.size(); }
 
   class iterator {
 public:
@@ -122,7 +111,7 @@ protected:
   inline iterator begin() {
     Node* start = this;
     while (!start->isLeaf()) {
-      start = start->m_children[0];
+      start = start->m_children[0].get();
     }
     assert(start == this || start->m_next != NULL);
     return iterator(start);
@@ -134,5 +123,7 @@ protected:
     return iterator(this->m_next);
   }
 };
+
+} // namespace seissol::initializer
 
 #endif
