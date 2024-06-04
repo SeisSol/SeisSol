@@ -11,6 +11,8 @@
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/Layer.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -38,10 +40,22 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
 
 void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                             seissol::initializer::LTS* userWpDescr,
-                                            seissol::initializer::Lut* userWpLut) {
+                                            seissol::initializer::Lut* userWpLut,
+                                            seissol::initializer::LTSTree* userDrTree,
+                                            seissol::initializer::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
+  drTree = userDrTree;
+  drDescr = userDrDescr;
+}
+
+void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
+  this->variables = variables;
+}
+
+void ReceiverBasedOutputBuilder::setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap) {
+  this->faceToLtsMap = faceToLtsMap;
 }
 
 namespace {
@@ -70,6 +84,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& verticesInfo = meshReader->getVertices();
   const auto& mpiGhostMetadata = meshReader->getGhostlayerMetadata();
 
+  std::unordered_map<std::size_t, std::size_t> faceIndices;
   std::unordered_map<std::size_t, std::size_t> elementIndices;
   std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
       elementIndicesGhost;
@@ -78,6 +93,11 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t numVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
+      if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {
+        const auto faceIndex = faceIndices.size();
+        faceIndices[faceToLtsMap->at(point.faultFaceIndex)] = faceIndex;
+      }
+
       ++foundPoints;
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
@@ -151,16 +171,35 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector>(
       indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+
+  for (const auto& variable : variables) {
+    auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
+    std::size_t const elementSize = drTree->info(variable).elemsize;
+
+    assert(elementSize % sizeof(real) == 0);
+
+    std::size_t const elementCount = elementSize / sizeof(real);
+    std::vector<real*> dataPointers(faceIndices.size());
+    for (const auto& [index, arrayIndex] : faceIndices) {
+      dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
+    }
+    outputData->deviceVariables[variable] =
+        std::make_unique<seissol::parallel::DataCollector>(dataPointers, elementCount, useUSM());
+  }
 #endif
 
   outputData->deviceDataPlus.resize(foundPoints);
   outputData->deviceDataMinus.resize(foundPoints);
+  outputData->deviceIndices.resize(foundPoints);
   std::size_t pointCounter = 0;
   for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
     const auto& point = outputData->receiverPoints[i];
     if (point.isInside) {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
+      outputData->deviceIndices[pointCounter] =
+          faceIndices.at(faceToLtsMap->at(point.faultFaceIndex));
+
       outputData->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
