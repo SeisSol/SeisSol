@@ -105,6 +105,9 @@ struct extract_type<F<X>> {
           MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME entry(unsigned index) {  \
         return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_ACCESS, HANDLE_STRUCT, __VA_ARGS__));  \
       }                                                                                            \
+      NAME entry(unsigned index) const {                                                           \
+        return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_ACCESS, HANDLE_STRUCT, __VA_ARGS__));  \
+      }                                                                                            \
     };                                                                                             \
   };
 
@@ -132,6 +135,10 @@ struct extract_type<F<X>> {
                 seissol::initializer::AllocationPlace place =                                      \
                     seissol::initializer::AllocationPlace::Host){                                  \
           MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME entry(unsigned index) {  \
+        return NAME(                                                                               \
+            MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_PTR_ACCESS, HANDLE_STRUCT, __VA_ARGS__));      \
+      }                                                                                            \
+      NAME entry(unsigned index) const {                                                           \
         return NAME(                                                                               \
             MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_PTR_ACCESS, HANDLE_STRUCT, __VA_ARGS__));      \
       }                                                                                            \
