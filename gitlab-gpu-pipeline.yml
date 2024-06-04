@@ -71,6 +71,9 @@ gpu_build:
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
+          EQUATION: [elastic]
+        - BACKEND: [cuda]
+          EQUATION: [anisotropic]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
@@ -80,16 +83,19 @@ gpu_build:
         - *common_gpu_steps
         - pip3 install git+https://github.com/SeisSol/gemmforge.git@v0.0.207
         - set -euo pipefail
-        - for precision in double single; do
-            mkdir -p ./build_${BACKEND}_${precision} && cd ./build_${BACKEND}_${precision} ;
+        - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
+        - for PRECISION in double single; do
+            mkdir -p ./build_${BACKEND}_${PRECISION}_${EQUATION} && cd ./build_${BACKEND}_${PRECISION}_${EQUATION} ;
             cmake ..
             -DCMAKE_BUILD_TYPE=Release
             -DDEVICE_BACKEND=${BACKEND}
             -DDEVICE_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
-            -DPRECISION=${precision}
+            -DPRECISION=${PRECISION}
+            -DEQUATIONS=${EQUATION}
+            -DNUMBER_OF_MECHANISMS=${MECHANISMS}
             -DPROXY_PYBINDING=ON ;
-            make -j $(nproc) ;
+            make -j $(nproc);
             cd .. ;
           done;
         - set +u
@@ -116,12 +122,14 @@ gpu_convergence_test:
         - git clone https://github.com/SeisSol/Examples.git tests
         - pip3 install -r ./tests/convergence_elastic/requirements.txt
         - set -euo pipefail
-        - for precision in double single; do
-            cd ./build_${BACKEND}_${precision} ;
-            echo "[${BACKEND}] Elastic Convergence test with precision - ${precision}" ;
+        - for PRECISION in double single; do
+            if [ "$PRECISION" = single ]; then LPREC=s; fi;
+            if [ "$PRECISION" = double ]; then LPREC=d; fi;
+            cd ./build_${BACKEND}_${PRECISION}_elastic ;
+            echo "[${BACKEND}] Elastic Convergence test with PRECISION - ${PRECISION}" ;
             cp -r ../tests/convergence_elastic/* . ;
             PYTHONPATH=$PWD python3 ./elastic_convergence_runner
-            --executable $PWD/SeisSol_Release_*
+            --executable $PWD/SeisSol_Release_${LPREC}sm_60_${BACKEND}_6_elastic
             --tmp-dir /tmp/seissol
             --sizes 4 8 16
             --expected-errors 1e-2 1e-4 5e-5
@@ -131,10 +139,6 @@ gpu_convergence_test:
             cd .. ;
           done;
         - set +u
-    artifacts:
-        paths:
-            - build_*
-        expire_in: 2 days
     retry: 2
 
 
@@ -148,17 +152,23 @@ gpu_run_tpv:
         - gpu-nvidia-sm_60
     parallel:
         matrix:
-            - precision: [single]
-              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
-              backend: [cuda]
+            - PRECISION: [single]
+              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104, ahsp]
+              BACKEND: [cuda]
     script:
-        - echo "run TPV${tpv} with ${backend} backend"
+        - echo "run TPV${tpv} with ${BACKEND} backend"
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
+        - export EQUATION=elastic
+        - if [ "$tpv" = ahsp ]; then EQUATION=anisotropic; fi;
+        - if [ "$tpv" = 5-poro ]; then EQUATION=poroelastic; fi;      
+        - if [ "$tpv" = 5-visco ]; then EQUATION=viscoelastic2; fi;
+        - if [ "$PRECISION" = single ]; then LPREC=s; fi;
+        - if [ "$PRECISION" = double ]; then LPREC=d; fi;
         - cd precomputed-seissol
         - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
         - cd ..
-        - cd ./build_${backend}_${precision} ;
+        - cd ./build_${BACKEND}_${PRECISION}_${EQUATION} ;
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
         - ls
         - mkdir ./output
@@ -166,9 +176,9 @@ gpu_run_tpv:
         - export OMP_NUM_THREADS=$NUM_COMP_CORES
         - export OMP_PLACES="cores($NUM_COMP_CORES)"
         - ulimit -Ss unlimited
-        - ./SeisSol_Release_*_elastic ./parameters.par
-        - mv ./precomputed/${precision} ./output/precomputed
-        - mv ./output ../output-tpv{$tpv}-${precision}-${backend}
+        - ./SeisSol_Release_${LPREC}sm_60_${BACKEND}_6_${EQUATION} ./parameters.par
+        - mv ./precomputed/${PRECISION} ./output/precomputed
+        - mv ./output ../output-tpv${tpv}-${PRECISION}-${BACKEND}
     artifacts:
         paths:
             - output-*
@@ -190,15 +200,15 @@ check_faultoutput:
         epsilon: "0.05"
     parallel:
         matrix:
-            - precision: [single]
+            - PRECISION: [single]
               tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
-              backend: [cuda]
+              BACKEND: [cuda]
     before_script:
         - pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
     script: 
-        - echo "check TPV{$tpv} with ${precision} precision and ${backend} backend"
+        - echo "check TPV${tpv} with ${PRECISION} PRECISION and ${BACKEND} backend"
         - ls
-        - cd output-tpv{$tpv}-${precision}-${backend}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - python3 ../postprocessing/validation/compare-faults.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
@@ -215,15 +225,15 @@ check_receivers:
         epsilon: "0.05"
     parallel:
         matrix:
-            - precision: [single]
-              tpv: [5, 5-nuc, 6, 13, 101, 101-slip, 104]
-              backend: [cuda]
+            - PRECISION: [single]
+              tpv: [5, 5-nuc, 6, 13, 101, 101-slip, 104, ahsp]
+              BACKEND: [cuda]
     before_script:
         - pip3 install pandas
     script:
         - echo "check TPV${tpv}"
         - ls
-        - cd output-tpv{$tpv}-${precision}-${backend}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
             python3 ../postprocessing/validation/compare-receivers.py . ./precomputed --epsilon ${epsilon} --mode $mode
@@ -241,15 +251,15 @@ gpu_check_energies:
         epsilon: "0.05"
     parallel:
         matrix:
-            - precision: [single]
+            - PRECISION: [single]
               tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
-              backend: [cuda]
+              BACKEND: [cuda]
     before_script:
         - pip3 install pandas
     script:
         - echo "check TPV${tpv}"
         - ls
-        - cd output-tpv{$tpv}-${precision}-${backend}
+        - cd output-tpv${tpv}-${PRECISION}-${BACKEND}
         - ls
         - python3 ../postprocessing/validation/compare-energies.py ./${energy_file} ./precomputed/${energy_file} --epsilon ${epsilon}
 
@@ -271,9 +281,9 @@ gpu_performance_test:
     script:
         - *common_gpu_steps
         - set -euo pipefail
-        - for precision in double single; do
-            echo "[${BACKEND}] Running SeiSol proxy with precision - ${precision}" ;
-            cd ./build_${BACKEND}_${precision} ;
+        - for PRECISION in double single; do
+            echo "[${BACKEND}] Running SeiSol proxy with PRECISION - ${PRECISION}" ;
+            cd ./build_${BACKEND}_${PRECISION}_elastic ;
             pip3 install -r ./proxy-runners/requirements.txt ;
             python3 ./proxy-runners/run-all.py -c 25000 -t 100 ;
             cat ./proxy_*.pd ;

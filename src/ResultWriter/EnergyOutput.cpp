@@ -184,12 +184,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& potency = energiesStorage.potency();
   minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
-#ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
 
+  if (maxCells == 0) {
+    return;
+  }
+
+#ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
   constexpr auto qSize = tensor::Q::size();
