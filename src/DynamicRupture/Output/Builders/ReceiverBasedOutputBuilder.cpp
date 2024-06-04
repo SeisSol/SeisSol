@@ -174,11 +174,11 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   for (const auto& variable : variables) {
     auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    std::size_t const elementSize = drTree->info(variable).elemsize;
+    const std::size_t elementSize = drTree->info(variable).elemsize;
 
     assert(elementSize % sizeof(real) == 0);
 
-    std::size_t const elementCount = elementSize / sizeof(real);
+    const std::size_t elementCount = elementSize / sizeof(real);
     std::vector<real*> dataPointers(faceIndices.size());
     for (const auto& [index, arrayIndex] : faceIndices) {
       dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;

@@ -121,6 +121,7 @@ struct seissol::initializer::LTS {
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
+  ScratchpadMemory                        analyticScratch;
 #endif
   
   /// \todo Memkind
@@ -163,6 +164,7 @@ struct seissol::initializer::LTS {
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch,                  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(analyticScratch,               1,      AllocationMode::HostDevicePinned);
 #endif
   }
 };

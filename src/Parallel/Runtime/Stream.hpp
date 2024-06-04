@@ -77,7 +77,7 @@ class StreamRuntime {
     enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler);
+        std::invoke(handler, i);
       }
     });
   }

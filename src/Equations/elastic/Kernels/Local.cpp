@@ -41,6 +41,7 @@
 
 #include "Kernels/Local.h"
 
+#include <tensor.h>
 #include <yateto.h>
 
 
@@ -377,48 +378,51 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
     ConditionalPointersToRealsTable& dataTable,
     ConditionalIndicesTable& indicesTable,
     kernels::LocalData::Loader& loader,
+    seissol::initializer::Layer& layer,
+    seissol::initializer::LTS& lts,
     double time,
     double timeStepWidth,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
-  runtime.enqueueHost([=,&dataTable,&indicesTable,&loader]() {
-    for (unsigned face = 0; face < 4; ++face) {
-      ConditionalKey analyticalKey(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-      if(indicesTable.find(analyticalKey) != indicesTable.end()) {
-        auto idofsPtrs = dataTable[analyticalKey].get(inner_keys::Wp::Id::Idofs)->getHostData();
+  for (unsigned face = 0; face < 4; ++face) {
+    ConditionalKey analyticalKey(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+    if(indicesTable.find(analyticalKey) != indicesTable.end()) {
+      const auto& cellIds = indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+      const size_t numElements = cellIds.size();
+      auto* analytical = reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.getScratchpadMemory(lts.analyticScratch));
 
-        auto cellIds = indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
-        const size_t numElements = cellIds.size();
+      runtime.enqueueOmpFor(numElements, [=,&cellIds](std::size_t index) {
+        auto cellId = cellIds.at(index);
+        auto data = loader.entry(cellId);
 
-        for (unsigned index{0}; index < numElements; ++index) {
-          auto cellId = cellIds[index];
-          auto data = loader.entry(cellId);
+        alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-          alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        assert(initConds != nullptr);
+        assert(initConds->size() == 1);
+        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
-          assert(initConds != nullptr);
-          assert(initConds->size() == 1);
-          ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+        dirichletBoundary.evaluateTimeDependent(nullptr,
+                                                face,
+                                                data.boundaryMapping()[face],
+                                                m_projectKrnlPrototype,
+                                                applyAnalyticalSolution,
+                                                dofsFaceBoundaryNodal,
+                                                time,
+                                                timeStepWidth);
 
-          dirichletBoundary.evaluateTimeDependent(idofsPtrs[index],
-                                                  face,
-                                                  data.boundaryMapping()[face],
-                                                  m_projectKrnlPrototype,
-                                                  applyAnalyticalSolution,
-                                                  dofsFaceBoundaryNodal,
-                                                  time,
-                                                  timeStepWidth);
+        std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
+      });
 
-          auto nodalLfKrnl = this->m_nodalLfKrnlPrototype;
-          nodalLfKrnl.Q = data.dofs();
-          nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-          nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
-          nodalLfKrnl.execute(face);
-        }
-      }
+      auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
+      nodalLfKrnl.INodal = const_cast<const real**>(dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
+      nodalLfKrnl.AminusT = const_cast<const real**>(dataTable[analyticalKey].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr());
+      nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+      nodalLfKrnl.streamPtr = runtime.stream();
+      nodalLfKrnl.numElements = numElements;
+      nodalLfKrnl.execute(face);
     }
-  });
+  }
 #else
   assert(false && "no implementation provided");
 #endif // ACL_DEVICE

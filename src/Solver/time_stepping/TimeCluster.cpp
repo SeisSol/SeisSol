@@ -480,6 +480,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
   m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                loader,
+                                               i_layerData,
+                                               *m_lts,
                                                ct.correctionTime,
                                                timeStepWidth,
                                                streamRuntime);

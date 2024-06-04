@@ -1,5 +1,7 @@
 #include "Kernels/Interface.hpp"
 #include "Recorders.h"
+#include <Initializer/tree/Layer.hpp>
+#include <tensor.h>
 #include <yateto.h>
 
 #include "DataTypes/Condition.hpp"
@@ -21,7 +23,7 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
   recordTimeAndVolumeIntegrals();
   recordFreeSurfaceGravityBc();
   recordDirichletBc();
-  recordAnalyticalBc();
+  recordAnalyticalBc(handler, layer);
   recordLocalFluxIntegral();
   recordDisplacements();
 }
@@ -306,19 +308,27 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   }
 }
 
-void LocalIntegrationRecorder::recordAnalyticalBc() {
+void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::array<std::vector<real*>, 4> idofsPtrs{};
+    std::array<std::vector<real*>, 4> dofsPtrs{};
+    std::array<std::vector<real*>, 4> aminustPtrs{};
     std::array<std::vector<unsigned>, 4> cellIndices{};
+    std::array<std::vector<real*>, 4> analytical{};
+
+    real* analyticScratch = reinterpret_cast<real*>(
+        layer.getScratchpadMemory(handler.analyticScratch, AllocationPlace::Device));
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto dataHost = currentLoaderHost->entry(cell);
+      auto data = currentLoader->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::analytical) {
           cellIndices[face].push_back(cell);
-          idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
+          dofsPtrs[face].push_back(data.dofs());
+          aminustPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
+          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
         }
       }
     }
@@ -329,7 +339,10 @@ void LocalIntegrationRecorder::recordAnalyticalBc() {
         checkKey(key);
         (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
 
-        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, aminustPtrs[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::Analytical, analytical[face]);
       }
     }
   }
