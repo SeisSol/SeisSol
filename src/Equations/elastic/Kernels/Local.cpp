@@ -75,7 +75,7 @@ void LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 }
 
 void Local::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
@@ -144,8 +144,8 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
                                               double time,
                                               double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs();

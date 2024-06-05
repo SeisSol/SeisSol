@@ -36,8 +36,11 @@ format() {
         src/Equations/viscoelastic2/Model/datastructures.hpp
         src/Equations/anisotropic/Model/datastructures.hpp
         src/Equations/poroelastic/Model/datastructures.hpp
+        src/Initializer/Boundary.h
         src/Initializer/BasicTypedefs.hpp
+        src/Initializer/DynamicRupture.h
         src/Initializer/InputAux.hpp
+        src/Initializer/LTS.h
         src/Initializer/MemoryAllocator.h
         src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h

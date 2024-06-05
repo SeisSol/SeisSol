@@ -53,18 +53,18 @@ namespace seissol::kernels {
 void Neighbor::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
-    assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % Alignment == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % Alignment == 0 );
+    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % Alignment == 0 );
   }
 
   for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % Alignment == 0 );
   }
 
   for (int i = 0; i < 4; ++i) {
     for(int h = 0; h < 3; ++h) {
-      assert( ((uintptr_t)global->nodalFluxMatrices(i,h)) % ALIGNMENT == 0 );
+      assert( ((uintptr_t)global->nodalFluxMatrices(i,h)) % Alignment == 0 );
     }
   }
 #endif
@@ -89,13 +89,13 @@ void Neighbor::computeNeighborsIntegral(  NeighborData&                     data
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     // alignment of the time integrated dofs
     if( data.cellInformation().faceTypes[l_neighbor] != FaceType::outflow && data.cellInformation().faceTypes[l_neighbor] != FaceType::dynamicRupture ) { // no alignment for outflow and DR boundaries required
-      assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
+      assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % Alignment == 0 );
     }
   }
 #endif
 
   // alignment of the degrees of freedom
-  assert( ((uintptr_t)data.dofs()) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs()) % Alignment == 0 );
 
   real Qext[tensor::Qext::size()] alignas(PagesizeStack) = {};
 
@@ -117,7 +117,7 @@ void Neighbor::computeNeighborsIntegral(  NeighborData&                     data
         nfKrnl.execute(data.cellInformation().faceRelations[l_face][1], data.cellInformation().faceRelations[l_face][0], l_face);
       }
     } else if (data.cellInformation().faceTypes[l_face] == FaceType::dynamicRupture) {
-      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      assert(((uintptr_t)cellDrMapping[l_face].godunov) % Alignment == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;

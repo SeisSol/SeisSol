@@ -62,13 +62,9 @@ struct ElasticMaterial : Material {
   double lambda;
   double mu;
 
-      double getLambdaBar() const override {
-        return lambda;
-      }
+  double getLambdaBar() const override { return lambda; }
 
-      double getMuBar() const override {
-        return mu;
-      }
+  double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
   ElasticMaterial(const double* materialValues, int numMaterialValues) {

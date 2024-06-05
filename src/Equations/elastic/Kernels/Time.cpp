@@ -128,7 +128,7 @@ void Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
 #else //USE_STP
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
@@ -157,9 +157,9 @@ void Time::computeAder(double i_timeStepWidth,
                                          real* o_timeDerivatives,
                                          bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0 );
-  assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
-  assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0 );
+  assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % Alignment == 0 );
+  assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &= std::any_of(std::begin(data.cellInformation().faceTypes),
@@ -343,8 +343,8 @@ void Time::computeIntegral( double                            i_expansionPoint,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % ALIGNMENT == 0 );
+  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
 
   // assert that this is a forwared integration in time
   assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
@@ -442,8 +442,8 @@ void Time::computeTaylorExpansion( real         time,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
 
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );

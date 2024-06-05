@@ -62,9 +62,9 @@ namespace seissol::kernels {
                                          seissol::model::PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
-    assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
     real QStressNodal[tensor::QStressNodal::size()] alignas(Alignment);
     real QEtaNodal[tensor::QEtaNodal::size()] alignas(Alignment);

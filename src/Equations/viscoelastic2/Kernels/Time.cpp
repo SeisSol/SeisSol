@@ -57,9 +57,9 @@ extern long long libxsmm_num_total_flops;
 namespace seissol::kernels {
 
 void Time::setHostGlobalData(GlobalData const* global) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
   m_krnlPrototype.selectAne = init::selectAne::Values;
@@ -79,9 +79,9 @@ void Time::computeAder(double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs()) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives) % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+  assert( ((uintptr_t)data.dofs()) % Alignment == 0 );
+  assert( ((uintptr_t)o_timeIntegrated) % Alignment == 0 );
+  assert( ((uintptr_t)o_timeDerivatives) % Alignment == 0 || o_timeDerivatives == NULL );
 
   /*
    * compute ADER scheme.
@@ -171,8 +171,8 @@ void Time::computeIntegral( double                                      i_expans
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % ALIGNMENT == 0 );
+  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
 
   // compute lengths of integration intervals
   real l_deltaTLower = i_integrationStart - i_expansionPoint;
@@ -211,8 +211,8 @@ void Time::computeTaylorExpansion( real         time,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
 
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );
