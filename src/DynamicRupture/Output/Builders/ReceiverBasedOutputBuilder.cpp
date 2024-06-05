@@ -5,14 +5,13 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
