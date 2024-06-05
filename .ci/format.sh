@@ -27,9 +27,14 @@ format() {
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/Equations/elastic/Model/datastructures.hpp
+        src/Equations/elastic/Model/integrationData.hpp
+        src/Equations/viscoelastic/Model/integrationData.hpp
         src/Equations/viscoelastic2/Model/datastructures.hpp
+        src/Equations/viscoelastic2/Model/integrationData.hpp
         src/Equations/anisotropic/Model/datastructures.hpp
+        src/Equations/anisotropic/Model/integrationData.hpp
         src/Equations/poroelastic/Model/datastructures.hpp
+        src/Equations/poroelastic/Model/integrationData.hpp
         src/Initializer/Boundary.h
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/DynamicRupture.h

@@ -41,8 +41,8 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
-#include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Layer.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Kernels/common.hpp"
 #include "Model/plasticity.hpp"
@@ -67,9 +67,9 @@ enum class AllocationPreset {
   Plasticity
 };
 
-#ifndef ACL_DEVICE
 inline auto allocationModeWP(AllocationPreset preset,
                              int convergenceOrder = seissol::ConvergenceOrder) {
+#ifndef ACL_DEVICE
   switch (preset) {
   case seissol::initializer::AllocationPreset::Global:
     [[fallthrough]];
@@ -88,9 +88,7 @@ inline auto allocationModeWP(AllocationPreset preset,
   default:
     return AllocationMode::HostOnly;
   }
-}
 #else
-auto allocationModeWP(AllocationPreset preset, int convergenceOrder) {
   switch (preset) {
   case seissol::initializer::AllocationPreset::Global:
     [[fallthrough]];
@@ -103,8 +101,8 @@ auto allocationModeWP(AllocationPreset preset, int convergenceOrder) {
   default:
     return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
   }
-}
 #endif
+}
 
 struct LTS {
   Variable<real[tensor::Q::size()]> dofs;
