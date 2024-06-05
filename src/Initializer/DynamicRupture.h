@@ -42,6 +42,7 @@
 #define INITIALIZER_DR_H_
 
 #include "DynamicRupture/Misc.h"
+#include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Parallel/Helper.hpp"

@@ -41,6 +41,7 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
+#include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Kernels/common.hpp"
