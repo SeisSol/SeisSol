@@ -78,6 +78,14 @@ class DataCollector {
     }
   }
 
+  const real* get(size_t index) const {
+    if (hostAccessible) {
+      return indexDataHost[index];
+    } else {
+      return copiedData + index * elemSize;
+    }
+  }
+
   private:
   bool hostAccessible;
   real** indexDataDevice;

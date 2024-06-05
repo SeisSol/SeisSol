@@ -674,9 +674,10 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
     std::unordered_set<real *> registry{};
     real *(*faceNeighbors)[4] = layer->var(lts.faceNeighborsDevice);
 
-    unsigned derivativesCounter{0};
-    unsigned integratedDofsCounter{0};
-    unsigned nodalDisplacementsCounter{0};
+    std::size_t derivativesCounter{0};
+    std::size_t integratedDofsCounter{0};
+    std::size_t nodalDisplacementsCounter{0};
+    std::size_t analyticCounter = 0;
 
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
@@ -710,6 +711,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
           ++nodalDisplacementsCounter;
         }
 
+        if (cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+          ++analyticCounter;
+        }
       }
     }
     layer->setScratchpadSize(lts.integratedDofsScratch,
@@ -718,6 +722,8 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
                              derivativesCounter * totalDerivativesSize * sizeof(real));
     layer->setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
+    layer->setScratchpadSize(lts.analyticScratch,
+                             analyticCounter * tensor::INodal::size() * sizeof(real));
   }
 }
 

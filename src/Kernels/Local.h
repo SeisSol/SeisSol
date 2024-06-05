@@ -77,6 +77,8 @@ class seissol::kernels::Local : public LocalBase {
     void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                         ConditionalIndicesTable& indicesTable,
                                         kernels::LocalData::Loader& loader,
+                                        seissol::initializer::Layer& layer,
+                                        seissol::initializer::LTS& lts,
                                         double time,
                                         double timeStepWidth,
                                         seissol::parallel::runtime::StreamRuntime& runtime);

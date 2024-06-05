@@ -48,13 +48,9 @@
 
 #include "Initializer/MemoryAllocator.h"
 
-namespace seissol {
-namespace initializer {
-class LTSTree;
-}
-} // namespace seissol
+namespace seissol::initializer {
 
-class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNode {
+class LTSTree : public LTSInternalNode {
   private:
   std::vector<DualMemoryContainer> m_vars;
   std::vector<DualMemoryContainer> m_buckets;
@@ -73,9 +69,9 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
 #endif // ACL_DEVICE
 
   public:
-  LTSTree() {}
+  LTSTree() = default;
 
-  ~LTSTree() {}
+  ~LTSTree() override = default;
 
   void synchronizeTo(AllocationPlace place, void* stream) {
     for (auto& variable : m_vars) {
@@ -106,18 +102,22 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
   }
 
   inline TimeCluster& child(unsigned index) {
-    return *static_cast<TimeCluster*>(m_children[index]);
+    return *static_cast<TimeCluster*>(m_children[index].get());
   }
 
   inline const TimeCluster& child(unsigned index) const {
-    return *static_cast<TimeCluster*>(m_children[index]);
+    return *static_cast<TimeCluster*>(m_children[index].get());
+  }
+
+  void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
+    assert(index != std::numeric_limits<unsigned>::max());
+    assert(m_vars.size() > index);
+    return m_vars[index].get(place);
   }
 
   template <typename T>
   T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars.size() > handle.index);
-    return static_cast<T*>(m_vars[handle.index].get(place));
+    return static_cast<T*>(varUntyped(handle.index, place));
   }
 
   const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
@@ -125,7 +125,11 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
   inline unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
-  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, AllocationMode allocMode) {
+  void addVar(Variable<T>& handle,
+              LayerMask mask,
+              size_t alignment,
+              AllocationMode allocMode,
+              bool constant = false) {
     handle.index = varInfo.size();
     handle.mask = mask;
     MemoryInfo m;
@@ -133,6 +137,8 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     m.alignment = alignment;
     m.mask = mask;
     m.allocMode = allocMode;
+    m.constant = constant;
+    m.elemsize = sizeof(T);
     varInfo.push_back(m);
   }
 
@@ -165,6 +171,7 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     for (unsigned var = 0; var < varInfo.size(); ++var) {
       m_vars[var].allocate(
           m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
+      m_vars[var].constant = varInfo[var].constant;
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
@@ -249,5 +256,7 @@ class seissol::initializer::LTSTree : public seissol::initializer::LTSInternalNo
     return maxClusterSize;
   }
 };
+
+} // namespace seissol::initializer
 
 #endif

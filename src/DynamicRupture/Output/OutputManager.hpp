@@ -54,6 +54,7 @@ class OutputManager {
   seissol::initializer::DynamicRupture* drDescr{nullptr};
 
   FaceToLtsMapType faceToLtsMap{};
+  std::vector<std::size_t> globalFaceToLtsMap;
   seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};

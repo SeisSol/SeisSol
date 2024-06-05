@@ -67,7 +67,12 @@ void ReceiverOutput::calcFaultOutput(
   const auto faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  outputData->deviceDataCollector->gatherToHost(runtime.stream());
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  outputData->deviceDataCollector->gatherToHost(stream);
+  for (auto& [_, dataCollector] : outputData->deviceVariables) {
+    dataCollector->gatherToHost(stream);
+  }
+  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
   runtime.enqueueOmpFor(outputData->receiverPoints.size(), [=](size_t i) {
@@ -84,6 +89,8 @@ void ReceiverOutput::calcFaultOutput(
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
     local.layer = layer;
     local.ltsId = ltsId;
+    local.index = i;
+    local.state = outputData.get();
 
     local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
     local.nearestInternalGpIndex = outputData->receiverPoints[i].nearestInternalGpIndex;
@@ -112,10 +119,10 @@ void ReceiverOutput::calcFaultOutput(
     }
 #endif
 
-    const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
-    const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
+    const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
+    const auto* initStress = initStresses[local.nearestGpIndex];
 
-    local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
+    local.frictionCoefficient = getCellData(local, drDescr->mu)[local.nearestGpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
     local.iniTraction1 = initStress[QuantityIndices::XY];
@@ -216,8 +223,8 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
     if (ruptureTime.isActive) {
-      auto* rt = local.layer->var(drDescr->ruptureTime);
-      ruptureTime(level, i) = rt[local.ltsId][local.nearestGpIndex];
+      auto* rt = getCellData(local, drDescr->ruptureTime);
+      ruptureTime(level, i) = rt[local.nearestGpIndex];
     }
 
     auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData->vars);
@@ -227,8 +234,8 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
     if (accumulatedSlip.isActive) {
-      auto* slip = local.layer->var(drDescr->accumulatedSlipMagnitude);
-      accumulatedSlip(level, i) = slip[local.ltsId][local.nearestGpIndex];
+      auto* slip = getCellData(local, drDescr->accumulatedSlipMagnitude);
+      accumulatedSlip(level, i) = slip[local.nearestGpIndex];
     }
 
     auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
@@ -255,14 +262,14 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
     if (peakSlipsRate.isActive) {
-      auto* peakSR = local.layer->var(drDescr->peakSlipRate);
-      peakSlipsRate(level, i) = peakSR[local.ltsId][local.nearestGpIndex];
+      auto* peakSR = getCellData(local, drDescr->peakSlipRate);
+      peakSlipsRate(level, i) = peakSR[local.nearestGpIndex];
     }
 
     auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
     if (dynamicStressTime.isActive) {
-      auto* dynStressTime = (local.layer->var(drDescr->dynStressTime));
-      dynamicStressTime(level, i) = dynStressTime[local.ltsId][local.nearestGpIndex];
+      auto* dynStressTime = getCellData(local, drDescr->dynStressTime);
+      dynamicStressTime(level, i) = dynStressTime[local.nearestGpIndex];
     }
 
     auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
@@ -277,14 +284,14 @@ void ReceiverOutput::calcFaultOutput(
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
       sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-      auto* slip1 = local.layer->var(drDescr->slip1);
-      auto* slip2 = local.layer->var(drDescr->slip2);
+      auto* slip1 = getCellData(local, drDescr->slip1);
+      auto* slip2 = getCellData(local, drDescr->slip2);
 
-      slipVectors(DirectionID::Strike, level, i) = cos1 * slip1[local.ltsId][local.nearestGpIndex] -
-                                                   sin1 * slip2[local.ltsId][local.nearestGpIndex];
+      slipVectors(DirectionID::Strike, level, i) =
+          cos1 * slip1[local.nearestGpIndex] - sin1 * slip2[local.nearestGpIndex];
 
-      slipVectors(DirectionID::Dip, level, i) = sin1 * slip1[local.ltsId][local.nearestGpIndex] +
-                                                cos1 * slip2[local.ltsId][local.nearestGpIndex];
+      slipVectors(DirectionID::Dip, level, i) =
+          sin1 * slip1[local.nearestGpIndex] + cos1 * slip2[local.nearestGpIndex];
     }
     this->outputSpecifics(outputData, local, level, i);
   });
@@ -390,7 +397,7 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
 
 real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d,
                                             const LocalInfo& local) {
-  auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
+  auto* ruptureTime = getCellData(local, drDescr->ruptureTime);
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
@@ -413,14 +420,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
 
-    auto* rt = local.layer->var(drDescr->ruptureTime);
+    auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
       const real chi = chiTau2dPoints(jBndGP, 0);
       const real tau = chiTau2dPoints(jBndGP, 1);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {
-        projectedRT[d] += weights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
+        projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
 
@@ -450,4 +457,16 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
   return ruptureVelocity;
 }
+
+std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
+  return {drDescr->initialStressInFaultCS.index,
+          drDescr->mu.index,
+          drDescr->ruptureTime.index,
+          drDescr->accumulatedSlipMagnitude.index,
+          drDescr->peakSlipRate.index,
+          drDescr->dynStressTime.index,
+          drDescr->slip1.index,
+          drDescr->slip2.index};
+}
+
 } // namespace seissol::dr::output

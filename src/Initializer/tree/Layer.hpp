@@ -54,18 +54,8 @@
 
 enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NUMBER_OF_LAYERS };
 
-namespace seissol {
-namespace initializer {
-typedef std::bitset<NUMBER_OF_LAYERS> LayerMask;
-
-template <typename T>
-struct Variable;
-struct Bucket;
-struct MemoryInfo;
-class Layer;
-#ifdef ACL_DEVICE
-struct ScratchpadMemory;
-#endif
+namespace seissol::initializer {
+using LayerMask = std::bitset<NUMBER_OF_LAYERS>;
 
 enum class AllocationMode {
   HostOnly,
@@ -85,6 +75,7 @@ struct DualMemoryContainer {
   AllocationMode allocationMode;
   std::size_t allocationSize;
   std::size_t allocationAlignment;
+  bool constant;
 
   void* get(AllocationPlace place) const {
     if (place == AllocationPlace::Host) {
@@ -141,8 +132,11 @@ struct DualMemoryContainer {
     if (allocationMode == AllocationMode::HostDeviceSplit ||
         allocationMode == AllocationMode::HostDeviceSplitPinned) {
       if (place == AllocationPlace::Host) {
-        device::DeviceInstance::getInstance().api->copyFromAsync(
-            host, device, allocationSize, stream);
+        // do not copy back constant data (we ignore the other direction for now)
+        if (!constant) {
+          device::DeviceInstance::getInstance().api->copyFromAsync(
+              host, device, allocationSize, stream);
+        }
       } else {
         device::DeviceInstance::getInstance().api->copyToAsync(
             device, host, allocationSize, stream);
@@ -175,36 +169,36 @@ struct DualMemoryContainer {
     }
   }
 };
-} // namespace initializer
-} // namespace seissol
 
 template <typename T>
-struct seissol::initializer::Variable {
+struct Variable {
   unsigned index;
   LayerMask mask;
   unsigned count;
   Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
 };
 
-struct seissol::initializer::Bucket {
+struct Bucket {
   unsigned index;
 
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 #ifdef ACL_DEVICE
-struct seissol::initializer::ScratchpadMemory : public seissol::initializer::Bucket {};
+struct ScratchpadMemory : public Bucket {};
 #endif
 
-struct seissol::initializer::MemoryInfo {
+struct MemoryInfo {
   size_t bytes;
   size_t alignment;
+  size_t elemsize;
   LayerMask mask;
   // seissol::memory::Memkind memkind;
   AllocationMode allocMode;
+  bool constant{false};
 };
 
-class seissol::initializer::Layer : public seissol::initializer::Node {
+class Layer : public Node {
   private:
   enum LayerType m_layerType;
   unsigned m_numberOfCells;
@@ -224,7 +218,7 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
 
   public:
   Layer() : m_numberOfCells(0) {}
-  ~Layer() {}
+  ~Layer() override = default;
 
   void synchronizeTo(AllocationPlace place, void* stream) {
     for (auto& variable : m_vars) {
@@ -450,5 +444,7 @@ class seissol::initializer::Layer : public seissol::initializer::Node {
   }
 #endif // ACL_DEVICE
 };
+
+} // namespace seissol::initializer
 
 #endif

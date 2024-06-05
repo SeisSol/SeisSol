@@ -44,13 +44,9 @@
 #include "LTSInternalNode.hpp"
 #include "Log2.hpp"
 
-namespace seissol {
-namespace initializer {
-class TimeCluster;
-}
-} // namespace seissol
+namespace seissol::initializer {
 
-class seissol::initializer::TimeCluster : public seissol::initializer::LTSInternalNode {
+class TimeCluster : public LTSInternalNode {
   public:
   TimeCluster() {
     setChildren<Layer>(3);
@@ -61,7 +57,7 @@ class seissol::initializer::TimeCluster : public seissol::initializer::LTSIntern
 
   template <enum LayerType LAYER>
   inline Layer& child() {
-    return *static_cast<Layer*>(m_children[Log2<LAYER>::Result]);
+    return *static_cast<Layer*>(m_children[Log2<LAYER>::Result].get());
   }
 
   inline Layer& child(LayerType type) {
@@ -77,5 +73,7 @@ class seissol::initializer::TimeCluster : public seissol::initializer::LTSIntern
     }
   }
 };
+
+} // namespace seissol::initializer
 
 #endif

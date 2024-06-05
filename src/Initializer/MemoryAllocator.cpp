@@ -200,6 +200,9 @@ void memzero(void* dst, std::size_t size, enum Memkind memkind) {
 }
 
 void* hostToDevicePointer(void* host, enum Memkind memkind) {
+  if (host == nullptr) {
+    return nullptr;
+  }
   if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
     return device::DeviceInstance::getInstance().api->devicePointer(host);

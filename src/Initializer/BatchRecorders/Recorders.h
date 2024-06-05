@@ -89,7 +89,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
-  void recordAnalyticalBc();
+  void recordAnalyticalBc(LTS& handler, Layer& layer);
   void recordLocalFluxIntegral();
   void recordDisplacements();
 

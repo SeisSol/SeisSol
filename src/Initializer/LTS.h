@@ -121,6 +121,7 @@ struct seissol::initializer::LTS {
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
+  ScratchpadMemory                        analyticScratch;
 #endif
   
   /// \todo Memkind
@@ -136,33 +137,34 @@ struct seissol::initializer::LTS {
     if (kernels::size<tensor::Qane>() > 0) {
       tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
     }
-    tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS_CONSTANT );
-    tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS_CONSTANT );
-    tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS_CONSTANT );
-    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED );
-    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED );
-    tree.addVar(                material, LayerMask(Ghost),                 1,      AllocationMode::HostOnly );
-    tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
-    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+    tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS_CONSTANT, true );
+    tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS_CONSTANT, true );
+    tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT, true );
+    tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS_CONSTANT, true );
+    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED, true );
+    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT_SHARED, true );
+    tree.addVar(                material, LayerMask(Ghost),                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED, true );
+    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT, true );
+    tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT, true );
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
-    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      AllocationMode::HostOnly );
+    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      AllocationMode::HostOnly, true );
 
     tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEBUCKET );
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
-    tree.addVar(   buffersDevice, LayerMask(),     1,      AllocationMode::HostOnly );
-    tree.addVar(   derivativesDevice, LayerMask(),     1,      AllocationMode::HostOnly );
-    tree.addVar(   faceDisplacementsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
-    tree.addVar(   faceNeighborsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
-    tree.addVar(   drMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
-    tree.addVar(   boundaryMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly );
+    tree.addVar(   buffersDevice, LayerMask(),     1,      AllocationMode::HostOnly, true );
+    tree.addVar(   derivativesDevice, LayerMask(),     1,      AllocationMode::HostOnly, true );
+    tree.addVar(   faceDisplacementsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly, true );
+    tree.addVar(   faceNeighborsDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly, true );
+    tree.addVar(   drMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly, true );
+    tree.addVar(   boundaryMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly, true );
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch,                  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(analyticScratch,               1,      AllocationMode::HostDevicePinned);
 #endif
   }
 };
