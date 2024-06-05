@@ -1,8 +1,8 @@
 #ifndef SEISSOL_TESTHELPER_H
 #define SEISSOL_TESTHELPER_H
 
-#include <limits>
 #include <cmath>
+#include <limits>
 
 #include "doctest.h"
 

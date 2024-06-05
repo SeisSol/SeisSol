@@ -21,13 +21,7 @@ format() {
         src/Physics
         src/Reader
         src/SourceTerm
-        src/tests/Common
-        src/tests/DynamicRupture
-        src/tests/Initializer
-        src/tests/Kernel
-        src/tests/Model
-        src/tests/Reader
-        src/tests/SourceTerm
+        src/tests
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
