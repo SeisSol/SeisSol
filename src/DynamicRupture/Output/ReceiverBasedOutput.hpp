@@ -8,6 +8,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
 
+#include <DynamicRupture/Misc.h>
 #include <memory>
 #include <vector>
 
@@ -29,6 +30,8 @@ class ReceiverOutput {
                        std::shared_ptr<ReceiverOutputData> state,
                        double time = 0.0);
 
+  virtual std::vector<std::size_t> getOutputVariables() const;
+
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
@@ -44,6 +47,8 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
+
+    std::size_t index;
 
     real iniTraction1{};
     real iniTraction2{};
@@ -74,7 +79,21 @@ class ReceiverOutput {
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
+
+    ReceiverOutputData* state;
   };
+
+  template <typename T>
+  std::remove_extent_t<T>* getCellData(const LocalInfo& local,
+                                       const seissol::initializer::Variable<T>& variable) {
+    auto devVar = local.state->deviceVariables.find(variable.index);
+    if (devVar != local.state->deviceVariables.end()) {
+      return reinterpret_cast<std::remove_extent_t<T>*>(
+          devVar->second->get(local.state->deviceIndices[local.index]));
+    } else {
+      return local.layer->var(variable)[local.ltsId];
+    }
+  }
 
   void getDofs(real dofs[tensor::Q::size()], int meshId);
   void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);

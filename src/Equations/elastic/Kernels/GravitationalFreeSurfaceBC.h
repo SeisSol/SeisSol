@@ -9,6 +9,7 @@
 
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/ODEInt.h"
+#include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -169,9 +170,10 @@ public:
                         ConditionalPointersToRealsTable &dataTable,
                         ConditionalMaterialTable &materialTable,
                         double timeStepWidth,
-                        device::DeviceInstance& device) {
+                        device::DeviceInstance& device,
+                        seissol::parallel::runtime::StreamRuntime& runtime) {
 
-    auto* deviceStream = device.api->getDefaultStream();
+    auto* deviceStream = runtime.stream();
     ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if(dataTable.find(key) != dataTable.end()) {
 

@@ -7,6 +7,7 @@
 
 #include "Kernels/precision.hpp"
 #include "Numerical_aux/Functions.h"
+#include "Parallel/Runtime/Stream.hpp"
 #include "SourceTerm/typedefs.hpp"
 
 #include <algorithm>
@@ -17,7 +18,8 @@ namespace seissol::kernels {
 class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
-  virtual void addTimeIntegratedPointSources(double from, double to) = 0;
+  virtual void addTimeIntegratedPointSources(
+      double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
   virtual unsigned size() const = 0;
 };
 

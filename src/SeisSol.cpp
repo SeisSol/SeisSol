@@ -95,6 +95,16 @@ bool SeisSol::init(int argc, char* argv[]) {
 
   printPersistentMpiInfo(seissol::MPI::mpi);
 #endif
+#ifdef ACL_DEVICE
+  printUSMInfo(MPI::mpi);
+  printMPIUSMInfo(MPI::mpi);
+  printDeviceHostSwitch(MPI::mpi);
+
+  if (!useUSM() && deviceHostSwitch() > 0) {
+    logWarning(rank) << "Using the host-device execution on non-USM systems is not fully supported "
+                        "yet. Expect incorrect results.";
+  }
+#endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
