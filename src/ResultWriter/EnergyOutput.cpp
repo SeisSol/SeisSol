@@ -73,6 +73,7 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
+#ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     maxCells = std::max(it->getNumberOfCells(), maxCells);
@@ -89,6 +90,7 @@ void EnergyOutput::init(
     timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
         device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
   }
+#endif
 
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
@@ -142,12 +144,12 @@ void EnergyOutput::simulationStart() {
 
 EnergyOutput::~EnergyOutput() {
 #ifdef ACL_DEVICE
-if (timeDerivativePlusHost != nullptr) {
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-}
-if (timeDerivativeMinusHost != nullptr) {
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
-}
+  if (timeDerivativePlusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  }
+  if (timeDerivativeMinusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  }
 #endif
 }
 
