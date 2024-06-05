@@ -45,6 +45,7 @@
 #include "Model/plasticity.hpp"
 #include "Initializer/typedefs.hpp"
 #include "generated_code/tensor.h"
+#include "Parallel/Runtime/Stream.hpp"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
 #include <limits>
 
@@ -67,7 +68,8 @@ public:
                                            double T_v,
                                            GlobalData const *global,
                                            initializer::recording::ConditionalPointersToRealsTable &table,
-                                           seissol::model::PlasticityData *plasticity);
+                                           seissol::model::PlasticityData *plasticity,
+                                           seissol::parallel::runtime::StreamRuntime& runtime);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,

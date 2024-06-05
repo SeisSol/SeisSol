@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -37,28 +38,28 @@
  * @section DESCRIPTION
  * Tree for managing lts data.
  **/
- 
+
 #ifndef INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 #define INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 
-#include "Node.hpp"
 #include "Layer.hpp"
+#include "Node.hpp"
 
 namespace seissol {
-  namespace initializer {
-    class LTSInternalNode;
-  }
+namespace initializer {
+class LTSInternalNode;
 }
+} // namespace seissol
 
 class seissol::initializer::LTSInternalNode : public seissol::initializer::Node {
-public:  
+  public:
   class leaf_iterator : public iterator {
     friend class LTSInternalNode;
 
-  private:
-    iterator  m_end;
+private:
+    iterator m_end;
     LayerMask m_layerMask;
-    
+
     inline void nextLeaf() {
       do {
         iterator::operator++();
@@ -72,23 +73,20 @@ public:
       }
     }
 
-  public:
-    leaf_iterator(iterator const& end) : iterator(end) {}
-    leaf_iterator(iterator const& begin, iterator const& end, LayerMask layerMask) : iterator(begin), m_end(end), m_layerMask(layerMask) {}
+public:
+    leaf_iterator(const iterator& end) : iterator(end) {}
+    leaf_iterator(const iterator& begin, const iterator& end, LayerMask layerMask)
+        : iterator(begin), m_end(end), m_layerMask(layerMask) {}
 
     inline leaf_iterator& operator++() {
       nextLeaf();
       skipMaskedLayer();
       return *this;
     }
-    
-    inline Layer& operator*() {
-      return *static_cast<Layer*>(m_node);
-    }
-    
-    inline Layer* operator->() {
-      return static_cast<Layer*>(m_node);
-    }
+
+    inline Layer& operator*() { return *static_cast<Layer*>(m_node); }
+
+    inline Layer* operator->() { return static_cast<Layer*>(m_node); }
   };
 
   inline leaf_iterator beginLeaf(LayerMask layerMask = LayerMask()) {
@@ -96,10 +94,8 @@ public:
     it.skipMaskedLayer();
     return it;
   }
-  
-  inline leaf_iterator endLeaf() {
-    return leaf_iterator(end());
-  }
+
+  inline leaf_iterator endLeaf() { return leaf_iterator(end()); }
 
   unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) {
     unsigned numCells = 0;

@@ -28,7 +28,7 @@ struct PlasticityData {
     cohesionTimesCosAngularFriction = plasticity.plastCo * std::cos(angularFriction);
     sinAngularFriction = std::sin(angularFriction);
 
-    mufactor = 1.0 / (2.0 * material->getMu());
+    mufactor = 1.0 / (2.0 * material->getMuBar());
   }
 
   static constexpr std::size_t NumberOfQuantities = 7;

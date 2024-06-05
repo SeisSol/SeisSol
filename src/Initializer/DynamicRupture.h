@@ -44,6 +44,7 @@
 #include "Initializer/tree/LTSTree.hpp"
 #include "generated_code/tensor.h"
 #include "DynamicRupture/Misc.h"
+#include "Parallel/Helper.hpp"
 
 namespace seissol {
   namespace initializer {
@@ -61,14 +62,14 @@ namespace seissol {
 } // namespace seissol
 
 #ifndef ACL_DEVICE
-#define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::Standard
-#define MEMKIND_Q_INTERPOLATED seissol::memory::Standard
-#define MEMKIND_IMPOSED_STATE seissol::memory::Standard
-#define MEMKIND_STANDARD seissol::memory::Standard
+#define MEMKIND_NEIGHBOUR_INTEGRATION AllocationMode::HostOnly
+#define MEMKIND_Q_INTERPOLATED AllocationMode::HostOnly
+#define MEMKIND_IMPOSED_STATE AllocationMode::HostOnly
+#define MEMKIND_STANDARD AllocationMode::HostOnly
 #else
-#define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::DeviceUnifiedMemory
-#define MEMKIND_IMPOSED_STATE seissol::memory::DeviceUnifiedMemory
-#define MEMKIND_STANDARD seissol::memory::DeviceUnifiedMemory
+#define MEMKIND_NEIGHBOUR_INTEGRATION useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#define MEMKIND_IMPOSED_STATE useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
+#define MEMKIND_STANDARD useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
 #endif
 
 struct seissol::initializer::DynamicRupture {
@@ -76,6 +77,8 @@ public:
   virtual ~DynamicRupture() = default;
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
+  Variable<real*>                                                   timeDerivativePlusDevice;
+  Variable<real*>                                                   timeDerivativeMinusDevice;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStateMinus;
   Variable<DRGodunovData>                                           godunovData;
@@ -119,23 +122,25 @@ public:
   
   virtual void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      timeDerivativePlus,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(     timeDerivativeMinus,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(      timeDerivativePlusDevice,       mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(     timeDerivativeMinusDevice,       mask,                 1,      AllocationMode::HostOnly, true );
     tree.addVar(        imposedStatePlus,             mask,     PagesizeHeap,      MEMKIND_IMPOSED_STATE );
     tree.addVar(       imposedStateMinus,             mask,     PagesizeHeap,      MEMKIND_IMPOSED_STATE );
     tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
-    tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(         faceInformation,             mask,                 1,      AllocationMode::HostOnly, true );
+    tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD, true );
+    tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
-    tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD, true );
+    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      initialPressure,                mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(      nucleationPressure,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationPressure,             mask,                 1,      MEMKIND_STANDARD, true );
     tree.addVar(      ruptureTime,                    mask,                 1,      MEMKIND_STANDARD );
 
     tree.addVar(ruptureTimePending, mask, 1, MEMKIND_STANDARD);
@@ -155,8 +160,8 @@ public:
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
 
 #ifdef ACL_DEVICE
-    tree.addScratchpadMemory(idofsPlusOnDevice,  1, seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(idofsMinusOnDevice, 1,  seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(idofsPlusOnDevice,  1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(idofsMinusOnDevice, 1,  AllocationMode::DeviceOnly);
 #endif
   }
 };
@@ -172,11 +177,11 @@ struct seissol::initializer::LTSLinearSlipWeakening : public seissol::initialize
     virtual void addTo(initializer::LTSTree& tree) {
         seissol::initializer::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
-        tree.addVar(dC, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(muS, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(muD, mask, 1, MEMKIND_STANDARD);
-        tree.addVar(cohesion, mask,1, MEMKIND_STANDARD);
-        tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
+        tree.addVar(dC, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(muS, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(muD, mask, 1, MEMKIND_STANDARD, true);
+        tree.addVar(cohesion, mask,1, MEMKIND_STANDARD, true);
+        tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD, true);
     }
 };
 
@@ -230,15 +235,15 @@ struct seissol::initializer::LTSRateAndStateThermalPressurization : public seiss
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::LTSRateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(pressure, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(theta, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(sigma, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(faultStrength, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(halfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(temperature, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(pressure, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(theta, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(sigma, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(faultStrength, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(halfWidthShearZone, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, MEMKIND_STANDARD);
   }
 };
 
@@ -251,10 +256,10 @@ struct seissol::initializer::LTSImposedSlipRates : public seissol::initializer::
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(imposedSlipDirection1, mask, 1, seissol::memory::Standard);
-    tree.addVar(imposedSlipDirection2, mask, 1, seissol::memory::Standard);
-    tree.addVar(slip2, mask, 1, seissol::memory::Standard);
-    tree.addVar(onsetTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(imposedSlipDirection1, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(imposedSlipDirection2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slip2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(onsetTime, mask, 1, MEMKIND_STANDARD);
   }
 };
 
@@ -266,8 +271,8 @@ struct seissol::initializer::LTSImposedSlipRatesYoffe : public seissol::initiali
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(tauS, mask, 1, seissol::memory::Standard);
-    tree.addVar(tauR, mask, 1, seissol::memory::Standard);
+    tree.addVar(tauS, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(tauR, mask, 1, MEMKIND_STANDARD);
   }
 };
 
@@ -278,7 +283,7 @@ struct seissol::initializer::LTSImposedSlipRatesGaussian : public seissol::initi
   virtual void addTo(initializer::LTSTree& tree) {
     seissol::initializer::LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(riseTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(riseTime, mask, 1, MEMKIND_STANDARD);
   }
 };
 

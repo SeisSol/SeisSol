@@ -165,8 +165,6 @@ static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
-
-  seissolInstance.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 }
 
 static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {

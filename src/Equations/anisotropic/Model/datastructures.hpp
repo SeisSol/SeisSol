@@ -82,6 +82,14 @@ struct AnisotropicMaterial : Material {
   double c56;
   double c66;
 
+  double getLambdaBar() const override {
+    return (c11 + c22 + c33) / 3.0 - 2.0*getMuBar();
+  }
+
+  double getMuBar() const override {
+    return (c44 + c55 + c66) / 3.0;;
+  }
+
   AnisotropicMaterial() = default;
 
   explicit AnisotropicMaterial(ElasticMaterial m) {
@@ -273,10 +281,6 @@ struct AnisotropicMaterial : Material {
   }
 
   MaterialType getMaterialType() const override { return MaterialType::anisotropic; }
-
-  double getMu() const override { return (c44 + c55 + c66) / 3.0; }
-
-  double getLambda() const { return (c11 + c22 + c33) / 3.0 - 2.0 * getMu(); }
 };
 } // namespace seissol::model
 

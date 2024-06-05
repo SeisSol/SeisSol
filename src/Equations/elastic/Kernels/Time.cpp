@@ -247,7 +247,8 @@ void Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,
                                                 ConditionalMaterialTable &materialTable,
-                                                bool updateDisplacement) {
+                                                bool updateDisplacement,
+                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
@@ -279,7 +280,7 @@ void Time::computeBatchedAder(double i_timeStepWidth,
                                         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
                                         tensor::Q::Size,
                                         derivativesKrnl.numElements,
-                                        device.api->getDefaultStream());
+                                        runtime.stream());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
@@ -289,7 +290,7 @@ void Time::computeBatchedAder(double i_timeStepWidth,
       derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * i_timeStepWidth / real(Der + 1);
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem);
-    derivativesKrnl.streamPtr = device.api->getDefaultStream();
+    derivativesKrnl.streamPtr = runtime.stream();
     derivativesKrnl.execute();
     device.api->popStackMemory();
   }
@@ -303,7 +304,8 @@ void Time::computeBatchedAder(double i_timeStepWidth,
                           dataTable,
                           materialTable,
                           i_timeStepWidth,
-                          device);
+                          device,
+                          runtime);
     }
   }
 #else
@@ -383,7 +385,8 @@ void Time::computeBatchedIntegral(double i_expansionPoint,
                                                     double i_integrationEnd,
                                                     const real** i_timeDerivatives,
                                                     real ** o_timeIntegratedDofs,
-                                                    unsigned numElements) {
+                                                    unsigned numElements,
+                                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // assert that this is a forwared integration in time
   assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
@@ -424,7 +427,7 @@ void Time::computeBatchedIntegral(double i_expansionPoint,
     intKrnl.power(der) /= factorial;
   }
   intKrnl.linearAllocator.initialize(tmpMem);
-  intKrnl.streamPtr = device.api->getDefaultStream();
+  intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
   device.api->popStackMemory();
 #else
@@ -468,7 +471,8 @@ void Time::computeBatchedTaylorExpansion(real time,
                                                            real expansionPoint,
                                                            real** timeDerivatives,
                                                            real** timeEvaluated,
-                                                           size_t numElements) {
+                                                           size_t numElements,
+                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert( timeDerivatives != nullptr );
   assert( timeEvaluated != nullptr );
@@ -491,7 +495,7 @@ void Time::computeBatchedTaylorExpansion(real time,
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
 
-  intKrnl.streamPtr = device.api->getDefaultStream();
+  intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
 #else
   assert(false && "no implementation provided");

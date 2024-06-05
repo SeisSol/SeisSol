@@ -9,6 +9,7 @@
 
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/ODEInt.h"
+#include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -113,11 +114,9 @@ public:
       projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
     }
 
-#ifdef USE_ELASTIC
     const double rho = materialData.local.rho;
     const double g = gravitationalAcceleration; // [m/s^2]
-    const double Z = std::sqrt(materialData.local.lambda * rho) ;
-#endif
+    const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
     // Note: Probably need to increase ConvergenceOrderby 1 here!
     for (int order = 1; order < ConvergenceOrder+1; ++order) {
@@ -139,13 +138,10 @@ public:
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
 
-#ifdef USE_ELASTIC
         const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
         // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
         // 2 add, 2 mul = 4 flops
-#else
-        const double curCoeff = uInside;
-#endif
+
         prevCoefficients[i] = curCoeff;
 
         // 2 * 3 = 6 flops for updating displacement
@@ -174,9 +170,10 @@ public:
                         ConditionalPointersToRealsTable &dataTable,
                         ConditionalMaterialTable &materialTable,
                         double timeStepWidth,
-                        device::DeviceInstance& device) {
+                        device::DeviceInstance& device,
+                        seissol::parallel::runtime::StreamRuntime& runtime) {
 
-    auto* deviceStream = device.api->getDefaultStream();
+    auto* deviceStream = runtime.stream();
     ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if(dataTable.find(key) != dataTable.end()) {
 

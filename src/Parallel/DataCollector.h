@@ -33,6 +33,8 @@ class DataCollector {
       copiedData =
           reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
               sizeof(real) * elemSize * indexCount));
+      copiedDataDevice = reinterpret_cast<real*>(
+          device::DeviceInstance::getInstance().api->devicePointer(copiedData));
 #endif
     }
   }
@@ -53,7 +55,7 @@ class DataCollector {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-          indexDataDevice, copiedData, elemSize, elemSize, indexCount, stream);
+          indexDataDevice, copiedDataDevice, elemSize, elemSize, indexCount, stream);
 #endif
     }
   }
@@ -63,12 +65,20 @@ class DataCollector {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyUniformToScatter(
-          copiedData, indexDataDevice, elemSize, elemSize, indexCount, stream);
+          copiedDataDevice, indexDataDevice, elemSize, elemSize, indexCount, stream);
 #endif
     }
   }
 
   real* get(size_t index) {
+    if (hostAccessible) {
+      return indexDataHost[index];
+    } else {
+      return copiedData + index * elemSize;
+    }
+  }
+
+  const real* get(size_t index) const {
     if (hostAccessible) {
       return indexDataHost[index];
     } else {
@@ -83,6 +93,7 @@ class DataCollector {
   size_t indexCount;
   size_t elemSize;
   real* copiedData;
+  real* copiedDataDevice;
 };
 
 } // namespace seissol::parallel

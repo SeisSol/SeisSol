@@ -184,12 +184,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& potency = energiesStorage.potency();
   minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
-#ifdef ACL_DEVICE
   unsigned maxCells = 0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
 
+  if (maxCells == 0) {
+    return;
+  }
+
+#ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
   constexpr auto qSize = tensor::Q::size();
@@ -197,6 +201,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
   real* timeDerivativeMinusHost = reinterpret_cast<real*>(
       device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+  real* timeDerivativePlusHostMapped = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
+  real* timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
+      device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
 #endif
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
@@ -212,14 +220,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativePlusDevice,
-          timeDerivativePlusHost,
+          timeDerivativePlusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),
           stream);
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativeMinusDevice,
-          timeDerivativeMinusHost,
+          timeDerivativeMinusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),

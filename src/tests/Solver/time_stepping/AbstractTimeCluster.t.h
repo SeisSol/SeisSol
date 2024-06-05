@@ -7,7 +7,7 @@ class MockTimeCluster : public time_stepping::AbstractTimeCluster {
 public:
   MockTimeCluster(double maxTimeStepSize,
                   long timeStepRate) :
-  AbstractTimeCluster(maxTimeStepSize, timeStepRate) { }
+  AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host) { }
 
   MAKE_MOCK0(start, void(void), override);
   MAKE_MOCK0(predict, void(void), override);
@@ -48,7 +48,6 @@ TEST_CASE("GTS Timesteping works") {
   const double dt = 1.0;
   const auto numberOfIterations = 10;
   const double endTime = dt * numberOfIterations;
-  const double tolerance = 1e-15;
   auto cluster1 = MockTimeCluster(dt, 1);
   auto cluster2 = MockTimeCluster(dt, 1);
   auto clusters = std::vector<MockTimeCluster*>{
@@ -115,7 +114,6 @@ TEST_CASE("LTS Timesteping works") {
   const double dt = 1.0;
   const auto numberOfIterations = 2;
   const double endTime = dt * numberOfIterations;
-  const double tolerance = 1e-15;
   auto cluster1 = MockTimeCluster(dt, 1);
   auto cluster2 = MockTimeCluster(2*dt, 2);
   auto clusters = std::vector<MockTimeCluster*>{

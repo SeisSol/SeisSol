@@ -62,6 +62,14 @@ struct ElasticMaterial : Material {
   double lambda;
   double mu;
 
+      double getLambdaBar() const override {
+        return lambda;
+      }
+
+      double getMuBar() const override {
+        return mu;
+      }
+
   ElasticMaterial() = default;
   ElasticMaterial(const double* materialValues, int numMaterialValues) {
     assert(numMaterialValues == 3);
@@ -105,8 +113,6 @@ struct ElasticMaterial : Material {
   double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }
 
   double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
-
-  double getMu() const override { return mu; }
 
   MaterialType getMaterialType() const override { return Type; }
 };
