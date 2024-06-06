@@ -73,6 +73,25 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+
+  if (maxCells > 0) {
+    constexpr auto qSize = tensor::Q::size();
+    timeDerivativePlusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativeMinusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
+    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+  }
+#endif
+
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
@@ -121,6 +140,17 @@ void EnergyOutput::simulationStart() {
     writeHeader();
   }
   syncPoint(0.0);
+}
+
+EnergyOutput::~EnergyOutput() {
+#ifdef ACL_DEVICE
+  if (timeDerivativePlusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  }
+  if (timeDerivativeMinusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  }
+#endif
 }
 
 real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
@@ -184,28 +214,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& potency = energiesStorage.potency();
   minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
-  unsigned maxCells = 0;
-  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
-    maxCells = std::max(it->getNumberOfCells(), maxCells);
-  }
-
-  if (maxCells == 0) {
-    return;
-  }
-
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
-  constexpr auto qSize = tensor::Q::size();
-  real* timeDerivativePlusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-  real* timeDerivativePlusHostMapped = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
-  real* timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
 #endif
+  constexpr auto qSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
@@ -307,10 +319,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
     minTimeSinceSlipRateBelowThreshold = std::min(localMin, minTimeSinceSlipRateBelowThreshold);
   }
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
-#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {
