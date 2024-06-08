@@ -82,6 +82,7 @@ gpu_build:
     script:
         - *common_gpu_steps
         - pip3 install git+https://github.com/SeisSol/gemmforge.git@v0.0.207
+        - pip3 install pyyaml
         - set -euo pipefail
         - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
         - for PRECISION in double single; do
