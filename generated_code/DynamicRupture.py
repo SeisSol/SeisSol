@@ -180,9 +180,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   kernels.dynamicrupture.AgingLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1003)', generator)
   kernels.dynamicrupture.SlipLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1004)', generator)
   kernels.dynamicrupture.FastVelocityWeakeningLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1103)', generator)
-"""
 
   kernels.dynamicrupture.YoffeSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(33)', generator)
   kernels.dynamicrupture.GaussianSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(34)', generator)
+"""
 
   return {db.resample, db.quadpoints, db.quadweights}
