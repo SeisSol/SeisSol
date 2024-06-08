@@ -71,7 +71,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
     self.E = Tensor('E', (self.numberOfAnelasticQuantities(), self.numberOfMechanisms, self.numberOfQuantities()))
     self.w = Tensor('w', (self.numberOfMechanisms,))
-    self.W = Tensor('W', (self.numberOfMechanisms, self.numberOfMechanisms), np.eye(self.numberOfMechanisms, dtype=bool), CSCMemoryLayout)
+
+    # TODO(David): re-enable CSCMemoryLayout here...
+    self.W = Tensor('W', (self.numberOfMechanisms, self.numberOfMechanisms), np.eye(self.numberOfMechanisms, dtype=bool)) # CSCMemoryLayout
 
     selectElaSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfQuantities()))
     selectElaSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
