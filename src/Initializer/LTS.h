@@ -49,11 +49,13 @@
 #include "generated_code/tensor.h"
 #include "tree/Layer.hpp"
 
-namespace seissol {
-namespace tensor {
+#ifdef ACL_DEVICE
+#include "Parallel/Helper.hpp"
+#endif
+
+namespace seissol::tensor {
 class Qane;
-}
-} // namespace seissol
+} // namespace seissol::tensor
 
 namespace seissol::initializer {
 
