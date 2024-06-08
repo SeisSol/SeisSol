@@ -1,7 +1,7 @@
 #pragma once
 
-#include <array>
 #include <Eigen/Dense>
+#include <array>
 
 #include "Geometry/MeshReader.h"
 

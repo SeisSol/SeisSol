@@ -3,15 +3,12 @@
 
 #include "generated_code/tensor.h"
 
-namespace seissol {
-  namespace model {
+namespace seissol::model {
 
-    struct ViscoElasticLocalData {
-      real sourceMatrix[seissol::tensor::ET::size()];
-    };
-    struct ViscoElasticNeighborData {
-    };
-  }
-}
+struct ViscoElasticLocalData {
+  real sourceMatrix[seissol::tensor::ET::size()];
+};
+struct ViscoElasticNeighborData {};
+} // namespace seissol::model
 
 #endif

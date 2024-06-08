@@ -57,10 +57,12 @@
 #pragma GCC diagnostic pop
 
 #include "Kernels/common.hpp"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+namespace seissol::kernels {
 
-void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+void LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % alignment == 0 );
@@ -72,8 +74,8 @@ void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size
 #endif
 }
 
-void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+void Local::setHostGlobalData(GlobalData const* global) {
+  checkGlobalData(global, Alignment);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
@@ -84,7 +86,7 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
-void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
@@ -134,7 +136,7 @@ private:
   LocalDataType& localData;
 };
 
-void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
                                               LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -142,8 +144,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
                                               double time,
                                               double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs();
@@ -170,7 +172,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
     }
 
-    alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
@@ -270,7 +272,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 }
 
-void seissol::kernels::Local::computeBatchedIntegral(
+void Local::computeBatchedIntegral(
   ConditionalPointersToRealsTable& dataTable,
   ConditionalMaterialTable& materialTable,
   ConditionalIndicesTable& indicesTable,
@@ -374,7 +376,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
 #endif
 }
 
-void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
+void Local::evaluateBatchedTimeDependentBc(
     ConditionalPointersToRealsTable& dataTable,
     ConditionalIndicesTable& indicesTable,
     kernels::LocalData::Loader& loader,
@@ -396,7 +398,7 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
         auto cellId = cellIds.at(index);
         auto data = loader.entry(cellId);
 
-        alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);
@@ -428,7 +430,7 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
 #endif // ACL_DEVICE
 }
 
-void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+void Local::flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops)
 {
@@ -462,9 +464,9 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
       break;
     case FaceType::analytical:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
       break;
     default:
       break;
@@ -472,7 +474,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   }
 }
 
-unsigned seissol::kernels::Local::bytesIntegral()
+unsigned Local::bytesIntegral()
 {
   unsigned reals = 0;
 
@@ -486,3 +488,5 @@ unsigned seissol::kernels::Local::bytesIntegral()
   
   return reals * sizeof(real);
 }
+
+} // namespace seissol::kernels

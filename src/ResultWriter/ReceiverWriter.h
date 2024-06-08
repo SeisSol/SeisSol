@@ -51,9 +51,9 @@
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 
-struct LocalIntegrationData;
-struct GlobalData;
 namespace seissol {
+  struct LocalIntegrationData;
+  struct GlobalData;
   class SeisSol;
   namespace initializer::parameters {
     struct ReceiverOutputParameters;

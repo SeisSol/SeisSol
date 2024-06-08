@@ -1,5 +1,5 @@
-#include <Eigen/Dense>
 #include "Numerical_aux/Transformation.h"
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 

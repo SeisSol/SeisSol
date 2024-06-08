@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "Numerical_aux/Functions.h"
+#include "doctest.h"
 
 namespace seissol::unit_test {
 
@@ -118,7 +118,7 @@ TEST_CASE("Test Dubiner polynomials") {
                                               {1, 0, 2, 0., 1.0, 0., 0.},
                                               {0, 1, 2, 0., 1.0, 0., 2.0},
                                               {0, 0, 3, 0., 1.0, 0., -1.}};
-  for (auto const& t : tests) {
+  for (const auto& t : tests) {
     REQUIRE(
         seissol::functions::TetraDubinerP(
             {static_cast<unsigned>(t[0]), static_cast<unsigned>(t[1]), static_cast<unsigned>(t[2])},

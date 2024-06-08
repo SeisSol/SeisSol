@@ -168,7 +168,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcStateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
-    alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
+    alignas(Alignment) real resampledSlipRate[misc::numPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
@@ -222,7 +222,7 @@ class NoSpecialization {
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
-   * the reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates
+   * the reference triangle with degree less or equal than ConvergenceOrder-1, and then evaluates
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],

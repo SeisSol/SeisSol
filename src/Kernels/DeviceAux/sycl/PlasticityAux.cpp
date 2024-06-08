@@ -20,7 +20,7 @@ constexpr size_t leadDim() {
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              unsigned *isAdjustableVector,
-                             const PlasticityData *plasticity,
+                             const seissol::model::PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void *queuePtr) {
@@ -120,7 +120,7 @@ void adjustPointers(real *QEtaNodal,
 
 
 void computePstrains(real **pstrains,
-                     const PlasticityData *plasticityData,
+                     const seissol::model::PlasticityData *plasticityData,
                      real **dofs,
                      real *prevDofs,
                      real **dUdTpstrain,
@@ -143,7 +143,7 @@ void computePstrains(real **pstrains,
       if (isAdjustableVector[wid]) {
         real *localDofs = dofs[wid];
         real *localPrevDofs = &prevDofs[tensor::Q::Size * wid];
-        const PlasticityData *localData = &plasticityData[wid];
+        const seissol::model::PlasticityData *localData = &plasticityData[wid];
         real *localPstrain = pstrains[wid];
         real *localDuDtPstrain = dUdTpstrain[wid];
 

@@ -58,7 +58,7 @@ namespace seissol::dr::pipeline {
   using DrPipeline = seissol::GenericPipeline<3, 1024, DrPipelineTuner>;
 
   struct DrContext {
-    using QInterpolatedPtrT = real (*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    using QInterpolatedPtrT = real (*)[ConvergenceOrder][tensor::QInterpolated::size()];
     using imposedStatePlusT = real (*)[tensor::QInterpolated::size()];
 
     real* QInterpolatedPlusOnDevice{nullptr};

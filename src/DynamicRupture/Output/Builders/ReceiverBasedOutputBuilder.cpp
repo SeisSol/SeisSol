@@ -1,4 +1,5 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
+#include "Common/constants.hpp"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
@@ -342,7 +343,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int numPoly = CONVERGENCE_ORDER - 1;
+  constexpr int numPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");

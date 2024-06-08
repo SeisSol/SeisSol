@@ -164,30 +164,11 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
 
       // if enabled, set up the plasticity as well
-      // TODO(David): move to material initalization maybe? Or an initializer for the PlasticityData
-      // struct?
       if (seissolParams.model.plasticity) {
         auto& plasticity = plasticityArray[cell];
         const auto& localPlasticity = plasticityDB[meshId];
 
-        plasticity.initialLoading[0] = localPlasticity.s_xx;
-        plasticity.initialLoading[1] = localPlasticity.s_yy;
-        plasticity.initialLoading[2] = localPlasticity.s_zz;
-        plasticity.initialLoading[3] = localPlasticity.s_xy;
-        plasticity.initialLoading[4] = localPlasticity.s_yz;
-        plasticity.initialLoading[5] = localPlasticity.s_xz;
-
-        const double angularFriction = std::atan(localPlasticity.bulkFriction);
-
-        plasticity.cohesionTimesCosAngularFriction =
-            localPlasticity.plastCo * std::cos(angularFriction);
-        plasticity.sinAngularFriction = std::sin(angularFriction);
-#ifndef USE_ANISOTROPIC
-        plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
-#else
-        plasticity.mufactor =
-            3.0 / (2.0 * (material.local.c44 + material.local.c55 + material.local.c66));
-#endif
+        initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
     }
     ltsToMesh += it->getNumberOfCells();

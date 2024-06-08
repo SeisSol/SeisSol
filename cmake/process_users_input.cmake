@@ -253,12 +253,6 @@ endif()
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
-# PDE-Settings
-if (EQUATIONS STREQUAL "poroelastic")
-  set(NUMBER_OF_QUANTITIES "13")
-else()
-  MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
-endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)

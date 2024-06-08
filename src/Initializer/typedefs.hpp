@@ -58,6 +58,8 @@
 #include <cstddef>
 #include <vector>
 
+namespace seissol {
+
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
@@ -450,26 +452,9 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
-
-/*
- * \class MemoryProperties
- *
- * \brief An auxiliary data structure for a policy-based design
- *
- * Attributes are initialized with CPU memory properties by default.
- * See, an example of a policy-based design in GlobalData.cpp
- * */
-struct MemoryProperties {
-  size_t alignment{ALIGNMENT};
-  size_t pagesizeHeap{PAGESIZE_HEAP};
-  size_t pagesizeStack{PAGESIZE_STACK};
-};
-
-namespace seissol {
 struct GravitationSetup {
   double acceleration = 9.81; // m/s
 };
-} // namespace seissol
 
 struct TravellingWaveParameters {
   Eigen::Vector3d origin;
@@ -490,5 +475,7 @@ struct PressureInjectionParameters {
   double magnitude;
   double width;
 };
+
+} // namespace seissol
 
 #endif

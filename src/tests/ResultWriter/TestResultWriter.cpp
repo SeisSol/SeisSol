@@ -2,4 +2,3 @@
 #include "tests/TestHelper.h"
 
 #include "ReceiverWriter.t.h"
-

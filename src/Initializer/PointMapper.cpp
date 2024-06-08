@@ -96,7 +96,7 @@ void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
 
   memset(contained, 0, numPoints * sizeof(short));
 
-  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
+  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), Alignment));
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int face = 0; face < 4; ++face) {
       VrtxCoords n, p;

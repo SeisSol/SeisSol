@@ -142,7 +142,6 @@ src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
 src/Numerical_aux/Transformation.cpp
 
-src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
 
 src/SeisSol.cpp

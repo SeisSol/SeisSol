@@ -82,11 +82,11 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           Executor executor,
                                                           void* stream ) {
   
-  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+  alignas(Alignment) real timeEvaluated[tensor::Q::size()];
+  alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+  alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+  alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.spaceTimePredictor = stp;
@@ -94,7 +94,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
   derivativeKrnl.spaceTimePredictor = stp;
 #else
-  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+  alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   kernel::evaluateDOFSAtPoint krnl;
@@ -148,7 +148,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef USE_STP
         //eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder, tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
 #else

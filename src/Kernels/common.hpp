@@ -62,8 +62,7 @@
  * otherwise
  */
 #define GENERATE_HAS_MEMBER(NAME)                                                                  \
-  namespace seissol {                                                                              \
-  namespace kernels {                                                                              \
+  namespace seissol::kernels {                                                                     \
   template <typename T>                                                                            \
   struct has_##NAME {                                                                              \
     template <typename U>                                                                          \
@@ -103,7 +102,6 @@
       typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
     return nullptr;                                                                                \
   }                                                                                                \
-  }                                                                                                \
   }
 
 namespace seissol {
@@ -114,8 +112,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int
-    getNumberOfBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER) {
+constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -146,7 +143,7 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
  **/
 template <typename RealT = real>
 constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
+    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
                                      unsigned int alignment = VECTORSIZE) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
@@ -162,7 +159,7 @@ constexpr unsigned int
  * @return aligned number of basis functions.
  **/
 constexpr unsigned
-    getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = CONVERGENCE_ORDER,
+    getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
                                                unsigned int alignment = VECTORSIZE) {
   return (convergenceOrder > 0)
              ? getNumberOfAlignedBasisFunctions(convergenceOrder) +

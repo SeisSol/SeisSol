@@ -72,7 +72,7 @@ void seissol::initializer::projectInitialField(std::vector<std::unique_ptr<physi
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
 
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -83,7 +83,7 @@ void seissol::initializer::projectInitialField(std::vector<std::unique_ptr<physi
   #pragma omp parallel
   {
 #endif
-  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(ALIGNMENT))) = {};
+  real iniCondData[tensor::iniCond::size()] alignas(Alignment) = {};
   auto iniCond = init::iniCond::view::create(iniCondData);
 
   std::vector<std::array<double, 3>> quadraturePointsXyz;

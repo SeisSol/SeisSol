@@ -64,7 +64,7 @@ void seissol::kernels::DynamicRupture::checkGlobalData(GlobalData const* global,
 }
 
 void seissol::kernels::DynamicRupture::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
   m_timeKernel.setHostGlobalData(global);
 }
@@ -86,13 +86,13 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 {
 #ifdef USE_DR_CELLAVERAGE
   static_assert(false, "Cell average currently not supported");
-  /*double subIntervalWidth = timestep / CONVERGENCE_ORDER;
-  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+  /*double subIntervalWidth = timestep / ConvergenceOrder;
+  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     double t1 = timeInterval * subIntervalWidth;
     double t2 = t1 + subIntervalWidth;
     /// Compute time-integrated Taylor expansion (at t0=0) weights for interval [t1,t2].
     unsigned factorial = 1;
-    for (unsigned derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    for (unsigned derivative = 0; derivative < ConvergenceOrder; ++derivative) {
       m_timeFactors[timeInterval][derivative] = (t2-t1) / (factorial * subIntervalWidth);
       t1 *= t1;
       t2 *= t2;
@@ -105,11 +105,11 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
   }*/
 #else
   // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
-  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
-  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
+  for (unsigned point = 0; point < ConvergenceOrder; ++point) {
 #ifdef USE_STP
     double tau = timePoints[point];
-    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(CONVERGENCE_ORDER, tau);
+    timeBasisFunctions[point] = std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(ConvergenceOrder, tau);
 #endif
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
@@ -123,26 +123,26 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
                                                                 DREnergyOutput*             drEnergyOutput,
                                                                 real const*                 timeDerivativePlus,
                                                                 real const*                 timeDerivativeMinus,
-                                                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                                real                        QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                                                real                        QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
                                                                 real const*                 timeDerivativePlus_prefetch,
                                                                 real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
   assert( timeDerivativeMinus != nullptr );
-  assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeDerivativePlus) % Alignment == 0 );
+  assert( ((uintptr_t)timeDerivativeMinus) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0 );
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-  alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
-  alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] ;
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
 #ifdef USE_STP
     m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
@@ -151,8 +151,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 #endif
 
-    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
+    real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
+    real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
     krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0];
     krnl.Q = degreesOfFreedomPlus;
@@ -181,7 +181,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
   };
 
   device.api->resetCircularStreamCounter();
-  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto &entry = table[timeIntegrationKey];
@@ -276,6 +276,6 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
   o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
 
-  o_nonZeroFlops *= CONVERGENCE_ORDER;
-  o_hardwareFlops *= CONVERGENCE_ORDER;
+  o_nonZeroFlops *= ConvergenceOrder;
+  o_hardwareFlops *= ConvergenceOrder;
 }

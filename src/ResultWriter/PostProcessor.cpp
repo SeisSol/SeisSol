@@ -73,7 +73,7 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
 }
 
 void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTree* ltsTree) {
-	ltsTree->addVar( m_integrals, seissol::initializer::LayerMask(Ghost), PAGESIZE_HEAP,
+	ltsTree->addVar( m_integrals, seissol::initializer::LayerMask(Ghost), PagesizeHeap,
       initializer::AllocationMode::HostOnly );
 }
 

@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 
+#include "Equations/datastructures.hpp"
 #include "Initializer/InputAux.hpp"
 #include "ParameterReader.h"
 
@@ -26,7 +27,7 @@ struct InitializationParameters {
   InitializationType type;
   Eigen::Vector3d origin;
   Eigen::Vector3d kVec;
-  Eigen::Vector<double, NUMBER_OF_QUANTITIES> ampField;
+  Eigen::Vector<double, seissol::model::Material_t::NumberOfQuantities> ampField;
   double magnitude;
   double width;
   double k;
