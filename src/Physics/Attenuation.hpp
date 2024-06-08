@@ -1,5 +1,6 @@
 
 #include "Equations/datastructures.hpp"
+#include <cmath>
 #include <cstddef>
 
 namespace seissol::physics {

@@ -55,7 +55,7 @@ template <std::size_t MechanismsP>
 struct ViscoelasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
   static constexpr std::size_t NumberOfQuantities = 9 + MechanismsP * NumberPerMechanism;
-  static constexpr std::size_t Mechansims = MechanismsP;
+  static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
@@ -75,13 +75,13 @@ struct ViscoelasticMaterial : public ElasticMaterial {
 
   ViscoelasticMaterial() = default;
   ViscoelasticMaterial(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 3 + Mechansims * 4);
+    assert(numMaterialValues == 3 + Mechanisms * 4);
 
     this->rho = materialValues[0];
     this->mu = materialValues[1];
     this->lambda = materialValues[2];
 
-    for (int mech = 0; mech < Mechansims; ++mech) {
+    for (int mech = 0; mech < Mechanisms; ++mech) {
       this->omega[mech] = materialValues[3 + 4 * mech];
       for (unsigned i = 1; i < 4; ++i) {
         this->theta[mech][i - 1] = materialValues[3 + 4 * mech + i];
