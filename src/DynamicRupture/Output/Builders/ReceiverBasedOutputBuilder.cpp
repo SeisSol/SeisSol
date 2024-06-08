@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <yateto/TensorView.h>
+#include <TensorForge/TensorView.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"

@@ -5,7 +5,7 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/Dense>
 
-#include <yateto/TensorView.h>
+#include <TensorForge/TensorView.h>
 #include <utils/logger.h>
 
 #include "Kernels/precision.hpp"
