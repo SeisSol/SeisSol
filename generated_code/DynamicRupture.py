@@ -40,8 +40,8 @@
 
 import numpy as np
 from common import *
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseJSONMatrixFile
+from tensorforge import Tensor, Scalar, simpleParameterSpace
+from tensorforge.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from copy import deepcopy
 import numpy as np
@@ -180,9 +180,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   kernels.dynamicrupture.AgingLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1003)', generator)
   kernels.dynamicrupture.SlipLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1004)', generator)
   kernels.dynamicrupture.FastVelocityWeakeningLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1103)', generator)
+"""
 
   kernels.dynamicrupture.YoffeSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(33)', generator)
   kernels.dynamicrupture.GaussianSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(34)', generator)
-"""
 
   return {db.resample, db.quadpoints, db.quadweights}

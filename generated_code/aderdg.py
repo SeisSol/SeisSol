@@ -43,13 +43,13 @@ from abc import ABC, abstractmethod
 from common import generate_kernel_name_prefix
 
 from multSim import OptionalDimTensor
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
-from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
-from yateto.memory import CSCMemoryLayout
-from yateto.util import create_collection
+from tensorforge import Tensor, Scalar, simpleParameterSpace
+from tensorforge.ast.node import Add
+from tensorforge.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from tensorforge.input import parseXMLMatrixFile, parseJSONMatrixFile
+from tensorforge.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
+from tensorforge.memory import CSCMemoryLayout
+from tensorforge.util import create_collection
 
 
 class ADERDGBase(ABC):

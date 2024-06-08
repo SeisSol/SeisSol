@@ -1,8 +1,8 @@
 import numpy as np
 import viscoelastic2
 from multSim import OptionalDimTensor
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.util import tensor_collection_from_constant_expression
+from tensorforge import Tensor, Scalar, simpleParameterSpace
+from tensorforge.util import tensor_collection_from_constant_expression
 from common import generate_kernel_name_prefix
 
 def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod, targets):
@@ -22,7 +22,10 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
     create_easi_boundary_ghost_cells = (
             aderdg.INodal['la'] <= easi_boundary_map['abl'] * aderdg.INodal['lb'] + easi_ident_map['abl'] * easi_boundary_constant['bl']
     )
-    generator.add('createEasiBoundaryGhostCells', create_easi_boundary_ghost_cells)
+
+    for target in ['cpu']:#targets:
+        name_prefix = generate_kernel_name_prefix(target)
+        generator.add(f'{name_prefix}createEasiBoundaryGhostCells', create_easi_boundary_ghost_cells, target=target)
 
     projectToNodalBoundary = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['km'] * aderdg.I['mp']
 

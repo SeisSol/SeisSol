@@ -1,6 +1,6 @@
 import tensorforge.functions as forge
-from kernelforge.common.basic_types import FloatingPointType
-from yateto.type import Tensor, Scalar
+from tensorforge.common.basic_types import FloatingPointType
+from tensorforge.type import Tensor, Scalar
 import numpy as np
 
 def smoothStep(currentTime, t0):
@@ -41,8 +41,8 @@ class ScalarBase:
 class FrictionLawBase(ScalarBase):
     def __init__(self, aderdg, numberOfPoints):
         super().__init__(aderdg, numberOfPoints)
-        self.plusQ = self.drvar('plusQ', (aderdg.order, aderdg.numberOfQuantities(),))
-        self.minusQ = self.drvar('minusQ', (aderdg.order, aderdg.numberOfQuantities(),))
+        self.plusQ = self.drvar('qInterpolatedPlus', (aderdg.order, aderdg.numberOfQuantities(),))
+        self.minusQ = self.drvar('qInterpolatedMinus', (aderdg.order, aderdg.numberOfQuantities(),))
         self.plusImposedState = self.drvar('plusImposedState', (aderdg.numberOfQuantities(),))
         self.minusImposedState = self.drvar('minusImposedState', (aderdg.numberOfQuantities(),))
 
@@ -55,17 +55,17 @@ class FrictionLawBase(ScalarBase):
             self.timeWeights += [self.drscalar(f'timeWeights({i})')]
         self.sumDt = self.drscalar('sumDt')
         
-        self.etaP = self.drscalar('etaP')
-        self.etaS = self.drscalar('etaS')
-        self.zp = self.drscalar('zp')
-        self.zs = self.drscalar('zs')
-        self.zpNeig = self.drscalar('zpNeig')
-        self.zsNeig = self.drscalar('zsNeig')
-        self.invEtaS = self.drscalar('invEtaS')
-        self.invZp = self.drscalar('invZp')
-        self.invZs = self.drscalar('invZs')
-        self.invZpNeig = self.drscalar('invZpNeig')
-        self.invZsNeig = self.drscalar('invZsNeig')
+        self.etaP = self.drvarcell('etaP')
+        self.etaS = self.drvarcell('etaS')
+        self.zp = self.drvarcell('zp')
+        self.zs = self.drvarcell('zs')
+        self.zpNeig = self.drvarcell('zpNeig')
+        self.zsNeig = self.drvarcell('zsNeig')
+        self.invEtaS = self.drvarcell('invEtaS')
+        self.invZp = self.drvarcell('invZp')
+        self.invZs = self.drvarcell('invZs')
+        self.invZpNeig = self.drvarcell('invZpNeig')
+        self.invZsNeig = self.drvarcell('invZsNeig')
         
         self.initialStressInFaultCS = self.drvar('initialStressInFaultCS', (6,))
         self.nucleationStressInFaultCS = self.drvar('nucleationStressInFaultCS', (6,))
@@ -345,7 +345,7 @@ class LinearSlipWeakening(LinearSlipWeakeningBase):
         return forge.min(abs(accumulatedSlipMagnitude) / self.dC, 1)
 
     def resampleSlipRate(self, routine):
-        # TODO: false
+        # TODO: false (needs matrix op)
         return self.slipRateMagnitude
 
 class BiMaterialFault(LinearSlipWeakeningBase):

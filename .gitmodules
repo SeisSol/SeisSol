@@ -16,9 +16,6 @@
 [submodule "submodules/PUML"]
 	path = submodules/PUML
 	url = ../../TUM-I5/PUML2.git
-[submodule "submodules/yateto"]
-	path = submodules/yateto
-	url = ../../SeisSol/yateto.git
 [submodule "submodules/Device"]
 	path = submodules/Device
 	url = ../../SeisSol/Device.git

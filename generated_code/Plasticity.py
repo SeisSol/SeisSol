@@ -39,8 +39,8 @@
 #
 
 import numpy as np
-from yateto import Tensor
-from yateto.input import parseXMLMatrixFile
+from tensorforge import Tensor
+from tensorforge.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
 from common import generate_kernel_name_prefix
 

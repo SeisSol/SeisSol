@@ -39,10 +39,10 @@
 #
   
 import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from tensorforge import Tensor, Scalar, simpleParameterSpace
+from tensorforge.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
+from tensorforge.ast.node import Add
+from tensorforge.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from elastic import ElasticADERDG as ADERDGBase
 from multSim import OptionalDimTensor

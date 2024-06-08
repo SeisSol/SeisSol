@@ -43,10 +43,10 @@ import argparse
 import importlib.util
 import sys
 
-from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
-from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, KernelForge
-from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
+from tensorforge import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
+from tensorforge import gemm_configuration
+from tensorforge.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, TensorForge
+from tensorforge.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
 import Plasticity

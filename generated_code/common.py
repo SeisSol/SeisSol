@@ -1,6 +1,6 @@
 import numpy as np
-from yateto import Tensor
-from yateto.memory import DenseMemoryLayout
+from tensorforge import Tensor
+from tensorforge.memory import DenseMemoryLayout
 
 
 def generate_kernel_name_prefix(target):

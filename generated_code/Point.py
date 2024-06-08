@@ -40,7 +40,7 @@
 #
   
 import numpy as np
-from yateto import Tensor, Scalar
+from tensorforge import Tensor, Scalar
 from multSim import OptionalDimTensor
 
 def addKernels(generator, aderdg):

@@ -2,9 +2,9 @@
   
 import numpy as np
 
-from yateto import Tensor, Scalar
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from tensorforge import Tensor, Scalar
+from tensorforge.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
+from tensorforge.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from common import generate_kernel_name_prefix
 from aderdg import LinearADERDG

@@ -38,7 +38,7 @@
 # @section DESCRIPTION
 #
   
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from tensorforge.input import parseXMLMatrixFile, memoryLayoutFromFile
 
 from aderdg import LinearADERDG
 
