@@ -57,13 +57,10 @@ namespace seissol {
   class SeisSol;
   namespace initializer::parameters {
     struct ReceiverOutputParameters;
-  }
-}
+  } // namespace initializer::parameters
+} // namespace seissol
 
 namespace seissol::writer {
-    Eigen::Vector3d parseReceiverLine(const std::string& line);
-    std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
-
     class ReceiverWriter : public seissol::Module {
     private:
       seissol::SeisSol& seissolInstance;
@@ -79,15 +76,7 @@ namespace seissol::writer {
           const seissol::initializer::LTS& lts,
           const GlobalData* global);
 
-      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
-        assert(layer != Ghost);
-        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-        auto& clusters = m_receiverClusters[layer];
-        if (clusterId < clusters.size()) {
-          return &clusters[clusterId];
-        }
-        return nullptr;
-      }
+      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
       //
       // Hooks
       //
@@ -102,7 +91,7 @@ namespace seissol::writer {
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
-      bool        m_computeRotation;
+      std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
       // Map needed because LayerType enum casts weirdly to int.
       std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   m_stopwatch;
