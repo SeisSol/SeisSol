@@ -53,9 +53,9 @@
 #include "Modules/Modules.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
-namespace {
+namespace seissol::writer {
 
-static Eigen::Vector3d parseReceiverLine(const std::string& line) {
+Eigen::Vector3d parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(),
                                   line.end(),
@@ -76,7 +76,7 @@ static Eigen::Vector3d parseReceiverLine(const std::string& line) {
   return coordinates;
 }
 
-static std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
+std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
   std::vector<Eigen::Vector3d> points{};
 
   std::ifstream file{receiverFileName};
@@ -89,11 +89,6 @@ static std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receive
   }
   return points;
 }
-
-
-} // namespace
-
-namespace seissol::writer {
 
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;

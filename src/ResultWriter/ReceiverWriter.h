@@ -61,6 +61,9 @@ namespace seissol {
 } // namespace seissol
 
 namespace seissol::writer {
+    Eigen::Vector3d parseReceiverLine(const std::string& line);
+    std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
+    
     class ReceiverWriter : public seissol::Module {
     private:
       seissol::SeisSol& seissolInstance;
