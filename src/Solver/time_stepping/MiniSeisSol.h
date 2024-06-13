@@ -41,7 +41,7 @@
 #ifndef MINISEISSOL_H_
 #define MINISEISSOL_H_
 
-#include <Initializer/MemoryManager.h>
+#include "Initializer/MemoryManager.h"
 
 namespace seissol {
   void localIntegration(GlobalData* globalData,
@@ -52,7 +52,8 @@ namespace seissol {
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
                                 initializer::LTS& lts,
                                 initializer::Layer& layer,
-                                seissol::SeisSol& seissolInstance);
+                                seissol::SeisSol& seissolInstance,
+                                seissol::parallel::runtime::StreamRuntime& runtime);
   
   void fillWithStuff(real* buffer,
                      unsigned nValues);

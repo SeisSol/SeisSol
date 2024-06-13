@@ -1,6 +1,10 @@
 #include "FaultRefiners.hpp"
 
+#include "DynamicRupture/Output/Geometry.hpp"
+#include <array>
+#include <cstddef>
 #include <memory>
+#include <utility>
 
 #include "utils/logger.h"
 
@@ -8,19 +12,6 @@
 #include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output::refiner {
-seissol::initializer::parameters::FaultRefinement castToRefinerType(int strategy) {
-  switch (strategy) {
-  case 1:
-    return seissol::initializer::parameters::FaultRefinement::Triple;
-  case 2:
-    return seissol::initializer::parameters::FaultRefinement::Quad;
-  default:
-    logError() << "Unknown refinement strategy for Fault Face Refiner";
-    // return something to suppress a compiler warning
-    return seissol::initializer::parameters::FaultRefinement::None;
-  }
-}
-
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy) {
   switch (strategy) {
   case seissol::initializer::parameters::FaultRefinement::Triple:
@@ -28,7 +19,9 @@ std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinem
   case seissol::initializer::parameters::FaultRefinement::Quad:
     return std::make_unique<FaultFaceQuadRefiner>();
   case seissol::initializer::parameters::FaultRefinement::None:
+    return std::make_unique<NoRefiner>();
   default:
+    logError() << "Unknown refinement strategy for Fault Face Refiner";
     return nullptr;
   }
 }
@@ -61,6 +54,8 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
 
   points.push_back(receiver);
 }
+
+void NoRefiner::refineAndAccumulate(Data data, TrianglePair face) { addReceiver(data, face); }
 
 void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 

@@ -1,20 +1,25 @@
 #include "FrictionSolver.h"
-#include "generated_code/kernel.h"
-#include <yateto/TensorView.h>
+
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
 
 void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
   deltaT[0] = timePoints[0];
+  sumDt = deltaT[0];
   for (unsigned timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
+    sumDt += deltaT[timeIndex];
   }
   // to fill last segment of Gaussian integration
   deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
+  sumDt += deltaT[0];
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                        seissol::initializer::DynamicRupture const* const dynRup,
+                                        const seissol::initializer::DynamicRupture* const dynRup,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices);
@@ -38,11 +43,15 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   energyData = layerData.var(dynRup->drEnergyOutput);
   godunovData = layerData.var(dynRup->godunovData);
   mFullUpdateTime = fullUpdateTime;
-  dynStressTime = layerData.var(dynRup->dynStressTime);
-  dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
-  qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
-  qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
-  initialPressure = layerData.var(dynRup->initialPressure);
-  nucleationPressure = layerData.var(dynRup->nucleationPressure);
+  dynStressTime = layerData.var(dynRup->dynStressTime, place);
+  dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
+  qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
+  qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus, place);
+  initialPressure = layerData.var(dynRup->initialPressure, place);
+  nucleationPressure = layerData.var(dynRup->nucleationPressure, place);
 }
+seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
+  return seissol::initializer::AllocationPlace::Host;
+}
+
 } // namespace seissol::dr::friction_law

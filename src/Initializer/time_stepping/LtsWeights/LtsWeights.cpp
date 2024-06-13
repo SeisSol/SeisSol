@@ -41,14 +41,15 @@
 #include "LtsWeights.h"
 
 #include <Eigen/Eigenvalues>
+#include "Geometry/PUMLReader.h"
+#include "Kernels/precision.hpp"
+#include "Initializer/typedefs.hpp"
 
-#include <PUML/PUML.h>
-#include <PUML/Downward.h>
-#include <PUML/Upward.h>
+#include "PUML/PUML.h"
+#include "PUML/Downward.h"
+#include "PUML/Upward.h"
 
 #include "Initializer/time_stepping/GlobalTimestep.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "generated_code/init.h"
@@ -143,11 +144,11 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 }
 
 LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-    : m_velocityModel(config.velocityModel), m_rate(config.rate),
+    : seissolInstance(seissolInstance), m_velocityModel(config.velocityModel), m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
-      seissolInstance(seissolInstance) { }
+      boundaryFormat(config.boundaryFormat) { }
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
@@ -385,8 +386,8 @@ int LtsWeights::getCluster(double timestep, double globalMinTimestep, double lts
   return cluster;
 }
 
-int LtsWeights::getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face) {
-  int bcCurrentFace = ((boundaryCond[cell] >> (face * 8)) & 0xFF);
+int LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
+  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
   if (bcCurrentFace > 64) {
     bcCurrentFace = 3;
   }
@@ -443,7 +444,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
   const auto &cells = m_mesh->cells();
 
   std::vector<int> cellCosts(cells.size());
-  int const *boundaryCond = m_mesh->cellData(1);
+  const void* boundaryCond = m_mesh->cellData(1);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
@@ -485,7 +486,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 
   std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
   std::vector<PUML::TETPUML::face_t> const &faces = m_mesh->faces();
-  int const *boundaryCond = m_mesh->cellData(1);
+  const void* boundaryCond = m_mesh->cellData(1);
 
 #ifdef USE_MPI
   std::unordered_map<int, std::vector<int>> rankToSharedFaces;

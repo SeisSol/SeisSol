@@ -5,16 +5,17 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
-#include <Initializer/Parameters/SeisSolParameters.h>
 
+#include <DynamicRupture/Misc.h>
 #include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
 class ReceiverOutput {
   public:
-  virtual ~ReceiverOutput();
+  virtual ~ReceiverOutput() = default;
 
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::LTS* userWpDescr,
@@ -22,13 +23,14 @@ class ReceiverOutput {
                   seissol::initializer::LTSTree* userDrTree,
                   seissol::initializer::DynamicRupture* userDrDescr);
 
-  void allocateMemory(const std::vector<std::shared_ptr<ReceiverOutputData>>& states);
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        std::shared_ptr<ReceiverOutputData> state,
                        double time = 0.0);
+
+  virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};
@@ -45,6 +47,8 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
+
+    std::size_t index;
 
     real iniTraction1{};
     real iniTraction2{};
@@ -75,7 +79,21 @@ class ReceiverOutput {
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
+
+    ReceiverOutputData* state;
   };
+
+  template <typename T>
+  std::remove_extent_t<T>* getCellData(const LocalInfo& local,
+                                       const seissol::initializer::Variable<T>& variable) {
+    auto devVar = local.state->deviceVariables.find(variable.index);
+    if (devVar != local.state->deviceVariables.end()) {
+      return reinterpret_cast<std::remove_extent_t<T>*>(
+          devVar->second->get(local.state->deviceIndices[local.index]));
+    } else {
+      return local.layer->var(variable)[local.ltsId];
+    }
+  }
 
   void getDofs(real dofs[tensor::Q::size()], int meshId);
   void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
@@ -97,7 +115,7 @@ class ReceiverOutput {
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress){};
+                                          const std::array<real, 6>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

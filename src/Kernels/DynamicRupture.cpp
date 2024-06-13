@@ -44,10 +44,10 @@
 #include <cstring>
 #include <stdint.h>
 
-#include <generated_code/kernel.h>
-#include <Kernels/common.hpp>
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/BasisFunction.h>
+#include "generated_code/kernel.h"
+#include "Kernels/common.hpp"
+#include "Numerical_aux/Quadrature.h"
+#include "Numerical_aux/BasisFunction.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -168,7 +168,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   }
 }
 
-void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table) {
+void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   real** degreesOfFreedomPlus{nullptr};
@@ -178,8 +178,6 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->joinCircularStreamsToDefault();
-    this->device.api->resetCircularStreamCounter();
   };
 
   device.api->resetCircularStreamCounter();
@@ -196,7 +194,8 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
                                                  0.0,
                                                  timeDerivativePlus,
                                                  degreesOfFreedomPlus,
-                                                 maxNumElements);
+                                                 maxNumElements,
+                                                 runtime);
 
       real** timeDerivativeMinus = (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
@@ -204,33 +203,36 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
                                                  0.0,
                                                  timeDerivativeMinus,
                                                  degreesOfFreedomMinus,
-                                                 maxNumElements);
+                                                 maxNumElements,
+                                                 runtime);
     }
 
     // finish all previous work in the default stream
     size_t streamCounter{0};
-    device.api->forkCircularStreamsFromDefault();
-    for (unsigned side = 0; side < 4; ++side) {
-      ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
-      if (table.find(plusSideKey) != table.end()) {
-        auto& entry = table[plusSideKey];
-        const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
+    runtime.envMany(20, [&](void* stream, size_t i) {
+      unsigned side = i / 5;
+      unsigned faceRelation = i % 5;
+      if (faceRelation == 4) {
+        ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
+        if (table.find(plusSideKey) != table.end()) {
+          auto& entry = table[plusSideKey];
+          const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
-        auto krnl = m_gpuKrnlPrototype;
-        real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
-        ++streamCounter;
-        krnl.linearAllocator.initialize(tmpMem);
-        krnl.streamPtr = device.api->getNextCircularStream();
-        krnl.numElements = numElements;
+          auto krnl = m_gpuKrnlPrototype;
+          real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+          ++streamCounter;
+          krnl.linearAllocator.initialize(tmpMem);
+          krnl.streamPtr = stream;
+          krnl.numElements = numElements;
 
-        krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
-        krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-        krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-        krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
-        krnl.execute(side, 0);
+          krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+          krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
+          krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+          krnl.execute(side, 0);
+        }
       }
-
-      for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
+      else {
         ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
         if (table.find(minusSideKey) != table.end()) {
           auto &entry = table[minusSideKey];
@@ -240,7 +242,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
           real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
-          krnl.streamPtr = device.api->getNextCircularStream();
+          krnl.streamPtr = stream;
           krnl.numElements = numElements;
 
           krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
@@ -250,7 +252,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
           krnl.execute(side, faceRelation);
         }
       }
-    }
+    });
     resetDeviceCurrentState(streamCounter);
   }
 #else

@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  */
 
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "FreeSurfaceWriter.h"
 
 #include <algorithm>
@@ -48,8 +48,8 @@
 
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
-#include <Geometry/MeshTools.h>
-#include <Modules/Modules.h>
+#include "Geometry/MeshTools.h"
+#include "Modules/Modules.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                                                                 unsigned*&        cells,
@@ -196,8 +196,8 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	removeBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Register for the synchronization point hook
-	Modules::registerHook(*this, SIMULATION_START);
-	Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+	Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
 
   delete[] cells;

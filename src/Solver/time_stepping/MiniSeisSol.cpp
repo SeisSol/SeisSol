@@ -40,15 +40,16 @@
 
 #include "MiniSeisSol.h"
 
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Touch.h>
-#include <Monitoring/Stopwatch.h>
-#include "utils/env.h"
+#include "Kernels/Local.h"
+#include "Kernels/Time.h"
+#include "Kernels/Touch.h"
+#include "Monitoring/Stopwatch.h"
+#include "Parallel/Runtime/Stream.hpp"
 #include "SeisSol.h"
+#include "utils/env.h"
 
 #ifdef ACL_DEVICE
-#include <Initializer/BatchRecorders/Recorders.h>
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "device.h"
 #endif
 
@@ -130,7 +131,8 @@ void seissol::localIntegration(GlobalData* globalData,
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        initializer::LTS& lts,
                                        initializer::Layer& layer,
-                                       seissol::SeisSol& seissolInstance) {
+                                       seissol::SeisSol& seissolInstance,
+                                       seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
@@ -148,8 +150,8 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false);
-  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0);
+  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false, runtime);
+  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
 #endif
 }
 
@@ -157,13 +159,21 @@ void seissol::fakeData(initializer::LTS& lts,
                        initializer::Layer& layer,
                        FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
+#ifdef ACL_DEVICE
+  auto allocationPlace = seissol::initializer::AllocationPlace::Device;
+  real**                      buffers                       = layer.var(lts.buffersDevice);
+  real**                      derivatives                   = layer.var(lts.derivativesDevice);
+  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighborsDevice);
+#else
+  auto allocationPlace = seissol::initializer::AllocationPlace::Host;
   real**                      buffers                       = layer.var(lts.buffers);
   real**                      derivatives                   = layer.var(lts.derivatives);
   real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
+#endif
   LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
+  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, allocationPlace));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -198,7 +208,7 @@ void seissol::fakeData(initializer::LTS& lts,
     }
   }
   
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), true);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), true);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
@@ -210,6 +220,12 @@ void seissol::fakeData(initializer::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
   }
+#endif
+
+#ifdef ACL_DEVICE
+  const auto &device = device::DeviceInstance::getInstance();
+  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  device.api->syncDefaultStreamWithHost();
 #endif
 }
 
@@ -243,6 +259,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
+  seissol::parallel::runtime::StreamRuntime runtime;
+
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
@@ -253,8 +271,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   ltsTree.allocateScratchPads();
 
   auto globalData = memoryManager.getGlobalData();
-  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance]() {
-    localIntegrationOnDevice(globalData, lts, layer, seissolInstance);
+  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance, &runtime]() {
+    localIntegrationOnDevice(globalData, lts, layer, seissolInstance, runtime);
   };
 
   const auto &device = device::DeviceInstance::getInstance();
@@ -274,7 +292,7 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
 
   Stopwatch stopwatch;
   stopwatch.start();
-  for (unsigned t = 0; t < config.numRepeats; ++t) {
+  for (int t = 0; t < config.numRepeats; ++t) {
     runBenchmark();
   }
   syncBenchmark();

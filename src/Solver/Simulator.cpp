@@ -57,7 +57,8 @@ seissol::Simulator::Simulator():
   m_usePlasticity(  false ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
-  m_loadCheckPoint( false ) {}
+  m_loadCheckPoint( false ),
+  m_abort( false ) {}
 
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );
@@ -82,6 +83,11 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 	m_currentTime = i_currentTime;
 }
 
+void seissol::Simulator::abort() {
+	m_abort = true;
+}
+
+
 void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -103,7 +109,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
-    Modules::callHook<SIMULATION_START>();
+    Modules::callHook<ModuleHook::SimulationStart>();
   }
 
   // intialize wave field and checkpoint time
@@ -128,6 +134,10 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     if (upcomingTime < m_currentTime + l_timeTolerance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
     }
+    if (m_abort) {
+        logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
+        break; 
+    }
 
     // update the DOFs
     computeStopwatch.start();
@@ -141,6 +151,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
     // Set new upcoming time (might by overwritten by any of the modules)
     upcomingTime = m_finalTime;
+
+    // synchronize data (TODO(David): synchronize lazily)
+    seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
 
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
@@ -163,12 +176,17 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     lastSplit = currentSplit;
   }
 
+  // synchronize data (TODO(David): synchronize lazily)
+  seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
   double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
   ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
+
+  Modules::callHook<ModuleHook::SimulationEnd>();
 
   const auto& memoryManager = seissolInstance.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();

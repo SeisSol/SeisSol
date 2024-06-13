@@ -126,4 +126,5 @@ Once connected to the HPC cluster, pip can be used with
     pip install <package name> --user --proxy http://localhost:ddddd/
 
 where ddddd is your arbitrary port number.
+In addition, you might need to add the `--no-build-isolation` flag to the pip command.
 

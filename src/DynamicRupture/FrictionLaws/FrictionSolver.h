@@ -5,6 +5,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
+#include "Parallel/Runtime/Stream.hpp"
 
 namespace seissol::dr::friction_law {
 /**
@@ -25,9 +26,10 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializer::Layer& layerData,
-                        seissol::initializer::DynamicRupture const* const dynRup,
+                        const seissol::initializer::DynamicRupture* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
+                        const double timeWeights[CONVERGENCE_ORDER],
+                        seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
@@ -39,8 +41,10 @@ class FrictionSolver {
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime);
+
+  virtual seissol::initializer::AllocationPlace allocationPlace();
 
   protected:
   /**
@@ -48,6 +52,7 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT[CONVERGENCE_ORDER] = {};
+  real sumDt;
 
   seissol::initializer::parameters::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;

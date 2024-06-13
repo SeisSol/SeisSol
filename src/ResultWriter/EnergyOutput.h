@@ -2,27 +2,27 @@
 #define ENERGYOUTPUT_H
 
 #include <array>
-#include <string>
 #include <fstream>
 #include <iostream>
+#include <string>
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
+#include "Geometry/MeshReader.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/typedefs.hpp"
 
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;
 namespace writer {
 
 struct EnergiesStorage {
-  std::array<double, 10> energies{};
+  std::array<double, 13> energies{};
 
   double& gravitationalEnergy();
 
@@ -43,6 +43,10 @@ struct EnergiesStorage {
   double& seismicMoment();
 
   double& potency();
+
+  double& totalMomentumX();
+  double& totalMomentumY();
+  double& totalMomentumZ();
 };
 
 class EnergyOutput : public Module {
@@ -64,11 +68,13 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
+  ~EnergyOutput();
+
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
-                         DRFaceInformation const& faceInfo,
-                         DRGodunovData const& godunovData,
+                         const DRFaceInformation& faceInfo,
+                         const DRGodunovData& godunovData,
                          const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
@@ -79,7 +85,11 @@ class EnergyOutput : public Module {
 
   void reduceEnergies();
 
+  void reduceMinTimeSinceSlipRateBelowThreshold();
+
   void printEnergies();
+
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
 
   void writeHeader();
 
@@ -93,12 +103,18 @@ class EnergyOutput : public Module {
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
+  bool isCheckAbortCriteraSlipRateEnabled = false;
+  bool isCheckAbortCriteraMomentRateEnabled = false;
   int computeVolumeEnergiesEveryOutput = 1;
   int outputId = 0;
 
   std::string outputFileName;
   std::ofstream out;
 
+  real* timeDerivativePlusHost = nullptr;
+  real* timeDerivativeMinusHost = nullptr;
+  real* timeDerivativePlusHostMapped = nullptr;
+  real* timeDerivativeMinusHostMapped = nullptr;
   const GlobalData* global = nullptr;
   seissol::initializer::DynamicRupture* dynRup = nullptr;
   seissol::initializer::LTSTree* dynRupTree = nullptr;
@@ -108,6 +124,12 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
+  real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceMomentRateBelowThreshold = 0.0;
+  double terminatorMaxTimePostRupture;
+  double energyOutputInterval;
+  double terminatorMomentRateThreshold;
+  double seismicMomentPrevious = 0.0;
 };
 
 } // namespace writer

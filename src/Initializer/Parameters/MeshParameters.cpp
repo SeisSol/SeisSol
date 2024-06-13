@@ -15,6 +15,15 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
       reader->readOrFail<std::string>("meshfile", "No mesh file given.");
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
+  const BoundaryFormat pumlBoundaryFormat =
+      reader->readWithDefaultStringEnum<BoundaryFormat>("pumlboundaryformat",
+                                                        "auto",
+                                                        {
+                                                            {"auto", BoundaryFormat::Auto},
+                                                            {"i32", BoundaryFormat::I32},
+                                                            {"i64", BoundaryFormat::I64},
+                                                            {"i32x4", BoundaryFormat::I32x4},
+                                                        });
 
   const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
@@ -33,7 +42,12 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"periodic", "periodic_direction"});
 
-  return MeshParameters{
-      showEdgeCutStatistics, meshFormat, meshFileName, partitioningLib, displacement, scaling};
+  return MeshParameters{showEdgeCutStatistics,
+                        pumlBoundaryFormat,
+                        meshFormat,
+                        meshFileName,
+                        partitioningLib,
+                        displacement,
+                        scaling};
 }
 } // namespace seissol::initializer::parameters

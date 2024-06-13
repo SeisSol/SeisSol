@@ -48,12 +48,12 @@
 #endif
 
 #include "BasicTypedefs.hpp"
-#include <Initializer/preProcessorMacros.hpp>
-#include <Kernels/common.hpp>
+#include "Initializer/preProcessorMacros.hpp"
+#include "Kernels/common.hpp"
 #include "Equations/datastructures.hpp"
-#include <generated_code/tensor.h>
-#include <DynamicRupture/Typedefs.hpp>
-#include <DynamicRupture/Misc.h>
+#include "generated_code/tensor.h"
+#include "DynamicRupture/Typedefs.hpp"
+#include "DynamicRupture/Misc.h"
 
 #include <cstddef>
 #include <vector>
@@ -423,6 +423,7 @@ struct DREnergyOutput {
   real slip[seissol::tensor::slipInterpolated::size()];
   real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
   real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
+  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::numPaddedPoints];
 };
 
 struct CellDRMapping {

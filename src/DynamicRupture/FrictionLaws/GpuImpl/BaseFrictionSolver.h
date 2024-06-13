@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -16,9 +16,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   ~BaseFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializer::Layer& layerData,
-                seissol::initializer::DynamicRupture const* const dynRup,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -111,8 +114,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSpaceWeights{this->devSpaceWeights};
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
+      auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
+      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -133,6 +140,17 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      pointIndex);
 
           if (isFrictionEnergyRequired) {
+
+            if (isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                  devSlipRateMagnitude[ltsFace],
+                  devRuptureTimePending[ltsFace],
+                  devEnergyData[ltsFace],
+                  devSumDt,
+                  devTerminatorSlipRateThreshold,
+                  pointIndex);
+            }
+
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
                                                         devQInterpolatedMinus[ltsFace],
@@ -144,8 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-      queue.wait_and_throw();
     }
+
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

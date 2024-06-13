@@ -321,20 +321,23 @@ class LinearADERDG(ADERDGBase):
                           target='gpu')
 
   def addTime(self, generator, targets):
+    powers = [Scalar(f'power({i})') for i in range(self.order)]
     for target in targets:
       name_prefix = generate_kernel_name_prefix(target)
 
       qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
-      power = Scalar('power')
+      power = powers[0]
       derivatives = [dQ0]
-      generator.add(f'{name_prefix}derivativeTaylorExpansion(0)',
-                    self.I['kp'] <= power * dQ0['kp'],
-                    target=target)
+      
+      # for now, interleave Taylor expansion and derivative computation
+      derivativeExpr = [self.I['kp'] <= power * dQ0['kp']]
+      derivativeTaylorExpansion = power * dQ0['kp']
 
       self.dQs = [dQ0]
 
       for i in range(1,self.order):
+        power = powers[i]
         derivativeSum = Add()
         if self.sourceMatrix():
           derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
@@ -346,12 +349,18 @@ class LinearADERDG(ADERDGBase):
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
         self.dQs.append(dQ)
 
-        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target)
-        generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',
-                      self.I['kp'] <= self.I['kp'] + power * dQ['kp'],
-                      target=target)
+        # for now, we interleave derivative and derivativeTaylorExpansion kernels.
+        derivativeExpr += [dQ['kp'] <= derivativeSum, self.I['kp'] <= self.I['kp'] + power * dQ['kp']]
+        derivativeTaylorExpansion += power * dQ['kp']
 
         derivatives.append(dQ)
+
+      derivativeTaylorExpansionExpr = self.I['kp'] <= derivativeTaylorExpansion
+      # derivativeExpr += [derivativeTaylorExpansionExpr]
+      generator.add(f'{name_prefix}derivative', derivativeExpr, target=target)
+      generator.add(f'{name_prefix}derivativeTaylorExpansion',
+                    derivativeTaylorExpansionExpr,
+                    target=target)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

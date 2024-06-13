@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DRVARIABLES_T_H
 #define SEISSOL_DRVARIABLES_T_H
 
-#include <DynamicRupture/Output/DataTypes.hpp>
-#include <DynamicRupture/Misc.h>
-#include <Initializer/MemoryAllocator.h>
+#include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Output/DataTypes.hpp"
+#include "Initializer/MemoryAllocator.h"
 
 namespace seissol::unit_test::dr {
 

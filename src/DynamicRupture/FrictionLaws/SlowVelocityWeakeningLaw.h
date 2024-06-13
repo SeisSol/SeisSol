@@ -14,7 +14,7 @@ class SlowVelocityWeakeningLaw
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
 // Note that we need double precision here, since single precision led to NaNs.
@@ -77,7 +77,7 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
 #pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
@@ -85,7 +85,7 @@ class SlowVelocityWeakeningLaw
     }
   }
 
-  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
                              unsigned ltsFace) {
     [[maybe_unused]] const real tmp =
         0.5 / this->drParameters->rsSr0 *

@@ -10,27 +10,37 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
-        src/Initializer/Parameters
-        src/tests/DynamicRupture
-        src/tests/Model
-        src/tests/Reader
+        src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/tree
+        src/Modules
         src/Monitoring
-        src/SourceTerm
+        src/Parallel
         src/Physics
+        src/Reader
+        src/SourceTerm
+        src/tests/Common
+        src/tests/DynamicRupture
+        src/tests/Initializer
+        src/tests/Kernel
+        src/tests/Model
+        src/tests/Reader
+        src/tests/SourceTerm
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceClusterOnHost.h
@@ -39,20 +49,6 @@ format() {
         src/Kernels/PointSourceClusterOnDevice.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
-        src/Geometry/MeshReader.h
-        src/Geometry/MeshReader.cpp
-        src/Geometry/NetcdfReader.h
-        src/Geometry/NetcdfReader.cpp
-        src/Geometry/PUMLReader.h
-        src/Geometry/PUMLReader.cpp
-        src/Geometry/PartitioningLib.h
-        src/Geometry/PartitioningLib.cpp
-        src/Geometry/CubeGenerator.h
-        src/Geometry/CubeGenerator.cpp
-        src/Parallel/AcceleratorDevice.h
-        src/Parallel/AcceleratorDevice.cpp
-        src/Parallel/Helper.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
@@ -65,7 +61,14 @@ format() {
     local formatter="${1}"
 
     if [ ! -f "${formatter}" ]; then
-        echo "Could not find a clang-format. Please specify one as the first argument"
+        echo "Could not find clang-format. Please specify one as the first argument"
+        exit 176
+    fi
+
+    local formatter_version=$(${formatter} --version)
+    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
         exit 176
     fi
 

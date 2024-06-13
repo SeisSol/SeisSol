@@ -1,19 +1,19 @@
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
-#include <limits>
 #include <cmath>
-#include <type_traits>
+#include <limits>
 #include <random>
+#include <type_traits>
 
-#include "generated_code/kernel.h"
+#include "Model/PoroelasticSetup.h"
+#include "Model/common.hpp"
+#include "Numerical_aux/Transformation.h"
 #include "generated_code/init.h"
-#include <Numerical_aux/Transformation.h>
-#include <Model/common.hpp>
-#include <Model/PoroelasticSetup.h>
+#include "generated_code/kernel.h"
 
-#include "Kernels/common.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
+#include "Kernels/common.hpp"
 #include "generated_code/tensor.h"
 
 namespace seissol::unit_test {
@@ -21,8 +21,8 @@ namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
   protected:
   const int N = NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS * CONVERGENCE_ORDER;
-  constexpr static double const epsilon = std::numeric_limits<real>::epsilon();
-  constexpr static double const dt = 1.05109e-06;
+  constexpr static const double epsilon = std::numeric_limits<real>::epsilon();
+  constexpr static const double dt = 1.05109e-06;
   real starMatrices0[tensor::star::size(0)];
   real starMatrices1[tensor::star::size(1)];
   real starMatrices2[tensor::star::size(2)];

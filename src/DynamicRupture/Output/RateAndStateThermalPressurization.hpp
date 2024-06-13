@@ -2,6 +2,7 @@
 #define SEISSOL_DR_OUTPUT_RS_TP_HPP
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include <DynamicRupture/Output/RateAndState.hpp>
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {
@@ -11,8 +12,9 @@ class RateAndStateThermalPressurization : public RateAndState {
   protected:
   real computeFluidPressure(LocalInfo& local) override {
     using DrLtsDescrType = seissol::initializer::LTSRateAndStateThermalPressurization;
-    auto const* const pressure = local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->pressure);
-    return pressure[local.ltsId][local.nearestGpIndex];
+    const auto* const pressure =
+        getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->pressure);
+    return pressure[local.nearestGpIndex];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo& local,
@@ -21,16 +23,22 @@ class RateAndStateThermalPressurization : public RateAndState {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
       using DrLtsDescrType = seissol::initializer::LTSRateAndStateThermalPressurization;
-      auto const* const temperature =
-          local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->temperature);
-      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) =
-          temperature[local.ltsId][local.nearestGpIndex];
+      const auto* const temperature =
+          getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->temperature);
+      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.nearestGpIndex];
 
-      auto const* const pressure =
-          local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->pressure);
-      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) =
-          pressure[local.ltsId][local.nearestGpIndex];
+      const auto* const pressure =
+          getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->pressure);
+      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.nearestGpIndex];
     }
+  }
+
+  std::vector<std::size_t> getOutputVariables() const override {
+    using DrLtsDescrType = seissol::initializer::LTSRateAndStateThermalPressurization;
+    auto baseVector = RateAndState::getOutputVariables();
+    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->temperature.index);
+    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->pressure.index);
+    return baseVector;
   }
 };
 } // namespace seissol::dr::output

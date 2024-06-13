@@ -54,13 +54,13 @@
 #include <iomanip>
 
 seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
- seissolParams(parameters),
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
  m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
- m_plainGhostCellClusterIds( NULL ) {}
+ m_plainGhostCellClusterIds( NULL ),
+ seissolParams(parameters) {}
 
 seissol::initializer::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables

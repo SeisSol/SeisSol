@@ -2,7 +2,7 @@
 #define SEISSOL_DR_OUTPUT_REFINERS_HPP
 
 #include "DynamicRupture/Output/DataTypes.hpp"
-#include <Initializer/Parameters/OutputParameters.h>
+#include "Initializer/Parameters/OutputParameters.h"
 #include <memory>
 #include <tuple>
 
@@ -18,7 +18,7 @@ class FaultRefiner {
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
-  virtual int getNumSubTriangles() = 0;
+  virtual int getNumSubTriangles() const = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
@@ -35,19 +35,24 @@ class FaultRefiner {
   inline void addReceiver(Data data, TrianglePair& face);
 };
 
+class NoRefiner : public FaultRefiner {
+  public:
+  int getNumSubTriangles() const final { return 1; }
+  void refineAndAccumulate(Data data, TrianglePair face) final;
+};
+
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() final { return 3; }
+  int getNumSubTriangles() const final { return 3; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceQuadRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() final { return 4; }
+  int getNumSubTriangles() const final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
-seissol::initializer::parameters::FaultRefinement castToRefinerType(int strategy);
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy);
 } // namespace seissol::dr::output::refiner
 #endif // SEISSOL_DR_OUTPUT_REFINERS_HPP

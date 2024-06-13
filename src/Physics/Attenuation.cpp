@@ -1,6 +1,6 @@
+#include <array>
 #include <cmath>
 #include <cstddef>
-#include <array>
 
 #include <Eigen/Dense>
 

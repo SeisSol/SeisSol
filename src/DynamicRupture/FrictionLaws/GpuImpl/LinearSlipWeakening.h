@@ -99,6 +99,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
+    auto* devSlipRateMagnitude{this->slipRateMagnitude};
+    auto* devPeakSlipRate{this->peakSlipRate};
+    auto devHealingThreshold{this->drParameters->healingThreshold};
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -110,6 +113,12 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         devMu[ltsFace][pointIndex] =
             devMuS[ltsFace][pointIndex] -
             (devMuS[ltsFace][pointIndex] - devMuD[ltsFace][pointIndex]) * stateVariable[pointIndex];
+        // instantaneous healing
+        if ((devPeakSlipRate[ltsFace][pointIndex] > devHealingThreshold) &&
+            (devSlipRateMagnitude[ltsFace][pointIndex] < devHealingThreshold)) {
+          devMu[ltsFace][pointIndex] = devMuS[ltsFace][pointIndex];
+          stateVariable[pointIndex] = 0.0;
+        }
       });
     });
   }
@@ -163,15 +172,17 @@ class LinearSlipWeakeningLaw
         specialization(drParameters){};
 
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                      seissol::initializer::DynamicRupture const* const dynRup,
+                                      const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakening const* const>(dynRup);
-    this->dC = layerData.var(concreteLts->dC);
-    this->muS = layerData.var(concreteLts->muS);
-    this->muD = layerData.var(concreteLts->muD);
-    this->cohesion = layerData.var(concreteLts->cohesion);
-    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
+    this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
+    this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
+    this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
+    this->cohesion =
+        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Device);
+    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime,
+                                            seissol::initializer::AllocationPlace::Device);
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -228,6 +239,7 @@ class LinearSlipWeakeningLaw
     auto deltaT{this->deltaT[timeIndex]};
     const real tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
+    const auto tpProxyExponent{this->drParameters->tpProxyExponent};
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -235,19 +247,20 @@ class LinearSlipWeakeningLaw
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        real resampledSlipRate = SpecializationT::resampleSlipRate(
+        const real resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
         // integrate slip rate to get slip = state variable
         devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate * deltaT;
 
-        // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
         // Actually slip is already the stateVariable for this FL, but to simplify the next
         // equations we divide it here by the critical distance.
         const real localStateVariable =
-            sycl::min(sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) /
-                          devDC[ltsFace][pointIndex],
-                      static_cast<real>(1.0));
+            SpecializationT::stateVariableHook(devAccumulatedSlipMagnitude[ltsFace][pointIndex],
+                                               devDC[ltsFace][pointIndex],
+                                               tpProxyExponent,
+                                               ltsFace,
+                                               pointIndex);
 
         real f2 = 0.0;
         if (t0 == 0) {
@@ -268,14 +281,14 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters){};
+  NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  static real resampleSlipRate(real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+  static real resampleSlipRate(const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
                                size_t pointIndex) {
 
     // perform matrix vector multiplication
@@ -294,6 +307,15 @@ class NoSpecialization {
 
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
+
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                real tpProxyExponent,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+  };
+
   static real strengthHook(Details details,
                            real strength,
                            real localSlipRate,
@@ -308,18 +330,19 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters){};
+  BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
-    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
+    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
+                                              seissol::initializer::AllocationPlace::Device);
   }
 
-  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+  static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
@@ -333,6 +356,14 @@ class BiMaterialFault {
     return details;
   }
 
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                real tpProxyExponent,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+  };
+
   static real strengthHook(Details details,
                            real faultStrength,
                            real localSlipRate,
@@ -343,7 +374,6 @@ class BiMaterialFault {
                            size_t pointIndex) {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
-    assert(regularisedStrength != nullptr && "regularisedStrength is not initialized");
 
     const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                    deltaT / prakashLength);
@@ -358,6 +388,48 @@ class BiMaterialFault {
   private:
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
+
+class TPApprox {
+  public:
+  TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
+
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
+                          real fullUpdateTime) {}
+
+  static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
+                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
+    return slipRateMagnitude[pointIndex];
+  };
+
+  struct Details {
+    real (*regularisedStrength)[misc::numPaddedPoints];
+  };
+
+  Details getCurrentLayerDetails() { return Details{}; }
+
+  static real stateVariableHook(real localAccumulatedSlip,
+                                real localDc,
+                                real tpProxyExponent,
+                                size_t ltsFace,
+                                size_t pointIndex) {
+    const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
+    return 1.0 - sycl::pow(factor, -tpProxyExponent);
+  };
+
+  static real strengthHook(Details details,
+                           real strength,
+                           real localSlipRate,
+                           real deltaT,
+                           real vStar,
+                           real prakashLength,
+                           size_t ltsFace,
+                           size_t pointIndex) {
+    return strength;
+  };
+};
+
 } // namespace seissol::dr::friction_law::gpu
 
 #endif // SEISSOL_GPU_LINEARSLIPWEAKENING_H

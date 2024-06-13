@@ -18,15 +18,16 @@ template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters){};
+      : FrictionSolver(drParameters) {};
 
   /**
    * evaluates the current friction model
    */
   void evaluate(seissol::initializer::Layer& layerData,
-                seissol::initializer::DynamicRupture const* const dynRup,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -119,6 +120,15 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_END(myRegionHandle)
 
       if (this->drParameters->isFrictionEnergyRequired) {
+
+        if (this->drParameters->isCheckAbortCriteraEnabled) {
+          common::updateTimeSinceSlipRateBelowThreshold(
+              slipRateMagnitude[ltsFace],
+              ruptureTimePending[ltsFace],
+              energyData[ltsFace],
+              this->sumDt,
+              this->drParameters->terminatorSlipRateThreshold);
+        }
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

@@ -47,14 +47,14 @@
 #include <cassert>
 #include <memory>
 
-#include <Initializer/typedefs.hpp>
-#include <SourceTerm/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
+#include "SourceTerm/typedefs.hpp"
 #include <utils/logger.h>
-#include <Initializer/MemoryManager.h>
-#include <Initializer/time_stepping/LtsLayout.h>
-#include <Kernels/PointSourceCluster.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <ResultWriter/ReceiverWriter.h>
+#include "Initializer/MemoryManager.h"
+#include "Initializer/time_stepping/LtsLayout.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "ResultWriter/ReceiverWriter.h"
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "Solver/time_stepping/GhostTimeClusterFactory.h"
@@ -165,7 +165,7 @@ class seissol::time_stepping::TimeManager {
      * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> sourceClusters);
+        std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters);
 
   /**
    * Returns the writer for the receivers
@@ -188,6 +188,8 @@ class seissol::time_stepping::TimeManager {
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
     void freeDynamicResources();
+
+    void synchronizeTo(seissol::initializer::AllocationPlace place);
 
     inline const TimeStepping* getTimeStepping() {
       return &m_timeStepping;

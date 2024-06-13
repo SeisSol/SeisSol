@@ -1,11 +1,11 @@
-#include "Init.hpp"
 #include "InitIO.hpp"
+#include "Common/filesystem.h"
+#include "DynamicRupture/Misc.h"
+#include "Init.hpp"
 #include "Initializer/BasicTypedefs.hpp"
-#include <SeisSol.h>
+#include "SeisSol.h"
 #include <cstring>
 #include <vector>
-#include "DynamicRupture/Misc.h"
-#include "Common/filesystem.h"
 
 #include "Parallel/MPI.h"
 
@@ -165,8 +165,6 @@ static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
-
-  seissolInstance.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 }
 
 static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
@@ -214,8 +212,8 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }
-    MPI::mpi.barrier(MPI::mpi.comm());
   }
+  MPI::mpi.barrier(MPI::mpi.comm());
 
   // always enable checkpointing first
   enableCheckpointing(seissolInstance);

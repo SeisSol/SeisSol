@@ -7,6 +7,7 @@
 
 #include "Kernels/precision.hpp"
 #include "Numerical_aux/Functions.h"
+#include "Parallel/Runtime/Stream.hpp"
 #include "SourceTerm/typedefs.hpp"
 
 #include <algorithm>
@@ -17,7 +18,8 @@ namespace seissol::kernels {
 class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
-  virtual void addTimeIntegratedPointSources(double from, double to) = 0;
+  virtual void addTimeIntegratedPointSources(
+      double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
   virtual unsigned size() const = 0;
 };
 
@@ -34,22 +36,22 @@ class PointSourceCluster {
 template <typename MathFunctions = seissol::functions::HostStdFunctions>
 inline real computeSampleTimeIntegral(double from,
                                       double to,
-                                      double const onsetTime,
-                                      double const samplingInterval,
+                                      const double onsetTime,
+                                      const double samplingInterval,
                                       real* sample,
                                       std::size_t sampleSize) {
-  auto const integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
+  const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
      * int f(t) dt =  S0 (t1 t - 0.5 t^2) / dt + S1 (0.5 t^2 - t0 t) / dt + const, thus
      * int_tFrom^tTo f(t) dt = S0 (t1 (tTo - tFrom) - 0.5 (tTo^2 - tFrom^2)) / dt
      *                       + S1 (0.5 (tTo^2 - tFrom^2) - t0 (tTo - tFrom)) / dt
      */
-    auto const t0 = index * samplingInterval;
-    auto const t1 = t0 + samplingInterval;
-    auto const S0 = sample[index];
-    auto const S1 = sample[index + 1];
-    auto const tdiff = tTo - tFrom;
-    auto const tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
+    const auto t0 = index * samplingInterval;
+    const auto t1 = t0 + samplingInterval;
+    const auto S0 = sample[index];
+    const auto S1 = sample[index + 1];
+    const auto tdiff = tTo - tFrom;
+    const auto tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
     return (S0 * (t1 * tdiff - tdiff2) + S1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
   };
 

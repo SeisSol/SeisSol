@@ -45,9 +45,8 @@
 #ifndef SOURCETERM_POINTSOURCE_H_
 #define SOURCETERM_POINTSOURCE_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include "SourceTerm/typedefs.hpp"
-#include <array>
 
 namespace seissol::sourceterm {
 /** The local moment tensor shall be transformed into the global coordinate system.
@@ -68,14 +67,15 @@ namespace seissol::sourceterm {
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
  **/
-void transformMomentTensor(real const i_localMomentTensor[3][3],
-                           real const i_localSolidVelocityComponent[3],
-                           real i_localPressureComponent,
-                           real const i_localFluidVelocityComponent[3],
-                           real strike,
-                           real dip,
-                           real rake,
-                           AlignedArray<real, PointSources::TensorSize>& o_forceComponents);
+void transformMomentTensor(
+    const real localMomentTensor[3][3],
+    const real localSolidVelocityComponent[3],
+    real localPressureComponent,
+    const real localFluidVelocityComponent[3],
+    real strike,
+    real dip,
+    real rake,
+    seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents);
 } // namespace seissol::sourceterm
 
 #endif

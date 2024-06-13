@@ -1,20 +1,20 @@
 
-#include <vector>
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Equations/datastructures.hpp"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/ParameterDB.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/time_stepping/common.hpp"
-#include "Physics/Attenuation.hpp"
-#include "Equations/datastructures.hpp"
-#include "Initializer/tree/Lut.hpp"
 #include "Initializer/tree/LTSSync.hpp"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
+#include "Physics/Attenuation.hpp"
+#include <vector>
 
-#include "SeisSol.h"
 #include "Init.hpp"
 #include "InitModel.hpp"
+#include "SeisSol.h"
 
 #include "Parallel/MPI.h"
 
@@ -99,7 +99,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // we need to compute all model parameters before we can use them...
   // TODO(David): integrate this with the Viscoelastic material class or the ParameterDB directly?
   logDebug() << "Initializing attenuation.";
-#ifdef OPENMP
+#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
@@ -107,7 +107,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     seissol::physics::fitAttenuation(
         cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
   }
-#ifdef OPENMP
+#ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
@@ -216,6 +216,12 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping);
 
+  if (seissolParams.drParameters.etaHack != 1.0) {
+    logWarning(seissol::MPI::mpi.rank())
+        << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
+           "friction law. The results may not conform to the existing benchmarks.";
+  }
+
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsTree(),
                                                          memoryManager.getLts(),
@@ -224,7 +230,7 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                          memoryManager.getDynamicRupture(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalDataOnHost(),
-                                                         ltsInfo.timeStepping);
+                                                         seissolParams.drParameters.etaHack);
 
   memoryManager.initFrictionData();
 
@@ -348,7 +354,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo(seissol::MPI::mpi.rank()) << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<seissol::PRE_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -378,7 +384,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   watch.printTime("Model initialized in:");
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<seissol::POST_MODEL>();
+  seissol::Modules::callHook<ModuleHook::PostModel>();
 
   logInfo(seissol::MPI::mpi.rank()) << "End init model.";
 }

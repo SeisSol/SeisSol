@@ -50,7 +50,7 @@ set(DEVICE_ARCH_OPTIONS none
         bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)           # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
-set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
+set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
 set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
@@ -72,7 +72,9 @@ set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
-option(PROXY_PYBINDING "enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
+option(SHARED "Build SeisSol as shared library" OFF)
+
+option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -83,7 +85,7 @@ set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
-set(GEMM_TOOLS_LIST "auto" CACHE STRING "choose a gemm tool(s) for the code generator")
+set(GEMM_TOOLS_LIST "auto" CACHE STRING "GEMM tool(s) used for CPU code generation")
 set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
         "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
@@ -125,7 +127,8 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
 
     if (${HOST_ARCH} IN_LIST SUPPORT_LIBXSMM_JIT)
         find_package(LIBXSMM 1.17 QUIET)
-        if (LIBXSMM_FOUND)
+        find_package(BLAS QUIET)
+        if (LIBXSMM_FOUND AND BLAS_FOUND)
             message(STATUS "Found LIBXSMM_JIT, and it is supported")
             list(APPEND AUTO_GEMM_TOOLS_LIST "LIBXSMM_JIT")
         else()

@@ -118,6 +118,10 @@ class View(QWidget):
     self.differentiate.setCheckable(True)
     self.differentiate.clicked.connect(self.plot)
 
+    self.integrate = QPushButton('Integrate', self) 
+    self.integrate.setCheckable(True)
+    self.integrate.clicked.connect(self.plot)
+
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.diff)
@@ -127,6 +131,7 @@ class View(QWidget):
     toolLayout.addWidget(saveAll)
     toolLayout.addWidget(self.normalize)
     toolLayout.addWidget(self.differentiate)
+    toolLayout.addWidget(self.integrate)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -174,6 +179,11 @@ class View(QWidget):
       #differentiate traces
       for nWf, wf in enumerate(wfc):
         wfc[nWf].differentiate()
+
+    if self.integrate.isChecked():
+      #integrate traces
+      for nWf, wf in enumerate(wfc):
+        wfc[nWf].integrate()
 
     if self.diff.isChecked() and len(wfc) > 0:
       wf0 = wfc.pop()

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <cassert>
 #include "utils/logger.h"
@@ -10,9 +11,9 @@ double AbstractTimeCluster::timeStepSize() const {
   return ct.timeStepSize(syncTime);
 }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
-    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-      timeOfLastStageChange(std::chrono::steady_clock::now()) {
+AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor)
+    : timeOfLastStageChange(std::chrono::steady_clock::now()),
+      timeStepRate(timeStepRate), numberOfTimeSteps(0), executor(executor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -182,14 +183,17 @@ bool AbstractTimeCluster::mayCorrect() {
   return stepBasedCorrect;
 }
 
+Executor AbstractTimeCluster::getExecutor() const {
+  return executor;
+}
 
 bool AbstractTimeCluster::maySync() {
     return ct.stepsSinceLastSync >= ct.stepsUntilSync;
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
-  neighbors.emplace_back(other.ct.maxTimeStepSize, other.ct.timeStepRate);
-  other.neighbors.emplace_back(ct.maxTimeStepSize, ct.timeStepRate);
+  neighbors.emplace_back(other.ct.maxTimeStepSize, other.ct.timeStepRate, other.executor);
+  other.neighbors.emplace_back(ct.maxTimeStepSize, ct.timeStepRate, executor);
   neighbors.back().inbox = std::make_shared<MessageQueue>();
   other.neighbors.back().inbox = std::make_shared<MessageQueue>();
   neighbors.back().outbox = other.neighbors.back().inbox;
@@ -263,4 +267,10 @@ std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters(){
   return &neighbors;
 }
 
+bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
+  return std::any_of(neighbors.begin(), neighbors.end(), [&](auto& neighbor) {
+    return neighbor.executor != executor;
+  });
 }
+
+} // namespace seissol::time_stepping

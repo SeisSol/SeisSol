@@ -6,6 +6,7 @@
 #include "Numerical_aux/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include <array>
 
 namespace seissol::writer {
 
@@ -29,6 +30,10 @@ double& EnergiesStorage::seismicMoment() { return energies[8]; }
 
 double& EnergiesStorage::potency() { return energies[9]; }
 
+double& EnergiesStorage::totalMomentumX() { return energies[10]; }
+double& EnergiesStorage::totalMomentumY() { return energies[11]; }
+double& EnergiesStorage::totalMomentumZ() { return energies[12]; }
+
 void EnergyOutput::init(
     GlobalData* newGlobal,
     seissol::initializer::DynamicRupture* newDynRup,
@@ -48,8 +53,13 @@ void EnergyOutput::init(
   const auto rank = MPI::mpi.rank();
   logInfo(rank) << "Initializing energy output.";
 
+  energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
+  terminatorMaxTimePostRupture = parameters.terminatorMaxTimePostRupture;
+  terminatorMomentRateThreshold = parameters.terminatorMomentRateThreshold;
+  isCheckAbortCriteraSlipRateEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  isCheckAbortCriteraMomentRateEnabled = (terminatorMomentRateThreshold > 0);
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
@@ -63,8 +73,27 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
-  Modules::registerHook(*this, SIMULATION_START);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+
+  if (maxCells > 0) {
+    constexpr auto qSize = tensor::Q::size();
+    timeDerivativePlusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativeMinusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
+    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+  }
+#endif
+
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
 }
 
@@ -74,9 +103,30 @@ void EnergyOutput::syncPoint(double time) {
   logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
+  if (isCheckAbortCriteraSlipRateEnabled) {
+    reduceMinTimeSinceSlipRateBelowThreshold();
+  }
+  if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
+    double seismicMomentRate =
+        (energiesStorage.seismicMoment() - seismicMomentPrevious) / energyOutputInterval;
+    seismicMomentPrevious = energiesStorage.seismicMoment();
+    if (time > 0 && seismicMomentRate < terminatorMomentRateThreshold) {
+      minTimeSinceMomentRateBelowThreshold += energyOutputInterval;
+    } else {
+      minTimeSinceMomentRateBelowThreshold = 0.0;
+    }
+  }
+
   if (isTerminalOutputEnabled) {
     printEnergies();
   }
+  if (isCheckAbortCriteraSlipRateEnabled) {
+    checkAbortCriterion(minTimeSinceSlipRateBelowThreshold, "All slip-rate are");
+  }
+  if (isCheckAbortCriteraMomentRateEnabled) {
+    checkAbortCriterion(minTimeSinceMomentRateBelowThreshold, "The seismic moment rate is");
+  }
+
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
@@ -90,6 +140,17 @@ void EnergyOutput::simulationStart() {
     writeHeader();
   }
   syncPoint(0.0);
+}
+
+EnergyOutput::~EnergyOutput() {
+#ifdef ACL_DEVICE
+  if (timeDerivativePlusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  }
+  if (timeDerivativeMinusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  }
+#endif
 }
 
 real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
@@ -151,20 +212,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
   double& seismicMoment = energiesStorage.seismicMoment();
   double& potency = energiesStorage.potency();
+  minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
+
 #ifdef ACL_DEVICE
-  unsigned maxCells = 0;
-  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
-    maxCells = std::max(it->getNumberOfCells(), maxCells);
-  }
-
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
-  constexpr auto qSize = tensor::Q::size();
-  real* timeDerivativePlusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
 #endif
+  constexpr auto qSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
@@ -179,31 +232,31 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativePlusDevice,
-          timeDerivativePlusHost,
+          timeDerivativePlusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),
           stream);
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativeMinusDevice,
-          timeDerivativeMinusHost,
+          timeDerivativeMinusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),
           stream);
       device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     }
-    auto const timeDerivativePlusPtr = [&](unsigned i) {
+    const auto timeDerivativePlusPtr = [&](unsigned i) {
       return timeDerivativePlusHost + qSize * i;
     };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) {
+    const auto timeDerivativeMinusPtr = [&](unsigned i) {
       return timeDerivativeMinusHost + qSize * i;
     };
 #else
     real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
-    auto const timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
-    auto const timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+    const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
+    const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
@@ -249,23 +302,38 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         seismicMoment += potencyIncrease * mu;
       }
     }
-  }
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+    real localMin = std::numeric_limits<real>::max();
+
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for reduction(min : localMin) default(none)                                   \
+    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
 #endif
+    for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
+      if (faceInformation[i].plusSideOnThisRank) {
+        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+          if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
+            localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
+          }
+        }
+      }
+    }
+    minTimeSinceSlipRateBelowThreshold = std::min(localMin, minTimeSinceSlipRateBelowThreshold);
+  }
 }
 
 void EnergyOutput::computeVolumeEnergies() {
   auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
   auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  auto& totalMomentumX = energiesStorage.totalMomentumX();
+  auto& totalMomentumY = energiesStorage.totalMomentumY();
+  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
   auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
   auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
-  std::vector<Element> const& elements = meshReader->getElements();
-  std::vector<Vertex> const& vertices = meshReader->getVertices();
+  const std::vector<Element>& elements = meshReader->getElements();
+  const std::vector<Vertex>& vertices = meshReader->getVertices();
 
   const auto g = seissolInstance.getGravitationSetup().acceleration;
 
@@ -277,6 +345,9 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalAcousticKineticEnergyLocal,           \
                                                         totalElasticEnergyLocal,                   \
                                                         totalElasticKineticEnergyLocal,            \
+                                                        totalMomentumX,                            \
+                                                        totalMomentumY,                            \
+                                                        totalMomentumZ,                            \
                                                         totalPlasticMoment)                        \
     shared(elements, vertices, lts, ltsLut, global)
 #endif
@@ -327,13 +398,15 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto v = numSub(qp, uIdx + 1);
       const auto w = numSub(qp, uIdx + 2);
       const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
+      const double curMomentumX = rho * u;
+      const double curMomentumY = rho * v;
+      const double curMomentumZ = rho * w;
 
       if (std::abs(material.local.mu) < 10e-14) {
         // Acoustic
         constexpr int pIdx = 0;
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
-
         const double curAcousticEnergy = (p * p) / (2 * K);
         totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
@@ -345,6 +418,10 @@ void EnergyOutput::computeVolumeEnergies() {
               std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
+        totalMomentumX += curWeight * curMomentumX;
+        totalMomentumY += curWeight * curMomentumY;
+        totalMomentumZ += curWeight * curMomentumZ;
+
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
@@ -460,6 +537,25 @@ void EnergyOutput::reduceEnergies() {
 #endif
 }
 
+void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
+#ifdef USE_MPI
+  const auto rank = MPI::mpi.rank();
+  const auto& comm = MPI::mpi.comm();
+
+  if (rank == 0) {
+    MPI_Reduce(MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold, 1, MPI_C_REAL, MPI_MIN, 0, comm);
+  } else {
+    MPI_Reduce(&minTimeSinceSlipRateBelowThreshold,
+               &minTimeSinceSlipRateBelowThreshold,
+               1,
+               MPI_C_REAL,
+               MPI_MIN,
+               0,
+               comm);
+  }
+#endif
+}
+
 void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
@@ -483,6 +579,9 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+    const auto totalMomentumX = energiesStorage.totalMomentumX();
+    const auto totalMomentumY = energiesStorage.totalMomentumY();
+    const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
@@ -503,6 +602,8 @@ void EnergyOutput::printEnergies() {
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
+      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+                    << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
@@ -519,6 +620,31 @@ void EnergyOutput::printEnergies() {
     }
   }
 }
+void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message) {
+  const auto rank = MPI::mpi.rank();
+  bool abort = false;
+  if (rank == 0) {
+    if ((timeSinceThreshold > 0) and (timeSinceThreshold < std::numeric_limits<real>::max())) {
+      if (static_cast<double>(timeSinceThreshold) < terminatorMaxTimePostRupture) {
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
+                      << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
+      } else {
+        logInfo(rank) << prefix_message.c_str() << "below threshold since" << timeSinceThreshold
+                      << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
+                      << "s)";
+        abort = true;
+      }
+    }
+  }
+#ifdef USE_MPI
+  const auto& comm = MPI::mpi.comm();
+  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+#endif
+  if (abort) {
+    seissolInstance.simulator().abort();
+  }
+}
 
 void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::endl; }
 
@@ -529,6 +655,9 @@ void EnergyOutput::writeEnergies(double time) {
         << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
         << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
         << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
+        << time << ",momentumX," << energiesStorage.totalMomentumX() << "\n"
+        << time << ",momentumY," << energiesStorage.totalMomentumY() << "\n"
+        << time << ",momentumZ," << energiesStorage.totalMomentumZ() << "\n"
         << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
   }
   out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"

@@ -41,11 +41,11 @@
 #ifndef READER_FSRMREADER_H_
 #define READER_FSRMREADER_H_
 
-#include <vector>
+#include <Eigen/Dense>
 #include <array>
 #include <cstddef>
 #include <string>
-#include <Eigen/Dense>
+#include <vector>
 
 #include "Initializer/BasicTypedefs.hpp"
 

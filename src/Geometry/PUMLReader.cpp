@@ -36,41 +36,147 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "Geometry/MeshDefinition.h"
 #include <algorithm>
 #include <cassert>
+#include <mpi.h>
 #include <numeric>
 #include <string>
-#include <unordered_map>
 
 #include "PUMLReader.h"
 #include "PartitioningLib.h"
 
+#include "PUML/Downward.h"
+#include "PUML/Neighbor.h"
+#include "PUML/PUML.h"
 #include "PUML/Partition.h"
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
-#include "PUML/Downward.h"
-#include "PUML/Neighbor.h"
 
 #include "Monitoring/instrumentation.hpp"
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
+#include <fstream>
 #include <hdf5.h>
 #include <sstream>
-#include <fstream>
-#include <string_view>
+
+namespace {
+/*
+ * Possible types of boundary conditions for SeisSol.
+ */
+enum class BCType { internal, external, unknown };
 
 /**
- * @todo Cleanup this code
+ * Decodes the boundary condition tag into a BCType.
  */
-seissol::geometry::PUMLReader::PUMLReader(const char* meshFile,
-                                          const char* partitioningLib,
-                                          double maximumAllowedTimeStep,
-                                          const char* checkPointFile,
-                                          initializer::time_stepping::LtsWeights* ltsWeights,
-                                          double tpwgt,
-                                          bool readPartitionFromFile)
-    : seissol::geometry::MeshReader(MPI::mpi.rank()) {
+constexpr BCType bcToType(int id) {
+  if (id == 0 || id == 3 || id > 64) {
+    return BCType::internal;
+  } else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 6 || id == 7) {
+    return BCType::external;
+  } else {
+    return BCType::unknown;
+  }
+}
+
+/**
+ * Decodes the boundary condition tag into a string representation.
+ */
+inline std::string bcToString(int id) {
+  if (id == 0) {
+    return std::string("regular");
+  } else if (id == 1) {
+    return std::string("free surface");
+  } else if (id == 2) {
+    return std::string("free surface with gravity");
+  } else if (id == 3) {
+    return std::string("dynamic rupture");
+  } else if (id == 4) {
+    return std::string("dirichlet");
+  } else if (id == 5) {
+    return std::string("absorbing");
+  } else if (id == 6) {
+    return std::string("periodic");
+  } else if (id == 7) {
+    return std::string("analytic");
+  } else if (id > 64) {
+    std::stringstream s;
+    s << "fault-tagging (" << id << ")";
+    return s.str();
+  } else {
+    std::stringstream s;
+    s << "unknown (" << id << ")";
+    return s.str();
+  }
+}
+
+/**
+ * Check if the mesh is locally correct:
+ * - if a face is an internal face, the neighbor has to exist.
+ * - if a face is an external face, the neighbor must not exist.
+ * @param face: face to check
+ * @param cellNeighbors: ids of the neighboring cells
+ * @param side: side of the tetrahedron to check
+ * @param sideBC: boundary condition tag at the side to check
+ * @param cellIdAsInFile: Original cell id as it is given in the h5 file
+ */
+inline bool checkMeshCorrectnessLocally(
+    PUML::TETPUML::face_t face, int* cellNeighbors, int side, int sideBC, uint64_t cellIdAsInFile) {
+  // all of these will only issue warnings here -- the "logError()" is supposed to come later, after
+  // all warning have been logged
+
+  // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
+  if (bcToType(sideBC) == BCType::internal) {
+    if (cellNeighbors[side] < 0 && !face.isShared()) {
+      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                   << bcToString(sideBC)
+                   << "boundary condition, but the neighboring element doesn't exist";
+      return false;
+    }
+  }
+  // external boundaries must not have neighboring elements:
+  else if (bcToType(sideBC) == BCType::external) {
+    if (cellNeighbors[side] >= 0 || face.isShared()) {
+      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+                   << bcToString(sideBC) << "boundary condition, but a neighboring element exists";
+      return false;
+    }
+  }
+  // ignore unknown boundary conditions and warn
+  else {
+    logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a boundary condition ("
+                 << sideBC << ") which is not understood by this version of SeisSol";
+    return true;
+  }
+  return true;
+}
+
+// helper arrays
+
+// converts the PUML vertex indexing to the internal SeisSol indexing
+const int PumlFaceToSeisSol[4] = {0, 1, 3, 2};
+
+// indexes the vertices on each face i (or FaceVertexToOrientation[i][j] == -1 to indicate that the
+// vertex does not lie on it)
+const int FaceVertexToOrientation[4][4] = {
+    {0, 2, 1, -1}, {0, 1, -1, 2}, {0, -1, 2, 1}, {-1, 0, 1, 2}};
+
+// the first vertex on the face (i.e. FirstFaceVertex[i] == j, where j is the lowest index in
+// FaceVertexToOrientation[i] to not be -1)
+const int FirstFaceVertex[4] = {0, 0, 0, 1};
+} // namespace
+
+seissol::geometry::PUMLReader::PUMLReader(
+    const char* meshFile,
+    const char* partitioningLib,
+    double maximumAllowedTimeStep,
+    const char* checkPointFile,
+    seissol::initializer::parameters::BoundaryFormat boundaryFormat,
+    initializer::time_stepping::LtsWeights* ltsWeights,
+    double tpwgt,
+    bool readPartitionFromFile)
+    : seissol::geometry::MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat) {
   PUML::TETPUML puml;
   puml.setComm(MPI::mpi.comm());
 
@@ -94,12 +200,28 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   std::string file(meshFile);
 
   puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
-  puml.addData((file + ":/group").c_str(), PUML::CELL);
-  puml.addData((file + ":/boundary").c_str(), PUML::CELL);
+  puml.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
+
+  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
+    puml.addData<uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
+  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I64) {
+    puml.addData<uint64_t>((file + ":/boundary").c_str(), PUML::CELL, {});
+  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
+    puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
+  }
   const auto numTotalCells = puml.numTotalCells();
-  std::vector<int> cellIdsAsInFile(numTotalCells);
-  std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), 0);
-  puml.addData(cellIdsAsInFile.data(), numTotalCells, PUML::CELL);
+
+  // TODO(David): change to uint64_t/size_t once we have an MPI module for that ready
+  const size_t localCells = puml.numOriginalCells();
+  size_t localStart = 0;
+
+#ifdef USE_MPI
+  MPI_Exscan(&localCells, &localStart, 1, PUML::MPITypeInfer<size_t>::type(), MPI_SUM, puml.comm());
+#endif
+
+  std::vector<size_t> cellIdsAsInFile(localCells);
+  std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
+  puml.addDataArray(cellIdsAsInFile.data(), PUML::CELL, {});
 }
 
 int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
@@ -275,7 +397,7 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
         MPI_Allgather(
             &tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
         double sum = 0.0;
-        for (auto const& w : nodeWeights) {
+        for (const auto& w : nodeWeights) {
           sum += w;
         }
         for (auto& w : nodeWeights) {
@@ -322,9 +444,9 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   const std::vector<PUML::TETPUML::face_t>& faces = puml.faces();
   const std::vector<PUML::TETPUML::vertex_t>& vertices = puml.vertices();
 
-  const int* group = puml.cellData(0);
-  const int* boundaryCond = puml.cellData(1);
-  const int* cellIdsAsInFile = puml.cellData(2);
+  const int* group = reinterpret_cast<const int*>(puml.cellData(0));
+  const void* boundaryCond = puml.cellData(1);
+  const size_t* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -332,7 +454,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   // Compute everything local
   m_elements.resize(cells.size());
-  for (unsigned int i = 0; i < cells.size(); i++) {
+  for (std::size_t i = 0; i < cells.size(); i++) {
+    m_elements[i].globalId = cellIdsAsInFile[i];
     m_elements[i].localId = i;
 
     // Vertices
@@ -344,57 +467,57 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
     PUML::Downward::faces(puml, cells[i], faceids);
     int neighbors[4];
     PUML::Neighbor::face(puml, i, neighbors);
-    for (unsigned int j = 0; j < 4; j++) {
-      int bcCurrentFace = (boundaryCond[i] >> (j * 8)) & 0xFF;
+    for (int j = 0; j < 4; j++) {
+      int bcCurrentFace = decodeBoundary(boundaryCond, i, j, boundaryFormat);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally(
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
       isMeshCorrect &= isLocallyCorrect;
       if (neighbors[j] < 0) {
-        m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = cells.size();
+        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = cells.size();
 
         if (!faces[faceids[j]].isShared()) {
           // Boundary sides
-          m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
+          m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
         } else {
           // MPI Boundary
           neighborInfo[faces[faceids[j]].shared()[0]].push_back(faceids[j]);
 
-          m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = faces[faceids[j]].shared()[0];
+          m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = faces[faceids[j]].shared()[0];
         }
       } else {
         assert(neighbors[j] >= 0 && static_cast<unsigned>(neighbors[j]) < cells.size());
 
-        m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = neighbors[j];
+        m_elements[i].neighbors[PumlFaceToSeisSol[j]] = neighbors[j];
 
         int nfaces[4];
         PUML::Neighbor::face(puml, neighbors[j], nfaces);
         int* back = std::find(nfaces, nfaces + 4, i);
         assert(back < nfaces + 4);
 
-        m_elements[i].neighborSides[FACE_PUML2SEISSOL[j]] = FACE_PUML2SEISSOL[back - nfaces];
+        m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
 
         const unsigned int firstVertex =
-            m_elements[i].vertices[FIRST_FACE_VERTEX[FACE_PUML2SEISSOL[j]]];
+            m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
         unsigned int nvertices[4];
         PUML::Downward::vertices(puml, cells[neighbors[j]], nvertices);
         unsigned int* neighborFirstVertex = std::find(nvertices, nvertices + 4, firstVertex);
 
-        m_elements[i].sideOrientations[FACE_PUML2SEISSOL[j]] =
-            FACEVERTEX2ORIENTATION[m_elements[i].neighborSides[FACE_PUML2SEISSOL[j]]]
-                                  [neighborFirstVertex - nvertices];
-        assert(m_elements[i].sideOrientations[FACE_PUML2SEISSOL[j]] >= 0);
+        m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
+            FaceVertexToOrientation[m_elements[i].neighborSides[PumlFaceToSeisSol[j]]]
+                                   [neighborFirstVertex - nvertices];
+        assert(m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] >= 0);
 
-        m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
+        m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
       }
 
       int faultTag = bcCurrentFace;
       if (bcCurrentFace > 64) {
         bcCurrentFace = 3;
       }
-      m_elements[i].boundaries[FACE_PUML2SEISSOL[j]] = bcCurrentFace;
-      m_elements[i].faultTags[FACE_PUML2SEISSOL[j]] = faultTag;
-      m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
+      m_elements[i].boundaries[PumlFaceToSeisSol[j]] = bcCurrentFace;
+      m_elements[i].faultTags[PumlFaceToSeisSol[j]] = faultTag;
+      m_elements[i].mpiIndices[PumlFaceToSeisSol[j]] = 0;
     }
 
     m_elements[i].group = group[i];
@@ -459,12 +582,12 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
       // First vertex of the face on the boundary
       const unsigned int firstVertex =
-          m_elements[cellIds[0]].vertices[FIRST_FACE_VERTEX[FACE_PUML2SEISSOL[side]]];
+          m_elements[cellIds[0]].vertices[FirstFaceVertex[PumlFaceToSeisSol[side]]];
       copyFirstVertex[k][i] = vertices[firstVertex].gid();
 
       // Set the MPI index
-      assert(m_elements[cellIds[0]].mpiIndices[FACE_PUML2SEISSOL[side]] == 0);
-      m_elements[cellIds[0]].mpiIndices[FACE_PUML2SEISSOL[side]] = i;
+      assert(m_elements[cellIds[0]].mpiIndices[PumlFaceToSeisSol[side]] == 0);
+      m_elements[cellIds[0]].mpiIndices[PumlFaceToSeisSol[side]] = i;
     }
 
     MPI_Isend(copySide[k],
@@ -500,7 +623,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
       int side = copySide[k][i];
       int gSide = ghostSide[k][i];
-      m_elements[cellIds[0]].neighborSides[FACE_PUML2SEISSOL[side]] = FACE_PUML2SEISSOL[gSide];
+      m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
       unsigned long nvertices[4];
@@ -509,9 +632,9 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
       unsigned long* localFirstVertex = std::find(nvertices, nvertices + 4, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 
-      m_elements[cellIds[0]].sideOrientations[FACE_PUML2SEISSOL[side]] =
-          FACEVERTEX2ORIENTATION[FACE_PUML2SEISSOL[side]][localFirstVertex - nvertices];
-      assert(m_elements[cellIds[0]].sideOrientations[FACE_PUML2SEISSOL[side]] >= 0);
+      m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] =
+          FaceVertexToOrientation[PumlFaceToSeisSol[side]][localFirstVertex - nvertices];
+      assert(m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] >= 0);
     }
 
     delete[] copySide[k];
@@ -528,8 +651,10 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   // Set vertices
   m_vertices.resize(vertices.size());
-  for (unsigned int i = 0; i < vertices.size(); i++) {
+  for (std::size_t i = 0; i < vertices.size(); i++) {
     memcpy(m_vertices[i].coords, vertices[i].coordinate(), 3 * sizeof(double));
+
+    std::vector<int> elementsInt;
 
     PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
   }
@@ -538,23 +663,16 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
                                                   int rank,
                                                   const std::vector<unsigned int>& faces) {
-  unsigned int id = m_MPINeighbors.size();
+  std::size_t id = m_MPINeighbors.size();
   MPINeighbor& neighbor = m_MPINeighbors[rank];
 
   neighbor.localID = id;
   neighbor.elements.resize(faces.size());
 
-  for (unsigned int i = 0; i < faces.size(); i++) {
+  for (std::size_t i = 0; i < faces.size(); i++) {
     int cellIds[2];
     PUML::Upward::cells(puml, puml.faces()[faces[i]], cellIds);
 
     neighbor.elements[i].localElement = cellIds[0];
   }
 }
-
-int seissol::geometry::PUMLReader::FACE_PUML2SEISSOL[4] = {0, 1, 3, 2};
-
-int seissol::geometry::PUMLReader::FACEVERTEX2ORIENTATION[4][4] = {
-    {0, 2, 1, -1}, {0, 1, -1, 2}, {0, -1, 2, 1}, {-1, 0, 1, 2}};
-
-int seissol::geometry::PUMLReader::FIRST_FACE_VERTEX[4] = {0, 0, 0, 1};
