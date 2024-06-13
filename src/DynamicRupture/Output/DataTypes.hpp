@@ -133,6 +133,9 @@ struct ReceiverOutputData {
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
+
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::vector<std::size_t> deviceIndices;
 };
 } // namespace seissol::dr
 

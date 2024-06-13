@@ -40,6 +40,7 @@
 #ifndef KERNELS_RECEIVER_H_
 #define KERNELS_RECEIVER_H_
 
+#include <Common/Executor.hpp>
 #include <Eigen/Dense>
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
@@ -63,10 +64,11 @@ namespace seissol {
       Receiver(unsigned pointId,
                Eigen::Vector3d position,
                double const* elementCoords[4],
-               kernels::LocalData data, size_t reserved)
+               kernels::LocalData dataHost, kernels::LocalData dataDevice, size_t reserved)
           : pointId(pointId),
             position(std::move(position)),
-            data(data) {
+            dataHost(dataHost),
+            dataDevice(dataDevice) {
         output.reserve(reserved);
 
         auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
@@ -78,7 +80,8 @@ namespace seissol {
       Eigen::Vector3d position;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
       basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-      kernels::LocalData data;
+      kernels::LocalData dataHost;
+      kernels::LocalData dataDevice;
       std::vector<real> output;
     };
 
@@ -115,7 +118,9 @@ namespace seissol {
       //! Returns new receiver time
       double calcReceivers( double time,
                             double expansionPoint,
-                            double timeStepWidth );
+                            double timeStepWidth,
+                            Executor executor,
+                            void* stream );
 
       std::vector<Receiver>::iterator begin() {
         return m_receivers.begin();

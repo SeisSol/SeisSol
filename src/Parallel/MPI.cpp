@@ -40,9 +40,9 @@
 
 #include "MPI.h"
 #include "utils/stringutils.h"
-#include <unistd.h>
-#include <cstdlib>
 #include <cctype>
+#include <cstdlib>
+#include <unistd.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
@@ -125,7 +125,7 @@ void seissol::MPI::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-      logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
   }
 }
 

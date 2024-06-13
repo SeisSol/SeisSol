@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Seissol Group
+// Copyright (c) 2024 SeisSol Group
 // Copyright (c) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -18,86 +18,82 @@
 
 namespace seissol::kernels {
 
-PointSourceClusterOnDevice::PointSourceClusterOnDevice(sourceterm::ClusterMapping mapping,
-                                                       sourceterm::PointSources sources)
-    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
+PointSourceClusterOnDevice::PointSourceClusterOnDevice(
+    std::shared_ptr<sourceterm::ClusterMapping> mapping,
+    std::shared_ptr<sourceterm::PointSources> sources)
+    : clusterMapping_(mapping), sources_(sources) {}
 
-unsigned PointSourceClusterOnDevice::size() const { return sources_.numberOfSources; }
+unsigned PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
 
-void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, double to) {
+void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
+    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
-  auto& mapping = clusterMapping_.cellToSources;
+  auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
-    auto* mapping_ptr = mapping.data();
-    auto* mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources.data();
-    auto* tensor = sources_.tensor.data();
-    auto* A = sources_.A.data();
-    auto* stiffnessTensor = sources_.stiffnessTensor.data();
-    auto* onsetTime = sources_.onsetTime.data();
-    auto* samplingInterval = sources_.samplingInterval.data();
-    auto sampleOffsets = std::array<std::size_t*, 3u>{sources_.sampleOffsets[0].data(),
-                                                      sources_.sampleOffsets[1].data(),
-                                                      sources_.sampleOffsets[2].data()};
+    runtime.syncToSycl(&queue);
+
+    auto* mappingPtr = mapping.data();
+    auto* mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources.data();
+    auto* tensor = sources_->tensor.data();
+    auto* A = sources_->A.data();
+    auto* stiffnessTensor = sources_->stiffnessTensor.data();
+    auto* onsetTime = sources_->onsetTime.data();
+    auto* samplingInterval = sources_->samplingInterval.data();
+    auto sampleOffsets = std::array<std::size_t*, 3u>{sources_->sampleOffsets[0].data(),
+                                                      sources_->sampleOffsets[1].data(),
+                                                      sources_->sampleOffsets[2].data()};
     auto sample = std::array<real*, 3u>{
-        sources_.sample[0].data(), sources_.sample[1].data(), sources_.sample[2].data()};
+        sources_->sample[0].data(), sources_->sample[1].data(), sources_->sample[2].data()};
 
     sycl::range rng{mapping.size()};
-    if (sources_.mode == sourceterm::PointSources::NRF) {
-      queue
-          .submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(rng, [=](sycl::item<1> id) {
-              unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-              unsigned endSource =
-                  mapping_ptr[id[0]].pointSourcesOffset + mapping_ptr[id[0]].numberOfPointSources;
-              for (unsigned source = startSource; source < endSource; ++source) {
-                std::array<real, 3u> slip;
-                for (int i = 0; i < 3; ++i) {
-                  auto o0 = sampleOffsets[i][source];
-                  auto o1 = sampleOffsets[i][source + 1];
-                  slip[i] = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
-                      from,
-                      to,
-                      onsetTime[source],
-                      samplingInterval[source],
-                      sample[i] + o0,
-                      o1 - o0);
-                }
+    if (sources_->mode == sourceterm::PointSources::NRF) {
+      queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::item<1> id) {
+          unsigned startSource = mappingPtr[id[0]].pointSourcesOffset;
+          unsigned endSource =
+              mappingPtr[id[0]].pointSourcesOffset + mappingPtr[id[0]].numberOfPointSources;
+          for (unsigned source = startSource; source < endSource; ++source) {
+            std::array<real, 3u> slip;
+            for (int i = 0; i < 3; ++i) {
+              auto o0 = sampleOffsets[i][source];
+              auto o1 = sampleOffsets[i][source + 1];
+              slip[i] = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
+                  from, to, onsetTime[source], samplingInterval[source], sample[i] + o0, o1 - o0);
+            }
 
-                addTimeIntegratedPointSourceNRF(slip,
-                                                mInvJInvPhisAtSources[source].data(),
-                                                tensor[source].data(),
-                                                A[source],
-                                                stiffnessTensor[source].data(),
-                                                from,
-                                                to,
-                                                *mapping_ptr[id[0]].dofs);
-              }
-            });
-          })
-          .wait();
+            addTimeIntegratedPointSourceNRF(slip,
+                                            mInvJInvPhisAtSources[source].data(),
+                                            tensor[source].data(),
+                                            A[source],
+                                            stiffnessTensor[source].data(),
+                                            from,
+                                            to,
+                                            *mappingPtr[id[0]].dofs);
+          }
+        });
+      });
     } else {
-      queue
-          .submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(rng, [=](sycl::item<1> id) {
-              unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-              unsigned endSource =
-                  mapping_ptr[id[0]].pointSourcesOffset + mapping_ptr[id[0]].numberOfPointSources;
-              for (unsigned source = startSource; source < endSource; ++source) {
-                auto o0 = sampleOffsets[0][source];
-                auto o1 = sampleOffsets[0][source + 1];
-                real slip = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
-                    from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
-                addTimeIntegratedPointSourceFSRM(slip,
-                                                 mInvJInvPhisAtSources[source].data(),
-                                                 tensor[source].data(),
-                                                 from,
-                                                 to,
-                                                 *mapping_ptr[id[0]].dofs);
-              }
-            });
-          })
-          .wait();
+      queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::item<1> id) {
+          unsigned startSource = mappingPtr[id[0]].pointSourcesOffset;
+          unsigned endSource =
+              mappingPtr[id[0]].pointSourcesOffset + mappingPtr[id[0]].numberOfPointSources;
+          for (unsigned source = startSource; source < endSource; ++source) {
+            auto o0 = sampleOffsets[0][source];
+            auto o1 = sampleOffsets[0][source + 1];
+            real slip = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
+                from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
+            addTimeIntegratedPointSourceFSRM(slip,
+                                             mInvJInvPhisAtSources[source].data(),
+                                             tensor[source].data(),
+                                             from,
+                                             to,
+                                             *mappingPtr[id[0]].dofs);
+          }
+        });
+      });
     }
+    runtime.syncFromSycl(&queue);
   }
 }
 

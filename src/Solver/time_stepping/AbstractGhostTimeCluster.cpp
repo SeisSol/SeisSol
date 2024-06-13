@@ -96,7 +96,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
                                                  int globalTimeClusterId,
                                                  int otherGlobalTimeClusterId,
                                                  const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {

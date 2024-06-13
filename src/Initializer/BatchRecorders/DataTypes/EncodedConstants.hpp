@@ -32,6 +32,7 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
+    Analytical,
     Count
   };
 };

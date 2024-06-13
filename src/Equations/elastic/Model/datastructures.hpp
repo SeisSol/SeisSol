@@ -52,6 +52,14 @@ namespace seissol {
       double lambda;
       double mu;
 
+      double getLambdaBar() const override {
+        return lambda;
+      }
+
+      double getMuBar() const override {
+        return mu;
+      }
+
       ElasticMaterial() {};
       ElasticMaterial(double* materialValues, int numMaterialValues)
       {

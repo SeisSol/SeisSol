@@ -18,6 +18,14 @@ namespace seissol {
       double rhoFluid;
       double viscosity;
 
+      double getLambdaBar() const override {
+        return lambda;
+      }
+
+      double getMuBar() const override {
+        return mu;
+      }
+
       PoroElasticMaterial() {}
 
       PoroElasticMaterial( double* materialValues, int numMaterialValues)
