@@ -59,8 +59,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
-	const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
-	const auto* devNucleationStressInFaultCS2{this->nucleationStressInFaultCS2};
+        const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        const auto* devNucleationStressInFaultCS2{this->nucleationStressInFaultCS2};
         auto* devInitialPressure{this->initialPressure};
         const auto* devNucleationPressure{this->nucleationPressure};
 
@@ -76,7 +76,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             common::adjustInitialStress<gpuRangeType, StdMath>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
-		devNucleationStressInFaultCS2[ltsFace],
+                devNucleationStressInFaultCS2[ltsFace],
                 devInitialPressure[ltsFace],
                 devNucleationPressure[ltsFace],
                 fullUpdateTime,
