@@ -56,15 +56,15 @@
 namespace {
 #ifdef MULTIPLE_SIMULATIONS
 template <typename T, typename F, typename... Args>
-T multisimWrap(F&& function, size_t sim, Args... args) {
-  return std::invoke(std::forward<F>(function), sim, args...);
+T multisimWrap(F&& function, size_t sim, Args&&... args) {
+  return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
 }
 constexpr size_t MultisimStart = init::QAtPoint::Start[0];
 constexpr size_t MultisimEnd = init::QAtPoint::Stop[0];
 #else
 template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args... args) {
-  return std::invoke(std::forward<F>(function), args...);
+auto multisimWrap(F&& function, size_t sim, Args&&... args) {
+  return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
 }
 constexpr size_t MultisimStart = 0;
 constexpr size_t MultisimEnd = 1;
