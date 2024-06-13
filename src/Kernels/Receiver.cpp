@@ -146,32 +146,6 @@ double ReceiverCluster::calcReceivers(
     outReceiverTime += m_samplingInterval;
   }
 
-  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
-#ifdef USE_STP
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
-  kernel::evaluateDOFSAtPointSTP krnl;
-  krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.spaceTimePredictor = stp;
-  kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
-  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-  derivativeKrnl.spaceTimePredictor = stp;
-#else
-  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
-
-  kernel::evaluateDOFSAtPoint krnl;
-  krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.Q = timeEvaluated;
-  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
-  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-  derivativeKrnl.Q = timeEvaluated;
-#endif
-
-  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
-
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
@@ -184,6 +158,33 @@ double ReceiverCluster::calcReceivers(
 #pragma omp parallel for schedule(static)
 #endif
     for (size_t i = 0; i < m_receivers.size(); ++i) {
+      alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+      alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+      alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+#ifdef USE_STP
+      alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+      kernel::evaluateDOFSAtPointSTP krnl;
+      krnl.QAtPoint = timeEvaluatedAtPoint;
+      krnl.spaceTimePredictor = stp;
+      kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
+      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+      derivativeKrnl.spaceTimePredictor = stp;
+#else
+      alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+
+      kernel::evaluateDOFSAtPoint krnl;
+      krnl.QAtPoint = timeEvaluatedAtPoint;
+      krnl.Q = timeEvaluated;
+      kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+      derivativeKrnl.Q = timeEvaluated;
+#endif
+
+      auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+      auto qDerivativeAtPoint =
+          init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+
       auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint =
