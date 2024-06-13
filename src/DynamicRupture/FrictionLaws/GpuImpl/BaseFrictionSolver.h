@@ -158,6 +158,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                         devTimeWeights,
                                                         devSpaceWeights,
                                                         devGodunovData[ltsFace],
+                                                        devSlipRateMagnitude[ltsFace],
                                                         pointIndex);
           }
         });
