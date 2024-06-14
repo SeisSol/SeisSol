@@ -142,6 +142,8 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 double ReceiverCluster::calcReceivers(
     double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
 
+  std::size_t ncols = this->ncols();
+
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;
@@ -155,10 +157,11 @@ double ReceiverCluster::calcReceivers(
 #endif
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
+    // heuristic; to avoid the overhead from the parallel region
     auto threshold = omp_get_num_threads() * 100;
     auto recvCount = m_receivers.size();
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) if(recvCount >= threshold)
+#pragma omp parallel for schedule(static) if (recvCount >= threshold)
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
       alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
@@ -231,12 +234,8 @@ double ReceiverCluster::calcReceivers(
         krnl.execute();
         derivativeKrnl.execute();
 
-        receiver.output.resize(ncols());
-
-        auto receiverIterator = receiver.output.begin();
-
-        *receiverIterator = receiverTime;
-        ++receiverIterator;
+        // note: necessary receiver space is reserved in advance
+        receiver.output.push_back(receiverTime);
         for (unsigned sim = MultisimStart; sim < MultisimEnd; ++sim) {
           for (auto quantity : m_quantities) {
             if (!std::isfinite(multisimWrap(qAtPoint, sim, quantity))) {
@@ -244,11 +243,10 @@ double ReceiverCluster::calcReceivers(
                          << receiver.position[1] << "," << receiver.position[2] << "."
                          << "Aborting.";
             }
-            *receiverIterator = multisimWrap(qAtPoint, sim, quantity);
-            ++receiverIterator;
+            receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));
           }
           for (const auto& derived : derivedQuantities) {
-            derived->compute(sim, receiverIterator, qAtPoint, qDerivativeAtPoint);
+            derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
           }
         }
 
@@ -296,59 +294,45 @@ size_t ReceiverCluster::ncols() const {
 
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
-                               std::vector<real>::iterator& iterator,
+                               std::vector<real>& output,
                                seissol::init::QAtPoint::view::type& qAtPoint,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
-  *iterator =
-      (multisimWrap(qDerivativeAtPoint, sim, 8, 1) - multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-  ++iterator;
-  *iterator =
-      (multisimWrap(qDerivativeAtPoint, sim, 6, 2) - multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-  ++iterator;
-  *iterator =
-      (multisimWrap(qDerivativeAtPoint, sim, 7, 0) - multisimWrap(qDerivativeAtPoint, sim, 6, 1));
-  ++iterator;
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
+                   multisimWrap(qDerivativeAtPoint, sim, 7, 2));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
+                   multisimWrap(qDerivativeAtPoint, sim, 8, 0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
+                   multisimWrap(qDerivativeAtPoint, sim, 6, 1));
 }
 
 std::vector<std::string> ReceiverStrain::quantities() const {
   return {"epsxx", "epsxy", "epsxz", "epsyx", "epsyy", "epsyz", "epszx", "epszy", "epszz"};
 }
 void ReceiverStrain::compute(size_t sim,
-                             std::vector<real>::iterator& iterator,
+                             std::vector<real>& output,
                              seissol::init::QAtPoint::view::type& qAtPoint,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
-  *iterator = multisimWrap(qDerivativeAtPoint, sim, 6, 0);
-  ++iterator;
-  *iterator =
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 0));
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 6, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
-      2;
-  ++iterator;
-  *iterator =
+      2);
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 6, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
-      2;
-  ++iterator;
-
-  *iterator =
+      2);
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 7, 0) + multisimWrap(qDerivativeAtPoint, sim, 6, 1)) /
-      2;
-  ++iterator;
-  *iterator = multisimWrap(qDerivativeAtPoint, sim, 7, 1);
-  ++iterator;
-  *iterator =
+      2);
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 1));
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 7, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
-      2;
-  ++iterator;
-
-  *iterator =
+      2);
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 8, 0) + multisimWrap(qDerivativeAtPoint, sim, 6, 2)) /
-      2;
-  ++iterator;
-  *iterator =
+      2);
+  output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 8, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 2)) /
-      2;
-  ++iterator;
-  *iterator = multisimWrap(qDerivativeAtPoint, sim, 8, 2);
-  ++iterator;
+      2);
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 2));
 }
 
 } // namespace seissol::kernels
