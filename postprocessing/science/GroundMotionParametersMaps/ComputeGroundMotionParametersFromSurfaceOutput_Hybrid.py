@@ -300,5 +300,10 @@ if irank==0:
     if nranks > 1:
         myres = np.concatenate(myres, axis=0)
     geom = sx.ReadGeometry()
-    sxw.write_seissol_output(f"{prefixGME}{prefixType}", geom, connect, dataName,
-                             [myres[:,i] for i in range(myres.shape[1])], 0, [0])
+    sxw.write(
+        f"{prefixGME}{prefixType}",
+        geom,
+        connect,
+        {name: myres[:,i] for i, name in enumerate(dataName)},
+        dictTime=None,
+    )
