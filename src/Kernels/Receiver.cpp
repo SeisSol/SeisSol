@@ -47,6 +47,7 @@
 #include <Common/Executor.hpp>
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/common.hpp>
+#include <omp.h>
 #include <unordered_map>
 
 #ifdef ACL_DEVICE
@@ -154,10 +155,12 @@ double ReceiverCluster::calcReceivers(
 #endif
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
+    auto threshold = omp_get_num_threads() * 100;
+    auto recvCount = m_receivers.size();
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) if(recvCount >= threshold)
 #endif
-    for (size_t i = 0; i < m_receivers.size(); ++i) {
+    for (size_t i = 0; i < recvCount; ++i) {
       alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
       alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
