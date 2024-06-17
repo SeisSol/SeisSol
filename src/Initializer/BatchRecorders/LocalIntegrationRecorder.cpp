@@ -104,20 +104,22 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* dofsAne = currentLayer->var(currentHandler->dofsAne, AllocationPlace::Device);
       dofsAnePtrs[cell] = dofsAne[cell];
 
-      auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch, AllocationPlace::Device);
+      auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch,
+                                                         AllocationPlace::Device);
       idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
 
-      auto* derivativesExt =
-          currentLayer->getScratchpadMemory(currentHandler->derivativesExtScratch, AllocationPlace::Device);
+      auto* derivativesExt = currentLayer->getScratchpadMemory(
+          currentHandler->derivativesExtScratch, AllocationPlace::Device);
       derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
                                  (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
 
-      auto* derivativesAne =
-          currentLayer->getScratchpadMemory(currentHandler->derivativesAneScratch, AllocationPlace::Device);
+      auto* derivativesAne = currentLayer->getScratchpadMemory(
+          currentHandler->derivativesAneScratch, AllocationPlace::Device);
       derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
                                  (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
 
-      auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
+      auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
+                                                        AllocationPlace::Device);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
 
@@ -188,7 +190,8 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         dofsPtrs.push_back(static_cast<real*>(data.dofs()));
         aplusTPtrs.push_back(static_cast<real*>(data.localIntegration().nApNm1[face]));
 #ifdef USE_VISCOELASTIC2
-        auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
+        auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
+                                                          AllocationPlace::Device);
         dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
 #endif
       }

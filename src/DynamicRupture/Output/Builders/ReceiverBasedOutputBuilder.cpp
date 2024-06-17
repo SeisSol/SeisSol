@@ -12,6 +12,7 @@
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
+#include <TensorForge/TensorView.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -22,7 +23,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <TensorForge/TensorView.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"

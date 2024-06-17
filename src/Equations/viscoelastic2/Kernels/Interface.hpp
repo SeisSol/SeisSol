@@ -56,8 +56,8 @@ namespace seissol::kernels {
     LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
     LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 #else
-    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, localIntegrationOnDevice, neighIntegrationOnDevice, dofs, dofsAne, faceDisplacements, plasticity, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, neighIntegrationOnDevice, dofs, dofsAne)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, dofsAne, faceDisplacements, faceDisplacementsDevice, plasticity, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 #endif
 } // namespace seissol::kernels
 

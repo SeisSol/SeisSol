@@ -105,7 +105,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
 
 #ifdef USE_VISCOELASTIC2
-  auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
+  auto* dofsExt =
+      currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
 #endif
 
   const auto size = currentLayer->getNumberOfCells();

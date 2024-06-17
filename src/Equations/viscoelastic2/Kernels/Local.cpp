@@ -175,7 +175,8 @@ void seissol::kernels::Local::computeBatchedIntegral(
   ConditionalIndicesTable& indicesTable,
   kernels::LocalData::Loader& loader,
   LocalTmp& tmp,
-  double timeStepWidth) {
+  double timeStepWidth,
+  seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -205,7 +206,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
       starOffset += tensor::star::size(i);
     }
     volKrnl.linearAllocator.initialize(tmpMem);
-    volKrnl.streamPtr = device.api->getDefaultStream();
+    volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
   }
 
@@ -220,7 +221,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
       localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
-      localFluxKrnl.streamPtr = device.api->getDefaultStream();
+      localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
   }
@@ -238,7 +239,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
     localKrnl.w = const_cast<const real **>(entry.get(inner_keys::Wp::Id::Omega)->getDeviceDataPtr());
     localKrnl.E = const_cast<const real **>(entry.get(inner_keys::Wp::Id::E)->getDeviceDataPtr());
     localKrnl.linearAllocator.initialize(tmpMem);
-    localKrnl.streamPtr = device.api->getDefaultStream();
+    localKrnl.streamPtr = runtime.stream();
     localKrnl.execute();
   }
   if (tmpMem != nullptr) {
@@ -253,6 +254,9 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
     ConditionalPointersToRealsTable& dataTable,
     ConditionalIndicesTable& indicesTable,
     kernels::LocalData::Loader& loader,
+    seissol::initializer::Layer& layer,
+    seissol::initializer::LTS& lts,
     double time,
-    double timeStepWidth) {
+    double timeStepWidth,
+    seissol::parallel::runtime::StreamRuntime& runtime) {
     }
