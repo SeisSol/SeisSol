@@ -354,7 +354,7 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters) {
+    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters) {
   for (auto& cluster : clusters) {
     auto layerClusters = sourceClusters.find(cluster->getLayerType());
     if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
