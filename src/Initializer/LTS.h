@@ -121,6 +121,10 @@ struct seissol::initializer::LTS {
   ScratchpadMemory                        integratedDofsScratch;
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
+  ScratchpadMemory                        derivativesExtScratch;
+  ScratchpadMemory                        derivativesAneScratch;
+  ScratchpadMemory                        idofsAneScratch;
+  ScratchpadMemory                        dofsExtScratch;
   ScratchpadMemory                        analyticScratch;
 #endif
   
@@ -161,6 +165,10 @@ struct seissol::initializer::LTS {
     tree.addVar(   boundaryMappingDevice, LayerMask(Ghost),     1,      AllocationMode::HostOnly, true );
 
 #ifdef ACL_DEVICE
+    tree.addScratchpadMemory(derivativesExtScratch,               1,      AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(derivativesAneScratch,               1,      AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(idofsAneScratch,               1,      AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(dofsExtScratch,               1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(  integratedDofsScratch,             1,      AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch,                  1,      AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      AllocationMode::DeviceOnly);

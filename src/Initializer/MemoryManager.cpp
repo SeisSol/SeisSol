@@ -722,6 +722,16 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
                              derivativesCounter * totalDerivativesSize * sizeof(real));
     layer->setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
+#ifdef USE_VISCOELASTIC2
+    layer->setScratchpadSize(lts.idofsAneScratch,
+                             layer->getNumberOfCells() * tensor::Iane::size() * sizeof(real));
+    layer->setScratchpadSize(lts.derivativesExtScratch,
+                              layer->getNumberOfCells() * (tensor::dQext::size(1) + tensor::dQext::size(2)) * sizeof(real));
+    layer->setScratchpadSize(lts.derivativesAneScratch,
+                             layer->getNumberOfCells() * (tensor::dQane::size(1) + tensor::dQane::size(2)) * sizeof(real));
+    layer->setScratchpadSize(lts.dofsExtScratch,
+                             layer->getNumberOfCells() * tensor::Qext::size() * sizeof(real));
+#endif
     layer->setScratchpadSize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
   }
