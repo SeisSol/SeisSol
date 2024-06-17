@@ -5,6 +5,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
+#include "Parallel/Runtime/Stream.hpp"
 
 namespace seissol::dr::friction_law {
 /**
@@ -27,7 +28,8 @@ class FrictionSolver {
   virtual void evaluate(seissol::initializer::Layer& layerData,
                         const seissol::initializer::DynamicRupture* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
+                        const double timeWeights[CONVERGENCE_ORDER],
+                        seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
@@ -41,6 +43,8 @@ class FrictionSolver {
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime);
+
+  virtual seissol::initializer::AllocationPlace allocationPlace();
 
   protected:
   /**

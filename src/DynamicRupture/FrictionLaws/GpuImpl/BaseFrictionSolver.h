@@ -18,7 +18,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -159,8 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-      queue.wait_and_throw();
     }
+
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

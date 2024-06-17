@@ -43,7 +43,8 @@ struct Wp {
     DofsExt,
     DerivativesAne,
     DerivativesExt,
-    Count,
+    Analytical,
+    Count
   };
 };
 

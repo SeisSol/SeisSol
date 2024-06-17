@@ -250,7 +250,8 @@ namespace seissol::kernels {
                                                 double T_v,
                                                 GlobalData const *global,
                                                 initializer::recording::ConditionalPointersToRealsTable &table,
-                                                PlasticityData *plasticityData) {
+                                                PlasticityData *plasticityData,
+                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                   "modal and nodal dofs must have the same leading dimensions");
@@ -259,7 +260,7 @@ namespace seissol::kernels {
 
     DeviceInstance &device = DeviceInstance::getInstance();
     ConditionalKey key(*KernelNames::Plasticity);
-    auto defaultStream = device.api->getDefaultStream();
+    auto defaultStream = runtime.stream();
 
     if (table.find(key) != table.end()) {
       unsigned stackMemCounter{0};

@@ -43,38 +43,21 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include "Initializer/MemoryAllocator.h"
 #include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <array>
-#include <cstdint>
 #include <cstdlib>
-#include <vector>
+#include <memory>
 
-#ifdef ACL_DEVICE
-#include "Device/UsmAllocator.h"
-#endif
+namespace seissol::kernels {
+class PointSourceCluster;
+} // namespace seissol::kernels
 
 namespace seissol::sourceterm {
-#ifdef ACL_DEVICE
-using AllocatorT = device::UsmAllocator<real>;
-#else
-using AllocatorT = std::allocator<real>;
-#endif
-template <typename T>
-using VectorT =
-    std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
-
-template <typename T, std::size_t N>
-class AlignedArray {
-  public:
-  inline T* data() { return data_; }
-  inline const T* data() const { return data_; }
-  constexpr T& operator[](std::size_t pos) { return data_[pos]; }
-  constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  constexpr std::size_t size() const noexcept { return N; }
-
-  private:
-  alignas(ALIGNMENT) T data_[N];
+struct PointSourceClusterPair {
+  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /** Models point sources of the form
@@ -94,7 +77,9 @@ struct PointSources {
   /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
    * the l-th basis function and xi_s, eta_s, and zeta_s are the space position
    *  of the point source in the reference tetrahedron. */
-  VectorT<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
+  seissol::memory::MemkindArray<
+      seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
+      mInvJInvPhisAtSources;
 
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -102,22 +87,22 @@ struct PointSources {
    * 6-8: NormalX-Z = fault normal
    *
    * FSRM: Moment tensor */
-  VectorT<AlignedArray<real, TensorSize>> tensor;
+  seissol::memory::MemkindArray<seissol::memory::AlignedArray<real, TensorSize>> tensor;
 
   /// Area
-  VectorT<real> A;
+  seissol::memory::MemkindArray<real> A;
 
   /// elasticity tensor
-  VectorT<std::array<real, 81>> stiffnessTensor;
+  seissol::memory::MemkindArray<std::array<real, 81>> stiffnessTensor;
 
   /// onset time
-  VectorT<double> onsetTime;
+  seissol::memory::MemkindArray<double> onsetTime;
 
   /// sampling interval
-  VectorT<double> samplingInterval;
+  seissol::memory::MemkindArray<double> samplingInterval;
 
   /// offset into slip rate vector
-  std::array<VectorT<std::size_t>, 3u> sampleOffsets;
+  std::array<seissol::memory::MemkindArray<std::size_t>, 3u> sampleOffsets;
 
   /** NRF: slip rate in
    * 0: Tan1 direction
@@ -125,21 +110,31 @@ struct PointSources {
    * 2: Normal direction
    *
    * FSRM: 0: slip rate (all directions) */
-  std::array<VectorT<real>, 3u> sample;
+  std::array<seissol::memory::MemkindArray<real>, 3u> sample;
 
   /** Number of point sources in this struct. */
   unsigned numberOfSources = 0;
 
-  PointSources(const AllocatorT& alloc)
-      : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
-        tensor(decltype(tensor)::allocator_type(alloc)), A(alloc),
-        stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
-        onsetTime(decltype(onsetTime)::allocator_type(alloc)),
-        samplingInterval(decltype(samplingInterval)::allocator_type(alloc)),
-        sampleOffsets{VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
-                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc)),
-                      VectorT<std::size_t>(VectorT<std::size_t>::allocator_type(alloc))},
-        sample{VectorT<real>(alloc), VectorT<real>(alloc), VectorT<real>(alloc)} {}
+  PointSources(seissol::memory::Memkind memkind)
+      : mInvJInvPhisAtSources(memkind), tensor(memkind), A(memkind), stiffnessTensor(memkind),
+        onsetTime(memkind), samplingInterval(memkind),
+        sampleOffsets{seissol::memory::MemkindArray<std::size_t>(memkind),
+                      seissol::memory::MemkindArray<std::size_t>(memkind),
+                      seissol::memory::MemkindArray<std::size_t>(memkind)},
+        sample{seissol::memory::MemkindArray<real>(memkind),
+               seissol::memory::MemkindArray<real>(memkind),
+               seissol::memory::MemkindArray<real>(memkind)} {}
+  PointSources(const PointSources& source, seissol::memory::Memkind memkind)
+      : mInvJInvPhisAtSources(source.mInvJInvPhisAtSources, memkind),
+        tensor(source.tensor, memkind), A(source.A, memkind),
+        stiffnessTensor(source.stiffnessTensor, memkind), onsetTime(source.onsetTime, memkind),
+        samplingInterval(source.samplingInterval, memkind),
+        sampleOffsets{seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[0], memkind),
+                      seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[1], memkind),
+                      seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[2], memkind)},
+        sample{seissol::memory::MemkindArray<real>(source.sample[0], memkind),
+               seissol::memory::MemkindArray<real>(source.sample[1], memkind),
+               seissol::memory::MemkindArray<real>(source.sample[2], memkind)} {}
   ~PointSources() { numberOfSources = 0; }
 };
 
@@ -150,7 +145,7 @@ struct CellToPointSourcesMapping {
   unsigned pointSourcesOffset;
   /** The point sources buffer is ordered by cells, hence the point sources
    * that affect the cell with copyInteriorOffset reside in
-   * [pointSourcesOffset, pointSourcesOffset + numberOfPointSources)
+   * {pointSourcesOffset, ..., pointSourcesOffset + numberOfPointSources - 1}
    * in the point sources buffer.
    **/
   unsigned numberOfPointSources;
@@ -159,11 +154,12 @@ struct CellToPointSourcesMapping {
 };
 
 struct ClusterMapping {
-  VectorT<unsigned> sources;
-  VectorT<CellToPointSourcesMapping> cellToSources;
+  seissol::memory::MemkindArray<unsigned> sources;
+  seissol::memory::MemkindArray<CellToPointSourcesMapping> cellToSources;
 
-  ClusterMapping(const AllocatorT& alloc)
-      : sources(alloc), cellToSources(decltype(cellToSources)::allocator_type(alloc)) {}
+  ClusterMapping(seissol::memory::Memkind memkind) : sources(memkind), cellToSources(memkind) {}
+  ClusterMapping(const ClusterMapping& mapping, seissol::memory::Memkind memkind)
+      : sources(mapping.sources, memkind), cellToSources(mapping.cellToSources, memkind) {}
 };
 } // namespace seissol::sourceterm
 
