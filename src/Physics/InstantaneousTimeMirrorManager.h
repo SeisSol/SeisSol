@@ -31,7 +31,7 @@ class InstantaneousTimeMirrorManager : Module {
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false){};
+      : seissolInstance(seissolInstance), isEnabled(false) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,

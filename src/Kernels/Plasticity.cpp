@@ -44,8 +44,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-#include <generated_code/kernel.h>
-#include <generated_code/init.h>
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
 #include "common.hpp"
 #include "utils/logger.h"
 

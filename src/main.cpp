@@ -38,11 +38,21 @@
  * @section DESCRIPTION
  */
 
-#include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/Parameters/ParameterReader.h>
+#include "Initializer/Parameters/ParameterReader.h"
+#include "Initializer/preProcessorMacros.hpp"
+#include "Modules/Modules.h"
+#include <cstdlib>
+#include <ctime>
+#include <exception>
 #include <fty/fty.hpp>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <utils/logger.h>
+#include <utils/timeutils.h>
+#include <xdmfwriter/scorep_wrapper.h>
+#include <yaml-cpp/node/node.h>
 
-#include "Common/filesystem.h"
 #include "Initializer/InitProcedure/Init.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
@@ -87,8 +97,8 @@ int main(int argc, char* argv[]) {
   // Call pre MPI hooks
   seissol::Modules::callHook<ModuleHook::PreMPI>();
 
-  MPI::mpi.init(argc, argv);
-  const int rank = MPI::mpi.rank();
+  seissol::MPI::mpi.init(argc, argv);
+  const int rank = seissol::MPI::mpi.rank();
 
   LIKWID_MARKER_INIT;
 #pragma omp parallel
@@ -119,7 +129,7 @@ int main(int argc, char* argv[]) {
     [[fallthrough]];
   }
   case utils::Args::Error: {
-    MPI::mpi.finalize();
+    seissol::MPI::mpi.finalize();
     exit(1);
     break;
   }

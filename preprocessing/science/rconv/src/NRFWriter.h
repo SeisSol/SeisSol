@@ -42,7 +42,7 @@
 #include "SRF.h"
 #include "Map.h"
 
-#include <SourceTerm/NRF.h>
+#include "SourceTerm/NRF.h"
 
 void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map, bool normalizeOnset = false);
 

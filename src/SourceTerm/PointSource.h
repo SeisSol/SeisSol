@@ -45,7 +45,7 @@
 #ifndef SOURCETERM_POINTSOURCE_H_
 #define SOURCETERM_POINTSOURCE_H_
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/typedefs.hpp"
 #include "SourceTerm/typedefs.hpp"
 #include <array>
 
@@ -68,10 +68,10 @@ namespace seissol::sourceterm {
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
  **/
-void transformMomentTensor(real const i_localMomentTensor[3][3],
-                           real const i_localSolidVelocityComponent[3],
+void transformMomentTensor(const real i_localMomentTensor[3][3],
+                           const real i_localSolidVelocityComponent[3],
                            real i_localPressureComponent,
-                           real const i_localFluidVelocityComponent[3],
+                           const real i_localFluidVelocityComponent[3],
                            real strike,
                            real dip,
                            real rake,

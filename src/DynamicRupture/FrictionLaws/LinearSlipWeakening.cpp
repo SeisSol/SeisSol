@@ -1,9 +1,17 @@
 #include "LinearSlipWeakening.h"
+#include "DynamicRupture/Misc.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
+#include <algorithm>
+#include <cmath>
+#include <init.h>
+#include <kernel.h>
 namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+    const real (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
   resampleKrnl.originalQ = slipRateMagnitude;
@@ -11,10 +19,10 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                         seissol::initializer::DynamicRupture const* const dynRup,
+                                         const seissol::initializer::DynamicRupture* const dynRup,
                                          real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
@@ -33,6 +41,15 @@ real BiMaterialFault::strengthHook(real faultStrength,
       regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
   regularisedStrength[ltsFace][pointIndex] = newStrength;
   return newStrength;
+}
+
+#pragma omp declare simd
+real TPApprox::stateVariableHook(real localAccumulatedSlip,
+                                 real localDc,
+                                 unsigned int ltsFace,
+                                 unsigned int pointIndex) {
+  const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+  return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }
 
 } // namespace seissol::dr::friction_law

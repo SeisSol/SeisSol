@@ -38,7 +38,13 @@
  * @section DESCRIPTION
  */
 
+#include "Modules/Module.h"
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <limits>
+#include <utility>
+#include <utils/logger.h>
 
 #include "Modules.h"
 

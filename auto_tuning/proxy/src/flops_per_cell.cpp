@@ -1,10 +1,10 @@
 #include <cstdio>
 
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Plasticity.h>
+#include "Kernels/Time.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Plasticity.h"
 
 int main()
 {

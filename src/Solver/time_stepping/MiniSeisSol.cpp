@@ -40,15 +40,15 @@
 
 #include "MiniSeisSol.h"
 
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Touch.h>
-#include <Monitoring/Stopwatch.h>
+#include "Kernels/Time.h"
+#include "Kernels/Local.h"
+#include "Kernels/Touch.h"
+#include "Monitoring/Stopwatch.h"
 #include "utils/env.h"
 #include "SeisSol.h"
 
 #ifdef ACL_DEVICE
-#include <Initializer/BatchRecorders/Recorders.h>
+#include "Initializer/BatchRecorders/Recorders.h"
 #include "device.h"
 #endif
 

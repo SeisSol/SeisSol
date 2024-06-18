@@ -16,7 +16,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
-  void updateFrictionAndSlip(FaultStresses const& faultStresses,
+  void updateFrictionAndSlip(const FaultStresses& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
@@ -79,9 +79,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializer::LTSRateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
@@ -104,8 +104,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * variable. Also sets slipRateMagnitude member to reference value.
    */
   InitialVariables
-      calcInitialVariables(FaultStresses const& faultStresses,
-                           std::array<real, misc::numPaddedPoints> const& localStateVariable,
+      calcInitialVariables(const FaultStresses& faultStresses,
+                           const std::array<real, misc::numPaddedPoints>& localStateVariable,
                            unsigned int timeIndex,
                            unsigned int ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
@@ -139,12 +139,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   void updateStateVariableIterative(
       bool& hasConverged,
-      std::array<real, misc::numPaddedPoints> const& stateVarReference,
+      const std::array<real, misc::numPaddedPoints>& stateVarReference,
       std::array<real, misc::numPaddedPoints>& localSlipRate,
       std::array<real, misc::numPaddedPoints>& localStateVariable,
       std::array<real, misc::numPaddedPoints>& normalStress,
-      std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
-      FaultStresses const& faultStresses,
+      const std::array<real, misc::numPaddedPoints>& absoluteShearStress,
+      const FaultStresses& faultStresses,
       unsigned int timeIndex,
       unsigned int ltsFace) {
     std::array<real, misc::numPaddedPoints> testSlipRate{0};
@@ -195,12 +195,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void calcSlipRateAndTraction(std::array<real, misc::numPaddedPoints> const& stateVarReference,
-                               std::array<real, misc::numPaddedPoints> const& localSlipRate,
+  void calcSlipRateAndTraction(const std::array<real, misc::numPaddedPoints>& stateVarReference,
+                               const std::array<real, misc::numPaddedPoints>& localSlipRate,
                                std::array<real, misc::numPaddedPoints>& localStateVariable,
-                               std::array<real, misc::numPaddedPoints> const& normalStress,
-                               std::array<real, misc::numPaddedPoints> const& absoluteTraction,
-                               FaultStresses const& faultStresses,
+                               const std::array<real, misc::numPaddedPoints>& normalStress,
+                               const std::array<real, misc::numPaddedPoints>& absoluteTraction,
+                               const FaultStresses& faultStresses,
                                TractionResults& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
@@ -287,9 +287,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * @param slipRateTest \f$\hat{s}\f$
    */
   bool invertSlipRateIterative(unsigned int ltsFace,
-                               std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                               std::array<real, misc::numPaddedPoints> const& normalStress,
-                               std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
+                               const std::array<real, misc::numPaddedPoints>& localStateVariable,
+                               const std::array<real, misc::numPaddedPoints>& normalStress,
+                               const std::array<real, misc::numPaddedPoints>& absoluteShearStress,
                                std::array<real, misc::numPaddedPoints>& slipRateTest) {
     // Note that we need double precision here, since single precision led to NaNs.
     double muF[misc::numPaddedPoints], dMuF[misc::numPaddedPoints];
@@ -337,7 +337,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void updateNormalStress(std::array<real, misc::numPaddedPoints>& normalStress,
-                          FaultStresses const& faultStresses,
+                          const FaultStresses& faultStresses,
                           size_t timeIndex,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurisation

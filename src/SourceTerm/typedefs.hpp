@@ -43,12 +43,12 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include <cstdlib>
+#include "Kernels/precision.hpp"
+#include "generated_code/tensor.h"
 #include <array>
-#include <vector>
-#include <Kernels/precision.hpp>
-#include <generated_code/tensor.h>
 #include <cstdint>
+#include <cstdlib>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Device/UsmAllocator.h"
@@ -68,9 +68,9 @@ template <typename T, std::size_t N>
 class AlignedArray {
   public:
   inline T* data() { return data_; }
-  inline T const* data() const { return data_; }
+  inline const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
-  constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+  constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
   constexpr std::size_t size() const noexcept { return N; }
 
   private:
@@ -134,7 +134,7 @@ struct PointSources {
   /** Number of point sources in this struct. */
   unsigned numberOfSources = 0;
 
-  PointSources(AllocatorT const& alloc)
+  PointSources(const AllocatorT& alloc)
       : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
         tensor(decltype(tensor)::allocator_type(alloc)), A(alloc),
         stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
@@ -166,7 +166,7 @@ struct ClusterMapping {
   VectorT<unsigned> sources;
   VectorT<CellToPointSourcesMapping> cellToSources;
 
-  ClusterMapping(AllocatorT const& alloc)
+  ClusterMapping(const AllocatorT& alloc)
       : sources(alloc), cellToSources(decltype(cellToSources)::allocator_type(alloc)) {}
 };
 } // namespace seissol::sourceterm

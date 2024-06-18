@@ -67,9 +67,9 @@ class MeshTools {
   static void
       normal(const Element& e, int face, const std::vector<Vertex>& vertices, VrtxCoords normal);
 
-  static void normalAndTangents(Element const& e,
+  static void normalAndTangents(const Element& e,
                                 int face,
-                                std::vector<Vertex> const& vertices,
+                                const std::vector<Vertex>& vertices,
                                 VrtxCoords nrmal,
                                 VrtxCoords tangent1,
                                 VrtxCoords tangent2);
@@ -117,30 +117,30 @@ class MeshTools {
   /**
    * Returns the surface area of the side of a tetrahedron.
    **/
-  static double surface(Element const& e, int face, const std::vector<Vertex>& vertices);
+  static double surface(const Element& e, int face, const std::vector<Vertex>& vertices);
 
   /**
    * Returns the volume of a tetrahedron.
    **/
-  static double volume(Element const& e, const std::vector<Vertex>& vertices);
+  static double volume(const Element& e, const std::vector<Vertex>& vertices);
 
   /**
    * vnormalized = v / ||v||
    **/
-  static void normalize(VrtxCoords const v, VrtxCoords vnormalized);
+  static void normalize(const VrtxCoords v, VrtxCoords vnormalized);
 
   /**
    * Returns a point on the plane spanned by the face-th plane.
    */
-  static void pointOnPlane(Element const& e,
+  static void pointOnPlane(const Element& e,
                            int face,
-                           std::vector<Vertex> const& vertices,
+                           const std::vector<Vertex>& vertices,
                            VrtxCoords result);
 
   /**
    * Checks if a point p is inside a tetrahedron
    **/
-  static bool inside(Element const& e, std::vector<Vertex> const& vertices, VrtxCoords const p);
+  static bool inside(const Element& e, const std::vector<Vertex>& vertices, const VrtxCoords p);
 
   /** Maps from the face to the list of nodes */
   const static int FACE2NODES[4][3];

@@ -2,9 +2,9 @@
 #define ENERGYOUTPUT_H
 
 #include <array>
-#include <string>
 #include <fstream>
 #include <iostream>
+#include <string>
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/DynamicRupture.h>
@@ -13,10 +13,16 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
 #include <Solver/MultipleSimulations.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/typedefs.hpp"
 
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
 
 namespace seissol {
 class SeisSol;
@@ -45,6 +51,10 @@ struct EnergiesStorage {
   double& seismicMoment(size_t sim);
 
   double& potency(size_t sim);
+
+  double& totalMomentumX();
+  double& totalMomentumY();
+  double& totalMomentumZ();
 };
 
 class EnergyOutput : public Module {
@@ -67,12 +77,11 @@ class EnergyOutput : public Module {
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   private:
-  std::array<real, multipleSimulations::numberOfSimulations>
-      computeStaticWork(const real* degreesOfFreedomPlus,
-                        const real* degreesOfFreedomMinus,
-                        DRFaceInformation const& faceInfo,
-                        DRGodunovData const& godunovData,
-                        const real slip[seissol::tensor::slipInterpolated::size()]);
+  real computeStaticWork(const real* degreesOfFreedomPlus,
+                         const real* degreesOfFreedomMinus,
+                         const DRFaceInformation& faceInfo,
+                         const DRGodunovData& godunovData,
+                         const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 
@@ -86,7 +95,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion();
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
 
   void writeHeader();
 
@@ -100,7 +109,8 @@ class EnergyOutput : public Module {
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
-  bool isCheckAbortCriteraEnabled = false;
+  bool isCheckAbortCriteraSlipRateEnabled = false;
+  bool isCheckAbortCriteraMomentRateEnabled = false;
   int computeVolumeEnergiesEveryOutput = 1;
   int outputId = 0;
 
@@ -117,7 +127,11 @@ class EnergyOutput : public Module {
 
   EnergiesStorage energiesStorage{};
   real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceMomentRateBelowThreshold = 0.0;
   double terminatorMaxTimePostRupture;
+  double energyOutputInterval;
+  double terminatorMomentRateThreshold;
+  double seismicMomentPrevious = 0.0;
 };
 
 } // namespace writer

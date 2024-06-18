@@ -25,7 +25,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <generated_code/tensor.h>
+#include "generated_code/tensor.h"
 
 namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;

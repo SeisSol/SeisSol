@@ -43,14 +43,14 @@
 
 #include <cassert>
 
-#include <Initializer/ParameterDB.h>
+#include "Initializer/ParameterDB.h"
 #include "Initializer/MemoryManager.h"
-#include <Numerical_aux/Transformation.h>
-#include <Equations/Setup.h>
-#include <Model/common.hpp>
-#include <Geometry/MeshTools.h>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
+#include "Numerical_aux/Transformation.h"
+#include "Equations/Setup.h"
+#include "Model/common.hpp"
+#include "Geometry/MeshTools.h"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
 #include <utils/logger.h>
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -654,12 +654,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       krnl.T = TData;
 
       krnl.fluxSolver = fluxSolverPlus[ltsFace];
-      krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.star(0) = APlusData;
       krnl.execute();
 
       krnl.fluxSolver = fluxSolverMinus[ltsFace];
-      krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();
     }

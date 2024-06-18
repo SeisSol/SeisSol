@@ -5,8 +5,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
-#include <Initializer/Parameters/SeisSolParameters.h>
 
 #include <memory>
 #include <vector>

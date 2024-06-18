@@ -9,7 +9,7 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
 #include "Initializer/preProcessorMacros.hpp"
 #include "Solver/MultipleSimulations.h"
 

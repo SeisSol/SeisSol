@@ -1,0 +1,134 @@
+name: build-seissol
+on:
+  - push
+
+jobs:
+  dependencies:
+    name: dependencies
+    runs-on: ubuntu-22.04
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev
+          sudo mkdir -p /opt/dependencies
+
+      - name: build-hdf5
+        run: |
+          wget --progress=bar:force:noscroll https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+          tar -xf hdf5-1.10.11.tar.bz2 && cd hdf5-1.10.11
+          CFLAGS="-fPIC" CC=mpicc FC=mpif90 ./configure --enable-parallel --with-zlib --disable-shared --enable-fortran --prefix=/opt/dependencies
+          make -j$(nproc) && make install 
+
+      - name: build-netcdf
+        run: |
+          wget --progress=bar:force:noscroll https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.2.tar.gz
+          tar -xf v4.9.2.tar.gz && cd netcdf-c-4.9.2
+          CFLAGS="-fPIC" CC=/opt/dependencies/bin/h5pcc ./configure --enable-shared=no --disable-dap --disable-libxml2 --disable-byterange --prefix=/opt/dependencies
+          make -j$(nproc) && make install
+
+      - name: checkout-impalajit
+        uses: actions/checkout@master
+        with:
+          repository: uphoffc/ImpalaJIT
+
+      - name: build-impalajit
+        run: |
+          mkdir build && cd build
+          cmake ..  -DCMAKE_INSTALL_PREFIX=/opt/dependencies
+          make -j $(nproc) && make install
+
+      - name: build-lua
+        run: |
+          wget https://www.lua.org/ftp/lua-5.3.6.tar.gz
+          tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6/
+          make linux CC=mpicc && make local
+          cp -r install/* /opt/dependencies
+
+      - name: checkout-asagi
+        uses: actions/checkout@master
+        with:
+          repository: TUM-I5/ASAGI
+
+      - name: build-asagi
+        run: |
+            mkdir build && cd build
+            git submodule update --init
+            cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=/opt/dependencies
+            make -j $(nproc) && make install
+
+      - name: checkout-easi
+        uses: actions/checkout@master
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=ON -DLUA=ON -DEASICUBE=OFF
+          make -j $(nproc) && make install
+
+      - name: checkout-libxsmm
+        uses: actions/checkout@master
+        with:
+          repository: libxsmm/libxsmm
+          ref: 1.17
+
+      - name: build-libxsmm
+        run: |
+          make generator -j $(nproc) && cp bin/libxsmm_gemm_generator /opt/dependencies/bin
+
+      - name: upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependencies
+          path: /opt/dependencies
+
+  seissol:
+    name: seissol
+    runs-on: ubuntu-22.04
+    needs: dependencies
+    strategy:
+      matrix:
+        build_type:
+          - Release
+          - Debug
+        equations:
+          - elastic
+          - poroelastic
+          - viscoelastic2
+          - anisotropic
+        precision:
+          - single
+          - double
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev python3-pip ninja-build
+          pip3 install numpy scipy
+
+      - name: download-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dependencies
+          path: /opt/dependencies
+
+      - name: build-seissol
+        run: |
+          git submodule update --init
+          chmod +x /opt/dependencies/bin/*
+          mkdir build && cd build
+          if [ "${{ matrix.equations }}" = viscoelastic2 ]; then
+              mechanisms=3
+          else
+              mechanisms=0
+          fi
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          ninja -j $(nproc)
+
+      - name: test-seissol
+        run: |
+          cd build
+          ninja test

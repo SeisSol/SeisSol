@@ -41,9 +41,9 @@ endif()
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, SHARED
 #
-#       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
+#       user input:   HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
@@ -65,7 +65,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
@@ -167,7 +167,7 @@ add_custom_command(
         generated_code/matrices
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Codegen for tensor stuff."
+    COMMENT "Code generation for tensor operations..."
        )
 
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
@@ -177,12 +177,20 @@ include(src/sources.cmake)
 
 # enforce code generation to run before any other target
 add_dependencies(SeisSol-lib SeisSol-codegen)
+add_dependencies(SeisSol-kernel-lib SeisSol-codegen)
+add_dependencies(SeisSol-common-lib SeisSol-codegen)
 
 target_link_libraries(SeisSol-lib PUBLIC SeisSol-common-properties)
+target_link_libraries(SeisSol-kernel-lib PUBLIC SeisSol-common-properties)
+target_link_libraries(SeisSol-common-lib PUBLIC SeisSol-common-properties)
+
+target_link_libraries(SeisSol-common-lib PRIVATE SeisSol-kernel-lib)
+target_link_libraries(SeisSol-lib PRIVATE SeisSol-kernel-lib)
+target_link_libraries(SeisSol-lib PRIVATE SeisSol-common-lib)
+
 if (WITH_GPU)
   add_dependencies(SeisSol-device-lib SeisSol-codegen)
 endif()
-
 
 if(GemmTools_INCLUDE_DIRS)
   target_include_directories(SeisSol-common-properties INTERFACE ${GemmTools_INCLUDE_DIRS})
@@ -320,6 +328,8 @@ if(${EQUATIONS} STREQUAL "poroelastic")
     include(FortranCInterface)
     FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
     find_package(LAPACK REQUIRED)
+    target_include_directories(SeisSol-common-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(SeisSol-common-lib PUBLIC ${LAPACK_LIBRARIES})
     target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(SeisSol-lib PUBLIC ${LAPACK_LIBRARIES})
   else()
@@ -392,6 +402,11 @@ else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
 
+if (SHARED)
+  set_target_properties(SeisSol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
+  install(TARGETS SeisSol-lib LIBRARY)
+endif()
+
 if (WITH_GPU)
   # set SeisSol GPU definitions
   target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
@@ -408,6 +423,7 @@ if (WITH_GPU)
       ${SYCL_DEPENDENT_SRC_FILES}
       ${SYCL_ONLY_SRC_FILES})
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
+  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-lib)
 
   set(SYCL_CC "hipsycl" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
   set(SYCL_CC_OPTIONS hipsycl dpcpp)
@@ -509,43 +525,53 @@ if (HAS_REDZONE)
   )
 endif()
 
-add_executable(SeisSol-bin src/main.cpp)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
+# build SeisSol-bin
+  add_executable(SeisSol-bin src/main.cpp)
+  set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
-# SeisSol proxy-core
-add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
-target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+  if (WITH_GPU)
+    target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
+  endif()
+  target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
-if (PROXY_PYBINDING)
-  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    find_package(pybind11 2.6.2 REQUIRED)
-  else()
-    find_package(pybind11 2.3.0 REQUIRED)
+  install(TARGETS SeisSol-bin RUNTIME)
+# end build SeisSol-bin
+
+# build SeisSol-proxy
+  # SeisSol proxy-core
+  add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
+  target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+
+  if (PROXY_PYBINDING)
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+      find_package(pybind11 2.6.2 REQUIRED)
+    else()
+      find_package(pybind11 2.3.0 REQUIRED)
+    endif()
+
+    pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
+    target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
+    file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   endif()
 
-  pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
-  target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
-  file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
+  if (WITH_GPU)
+    target_link_libraries(SeisSol-proxy-core PUBLIC general-sycl-offloading)
+  endif()
 
-
-if (WITH_GPU)
-  target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
-  target_link_libraries(SeisSol-proxy-core PUBLIC general-sycl-offloading)
-endif()
-
-# C/C++ proxy interface
-add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
-target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
-set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-install(TARGETS SeisSol-proxy RUNTIME)
+  # C/C++ proxy interface
+  add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
+  target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
+  set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+  install(TARGETS SeisSol-proxy RUNTIME)
+# end build SeisSol-proxy
 
 if (LIKWID)
   find_package(likwid REQUIRED)
-  target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-  target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
-  target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
+  if (BUILD_PROXY)
+    target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
+    target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
+    target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
+  endif()
   target_compile_definitions(SeisSol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(SeisSol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
   target_link_libraries(SeisSol-lib PUBLIC likwid::likwid)
@@ -641,8 +667,6 @@ endif()
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
-
-install(TARGETS SeisSol-bin RUNTIME)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
