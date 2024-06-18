@@ -158,7 +158,7 @@ double ReceiverCluster::calcReceivers(
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
-    auto threshold = omp_get_num_threads() * 100;
+    auto threshold = std::max(1000, omp_get_num_threads() * 100);
     auto recvCount = m_receivers.size();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)
@@ -240,7 +240,8 @@ double ReceiverCluster::calcReceivers(
           for (auto quantity : m_quantities) {
             if (!std::isfinite(multisimWrap(qAtPoint, sim, quantity))) {
               logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
-                         << receiver.position[1] << "," << receiver.position[2] << "."
+                         << receiver.position[1] << "," << receiver.position[2] << " in simulation"
+                         << sim << "."
                          << "Aborting.";
             }
             receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));
@@ -306,12 +307,14 @@ void ReceiverRotation::compute(size_t sim,
 }
 
 std::vector<std::string> ReceiverStrain::quantities() const {
-  return {"epsxx", "epsxy", "epsxz", "epsyx", "epsyy", "epsyz", "epszx", "epszy", "epszz"};
+  return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
 }
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
                              seissol::init::QAtPoint::view::type& qAtPoint,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+  // actually 9 quantities; 3 removed due to symmetry
+
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 0));
   output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 6, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
@@ -319,18 +322,9 @@ void ReceiverStrain::compute(size_t sim,
   output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 6, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
       2);
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 7, 0) + multisimWrap(qDerivativeAtPoint, sim, 6, 1)) /
-      2);
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 1));
   output.push_back(
       (multisimWrap(qDerivativeAtPoint, sim, 7, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
-      2);
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 8, 0) + multisimWrap(qDerivativeAtPoint, sim, 6, 2)) /
-      2);
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 8, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 2)) /
       2);
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 2));
 }
