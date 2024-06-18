@@ -141,7 +141,6 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
 double ReceiverCluster::calcReceivers(
     double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
-
   std::size_t ncols = this->ncols();
 
   double outReceiverTime = time;
@@ -152,6 +151,8 @@ double ReceiverCluster::calcReceivers(
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
+    deviceCollectorPlasticity->gatherToHost(
+        device::DeviceInstance::getInstance().api->getDefaultStream());
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
   }
 #endif
@@ -198,12 +199,23 @@ double ReceiverCluster::calcReceivers(
 
       // Copy DOFs from device to host.
       LocalData tmpReceiverData{receiver.dataHost};
-#ifdef ACL_DEVICE
+
+      // we always need a pstrain copy here (the dofs will get overridden by the predictor again,
+      // but that's not true for the pstrain)
+      alignas(ALIGNMENT)
+          real pstrain[seissol::tensor::QStress::size() + seissol::tensor::QEtaModal::size()];
       if (executor == Executor::Device) {
+#ifdef ACL_DEVICE
         tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
             deviceCollector->get(deviceIndices[i]));
-      }
+        std::memcpy(pstrain,
+                    reinterpret_cast<decltype(tmpReceiverData.pstrain_ptr)>(
+                        deviceCollectorPlasticity->get(deviceIndices[i])),
+                    sizeof(pstrain));
 #endif
+      } else {
+        std::memcpy(pstrain, receiver.dataHost.pstrain_ptr, sizeof(pstrain));
+      }
 
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
@@ -264,6 +276,7 @@ void ReceiverCluster::allocateData() {
   // sure to only transfer the related data once (hence, we use the `indexMap` here)
   deviceIndices.resize(m_receivers.size());
   std::vector<real*> dofs;
+  std::vector<real*> pstrain;
   std::unordered_map<real*, size_t> indexMap;
   for (size_t i = 0; i < m_receivers.size(); ++i) {
     real* currentDofs = m_receivers[i].dataDevice.dofs();
@@ -271,16 +284,20 @@ void ReceiverCluster::allocateData() {
       // point to the current array end
       indexMap[currentDofs] = dofs.size();
       dofs.push_back(currentDofs);
+      pstrain.push_back(m_receivers[i].dataDevice.pstrain());
     }
     deviceIndices[i] = indexMap.at(currentDofs);
   }
   deviceCollector =
       std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), useUSM());
+  deviceCollectorPlasticity = std::make_unique<seissol::parallel::DataCollector>(
+      pstrain, seissol::tensor::QStress::size() + seissol::tensor::QEtaModal::size(), useUSM());
 #endif
 }
 void ReceiverCluster::freeData() {
 #ifdef ACL_DEVICE
   deviceCollector.reset(nullptr);
+  deviceCollectorPlasticity.reset(nullptr);
 #endif
 }
 

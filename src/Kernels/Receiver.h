@@ -134,6 +134,7 @@ class ReceiverCluster {
 
   private:
   std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::unique_ptr<seissol::parallel::DataCollector> deviceCollectorPlasticity{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
   seissol::kernels::Time m_timeKernel;
