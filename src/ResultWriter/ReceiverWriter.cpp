@@ -39,6 +39,7 @@
 
 #include "ReceiverWriter.h"
 
+#include <Kernels/Receiver.h>
 #include <cctype>
 #include <fstream>
 #include <iomanip>
@@ -52,7 +53,9 @@
 #include "Modules/Modules.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
-Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
+namespace seissol::writer {
+
+Eigen::Vector3d parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(),
                                   line.end(),
@@ -73,7 +76,7 @@ Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   return coordinates;
 }
 
-std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::string& receiverFileName) {
+std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
   std::vector<Eigen::Vector3d> points{};
 
   std::ifstream file{receiverFileName};
@@ -87,7 +90,7 @@ std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::strin
   return points;
 }
 
-std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
+std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId+1);
 #ifdef PARALLEL
@@ -97,7 +100,7 @@ std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointId,
+void ReceiverWriter::writeHeader( unsigned               pointId,
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
@@ -106,9 +109,9 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
-  if (m_computeRotation) {
-    std::array<std::string, 3> rotationNames({"rot1", "rot2", "rot3"});
-    names.insert(names.end(), rotationNames.begin(), rotationNames.end());
+  for (const auto& derived : derivedQuantities) {
+    auto derivedNames = derived->quantities();
+    names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
 
   /// \todo Find a nicer solution that is not so hard-coded.
@@ -138,7 +141,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   }
 }
 
-void seissol::writer::ReceiverWriter::syncPoint(double)
+void ReceiverWriter::syncPoint(double)
 {
   if (m_receiverClusters.empty()) {
     return;
@@ -172,19 +175,26 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
+void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
 {
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
-  m_computeRotation = parameters.computeRotation;
+
+  if (parameters.computeRotation) {
+    derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
+  }
+  if (parameters.computeStrain) {
+    derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
+  }
+
   setSyncInterval(std::min(endTime, parameters.interval));
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   Modules::registerHook(*this, ModuleHook::Shutdown);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
+void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
                                                 const seissol::initializer::Lut& ltsLut,
                                                 const seissol::initializer::LTS& lts,
                                                 const GlobalData* global ) {
@@ -227,7 +237,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
       for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation, seissolInstance);
+        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), derivedQuantities, seissolInstance);
       }
 
       writeHeader(point, points[point]);
@@ -236,7 +246,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
   }
 }
 
-void seissol::writer::ReceiverWriter::simulationStart() {
+void ReceiverWriter::simulationStart() {
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       cluster.allocateData();
@@ -244,10 +254,22 @@ void seissol::writer::ReceiverWriter::simulationStart() {
   }
 }
 
-void seissol::writer::ReceiverWriter::shutdown() {
+void ReceiverWriter::shutdown() {
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       cluster.freeData();
     }
   }
 }
+
+kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, LayerType layer) {
+        assert(layer != Ghost);
+        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
+        auto& clusters = m_receiverClusters[layer];
+        if (clusterId < clusters.size()) {
+          return &clusters[clusterId];
+        }
+        return nullptr;
+      }
+
+} // namespace seissol::writer
