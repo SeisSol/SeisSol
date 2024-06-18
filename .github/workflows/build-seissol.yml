@@ -39,7 +39,15 @@ jobs:
 
       - name: build-lua
         run: |
+          # allow failure
+          set +e
           wget https://www.lua.org/ftp/lua-5.3.6.tar.gz
+          retval=$?
+
+          set -e
+          if [ $retval -ne 0 ]; then
+            wget https://www.tecgraf.puc-rio.br/lua/mirror/ftp/lua-5.3.6.tar.gz
+          fi
           tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6/
           make linux CC=mpicc && make local
           cp -r install/* /opt/dependencies
