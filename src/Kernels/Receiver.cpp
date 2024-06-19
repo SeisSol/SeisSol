@@ -46,6 +46,7 @@
 #include "generated_code/kernel.h"
 #include <Common/Executor.hpp>
 #include <Initializer/tree/Layer.hpp>
+#include <Kernels/Plasticity.h>
 #include <Kernels/common.hpp>
 #include <cstddef>
 #include <init.h>
@@ -159,6 +160,9 @@ double ReceiverCluster::calcReceivers(
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
   }
 #endif
+  auto tv = seissolInstance.getSeisSolParameters().model.tv;
+  auto oneMinusIntegratingFactor = (tv > 0.0) ? 1.0 - exp(-timeStepWidth / tv) : 1.0;
+  auto globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
@@ -207,6 +211,7 @@ double ReceiverCluster::calcReceivers(
       // but that's not true for the pstrain)
       alignas(ALIGNMENT)
           real pstrain[seissol::tensor::QStress::size() + seissol::tensor::QEtaModal::size()];
+          
       if (executor == Executor::Device) {
 #ifdef ACL_DEVICE
         tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
@@ -219,7 +224,15 @@ double ReceiverCluster::calcReceivers(
       } else {
         std::memcpy(pstrain, receiver.dataHost.pstrain_ptr, sizeof(pstrain));
       }
+      
+      double receiverTime = time;
+      kernel::evaluatePstrainAtPoint pstrainKrnl;
+      pstrainKrnl.Pstrain = pstrain;
+      alignas(ALIGNMENT) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
+      auto pAtPoint = init::QAtPoint::view::create(pStrainAtPoint);
+      pstrainKrnl.PstrainAtPoint = pStrainAtPoint;
 
+      while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
 #else
@@ -229,11 +242,15 @@ double ReceiverCluster::calcReceivers(
                                timeEvaluated, // useless but the interface requires it
                                timeDerivatives);
 #endif
+
       seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
       seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
-      double receiverTime = time;
-      while (receiverTime < expansionPoint + timeStepWidth) {
+      m_timeKernel.computeTaylorExpansion(
+            receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+
+      Plasticity::computePlasticity(oneMinusIntegratingFactor, timeStepWidth, tv, globalData, &tmpReceiverData.plasticity(), timeEvaluated, pstrain);
+
 #ifdef USE_STP
         // eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
@@ -248,6 +265,7 @@ double ReceiverCluster::calcReceivers(
 
         krnl.execute();
         derivativeKrnl.execute();
+        pstrainKrnl.execute();
 
         // note: necessary receiver space is reserved in advance
         receiver.output.push_back(receiverTime);
@@ -263,6 +281,10 @@ double ReceiverCluster::calcReceivers(
           }
           for (const auto& derived : derivedQuantities) {
             derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+          }
+          for (unsigned int i = 0; i<7 ; i++)
+          {
+            receiver.output.push_back(multisimWrap(pAtPoint, sim, i));
           }
         }
 
