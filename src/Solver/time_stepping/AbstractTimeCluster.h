@@ -1,10 +1,10 @@
 #ifndef SEISSOL_ACTOR_H
 #define SEISSOL_ACTOR_H
 
-#include <vector>
-#include <memory>
-#include <chrono>
 #include "ActorState.h"
+#include <chrono>
+#include <memory>
+#include <vector>
 
 namespace seissol::time_stepping {
 
@@ -20,11 +20,12 @@ protected:
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
+  Executor executor;
 
   [[nodiscard]] double timeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
-  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate);
+  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
 
   virtual bool mayPredict();
   virtual bool mayCorrect();
@@ -37,6 +38,8 @@ protected:
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
+  bool hasDifferentExecutorNeighbor();
+
 
   long timeStepRate;
   //! number of time steps
@@ -45,8 +48,11 @@ protected:
 public:
   virtual ~AbstractTimeCluster() = default;
 
+  Executor getExecutor() const;
+
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
+  virtual void finalize();
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
@@ -64,6 +70,23 @@ public:
   void setCorrectionTime(double time);
 
   long getTimeStepRate();
+
+  /**
+   * @brief Returns the time step size of the cluster.
+   * @return the time step size of the cluster.
+   */
+  double getClusterTimes();
+  /**
+   * @brief Sets the time step size of the cluster.
+   * @param newTimeStepSize
+   */
+  void setClusterTimes(double newTimeStepSize);
+
+  /**
+   * @brief Returns the neighbor clusters of the cluster.
+   * @return the pointer to the vector of neighbor clusters.
+   */
+  std::vector<NeighborCluster>* getNeighborClusters();
 
 };
 

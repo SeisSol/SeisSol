@@ -39,13 +39,13 @@
 #ifndef MODEL_ANISOTROPIC_DATASTRUCTURES_H_
 #define MODEL_ANISOTROPIC_DATASTRUCTURES_H_
 
-#include <Model/common_datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
+#include "Model/common_datastructures.hpp"
+#include "Equations/elastic/Model/datastructures.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
-#include <generated_code/init.h>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
 
 namespace seissol {
   namespace model {
@@ -71,6 +71,14 @@ namespace seissol {
       double c55;
       double c56;
       double c66;
+
+      double getLambdaBar() const override {
+        return (c11 + c22 + c33) / 3.0 - 2.0*getMuBar();
+      }
+
+      double getMuBar() const override {
+        return (c44 + c55 + c66) / 3.0;;
+      }
 
       AnisotropicMaterial() {}
 

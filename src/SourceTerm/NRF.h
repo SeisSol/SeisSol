@@ -43,9 +43,9 @@
 #ifndef SOURCETERM_NRF_H_
 #define SOURCETERM_NRF_H_
 
+#include <Eigen/Dense>
 #include <array>
 #include <cstddef>
-#include <Eigen/Dense>
 #include <vector>
 
 namespace seissol::sourceterm {

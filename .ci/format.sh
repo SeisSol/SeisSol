@@ -8,39 +8,49 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist_dir="
+    local allowlist_dir="
         src/DynamicRupture
-        src/tests/DynamicRupture
-        src/tests/Model
-        src/tests/Reader
+        src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/tree
+        src/Modules
+        src/Monitoring
+        src/Parallel
+        src/Physics
+        src/Reader
         src/SourceTerm
+        src/tests/Common
+        src/tests/DynamicRupture
+        src/tests/Initializer
+        src/tests/Kernel
+        src/tests/Model
+        src/tests/Reader
+        src/tests/SourceTerm
         "
     
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
-    local whitelist_file="
+    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
+    local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
-        src/Initializer/InputParameters.hpp
-        src/Initializer/InputParameters.cpp
+        src/Initializer/InputAux.hpp
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
-        src/Monitoring/instrumentation.hpp
-        src/Geometry/MeshReader.h
-        src/Geometry/MeshReader.cpp
-        src/Geometry/NetcdfReader.h
-        src/Geometry/NetcdfReader.cpp
-        src/Geometry/PUMLReader.h
-        src/Geometry/PUMLReader.cpp
-        src/Geometry/PartitioningLib.h
-        src/Geometry/PartitioningLib.cpp
-        src/Physics/Attenuation.hpp
-        src/Physics/Attenuation.cpp
+        src/Kernels/PointSourceCluster.h
+        src/Kernels/PointSourceClusterOnHost.h
+        src/Kernels/PointSourceClusterOnHost.cpp
+        src/Kernels/PointSourceClusterOnDevice.h
+        src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Receiver.h
+        src/Kernels/Receiver.cpp
+        src/Kernels/Touch.h
+        src/Kernels/Touch.cpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
@@ -53,17 +63,24 @@ format() {
     local formatter="${1}"
 
     if [ ! -f "${formatter}" ]; then
-        echo "Could not find a clang-format. Please specify one as the first argument"
-        exit 166
+        echo "Could not find clang-format. Please specify one as the first argument"
+        exit 176
+    fi
+
+    local formatter_version=$(${formatter} --version)
+    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
+        exit 176
     fi
 
     # check for self
     if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/format.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the second argument"
-        exit 166
+        exit 176
     fi
 
-    for dir in ${whitelist_dir}; do
+    for dir in ${allowlist_dir}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
         files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
         for file in ${files}; do
@@ -71,7 +88,7 @@ format() {
         done
     done
 
-    for file in ${whitelist_file}; do
+    for file in ${allowlist_file}; do
         ${formatter} -i -style=file ${SEISSOL_SOURCE_DIR}/$file
     done
 }

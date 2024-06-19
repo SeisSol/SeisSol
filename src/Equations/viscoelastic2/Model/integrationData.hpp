@@ -1,7 +1,7 @@
 #ifndef MODEL_VISCOELASTIC2_INTEGRATIONDATA_H_
 #define MODEL_VISCOELASTIC2_INTEGRATIONDATA_H_
 
-#include <generated_code/tensor.h>
+#include "generated_code/tensor.h"
 
 namespace seissol {
   namespace model {

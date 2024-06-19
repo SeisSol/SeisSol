@@ -1,6 +1,4 @@
 default:
-    tags:
-        - lrzcc-k8s-4cores-10gb 
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
@@ -16,6 +14,9 @@ stages:
         
 fetch_submodules:
     stage: pre_build
+    tags:
+        - sccs
+        - helper
     variables:
         GIT_STRATEGY: clone
     before_script:
@@ -29,56 +30,65 @@ fetch_submodules:
     artifacts:
         paths:
             - submodules
+        expire_in: 2 days
     retry: 2
         
 build_seissol:
     stage: build
+    tags:
+        - sccs
+        - build
     needs:
         - job: fetch_submodules
     parallel:
         matrix:
         - precision: [double, single]
           build_type: [Debug, Release]
+          equation: [elastic, anisotropic, poroelastic, viscoelastic2]
     script:
         - cmake --version
-        - equation=elastic
         - mechanisms=0
-        - for equation in elastic ;
-            do dirname="build_${equation}_${precision}_${build_type}";
-            echo "mkdir $dirname";
-            if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
-            mkdir -p $dirname && cd $dirname ;
-            pwd;
-            CMAKE_PREFIX_PATH=~ ;
-            cmake ..
-            -DNETCDF=ON
-            -DMETIS=ON
-            -DCOMMTHREAD=OFF
-            -DASAGI=OFF
-            -DHDF5=ON
-            -DCMAKE_BUILD_TYPE=$build_type
-            -DTESTING=ON
-            -DLOG_LEVEL=warning
-            -DLOG_LEVEL_MASTER=info
-            -DHOST_ARCH=${HOST}
-            -DPRECISION=$precision
-            -DEQUATIONS=$equation
-            -DNUMBER_OF_MECHANISMS=$mechanisms
-            -DDR_QUAD_RULE=stroud
-            -DGEMM_TOOLS_LIST=LIBXSMM
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
-            make -j $(nproc);
-            cd .. ;
-          done;
+        - dirname="build_${equation}_${precision}_${build_type}";
+          if [ "$equation" = viscoelastic2 ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = anisotropic ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = poroelastic ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;
+          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+          echo "mkdir $dirname";
+          mkdir -p $dirname && cd $dirname ;
+          pwd;
+          CMAKE_PREFIX_PATH=~ ;
+          cmake ..
+          -DNETCDF=ON
+          -DMETIS=ON
+          -DCOMMTHREAD=OFF
+          -DASAGI=OFF
+          -DHDF5=ON
+          -DCMAKE_BUILD_TYPE=$build_type
+          -DTESTING=ON
+          -DLOG_LEVEL=warning
+          -DLOG_LEVEL_MASTER=info
+          -DHOST_ARCH=${HOST}
+          -DPRECISION=$precision
+          -DEQUATIONS=$equation
+          -DNUMBER_OF_MECHANISMS=$mechanisms
+          -DDR_QUAD_RULE=stroud
+          -DGEMM_TOOLS_LIST=LIBXSMM
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
+          make -j $(nproc);
+          cd .. ;
           
     artifacts:
         paths:
             - build_*
+        expire_in: 2 days
     retry: 2
             
 run_unit_tests:
     stage: test
     allow_failure: true
+    tags:
+        - sccs
+        - cpu-hsw
     needs:
         - job: build_seissol
     parallel:
@@ -87,6 +97,12 @@ run_unit_tests:
             - DIR: build_elastic_single_Debug
             - DIR: build_elastic_double_Release
             - DIR: build_elastic_single_Release
+            - DIR: build_anisotropic_double_Release
+            - DIR: build_anisotropic_single_Release
+            - DIR: build_poroelastic_double_Release
+            - DIR: build_poroelastic_single_Release
+            - DIR: build_viscoelastic2_double_Release
+            - DIR: build_viscoelastic2_single_Release
     script: 
         - echo "testing"
         - pwd
@@ -99,20 +115,27 @@ run_unit_tests:
 run_tpv:
     stage: test
     allow_failure: false
+    tags:
+        - sccs
+        - cpu-hsw
     needs:
         - job: build_seissol
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout b60e02c
+        - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
         - cd ..
-        - cd build_elastic_${precision}_Release
+        - export equations=elastic
+        - if [ "$tpv" = ahsp ]; then equations=anisotropic; fi;
+        - if [ "$tpv" = 5-poro ]; then equations=poroelastic; fi;      
+        - if [ "$tpv" = 5-visco ]; then equations=viscoelastic2; fi;
+        - cd build_${equations}_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
         - ls
         - mkdir ./output
@@ -120,18 +143,22 @@ run_tpv:
         - export OMP_NUM_THREADS=$NUM_COMP_CORES
         - export OMP_PLACES="cores($NUM_COMP_CORES)"
         - ulimit -Ss unlimited
-        - ./SeisSol_Release_*_elastic ./parameters.par
+        - ./SeisSol_Release_*_${equations} ./parameters.par
         - mv ./precomputed/${precision} ./output/precomputed
         - mv ./output ../output-tpv{$tpv}-${precision}
     artifacts:
         paths:
             - output-*
+        expire_in: 2 days
     retry: 2
 
 
 check_faultoutput:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:
@@ -141,7 +168,7 @@ check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -154,6 +181,9 @@ check_faultoutput:
 check_receivers:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:
@@ -161,7 +191,7 @@ check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
@@ -175,6 +205,9 @@ check_receivers:
 check_energies:
     stage: check
     allow_failure: false
+    tags:
+        - sccs
+        - helper
     needs:
         - job: run_tpv
     variables:
@@ -183,7 +216,7 @@ check_energies:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls

@@ -17,19 +17,12 @@ You may also do a shallow clone by adding ``--depth=1`` which will save a bit of
 
 Building SeisSol
 ~~~~~~~~~~~~~~~~
-Get the latest version of SeisSol on git by cloning the whole repository,
-including all submodules:
-
-.. code-block:: bash
-
-   git clone --recursive https://github.com/SeisSol/SeisSol.git
-
 Then, given that you have installed all required dependencies, you may compile SeisSol for CPUs as follows (or use ``ccmake`` for a GUI):
 
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DPRECISION=double -DORDER=4 -DEQUATIONS=elastic ..
+   cmake -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DPRECISION=double -DORDER=4 -DEQUATIONS=elastic ..
    make -j 4
 
 Note that you may need to adjust your host architecture, especially if you are on an ARM-based machine: then you will add at least ``-DHOST_ARCH=neon``, or one of the other ARM-compatible architectures.

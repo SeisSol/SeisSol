@@ -1,12 +1,14 @@
 #ifndef SEISSOL_FRICTIONSOLVER_COMMON_H
 #define SEISSOL_FRICTIONSOLVER_COMMON_H
 
+#include <limits>
+#include <type_traits>
+
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
-#include <type_traits>
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -84,6 +86,8 @@ inline void checkAlignmentPreCompute(
  *             at the 2d face quadrature nodes evaluated at the time
  *             quadrature points
  * @param[in] impAndEta contains eta and impedance values
+ * @param[in] impedanceMatrices contains impedance and eta values, in the poroelastic case, these
+ * are non-diagonal matrices
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
@@ -91,6 +95,7 @@ template <RangeType Type = RangeType::CPU>
 inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
@@ -98,6 +103,7 @@ inline void precomputeStressFromQInterpolated(
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
+#ifndef USE_POROELASTIC
   const auto etaP = impAndEta.etaP;
   const auto etaS = impAndEta.etaS;
   const auto invZp = impAndEta.invZp;
@@ -136,6 +142,33 @@ inline void precomputeStressFromQInterpolated(
                   qIMinus[o][T2][i] * invZsNeig);
     }
   }
+#else
+  seissol::dynamicRupture::kernel::computeTheta krnl;
+  krnl.extractVelocities = init::extractVelocities::Values;
+  krnl.extractTractions = init::extractTractions::Values;
+
+  // Compute Theta from eq (4.53) in Carsten's thesis
+  krnl.Zplus = impedanceMatrices.impedance;
+  krnl.Zminus = impedanceMatrices.impedanceNeig;
+  krnl.eta = impedanceMatrices.eta;
+
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  krnl.theta = thetaBuffer;
+  auto thetaView = init::theta::view::create(thetaBuffer);
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    krnl.Qplus = qInterpolatedPlus[o];
+    krnl.Qminus = qInterpolatedMinus[o];
+    krnl.execute();
+
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      faultStresses.normalStress[o][i] = thetaView(i, 0);
+      faultStresses.traction1[o][i] = thetaView(i, 1);
+      faultStresses.traction2[o][i] = thetaView(i, 2);
+      faultStresses.fluidPressure[o][i] = thetaView(i, 3);
+    }
+  }
+#endif
 }
 
 /**
@@ -192,6 +225,7 @@ inline void checkAlignmentPostCompute(
  * @param[in] faultStresses
  * @param[in] tractionResults
  * @param[in] impAndEta
+ * @param[in] impedancenceMatrices
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] timeWeights
@@ -203,6 +237,7 @@ inline void postcomputeImposedStateFromNewStress(
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults,
     const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -218,7 +253,7 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
   }
-
+#ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
   const auto invZp = impAndEta.invZp;
   const auto invZsNeig = impAndEta.invZsNeig;
@@ -272,6 +307,48 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
+#else
+  // setup kernel
+  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
+  krnlM.extractVelocities = init::extractVelocities::Values;
+  krnlM.extractTractions = init::extractTractions::Values;
+  krnlM.mapToVelocities = init::mapToVelocities::Values;
+  krnlM.mapToTractions = init::mapToTractions::Values;
+  krnlM.Zminus = impedanceMatrices.impedanceNeig;
+  krnlM.imposedState = imposedStateMinus;
+
+  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
+  krnlP.extractVelocities = init::extractVelocities::Values;
+  krnlP.extractTractions = init::extractTractions::Values;
+  krnlP.mapToVelocities = init::mapToVelocities::Values;
+  krnlP.mapToTractions = init::mapToTractions::Values;
+  krnlP.Zplus = impedanceMatrices.impedance;
+  krnlP.imposedState = imposedStatePlus;
+
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  auto thetaView = init::theta::view::create(thetaBuffer);
+  krnlM.theta = thetaBuffer;
+  krnlP.theta = thetaBuffer;
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    auto weight = timeWeights[o];
+    // copy values to yateto dataformat
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      thetaView(i, 0) = faultStresses.normalStress[o][i];
+      thetaView(i, 1) = tractionResults.traction1[o][i];
+      thetaView(i, 2) = tractionResults.traction2[o][i];
+      thetaView(i, 3) = faultStresses.fluidPressure[o][i];
+    }
+    // execute kernel (and hence update imposedStatePlus/Minus)
+    krnlM.Qminus = qInterpolatedMinus[o];
+    krnlM.weight = weight;
+    krnlM.execute();
+
+    krnlP.Qplus = qInterpolatedPlus[o];
+    krnlP.weight = weight;
+    krnlP.execute();
+  }
+#endif
 }
 
 /**
@@ -285,8 +362,14 @@ inline void postcomputeImposedStateFromNewStress(
  */
 template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                // See https://github.com/llvm/llvm-project/issues/60163
+                                // NOLINTNEXTLINE
+                                real initialPressure[misc::numPaddedPoints],
+                                const real nucleationPressure[misc::numPaddedPoints],
                                 real fullUpdateTime,
                                 real t0,
                                 real dt,
@@ -305,6 +388,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
       for (unsigned i = 0; i < 6; i++) {
         initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
       }
+      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }
@@ -367,7 +451,44 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedP
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
+/**
+ * update timeSinceSlipRateBelowThreshold (used in Abort Criteria)
+ *
+ * param[in] slipRateMagnitude
+ * param[in] ruptureTimePending
+ * param[in, out] timeSinceSlipRateBelowThreshold
+ * param[in] sumDt
+ */
+template <RangeType Type = RangeType::CPU>
+inline void
+    updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::numPaddedPoints],
+                                          const bool ruptureTimePending[misc::numPaddedPoints],
+                                          // See https://github.com/llvm/llvm-project/issues/60163
+                                          // NOLINTNEXTLINE
+                                          DREnergyOutput& energyData,
+                                          const real sumDt,
+                                          const real slipRateThreshold,
+                                          unsigned startIndex = 0) {
 
+  using Range = typename NumPoints<Type>::Range;
+  auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::start; index < Range::end; index += Range::step) {
+    auto pointIndex{startIndex + index};
+    if (not ruptureTimePending[pointIndex]) {
+      if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
+        timeSinceSlipRateBelowThreshold[pointIndex] += sumDt;
+      } else {
+        timeSinceSlipRateBelowThreshold[pointIndex] = 0;
+      }
+    } else {
+      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::max();
+    }
+  }
+}
 template <RangeType Type = RangeType::CPU>
 inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
@@ -388,10 +509,7 @@ inline void computeFrictionEnergy(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-
-  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
@@ -419,14 +537,13 @@ inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
-      const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                       interpolatedTraction12 * interpolatedSlipRate2 +
+
+      const auto weight = -timeWeight * spaceWeight * doubledSurfaceArea;
+      frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                        interpolatedTraction13 * interpolatedSlipRate3);
     }
   }

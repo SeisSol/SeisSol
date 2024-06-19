@@ -41,10 +41,15 @@
 #ifndef KERNELS_DYNAMICRUPTURE_H_
 #define KERNELS_DYNAMICRUPTURE_H_
 
-#include <Initializer/typedefs.hpp>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
-#include <Kernels/Time.h>
+#include "Initializer/typedefs.hpp"
+#include "generated_code/tensor.h"
+#include "generated_code/kernel.h"
+#include "Kernels/Time.h"
+#ifdef USE_STP
+#include <array>
+#include <memory>
+#include "Numerical_aux/BasisFunction.h"
+#endif
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))
 
@@ -66,6 +71,10 @@ class seissol::kernels::DynamicRupture {
   public:
     double timePoints[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
+    real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+#ifdef USE_STP
+    std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, CONVERGENCE_ORDER> timeBasisFunctions;
+#endif
 
   DynamicRupture() {}
 
@@ -86,7 +95,7 @@ class seissol::kernels::DynamicRupture {
                                 real const*                 timeDerivativePlus_prefetch,
                                 real const*                 timeDerivativeMinus_prefetch);
 
-  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table);
+  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime);
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,

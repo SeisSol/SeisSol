@@ -214,9 +214,7 @@ Installing PSpaMM
 
 .. code-block:: bash
 
-   git clone --depth=1 https://github.com/SeisSol/PSpaMM.git
-   # make sure $SEISSOL_PREFIX/bin exists or create it with "mkdir ~/bin"
-   ln -s $(pwd)/PSpaMM/pspamm.py $SEISSOL_PREFIX/bin/pspamm.py
+   pip3 install --user git+https://github.com/SeisSol/PSpaMM.git
 
 Mesh Partitioning (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

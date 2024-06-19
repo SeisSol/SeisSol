@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -11,14 +11,17 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -31,6 +34,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
       auto* devImpAndEta{this->impAndEta};
+      auto* devImpedanceMatrices{this->impedanceMatrices};
       auto* devQInterpolatedPlus{this->qInterpolatedPlus};
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
@@ -43,6 +47,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
+                                                                  devImpedanceMatrices[ltsFace],
                                                                   devQInterpolatedPlus[ltsFace],
                                                                   devQInterpolatedMinus[ltsFace],
                                                                   pointIndex);
@@ -55,6 +60,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        auto* devInitialPressure{this->initialPressure};
+        const auto* devNucleationPressure{this->nucleationPressure};
 
         this->queue.submit([&](sycl::handler& cgh) {
           if (timeIndex == 0) {
@@ -68,6 +75,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             common::adjustInitialStress<gpuRangeType, StdMath>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
+                devInitialPressure[ltsFace],
+                devNucleationPressure[ltsFace],
                 fullUpdateTime,
                 t0,
                 dt,
@@ -105,8 +114,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSpaceWeights{this->devSpaceWeights};
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
+      auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
+      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -118,6 +131,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           common::postcomputeImposedStateFromNewStress<gpuRangeType>(devFaultStresses[ltsFace],
                                                                      devTractionResults[ltsFace],
                                                                      devImpAndEta[ltsFace],
+                                                                     devImpedanceMatrices[ltsFace],
                                                                      devImposedStatePlus[ltsFace],
                                                                      devImposedStateMinus[ltsFace],
                                                                      devQInterpolatedPlus[ltsFace],
@@ -126,6 +140,17 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      pointIndex);
 
           if (isFrictionEnergyRequired) {
+
+            if (isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                  devSlipRateMagnitude[ltsFace],
+                  devRuptureTimePending[ltsFace],
+                  devEnergyData[ltsFace],
+                  devSumDt,
+                  devTerminatorSlipRateThreshold,
+                  pointIndex);
+            }
+
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
                                                         devQInterpolatedMinus[ltsFace],
@@ -137,8 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-      queue.wait_and_throw();
     }
+
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

@@ -4,7 +4,7 @@
 #include "Kernels/precision.hpp"
 #include <cstdlib>
 
-namespace seissol::initializers::recording::inner_keys {
+namespace seissol::initializer::recording::inner_keys {
 
 /**
  * The structure contains encoded variables names
@@ -32,6 +32,7 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
+    Analytical,
     Count
   };
 };
@@ -63,9 +64,9 @@ struct Indices {
   using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
-} // namespace seissol::initializers::recording::inner_keys
+} // namespace seissol::initializer::recording::inner_keys
 
-namespace seissol::initializers::recording {
+namespace seissol::initializer::recording {
 constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
 constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
 
@@ -118,6 +119,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace seissol::initializers::recording
+} // namespace seissol::initializer::recording
 
 #endif // SEISSOL_ENCODINGCONSTANTS_HPP

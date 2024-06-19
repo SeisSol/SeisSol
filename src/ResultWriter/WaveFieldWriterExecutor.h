@@ -77,9 +77,9 @@ enum BufferTags {
 struct WaveFieldInitParam
 {
 	int timestep;
-
 	int bufferIds[BUFFERTAG_MAX+1];
-  xdmfwriter::BackendType backend;
+	xdmfwriter::BackendType backend;
+	std::string backupTimeStamp;
 };
 
 struct WaveFieldParam
@@ -204,8 +204,10 @@ public:
 #ifdef USE_MPI
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+		m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
+      std::string extraIntVarName = "clustering";
 
-		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
+		m_waveFieldWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str(),  true, true);
 		m_waveFieldWriter->setMesh(
 			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
 			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
@@ -246,8 +248,10 @@ public:
 				type, (std::string(outputPrefix)+"-low").c_str());
 
 #ifdef USE_MPI
-		m_lowWaveFieldWriter->setComm(m_comm);
+			m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+			m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
+
 
 			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
 			m_lowWaveFieldWriter->setMesh(
@@ -272,7 +276,7 @@ public:
 	}
 
 	void setClusteringData(const unsigned *Clustering) {
-	  m_waveFieldWriter->writeClusteringInfo(Clustering);
+	  m_waveFieldWriter->writeExtraIntCellData(Clustering);
 	}
 
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)

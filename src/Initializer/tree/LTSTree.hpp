@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -37,47 +38,59 @@
  * @section DESCRIPTION
  * Tree for managing lts data.
  **/
- 
+
 #ifndef INITIALIZER_TREE_LTSTREE_HPP_
 #define INITIALIZER_TREE_LTSTREE_HPP_
 
 #include "LTSInternalNode.hpp"
+#include "Layer.hpp"
 #include "TimeCluster.hpp"
 
-#include <Initializer/MemoryAllocator.h>
+#include "Initializer/MemoryAllocator.h"
 
-namespace seissol {
-  namespace initializers {
-    class LTSTree;
-  }
-}
+namespace seissol::initializer {
 
-class seissol::initializers::LTSTree : public seissol::initializers::LTSInternalNode {
-private:
-  void** m_vars;
-  void** m_buckets;
+class LTSTree : public LTSInternalNode {
+  private:
+  std::vector<DualMemoryContainer> m_vars;
+  std::vector<DualMemoryContainer> m_buckets;
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
-  std::vector<size_t> variableSizes{};  /*!< sizes of variables within the entire tree in bytes */
-  std::vector<size_t> bucketSizes{};    /*!< sizes of buckets within the entire tree in bytes */
+  std::vector<size_t> variableSizes{}; /*!< sizes of variables within the entire tree in bytes */
+  std::vector<size_t> bucketSizes{};   /*!< sizes of buckets within the entire tree in bytes */
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
-  std::vector<size_t> scratchpadMemSizes{};  /*!< sizes of variables within the entire tree in bytes */
-  void** scratchpadMemories;
+  std::vector<size_t>
+      scratchpadMemSizes{}; /*!< sizes of variables within the entire tree in bytes */
+  std::vector<DualMemoryContainer> scratchpadMemories;
   std::vector<int> scratchpadMemIds{};
-#endif  // ACL_DEVICE
+#endif // ACL_DEVICE
 
-public:
-  LTSTree() : m_vars(NULL), m_buckets(NULL) {}
-  
-  ~LTSTree() { delete[] m_vars; delete[] m_buckets; }
-  
+  public:
+  LTSTree() = default;
+
+  ~LTSTree() override = default;
+
+  void synchronizeTo(AllocationPlace place, void* stream) {
+    for (auto& variable : m_vars) {
+      variable.synchronizeTo(place, stream);
+    }
+    for (auto& bucket : m_buckets) {
+      bucket.synchronizeTo(place, stream);
+    }
+#ifdef ACL_DEVICE
+    for (auto& scratchpad : scratchpadMemories) {
+      scratchpad.synchronizeTo(place, stream);
+    }
+#endif
+  }
+
   void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
     setChildren<TimeCluster>(numberOfTimeCluster);
   }
-  
+
   void fixate() {
     setPostOrderPointers();
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -87,62 +100,68 @@ public:
 #endif
     }
   }
-  
+
   inline TimeCluster& child(unsigned index) {
-    return *static_cast<TimeCluster*>(m_children[index]);
-  }
-  
-  inline TimeCluster const& child(unsigned index) const {
-    return *static_cast<TimeCluster*>(m_children[index]);
+    return *static_cast<TimeCluster*>(m_children[index].get());
   }
 
-  template<typename T>
-  T* var(Variable<T> const& handle) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
-    return static_cast<T*>(m_vars[handle.index]);
+  inline const TimeCluster& child(unsigned index) const {
+    return *static_cast<TimeCluster*>(m_children[index].get());
   }
 
-  MemoryInfo const& info(unsigned index) const {
-    return varInfo[index];
+  void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
+    assert(index != std::numeric_limits<unsigned>::max());
+    assert(m_vars.size() > index);
+    return m_vars[index].get(place);
   }
-  
-  inline unsigned getNumberOfVariables() const {
-    return varInfo.size();
+
+  template <typename T>
+  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
+    return static_cast<T*>(varUntyped(handle.index, place));
   }
-  
-  template<typename T>
-  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, seissol::memory::Memkind memkind) {
+
+  const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
+
+  inline unsigned getNumberOfVariables() const { return varInfo.size(); }
+
+  template <typename T>
+  void addVar(Variable<T>& handle,
+              LayerMask mask,
+              size_t alignment,
+              AllocationMode allocMode,
+              bool constant = false) {
     handle.index = varInfo.size();
     handle.mask = mask;
     MemoryInfo m;
-    m.bytes = sizeof(T)*handle.count;
+    m.bytes = sizeof(T) * handle.count;
     m.alignment = alignment;
     m.mask = mask;
-    m.memkind = memkind;
+    m.allocMode = allocMode;
+    m.constant = constant;
+    m.elemsize = sizeof(T);
     varInfo.push_back(m);
   }
-  
-  void addBucket(Bucket& handle, size_t alignment, seissol::memory::Memkind memkind) {
+
+  void addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode) {
     handle.index = bucketInfo.size();
     MemoryInfo m;
     m.alignment = alignment;
-    m.memkind = memkind;
+    m.allocMode = allocMode;
     bucketInfo.push_back(m);
   }
 
 #ifdef ACL_DEVICE
-  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, seissol::memory::Memkind memkind) {
+  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, AllocationMode allocMode) {
     handle.index = scratchpadMemInfo.size();
     MemoryInfo memoryInfo;
     memoryInfo.alignment = alignment;
-    memoryInfo.memkind = memkind;
+    memoryInfo.allocMode = allocMode;
     scratchpadMemInfo.push_back(memoryInfo);
   }
 #endif // ACL_DEVICE
-  
+
   void allocateVariables() {
-    m_vars = new void*[varInfo.size()];
+    m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -150,30 +169,35 @@ public:
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
-      m_vars[var] = m_allocator.allocateMemory(variableSizes[var], varInfo[var].alignment, varInfo[var].memkind);
+      m_vars[var].allocate(
+          m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
+      m_vars[var].constant = varInfo[var].constant;
     }
-    
+
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
       it->addVariableSizes(varInfo, variableSizes);
     }
   }
-  
+
   void allocateBuckets() {
-    m_buckets = new void*[bucketInfo.size()];
+    m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
-    
+
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addBucketSizes(bucketSizes);
     }
-    
+
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
-      m_buckets[bucket] = m_allocator.allocateMemory(bucketSizes[bucket], bucketInfo[bucket].alignment, bucketInfo[bucket].memkind);
+      m_buckets[bucket].allocate(m_allocator,
+                                 bucketSizes[bucket],
+                                 bucketInfo[bucket].alignment,
+                                 bucketInfo[bucket].allocMode);
     }
-    
+
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-      for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
       it->addBucketSizes(bucketSizes);
     }
@@ -187,7 +211,7 @@ public:
   // Note, all scratchpad entities are shared between leaves.
   // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
   void allocateScratchPads() {
-    scratchpadMemories = new void*[scratchpadMemInfo.size()];
+    scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -196,31 +220,28 @@ public:
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
       // TODO {ravil}: check whether the assert makes sense
-      //assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
-      scratchpadMemories[id] = m_allocator.allocateMemory(scratchpadMemSizes[id],
-                                                          scratchpadMemInfo[id].alignment,
-                                                          scratchpadMemInfo[id].memkind);
+      // assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
+      scratchpadMemories[id].allocate(m_allocator,
+                                      scratchpadMemSizes[id],
+                                      scratchpadMemInfo[id].alignment,
+                                      scratchpadMemInfo[id].allocMode);
     }
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories, scratchpadMemInfo.size());
+      it->setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
-  
+
   void touchVariables() {
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->touchVariables(varInfo);
     }
   }
 
-  const std::vector<size_t>& getVariableSizes() {
-    return variableSizes;
-  }
+  const std::vector<size_t>& getVariableSizes() { return variableSizes; }
 
-  const std::vector<size_t>& getBucketSizes() {
-    return bucketSizes;
-  }
+  const std::vector<size_t>& getBucketSizes() { return bucketSizes; }
 
   size_t getMaxClusterSize(LayerMask mask) {
     size_t maxClusterSize{0};
@@ -231,5 +252,7 @@ public:
     return maxClusterSize;
   }
 };
+
+} // namespace seissol::initializer
 
 #endif

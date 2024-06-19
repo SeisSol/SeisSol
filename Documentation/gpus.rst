@@ -95,8 +95,13 @@ Compile SeisSol with (e.g.)
 
     mkdir -p seissol-gpu/build && cd seissol-gpu/build 
     cmake -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_70 -DHOST_ARCH=skx \
-    -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
+    -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
+
+The following two CMake options can be useful to improve performance:
+
+* `USE_GRAPH_CAPTURING`: enables CUDA/HIP graphs. These are used to speed up the kernel execution for elastic or anisotropic equations.
+* `PREMULTIPLY_FLUX`: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
 
 Execution
 ~~~~~~~~~
@@ -119,19 +124,27 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
+The following device-specific environment variables are supported right now:
 
-Currently, SeisSol allocates MPI user-buffers using the unified/managed memory
-type. Some MPI implementations perform poorly during non-blocking
-point-to-point communication. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
-environment variable which can be used to select the memory type for the user-buffers.
+* SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE
+* SEISSOL_SERIAL_NODE_DEVICE_INIT
+
+Currently, SeisSol allocates MPI buffers using the global memory type.
+Some MPI implementations are not GPU-aware and do not support direct point-to-point
+communication on device buffers. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+environment variable that can be used to select the memory type for the buffers.
 The *host* value means that the data will be copied to/from the host memory
-before/after each *MPI_Isend* / *MPI_Irecv*. Setting the variable to *device*
-will result in utilizing the regular device memory for non-blocking
-communication. The default value is *direct* which means that the communication
-goes over the unified/managed memory and thus does not involve explicit data
+before/after each *MPI_Isend* / *MPI_Irecv*.
+The default value is *direct* which means that the communication
+goes over the global memory and thus does not involve explicit data
 copies.
 
 .. figure:: LatexFigures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram 
    :width: 10.0cm
    :align: center
+
+The variable "SEISSOL_SERIAL_NODE_DEVICE_INIT" exists to mitigate some possible execution bugs
+with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
+To enable it, set "SEISSOL_SERIAL_NODE_DEVICE_INIT=1". To explicitly disable it,
+write "SEISSOL_SERIAL_NODE_DEVICE_INIT=0".

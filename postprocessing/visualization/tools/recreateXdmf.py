@@ -17,6 +17,8 @@ def generate_new_prefix(prefix, append2prefix):
         if lsplit[-1] in ["surface", "low", "fault"]:
             prefix0 = "-".join(lsplit[0:-1])
             prefix_new = prefix0 + append2prefix + "-" + lsplit[-1]
+        else:
+            prefix_new = prefix + append2prefix
     else:
         prefix_new = prefix + append2prefix
     return prefix_new

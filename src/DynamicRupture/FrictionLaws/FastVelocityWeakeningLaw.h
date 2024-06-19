@@ -14,11 +14,11 @@ class FastVelocityWeakeningLaw
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTSRateAndStateFastVelocityWeakening const* const>(
+        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(
             dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
@@ -120,7 +120,7 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
     std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
     std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
@@ -142,7 +142,7 @@ class FastVelocityWeakeningLaw
     }
   }
 
-  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
                              unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
                                       exp(localStateVariable[0] / this->a[ltsFace][0]) *

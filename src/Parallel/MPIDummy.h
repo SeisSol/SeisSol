@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -43,55 +44,50 @@
 
 #include "Parallel/MPIBasic.h"
 
-namespace seissol
-{
+namespace seissol {
+
+// MPI_Comm substitute, so we don't have to disambiguate when it's not there
+#ifndef USE_MPI
+using MPI_Comm = int;
+constexpr MPI_Comm MPI_COMM_NULL = 0;
+constexpr MPI_Comm MPI_COMM_SELF = 1;
+constexpr MPI_Comm MPI_COMM_WORLD = 2;
+#endif
 
 /**
  * Dummy class when running without MPI
  */
-class MPIDummy : public MPIBasic
-{
-private:
-	MPIDummy()
-	{ }
+class MPIDummy : public MPIBasic {
+  private:
+  MPIDummy() {}
 
-public:
-	~MPIDummy()
-	{ }
+  public:
+  ~MPIDummy() {}
 
-	/**
-	 * Does nothing
-	 */
-	void init(int &argc, char** &argv)
-	{
-	}
+  /**
+   * Does nothing
+   */
+  void init(int& argc, char**& argv) {}
 
-	/**
-	 * @return Dummy communicator
-	 */
-	int comm() const
-	{
-		return 0;
-	}
+  /**
+   * @return Dummy communicator
+   */
+  int comm() const { return 0; }
 
-	/**
-	 * Does nothing
-	 */
-	void barrier(int comm) const
-	{
-	}
+  /**
+   * Does nothing
+   */
+  void barrier(int comm) const {}
 
-	/**
-	 * Does nothing
-	 */
-	void finalize()
-	{
-	}
+  /**
+   * Does nothing
+   */
+  void finalize() {}
 
-	/** The only instance of the class */
-	static MPIDummy mpi;
+  /** The only instance of the class */
+  static MPIDummy mpi;
 };
 
-}
+} // namespace seissol
 
 #endif // MPI_DUMMY_H

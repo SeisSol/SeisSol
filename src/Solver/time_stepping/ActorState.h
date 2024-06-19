@@ -1,9 +1,12 @@
 #ifndef SEISSOL_ACTORSTATE_H
 #define SEISSOL_ACTORSTATE_H
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <variant>
+
+#include <Common/Executor.hpp>
 
 namespace seissol::time_stepping {
 
@@ -78,14 +81,25 @@ struct ClusterTimes {
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
                                                double newSyncTime) const;
 
+//  [[nodiscard]] double& getTimeStepSize();
+
+  double getTimeStepSize() const {
+    return maxTimeStepSize;
+  }
+
+  void setTimeStepSize(double newTimeStepSize) {
+    maxTimeStepSize = newTimeStepSize;
+  }
+
 };
 
 struct NeighborCluster {
+  Executor executor;
   ClusterTimes ct;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
-  NeighborCluster(double maxTimeStepSize, int timeStepRate);
+  NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 
 };
 

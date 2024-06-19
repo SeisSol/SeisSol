@@ -44,23 +44,26 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
 #include <utils/logger.h>
 #include <async/Module.h>
-#include <Modules/Module.h>
-#include <Solver/FreeSurfaceIntegrator.h>
+#include "Modules/Module.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "Checkpoint/DynStruct.h"
 #include "Monitoring/Stopwatch.h"
 #include "FreeSurfaceWriterExecutor.h"
 
 namespace seissol
 {
+  class SeisSol;
 namespace writer
 {
 
 class FreeSurfaceWriter : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>, public seissol::Module
 {
 private:
+        seissol::SeisSol& seissolInstance;
+
 	/** Is enabled? */
 	bool m_enabled;
 
@@ -83,7 +86,8 @@ private:
                               unsigned&         nVertices );
 
 public:
-	FreeSurfaceWriter() : m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
+	FreeSurfaceWriter(seissol::SeisSol& seissolInstance) : 
+          seissolInstance(seissolInstance), m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
 
 	/**
 	 * Called by ASYNC on all ranks
@@ -96,7 +100,8 @@ public:
               seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
               char const*                             outputPrefix,
               double                                  interval,
-              xdmfwriter::BackendType                 backend );
+              xdmfwriter::BackendType                 backend,
+              const std::string& backupTimeStamp);
 
 	void write(double time);
 
