@@ -3,10 +3,9 @@ Installing Dependencies
 
 For compiling SeisSol, you will need the following dependencies during build:
 
-- A C++17-capable compiler. We tested:
-
-  - GCC (11.2.0)
-  - ICC (2022.0)
+- A C++17-capable compiler. For the 
+  - GCC (>= 9.0)
+  - ICC (>= 2021.0)
 - CMake (>= 3.20)
 - Python (>= 3.5)
 - Numpy (>= 1.12.0)
@@ -30,16 +29,16 @@ Additionally, you need the following libraries:
 - (optional) ASAGI
 
 All dependencies can be installed automatically with spack or manually by hand.
-For a minimal installation (e.g. for running SeisSol on your local machine),
+For a minimal installation,
 you may avoid all optional dependencies. However, for the maximal performance, and for compute clusters,
 we recommend having at least using a code generator and having a mesh partitioner linked to SeisSol.
 
-For the GPU version, the following packages need to be installed for the GPU version of SeisSol:
+For the GPU version, the following packages need to be installed as well:
 
-- SYCL: either hipSYCL >= 0.9.3 or DPC++
-- gemmforge (>= 0.0.207)
+- SYCL: either AdaptiveCpp (hipSYCL/Open SYCL) >= 0.9.3 or DPC++
+- gemmforge (>= 0.0.207, for Nvidia, AMD and Intel GPUs)
 - (optional) chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
-- (optional) CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
+- (optional) CUDA (>= 11.0) for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
 
 .. _spack_installation:
 
@@ -76,16 +75,16 @@ for building.
   # write the path here which you created your directory in (you can figure it out by typing `pwd`)
   export SEISSOL_BASE=$HOME/seissol
 
-  export PREFIX=$SEISSOL_BASE/local
-  export PATH=$PREFIX/bin:$PATH
-  export LIBRARY_PATH=$PREFIX/lib:$PREFIX/lib64:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=$PREFIX/lib:$PREFIX/lib64:$LD_LIBRARY_PATH
-  export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PREFIX/lib64/pkgconfig:$PKG_CONFIG_PATH
-  export CMAKE_PREFIX_PATH=$PREFIX:$CMAKE_PREFIX_PATH
-  export CMAKE_INSTALL_PREFIX=$PREFIX
-  export CPATH=$PREFIX/include:$CPATH 
-  export C_INCLUDE_PATH=$PREFIX/include:$C_INCLUDE_PATH
-  export CXX_INCLUDE_PATH=$PREFIX/include:$CXX_INCLUDE_PATH
+  export SEISSOL_PREFIX=$SEISSOL_BASE/local
+  export PATH=$SEISSOL_PREFIX/bin:$PATH
+  export LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LIBRARY_PATH
+  export LD_LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LD_LIBRARY_PATH
+  export PKG_CONFIG_PATH=$SEISSOL_PREFIX/lib/pkgconfig:$SEISSOL_PREFIX/lib64/pkgconfig:$PKG_CONFIG_PATH
+  export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+  export CMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+  export CPATH=$SEISSOL_PREFIX/include:$CPATH 
+  export C_INCLUDE_PATH=$SEISSOL_PREFIX/include:$C_INCLUDE_PATH
+  export CXX_INCLUDE_PATH=$SEISSOL_PREFIX/include:$CXX_INCLUDE_PATH
   export EDITOR=nano # or e.g. vi,vim
 
   # run "source ~/seissol/setup.sh" to apply environment to the current shell
@@ -93,8 +92,7 @@ for building.
 Required Dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
-We assume that you have a compiler already installed.
-The same goes for a suitable Python installation.
+We assume that you have a compiler already installed. The same goes for a suitable Python installation.
 You will also need CMake in version 3.20.0 or above. Most likely, you system will already have a
 version of CMake installed; however, you may have to load a module to get a new enough version.
 
@@ -102,12 +100,9 @@ If you do not have CMake in a new enough version available, you may also install
 
 .. code-block:: bash
 
-  # you will need at least version 3.20.0 for GNU Compiler Collection 
   (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${HOME}/bin/cmake")
-  
-  ln -s ${PREFIX}/bin/cmake/bin/cmake ${PREFIX}/bin
 
-Note that this extracts CMake to the directory ``${PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
+Note that this extracts CMake to the directory ``${SEISSOL_PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
   
 Required Libraries
 ~~~~~~~~~~~~~~~~~~
@@ -128,7 +123,7 @@ you may compile it manually with the following commands:
   wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.bz2
   tar -xaf hdf5-1.10.8.tar.bz2
   cd hdf5-1.10.8
-  CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx ./configure --enable-parallel --prefix=$PREFIX --with-zlib --disable-shared
+  CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx ./configure --enable-parallel --prefix=$SEISSOL_PREFIX --with-zlib --disable-shared
   make -j8
   make install
   cd ..
@@ -146,7 +141,7 @@ Once again, if you do not have Eigen installed, you may do so manually as follow
    tar -xf eigen-3.4.0.tar.gz
    cd eigen-3.4.0
    mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX
+   cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
    make install
    cd ../..
 
@@ -207,7 +202,7 @@ Installing Libxsmm
    git clone --depth=1 --branch 1.17 https://github.com/hfp/libxsmm
    cd libxsmm
    make generator
-   cp bin/libxsmm_gemm_generator $PREFIX/bin/
+   cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin/
    cd ..
 
 .. _installing_pspamm:
@@ -220,8 +215,8 @@ Installing PSpaMM
 .. code-block:: bash
 
    git clone --depth=1 https://github.com/SeisSol/PSpaMM.git
-   # make sure $PREFIX/bin exists or create it with "mkdir ~/bin"
-   ln -s $(pwd)/PSpaMM/pspamm.py $PREFIX/bin/pspamm.py
+   # make sure $SEISSOL_PREFIX/bin exists or create it with "mkdir ~/bin"
+   ln -s $(pwd)/PSpaMM/pspamm.py $SEISSOL_PREFIX/bin/pspamm.py
 
 Mesh Partitioning (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -250,10 +245,10 @@ ParMETIS may be installed as follows:
   tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-  make config cc=mpicc cxx=mpiCC prefix=$PREFIX 
+  make config cc=mpicc cxx=mpiCC prefix=$SEISSOL_PREFIX 
   make install
-  cp build/Linux-x86_64/libmetis/libmetis.a $PREFIX/lib
-  cp metis/include/metis.h $PREFIX/include
+  cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
+  cp metis/include/metis.h $SEISSOL_PREFIX/include
   cd ..
 
 (Make sure $HOME/include contains metis.h and $HOME/lib contains

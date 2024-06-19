@@ -1,0 +1,42 @@
+Frequent Build and Running Issues
+---------------------------------
+
+The following issues appear frequently when trying to compile or to run SeisSol.
+
+Building fails due to missing files
+-----------------------------------
+
+Your submodules are probably not correctly initialized.
+Run ``git submodule update --init --recursive`` when inside the Git repository (that also works if you have your build directory inside the repository).
+It is recommended to do that after each update of the repository.
+
+Code Generation fails
+---------------------
+
+There is unfortunately no general remedy to that, as the problem may lie elsewhere.
+For a fast, but stable installation, you can use
+``PspaMM``, ``gemmforge`` and ``chainforge``; all three of them being Python packages.
+
+Running SeisSol gives ``SIGILL`` (reason 1)
+-----------------------------------------
+
+The underlying reason for this problem is usually that your selected ``HOST_ARCH`` in the CMake file and
+the architecture you are running on do not match.
+
+That can happen for example, if:
+
+* Some version of the documentation recommends using ``HOST_ARCH=skx`` which enables some basic AVX512 options. However, most CPUs in personal computers to date do not support AVX512. To avoid this problem, use ``HOST_ARCH=hsw``.
+* Check again the system you want to run SeisSol on. Sometimes, for example, login nodes can have a different architecture compared to compute nodes.
+
+To get a working build, choose ``noarch``. If that works, you are good on your local machine by using ``hsw`` (for x86_64 machines)
+or ``neon`` (for ARM machines).
+
+Running SeisSol gives ``SIGILL`` (reason 2)
+-----------------------------------------
+
+This problem also occurs, if you use the ImpalaJIT backend for easi on ARM-based CPUs, like e.g. in the latest Apple computers or the Nvidia Grace Hopper Superchip.
+The crash usually happens then when reading material parameters, i.e. around the log messages of ``Computing LTS weights.``, or after ``Begin init model.``.
+
+In this case, it is best to use the Lua backend for easi instead.
+The ImpalaJIT backend is used for ``!Function`` constructs while the Lua backend uses ``!Lua`` constructs—there is not (yet) a transpiler to Lua, i.e. you will have to look for a Lua version of the script instead or write it yourself.
+Recently the SeisSol Examples repository has been converted to using Lua instead of ImpalaJIT.

@@ -30,9 +30,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :caption: Introduction
 
   introduction
-  installing-dependencies
-  compiling-seissol
-  a-first-example
   acknowledge
   reproducible-research
   related-publications
@@ -48,6 +45,20 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
+  :caption: Installing SeisSol
+
+  spack
+  build-overview
+  build-dependencies
+  build-seissol
+  gpus
+  build-run
+  a-first-example
+  build-parameters
+  build-archs
+
+.. toctree::
+  :maxdepth: 2
   :caption: Invoking SeisSol
   
   configuration
@@ -58,7 +69,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   easi
   fault-tagging
   environment-variables
-  gpus
   memory-requirements
 
 .. toctree::
