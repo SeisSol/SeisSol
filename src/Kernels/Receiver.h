@@ -53,7 +53,9 @@
 #include "generated_code/init.h"
 #include <Common/Executor.hpp>
 #include <Eigen/Dense>
+#include <cstddef>
 #include <optional>
+#include <string>
 #include <vector>
 
 struct GlobalData;
@@ -101,6 +103,14 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
                seissol::init::QDerivativeAtPoint::view::type&) override;
 };
 
+struct ReceiverPlasticStrain : public DerivedReceiverQuantity {
+  std::vector<std::string> quantities() const override;
+  void compute(size_t sim,
+               std::vector<real>&,
+               seissol::init::QAtPoint::view::type&,
+               seissol::init::QDerivativeAtPoint::view::type&) override;
+};
+
 class ReceiverCluster {
   public:
   ReceiverCluster(seissol::SeisSol& seissolInstance);
@@ -117,7 +127,7 @@ class ReceiverCluster {
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
                    const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   const seissol::initializer::LTS& lts);
 
   //! Returns new receiver time
   double calcReceivers(

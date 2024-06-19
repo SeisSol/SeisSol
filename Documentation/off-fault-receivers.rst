@@ -46,6 +46,7 @@ The rotation of the vector field is defined as :math:`\text{rot} v = \begin{pmat
 Strain Output
 -------------
 Furthermore, you can also output the strain by setting :code:`ReceiverComputeStrain=1`.
+The plastic strain output can be added in case of plasticity by setting :code:`ReceiverComputePlasticStrain=1``
 
 Placing free-surface receivers
 ------------------------------

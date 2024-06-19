@@ -47,7 +47,10 @@
 #include <Common/Executor.hpp>
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/common.hpp>
+#include <cstddef>
+#include <init.h>
 #include <omp.h>
+#include <string>
 #include <unordered_map>
 
 #ifdef ACL_DEVICE
@@ -326,6 +329,23 @@ void ReceiverRotation::compute(size_t sim,
 std::vector<std::string> ReceiverStrain::quantities() const {
   return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
 }
+
+std::vector<std::string> ReceiverPlasticStrain::quantities() const {
+  return {"plasticepsxx", "plasticepsxy", "plasticepsxz", "plasticepsyy", "plasticepsyz", "plasticepszz"};
+}
+
+void ReceiverPlasticStrain::compute(size_t sim, std::vector<real>& output, seissol::init::QAtPoint::view::type& qAtPoint,
+seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint){
+  // maintaing 6 as of now, will need to extend once we get confirmation that it is more
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6,0));
+
+}
+
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
                              seissol::init::QAtPoint::view::type& qAtPoint,
