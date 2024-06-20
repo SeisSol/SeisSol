@@ -7,8 +7,8 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Modules/Module.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-#include "Solver/time_stepping/TimeCluster.h"
+#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
+#include "Solver/Clustering/Computation/TimeCluster.h"
 
 namespace seissol {
 class SeisSol;

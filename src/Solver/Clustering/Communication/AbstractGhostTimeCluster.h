@@ -1,8 +1,8 @@
 #pragma once
 
-#include "AbstractTimeCluster.h"
 #include "Initializer/typedefs.hpp"
-#include <Solver/time_stepping/ActorState.h>
+#include "Solver/Clustering/AbstractTimeCluster.h"
+#include <Solver/Clustering/ActorState.h>
 #include <list>
 
 namespace seissol::time_stepping {

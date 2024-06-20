@@ -43,7 +43,6 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
-#include <Solver/time_stepping/DynamicRuptureCluster.hpp>
 #include <cassert>
 #include <list>
 #include <memory>
@@ -56,11 +55,12 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
+#include "Solver/Clustering/Communication/CommunicationManager.h"
+#include "Solver/Clustering/Communication/GhostTimeClusterFactory.h"
+#include "Solver/Clustering/Computation/DynamicRuptureCluster.hpp"
+#include "Solver/Clustering/Computation/TimeCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Solver/time_stepping/CommunicationManager.h"
-#include "Solver/time_stepping/GhostTimeClusterFactory.h"
 #include "SourceTerm/typedefs.hpp"
-#include "TimeCluster.h"
 #include <utils/logger.h>
 
 namespace seissol::time_stepping {

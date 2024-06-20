@@ -75,8 +75,8 @@
 #include <Common/Executor.hpp>
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/PointSourceCluster.h>
-#include <Solver/time_stepping/AbstractTimeCluster.h>
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/Clustering/AbstractTimeCluster.h>
+#include <Solver/Clustering/ActorState.h>
 #include <SourceTerm/Manager.h>
 
 #ifdef _OPENMP

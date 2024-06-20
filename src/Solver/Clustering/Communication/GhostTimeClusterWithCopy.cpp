@@ -1,9 +1,9 @@
 #include "Initializer/typedefs.hpp"
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/Clustering/ActorState.h>
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"
-#include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
+#include "Solver/Clustering/Communication/GhostTimeClusterWithCopy.h"
 #include "device.h"
 
 namespace seissol::time_stepping {

@@ -2,7 +2,7 @@
 #define SEISSOL_ACTORSTATESTATISTICS_H
 
 #include "LoopStatistics.h"
-#include "Solver/time_stepping/ActorState.h"
+#include "Solver/Clustering/ActorState.h"
 #include <list>
 #include <optional>
 #include <unordered_map>

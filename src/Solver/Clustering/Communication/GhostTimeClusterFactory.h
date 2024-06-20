@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Solver/time_stepping/DirectGhostTimeCluster.h"
+#include "Solver/Clustering/Communication/DirectGhostTimeCluster.h"
 #ifdef ACL_DEVICE
-#include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
+#include "Solver/Clustering/Communication/GhostTimeClusterWithCopy.h"
 #endif // ACL_DEVICE
 #include "Parallel/MPI.h"
 #include "memory"

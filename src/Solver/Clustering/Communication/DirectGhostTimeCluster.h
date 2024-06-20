@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Initializer/typedefs.hpp"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
 #include <list>
 
 namespace seissol::time_stepping {

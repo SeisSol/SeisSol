@@ -1,6 +1,6 @@
-#include "Solver/time_stepping/DirectGhostTimeCluster.h"
+#include "Solver/Clustering/Communication/DirectGhostTimeCluster.h"
 #include "Parallel/MPI.h"
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/Clustering/ActorState.h>
 
 namespace seissol::time_stepping {
 void DirectGhostTimeCluster::sendCopyLayer() {

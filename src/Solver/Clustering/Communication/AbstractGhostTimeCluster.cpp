@@ -1,6 +1,6 @@
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
 #include "Parallel/MPI.h"
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/Clustering/ActorState.h>
 
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {

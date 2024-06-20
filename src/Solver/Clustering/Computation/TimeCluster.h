@@ -97,7 +97,7 @@
 #include "Solver/FreeSurfaceIntegrator.h"
 #include <Common/Executor.hpp>
 
-#include "AbstractTimeCluster.h"
+#include "Solver/Clustering/AbstractTimeCluster.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

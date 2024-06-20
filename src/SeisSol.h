@@ -61,9 +61,9 @@
 #include "ResultWriter/FreeSurfaceWriter.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
+#include "Solver/Clustering/TimeManager.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
-#include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
 namespace seissol {

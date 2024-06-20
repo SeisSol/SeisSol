@@ -15,16 +15,16 @@ add_library(SeisSol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
 src/Initializer/GlobalData.cpp
-src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
-src/Solver/time_stepping/AbstractTimeCluster.cpp
-src/Solver/time_stepping/ActorState.cpp
-src/Solver/time_stepping/CommunicationManager.cpp
-src/Solver/time_stepping/DirectGhostTimeCluster.cpp
-src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/MiniSeisSol.cpp
-src/Solver/time_stepping/TimeCluster.cpp
-src/Solver/time_stepping/TimeManager.cpp
-src/Solver/time_stepping/DynamicRuptureCluster.cpp
+src/Solver/Clustering/Communication/AbstractGhostTimeCluster.cpp
+src/Solver/Clustering/AbstractTimeCluster.cpp
+src/Solver/Clustering/ActorState.cpp
+src/Solver/Clustering/Communication/CommunicationManager.cpp
+src/Solver/Clustering/Communication/DirectGhostTimeCluster.cpp
+src/Solver/Clustering/Communication/GhostTimeClusterWithCopy.cpp
+src/Solver/Proxy/MiniSeisSol.cpp
+src/Solver/Clustering/Computation/TimeCluster.cpp
+src/Solver/Clustering/TimeManager.cpp
+src/Solver/Clustering/Computation/DynamicRuptureCluster.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -158,7 +158,7 @@ src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/DynamicRuptureClusterSycl.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/Clustering/Computation/DynamicRuptureClusterSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )

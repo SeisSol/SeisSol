@@ -1,8 +1,8 @@
 #ifndef FACECLUSTER_H_
 #define FACECLUSTER_H_
 
-#include "AbstractTimeCluster.h"
 #include "Kernels/DynamicRupture.h"
+#include "Solver/Clustering/AbstractTimeCluster.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.hpp>
 #include <Initializer/DynamicRupture.h>
@@ -10,7 +10,7 @@
 #include <Monitoring/ActorStateStatistics.h>
 #include <Parallel/Helper.hpp>
 #include <Parallel/Runtime/Stream.hpp>
-#include <Solver/time_stepping/ActorState.h>
+#include <Solver/Clustering/ActorState.h>
 #include <memory>
 
 namespace seissol::time_stepping {

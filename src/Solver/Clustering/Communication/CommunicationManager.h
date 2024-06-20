@@ -2,7 +2,7 @@
 #define SEISSOL_COMMUNICATIONMANAGER_H
 
 #include "Parallel/Pin.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
 #include <atomic>
 #include <memory>
 #include <thread>

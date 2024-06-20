@@ -43,6 +43,7 @@
 
 #include <limits>
 
+#include "Clustering/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/Stopwatch.h"
@@ -51,7 +52,6 @@
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "Simulator.h"
-#include "time_stepping/TimeManager.h"
 
 seissol::Simulator::Simulator()
     : currentTime(0), finalTime(0), usePlasticity(false), checkPointTime(0),

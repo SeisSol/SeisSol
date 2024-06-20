@@ -43,15 +43,15 @@
 
 #include "Parallel/MPI.h"
 
-#include "CommunicationManager.h"
 #include "Initializer/preProcessorMacros.hpp"
 #include "Initializer/time_stepping/common.hpp"
 #include "Parallel/Helper.hpp"
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
+#include "Solver/Clustering/Communication/CommunicationManager.h"
 #include "TimeManager.h"
 #include <Initializer/typedefs.hpp>
-#include <Solver/time_stepping/DynamicRuptureCluster.hpp>
+#include <Solver/Clustering/Computation/DynamicRuptureCluster.hpp>
 #include <memory>
 
 #ifdef ACL_DEVICE
