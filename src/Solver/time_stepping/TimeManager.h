@@ -41,11 +41,12 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
-#include <vector>
-#include <queue>
-#include <list>
+#include <Solver/time_stepping/DynamicRuptureCluster.hpp>
 #include <cassert>
+#include <list>
 #include <memory>
+#include <queue>
+#include <vector>
 
 #include "Initializer/typedefs.hpp"
 #include "SourceTerm/typedefs.hpp"
@@ -58,11 +59,9 @@
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "Solver/time_stepping/GhostTimeClusterFactory.h"
+#include "Solver/time_stepping/CommunicationManager.h"
 
-namespace seissol {
-  namespace time_stepping {
-    class TimeManager;
-    class AbstractCommunicationManager;
+namespace seissol::time_stepping {
 
       template<typename T>
       constexpr T ipow(T x, T y) {
@@ -78,60 +77,46 @@ namespace seissol {
           }
           return result;
       }
-  }
-}
 
 
 /**
  * Time manager, which takes care of the time stepping.
  **/
-class seissol::time_stepping::TimeManager {
-  //private:
-    /**
-     * Compares to cluster pointer by their id.
-     **/
-    struct clusterCompare {
-      bool operator()( const TimeCluster* l_first, const TimeCluster* l_second ) {
-        return l_first->getGlobalClusterId() > l_second->getGlobalClusterId();
-      }
-    };
+class TimeManager {
+  private:
 
     //! last #updates of log
-    unsigned int m_logUpdates;
+    unsigned int logUpdates;
 
     seissol::SeisSol& seissolInstance;
 
     //! time stepping
-    TimeStepping m_timeStepping;
+    TimeStepping timeStepping;
 
     //! all local (copy & interior) LTS clusters, which are under control of this time manager
     std::vector<std::unique_ptr<TimeCluster>> clusters;
     std::vector<TimeCluster*> highPrioClusters;
     std::vector<TimeCluster*> lowPrioClusters;
 
-    //! one dynamic rupture scheduler per pair of interior/copy cluster
-    std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
+    std::vector<std::unique_ptr<DynamicRuptureCluster>> clustersDR;
+    std::vector<DynamicRuptureCluster*> highPrioClustersDR;
+    std::vector<DynamicRuptureCluster*> lowPrioClustersDR;
 
     //! all MPI (ghost) LTS clusters, which are under control of this time manager
     std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
     //! Stopwatch
-    LoopStatistics m_loopStatistics;
+    LoopStatistics loopStatistics;
     ActorStateStatisticsManager actorStateStatisticsManager;
     
     //! dynamic rupture output
-    dr::output::OutputManager* m_faultOutputManager{};
+    dr::output::OutputManager* faultOutputManager{};
 
   public:
     /**
      * Construct a new time manager.
      **/
     TimeManager(seissol::SeisSol& seissolInstance);
-
-    /**
-     * Destruct the time manager.
-     **/
-    ~TimeManager();
 
     /**
      * Adds the time clusters to the time manager.
@@ -141,8 +126,8 @@ class seissol::time_stepping::TimeManager {
      * @param memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
-    void addClusters(TimeStepping& i_timeStepping,
-                     MeshStructure* i_meshStructure,
+    void addClusters(TimeStepping& timeStepping,
+                     MeshStructure* meshStructure,
                      initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
@@ -183,7 +168,7 @@ class seissol::time_stepping::TimeManager {
      *
      * @param i_time time.
      **/
-    void setInitialTimes( double i_time = 0 );
+    void setInitialTimes( double time = 0 );
 
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
@@ -192,8 +177,10 @@ class seissol::time_stepping::TimeManager {
     void synchronizeTo(seissol::initializer::AllocationPlace place);
 
     inline const TimeStepping* getTimeStepping() {
-      return &m_timeStepping;
+      return &timeStepping;
     }
 };
+
+} // namespace seissol::time_stepping
 
 #endif

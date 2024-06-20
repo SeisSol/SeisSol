@@ -24,6 +24,7 @@ src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/time_stepping/DynamicRuptureCluster.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -61,6 +62,8 @@ src/Numerical_aux/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/ResultWriter/ClusteringWriter.cpp
+
+src/Parallel/Runtime/Stream.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp

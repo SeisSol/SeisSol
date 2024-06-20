@@ -8,9 +8,9 @@
 namespace seissol::time_stepping {
 class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
 protected:
-  virtual void sendCopyLayer();
-  virtual void receiveGhostLayer();
-  virtual bool testForGhostLayerReceives();
+  void sendCopyLayer() override;
+  void receiveGhostLayer() override;
+  bool testForGhostLayerReceives() override;
 
 public:
     DirectGhostTimeCluster(double maxTimeStepSize,

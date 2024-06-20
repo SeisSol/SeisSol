@@ -1,12 +1,13 @@
 #include "Parallel/MPI.h"
 #include "Solver/time_stepping/DirectGhostTimeCluster.h"
+#include <Solver/time_stepping/ActorState.h>
 
 
 namespace seissol::time_stepping {
 void DirectGhostTimeCluster::sendCopyLayer() {
   SCOREP_USER_REGION( "sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
-  assert(ct.correctionTime > lastSendTime);
-  lastSendTime = ct.correctionTime;
+  assert(ct.time.at(ComputeStep::Correct) > lastSendTime);
+  lastSendTime = ct.time.at(ComputeStep::Correct);
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
@@ -29,7 +30,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
 
 void DirectGhostTimeCluster::receiveGhostLayer() {
   SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
-  assert(ct.predictionTime >= lastSendTime);
+  assert(ct.time.at(ComputeStep::Predict) >= lastSendTime);
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId) ) {
       if (persistent) {

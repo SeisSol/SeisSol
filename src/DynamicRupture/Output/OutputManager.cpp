@@ -370,12 +370,13 @@ void OutputManager::flushPickpointDataToFile() {
   outputData->currentCacheLevel = 0;
 }
 
-void OutputManager::updateElementwiseOutput() {
+void OutputManager::updateElementwiseOutput(seissol::parallel::runtime::StreamRuntime& runtime) {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
   }
 }
 } // namespace seissol::dr::output

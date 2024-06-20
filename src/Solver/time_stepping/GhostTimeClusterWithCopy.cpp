@@ -1,4 +1,5 @@
 #include "Initializer/typedefs.hpp"
+#include <Solver/time_stepping/ActorState.h>
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"
@@ -90,9 +91,9 @@ void GhostTimeClusterWithCopy<CommType>::finalize() {
 template <MPI::DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
-  assert(ct.correctionTime > lastSendTime);
+  assert(ct.time.at(ComputeStep::Correct) > lastSendTime);
 
-  lastSendTime = ct.correctionTime;
+  lastSendTime = ct.time.at(ComputeStep::Correct);
   auto prefetchedRegions = prefetchCopyLayer();
 
   while (!prefetchedRegions.empty()) {
@@ -123,7 +124,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
 template <MPI::DataTransferMode CommType>
 void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
-  assert(ct.predictionTime >= lastSendTime);
+  assert(ct.time.at(ComputeStep::Predict) >= lastSendTime);
   for (unsigned int region = 0; region < numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {

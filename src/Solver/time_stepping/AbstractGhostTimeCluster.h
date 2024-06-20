@@ -1,11 +1,12 @@
 #pragma once
 
+#include <Solver/time_stepping/ActorState.h>
 #include <list>
 #include "Initializer/typedefs.hpp"
 #include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
-class AbstractGhostTimeCluster : public AbstractTimeCluster {
+class AbstractGhostTimeCluster : public CellCluster {
   protected:
   const int globalClusterId;
   const int otherGlobalClusterId;
@@ -23,13 +24,9 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   virtual bool testForGhostLayerReceives() = 0;
 
   void start() override;
-  void predict() override;
-  void correct() override;
-  bool mayPredict() override;
-  bool mayCorrect() override;
-  bool maySync() override;
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void runCompute(ComputeStep step) override;
+  bool pollCompute(ComputeStep step) override;
+  void handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   public:

@@ -53,25 +53,22 @@ namespace seissol {
 class seissol::Simulator {
   // private:
     //! current time of the simulation
-    double m_currentTime;
+    double currentTime;
 
     //! final time of the simulation
-    double m_finalTime;
+    double finalTime;
 
     //! usePlasticity = true if plasticity is on
-    bool m_usePlasticity;
+    bool usePlasticity;
 
     //! last time a checkpoint was written
-    double m_checkPointTime;
+    double checkPointTime;
 
     //! time interval of the checkpoints
-    double m_checkPointInterval;
-
-    //! If true, a checkpoint is loaded before the simulation
-    bool m_loadCheckPoint;
+    double checkPointInterval;
 
     //! If true, the while loop of the simulation will be aborted (see terminator)
-    bool m_abort;
+    bool aborted;
 
   public:
     /**
@@ -85,35 +82,30 @@ class seissol::Simulator {
     /**
      * Sets the final time of the simulation.
      *
-     * @param i_finalTime final time.
+     * @param finalTime final time.
      **/
-    void setFinalTime( double i_finalTime );
+    void setFinalTime( double finalTime );
 
     /**
-     * Sets the m_usePlasticity
+     * Sets the usePlasticity
      *
-     * @param i_plasticity = 1 if plasticity is on
+     * @param plasticity = 1 if plasticity is on
      **/
     void setUsePlasticity( bool plasticity );
 
     /**
      * Sets the current time of the simulation (useful for checkpoints)
      *
-     * @param i_currentTime current time
+     * @param currentTime current time
      */
-    void setCurrentTime( double i_currentTime );
-
-    /**
-     * Activates checkpoint loading at the beginning of the simulation
-     */
-    void loadCheckPoint();
+    void setCurrentTime( double currentTime );
 
     /**
      * Sets the interval for checkpointing.
      *
-     * @param i_checkPointInterval check point interval.
+     * @param checkPointInterval check point interval.
      **/
-    void setCheckPointInterval( double i_checkPointInterval );
+    void setCheckPointInterval( double checkPointInterval );
 
     /**
      * Returns if the simulator is going to write check points.
@@ -121,7 +113,7 @@ class seissol::Simulator {
     bool checkPointingEnabled();
 
     /**
-     * update m_abort to abort the main loop of the simulation (see terminator)
+     * update abort to abort the main loop of the simulation (see terminator)
      */
     void abort();
 

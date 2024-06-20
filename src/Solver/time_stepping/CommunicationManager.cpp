@@ -26,7 +26,7 @@ bool seissol::time_stepping::AbstractCommunicationManager::poll() {
   bool finished = true;
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->act();
-    finished = finished && ghostCluster->synced();
+    finished = finished && ghostCluster->synchronized();
   }
   return finished;
 }
@@ -39,7 +39,7 @@ seissol::time_stepping::SerialCommunicationManager::SerialCommunicationManager(
 
 bool seissol::time_stepping::SerialCommunicationManager::checkIfFinished() const {
   for (auto& ghostCluster : ghostClusters) {
-    if (!ghostCluster->synced()) return false;
+    if (!ghostCluster->synchronized()) return false;
   }
   return true;
 }

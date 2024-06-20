@@ -2,8 +2,10 @@
 #define SEISSOL_ACTOR_H
 
 #include "ActorState.h"
+#include <Parallel/Runtime/Stream.hpp>
 #include <chrono>
 #include <memory>
+#include <queue>
 #include <vector>
 
 namespace seissol::time_stepping {
@@ -16,7 +18,9 @@ private:
   bool alreadyPrintedTimeOut = false;
 
 protected:
-  ActorState state = ActorState::Synced;
+  seissol::parallel::runtime::StreamRuntime streamRuntime;
+
+  ActorState state = ActorState{StateType::Synchronized,ComputeStep::Correct};
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
@@ -24,18 +28,34 @@ protected:
 
   [[nodiscard]] double timeStepSize() const;
 
-  void unsafePerformAction(ActorAction action);
   AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
 
-  virtual bool mayPredict();
-  virtual bool mayCorrect();
-  virtual bool maySync();
+  bool maySynchronize();
   virtual void start() = 0;
-  virtual void predict() = 0;
-  virtual void correct() = 0;
+  void synchronize();
+  void restart();
+  bool allComputed(ComputeStep step);
+  void preCompute(ComputeStep step);
+  virtual void runCompute(ComputeStep step) = 0;
+  virtual bool pollCompute(ComputeStep step) { return true; }
+  bool advanceState();
+  void postCompute(ComputeStep step);
+  virtual ComputeStep lastStep() const { return ComputeStep::Correct; }
+  ComputeStep nextStep(ComputeStep step) const {
+    switch (step) {
+    case ComputeStep::Predict:
+      return ComputeStep::Interact;
+    case ComputeStep::Interact:
+      return ComputeStep::Correct;
+    case ComputeStep::Correct:
+      return ComputeStep::Predict;
+    }
+    throw;
+  }
+  // needed, so that we can re-use events from empty steps
+  virtual bool emptyStep(ComputeStep step) const {return true;}
   virtual bool processMessages();
-  virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
-  virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
+  virtual void handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
   bool hasDifferentExecutorNeighbor();
@@ -45,12 +65,14 @@ protected:
   //! number of time steps
   long numberOfTimeSteps;
 
+  std::queue<void*> events;
 public:
-  virtual ~AbstractTimeCluster() = default;
+  virtual ~AbstractTimeCluster();
+
+  virtual std::string description() const { return ""; }
 
   Executor getExecutor() const;
 
-  virtual ActorAction getNextLegalAction();
   virtual ActResult act();
   virtual void finalize();
 
@@ -63,11 +85,10 @@ public:
   void setSyncTime(double newSyncTime);
 
   [[nodiscard]] ActorState getState() const;
-  [[nodiscard]] bool synced() const;
+  [[nodiscard]] bool synchronized() const;
   virtual void reset();
 
-  void setPredictionTime(double time);
-  void setCorrectionTime(double time);
+  void setTime(double time);
 
   long getTimeStepRate();
 
@@ -90,7 +111,23 @@ public:
 
 };
 
-}
+class CellCluster : public AbstractTimeCluster {
+protected:
+ bool emptyStep(ComputeStep step) const override {return step == ComputeStep::Interact;}
+ ~CellCluster() override;
+  CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+public:
+};
+
+class FaceCluster : public AbstractTimeCluster {
+protected:
+ bool emptyStep(ComputeStep step) const override {return step != ComputeStep::Interact;}
+ ~FaceCluster() override;
+  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+public:
+};
+
+} // namespace seissol::time_stepping
 
 
 

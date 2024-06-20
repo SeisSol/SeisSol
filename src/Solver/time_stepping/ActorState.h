@@ -4,25 +4,24 @@
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <variant>
+#include <unordered_map>
 
-#include <Common/Executor.hpp>
+#include "Common/Executor.hpp"
 
 namespace seissol::time_stepping {
 
-struct AdvancedPredictionTimeMessage {
-  double time;
-  long stepsSinceSync;
+enum class ComputeStep {
+  Predict,
+  Interact,
+  Correct
 };
 
-struct AdvancedCorrectionTimeMessage {
+struct Message {
+  ComputeStep step;
   double time;
   long stepsSinceSync;
+  void* completionEvent;
 };
-
-using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
-// Helper for std::visit variant pattern
-template<class T> struct always_false : std::false_type {};
 
 inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 
@@ -44,44 +43,37 @@ class MessageQueue {
   [[nodiscard]] size_t size() const;
 };
 
-enum class ActorState {
-  Corrected,
-  Predicted,
-  Synced
+enum class StateType {
+  Synchronized,
+  ComputeStart,
+  ComputeDone
 };
 
-enum class ActorAction {
-  Nothing,
-  Correct,
-  Predict,
-  Sync,
-  RestartAfterSync
+struct ActorState {
+  StateType type;
+  ComputeStep step;
 };
 
 std::string actorStateToString(ActorState state);
 
 struct ClusterTimes {
-  double predictionTime = 0.0;
-  double correctionTime = 0.0;
+  std::unordered_map<ComputeStep, double> time;
+  std::unordered_map<ComputeStep, long> computeSinceStart;
+  std::unordered_map<ComputeStep, long> computeSinceLastSync;
   double maxTimeStepSize = std::numeric_limits<double>::infinity();
   long stepsUntilSync = 0;
-  long stepsSinceLastSync = 0;
-  long predictionsSinceLastSync = 0;
-  long predictionsSinceStart = 0;
   long stepsSinceStart = 0;
   long timeStepRate = -1;
 
-  [[nodiscard]] double nextCorrectionTime(double syncTime) const;
+  [[nodiscard]] double nextComputeTime(ComputeStep step, double syncTime) const;
 
-  [[nodiscard]] long nextCorrectionSteps() const;
+  [[nodiscard]] long nextSteps() const;
 
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
                                                double newSyncTime) const;
-
-//  [[nodiscard]] double& getTimeStepSize();
 
   double getTimeStepSize() const {
     return maxTimeStepSize;
@@ -96,36 +88,13 @@ struct ClusterTimes {
 struct NeighborCluster {
   Executor executor;
   ClusterTimes ct;
+  ComputeStep lastStep;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
+  std::unordered_map<ComputeStep, void*> events;
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 
-};
-
-class DynamicRuptureScheduler {
-  long lastCorrectionStepsInterior = -1;
-  long lastCorrectionStepsCopy = -1;
-  long lastFaultOutput = -1;
-  long numberOfDynamicRuptureFaces;
-  bool firstClusterWithDynamicRuptureFaces;
-
-public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
-
-  [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
-
-  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
-
-  void setLastCorrectionStepsInterior(long steps);
-
-  void setLastCorrectionStepsCopy(long steps);
-
-  void setLastFaultOutput(long steps);
-
-  [[nodiscard]] bool hasDynamicRuptureFaces() const;
-
-  [[nodiscard]] bool isFirstClusterWithDynamicRuptureFaces() const;
 };
 
 struct ActResult {
@@ -137,6 +106,6 @@ enum class ActorPriority {
   High
 };
 
-}
+} // namespace seissol::time_stepping
 
 #endif //SEISSOL_ACTORSTATE_H

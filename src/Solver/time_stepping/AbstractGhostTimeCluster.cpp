@@ -1,4 +1,5 @@
 #include "Parallel/MPI.h"
+#include <Solver/time_stepping/ActorState.h>
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 
@@ -35,48 +36,45 @@ void AbstractGhostTimeCluster::start() {
   receiveGhostLayer();
 }
 
-void AbstractGhostTimeCluster::predict() {
-  // Doesn't do anything
-}
-
-void AbstractGhostTimeCluster::correct() {
-  // Doesn't do anything
-}
-
-bool AbstractGhostTimeCluster::mayCorrect() {
-  return testForCopyLayerSends() && AbstractTimeCluster::mayCorrect();
-}
-
-bool AbstractGhostTimeCluster::mayPredict() {
-  return testForGhostLayerReceives() && AbstractTimeCluster::mayPredict();
-}
-
-bool AbstractGhostTimeCluster::maySync() {
-  return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
-}
-
-void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
-  assert(testForCopyLayerSends());
-  sendCopyLayer();
-}
-
-void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
-  assert(testForGhostLayerReceives());
-
-  auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
-  if (state == ActorState::Predicted) {
-    upcomingCorrectionSteps = ct.nextCorrectionSteps();
+void AbstractGhostTimeCluster::runCompute(ComputeStep step) {
+  if (step == ComputeStep::Predict) {
+    streamRuntime.wait();
+    sendCopyLayer();
+    assert(testForCopyLayerSends());
   }
+  if (step == ComputeStep::Correct) {
+    streamRuntime.wait();
+    assert(testForGhostLayerReceives());
 
-  const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
+    auto upcomingCorrectionSteps = ct.computeSinceLastSync.at(ComputeStep::Correct);
+    if (state.step == ComputeStep::Predict && state.type == StateType::ComputeDone) {
+      upcomingCorrectionSteps = ct.nextSteps();
+    }
 
-  // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
-  // request!
-  // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
-  // hanging request.
-  if (!ignoreMessage) {
-    receiveGhostLayer();
+    const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
+
+    // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
+    // request.
+    // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
+    // hanging request.
+    if (!ignoreMessage) {
+      receiveGhostLayer();
+    }
   }
+}
+
+bool AbstractGhostTimeCluster::pollCompute(ComputeStep step) {
+  if (step == ComputeStep::Predict) {
+    return testForCopyLayerSends();
+  }
+  if (step == ComputeStep::Correct) {
+    return testForGhostLayerReceives();
+  }
+  return true;
+}
+
+void AbstractGhostTimeCluster::handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster&) {
+  
 }
 
 AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
@@ -84,7 +82,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
                                                  int globalTimeClusterId,
                                                  int otherGlobalTimeClusterId,
                                                  const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
+    : CellCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {}
@@ -102,18 +100,14 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
       << "[s] for global cluster " << globalClusterId
       << " with other cluster id " << otherGlobalClusterId
       << " at state " << actorStateToString(state)
-      << " mayPredict = " << mayPredict()
-      << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
-      << " mayCorrect = " << mayCorrect()
-      << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-      << " maySync = " << maySync();
+      << " maySync = " << maySynchronize();
   for (auto& neighbor : neighbors) {
     logError()
         << "Neighbor with rate = " << neighbor.ct.timeStepRate
-        << "PredTime = " << neighbor.ct.predictionTime
-        << "CorrTime = " << neighbor.ct.correctionTime
-        << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-        << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+        << "PredTime = " << neighbor.ct.time.at(ComputeStep::Predict)
+        << "CorrTime = " << neighbor.ct.time.at(ComputeStep::Correct)
+        << "predictionsSinceSync = " << neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict)
+        << "correctionsSinceSync = " << neighbor.ct.computeSinceLastSync.at(ComputeStep::Correct);
   }
 }
 

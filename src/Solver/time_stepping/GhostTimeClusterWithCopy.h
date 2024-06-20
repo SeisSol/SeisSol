@@ -14,7 +14,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure,
                            bool persistent);
-  ~GhostTimeClusterWithCopy();
+  ~GhostTimeClusterWithCopy() override;
 
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&) = delete;
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&&) = delete;

@@ -3,6 +3,7 @@
 
 #include <Initializer/tree/Layer.hpp>
 #include <functional>
+#include <mutex>
 #include <omp.h>
 #include <utility>
 
@@ -18,6 +19,7 @@ class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
+  static std::mutex mutexCPU;
 
   public:
   static constexpr size_t RingbufferSize = 4;
@@ -71,6 +73,7 @@ class StreamRuntime {
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     enqueueHost([=]() {
+      std::lock_guard guard(mutexCPU);
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
         std::invoke(handler, i);
@@ -145,21 +148,17 @@ class StreamRuntime {
   */
 
   void* getEvent() {
-    for (auto* event : events) {
-      if (device().api->isEventCompleted(event)) {
-        return event;
-      }
-    }
     void* newEvent = device().api->createEvent();
-    events.push_back(newEvent);
     return newEvent;
   }
 
-  void dependency(StreamRuntime& other) {
-    void* event = getEvent();
-    device().api->recordEventOnStream(event, other.stream());
-    device().api->syncStreamWithEvent(stream(), event);
+  void* recordEvent() {
+    void* newEvent = getEvent();
+    device().api->recordEventOnStream(newEvent, stream());
+    return newEvent;
   }
+
+  void waitEvent(void* eventPtr) { device().api->syncStreamWithEvent(stream(), eventPtr); }
 
   private:
   bool disposed;

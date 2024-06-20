@@ -31,7 +31,7 @@ class OutputManager {
                             double dt,
                             seissol::parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
-  void updateElementwiseOutput();
+  void updateElementwiseOutput(seissol::parallel::runtime::StreamRuntime& runtime);
 
   private:
   seissol::SeisSol& seissolInstance;

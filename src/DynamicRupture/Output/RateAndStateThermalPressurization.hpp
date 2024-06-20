@@ -16,7 +16,7 @@ class RateAndStateThermalPressurization : public RateAndState {
         getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->pressure);
     return pressure[local.nearestGpIndex];
   }
-  void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
+  void outputSpecifics(std::shared_ptr<ReceiverOutputData> outputData,
                        const LocalInfo& local,
                        size_t cacheLevel,
                        size_t receiverIdx) override {

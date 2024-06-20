@@ -1,10 +1,13 @@
+#include "AbstractTimeCluster.h"
+
 #include <algorithm>
 #include <iostream>
 #include <cassert>
+#include <iterator>
+#include "ActorState.h"
 #include "utils/logger.h"
 
 #include "Parallel/MPI.h"
-#include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
 double AbstractTimeCluster::timeStepSize() const {
@@ -18,107 +21,102 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRa
   ct.timeStepRate = timeStepRate;
 }
 
-ActorAction AbstractTimeCluster::getNextLegalAction() {
+bool AbstractTimeCluster::advanceState() {
   processMessages();
-  switch (state) {
-    case ActorState::Corrected: {
-      if (maySync()) {
-        return ActorAction::Sync;
-      } else if (mayPredict()) {
-        return ActorAction::Predict;
-      }
-      break;
+  if (state.type == StateType::Synchronized) {
+    if (ct.computeSinceLastSync[lastStep()] == 0) {
+      restart();
+      return true;
     }
-    case ActorState::Predicted: {
-      if (mayCorrect()) {
-        return ActorAction::Correct;
-      }
-      break;
-    }
-    case ActorState::Synced: {
-      if (ct.stepsSinceLastSync == 0) {
-        return ActorAction::RestartAfterSync;
-      }
-      break;
-    }
-    default:
-      logError() << "Invalid actor state in getNextLegalAction()" << static_cast<int>(state);
   }
-  return ActorAction::Nothing;
+  else if (state.type == StateType::ComputeDone) {
+    auto next = nextStep(state.step);
+    if (state.step == lastStep() && maySynchronize()) {
+      synchronize();
+      return true;
+    }
+    else if (allComputed(state.step)) {
+      preCompute(state.step);
+      runCompute(next);
+      if (!concurrentClusters()) {
+        streamRuntime.wait();
+      }
+      state.step = next;
+      state.type = StateType::ComputeStart;
+      return true;
+    }
+    else if (emptyStep(next)) {
+      state.step = next;
+      state.type = StateType::ComputeStart;
+      return true;
+    }
+  }
+  else if (state.type == StateType::ComputeStart) {
+    if (emptyStep(state.step) || pollCompute(state.step)) {
+      postCompute(state.step);
+      state.type = StateType::ComputeDone;
+      return true;
+    }
+  }
+  return false;
 }
 
-void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
-  switch (action) {
-    case ActorAction::Nothing:
-      break;
-    case ActorAction::Correct:
-      assert(state == ActorState::Predicted);
-      correct();
-      ct.correctionTime += timeStepSize();
-      ++numberOfTimeSteps;
-      ct.stepsSinceLastSync += ct.timeStepRate;
-      ct.stepsSinceStart += ct.timeStepRate;
-      for (auto &neighbor : neighbors) {
-        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessage = justBeforeSync
-                                 || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-        if (sendMessage) {
-          AdvancedCorrectionTimeMessage message{};
-          message.time = ct.correctionTime;
-          message.stepsSinceSync = ct.stepsSinceLastSync;
-          neighbor.outbox->push(message);
-        }
-      }
-      state = ActorState::Corrected;
-      break;
-    case ActorAction::Predict:
-      assert(state == ActorState::Corrected);
-      predict();
-      ct.predictionsSinceLastSync += ct.timeStepRate;
-      ct.predictionsSinceStart += ct.timeStepRate;
-      ct.predictionTime += timeStepSize();
+void AbstractTimeCluster::synchronize() {
+  assert(state.type == StateType::ComputeDone);
+  logDebug(MPI::mpi.rank()) << "synced at" << syncTime
+                            << ", corrTime =" << ct.time[ComputeStep::Correct]
+                            << "computeSinceLastSync.at(ComputeStep::Correct)" << ct.computeSinceLastSync.at(ComputeStep::Correct)
+                            << "stepsUntilLastSync" << ct.stepsUntilSync
+                            << std::endl;
+  state.type = StateType::Synchronized;
+}
 
-      for (auto &neighbor : neighbors) {
-        // Maybe check also how many steps neighbor has to sync!
-        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessage = justBeforeSync
-                                 || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
-        if (sendMessage) {
-          AdvancedPredictionTimeMessage message{};
-          message.time = ct.predictionTime;
-          message.stepsSinceSync = ct.predictionsSinceLastSync;
-          neighbor.outbox->push(message);
-        }
-      }
-      state = ActorState::Predicted;
-      break;
-    case ActorAction::Sync:
-      assert(state == ActorState::Corrected);
-      logDebug(MPI::mpi.rank()) << "synced at" << syncTime
-                                << ", corrTime =" << ct.correctionTime
-                                << "stepsSinceLastSync" << ct.stepsSinceLastSync
-                                << "stepsUntilLastSync" << ct.stepsUntilSync
-                                << std::endl;
-      state = ActorState::Synced;
-      break;
-    case ActorAction::RestartAfterSync:
-      start();
-      state = ActorState::Corrected;
-      break;
-    default:
-      logError() << "Invalid actor action in getNextLegalAction()" << static_cast<int>(state);
-      break;
+void AbstractTimeCluster::restart() {
+  start();
+  state.type = StateType::ComputeDone;
+  state.step = lastStep();
+}
+
+AbstractTimeCluster::~AbstractTimeCluster() = default;
+
+void AbstractTimeCluster::postCompute(ComputeStep step) {
+  ct.computeSinceLastSync[step] += ct.timeStepRate;
+  ct.computeSinceStart[step] += ct.timeStepRate;
+  ct.time[step] += timeStepSize();
+
+  if (!emptyStep(step)) {
+    events.push(streamRuntime.recordEvent());
+  }
+
+  for (auto &neighbor : neighbors) {
+    // TODO: maybe check also how many steps the neighbor has to sync?
+    const bool justBeforeSync = ct.stepsUntilSync <= ct.computeSinceLastSync[step];
+
+    // for now, keep manual
+    const bool usefulUpdate =
+      (ct.computeSinceLastSync.at(step) >= neighbor.ct.nextSteps() && step == ComputeStep::Predict)
+      || (ct.computeSinceLastSync.at(step) >= neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict) && step == ComputeStep::Interact)
+      || (ct.computeSinceLastSync.at(step) >= neighbor.ct.computeSinceLastSync.at(ComputeStep::Interact) && step == ComputeStep::Correct);
+    
+    const bool sendMessage = justBeforeSync || usefulUpdate;
+    if (sendMessage) {
+      Message message{};
+      message.step = step;
+      message.time = ct.time[step];
+      message.stepsSinceSync = ct.computeSinceLastSync[step];
+      message.completionEvent = events.front();
+      neighbor.outbox->push(message);
+    }
   }
 }
 
 ActResult AbstractTimeCluster::act() {
   ActResult result;
   auto stateBefore = state;
-  auto nextAction = getNextLegalAction();
-  unsafePerformAction(nextAction);
+  auto changed = advanceState();
 
   const auto currentTime = std::chrono::steady_clock::now();
-  result.isStateChanged = stateBefore != state;
+  result.isStateChanged = changed;
   if (!result.isStateChanged) {
     const auto timeSinceLastUpdate = currentTime - timeOfLastStageChange;
     if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut) {
@@ -139,56 +137,53 @@ bool AbstractTimeCluster::processMessages() {
     if (neighbor.inbox->hasMessages()) {
       processed = true;
       Message message = neighbor.inbox->pop();
-      std::visit([&neighbor, this](auto&& msg) {
-        using T = std::decay_t<decltype(msg)>;
-        if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
-          assert(msg.time > neighbor.ct.predictionTime);
-          neighbor.ct.predictionTime = msg.time;
-          neighbor.ct.predictionsSinceLastSync = msg.stepsSinceSync;
-          handleAdvancedPredictionTimeMessage(neighbor);
-        } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
-          assert(msg.time > neighbor.ct.correctionTime);
-          neighbor.ct.correctionTime = msg.time;
-          neighbor.ct.stepsSinceLastSync = msg.stepsSinceSync;
-          handleAdvancedCorrectionTimeMessage(neighbor);
-        } else {
-          static_assert(always_false<T>::value, "non-exhaustive visitor!");
-        }
-      }, message);
+      assert(message.time > neighbor.ct.time[message.step]);
+      neighbor.ct.time[message.step] = message.time;
+      neighbor.ct.computeSinceLastSync[message.step] = message.stepsSinceSync;
+      neighbor.events[message.step] = message.completionEvent;
+      handleAdvancedComputeTimeMessage(message.step, neighbor);
     }
   }
   return processed;
 }
 
-bool AbstractTimeCluster::mayPredict() {
-  // We can predict, if our prediction time is smaller/equals than the next correction time of all neighbors.
+bool AbstractTimeCluster::allComputed(ComputeStep step) {
+  // special case for the last step: we need to look into the future
+  if (step == lastStep()) {
     const auto minNeighborSteps = std::min_element(
             neighbors.begin(), neighbors.end(),
             [](NeighborCluster const &a, NeighborCluster const &b) {
-                return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
+                return a.ct.nextSteps() < b.ct.nextSteps();
             });
     bool stepBasedPredict = minNeighborSteps == neighbors.end()
-            || ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
+            || ct.computeSinceLastSync.at(step) < minNeighborSteps->ct.nextSteps();
     return stepBasedPredict;
+  }
+  else {
+    bool stepBasedCorrect = true;
+    for (auto& neighbor : neighbors) {
+        const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.computeSinceLastSync.at(step);
+        const bool isAdvanced = ct.computeSinceLastSync.at(step) <= neighbor.ct.computeSinceLastSync.at(step);
+        stepBasedCorrect = stepBasedCorrect && (isSynced || isAdvanced);
+    }
+    return stepBasedCorrect;
+  }
 }
 
-bool AbstractTimeCluster::mayCorrect() {
-  // We can correct, if our prediction time is smaller than the one of all neighbors.
-  bool stepBasedCorrect = true;
-  for (auto& neighbor : neighbors) {
-      const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
-      stepBasedCorrect = stepBasedCorrect
-              && (isSynced || (ct.predictionsSinceLastSync <= neighbor.ct.predictionsSinceLastSync));
+void AbstractTimeCluster::preCompute(ComputeStep step) {
+  for (const auto& neighbor : neighbors) {
+    if (neighbor.events.find(step) != neighbor.events.end() && neighbor.events.at(step) != nullptr) {
+      streamRuntime.waitEvent(neighbor.events.at(step));
+    }
   }
-  return stepBasedCorrect;
 }
 
 Executor AbstractTimeCluster::getExecutor() const {
   return executor;
 }
 
-bool AbstractTimeCluster::maySync() {
-    return ct.stepsSinceLastSync >= ct.stepsUntilSync;
+bool AbstractTimeCluster::maySynchronize() {
+    return ct.computeSinceLastSync.at(lastStep()) >= ct.stepsUntilSync;
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
@@ -202,31 +197,34 @@ void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
 
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
   assert(newSyncTime > syncTime);
-  assert(state == ActorState::Synced);
+  assert(state.type == StateType::Synchronized);
   syncTime = newSyncTime;
 }
 
-bool AbstractTimeCluster::synced() const {
-  return state == ActorState::Synced;
+bool AbstractTimeCluster::synchronized() const {
+  return state.type == StateType::Synchronized;
 }
 void AbstractTimeCluster::reset() {
-  assert(state == ActorState::Synced);
+  assert(state.type == StateType::Synchronized);
 
   // There can be pending messages from before the sync point
   processMessages();
   for (auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
-  ct.stepsSinceLastSync = 0;
-  ct.predictionsSinceLastSync = 0;
-  ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
+  ct.computeSinceLastSync.clear();
+  ct.computeSinceLastSync[ComputeStep::Predict] = 0;
+  ct.computeSinceLastSync[ComputeStep::Interact] = 0;
+  ct.computeSinceLastSync[ComputeStep::Correct] = 0;
+  ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.time[lastStep()], syncTime);
 
   for (auto& neighbor : neighbors) {
-    neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
-    neighbor.ct.stepsSinceLastSync = 0;
-    neighbor.ct.predictionsSinceLastSync = 0;
+    neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(ct.time[lastStep()], syncTime);
+    neighbor.ct.computeSinceLastSync.clear();
+    neighbor.ct.computeSinceLastSync[ComputeStep::Predict] = 0;
+    neighbor.ct.computeSinceLastSync[ComputeStep::Interact] = 0;
+    neighbor.ct.computeSinceLastSync[ComputeStep::Correct] = 0;
   }
-
 }
 
 ActorPriority AbstractTimeCluster::getPriority() const {
@@ -241,19 +239,19 @@ ActorState AbstractTimeCluster::getState() const {
   return state;
 }
 
-void AbstractTimeCluster::setPredictionTime(double time) {
-  ct.predictionTime = time;
-}
-
-void AbstractTimeCluster::setCorrectionTime(double time) {
-  ct.correctionTime = time;
+void AbstractTimeCluster::setTime(double time) {
+  ct.time[ComputeStep::Predict] = time;
+  ct.time[ComputeStep::Interact] = time;
+  ct.time[ComputeStep::Correct] = time;
 }
 
 long AbstractTimeCluster::getTimeStepRate() {
   return timeStepRate;
 }
 
-void AbstractTimeCluster::finalize() {}
+void AbstractTimeCluster::finalize() {
+  streamRuntime.dispose();
+}
 
 double AbstractTimeCluster::getClusterTimes(){
   return ct.getTimeStepSize();
@@ -272,5 +270,13 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
     return neighbor.executor != executor;
   });
 }
+
+CellCluster::CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor) : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor){}
+
+FaceCluster::FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor) : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor){}
+
+CellCluster::~CellCluster() = default;
+
+FaceCluster::~FaceCluster() = default;
 
 } // namespace seissol::time_stepping
