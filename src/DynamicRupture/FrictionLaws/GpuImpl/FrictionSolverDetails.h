@@ -23,7 +23,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   virtual void
       copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                      const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime);
+                                     real fullUpdateTime) {}
 
   protected:
   size_t currLayerSize{};

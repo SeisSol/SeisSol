@@ -152,14 +152,14 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
           &actorStateStatisticsManager.addCluster(profilingId)));
 
       const auto clusterSize = layerData->getNumberOfCells();
-      const auto dynRupSize = type == dynRupData->getNumberOfCells();
+      const auto dynRupSize = dynRupData->getNumberOfCells();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }
     auto& interior = clusters[clusters.size() - 1];
     auto& copy = clusters[clusters.size() - 2];
-    auto& interiorDR = clustersDR[clusters.size() - 1];
-    auto& copyDR = clustersDR[clusters.size() - 2];
+    auto& interiorDR = clustersDR[clustersDR.size() - 1];
+    auto& copyDR = clustersDR[clustersDR.size() - 2];
 
     // Mark copy layers as higher priority layers.
     interior->setPriority(ActorPriority::Low);
@@ -171,6 +171,7 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     // Copy/interior with same timestep are neighbors
     interior->connect(*copy);
 
+    // connect clusters to DR clusters
     interior->connect(*interiorDR);
     copy->connect(*interiorDR);
     copy->connect(*copyDR);

@@ -16,6 +16,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   ~RateAndStateBase() {
     if (this->maxClusterSize == 0)
       return;
