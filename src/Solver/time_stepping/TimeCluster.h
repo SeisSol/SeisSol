@@ -160,7 +160,7 @@ class TimeCluster : public CellCluster {
   seissol::initializer::Layer* layer;
   seissol::initializer::LTS* lts;
 
-  seissol::sourceterm::PointSourceClusterPair sourceCluster;
+  seissol::kernels::PointSourceClusterPair sourceCluster;
 
   enum class ComputePart {
     Local = 0,
@@ -313,7 +313,7 @@ class TimeCluster : public CellCluster {
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(seissol::sourceterm::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
   void freePointSources() {
     sourceCluster.host.reset(nullptr);
     sourceCluster.device.reset(nullptr);

@@ -360,7 +360,7 @@ void TimeManager::printComputationTime(const std::string& outputPrefix,
 double TimeManager::getTimeTolerance() { return 1E-5 * timeStepping.globalCflTimeStepWidths[0]; }
 
 void TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>>
+    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
         sourceClusters) {
   for (auto& cluster : clusters) {
     auto layerClusters = sourceClusters.find(cluster->getLayerType());

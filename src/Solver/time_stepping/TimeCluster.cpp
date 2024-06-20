@@ -126,7 +126,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
       layer(clusterData),
       // global data
-      lts(lts), sourceCluster(sourceterm::PointSourceClusterPair{nullptr, nullptr}),
+      lts(lts), sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
       receiverCluster(nullptr), layerType(layerType), printProgress(printProgress),
@@ -160,7 +160,7 @@ TimeCluster::~TimeCluster() {
 #endif
 }
 
-void TimeCluster::setPointSources(seissol::sourceterm::PointSourceClusterPair sourceCluster) {
+void TimeCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
   sourceCluster = std::move(sourceCluster);
 }
 
