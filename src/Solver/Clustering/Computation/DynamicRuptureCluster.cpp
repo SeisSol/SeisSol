@@ -49,6 +49,8 @@ DynamicRuptureCluster::DynamicRuptureCluster(
       seissolInstance(seissolInstance) {
   dynamicRuptureKernel.setGlobalData(globalData);
 
+  computeFlops();
+
   initFrictionSolverDevice();
   // TODO(David): activate here already
   // frictionSolver->copyLtsTreeToLocal(*layer, descr, 0);

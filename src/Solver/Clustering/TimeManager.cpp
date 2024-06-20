@@ -415,6 +415,9 @@ void TimeManager::freeDynamicResources() {
     cluster->freePointSources();
     cluster->finalize();
   }
+  for (auto& cluster : clustersDR) {
+    cluster->finalize();
+  }
   communicationManager.reset(nullptr);
 }
 
