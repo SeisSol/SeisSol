@@ -1,13 +1,11 @@
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include "Parallel/MPI.h"
 #include <Solver/time_stepping/ActorState.h>
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
-                                         std::list<unsigned int>& regions) {
+bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
   for (auto region = regions.begin(); region != regions.end();) {
-    MPI_Request *request = &requests[*region];
+    MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
@@ -20,7 +18,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
 }
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
-  SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
   return testQueue(meshStructure->sendRequests, sendQueue);
 }
 
@@ -53,10 +51,9 @@ void AbstractGhostTimeCluster::runCompute(ComputeStep step) {
 
     const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
 
-    // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
-    // request.
-    // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
-    // hanging request.
+    // If we are already at a sync point, we must not post an additional receive, as otherwise
+    // start() posts an additional request. This is also true for the last sync point (i.e. end of
+    // simulation), as in this case we do not want to have any hanging request.
     if (!ignoreMessage) {
       receiveGhostLayer();
     }
@@ -73,18 +70,16 @@ bool AbstractGhostTimeCluster::pollCompute(ComputeStep step) {
   return true;
 }
 
-void AbstractGhostTimeCluster::handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster&) {
-  
-}
+void AbstractGhostTimeCluster::handleAdvancedComputeTimeMessage(ComputeStep step,
+                                                                const NeighborCluster&) {}
 
 AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
-                                                 int timeStepRate,
-                                                 int globalTimeClusterId,
-                                                 int otherGlobalTimeClusterId,
-                                                 const MeshStructure *meshStructure)
+                                                   int timeStepRate,
+                                                   int globalTimeClusterId,
+                                                   int otherGlobalTimeClusterId,
+                                                   const MeshStructure* meshStructure)
     : CellCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId(globalTimeClusterId),
-      otherGlobalClusterId(otherGlobalTimeClusterId),
+      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {}
 
 void AbstractGhostTimeCluster::reset() {
@@ -95,19 +90,18 @@ void AbstractGhostTimeCluster::reset() {
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   const auto rank = MPI::mpi.rank();
-  logError()
-      << "Ghost: No update since " << timeSinceLastUpdate.count()
-      << "[s] for global cluster " << globalClusterId
-      << " with other cluster id " << otherGlobalClusterId
-      << " at state " << actorStateToString(state)
-      << " maySync = " << maySynchronize();
+  logError() << "Ghost: No update since " << timeSinceLastUpdate.count()
+             << "[s] for global cluster " << globalClusterId << " with other cluster id "
+             << otherGlobalClusterId << " at state " << actorStateToString(state)
+             << " maySync = " << maySynchronize();
   for (auto& neighbor : neighbors) {
-    logError()
-        << "Neighbor with rate = " << neighbor.ct.timeStepRate
-        << "PredTime = " << neighbor.ct.time.at(ComputeStep::Predict)
-        << "CorrTime = " << neighbor.ct.time.at(ComputeStep::Correct)
-        << "predictionsSinceSync = " << neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict)
-        << "correctionsSinceSync = " << neighbor.ct.computeSinceLastSync.at(ComputeStep::Correct);
+    logError() << "Neighbor with rate = " << neighbor.ct.timeStepRate
+               << "PredTime = " << neighbor.ct.time.at(ComputeStep::Predict)
+               << "CorrTime = " << neighbor.ct.time.at(ComputeStep::Correct)
+               << "predictionsSinceSync = "
+               << neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict)
+               << "correctionsSinceSync = "
+               << neighbor.ct.computeSinceLastSync.at(ComputeStep::Correct);
   }
 }
 

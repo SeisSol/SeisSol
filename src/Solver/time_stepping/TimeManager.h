@@ -2,23 +2,25 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ * @author Alex Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -48,137 +50,134 @@
 #include <queue>
 #include <vector>
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
-#include <utils/logger.h>
 #include "Initializer/MemoryManager.h"
 #include "Initializer/time_stepping/LtsLayout.h"
+#include "Initializer/typedefs.hpp"
 #include "Kernels/PointSourceCluster.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "ResultWriter/ReceiverWriter.h"
-#include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "Solver/time_stepping/GhostTimeClusterFactory.h"
+#include "ResultWriter/ReceiverWriter.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/time_stepping/CommunicationManager.h"
+#include "Solver/time_stepping/GhostTimeClusterFactory.h"
+#include "SourceTerm/typedefs.hpp"
+#include "TimeCluster.h"
+#include <utils/logger.h>
 
 namespace seissol::time_stepping {
 
-      template<typename T>
-      constexpr T ipow(T x, T y) {
-          static_assert(std::is_integral_v<T>);
-          assert(y >= 0);
+template <typename T>
+constexpr T ipow(T x, T y) {
+  static_assert(std::is_integral_v<T>);
+  assert(y >= 0);
 
-          if (y == 0) {
-              return 1;
-          }
-          T result = x;
-          while(--y) {
-              result *= x;
-          }
-          return result;
-      }
-
+  if (y == 0) {
+    return 1;
+  }
+  T result = x;
+  while (--y) {
+    result *= x;
+  }
+  return result;
+}
 
 /**
  * Time manager, which takes care of the time stepping.
  **/
 class TimeManager {
   private:
+  //! last #updates of log
+  unsigned int logUpdates;
 
-    //! last #updates of log
-    unsigned int logUpdates;
+  seissol::SeisSol& seissolInstance;
 
-    seissol::SeisSol& seissolInstance;
+  //! time stepping
+  TimeStepping timeStepping;
 
-    //! time stepping
-    TimeStepping timeStepping;
+  //! all local (copy & interior) LTS clusters, which are under control of this time manager
+  std::vector<std::unique_ptr<TimeCluster>> clusters;
+  std::vector<TimeCluster*> highPrioClusters;
+  std::vector<TimeCluster*> lowPrioClusters;
 
-    //! all local (copy & interior) LTS clusters, which are under control of this time manager
-    std::vector<std::unique_ptr<TimeCluster>> clusters;
-    std::vector<TimeCluster*> highPrioClusters;
-    std::vector<TimeCluster*> lowPrioClusters;
+  std::vector<std::unique_ptr<DynamicRuptureCluster>> clustersDR;
+  std::vector<DynamicRuptureCluster*> highPrioClustersDR;
+  std::vector<DynamicRuptureCluster*> lowPrioClustersDR;
 
-    std::vector<std::unique_ptr<DynamicRuptureCluster>> clustersDR;
-    std::vector<DynamicRuptureCluster*> highPrioClustersDR;
-    std::vector<DynamicRuptureCluster*> lowPrioClustersDR;
+  //! all MPI (ghost) LTS clusters, which are under control of this time manager
+  std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
-    //! all MPI (ghost) LTS clusters, which are under control of this time manager
-    std::unique_ptr<AbstractCommunicationManager> communicationManager;
+  //! Stopwatch
+  LoopStatistics loopStatistics;
+  ActorStateStatisticsManager actorStateStatisticsManager;
 
-    //! Stopwatch
-    LoopStatistics loopStatistics;
-    ActorStateStatisticsManager actorStateStatisticsManager;
-    
-    //! dynamic rupture output
-    dr::output::OutputManager* faultOutputManager{};
+  //! dynamic rupture output
+  dr::output::OutputManager* faultOutputManager{};
 
   public:
-    /**
-     * Construct a new time manager.
-     **/
-    TimeManager(seissol::SeisSol& seissolInstance);
+  /**
+   * Construct a new time manager.
+   **/
+  TimeManager(seissol::SeisSol& seissolInstance);
 
-    /**
-     * Adds the time clusters to the time manager.
-     *
-     * @param i_timeStepping time stepping scheme.
-     * @param i_meshStructure mesh structure.
-     * @param memoryManager memory manager.
-     * @param i_meshToClusters mapping from the mesh to the clusters.
-     **/
-    void addClusters(TimeStepping& timeStepping,
-                     MeshStructure* meshStructure,
-                     initializer::MemoryManager& memoryManager,
-                     bool usePlasticity);
+  /**
+   * Adds the time clusters to the time manager.
+   *
+   * @param i_timeStepping time stepping scheme.
+   * @param i_meshStructure mesh structure.
+   * @param memoryManager memory manager.
+   * @param i_meshToClusters mapping from the mesh to the clusters.
+   **/
+  void addClusters(TimeStepping& timeStepping,
+                   MeshStructure* meshStructure,
+                   initializer::MemoryManager& memoryManager,
+                   bool usePlasticity);
 
-    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-    seissol::dr::output::OutputManager* getFaultOutputManager();
+  void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
+  seissol::dr::output::OutputManager* getFaultOutputManager();
 
-    /**
-     * Advance in time until all clusters reach the next synchronization time.
-     **/
-    void advanceInTime( const double &synchronizationTime );
+  /**
+   * Advance in time until all clusters reach the next synchronization time.
+   **/
+  void advanceInTime(const double& synchronizationTime);
 
-    /**
-     * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
-     **/
-    double getTimeTolerance();
+  /**
+   * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
+   **/
+  double getTimeTolerance();
 
-    /**
-     * Distributes point sources pointers to clusters
-     * 
-     * @param sourceClusters Collection of point sources for clusters
-     */
-    void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters);
+  /**
+   * Distributes point sources pointers to clusters
+   *
+   * @param sourceClusters Collection of point sources for clusters
+   */
+  void setPointSourcesForClusters(
+      std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>>
+          sourceClusters);
 
   /**
    * Returns the writer for the receivers
    */
-    void setReceiverClusters(writer::ReceiverWriter& receiverWriter); 
+  void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
 
-    /**
-     * Set Tv constant for plasticity.
-     */
-    void setTv(double tv);
+  /**
+   * Set Tv constant for plasticity.
+   */
+  void setTv(double tv);
 
-    /**
-     * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
-     * Required only if different from zero, for example in checkpointing.
-     *
-     * @param i_time time.
-     **/
-    void setInitialTimes( double time = 0 );
+  /**
+   * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
+   * Required only if different from zero, for example in checkpointing.
+   *
+   * @param i_time time.
+   **/
+  void setInitialTimes(double time = 0);
 
-    void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+  void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
-    void freeDynamicResources();
+  void freeDynamicResources();
 
-    void synchronizeTo(seissol::initializer::AllocationPlace place);
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-    inline const TimeStepping* getTimeStepping() {
-      return &timeStepping;
-    }
+  inline const TimeStepping* getTimeStepping() { return &timeStepping; }
 };
 
 } // namespace seissol::time_stepping

@@ -1,7 +1,7 @@
-#include <iostream>
-#include <cmath>
-#include <memory>
 #include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <memory>
 #include <type_traits>
 
 #include "ActorState.h"
@@ -38,7 +38,6 @@ std::string actorStateToString(ActorState state) {
   throw;
 }
 
-
 void MessageQueue::push(const Message& message) {
   std::lock_guard lock{mutex};
   queue.push(message);
@@ -51,13 +50,9 @@ Message MessageQueue::pop() {
   return message;
 }
 
-bool MessageQueue::hasMessages() const {
-  return !queue.empty();
-}
+bool MessageQueue::hasMessages() const { return !queue.empty(); }
 
-size_t MessageQueue::size() const {
-  return queue.size();
-}
+size_t MessageQueue::size() const { return queue.size(); }
 
 double ClusterTimes::nextComputeTime(ComputeStep step, double syncTime) const {
   return std::min(syncTime, time.at(step) + maxTimeStepSize);
@@ -72,15 +67,16 @@ double ClusterTimes::timeStepSize(double syncTime) const {
 }
 
 long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const {
-  const double timeDiff = newSyncTime-oldSyncTime;
-  return static_cast<long>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
+  const double timeDiff = newSyncTime - oldSyncTime;
+  return static_cast<long>(std::ceil(timeStepRate * timeDiff / maxTimeStepSize));
 }
 
-NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor neighborExecutor) {
+NeighborCluster::NeighborCluster(double maxTimeStepSize,
+                                 int timeStepRate,
+                                 Executor neighborExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
   executor = neighborExecutor;
 }
 
 } // namespace seissol::time_stepping
-

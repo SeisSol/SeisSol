@@ -20,6 +20,7 @@ format() {
         src/Parallel
         src/Physics
         src/Reader
+        src/Solver
         src/SourceTerm
         src/tests/Common
         src/tests/DynamicRupture

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -44,19 +45,21 @@
 
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/TriangleRefiner.h"
-#include "Kernels/precision.hpp"
-#include "Kernels/common.hpp"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
+#include "Kernels/common.hpp"
+#include "Kernels/precision.hpp"
 
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
 
-namespace seissol::solver { class FreeSurfaceIntegrator; }
+namespace seissol::solver {
+class FreeSurfaceIntegrator;
+}
 
 class seissol::solver::FreeSurfaceIntegrator {
-private:
+  private:
   enum class LocationFlag {
     Elastic = 0,
     Acoustic = 1,
@@ -79,27 +82,31 @@ private:
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
 
-  static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
-  static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
+  static constexpr auto polyDegree = CONVERGENCE_ORDER - 1;
+  static constexpr auto numQuadraturePoints = polyDegree * polyDegree;
   bool m_enabled;
-  
-  void initializeProjectionMatrices(unsigned maxRefinementDepth);
-  void computeSubTriangleAverages(real* projectionMatrixRow,
-                                  const std::array<std::array<double, 3>,numQuadraturePoints>& bfPoints,
-                                  double const* weights) const;
-  void computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
-                                           const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
-                                           double const* weights) const;
-  void initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
-                                  seissol::initializer::LTSTree* ltsTree,
-                                  seissol::initializer::Lut* ltsLut );
 
-  static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
-public:
+  void initializeProjectionMatrices(unsigned maxRefinementDepth);
+  void computeSubTriangleAverages(
+      real* projectionMatrixRow,
+      const std::array<std::array<double, 3>, numQuadraturePoints>& bfPoints,
+      const double* weights) const;
+  void computeSubTriangleAveragesFromFaces(
+      real* projectionMatrixFromFaceRow,
+      const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
+      const double* weights) const;
+  void initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
+                                seissol::initializer::LTSTree* ltsTree,
+                                seissol::initializer::Lut* ltsLut);
+
+  static LocationFlag
+      getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
+
+  public:
   real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
-public:
+  public:
   std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
@@ -107,18 +114,18 @@ public:
   SurfaceLTS surfaceLts;
   seissol::initializer::LTSTree surfaceLtsTree;
   seissol::refinement::TriangleRefiner triRefiner;
-  
+
   explicit FreeSurfaceIntegrator();
   ~FreeSurfaceIntegrator();
-  
-  void initialize(  unsigned maxRefinementDepth,
-                    GlobalData* globalData,
-                    seissol::initializer::LTS* lts,
-                    seissol::initializer::LTSTree* ltsTree,
-                    seissol::initializer::Lut* ltsLut );
+
+  void initialize(unsigned maxRefinementDepth,
+                  GlobalData* globalData,
+                  seissol::initializer::LTS* lts,
+                  seissol::initializer::LTSTree* ltsTree,
+                  seissol::initializer::Lut* ltsLut);
 
   void calculateOutput();
-  
+
   bool enabled() const { return m_enabled; }
 };
 

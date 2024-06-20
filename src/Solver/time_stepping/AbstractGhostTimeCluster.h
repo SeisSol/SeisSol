@@ -1,9 +1,9 @@
 #pragma once
 
+#include "AbstractTimeCluster.h"
+#include "Initializer/typedefs.hpp"
 #include <Solver/time_stepping/ActorState.h>
 #include <list>
-#include "Initializer/typedefs.hpp"
-#include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public CellCluster {
@@ -26,15 +26,16 @@ class AbstractGhostTimeCluster : public CellCluster {
   void start() override;
   void runCompute(ComputeStep step) override;
   bool pollCompute(ComputeStep step) override;
-  void handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster& neighborCluster) override;
+  void handleAdvancedComputeTimeMessage(ComputeStep step,
+                                        const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,
-                          int timeStepRate,
-                          int globalTimeClusterId,
-                          int otherGlobalTimeClusterId,
-                          const MeshStructure* meshStructure);
+                           int timeStepRate,
+                           int globalTimeClusterId,
+                           int otherGlobalTimeClusterId,
+                           const MeshStructure* meshStructure);
 
   void reset() override;
   ActResult act() override;

@@ -11,16 +11,16 @@
 namespace seissol::time_stepping {
 
 class AbstractTimeCluster {
-private:
+  private:
   ActorPriority priority = ActorPriority::Low;
   std::chrono::steady_clock::time_point timeOfLastStageChange;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut = false;
 
-protected:
+  protected:
   seissol::parallel::runtime::StreamRuntime streamRuntime;
 
-  ActorState state = ActorState{StateType::Synchronized,ComputeStep::Correct};
+  ActorState state = ActorState{StateType::Synchronized, ComputeStep::Correct};
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
@@ -53,20 +53,21 @@ protected:
     throw;
   }
   // needed, so that we can re-use events from empty steps
-  virtual bool emptyStep(ComputeStep step) const {return true;}
+  virtual bool emptyStep(ComputeStep step) const { return true; }
   virtual bool processMessages();
-  virtual void handleAdvancedComputeTimeMessage(ComputeStep step, const NeighborCluster& neighborCluster) = 0;
+  virtual void handleAdvancedComputeTimeMessage(ComputeStep step,
+                                                const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
   bool hasDifferentExecutorNeighbor();
-
 
   long timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
 
   std::queue<void*> events;
-public:
+
+  public:
   virtual ~AbstractTimeCluster();
 
   virtual std::string description() const { return ""; }
@@ -108,27 +109,26 @@ public:
    * @return the pointer to the vector of neighbor clusters.
    */
   std::vector<NeighborCluster>* getNeighborClusters();
-
 };
 
 class CellCluster : public AbstractTimeCluster {
-protected:
- bool emptyStep(ComputeStep step) const override {return step == ComputeStep::Interact;}
- ~CellCluster() override;
+  protected:
+  bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
+  ~CellCluster() override;
   CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
-public:
+
+  public:
 };
 
 class FaceCluster : public AbstractTimeCluster {
-protected:
- bool emptyStep(ComputeStep step) const override {return step != ComputeStep::Interact;}
- ~FaceCluster() override;
+  protected:
+  bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Interact; }
+  ~FaceCluster() override;
   FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
-public:
+
+  public:
 };
 
 } // namespace seissol::time_stepping
 
-
-
-#endif //SEISSOL_ACTOR_H
+#endif // SEISSOL_ACTOR_H

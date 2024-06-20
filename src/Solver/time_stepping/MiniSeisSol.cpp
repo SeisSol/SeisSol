@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * 
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -35,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * 
+ *
  **/
 
 #include "MiniSeisSol.h"
@@ -72,8 +73,7 @@ Config getConfig() {
     if (config.numRepeats < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  }
-  catch (std::runtime_error& err) {
+  } catch (std::runtime_error& err) {
     logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
     config.numRepeats = numRepeats;
   }
@@ -83,8 +83,7 @@ Config getConfig() {
     if (config.numElements < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  }
-  catch (std::runtime_error& err) {
+  } catch (std::runtime_error& err) {
     logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
     config.numElements = numElements;
   }
@@ -92,39 +91,28 @@ Config getConfig() {
 }
 } // namespace seissol::mini
 
-
 void seissol::localIntegration(GlobalData* globalData,
                                initializer::LTS& lts,
                                initializer::Layer& layer,
                                seissol::SeisSol& seissolInstance) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
-  kernels::Time  timeKernel;
+  kernels::Time timeKernel;
   timeKernel.setHostGlobalData(globalData);
 
-  real**                buffers                       = layer.var(lts.buffers);
+  real** buffers = layer.var(lts.buffers);
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
 #ifdef _OPENMP
-  #pragma omp parallel for firstprivate(tmp) schedule(static)
+#pragma omp parallel for firstprivate(tmp) schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
-    timeKernel.computeAder(miniSeisSolTimeStep,
-                           data,
-                           tmp,
-                           buffers[cell],
-                           nullptr);
-    localKernel.computeIntegral(buffers[cell],
-                                data,
-                                tmp,
-                                nullptr,
-                                nullptr,
-                                0.0,
-                                0.0);
+    timeKernel.computeAder(miniSeisSolTimeStep, data, tmp, buffers[cell], nullptr);
+    localKernel.computeIntegral(buffers[cell], data, tmp, nullptr, nullptr, 0.0, 0.0);
   }
 }
 
@@ -134,46 +122,45 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        seissol::SeisSol& seissolInstance,
                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  kernels::Time  timeKernel;
+  kernels::Time timeKernel;
   timeKernel.setGlobalData(globalData);
 
   kernels::Local localKernel;
   localKernel.setGlobalData(globalData);
 
-  const auto &device = device::DeviceInstance::getInstance();
+  const auto& device = device::DeviceInstance::getInstance();
 
   kernels::LocalData::Loader loader;
   loader.load(lts, layer);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
-  auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
-  auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false, runtime);
-  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
+  localKernel.computeBatchedIntegral(
+      dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
 #endif
 }
 
-void seissol::fakeData(initializer::LTS& lts,
-                       initializer::Layer& layer,
-                       FaceType faceTp) {
-  real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
+void seissol::fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
+  real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
 #ifdef ACL_DEVICE
   auto allocationPlace = seissol::initializer::AllocationPlace::Device;
-  real**                      buffers                       = layer.var(lts.buffersDevice);
-  real**                      derivatives                   = layer.var(lts.derivativesDevice);
-  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighborsDevice);
+  real** buffers = layer.var(lts.buffersDevice);
+  real** derivatives = layer.var(lts.derivativesDevice);
+  real*(*faceNeighbors)[4] = layer.var(lts.faceNeighborsDevice);
 #else
   auto allocationPlace = seissol::initializer::AllocationPlace::Host;
-  real**                      buffers                       = layer.var(lts.buffers);
-  real**                      derivatives                   = layer.var(lts.derivatives);
-  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
+  real** buffers = layer.var(lts.buffers);
+  real** derivatives = layer.var(lts.derivatives);
+  real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
 #endif
-  LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
-  NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
-  CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, allocationPlace));
+  LocalIntegrationData* localIntegration = layer.var(lts.localIntegration);
+  NeighboringIntegrationData* neighboringIntegration = layer.var(lts.neighboringIntegration);
+  CellLocalInformation* cellInformation = layer.var(lts.cellInformation);
+  real* bucket = static_cast<real*>(layer.bucket(lts.buffersDerivatives, allocationPlace));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -183,55 +170,65 @@ void seissol::fakeData(initializer::LTS& lts,
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
       cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      cellInformation[cell].faceNeighborIds[f] =  ((unsigned int)lrand48() % layer.getNumberOfCells());
-    }    
+      cellInformation[cell].faceNeighborIds[f] =
+          ((unsigned int)lrand48() % layer.getNumberOfCells());
+    }
     cellInformation[cell].ltsSetup = 0;
   }
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
       case FaceType::freeSurface:
-          faceNeighbors[cell][f] = buffers[cell];
-          break;
+        faceNeighbors[cell][f] = buffers[cell];
+        break;
       case FaceType::periodic:
       case FaceType::regular:
-          faceNeighbors[cell][f] = buffers[ cellInformation[cell].faceNeighborIds[f] ];
-          break;
-        default:
-          faceNeighbors[cell][f] = nullptr;
-          break;
+        faceNeighbors[cell][f] = buffers[cellInformation[cell].faceNeighborIds[f]];
+        break;
+      default:
+        faceNeighbors[cell][f] = nullptr;
+        break;
       }
     }
   }
-  
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), false);
+
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), true);
-  kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
+                         sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
+                         false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
+                         sizeof(NeighboringIntegrationData) / sizeof(real) *
+                             layer.getNumberOfCells(),
+                         false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
   }
 #endif
 
 #ifdef ACL_DEVICE
-  const auto &device = device::DeviceInstance::getInstance();
-  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  const auto& device = device::DeviceInstance::getInstance();
+  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                      device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 #endif
 }
 
-double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool usePlasticity, seissol::SeisSol& seissolInstance) {
+double seissol::miniSeisSol(initializer::MemoryManager& memoryManager,
+                            bool usePlasticity,
+                            seissol::SeisSol& seissolInstance) {
   initializer::LTSTree ltsTree;
-  initializer::LTS     lts;
+  initializer::LTS lts;
 
   lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
@@ -239,8 +236,7 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
 
   auto config = mini::getConfig();
   const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "miniSeisSol configured with"
-                << config.numElements << "elements and"
+  logInfo(rank) << "miniSeisSol configured with" << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";
 
   initializer::TimeCluster& cluster = ltsTree.child(0);
@@ -250,10 +246,11 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
-  
+
   initializer::Layer& layer = cluster.child<Interior>();
-  
-  layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+
+  layer.setBucketSize(lts.buffersDerivatives,
+                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
 
   fakeData(lts, layer);
@@ -275,10 +272,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
     localIntegrationOnDevice(globalData, lts, layer, seissolInstance, runtime);
   };
 
-  const auto &device = device::DeviceInstance::getInstance();
-  auto syncBenchmark = [&device]() {
-    device.api->syncDevice();
-  };
+  const auto& device = device::DeviceInstance::getInstance();
+  auto syncBenchmark = [&device]() { device.api->syncDevice(); };
 #else
   auto* globalData = memoryManager.getGlobalDataOnHost();
   auto runBenchmark = [globalData, &lts, &layer, &seissolInstance]() {

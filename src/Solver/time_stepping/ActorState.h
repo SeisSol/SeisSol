@@ -10,11 +10,7 @@
 
 namespace seissol::time_stepping {
 
-enum class ComputeStep {
-  Predict,
-  Interact,
-  Correct
-};
+enum class ComputeStep { Predict, Interact, Correct };
 
 struct Message {
   ComputeStep step;
@@ -26,15 +22,15 @@ struct Message {
 inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 
 class MessageQueue {
- private:
+  private:
   std::queue<Message> queue;
   std::mutex mutex;
 
- public:
+  public:
   MessageQueue() = default;
   ~MessageQueue() = default;
 
-  void push(Message const& message);
+  void push(const Message& message);
 
   Message pop();
 
@@ -43,11 +39,7 @@ class MessageQueue {
   [[nodiscard]] size_t size() const;
 };
 
-enum class StateType {
-  Synchronized,
-  ComputeStart,
-  ComputeDone
-};
+enum class StateType { Synchronized, ComputeStart, ComputeDone };
 
 struct ActorState {
   StateType type;
@@ -72,17 +64,11 @@ struct ClusterTimes {
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
-  [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
-                                               double newSyncTime) const;
+  [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const;
 
-  double getTimeStepSize() const {
-    return maxTimeStepSize;
-  }
+  double getTimeStepSize() const { return maxTimeStepSize; }
 
-  void setTimeStepSize(double newTimeStepSize) {
-    maxTimeStepSize = newTimeStepSize;
-  }
-
+  void setTimeStepSize(double newTimeStepSize) { maxTimeStepSize = newTimeStepSize; }
 };
 
 struct NeighborCluster {
@@ -94,18 +80,14 @@ struct NeighborCluster {
   std::unordered_map<ComputeStep, void*> events;
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
-
 };
 
 struct ActResult {
   bool isStateChanged = false;
 };
 
-enum class ActorPriority {
-  Low,
-  High
-};
+enum class ActorPriority { Low, High };
 
 } // namespace seissol::time_stepping
 
-#endif //SEISSOL_ACTORSTATE_H
+#endif // SEISSOL_ACTORSTATE_H

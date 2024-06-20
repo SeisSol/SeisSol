@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Alex Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015-2017, SeisSol Group
@@ -41,7 +43,6 @@
 
 #include <limits>
 
-#include "Simulator.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/Stopwatch.h"
@@ -49,18 +50,15 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
+#include "Simulator.h"
 #include "time_stepping/TimeManager.h"
 
-seissol::Simulator::Simulator():
-  currentTime(        0 ),
-  finalTime(          0 ),
-  usePlasticity(  false ),
-  checkPointTime(     0 ),
-  checkPointInterval( std::numeric_limits< double >::max() ),
-  aborted( false ) {}
+seissol::Simulator::Simulator()
+    : currentTime(0), finalTime(0), usePlasticity(false), checkPointTime(0),
+      checkPointInterval(std::numeric_limits<double>::max()), aborted(false) {}
 
-void seissol::Simulator::setCheckPointInterval( double checkPointInterval ) {
-  assert( checkPointInterval > 0 );
+void seissol::Simulator::setCheckPointInterval(double checkPointInterval) {
+  assert(checkPointInterval > 0);
   this->checkPointInterval = checkPointInterval;
 }
 
@@ -68,27 +66,22 @@ bool seissol::Simulator::checkPointingEnabled() {
   return checkPointInterval < std::numeric_limits<double>::max();
 }
 
-void seissol::Simulator::setFinalTime( double finalTime ) {
-  assert( finalTime > 0 );
+void seissol::Simulator::setFinalTime(double finalTime) {
+  assert(finalTime > 0);
   this->finalTime = finalTime;
 }
 
-void seissol::Simulator::setUsePlasticity( bool plasticity ) {
-  usePlasticity = plasticity;
+void seissol::Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
+
+void seissol::Simulator::setCurrentTime(double currentTime) {
+  assert(currentTime > 0);
+  this->currentTime = currentTime;
 }
 
-void seissol::Simulator::setCurrentTime( double currentTime ) {
-	assert( currentTime > 0 );
-	this->currentTime = currentTime;
-}
-
-void seissol::Simulator::abort() {
-	aborted = true;
-}
-
+void seissol::Simulator::abort() { aborted = true; }
 
 void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
-  SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
   parallel::runtime::StreamRuntime syncRuntime;
@@ -122,8 +115,8 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min( upcomingTime, Modules::callSyncHook(currentTime, 0.0) );
-  upcomingTime = std::min( upcomingTime, std::abs(checkPointTime + checkPointInterval) );
+  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, 0.0));
+  upcomingTime = std::min(upcomingTime, std::abs(checkPointTime + checkPointInterval));
 
   double lastSplit = 0;
 
@@ -131,18 +124,18 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
 
-  while( finalTime > currentTime + timeTolerance ) {
+  while (finalTime > currentTime + timeTolerance) {
     if (upcomingTime < currentTime + timeTolerance) {
       logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
     }
     if (aborted) {
-        logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
-        break; 
+      logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
+      break;
     }
 
     // update the DOFs
     computeStopwatch.start();
-    seissolInstance.timeManager().advanceInTime( upcomingTime );
+    seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
 
     ioStopwatch.start();
@@ -160,7 +153,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, timeTolerance));
 
     // write checkpoint if required
-    if( std::abs( currentTime - ( checkPointTime + checkPointInterval ) ) < timeTolerance ) {
+    if (std::abs(currentTime - (checkPointTime + checkPointInterval)) < timeTolerance) {
       const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
       seissolInstance.checkPointManager().write(currentTime, faultTimeStep);
       checkPointTime += checkPointInterval;
@@ -170,8 +163,10 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     ioStopwatch.pause();
 
     double currentSplit = simulationStopwatch.split();
-    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print(
+        "Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
+    Stopwatch::print(
+        "Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
@@ -192,8 +187,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   const auto& memoryManager = seissolInstance.getMemoryManager();
   const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
   const auto& outputPrefix = memoryManager.getOutputPrefix();
-  seissolInstance.timeManager().printComputationTime(outputPrefix,
-                                                            isLoopStatisticsNetcdfOutputOn);
+  seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime);
 

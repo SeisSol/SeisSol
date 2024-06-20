@@ -1,17 +1,16 @@
 #ifndef SEISSOL_COMMUNICATIONMANAGER_H
 #define SEISSOL_COMMUNICATIONMANAGER_H
 
+#include "Parallel/Pin.h"
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
-#include "Parallel/Pin.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-
 
 namespace seissol::time_stepping {
 class AbstractCommunicationManager {
-public:
+  public:
   using ghostClusters_t = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
@@ -21,31 +20,29 @@ public:
 
   ghostClusters_t* getGhostClusters();
 
-protected:
+  protected:
   explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
   bool poll();
   ghostClusters_t ghostClusters;
-
 };
 
 class SerialCommunicationManager : public AbstractCommunicationManager {
-public:
+  public:
   explicit SerialCommunicationManager(ghostClusters_t ghostClusters);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
 };
 
 class ThreadedCommunicationManager : public AbstractCommunicationManager {
-public:
-  ThreadedCommunicationManager(ghostClusters_t ghostClusters,
-                               const parallel::Pinning* pinning);
+  public:
+  ThreadedCommunicationManager(ghostClusters_t ghostClusters, const parallel::Pinning* pinning);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
   void reset(double newSyncTime) override;
 
   ~ThreadedCommunicationManager() override;
 
-private:
+  private:
   std::thread thread;
   std::atomic<bool> shouldReset;
   std::atomic<bool> isFinished;
@@ -54,4 +51,4 @@ private:
 
 } // end namespace seissol::time_stepping
 
-#endif //SEISSOL_COMMUNICATIONMANAGER_H
+#endif // SEISSOL_COMMUNICATIONMANAGER_H

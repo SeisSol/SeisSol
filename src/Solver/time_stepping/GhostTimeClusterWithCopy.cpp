@@ -8,18 +8,18 @@
 
 namespace seissol::time_stepping {
 template <MPI::DataTransferMode CommType>
-GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
-    double maxTimeStepSize,
-    int timeStepRate,
-    int globalTimeClusterId,
-    int otherGlobalTimeClusterId,
-    const MeshStructure* meshStructure,
-    bool persistent)
+GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(double maxTimeStepSize,
+                                                             int timeStepRate,
+                                                             int globalTimeClusterId,
+                                                             int otherGlobalTimeClusterId,
+                                                             const MeshStructure* meshStructure,
+                                                             bool persistent)
     : AbstractGhostTimeCluster(maxTimeStepSize,
                                timeStepRate,
                                globalTimeClusterId,
                                otherGlobalTimeClusterId,
-                               meshStructure), persistent(persistent) {
+                               meshStructure),
+      persistent(persistent) {
   numberOfRegions = meshStructure->numberOfRegions;
   prefetchCopyRegionsStreams.resize(numberOfRegions);
   prefetchGhostRegionsStreams.resize(numberOfRegions);
@@ -46,19 +46,19 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
         MPI_Send_init(duplicatedCopyRegions[region],
-                  static_cast<int>(meshStructure->copyRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->sendIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->sendRequests + region);
+                      static_cast<int>(meshStructure->copyRegionSizes[region]),
+                      MPI_C_REAL,
+                      meshStructure->neighboringClusters[region][0],
+                      timeData + meshStructure->sendIdentifiers[region],
+                      seissol::MPI::mpi.comm(),
+                      meshStructure->sendRequests + region);
         MPI_Recv_init(duplicatedGhostRegions[region],
-                  static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->receiveRequests + region);
+                      static_cast<int>(meshStructure->ghostRegionSizes[region]),
+                      MPI_C_REAL,
+                      meshStructure->neighboringClusters[region][0],
+                      timeData + meshStructure->receiveIdentifiers[region],
+                      seissol::MPI::mpi.comm(),
+                      meshStructure->receiveRequests + region);
       }
     }
   }
@@ -102,8 +102,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
       if (device.api->isStreamWorkDone(stream)) {
         if (persistent) {
           MPI_Start(meshStructure->sendRequests + (*region));
-        }
-        else {
+        } else {
           MPI_Isend(duplicatedCopyRegions[*region],
                     static_cast<int>(meshStructure->copyRegionSizes[*region]),
                     MPI_C_REAL,
@@ -129,8 +128,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
         MPI_Start(meshStructure->receiveRequests + region);
-      }
-      else {
+      } else {
         MPI_Irecv(duplicatedGhostRegions[region],
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI_C_REAL,

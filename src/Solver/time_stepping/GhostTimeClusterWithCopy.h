@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include "Parallel/MPI.h"
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include <device.h>
 
 namespace seissol::time_stepping {
