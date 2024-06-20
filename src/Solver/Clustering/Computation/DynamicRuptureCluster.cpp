@@ -159,8 +159,11 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice() {
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
     auto& table = layer->getConditionalTable<inner_keys::Dr>();
-    streamRuntime.enqueueHost(
-        [=, &dynamicRuptureKernel]() { dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth); });
+
+    // compute constants for the kernels
+    dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
+    frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
+
     streamRuntime.runGraph(
         computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
           dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
@@ -174,9 +177,7 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice() {
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    streamRuntime.enqueueHost([=, &dynamicRuptureKernel]() {
-      frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
-    });
+
     frictionSolverDevice->evaluate(*layer,
                                    descr,
                                    ct.time[ComputeStep::Interact],

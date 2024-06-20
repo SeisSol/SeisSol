@@ -226,6 +226,8 @@ void AbstractTimeCluster::reset() {
     neighbor.ct.computeSinceLastSync[ComputeStep::Interact] = 0;
     neighbor.ct.computeSinceLastSync[ComputeStep::Correct] = 0;
   }
+
+  // streamRuntime.reset();
 }
 
 ActorPriority AbstractTimeCluster::getPriority() const { return priority; }
