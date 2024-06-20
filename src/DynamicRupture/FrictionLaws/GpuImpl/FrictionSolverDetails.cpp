@@ -28,6 +28,11 @@ FrictionSolverDetails::~FrictionSolverDetails() {
   queue.wait_and_throw();
 }
 
+void FrictionSolverDetails::copySpecificLtsDataTreeToLocal(
+    seissol::initializer::Layer& layerData,
+    const seissol::initializer::DynamicRupture* const dynRup,
+    real fullUpdateTime) {}
+
 void FrictionSolverDetails::initSyclQueue() {
   auto& instance = seissol::AcceleratorDevice::getInstance();
   queue = instance.getInorderSyclQueue();

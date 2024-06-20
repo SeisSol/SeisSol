@@ -31,8 +31,6 @@ class FrictionSolver {
                         const double timeWeights[CONVERGENCE_ORDER],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void dependency(seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
@@ -47,6 +45,8 @@ class FrictionSolver {
                           real fullUpdateTime);
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**

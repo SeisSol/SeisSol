@@ -158,6 +158,7 @@ src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/time_stepping/DynamicRuptureClusterSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )

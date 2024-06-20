@@ -23,7 +23,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   virtual void
       copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                      const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) = 0;
+                                     real fullUpdateTime);
 
   protected:
   size_t currLayerSize{};
@@ -36,7 +36,6 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
 
-  sycl::device device;
   sycl::queue queue;
 };
 } // namespace seissol::dr::friction_law::gpu

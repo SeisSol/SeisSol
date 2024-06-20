@@ -613,10 +613,6 @@ void TimeCluster::correct() {
       flops_nonZero[static_cast<int>(ComputePart::Neighbor)]);
   seissolInstance.flopCounter().incrementHardwareFlopsNeighbor(
       flops_hardware[static_cast<int>(ComputePart::Neighbor)]);
-  seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
-      flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)]);
-  seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
-      flops_hardware[static_cast<int>(ComputePart::DRNeighbor)]);
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextSteps();

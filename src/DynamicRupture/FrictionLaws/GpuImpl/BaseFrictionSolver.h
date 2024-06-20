@@ -13,10 +13,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   public:
   explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
-  ~BaseFrictionSolver<Derived>() = default;
+  ~BaseFrictionSolver<Derived>() override = default;
 
-  void dependency(seissol::parallel::runtime::StreamRuntime& runtime) override {
-    runtime.syncFromSycl(&this->queue);
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
   void evaluate(seissol::initializer::Layer& layerData,

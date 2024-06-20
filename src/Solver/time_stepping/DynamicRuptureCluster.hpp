@@ -8,8 +8,10 @@
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/Layer.hpp>
 #include <Monitoring/ActorStateStatistics.h>
+#include <Parallel/Helper.hpp>
 #include <Parallel/Runtime/Stream.hpp>
 #include <Solver/time_stepping/ActorState.h>
+#include <memory>
 
 namespace seissol::time_stepping {
 class DynamicRuptureCluster : public FaceCluster {
@@ -25,27 +27,7 @@ class DynamicRuptureCluster : public FaceCluster {
                         seissol::dr::output::OutputManager* faultOutputManager,
                         seissol::SeisSol& seissolInstance,
                         LoopStatistics* loopStatistics,
-                        ActorStateStatistics* actorStateStatistics)
-      : FaceCluster(maxTimeStepSize,
-                    timeStepRate,
-#ifdef ACL_DEVICE
-                    layer->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
-                                                                    : Executor::Host
-#else
-                    Executor::Host
-#endif
-                    ),
-        profilingId(profilingId), layer(layer), descr(descr), frictionSolver(frictionSolver),
-        frictionSolverDevice(frictionSolverDevice), faultOutputManager(faultOutputManager),
-        globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
-        loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-        seissolInstance(seissolInstance) {
-    dynamicRuptureKernel.setGlobalData(globalData);
-    // TODO(David): activate here already
-    // frictionSolver->copyLtsTreeToLocal(*layer, descr, 0);
-    // frictionSolverDevice->copyLtsTreeToLocal(*layer, descr, 0);
-    regionComputeDynamicRupture = loopStatistics->getRegion("computeDynamicRupture");
-  }
+                        ActorStateStatistics* actorStateStatistics);
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
   void computeFlops();
@@ -74,6 +56,7 @@ class DynamicRuptureCluster : public FaceCluster {
   seissol::initializer::DynamicRupture* descr;
   seissol::dr::friction_law::FrictionSolver* frictionSolver;
   seissol::dr::friction_law::FrictionSolver* frictionSolverDevice;
+  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionSolverDeviceStorage{nullptr};
   seissol::dr::output::OutputManager* faultOutputManager;
 
   LoopStatistics* loopStatistics;
@@ -92,14 +75,17 @@ class DynamicRuptureCluster : public FaceCluster {
 
   ClusterTimes ct;
 
-  long long flops_nonZero;
-  long long flops_hardware;
+  long long flops_nonZero{0};
+  long long flops_hardware{0};
 
   unsigned profilingId;
 
   void start() override {}
 
   void runCompute(ComputeStep step) override;
+
+  private:
+  void initFrictionSolverDevice();
 };
 } // namespace seissol::time_stepping
 

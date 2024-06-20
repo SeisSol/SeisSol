@@ -68,6 +68,7 @@
  * Memory management of SeisSol.
  **/
 
+#include <Parallel/Helper.hpp>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -977,15 +978,17 @@ void seissol::initializer::MemoryManager::initFrictionData() {
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->initSyclQueue();
+    if (!concurrentClusters()) {
+      if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
+        impl->initSyclQueue();
 
-      LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-      impl->setMaxClusterSize(maxSize);
+        LayerMask mask = seissol::initializer::LayerMask(Ghost);
+        auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
+        impl->setMaxClusterSize(maxSize);
 
-      impl->allocateAuxiliaryMemory();
-      impl->copyStaticDataToDevice();
+        impl->allocateAuxiliaryMemory();
+        impl->copyStaticDataToDevice();
+      }
     }
 #endif // ACL_DEVICE
   }

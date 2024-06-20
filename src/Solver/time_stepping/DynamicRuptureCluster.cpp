@@ -3,6 +3,42 @@
 
 namespace seissol::time_stepping {
 
+DynamicRuptureCluster::DynamicRuptureCluster(
+    double maxTimeStepSize,
+    long timeStepRate,
+    unsigned profilingId,
+    seissol::initializer::Layer* layer,
+    seissol::initializer::DynamicRupture* descr,
+    CompoundGlobalData globalData,
+    seissol::dr::friction_law::FrictionSolver* frictionSolver,
+    seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
+    seissol::dr::output::OutputManager* faultOutputManager,
+    seissol::SeisSol& seissolInstance,
+    LoopStatistics* loopStatistics,
+    ActorStateStatistics* actorStateStatistics)
+    : FaceCluster(maxTimeStepSize,
+                  timeStepRate,
+#ifdef ACL_DEVICE
+                  layer->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
+                                                                  : Executor::Host
+#else
+                  Executor::Host
+#endif
+                  ),
+      profilingId(profilingId), layer(layer), descr(descr), frictionSolver(frictionSolver),
+      frictionSolverDevice(frictionSolverDevice), faultOutputManager(faultOutputManager),
+      globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
+      loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
+      seissolInstance(seissolInstance) {
+  dynamicRuptureKernel.setGlobalData(globalData);
+
+  initFrictionSolverDevice();
+  // TODO(David): activate here already
+  // frictionSolver->copyLtsTreeToLocal(*layer, descr, 0);
+  // frictionSolverDevice->copyLtsTreeToLocal(*layer, descr, 0);
+  regionComputeDynamicRupture = loopStatistics->getRegion("computeDynamicRupture");
+}
+
 void DynamicRuptureCluster::handleDynamicRupture() {
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
@@ -97,12 +133,15 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice() {
   if (layer->getNumberOfCells() > 0) {
     // compute space time interpolation part
 
+    auto& dynamicRuptureKernel = this->dynamicRuptureKernel;
+
     const double stepSizeWidth = timeStepSize();
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
     auto& table = layer->getConditionalTable<inner_keys::Dr>();
-    dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
+    streamRuntime.enqueueHost(
+        [=, &dynamicRuptureKernel]() { dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth); });
     streamRuntime.runGraph(
         computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
           dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
@@ -116,7 +155,9 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice() {
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
+    streamRuntime.enqueueHost([=, &dynamicRuptureKernel]() {
+      frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
+    });
     frictionSolverDevice->evaluate(*layer,
                                    descr,
                                    ct.time[ComputeStep::Interact],
