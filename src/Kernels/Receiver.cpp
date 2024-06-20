@@ -236,7 +236,7 @@ double ReceiverCluster::calcReceivers(
 #ifdef USE_STP
       m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
 #else
-      m_timeKernel.computeAder(timeStepWidth,
+      m_timeKernel.computeAder(m_samplingInterval,
                                tmpReceiverData,
                                tmp,
                                timeEvaluated, // useless but the interface requires it
@@ -249,7 +249,7 @@ double ReceiverCluster::calcReceivers(
       m_timeKernel.computeTaylorExpansion(
             receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
 
-      Plasticity::computePlasticity(oneMinusIntegratingFactor, timeStepWidth, tv, globalData, &tmpReceiverData.plasticity(), timeEvaluated, pstrain);
+      Plasticity::computePlasticity(oneMinusIntegratingFactor, m_samplingInterval, tv, globalData, &tmpReceiverData.plasticity(), timeEvaluated, pstrain);
 
 #ifdef USE_STP
         // eval time basis
