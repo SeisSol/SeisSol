@@ -75,8 +75,8 @@ class DynamicRuptureCluster : public FaceCluster {
 
   ClusterTimes ct;
 
-  long long flops_nonZero{0};
-  long long flops_hardware{0};
+  long long flopsNonZero{0};
+  long long flopsHardware{0};
 
   unsigned profilingId;
 

@@ -1,6 +1,9 @@
 #include "CommunicationManager.h"
 
 #include "Parallel/Pin.h"
+#include <memory>
+#include <utility>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "device.h"

@@ -2,10 +2,14 @@
 
 #include "ActorState.h"
 #include "utils/logger.h"
+#include <Common/Executor.hpp>
+#include <Parallel/Helper.hpp>
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <iostream>
-#include <iterator>
+#include <memory>
+#include <vector>
 
 #include "Parallel/MPI.h"
 
@@ -135,7 +139,7 @@ bool AbstractTimeCluster::processMessages() {
   for (auto& neighbor : neighbors) {
     if (neighbor.inbox->hasMessages()) {
       processed = true;
-      Message message = neighbor.inbox->pop();
+      const Message message = neighbor.inbox->pop();
       assert(message.time > neighbor.ct.time[message.step]);
       neighbor.ct.time[message.step] = message.time;
       neighbor.ct.computeSinceLastSync[message.step] = message.stepsSinceSync;
@@ -153,8 +157,9 @@ bool AbstractTimeCluster::allComputed(ComputeStep step) {
         neighbors.begin(), neighbors.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
           return a.ct.nextSteps() < b.ct.nextSteps();
         });
-    bool stepBasedPredict = minNeighborSteps == neighbors.end() ||
-                            ct.computeSinceLastSync.at(step) < minNeighborSteps->ct.nextSteps();
+    const bool stepBasedPredict =
+        minNeighborSteps == neighbors.end() ||
+        ct.computeSinceLastSync.at(step) < minNeighborSteps->ct.nextSteps();
     return stepBasedPredict;
   } else {
     bool stepBasedCorrect = true;

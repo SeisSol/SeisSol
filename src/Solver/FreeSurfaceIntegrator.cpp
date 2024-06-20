@@ -42,18 +42,35 @@
 
 #include "Initializer/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
-#include "Kernels/common.hpp"
-#include "Kernels/denseMatrixOps.hpp"
 #include "Numerical_aux/Functions.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
 #include "Parallel/MPI.h"
 #include "generated_code/kernel.h"
+#include <Geometry/refinement/TriangleRefiner.h>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/LTS.h>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <init.h>
+#include <memory>
+#include <ostream>
+#include <tensor.h>
 #include <utils/logger.h>
+#include <vector>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(
     seissol::initializer::LTSTree& surfaceLtsTree) {
-  seissol::initializer::LayerMask ghostMask(Ghost);
+  const seissol::initializer::LayerMask ghostMask(Ghost);
   surfaceLtsTree.addVar(dofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.addVar(displacementDofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.addVar(side, ghostMask, 1, initializer::AllocationMode::HostOnly);
@@ -63,7 +80,7 @@ void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
     : projectionMatrixMemory(nullptr), numberOfSubTriangles(0), numberOfAlignedSubTriangles(0),
-      m_enabled(false), totalNumberOfTriangles(0) {
+      mEnabled(false), totalNumberOfTriangles(0) {
   for (auto& face : projectionMatrix) {
     face = nullptr;
   }
@@ -94,7 +111,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
         << std::endl;
   }
 
-  m_enabled = true;
+  mEnabled = true;
 
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing free surface integrator.";
@@ -105,7 +122,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
 
 void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
   unsigned offset = 0;
-  seissol::initializer::LayerMask ghostMask(Ghost);
+  const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
        surfaceLayer != surfaceLtsTree.endLeaf();
        ++surfaceLayer) {
@@ -239,7 +256,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
   for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d - k; ++j) {
-        unsigned i = d - k - j;
+        const unsigned i = d - k - j;
 
         // Compute subtriangle average via quadrature
         double average = 0.0;
@@ -376,7 +393,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      unsigned ltsId = baseLtsId + cell;
+      const unsigned ltsId = baseLtsId + cell;
       if (!isDuplicate(ltsId)) {
         for (unsigned face = 0; face < 4; ++face) {
           if (initializer::requiresDisplacement(

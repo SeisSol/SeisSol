@@ -41,13 +41,19 @@
  * Entry point of the simulation.
  **/
 
+#include <Initializer/tree/Layer.hpp>
+#include <Parallel/Runtime/Stream.hpp>
+#include <algorithm>
+#include <cassert>
+#include <cstdlib>
 #include <limits>
+#include <utils/logger.h>
+#include <xdmfwriter/scorep_wrapper.h>
 
 #include "Clustering/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/Unit.hpp"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -99,7 +105,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // Set start time (required for checkpointing)
   seissolInstance.timeManager().setInitialTimes(currentTime);
 
-  double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
+  const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
   if (currentTime == 0.0) {
@@ -162,7 +168,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
     ioStopwatch.pause();
 
-    double currentSplit = simulationStopwatch.split();
+    const double currentSplit = simulationStopwatch.split();
     Stopwatch::print(
         "Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
     Stopwatch::print(
@@ -177,7 +183,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   Modules::callSyncHook(currentTime, timeTolerance, true);
 
-  double wallTime = simulationStopwatch.pause();
+  const double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
   ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());

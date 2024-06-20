@@ -1,8 +1,10 @@
+#include <Common/Executor.hpp>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
-#include <memory>
-#include <type_traits>
+#include <mutex>
+#include <string>
 
 #include "ActorState.h"
 
@@ -14,7 +16,7 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
 }
 
 std::string actorStateToString(ActorState state) {
-  std::string stepstring = [&]() {
+  const std::string stepstring = [&]() {
     if (state.step == ComputeStep::Interact) {
       return "Interact";
     }
@@ -39,12 +41,12 @@ std::string actorStateToString(ActorState state) {
 }
 
 void MessageQueue::push(const Message& message) {
-  std::lock_guard lock{mutex};
+  const std::lock_guard lock{mutex};
   queue.push(message);
 }
 
 Message MessageQueue::pop() {
-  std::lock_guard lock{mutex};
+  const std::lock_guard lock{mutex};
   const Message message = queue.front();
   queue.pop();
   return message;

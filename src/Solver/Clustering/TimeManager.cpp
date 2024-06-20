@@ -43,16 +43,32 @@
 
 #include "Parallel/MPI.h"
 
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
 #include "Parallel/Helper.hpp"
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "Solver/Clustering/Communication/CommunicationManager.h"
 #include "TimeManager.h"
+#include <AbstractAPI.h>
+#include <Common/Executor.hpp>
+#include <DynamicRupture/Output/OutputManager.hpp>
+#include <Initializer/MemoryManager.h>
+#include <Initializer/tree/Layer.hpp>
 #include <Initializer/typedefs.hpp>
+#include <Kernels/PointSourceCluster.h>
+#include <ResultWriter/ReceiverWriter.h>
+#include <Solver/Clustering/ActorState.h>
+#include <Solver/Clustering/Communication/AbstractGhostTimeCluster.h>
+#include <Solver/Clustering/Communication/GhostTimeClusterFactory.h>
 #include <Solver/Clustering/Computation/DynamicRuptureCluster.hpp>
+#include <Solver/Clustering/Computation/TimeCluster.h>
+#include <algorithm>
+#include <cassert>
+#include <limits>
 #include <memory>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <xdmfwriter/scorep_wrapper.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -404,7 +420,7 @@ void TimeManager::freeDynamicResources() {
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
-  Executor exec = clusters[0]->getExecutor();
+  const Executor exec = clusters[0]->getExecutor();
   bool sameExecutor = true;
   for (auto& cluster : clusters) {
     sameExecutor &= exec == cluster->getExecutor();

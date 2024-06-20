@@ -48,6 +48,20 @@
 #include "Parallel/Runtime/Stream.hpp"
 #include "SeisSol.h"
 #include "utils/env.h"
+#include <DataTypes/EncodedConstants.hpp>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/LTS.h>
+#include <Initializer/MemoryManager.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/TimeCluster.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/Interface.hpp>
+#include <Kernels/precision.hpp>
+#include <stdexcept>
+#include <stdlib.h>
+#include <tensor.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
@@ -66,7 +80,7 @@ Config getConfig() {
   constexpr int numElements{50000};
 
   Config config{};
-  utils::Env env{};
+  const utils::Env env{};
 
   try {
     config.numRepeats = env.get("SEISSOL_MINI_NUM_REPEATS", numRepeats);

@@ -56,7 +56,7 @@
 
 namespace seissol::solver {
 class FreeSurfaceIntegrator;
-}
+} // namespace seissol::solver
 
 class seissol::solver::FreeSurfaceIntegrator {
   private:
@@ -84,7 +84,7 @@ class seissol::solver::FreeSurfaceIntegrator {
 
   static constexpr auto polyDegree = CONVERGENCE_ORDER - 1;
   static constexpr auto numQuadraturePoints = polyDegree * polyDegree;
-  bool m_enabled;
+  bool mEnabled;
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
@@ -126,7 +126,7 @@ class seissol::solver::FreeSurfaceIntegrator {
 
   void calculateOutput();
 
-  bool enabled() const { return m_enabled; }
+  bool enabled() const { return mEnabled; }
 };
 
 #endif // FREE_SURFACE_INTEGRATOR_H

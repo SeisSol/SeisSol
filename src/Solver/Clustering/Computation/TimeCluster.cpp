@@ -72,12 +72,32 @@
  **/
 
 #include "Parallel/MPI.h"
+#include <AbstractAPI.h>
 #include <Common/Executor.hpp>
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/LTS.h>
 #include <Initializer/tree/Layer.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/GravitationalFreeSurfaceBC.h>
+#include <Kernels/Interface.hpp>
+#include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
+#include <Kernels/common.hpp>
+#include <Kernels/precision.hpp>
+#include <Monitoring/ActorStateStatistics.h>
+#include <Monitoring/LoopStatistics.h>
+#include <Parallel/Helper.hpp>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
-#include <SourceTerm/Manager.h>
+#include <chrono>
+#include <init.h>
+#include <tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <xdmfwriter/scorep_wrapper.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -88,7 +108,6 @@
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/instrumentation.hpp"
 #include "SeisSol.h"
-#include "SourceTerm/PointSource.h"
 #include "TimeCluster.h"
 
 #include <cassert>
@@ -343,7 +362,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
   streamRuntime.runGraph(
       computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         for (unsigned face = 0; face < 4; ++face) {
-          ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
+          const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
             // NOTE: integrated velocities have been computed implicitly, i.e
@@ -364,7 +383,8 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
           }
         }
 
-        ConditionalKey key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
+        const ConditionalKey key =
+            ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
         if (dataTable.find(key) != dataTable.end()) {
           auto& entry = dataTable[key];
 
@@ -410,7 +430,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
   seissol::kernels::TimeCommon::computeBatchedIntegrals(
       timeKernel, subTimeStart, timeStepWidth, table, streamRuntime);
 
-  ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
+  const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
 
   streamRuntime.runGraph(
@@ -422,7 +442,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
     updateRelaxTime();
     PlasticityData* plasticity =
         layer->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
-    unsigned numAdjustedDofs =
+    const unsigned numAdjustedDofs =
         seissol::kernels::Plasticity::computePlasticityBatched(oneMinusIntegratingFactor,
                                                                timeStepWidth,
                                                                tv,
@@ -597,7 +617,7 @@ void TimeCluster::correct() {
    * those of previous clusters, Cc needs to evaluate the time prediction of Cn in the interval
    * [2dt, 3dt].
    */
-  double subTimeStart = ct.time.at(ComputeStep::Correct) - lastSubTime;
+  const double subTimeStart = ct.time.at(ComputeStep::Correct) - lastSubTime;
 
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
@@ -672,6 +692,9 @@ std::pair<long, long>
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     PlasticityData* plasticity = layer->var(lts->plasticity);
     auto* pstrain = layer->var(lts->pstrain);
+
+    // (needs to be non-const due to OMP clause)
+    // NOLINTNEXTLINE
     unsigned numberOTetsWithPlasticYielding = 0;
 
     kernels::NeighborData::Loader loader;
@@ -680,7 +703,7 @@ std::pair<long, long>
     real* timeIntegrated[4];
     real* faceNeighborsPrefetch[4];
 
-    std::size_t numberOfCells = layer->getNumberOfCells();
+    const std::size_t numberOfCells = layer->getNumberOfCells();
     auto timeStep = timeStepSize();
     auto globalDataOnHost = this->globalDataOnHost;
     auto& self = *this;

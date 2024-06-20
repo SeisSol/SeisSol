@@ -14,6 +14,7 @@ format() {
         src/Initializers/Parameters
         src/Modules
         src/Reader
+        src/Solver
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead

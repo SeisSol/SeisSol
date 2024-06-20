@@ -6,7 +6,6 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/preProcessorMacros.hpp"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/Lut.hpp"
@@ -14,6 +13,7 @@
 #include "Numerical_aux/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Parallel/Runtime/Stream.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>

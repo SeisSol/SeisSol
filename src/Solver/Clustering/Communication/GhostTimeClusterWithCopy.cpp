@@ -1,5 +1,13 @@
 #include "Initializer/typedefs.hpp"
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Kernels/precision.hpp>
 #include <Solver/Clustering/ActorState.h>
+#include <Solver/Clustering/Communication/AbstractGhostTimeCluster.h>
+#include <cassert>
+#include <cstddef>
+#include <list>
+#include <mpi.h>
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"

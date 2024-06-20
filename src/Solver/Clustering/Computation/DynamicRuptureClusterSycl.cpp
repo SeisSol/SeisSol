@@ -1,6 +1,7 @@
 #include "DynamicRuptureCluster.hpp"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <Parallel/Helper.hpp>
 
 namespace seissol::time_stepping {
 void DynamicRuptureCluster::initFrictionSolverDevice() {

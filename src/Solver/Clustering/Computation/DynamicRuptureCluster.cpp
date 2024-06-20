@@ -1,5 +1,22 @@
 #include "DynamicRuptureCluster.hpp"
 #include "SeisSol.h"
+#include <AbstractAPI.h>
+#include <Common/Executor.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#include <DynamicRupture/FrictionLaws/FrictionSolver.h>
+#include <DynamicRupture/Output/OutputManager.hpp>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <Monitoring/ActorStateStatistics.h>
+#include <Monitoring/LoopStatistics.h>
+#include <Parallel/Helper.hpp>
+#include <Solver/Clustering/AbstractTimeCluster.h>
+#include <Solver/Clustering/ActorState.h>
+#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol::time_stepping {
 
@@ -89,7 +106,7 @@ void DynamicRuptureCluster::computeDynamicRupture() {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layer->getNumberOfCells(); ++face) {
-      unsigned prefetchFace = (face < layer->getNumberOfCells() - 1) ? face + 1 : face;
+      const unsigned prefetchFace = (face < layer->getNumberOfCells() - 1) ? face + 1 : face;
       dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
                                                   globalDataOnHost,
                                                   &godunovData[face],
@@ -136,7 +153,7 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice() {
     auto& dynamicRuptureKernel = this->dynamicRuptureKernel;
 
     const double stepSizeWidth = timeStepSize();
-    ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
+    const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
     auto& table = layer->getConditionalTable<inner_keys::Dr>();
@@ -197,7 +214,7 @@ void DynamicRuptureCluster::computeDynamicRuptureFlops(long long& nonZeroFlops,
 }
 
 void DynamicRuptureCluster::computeFlops() {
-  computeDynamicRuptureFlops(flops_nonZero, flops_hardware);
+  computeDynamicRuptureFlops(flopsNonZero, flopsHardware);
 }
 
 void DynamicRuptureCluster::runCompute(ComputeStep step) {
@@ -207,8 +224,8 @@ void DynamicRuptureCluster::runCompute(ComputeStep step) {
 
   handleDynamicRupture();
 
-  seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(flops_nonZero);
-  seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(flops_hardware);
+  seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(flopsNonZero);
+  seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(flopsHardware);
 
   // maybe output
   if (computePickpoint) {
