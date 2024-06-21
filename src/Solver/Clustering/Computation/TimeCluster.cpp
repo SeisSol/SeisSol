@@ -180,7 +180,7 @@ TimeCluster::~TimeCluster() {
 }
 
 void TimeCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
-  sourceCluster = std::move(sourceCluster);
+  this->sourceCluster = std::move(sourceCluster);
 }
 
 void TimeCluster::writeReceivers() {
@@ -673,7 +673,7 @@ unsigned int TimeCluster::getClusterId() const { return clusterId; }
 unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
 LayerType TimeCluster::getLayerType() const { return layerType; }
-void TimeCluster::setReceiverTime(double receiverTime) { receiverTime = receiverTime; }
+void TimeCluster::setReceiverTime(double receiverTime) { this->receiverTime = receiverTime; }
 
 void TimeCluster::finalize() { streamRuntime.dispose(); }
 
