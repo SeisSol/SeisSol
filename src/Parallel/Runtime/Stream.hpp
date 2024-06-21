@@ -5,6 +5,7 @@
 #include <functional>
 #include <mutex>
 #include <omp.h>
+#include <queue>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -37,8 +38,10 @@ class StreamRuntime {
       allStreams[i + 1] = ringbufferPtr[i];
     }
 
-    for (size_t i = 0; i < 2 * RingbufferSize + 2; ++i) {
-      events.push_back(device().api->createEvent());
+    // heuristic value
+    constexpr std::size_t StartEvents = 10000;
+    for (size_t i = 0; i < StartEvents; ++i) {
+      events.push(device().api->createEvent());
     }
   }
 
@@ -48,11 +51,12 @@ class StreamRuntime {
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
       }
-      for (auto* event : events) {
-        device().api->destroyEvent(event);
+      while (!events.empty()) {
+        device().api->destroyEvent(events.front());
+        events.pop();
       }
-      disposed = true;
     }
+    disposed = true;
   }
 
   ~StreamRuntime() { dispose(); }
@@ -147,8 +151,17 @@ class StreamRuntime {
     void syncFromOMP(omp_depend_t& depobj);
   */
 
+  void recycleEvent(void* eventPtr) { events.push(eventPtr); }
+
   void* getEvent() {
-    void* newEvent = device().api->createEvent();
+    constexpr std::size_t NextEvents = 100;
+    if (events.size() < NextEvents) {
+      for (size_t i = 0; i < NextEvents; ++i) {
+        events.push(device().api->createEvent());
+      }
+    }
+    void* newEvent = events.front();
+    events.pop();
     return newEvent;
   }
 
@@ -165,7 +178,7 @@ class StreamRuntime {
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> events;
+  std::queue<void*> events;
 #else
   public:
   void wait() {}

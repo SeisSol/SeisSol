@@ -23,6 +23,8 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,
       numberOfTimeSteps(0), executor(executor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
+
+  concurrent = concurrentClusters();
 }
 
 bool AbstractTimeCluster::advanceState() {
@@ -40,7 +42,7 @@ bool AbstractTimeCluster::advanceState() {
     } else if (allComputed(state.step)) {
       preCompute(state.step);
       runCompute(next);
-      if (!concurrentClusters()) {
+      if (!concurrent) {
         streamRuntime.wait();
       }
       state.step = next;
@@ -84,7 +86,7 @@ void AbstractTimeCluster::postCompute(ComputeStep step) {
   ct.computeSinceStart[step] += ct.timeStepRate;
   ct.time[step] += timeStepSize();
 
-  if (!emptyStep(step)) {
+  if (!emptyStep(step) && concurrent) {
     events.push(streamRuntime.recordEvent());
   }
 
@@ -178,10 +180,12 @@ bool AbstractTimeCluster::allComputed(ComputeStep step) {
 }
 
 void AbstractTimeCluster::preCompute(ComputeStep step) {
-  for (const auto& neighbor : neighbors) {
-    if (neighbor.events.find(step) != neighbor.events.end() &&
-        neighbor.events.at(step) != nullptr) {
-      streamRuntime.waitEvent(neighbor.events.at(step));
+  if (concurrent) {
+    for (const auto& neighbor : neighbors) {
+      if (neighbor.events.find(step) != neighbor.events.end() &&
+          neighbor.events.at(step) != nullptr) {
+        streamRuntime.waitEvent(neighbor.events.at(step));
+      }
     }
   }
 }
@@ -229,9 +233,13 @@ void AbstractTimeCluster::reset() {
     neighbor.ct.computeSinceLastSync[ComputeStep::Predict] = 0;
     neighbor.ct.computeSinceLastSync[ComputeStep::Interact] = 0;
     neighbor.ct.computeSinceLastSync[ComputeStep::Correct] = 0;
+    neighbor.events.clear();
   }
 
-  // streamRuntime.reset();
+  while (!events.empty()) {
+    streamRuntime.recycleEvent(events.front());
+    events.pop();
+  }
 }
 
 ActorPriority AbstractTimeCluster::getPriority() const { return priority; }

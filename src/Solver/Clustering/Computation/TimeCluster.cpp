@@ -645,8 +645,6 @@ void TimeCluster::correct() {
   }
 }
 
-void TimeCluster::reset() { AbstractTimeCluster::reset(); }
-
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   const auto rank = MPI::mpi.rank();
   logWarning(rank) << "No update since " << timeSinceLastUpdate.count() << "[s] for global cluster "

@@ -331,8 +331,6 @@ class TimeCluster : public CellCluster {
     updateRelaxTime();
   }
 
-  void reset() override;
-
   void finalize() override;
 
   [[nodiscard]] unsigned int getClusterId() const;

@@ -20,6 +20,8 @@ class AbstractTimeCluster {
   protected:
   seissol::parallel::runtime::StreamRuntime streamRuntime;
 
+  bool concurrent;
+
   ActorState state = ActorState{StateType::Synchronized, ComputeStep::Correct};
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
