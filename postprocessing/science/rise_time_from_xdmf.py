@@ -84,11 +84,11 @@ def MedianSmoothing(input_tuple):
 
 def MedianSmoothingParallel(variable, xyz, radius=250., nprocs=4):
     
-    chunks = [(variable, xyz, i, radius) for i in np.array_split(np.arange(variable.shape[0]), nprocs)]        
-    p = Pool(nprocs)
-    result = p.map(MedianSmoothing, chunks)
-    p.close()
-    p.join()
+    chunks = [(variable, xyz, i, radius) for i in np.array_split(np.arange(variable.shape[0]), nprocs)]
+    with Pool(nprocs) as pool:
+        result = pool.map(MedianSmoothing, chunks)
+        pool.close()
+        pool.join()
     return np.concatenate(result)
 
 def get_xyz_from_connect(geom, connect):
