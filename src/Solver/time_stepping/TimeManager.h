@@ -165,7 +165,7 @@ class seissol::time_stepping::TimeManager {
      * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters);
+        std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters);
 
   /**
    * Returns the writer for the receivers

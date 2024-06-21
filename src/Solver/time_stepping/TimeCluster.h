@@ -173,7 +173,7 @@ private:
     dr::friction_law::FrictionSolver* frictionSolverDevice;
     dr::output::OutputManager* faultOutputManager;
 
-    seissol::sourceterm::PointSourceClusterPair m_sourceCluster;
+    seissol::kernels::PointSourceClusterPair m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -348,7 +348,7 @@ public:
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(seissol::sourceterm::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
   void freePointSources() { m_sourceCluster.host.reset(nullptr); m_sourceCluster.device.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
