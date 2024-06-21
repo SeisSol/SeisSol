@@ -171,6 +171,7 @@ public:
 	void tearDown()
 	{
 		m_executor.finalize();
+		runtime.dispose();
 	}
 
 	void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
