@@ -108,7 +108,11 @@ void AbstractTimeCluster::postCompute(ComputeStep step) {
       message.step = step;
       message.time = ct.time[step];
       message.stepsSinceSync = ct.computeSinceLastSync[step];
-      message.completionEvent = events.front();
+      if (events.empty()) {
+        message.completionEvent = nullptr;
+      } else {
+        message.completionEvent = events.back();
+      }
       neighbor.outbox->push(message);
     }
   }
