@@ -181,10 +181,14 @@ bool AbstractTimeCluster::allComputed(ComputeStep step) {
 
 void AbstractTimeCluster::preCompute(ComputeStep step) {
   if (concurrent) {
-    for (const auto& neighbor : neighbors) {
-      if (neighbor.events.find(step) != neighbor.events.end() &&
-          neighbor.events.at(step) != nullptr) {
-        streamRuntime.waitEvent(neighbor.events.at(step));
+    for (auto& neighbor : neighbors) {
+      // (only) wait upon all events that we haven't waited upon yet
+      auto eventfind = neighbor.events.find(step);
+      if (eventfind != neighbor.events.end() && neighbor.events.at(step) != nullptr) {
+        streamRuntime.waitEvent(eventfind->second);
+
+        // forget about events that have been waited upon already
+        eventfind->second = nullptr;
       }
     }
   }
