@@ -20,6 +20,7 @@
 #include "GpuImpl/AgingLaw.h"
 #include "GpuImpl/FastVelocityWeakeningLaw.h"
 #include "GpuImpl/LinearSlipWeakening.h"
+#include "GpuImpl/NoFault.h"
 #include "GpuImpl/SlipLaw.h"
 #include "GpuImpl/ThermalPressurization/NoTP.h"
 #endif
