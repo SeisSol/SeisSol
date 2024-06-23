@@ -32,6 +32,9 @@ class BaseFrictionLaw : public FrictionSolver {
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
+    if (layerData.getNumberOfCells() == 0) {
+      return;
+    }
     auto& self = *this;
     runtime.enqueueHost([=, &self, &layerData] {
       BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
