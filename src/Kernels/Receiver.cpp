@@ -152,6 +152,13 @@ double ReceiverCluster::calcReceivers(double time,
     outReceiverTime += m_samplingInterval;
   }
 
+  auto recvCount = m_receivers.size();
+
+  // exit right here if there are no receivers around
+  if (recvCount == 0) {
+    return outReceiverTime;
+  }
+
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     deviceCollector->gatherToHost(runtime.stream());
@@ -159,8 +166,7 @@ double ReceiverCluster::calcReceivers(double time,
 #endif
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    auto recvCount = m_receivers.size();
-    runtime.enqueueOmpFor(m_receivers.size(), [=](size_t i) {
+    runtime.enqueueOmpFor(recvCount, [=](size_t i) {
       alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
       alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];

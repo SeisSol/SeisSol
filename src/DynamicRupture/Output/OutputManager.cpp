@@ -330,7 +330,8 @@ void OutputManager::writePickpointOutput(double time,
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
-        this->flushPickpointDataToFile();
+        auto& self = *this;
+        runtime.enqueueHost([&self]() { self.flushPickpointDataToFile(); });
       }
     }
     ++iterationStep;

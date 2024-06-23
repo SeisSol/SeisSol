@@ -76,13 +76,15 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
-    enqueueHost([=]() {
-      std::lock_guard guard(mutexCPU);
+    if (elemCount > 0) {
+      enqueueHost([=]() {
+        std::lock_guard guard(mutexCPU);
 #pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler, i);
-      }
-    });
+        for (std::size_t i = 0; i < elemCount; ++i) {
+          std::invoke(handler, i);
+        }
+      });
+    }
   }
 
   template <typename F>
@@ -191,12 +193,14 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
-    enqueueHost([=]() {
+    if (elemCount > 0) {
+      enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler, i);
-      }
-    });
+        for (std::size_t i = 0; i < elemCount; ++i) {
+          std::invoke(handler, i);
+        }
+      });
+    }
   }
 #endif
 };

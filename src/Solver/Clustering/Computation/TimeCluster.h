@@ -107,7 +107,7 @@ namespace seissol {
 
 namespace kernels {
 class ReceiverCluster;
-}
+} // namespace kernels
 
 namespace time_stepping {
 
@@ -320,7 +320,7 @@ class TimeCluster : public CellCluster {
   }
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
-    receiverCluster = receiverCluster;
+    this->receiverCluster = receiverCluster;
   }
 
   /**
