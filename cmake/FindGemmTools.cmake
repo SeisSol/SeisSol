@@ -75,6 +75,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
 
+    elseif ("${component}" STREQUAL "tinytc")
+        find_package(tinytc 0.3.1 REQUIRED shared)
+        find_package(tinytc_sycl 0.3.1 REQUIRED shared)
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} tinytc::tinytc tinytc::tinytc_sycl)
+
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \
                 Please, refer to the documentation")
