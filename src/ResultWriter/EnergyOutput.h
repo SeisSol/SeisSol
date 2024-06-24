@@ -52,9 +52,9 @@ struct EnergiesStorage {
 
   double& potency(size_t sim);
 
-  double& totalMomentumX();
-  double& totalMomentumY();
-  double& totalMomentumZ();
+  double& totalMomentumX(size_t sim);
+  double& totalMomentumY(size_t sim);
+  double& totalMomentumZ(size_t sim);
 };
 
 class EnergyOutput : public Module {
@@ -77,7 +77,7 @@ class EnergyOutput : public Module {
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   private:
-  real computeStaticWork(const real* degreesOfFreedomPlus,
+  std::array<real, multipleSimulations::numberOfSimulations> computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
                          const DRFaceInformation& faceInfo,
                          const DRGodunovData& godunovData,
@@ -95,7 +95,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
+  void checkAbortCriterion(const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations], const std::string& prefix_message);
 
   void writeHeader();
 
@@ -126,12 +126,12 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold;
-  real minTimeSinceMomentRateBelowThreshold = 0.0;
+  real minTimeSinceSlipRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
+  real minTimeSinceMomentRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
   double terminatorMaxTimePostRupture;
   double energyOutputInterval;
   double terminatorMomentRateThreshold;
-  double seismicMomentPrevious = 0.0;
+  double seismicMomentPrevious[multipleSimulations::numberOfSimulations] = {0.0};
 };
 
 } // namespace writer
