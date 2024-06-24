@@ -172,12 +172,12 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
   if (reflectionType ==
       seissol::initializer::parameters::ReflectionType::Swave) { // refocusing only S-waves
-    
-    if(abs(timeStepScalingFactor - 1.0) < 1e-6){
+
+    if (abs(timeStepScalingFactor - 1.0) < 1e-6) {
       timeStepScalingFactor = 0.5;
     }
 
-    if(abs(timeStepScalingFactor - 0.5) < 1e-6){
+    if (abs(timeStepScalingFactor - 0.5) < 1e-6) {
       timeStepScalingFactor = 2.0;
     }
 
