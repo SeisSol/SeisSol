@@ -217,7 +217,7 @@ class NoSpecialization {
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as

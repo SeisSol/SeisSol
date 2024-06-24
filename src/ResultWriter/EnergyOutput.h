@@ -6,19 +6,19 @@
 #include <iostream>
 #include <string>
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Solver/MultipleSimulations.h>
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
+#include <Geometry/MeshReader.h>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Solver/MultipleSimulations.h>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
@@ -77,11 +77,12 @@ class EnergyOutput : public Module {
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   private:
-  std::array<real, multipleSimulations::numberOfSimulations> computeStaticWork(const real* degreesOfFreedomPlus,
-                         const real* degreesOfFreedomMinus,
-                         const DRFaceInformation& faceInfo,
-                         const DRGodunovData& godunovData,
-                         const real slip[seissol::tensor::slipInterpolated::size()]);
+  std::array<real, multipleSimulations::numberOfSimulations>
+      computeStaticWork(const real* degreesOfFreedomPlus,
+                        const real* degreesOfFreedomMinus,
+                        const DRFaceInformation& faceInfo,
+                        const DRGodunovData& godunovData,
+                        const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 
@@ -95,7 +96,9 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations], const std::string& prefix_message);
+  void checkAbortCriterion(
+      const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations],
+      const std::string& prefix_message);
 
   void writeHeader();
 

@@ -9,7 +9,6 @@ namespace seissol::multipleSimulations {
   constexpr unsigned int numberOfSimulations = 1;
   constexpr unsigned int basisFunctionDimension = 0;
 #endif
-
-}
+} // namespace seissol::multipleSimulations
 
 #endif
