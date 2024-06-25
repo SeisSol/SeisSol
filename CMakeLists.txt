@@ -217,7 +217,7 @@ target_compile_definitions(SeisSol-common-properties INTERFACE LOG_LEVEL=${LOG_L
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
 
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  target_compile_definitions(SeisSol-lib PUBLIC MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
+  target_compile_definitions(SeisSol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
