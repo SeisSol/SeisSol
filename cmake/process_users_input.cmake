@@ -45,9 +45,9 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90          # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 # AMD
-        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)           # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90                          # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1150 gfx1200 # AMD
+        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)                           # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
@@ -86,8 +86,8 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "auto" CACHE STRING "GEMM tool(s) used for CPU code generation")
-set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
-        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
+set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen"
+        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -165,8 +165,8 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
 endif()
 
 if (NOT ${DEVICE_BACKEND} STREQUAL "none")
-    message(STATUS "GPUs are enabled, adding GemmForge (and ChainForge, if available)")
-    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
+    message(STATUS "GPUs are enabled, adding TensorForge for GPU kernels")
+    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},TensorForge")
     set(WITH_GPU on)
     # note: GPU builds currently don't support CPU-only execution (hence the following message)
     message(STATUS "Compiling SeisSol for GPU")

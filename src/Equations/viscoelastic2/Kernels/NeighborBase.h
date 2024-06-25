@@ -48,11 +48,18 @@ namespace seissol {
   namespace kernels {
     class NeighborBase {
     protected:
-      kernel::neighbourFluxExt m_nfKrnlPrototype;
-      kernel::neighbour m_nKrnlPrototype;
+      kernel::neighborFluxExt m_nfKrnlPrototype;
+      kernel::neighbor m_nKrnlPrototype;
       dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype;
+  kernel::gpu_neighbor deviceNKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
     };
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 #endif

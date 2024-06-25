@@ -47,6 +47,7 @@ build_seissol:
           equation: [elastic, anisotropic, poroelastic, viscoelastic2]
     script:
         - cmake --version
+        - pip3 install pyyaml
         - mechanisms=0
         - dirname="build_${equation}_${precision}_${build_type}";
           if [ "$equation" = viscoelastic2 ] && [ "$build_type" == Debug ]; then echo "Skip ${dirname}" && exit 0; fi;

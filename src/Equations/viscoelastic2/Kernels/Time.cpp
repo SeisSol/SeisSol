@@ -66,6 +66,13 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
+
+#ifdef ACL_DEVICE
+  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  // the selectAne/selectEla are inlined
+  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
+  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
+#endif
 }
 
 void seissol::kernels::Time::computeAder(double i_timeStepWidth,
@@ -240,4 +247,164 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
   // interate over derivatives
   nonZeroFlops  = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
+}
+
+void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
+                                                    double i_integrationStart,
+                                                    double i_integrationEnd,
+                                                    const real** i_timeDerivatives,
+                                                    real ** o_timeIntegratedDofs,
+                                                    unsigned numElements,
+                                                    seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  // assert that this is a forwared integration in time
+  assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
+  assert( i_integrationEnd                   > i_integrationStart );
+
+  /*
+   * compute time integral.
+   */
+  // compute lengths of integration intervals
+  real deltaTLower = i_integrationStart - i_expansionPoint;
+  real deltaTUpper = i_integrationEnd - i_expansionPoint;
+
+  // initialization of scalars in the taylor series expansion (0th term)
+  real firstTerm  = static_cast<real>(1.0);
+  real secondTerm = static_cast<real>(1.0);
+  real factorial  = static_cast<real>(1.0);
+
+  kernel::gpu_derivativeTaylorExpansionEla intKrnl;
+  intKrnl.numElements = numElements;
+  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+
+  intKrnl.I = o_timeIntegratedDofs;
+
+  unsigned derivativesOffset = 0;
+  for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = i_timeDerivatives;
+    intKrnl.extraOffset_dQ(i) = derivativesOffset;
+    derivativesOffset += tensor::dQ::size(i);
+  }
+
+  // iterate over time derivatives
+  for(int der = 0; der < CONVERGENCE_ORDER; ++der) {
+    firstTerm *= deltaTUpper;
+    secondTerm *= deltaTLower;
+    factorial *= static_cast<real>(der + 1);
+
+    intKrnl.power(der) = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
+  }
+  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.streamPtr = runtime.stream();
+  intKrnl.execute();
+  device.api->popStackMemory();
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
+void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
+                                                           real expansionPoint,
+                                                           real** timeDerivatives,
+                                                           real** timeEvaluated,
+                                                           size_t numElements,
+                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  assert( timeDerivatives != nullptr );
+  assert( timeEvaluated != nullptr );
+  assert( time >= expansionPoint );
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+  static_assert(kernel::gpu_derivativeTaylorExpansionEla::TmpMaxMemRequiredInBytes == 0);
+
+  kernel::gpu_derivativeTaylorExpansionEla intKrnl;
+  intKrnl.numElements = numElements;
+  intKrnl.I = timeEvaluated;
+  std::size_t derivativeOffset = 0;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = const_cast<const real **>(timeDerivatives);
+    intKrnl.extraOffset_dQ(i) = derivativeOffset;
+    derivativeOffset += tensor::dQ::size(i);
+  }
+
+  // iterate over time derivatives
+  const real deltaT = time - expansionPoint;
+  intKrnl.power(0) = 1.0;
+  for(int derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
+  }
+
+  intKrnl.streamPtr = runtime.stream();
+  intKrnl.execute();
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
+void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
+                                                LocalTmp& tmp,
+                                                ConditionalPointersToRealsTable &dataTable,
+                                                ConditionalMaterialTable &materialTable,
+                                                bool updateDisplacement,
+                                                seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  /*
+   * compute ADER scheme.
+   */
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    kernel::gpu_derivative krnl = deviceKrnlPrototype;
+    auto &entry = dataTable[timeVolumeKernelKey];
+
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    krnl.numElements = numElements;
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
+
+    unsigned derivativesOffset = tensor::dQ::size(0);
+    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      krnl.extraOffset_dQ(i) = derivativesOffset;
+      krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
+      krnl.extraOffset_dQane(i) = i % 2 == 1 ? 0 : tensor::dQane::size(1);
+      krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
+      krnl.extraOffset_dQext(i) = i % 2 == 1 ? 0 : tensor::dQext::size(1);
+
+      // TODO: compress
+      derivativesOffset += tensor::dQ::size(i);
+    }
+
+    unsigned starOffset = 0;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      krnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+
+    krnl.w = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
+    krnl.W = const_cast<const real **>((entry.get(inner_keys::Wp::Id::W))->getDeviceDataPtr());
+    krnl.E = const_cast<const real **>((entry.get(inner_keys::Wp::Id::E))->getDeviceDataPtr());
+
+    // powers in the taylor-series expansion
+    krnl.power(0) = i_timeStepWidth;
+    
+    for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+      // update scalar for this derivative
+      krnl.power(der) = krnl.power(der-1) * i_timeStepWidth / real(der+1);
+    }
+
+    device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+                                        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
+                                        tensor::Q::Size,
+                                        krnl.numElements,
+                                        runtime.stream());
+
+    krnl.streamPtr = runtime.stream();
+    krnl.execute();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
 }

@@ -376,7 +376,7 @@ endif()
 target_include_directories(SeisSol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/TensorForge/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 

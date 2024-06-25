@@ -32,6 +32,17 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
+    Zinv,
+    Stp,
+    StpRhs,
+    W,
+    Omega,
+    E,
+    IdofsAne,
+    DofsAne,
+    DofsExt,
+    DerivativesAne,
+    DerivativesExt,
     Analytical,
     Count
   };

@@ -37,10 +37,20 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
+    std::vector<real*> dofsAnePtrs(size, nullptr);
+    std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> starPtrs(size, nullptr);
     std::vector<real*> idofsPtrs{};
+    std::vector<real*> idofsAnePtrs(size, nullptr);
+    std::vector<real*> derivativesAnePtrs(size, nullptr);
+    std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
+
+    std::vector<real*> wPtrs(size, nullptr);
+    std::vector<real*> omegaPtrs(size, nullptr);
+    std::vector<real*> ePtrs(size, nullptr);
+    std::vector<real*> zinvPtrs(size, nullptr);
 
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
@@ -83,6 +93,35 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // stars
       starPtrs[cell] = static_cast<real*>(data.localIntegration().starMatrices[0]);
+#ifdef USE_POROELASTIC
+      zinvPtrs[cell] = static_cast<real*>(data.localIntegration().specific.Zinv);
+#endif
+#ifdef USE_VISCOELASTIC2
+      wPtrs[cell] = static_cast<real*>(data.localIntegration().specific.W);
+      omegaPtrs[cell] = static_cast<real*>(data.localIntegration().specific.w);
+      ePtrs[cell] = static_cast<real*>(data.localIntegration().specific.E);
+
+      auto* dofsAne = currentLayer->var(currentHandler->dofsAne, AllocationPlace::Device);
+      dofsAnePtrs[cell] = dofsAne[cell];
+
+      auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch,
+                                                         AllocationPlace::Device);
+      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
+
+      auto* derivativesExt = currentLayer->getScratchpadMemory(
+          currentHandler->derivativesExtScratch, AllocationPlace::Device);
+      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
+                                 (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
+
+      auto* derivativesAne = currentLayer->getScratchpadMemory(
+          currentHandler->derivativesAneScratch, AllocationPlace::Device);
+      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
+                                 (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
+
+      auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
+                                                        AllocationPlace::Device);
+      dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
+#endif
 
       // derivatives
       bool isDerivativesProvided = ((dataHost.cellInformation().ltsSetup >> 9) % 2) == 1;
@@ -111,6 +150,20 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable)[key].set(inner_keys::Wp::Id::Buffers, ltsBuffers);
       (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
     }
+
+#ifdef USE_POROELASTIC
+    (*currentTable)[key].set(inner_keys::Wp::Id::Zinv, zinvPtrs);
+#endif
+#ifdef USE_VISCOELASTIC2
+    (*currentTable)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::W, wPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Omega, omegaPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::E, ePtrs);
+#endif
   }
 }
 
@@ -120,6 +173,8 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     std::vector<real*> idofsPtrs{};
     std::vector<real*> dofsPtrs{};
     std::vector<real*> aplusTPtrs{};
+
+    std::vector<real*> dofsExtPtrs;
 
     idofsPtrs.reserve(size);
     dofsPtrs.reserve(size);
@@ -134,6 +189,11 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.dofs()));
         aplusTPtrs.push_back(static_cast<real*>(data.localIntegration().nApNm1[face]));
+#ifdef USE_VISCOELASTIC2
+        auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
+                                                          AllocationPlace::Device);
+        dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+#endif
       }
     }
 
@@ -144,6 +204,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
       (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
       (*currentTable)[key].set(inner_keys::Wp::Id::AplusT, aplusTPtrs);
+#ifdef USE_VISCOELASTIC2
+      (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+#endif
     }
   }
 }

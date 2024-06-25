@@ -73,7 +73,7 @@ gpu_build:
         - BACKEND: [cuda, hipsycl, hip]
           EQUATION: [elastic]
         - BACKEND: [cuda]
-          EQUATION: [anisotropic]
+          EQUATION: [anisotropic, viscoelastic2]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
@@ -82,6 +82,7 @@ gpu_build:
     script:
         - *common_gpu_steps
         - pip3 install git+https://github.com/SeisSol/gemmforge.git@v0.0.207
+        - pip3 install pyyaml
         - set -euo pipefail
         - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
         - for PRECISION in double single; do
@@ -153,7 +154,7 @@ gpu_run_tpv:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104, ahsp]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104, ahsp]
               BACKEND: [cuda]
     script:
         - echo "run TPV${tpv} with ${BACKEND} backend"
@@ -201,7 +202,7 @@ check_faultoutput:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104]
               BACKEND: [cuda]
     before_script:
         - pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
@@ -226,7 +227,7 @@ check_receivers:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 6, 13, 101, 101-slip, 104, ahsp]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 101, 101-slip, 104, ahsp]
               BACKEND: [cuda]
     before_script:
         - pip3 install pandas
@@ -252,7 +253,7 @@ gpu_check_energies:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104]
               BACKEND: [cuda]
     before_script:
         - pip3 install pandas

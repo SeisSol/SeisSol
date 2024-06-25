@@ -53,11 +53,11 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
     assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighborChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
   }
 
   for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighborFluxMatrices(h)) % ALIGNMENT == 0 );
   }
 
   for (int i = 0; i < 4; ++i) {
@@ -67,8 +67,8 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   }
 #endif
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
   m_nKrnlPrototype.selectEla = init::selectEla::Values;
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
@@ -76,6 +76,18 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
+#ifdef ACL_DEVICE
+#ifdef USE_PREMULTIPLY_FLUX
+  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+#else
+  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+#endif
+  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
+  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
+#endif
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
@@ -97,7 +109,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
 
-  kernel::neighbourFluxExt nfKrnl = m_nfKrnlPrototype;
+  kernel::neighborFluxExt nfKrnl = m_nfKrnlPrototype;
   nfKrnl.Qext = Qext;
 
   // iterate over faces
@@ -126,7 +138,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
     }
   }
 
-  kernel::neighbour nKrnl = m_nKrnlPrototype;
+  kernel::neighbor nKrnl = m_nKrnlPrototype;
   nKrnl.Qext = Qext;
   nKrnl.Q = data.dofs();
   nKrnl.Qane = data.dofsAne();
@@ -154,8 +166,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
       if( i_faceTypes[l_face] != FaceType::freeSurface ) {
         assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
 
-        o_nonZeroFlops  += seissol::kernel::neighbourFluxExt::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
-        o_hardwareFlops += seissol::kernel::neighbourFluxExt::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        o_nonZeroFlops  += seissol::kernel::neighborFluxExt::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        o_hardwareFlops += seissol::kernel::neighborFluxExt::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
         o_nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(l_face);
         o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(l_face);
@@ -166,8 +178,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
     }
   }
 
-  o_nonZeroFlops += kernel::neighbour::NonZeroFlops;
-  o_hardwareFlops += kernel::neighbour::HardwareFlops;
+  o_nonZeroFlops += kernel::neighbor::NonZeroFlops;
+  o_hardwareFlops += kernel::neighbor::HardwareFlops;
 }
 
 
@@ -183,3 +195,106 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   return reals * sizeof(real);
 }
 
+void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table, seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+
+  {
+    ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+    if (table.find(key) != table.end()) {
+      auto &entry = table[key];
+      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+                                        static_cast<real>(0.0),
+                                        tensor::Qext::Size,
+                                        (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+                                        runtime.stream());
+    }
+  }
+
+  real* tmpMem = nullptr;
+  auto resetDeviceCurrentState = [this](size_t counter) {
+    for (size_t i = 0; i < counter; ++i) {
+      this->device.api->popStackMemory();
+    }
+  };
+
+  for(size_t face = 0; face < 4; face++) {
+    std::size_t streamCounter = 0;
+    runtime.envMany((*FaceRelations::Count)+(*DrFaceRelations::Count), [&](void* stream, size_t i) {
+      // regular and periodic
+      if (i < (*FaceRelations::Count)) {
+        // regular and periodic
+        unsigned faceRelation = i;
+
+        ConditionalKey key(*KernelNames::NeighborFlux,
+                          (FaceKinds::Regular || FaceKinds::Periodic),
+                          face,
+                          faceRelation);
+
+        if(table.find(key) != table.end()) {
+          auto &entry = table[key];
+
+          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+          neighFluxKrnl.numElements = numElements;
+
+          neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+          neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+          neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+
+          tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+          neighFluxKrnl.linearAllocator.initialize(tmpMem);
+
+          neighFluxKrnl.streamPtr = stream;
+          (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
+          ++streamCounter;
+        }
+      }
+      else {
+        // Dynamic Rupture
+        unsigned faceRelation = i - (*FaceRelations::Count);
+
+        ConditionalKey Key(*KernelNames::NeighborFlux,
+                          *FaceKinds::DynamicRupture,
+                          face,
+                          faceRelation);
+
+        if(table.find(Key) != table.end()) {
+          auto &entry = table[Key];
+
+          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+          drKrnl.numElements = numElements;
+
+          drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+          drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+          drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+
+          tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+          drKrnl.linearAllocator.initialize(tmpMem);
+
+          drKrnl.streamPtr = stream;
+          (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
+          ++streamCounter;
+        }
+      }
+    });
+    resetDeviceCurrentState(streamCounter);
+  }
+
+  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  if (table.find(key) != table.end()) {
+    auto &entry = table[key];
+    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype;
+    nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    nKrnl.Qext = const_cast<const real **>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+    nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    nKrnl.w = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
+    nKrnl.streamPtr = runtime.stream();
+
+    nKrnl.execute();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}

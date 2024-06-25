@@ -268,7 +268,7 @@ if (WITH_GPU)
 
 
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
-                             ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                             ${CMAKE_CURRENT_SOURCE_DIR}/submodules/TensorForge/include
                              ${CMAKE_BINARY_DIR}/src/generated_code
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

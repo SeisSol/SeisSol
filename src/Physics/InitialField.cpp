@@ -7,9 +7,9 @@
 #include "Model/common.hpp"
 #include "Numerical_aux/Eigenvalues.h"
 #include "Physics/InitialField.h"
+#include <TensorForge/TensorView.h>
 #include <utility>
 #include <utils/logger.h>
-#include <yateto/TensorView.h>
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
