@@ -6,11 +6,11 @@ Currently, SeisSol needs information about the host architecture on which the co
 Besides setting the necessary compiler tuning variables (usually corresponding to ``-march=TARGET_ARCH -mtune=TARGET_ARCH``),
 it also sets the code generators.
 
-CPU
-~~~
+CPU Architectures
+~~~~~~~~~~~~~~~~~
 
-.. list-table:: Title
-   :widths: 20 40 20 20
+.. list-table::
+   :widths: 20 40 20 20 20
    :header-rows: 1
 
    * - ``HOST_ARCH``
@@ -21,14 +21,18 @@ CPU
    * - ``noarch``
      - No architecture-specific optimizations
      - Generates plain x86-64 instructions, without SIMD instructions like SSE/AVX/AMX etc.
+     -
+     -
    * - ``wsm``
      - Intel Nehalem/Westmere architecture
      - Generates SSE instructions (up to SSE 3).
      - Intel Xeon v1/v0, Intel Core i3/i5/i7 ??? and 1???
+     -
    * - ``snb``
      - Intel Sandy Bridge architecture
      - Generates AVX instructions.
      - Intel Xeon v2, Intel Core i3/i5/i7 2??? and 3???
+     -
    * - ``hsw``
      - Intel Haswell
      - Generates AVX2 instructions.
@@ -73,49 +77,60 @@ CPU
      - IBM PowerPC 9
      - 
      - 
+     -
    * - ``thunderx2t99``
      - ARM ThunderX2 (ARM NEON)
      - ARM ThunderX2
      - Isambard 2
+     -
    * - ``a64fx``
      - Fujitsu A64FX (ARM SVE, 512 bits)
      - Fujitsu A64FX
      - Fugaku
+     -
    * - ``neon``
      - Dummy target for AARCH64 (with NEON)
      - 
+     -
      - 
    * - ``sve128``
      - Dummy target for AARCH64, ARM SVE with 128 bits length
      - 
      - Needed e.g. for the Neoverse V2 CPU
+     -
    * - ``sve256``
      - Dummy target for AARCH64, ARM SVE with 256 bits length
      - 
+     -
      - 
    * - ``sve512``
      - Dummy target for AARCH64, ARM SVE with 512 bits length
      - 
+     -
      - 
    * - ``sve1024``
      - Dummy target for AARCH64, ARM SVE with 1024 bits length
      - 
+     -
      - 
    * - ``sve2048``
      - Dummy target for AARCH64, ARM SVE with 2048 bits length
      - 
+     -
      - 
    * - ``apple-m1``
      - Apple M1 CPU
      - 
+     -
      - 
    * - ``apple-m2``
      - Apple M1 CPU
      - 
+     -
      - 
 
-GPU
-~~~
+GPU Architectures
+~~~~~~~~~~~~~~~~~
 
 For GPUs, SeisSol supports two types of memory management on GPUs.
 
@@ -129,8 +144,8 @@ In all other cases, split host-device buffers will be used as default.
 
 The following architectures are supported:
 
-.. list-table:: Title
-   :widths: 20 40 20 20
+.. list-table::
+   :widths: 20 40 20 20 20
    :header-rows: 1
 
    * - ``DEVICE_ARCH``
