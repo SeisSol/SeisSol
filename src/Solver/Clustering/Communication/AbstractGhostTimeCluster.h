@@ -6,20 +6,34 @@
 #include <list>
 
 namespace seissol::time_stepping {
+struct RemoteCluster {
+  void* data;
+  std::size_t size;
+  MPI_Datatype datatype;
+  int rank;
+  int tag;
+};
+
 class AbstractGhostTimeCluster : public CellCluster {
   protected:
   const int globalClusterId;
   const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
-  std::list<unsigned int> sendQueue;
-  std::list<unsigned int> receiveQueue;
+  std::list<std::size_t> sendQueue;
+  std::list<std::size_t> recvQueue;
+
+  std::vector<MPI_Request> sendRequests;
+  std::vector<MPI_Request> recvRequests;
+
+  std::vector<RemoteCluster> copyClusters;
+  std::vector<RemoteCluster> ghostClusters;
 
   double lastSendTime = -1.0;
 
   virtual void sendCopyLayer() = 0;
   virtual void receiveGhostLayer() = 0;
 
-  bool testQueue(MPI_Request* requests, std::list<unsigned int>& regions);
+  bool testQueue(std::vector<MPI_Request>& requests, std::list<std::size_t>& remaining);
   bool testForCopyLayerSends();
   virtual bool testForGhostLayerReceives() = 0;
 

@@ -29,8 +29,8 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 
   void finalize() override;
 
-  std::list<int> prefetchCopyLayer();
-  void prefetchGhostRegion(int region);
+  std::list<std::size_t> prefetchCopyLayer();
+  void prefetchGhostRegion(std::size_t region);
 
   private:
   unsigned int numberOfRegions{};

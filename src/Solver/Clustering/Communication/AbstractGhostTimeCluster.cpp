@@ -12,23 +12,27 @@
 #include <utils/logger.h>
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
-  for (auto region = regions.begin(); region != regions.end();) {
+bool AbstractGhostTimeCluster::testQueue(std::vector<MPI_Request>& requests,
+                                         std::list<std::size_t>& remaining) {
+  // we may now also use MPI_Testall here---if that's as efficient as the other method
+  // (and doesn't only poll the first non-finished request)
+
+  for (auto region = remaining.begin(); region != remaining.end();) {
     MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
-      region = regions.erase(region);
+      region = remaining.erase(region);
     } else {
       ++region;
     }
   }
-  return regions.empty();
+  return remaining.empty();
 }
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
-  return testQueue(meshStructure->sendRequests, sendQueue);
+  return testQueue(sendRequests, sendQueue);
 }
 
 ActResult AbstractGhostTimeCluster::act() {
@@ -89,7 +93,28 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
                                                    const MeshStructure* meshStructure)
     : CellCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure) {}
+      meshStructure(meshStructure) {
+  for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
+    if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
+      copyClusters.emplace_back(RemoteCluster{
+          meshStructure->copyRegions[region],
+          meshStructure->copyRegionSizes[region],
+          MPI_C_REAL,
+          meshStructure->neighboringClusters[region][0],
+          timeData + meshStructure->sendIdentifiers[region],
+      });
+      ghostClusters.emplace_back(RemoteCluster{
+          meshStructure->ghostRegions[region],
+          meshStructure->ghostRegionSizes[region],
+          MPI_C_REAL,
+          meshStructure->neighboringClusters[region][0],
+          timeData + meshStructure->receiveIdentifiers[region],
+      });
+      sendRequests.emplace_back(MPI_REQUEST_NULL);
+      recvRequests.emplace_back(MPI_REQUEST_NULL);
+    }
+  }
+}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

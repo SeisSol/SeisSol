@@ -13,20 +13,22 @@ void DirectGhostTimeCluster::sendCopyLayer() {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(ct.time.at(ComputeStep::Correct) > lastSendTime);
   lastSendTime = ct.time.at(ComputeStep::Correct);
-  for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-    if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
-      if (persistent) {
-        MPI_Start(meshStructure->sendRequests + region);
-      } else {
-        MPI_Isend(meshStructure->copyRegions[region],
-                  static_cast<int>(meshStructure->copyRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->sendIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->sendRequests + region);
-      }
-      sendQueue.push_back(region);
+  if (persistent) {
+    MPI_Startall(sendRequests.size(), sendRequests.data());
+    for (std::size_t i = 0; i < copyClusters.size(); ++i) {
+      sendQueue.push_back(i);
+    }
+  } else {
+    for (std::size_t i = 0; i < copyClusters.size(); ++i) {
+      const auto& cluster = copyClusters.at(i);
+      MPI_Isend(cluster.data,
+                static_cast<int>(cluster.size),
+                cluster.datatype,
+                cluster.rank,
+                cluster.tag,
+                seissol::MPI::mpi.comm(),
+                &sendRequests[i]);
+      sendQueue.push_back(i);
     }
   }
 }
@@ -34,27 +36,29 @@ void DirectGhostTimeCluster::sendCopyLayer() {
 void DirectGhostTimeCluster::receiveGhostLayer() {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(ct.time.at(ComputeStep::Predict) >= lastSendTime);
-  for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-    if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
-      if (persistent) {
-        MPI_Start(meshStructure->receiveRequests + region);
-      } else {
-        MPI_Irecv(meshStructure->ghostRegions[region],
-                  static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                  MPI_C_REAL,
-                  meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  meshStructure->receiveRequests + region);
-      }
-      receiveQueue.push_back(region);
+  if (persistent) {
+    MPI_Startall(recvRequests.size(), recvRequests.data());
+    for (std::size_t i = 0; i < ghostClusters.size(); ++i) {
+      recvQueue.push_back(i);
+    }
+  } else {
+    for (std::size_t i = 0; i < ghostClusters.size(); ++i) {
+      const auto& cluster = ghostClusters.at(i);
+      MPI_Irecv(cluster.data,
+                static_cast<int>(cluster.size),
+                cluster.datatype,
+                cluster.rank,
+                cluster.tag,
+                seissol::MPI::mpi.comm(),
+                &recvRequests[i]);
+      recvQueue.push_back(i);
     }
   }
 }
 
 bool DirectGhostTimeCluster::testForGhostLayerReceives() {
   SCOREP_USER_REGION("testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION)
-  return testQueue(meshStructure->receiveRequests, receiveQueue);
+  return testQueue(recvRequests, recvQueue);
 }
 
 DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
@@ -70,22 +74,26 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
                                meshStructure),
       persistent(persistent) {
   if (persistent) {
-    for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-      if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
-        MPI_Send_init(meshStructure->copyRegions[region],
-                      static_cast<int>(meshStructure->copyRegionSizes[region]),
-                      MPI_C_REAL,
-                      meshStructure->neighboringClusters[region][0],
-                      timeData + meshStructure->sendIdentifiers[region],
+    for (std::size_t i = 0; i < copyClusters.size(); ++i) {
+      {
+        const auto& cluster = copyClusters.at(i);
+        MPI_Send_init(cluster.data,
+                      static_cast<int>(cluster.size),
+                      cluster.datatype,
+                      cluster.rank,
+                      cluster.tag,
                       seissol::MPI::mpi.comm(),
-                      meshStructure->sendRequests + region);
-        MPI_Recv_init(meshStructure->ghostRegions[region],
-                      static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                      MPI_C_REAL,
-                      meshStructure->neighboringClusters[region][0],
-                      timeData + meshStructure->receiveIdentifiers[region],
+                      &sendRequests[i]);
+      }
+      {
+        const auto& cluster = ghostClusters.at(i);
+        MPI_Recv_init(cluster.data,
+                      static_cast<int>(cluster.size),
+                      cluster.datatype,
+                      cluster.rank,
+                      cluster.tag,
                       seissol::MPI::mpi.comm(),
-                      meshStructure->receiveRequests + region);
+                      &recvRequests[i]);
       }
     }
   }
@@ -93,11 +101,11 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
 
 void DirectGhostTimeCluster::finalize() {
   if (persistent) {
-    for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
-      if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
-        MPI_Request_free(meshStructure->sendRequests + region);
-        MPI_Request_free(meshStructure->receiveRequests + region);
-      }
+    for (auto& request : sendRequests) {
+      MPI_Request_free(&request);
+    }
+    for (auto& request : recvRequests) {
+      MPI_Request_free(&request);
     }
   }
 }
