@@ -491,13 +491,24 @@ else()
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
-# RCCL
+if (DEVICE_BACKEND STREQUAL "cuda")
+find_package(NCCL REQUIRED)
+target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
+target_include_directories(SeisSol-common-properties INTERFACE ${NCCL_INCLUDE_DIRS})
+target_link_libraries(SeisSol-common-properties INTERFACE ${NCCL_LIBRARIES})
+endif()
+if (DEVICE_BACKEND STREQUAL "hip")
 find_package(RCCL REQUIRED)
 target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
 target_include_directories(SeisSol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
-target_link_libraries(SeisSol-common-properties INTERFACE ${RCCL_LIBRARY})
-# end RCCL
-
+target_link_libraries(SeisSol-common-properties INTERFACE ${RCCL_LIBRARIES})
+endif()
+if (DEVICE_BACKEND STREQUAL "oneapi")
+find_package(oneCCL REQUIRED)
+target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
+target_link_libraries(SeisSol-common-properties INTERFACE oneCCL)
+endif()
+# TODO: add oneCCL
 
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

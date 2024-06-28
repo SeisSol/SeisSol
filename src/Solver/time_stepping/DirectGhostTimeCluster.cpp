@@ -3,7 +3,14 @@
 #include "Solver/time_stepping/DirectGhostTimeCluster.h"
 
 #ifdef USE_CCL
+#ifdef SEISSOL_KERNELS_CUDA
+#include <nccl.h>
+using StreamT = cudaStream_t;
+#endif
+#ifdef SEISSOL_KERNELS_HIP
 #include <rccl/rccl.h>
+using StreamT = hipStream_t;
+#endif
 #include <device.h>
 
 #if REAL_SIZE == 8
@@ -29,7 +36,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          static_cast<hipStream_t>(sendStream));
+          static_cast<StreamT>(sendStream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->sendRequests + region);
@@ -67,7 +74,7 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
           CCLReal,
           meshStructure->neighboringClusters[region][0],
           static_cast<ncclComm_t>(comm),
-          static_cast<hipStream_t>(recvStream));
+          static_cast<StreamT>(recvStream));
 #else
       if (persistent) {
         MPI_Start(meshStructure->receiveRequests + region);

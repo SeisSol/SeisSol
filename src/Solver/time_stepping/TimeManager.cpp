@@ -50,7 +50,12 @@
 #include "Parallel/Helper.hpp"
 
 #ifdef USE_CCL
+#ifdef SEISSOL_KERNELS_CUDA
+#include <nccl.h>
+#endif
+#ifdef SEISSOL_KERNELS_HIP
 #include <rccl/rccl.h>
+#endif
 #endif
 
 #ifdef ACL_DEVICE
