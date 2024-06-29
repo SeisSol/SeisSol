@@ -65,6 +65,7 @@ src/Physics/InstantaneousTimeMirrorManager.cpp
 src/ResultWriter/ClusteringWriter.cpp
 
 src/Parallel/Runtime/Stream.cpp
+src/Parallel/HelperThread.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
