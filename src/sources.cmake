@@ -21,6 +21,7 @@ src/Solver/Clustering/ActorState.cpp
 src/Solver/Clustering/Communication/CommunicationManager.cpp
 src/Solver/Clustering/Communication/DirectGhostTimeCluster.cpp
 src/Solver/Clustering/Communication/GhostTimeClusterWithCopy.cpp
+src/Solver/Clustering/Communication/CCLCluster.cpp
 src/Solver/Proxy/MiniSeisSol.cpp
 src/Solver/Clustering/Computation/TimeCluster.cpp
 src/Solver/Clustering/TimeManager.cpp
