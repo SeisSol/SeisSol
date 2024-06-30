@@ -1,6 +1,8 @@
 #ifndef SEISSOL_PARALLEL_RUNTIME_THREADING_HPP
 #define SEISSOL_PARALLEL_RUNTIME_THREADING_HPP
 
+#include <Parallel/HelperThread.hpp>
+#include <atomic>
 #include <functional>
 #include <list>
 #include <mutex>
@@ -15,10 +17,23 @@ struct SimpleTask {
 
 class ThreadingRuntime {
   public:
-  void run();
+  template <typename F>
+  void start(F&& continueExecution) {
+    running.store(true);
+    HelperThread thread([this, continueExecution] {
+      std::invoke(continueExecution);
+      running.store(false);
+    });
+    thread.start();
+    run();
+  }
+
+  void abort();
   void add(SimpleTask&& task);
 
   private:
+  void run();
+  std::atomic<bool> running;
   std::mutex tasksMutex;
   std::list<SimpleTask> tasks;
 };

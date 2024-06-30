@@ -9,13 +9,15 @@ void ThreadingRuntime::add(SimpleTask&& task) {
   tasks.emplace_back(std::move(task));
 }
 
+void ThreadingRuntime::abort() { running.store(false); }
+
 // emulate a de-facto pthread-like runtime; until all OMP features are implemented properly
 void ThreadingRuntime::run() {
   std::vector<SimpleTask> nextTasks;
   std::vector<std::atomic<int>> done;
 #pragma omp parallel
   {
-    while (true) {
+    while (running.load()) {
 #pragma omp barrier
 #pragma omp single
       {
@@ -33,7 +35,7 @@ void ThreadingRuntime::run() {
       }
       for (std::size_t j = 0; j < nextTasks.size(); ++j) {
         auto& task = nextTasks[j];
-#pragma omp for nowait
+#pragma omp for nowait schedule(dynamic, 1)
         for (std::size_t i = 0; i < task.size; ++i) {
           std::invoke(task.function, i);
         }
