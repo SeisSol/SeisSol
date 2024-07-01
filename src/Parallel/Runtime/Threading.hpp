@@ -5,6 +5,7 @@
 #include <atomic>
 #include <functional>
 #include <list>
+#include <map>
 #include <mutex>
 namespace seissol::parallel::runtime {
 
@@ -29,13 +30,13 @@ class ThreadingRuntime {
   }
 
   void abort();
-  void add(SimpleTask&& task);
+  void add(int priority, SimpleTask&& task);
 
   private:
   void run();
   std::atomic<bool> running;
   std::mutex tasksMutex;
-  std::list<SimpleTask> tasks;
+  std::map<int, std::list<SimpleTask>> tasksMap;
 };
 
 } // namespace seissol::parallel::runtime

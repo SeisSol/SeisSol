@@ -4,9 +4,9 @@
 
 namespace seissol::parallel::runtime {
 
-void ThreadingRuntime::add(SimpleTask&& task) {
+void ThreadingRuntime::add(int priority, SimpleTask&& task) {
   std::lock_guard tasksLock(tasksMutex);
-  tasks.emplace_back(std::move(task));
+  tasksMap[priority].emplace_back(std::move(task));
 }
 
 void ThreadingRuntime::abort() { running.store(false); }
@@ -25,11 +25,13 @@ void ThreadingRuntime::run() {
         nextTasks.resize(0);
         done.resize(0);
 
-        for (auto it = tasks.begin(); it != tasks.end(); ++it) {
-          if (std::invoke(it->ready)) {
-            nextTasks.push_back(*it);
-            done.push_back(omp_get_num_threads());
-            it = tasks.erase(it);
+        for (auto& [_, tasks] : tasksMap) {
+          for (auto it = tasks.begin(); it != tasks.end(); ++it) {
+            if (std::invoke(it->ready)) {
+              nextTasks.push_back(*it);
+              done.push_back(omp_get_num_threads());
+              it = tasks.erase(it);
+            }
           }
         }
       }
