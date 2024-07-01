@@ -51,6 +51,7 @@
 #include "Modules/Module.h"
 #include "Monitoring/instrumentation.hpp"
 #include "Monitoring/Stopwatch.h"
+#include <Parallel/Runtime/Stream.hpp>
 
 namespace seissol {
   class SeisSol;
@@ -84,6 +85,8 @@ private:
 	Stopwatch m_stopwatch;
 
 	dr::output::OutputManager* callbackObject{nullptr};
+
+	parallel::runtime::StreamRuntime runtime;
 
 public:
 	FaultWriter(seissol::SeisSol& seissolInstance) : 
@@ -168,6 +171,7 @@ public:
 	void tearDown()
 	{
 		m_executor.finalize();
+		runtime.dispose();
 	}
 
 	void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {

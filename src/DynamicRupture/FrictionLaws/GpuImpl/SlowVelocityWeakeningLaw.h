@@ -14,6 +14,10 @@ class SlowVelocityWeakeningLaw
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   // Note that we need double precision here, since single precision led to NaNs.
   void updateStateVariable(double timeIncrement) {
     static_cast<Derived*>(this)->updateStateVariable(timeIncrement);

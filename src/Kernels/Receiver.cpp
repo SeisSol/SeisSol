@@ -139,8 +139,11 @@ void ReceiverCluster::addReceiver(unsigned meshId,
       reserved);
 }
 
-double ReceiverCluster::calcReceivers(
-    double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
+double ReceiverCluster::calcReceivers(double time,
+                                      double expansionPoint,
+                                      double timeStepWidth,
+                                      Executor executor,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) {
 
   std::size_t ncols = this->ncols();
 
@@ -149,21 +152,21 @@ double ReceiverCluster::calcReceivers(
     outReceiverTime += m_samplingInterval;
   }
 
+  auto recvCount = m_receivers.size();
+
+  // exit right here if there are no receivers around
+  if (recvCount == 0) {
+    return outReceiverTime;
+  }
+
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
-    deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    deviceCollector->gatherToHost(runtime.stream());
   }
 #endif
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    // heuristic; to avoid the overhead from the parallel region
-    auto threshold = std::max(1000, omp_get_num_threads() * 100);
-    auto recvCount = m_receivers.size();
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (recvCount >= threshold)
-#endif
-    for (size_t i = 0; i < recvCount; ++i) {
+    runtime.enqueueOmpFor(recvCount, [=](size_t i) {
       alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
       alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
@@ -253,7 +256,7 @@ double ReceiverCluster::calcReceivers(
 
         receiverTime += m_samplingInterval;
       }
-    }
+    });
   }
   return outReceiverTime;
 }

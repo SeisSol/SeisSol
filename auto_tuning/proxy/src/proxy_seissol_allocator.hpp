@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Initializer/LTS.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/GlobalData.h"
-#include "Solver/time_stepping/MiniSeisSol.cpp"
+#include "Solver/Proxy/MiniSeisSol.cpp"
 #include <yateto.h>
 #include <unordered_set>
 #include <Parallel/Runtime/Stream.hpp>
@@ -69,7 +69,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <device.h>
 #include <unordered_set>
 #include "Initializer/BatchRecorders/Recorders.h"
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 seissol::initializer::LTSTree               *m_ltsTree{nullptr};
