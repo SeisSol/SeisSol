@@ -47,3 +47,13 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   find_package(DpcppFlags REQUIRED)
   target_link_libraries(SeisSol-device-lib PRIVATE dpcpp::device_flags)
 endif()
+
+target_compile_definitions(SeisSol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
+        CONVERGENCE_ORDER=${ORDER}
+        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+        ${DR_QUAD_RULE})
+
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+target_compile_definitions(SeisSol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
