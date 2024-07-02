@@ -52,9 +52,11 @@
 
 namespace seissol::model {
 template <std::size_t MechanismsP>
-struct ViscoelasticMaterial : public ElasticMaterial {
+struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
-  static constexpr std::size_t NumberOfQuantities = 9 + MechanismsP * NumberPerMechanism;
+  static constexpr std::size_t NumberOfElasticQuantities = 9;
+  static constexpr std::size_t NumberOfQuantities =
+      NumberOfElasticQuantities + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
@@ -73,8 +75,8 @@ struct ViscoelasticMaterial : public ElasticMaterial {
   double Qp;
   double Qs;
 
-  ViscoelasticMaterial() = default;
-  ViscoelasticMaterial(const double* materialValues, int numMaterialValues) {
+  ViscoElasticMaterialParametrized() = default;
+  ViscoElasticMaterialParametrized(const double* materialValues, int numMaterialValues) {
     assert(numMaterialValues == 3 + Mechanisms * 4);
 
     this->rho = materialValues[0];
@@ -94,12 +96,12 @@ struct ViscoelasticMaterial : public ElasticMaterial {
     Qs = std::numeric_limits<double>::signaling_NaN();
   }
 
-  ~ViscoelasticMaterial() override = default;
+  ~ViscoElasticMaterialParametrized() override = default;
 
   MaterialType getMaterialType() const override { return Type; }
 };
 
-using ViscoElasticMaterial = ViscoelasticMaterial<NUMBER_OF_RELAXATION_MECHANISMS>;
+using ViscoElasticMaterial = ViscoElasticMaterialParametrized<NUMBER_OF_RELAXATION_MECHANISMS>;
 } // namespace seissol::model
 
 #endif

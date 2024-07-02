@@ -6,7 +6,7 @@
 namespace seissol::physics {
 
 template <std::size_t Mechanisms>
-void fitAttenuation(seissol::model::ViscoelasticMaterial<Mechanisms>& vm,
+void fitAttenuation(seissol::model::ViscoElasticMaterialParametrized<Mechanisms>& vm,
                     double freqCentral,
                     double freqRatio) {
   if (Mechanisms > 0) {

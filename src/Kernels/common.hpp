@@ -44,6 +44,7 @@
 #ifndef COMMON_HPP_
 #define COMMON_HPP_
 
+#include "Common/constants.hpp"
 #include "Initializer/typedefs.hpp"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -124,7 +125,7 @@ constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder =
  **/
 template <typename RealT = real>
 constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
-                                               unsigned int alignment = VECTORSIZE) {
+                                               unsigned int alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
   // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
   // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
@@ -144,7 +145,7 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
 template <typename RealT = real>
 constexpr unsigned int
     getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                     unsigned int alignment = VECTORSIZE) {
+                                     unsigned int alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   unsigned int numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
@@ -160,7 +161,7 @@ constexpr unsigned int
  **/
 constexpr unsigned
     getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                               unsigned int alignment = VECTORSIZE) {
+                                               unsigned int alignment = Vectorsize) {
   return (convergenceOrder > 0)
              ? getNumberOfAlignedBasisFunctions(convergenceOrder) +
                    getNumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
