@@ -291,7 +291,8 @@ auto makePointSourceCluster(ClusterMapping mapping,
                             const unsigned* meshIds,
                             seissol::initializer::LTSTree* ltsTree,
                             seissol::initializer::LTS* lts,
-                            seissol::initializer::Lut* ltsLut) -> PointSourceClusterPair {
+                            seissol::initializer::Lut* ltsLut)
+    -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
@@ -322,7 +323,7 @@ auto makePointSourceCluster(ClusterMapping mapping,
   auto deviceData = hostData;
 #endif
 
-  return PointSourceClusterPair{
+  return seissol::kernels::PointSourceClusterPair{
       std::make_unique<kernels::PointSourceClusterOnHost>(hostData.first, hostData.second),
       std::make_unique<GpuImpl>(deviceData.first, deviceData.second)};
 }
@@ -333,7 +334,7 @@ auto loadSourcesFromFSRM(const char* fileName,
                          seissol::initializer::LTS* lts,
                          seissol::initializer::Lut* ltsLut,
                          seissol::memory::Memkind memkind)
-    -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>> {
+    -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
   int rank = seissol::MPI::mpi.rank();
@@ -365,7 +366,8 @@ auto loadSourcesFromFSRM(const char* fileName,
   logInfo(rank) << "Mapping point sources to LTS cells...";
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
-  std::unordered_map<LayerType, std::vector<PointSourceClusterPair>> layeredSourceClusters;
+  std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
+      layeredSourceClusters;
 
   for (auto layer : {Interior, Copy}) {
     auto& sourceCluster = layeredSourceClusters[layer];
@@ -443,7 +445,7 @@ auto loadSourcesFromNRF(const char* fileName,
                         seissol::initializer::LTS* lts,
                         seissol::initializer::Lut* ltsLut,
                         seissol::memory::Memkind memkind)
-    -> std::unordered_map<LayerType, std::vector<PointSourceClusterPair>> {
+    -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   int rank = seissol::MPI::mpi.rank();
 
   logInfo(rank) << "Reading" << fileName;
@@ -486,7 +488,8 @@ auto loadSourcesFromNRF(const char* fileName,
 
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
-  std::unordered_map<LayerType, std::vector<PointSourceClusterPair>> layeredSourceClusters;
+  std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
+      layeredSourceClusters;
 
   for (auto layer : {Interior, Copy}) {
     auto& sourceCluster = layeredSourceClusters[layer];
@@ -557,7 +560,8 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
 #else
   auto memkind = seissol::memory::Standard;
 #endif
-  auto sourceClusters = std::unordered_map<LayerType, std::vector<PointSourceClusterPair>>{};
+  auto sourceClusters =
+      std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>{};
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)

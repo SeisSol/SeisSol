@@ -132,7 +132,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     frictionSolver(i_FrictionSolver),
     frictionSolverDevice(i_FrictionSolverDevice),
     faultOutputManager(i_faultOutputManager),
-    m_sourceCluster(sourceterm::PointSourceClusterPair{nullptr, nullptr}),
+    m_sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
     // cells
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
@@ -176,7 +176,7 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 }
 
 void seissol::time_stepping::TimeCluster::setPointSources(
-    seissol::sourceterm::PointSourceClusterPair sourceCluster) {
+    seissol::kernels::PointSourceClusterPair sourceCluster) {
   m_sourceCluster = std::move(sourceCluster);
 }
 
