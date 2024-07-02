@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,19 +41,16 @@
 #ifndef INITIALIZER_TREE_LOG2_HPP_
 #define INITIALIZER_TREE_LOG2_HPP_
 
-namespace seissol {
-  namespace initializer {
-    template<unsigned N>
-    struct Log2 {
-      static unsigned const Result = 1 + Log2<(N >> 1)>::Result;
-    };
+namespace seissol::initializer {
+template <unsigned N>
+struct Log2 {
+  static const unsigned Result = 1 + Log2<(N >> 1)>::Result;
+};
 
-    template<>
-    struct Log2<1> {
-      static unsigned const Result = 0;
-    };
-  }
-}
-
+template <>
+struct Log2<1> {
+  static const unsigned Result = 0;
+};
+} // namespace seissol::initializer
 
 #endif

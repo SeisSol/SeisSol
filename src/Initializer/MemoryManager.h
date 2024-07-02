@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "tree/Layer.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
@@ -175,6 +176,7 @@ class MemoryManager {
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
@@ -362,6 +364,9 @@ class MemoryManager {
     inline dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
+    inline dr::friction_law::FrictionSolver* getFrictionLawDevice() {
+        return m_FrictionLawDevice.get();
+    }
     inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
     }
@@ -405,6 +410,7 @@ class MemoryManager {
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
 
 

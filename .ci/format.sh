@@ -11,7 +11,17 @@ format() {
     local allowlist_dir="
         src/DynamicRupture
         src/Geometry
+        src/Initializer/BatchRecorders
+        src/Initializer/InitProcedure
         src/Initializer/Parameters
+        src/Initializer/tree
+        src/IO
+        src/Modules
+        src/Monitoring
+        src/Parallel
+        src/Physics
+        src/Reader
+        src/SourceTerm
         src/tests/Common
         src/tests/DynamicRupture
         src/tests/Initializer
@@ -19,39 +29,29 @@ format() {
         src/tests/Model
         src/tests/Reader
         src/tests/SourceTerm
-        src/Initializer/BatchRecorders
-        src/Initializer/InitProcedure
-        src/IO
-        src/Modules
-        src/Monitoring
-        src/Physics
-        src/SourceTerm
-        src/Reader
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputAux.hpp
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Receiver.h
+        src/Kernels/Receiver.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
-        src/Parallel/AcceleratorDevice.h
-        src/Parallel/AcceleratorDevice.cpp
-        src/Parallel/DataCollector.h
-        src/Parallel/Helper.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

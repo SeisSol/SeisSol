@@ -138,6 +138,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(m_finalTime, Modules::callSyncHook(m_currentTime, timeTolerance));
 
+    // Synchronize data (TODO(David): synchronize lazily)
+    seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+
     ioStopwatch.pause();
 
     double currentSplit = simulationStopwatch.split();
@@ -147,6 +150,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }
+
+  // synchronize data (TODO(David): synchronize lazily)
+  seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(m_currentTime, timeTolerance, true);
 

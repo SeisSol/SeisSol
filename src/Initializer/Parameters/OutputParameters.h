@@ -65,6 +65,7 @@ struct PickpointParameters {
 struct ReceiverOutputParameters {
   bool enabled;
   bool computeRotation;
+  bool computeStrain;
   double interval;
   double samplingInterval;
   std::string fileName;

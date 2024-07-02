@@ -72,6 +72,7 @@ src/ResultWriter/AnalysisWriter.cpp
 )
 
 # target_link_options(SeisSol-common-lib PUBLIC SeisSol-kernel-lib)
+target_compile_options(SeisSol-kernel-lib PRIVATE -fPIC)
 target_compile_options(SeisSol-common-lib PRIVATE -fPIC)
 
 if (SHARED)
@@ -144,6 +145,8 @@ src/Solver/FreeSurfaceIntegrator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
+
+src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
@@ -152,6 +155,7 @@ set(SYCL_DEPENDENT_SRC_FILES
 )
 
 set(SYCL_ONLY_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)

@@ -5,13 +5,16 @@
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Geometry/MeshReader.h"
+#include "Initializer/DynamicRupture.h"
 #include "Initializer/InputAux.hpp"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
+#include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "Parallel/MPI.h"
+#include <vector>
 
 namespace seissol::dr::output {
 class ReceiverBasedOutputBuilder {
@@ -22,7 +25,12 @@ class ReceiverBasedOutputBuilder {
   void setMeshReader(const seissol::geometry::MeshReader* reader);
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut);
+                  seissol::initializer::Lut* userWpLut,
+                  seissol::initializer::LTSTree* userDrTree,
+                  seissol::initializer::DynamicRupture* userDrDescr);
+
+  void setVariableList(const std::vector<std::size_t>& variables);
+  void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -40,7 +48,11 @@ class ReceiverBasedOutputBuilder {
   seissol::initializer::LTSTree* wpTree;
   seissol::initializer::LTS* wpDescr;
   seissol::initializer::Lut* wpLut;
+  seissol::initializer::LTSTree* drTree;
+  seissol::initializer::DynamicRupture* drDescr;
   std::shared_ptr<ReceiverOutputData> outputData;
+  std::vector<std::size_t> variables;
+  std::vector<std::size_t>* faceToLtsMap{nullptr};
   int localRank{-1};
 };
 } // namespace seissol::dr::output
