@@ -204,7 +204,7 @@ class VtkHdfWriter {
       for (const auto& hook : self.hooks) {
         hook(counter, time);
       }
-      const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".hdf";
+      const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".vtkhdf";
       auto writer = writer::Writer();
       for (auto& instruction : self.instructionsConst) {
         writer.addInstruction(instruction(filename, time));

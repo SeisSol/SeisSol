@@ -37,9 +37,9 @@ class Hdf5Writer {
   public:
   Hdf5Writer(MPI_Comm comm);
 
-  void writeAttribute(const async::ExecInfo& info, instructions::Hdf5AttributeWrite write);
+  void writeAttribute(const async::ExecInfo& info, const instructions::Hdf5AttributeWrite& write);
 
-  void writeData(const async::ExecInfo& info, instructions::Hdf5DataWrite write);
+  void writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write);
 
   void finalize();
 

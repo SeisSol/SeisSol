@@ -218,7 +218,7 @@ void Hdf5File::closeFile() { _eh(H5Fclose(file)); }
 Hdf5Writer::Hdf5Writer(MPI_Comm comm) : comm(comm) {}
 
 void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
-                                instructions::Hdf5AttributeWrite write) {
+                                const instructions::Hdf5AttributeWrite& write) {
   Hdf5File file(comm);
   if (openFiles.find(write.location.file()) == openFiles.end()) {
     file.openFile(write.location.file());
@@ -234,7 +234,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   }
 }
 
-void Hdf5Writer::writeData(const async::ExecInfo& info, instructions::Hdf5DataWrite write) {
+void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write) {
   Hdf5File file(comm);
   if (openFiles.find(write.location.file()) == openFiles.end()) {
     file.openFile(write.location.file());
@@ -244,7 +244,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, instructions::Hdf5DataWr
   for (auto groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
-  file.writeData(info, write.name, write.dataSource, write.targetType, 0);
+  file.writeData(info, write.name, write.dataSource, write.targetType, write.compress);
   for (auto _ : write.location.groups()) {
     file.closeGroup();
   }

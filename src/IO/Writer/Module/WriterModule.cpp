@@ -4,6 +4,8 @@
 #include <IO/Writer/Module/AsyncWriter.hpp>
 #include <IO/Writer/Writer.hpp>
 #include <Modules/Modules.h>
+#include <Parallel/Helper.hpp>
+#include <Parallel/MPI.h>
 #include <Parallel/Pin.h>
 #include <cassert>
 #include <cmath>
@@ -25,7 +27,7 @@ WriterModule::WriterModule(const std::string& prefix,
 void WriterModule::setUp() {
   logInfo(rank) << "Output Writer" << settings.name << ": setup.";
   setExecutor(executor);
-  if (isAffinityNecessary()) {
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo(rank) << "Output Writer" << settings.name
                   << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
@@ -156,6 +158,7 @@ void WriterModule::syncPoint(double time) {
   }
 
   logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
+  lastWrite = time;
   call(AsyncWriterExec{});
 }
 

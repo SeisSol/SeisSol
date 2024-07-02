@@ -56,6 +56,14 @@ class WriteInline : public DataSource {
     return std::make_shared<WriteInline>(&data, sizeof(T), datatype, std::vector<std::size_t>());
   }
 
+  static std::shared_ptr<DataSource> createString(const std::string& data) {
+    return std::make_shared<WriteInline>(
+        &data,
+        sizeof(char),
+        std::make_shared<datatype::StringDatatype>(data.size() + 1),
+        std::vector<std::size_t>());
+  }
+
   template <typename T>
   static std::shared_ptr<DataSource>
       createArray(const std::vector<std::size_t>& shape,

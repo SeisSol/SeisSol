@@ -14,7 +14,7 @@ class AsyncWriter {
   AsyncWriter() = default;
   void execInit(const async::ExecInfo& info, const AsyncWriterInit& params);
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
-  void execWait(const async::ExecInfo& info, const AsyncWriterExec& params);
+  void execWait(const async::ExecInfo& info);
   void finalize();
 
   private:

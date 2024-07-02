@@ -27,7 +27,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   instance.value().close();
   instance.reset();
 }
-void AsyncWriter::execWait(const async::ExecInfo& info, const AsyncWriterExec& params) {
+void AsyncWriter::execWait(const async::ExecInfo& info) {
   // TODO: async finalize
 }
 void AsyncWriter::finalize() {}
