@@ -200,8 +200,7 @@ void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader co
   std::vector<unsigned> meshIds(numberOfPoints);
   
   // We want to plot all quantities except for the memory variables
-  const int n = seissol::model::Material_t::NumberOfQuantities - 6*NUMBER_OF_RELAXATION_MECHANISMS;
-  std::vector<unsigned> quantities(n);
+  std::vector<unsigned> quantities(seissol::model::Material_t::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";
