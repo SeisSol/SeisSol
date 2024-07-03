@@ -259,7 +259,7 @@ public:
       const double g = gravitationalAcceleration;
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (int order = 1; order < ConvergenceOrder; ++order) {
+      for (int order = 1; order < ConvergenceOrder+1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);

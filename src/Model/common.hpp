@@ -239,7 +239,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
     logError() << "Poroelastic Free Surface has a template spezialization for the FreeSurfaceGodunovState. You should never end up here";
   }
 
-  constexpr size_t relevant_quantities = seissol::model::Material_t::NumberOfQuantities - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+  constexpr size_t relevant_quantities = seissol::model::Material_t::NumberOfQuantities
+      - seissol::model::Material_t::NumberPerMechanism * seissol::model::Material_t::Mechanisms;
   for (size_t i = 0; i < relevant_quantities; i++) {
     for (size_t j = 0; j < relevant_quantities; j++) {
       QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();

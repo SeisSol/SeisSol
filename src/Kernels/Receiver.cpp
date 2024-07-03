@@ -168,7 +168,7 @@ double ReceiverCluster::calcReceivers(
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
-      alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+      alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
       krnl.spaceTimePredictor = stp;

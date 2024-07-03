@@ -237,7 +237,7 @@ struct AnisotropicMaterial : Material {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  double getMaxWaveSpeed() const final {
+  double getMaxWaveSpeed() const override {
     auto samplingDirections = seissol_general::init::samplingDirections::view::create(
         const_cast<double*>(seissol_general::init::samplingDirections::Values));
 
