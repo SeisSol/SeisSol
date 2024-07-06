@@ -5,6 +5,7 @@ add_library(seissol-io STATIC
     Instance/Checkpoint/CheckpointManager.cpp
     Reader/File/Hdf5Reader.cpp
     Reader/Distribution.cpp
+    Writer/File/BinaryWriter.cpp
     Writer/File/Hdf5Writer.cpp
     Writer/Instructions/Data.cpp
     Writer/Instructions/Instruction.cpp

@@ -4,10 +4,15 @@
 #include <IO/Writer/Writer.hpp>
 #include <cstddef>
 #include <mpi.h>
+#include <mutex>
 #include <string>
 #include <utils/logger.h>
 
+namespace {} // namespace
+
 namespace seissol::io::writer::module {
+std::mutex AsyncWriter::globalLock = std::mutex();
+
 void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& params) {
   // (do nothing here)
 }
@@ -21,11 +26,17 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   if (printPlan && rank == 0) {
     logInfo(rank) << "Printing current plan:" << std::string(strData, strData + size);
   }
-  writer = Writer(std::string(strData, strData + size));
-  instance = std::optional(writer.beginWrite(info));
-  // for now write synchronously
-  instance.value().close();
-  instance.reset();
+
+  {
+    // for the Hdf5 implementations, we'll need to serialize writes
+    // (TODO: make one AsyncWriter only in total)
+    std::lock_guard lock(globalLock);
+    writer = Writer(std::string(strData, strData + size));
+    instance = std::optional(writer.beginWrite(info));
+    // for now write synchronously
+    instance.value().close();
+    instance.reset();
+  }
 }
 void AsyncWriter::execWait(const async::ExecInfo& info) {
   // TODO: async finalize

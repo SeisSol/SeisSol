@@ -20,4 +20,12 @@ void OutputManager::addOutput(const writer::ScheduledWriter& writer) {
   modules.back()->startup();
 }
 
+void OutputManager::postMPIInit() {
+  // init ASYNC here
+}
+
+void OutputManager::shutdown() {
+  // uninit ASYNC here
+}
+
 } // namespace seissol::io

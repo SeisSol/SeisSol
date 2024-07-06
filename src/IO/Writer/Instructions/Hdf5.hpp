@@ -98,7 +98,8 @@ struct Hdf5DataWrite : public WriteInstruction {
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
                 int compress = 0)
-      : location(location), name(name), dataSource(dataSource), targetType(targetType) {}
+      : location(location), name(name), dataSource(dataSource), targetType(targetType),
+        compress(compress) {}
 
   YAML::Node serialize() override {
     YAML::Node node;

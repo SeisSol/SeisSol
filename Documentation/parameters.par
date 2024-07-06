@@ -64,6 +64,7 @@ printtimeinterval_sec = 0.2      ! Time interval at which output will be written
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 1
+vtkoutput = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
 /
 
 ! parameterize ascii fault file outputs
@@ -122,6 +123,8 @@ refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region 
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
 
+wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
+
 ! off-fault ascii receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
@@ -136,6 +139,8 @@ ReceiverComputeStrain = 0          ! Compute strain at the receivers
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
+
+surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing

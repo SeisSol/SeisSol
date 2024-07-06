@@ -21,7 +21,7 @@ WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning)
     : prefix(prefix), settings(settings), lastWrite(-1), pinning(pinning) {
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  rank = seissol::MPI::mpi.rank();
 }
 
 void WriterModule::setUp() {

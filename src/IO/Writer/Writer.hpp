@@ -2,7 +2,9 @@
 
 #include "Instructions/Instruction.hpp"
 #include "async/ExecInfo.h"
+#include <IO/Writer/File/BinaryWriter.hpp>
 #include <IO/Writer/File/Hdf5Writer.hpp>
+#include <IO/Writer/Instructions/Binary.hpp>
 #include <IO/Writer/Instructions/Hdf5.hpp>
 #include <memory>
 #include <yaml-cpp/yaml.h>
@@ -11,7 +13,7 @@ namespace seissol::io::writer {
 
 class WriteInstance {
   public:
-  WriteInstance(MPI_Comm comm) : hdf5(comm) {}
+  WriteInstance(MPI_Comm comm) : hdf5(comm), binary(comm) {}
 
   void write(const async::ExecInfo& info,
              std::shared_ptr<instructions::WriteInstruction> instruction) {
@@ -22,12 +24,19 @@ class WriteInstance {
       hdf5.writeAttribute(info,
                           *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
     }
+    if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
+      binary.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
+    }
   }
 
-  void close() { hdf5.finalize(); }
+  void close() {
+    hdf5.finalize();
+    binary.finalize();
+  }
 
   private:
   file::Hdf5Writer hdf5;
+  file::BinaryWriter binary;
 };
 
 class Writer {

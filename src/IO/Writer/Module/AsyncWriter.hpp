@@ -3,6 +3,7 @@
 #include "async/ExecInfo.h"
 #include "async/Module.h"
 #include <IO/Writer/Writer.hpp>
+#include <mutex>
 
 namespace seissol::io::writer::module {
 struct AsyncWriterInit {};
@@ -22,6 +23,8 @@ class AsyncWriter {
   bool printPlan{false};
   seissol::io::writer::Writer writer;
   std::optional<seissol::io::writer::WriteInstance> instance;
+
+  static std::mutex globalLock;
 };
 
 using AsyncWriterModule = async::Module<AsyncWriter, AsyncWriterInit, AsyncWriterExec>;
