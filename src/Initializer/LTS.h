@@ -192,8 +192,10 @@ struct LTS {
         pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
     tree.addVar(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
+    // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
+    // handled differently)
     tree.addBucket(
-        buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket));
+        buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
     tree.addBucket(
         faceDisplacementsBuffer, PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
 
