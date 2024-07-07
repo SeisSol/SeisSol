@@ -65,6 +65,7 @@ enum class AllocationPreset {
   Constant,
   Dofs,
   TimedofsConstant,
+  ConstantShared,
   Timebucket,
   Plasticity
 };
@@ -84,6 +85,8 @@ inline auto allocationModeWP(AllocationPreset preset,
   case seissol::initializer::AllocationPreset::Timedofs:
     return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
   case seissol::initializer::AllocationPreset::Constant:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::ConstantShared:
     return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
   case seissol::initializer::AllocationPreset::Dofs:
     return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
@@ -164,12 +167,15 @@ struct LTS {
                 1,
                 allocationModeWP(AllocationPreset::TimedofsConstant),
                 true);
-    tree.addVar(
-        localIntegration, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.addVar(localIntegration,
+                LayerMask(Ghost),
+                1,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
     tree.addVar(neighboringIntegration,
                 LayerMask(Ghost),
                 1,
-                allocationModeWP(AllocationPreset::Constant),
+                allocationModeWP(AllocationPreset::ConstantShared),
                 true);
     tree.addVar(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
     tree.addVar(
