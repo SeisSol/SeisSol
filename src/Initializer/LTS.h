@@ -67,7 +67,8 @@ enum class AllocationPreset {
   TimedofsConstant,
   ConstantShared,
   Timebucket,
-  Plasticity
+  Plasticity,
+  PlasticityData
 };
 
 inline auto allocationModeWP(AllocationPreset preset,
@@ -79,6 +80,8 @@ inline auto allocationModeWP(AllocationPreset preset,
   case seissol::initializer::AllocationPreset::TimedofsConstant:
     return AllocationMode::HostOnlyHBM;
   case seissol::initializer::AllocationPreset::Plasticity:
+    return AllocationMode::HostOnly;
+  case seissol::initializer::AllocationPreset::PlasticityData:
     return AllocationMode::HostOnly;
   case seissol::initializer::AllocationPreset::Timebucket:
     [[fallthrough]];
@@ -101,7 +104,9 @@ inline auto allocationModeWP(AllocationPreset preset,
     [[fallthrough]];
   case seissol::initializer::AllocationPreset::TimedofsConstant:
     return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::Timebucket:
+  case seissol::initializer::AllocationPreset::Dofs:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::PlasticityData:
     return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
   default:
     return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
@@ -184,7 +189,7 @@ struct LTS {
     tree.addVar(
         boundaryMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
     tree.addVar(
-        pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::Plasticity));
+        pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
     tree.addVar(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     tree.addBucket(
