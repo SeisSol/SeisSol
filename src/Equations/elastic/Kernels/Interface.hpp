@@ -46,7 +46,7 @@
 
 namespace seissol::kernels {
     struct LocalTmp {
-        alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+        alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
         GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
         LocalTmp(double graviationalAcceleration) : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
     };

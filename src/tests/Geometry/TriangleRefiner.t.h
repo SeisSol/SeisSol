@@ -1,6 +1,6 @@
 #include <array>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include <Eigen/Dense>
 

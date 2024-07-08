@@ -59,8 +59,8 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
   for( int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
-    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % ALIGNMENT == 0 );
-    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % Alignment == 0 );
+    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % Alignment == 0 );
   }
 #endif
 

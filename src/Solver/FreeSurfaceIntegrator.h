@@ -79,7 +79,7 @@ private:
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
 
-  static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
+  static constexpr auto polyDegree = ConvergenceOrder-1;
   static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
   bool m_enabled;
   
