@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     kernelHelp << ", " << kernel;
   }
 
-  utils::Args args;
+  utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol earthquake simulation software.");
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
