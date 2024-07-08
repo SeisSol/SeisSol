@@ -388,6 +388,150 @@ __device__ __forceinline__ void dgkernelInit(real scale, real* __restrict__ acc,
         }
     }
 
+template<size_t N, size_t Nmax>
+__device__ __forceinline__ void dgkernelPart2b(real scale, const real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
+    real lambda, real mu, real rhoD) {
+        std::size_t blockpos = Nmax * Quantities * Blocksize * (blockIdx.x * AderMultiple + threadIdx.y);
+        #pragma unroll
+        for (int j = 0; j < Quantities; ++j) {
+          for (int i = 0; i < N - (N % 4); i += 4) {
+            float4 inres = *(float4*)&output[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4];
+            inres.x *= scale;
+            inres.y *= scale;
+            inres.z *= scale;
+            inres.w *= scale;
+            *(float4*)&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4] = inres;
+          }
+          #pragma unroll
+          for (int i = N - (N % 4); i < N; ++i) {
+            real inres = output[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x];
+            acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x] = inres * scale;
+          }
+        }
+}
+
+template<size_t N, size_t Nmax>
+__device__ __forceinline__ void dgkernelPart2a(real scale, real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
+    real lambda, real mu, real rhoD) {
+        real l2mu = lambda + 2 * mu;
+        #pragma unroll
+    for (int i = 0; i < N; ++i) {
+        real outRow[Quantities] = {0};
+        #pragma unroll
+        for (int d = 0; d < 3; ++d) {
+            real inRow[Quantities];
+            #pragma unroll
+            for (int j = 0; j < Quantities; ++j) {
+                inRow[j] = temp[i * Quantities * 3 + (j + Quantities * d)];
+            }
+            real n1 = coordinates[VECTOR(0 + d * 3, 9)];
+            real n2 = coordinates[VECTOR(1 + d * 3, 9)];
+            real n3 = coordinates[VECTOR(2 + d * 3, 9)];
+            outRow[0] += -n1 * l2mu * inRow[6] - lambda * (n2 * inRow[7] + n3 * inRow[8]);
+            outRow[1] += -n2 * l2mu * inRow[7] - lambda * (n1 * inRow[6] + n3 * inRow[8]);
+            outRow[2] += -n3 * l2mu * inRow[8] - lambda * (n1 * inRow[6] + n2 * inRow[7]);
+            outRow[3] += -mu * (n2 * inRow[6] + n1 * inRow[7]);
+            outRow[4] += -mu * (n3 * inRow[7] + n2 * inRow[8]);
+            outRow[5] += -mu * (n1 * inRow[8] + n3 * inRow[6]);
+            outRow[6] += -rhoD * (n1 * inRow[0] + n2 * inRow[3] + n3 * inRow[5]);
+            outRow[7] += -rhoD * (n1 * inRow[3] + n2 * inRow[1] + n3 * inRow[4]);
+            outRow[8] += -rhoD * (n1 * inRow[5] + n2 * inRow[4] + n3 * inRow[2]);
+        }
+        #pragma unroll
+        for (int j = 0; j < Quantities; ++j) {
+            output[MATRIX(i,j, N, Quantities)] = outRow[j];
+        }
+    }
+}
+
+__global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull2(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
+    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
+        real rhoD = stardata[VECTOR(0, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)];
+        real tempreg2[35 * Quantities * 3];
+        real tempreg[4 * Quantities * 3];
+        real coeff = scale;
+        dgkernel56(tempreg2, Q);
+        coeff *= scale / 2;
+        dgkernelPart2a<35, 56>(coeff, dQ5, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel35(tempreg2, dQ5);
+        coeff *= scale / 3;
+        dgkernelPart2a<20, 56>(coeff, dQ4, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel20(tempreg2, dQ4);
+        coeff *= scale / 4;
+        dgkernelPart2a<10, 56>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel10(tempreg, dQ3);
+        coeff *= scale / 5;
+        dgkernelPart2a<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernel4(tempreg, dQ2);
+        coeff *= scale / 6;
+        dgkernelPart2a<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+
+        coeff = scale;
+        dgkernelInit<56>(coeff, I, Q);
+        coeff *= scale / 2;
+        dgkernelPart2b<35, 56>(coeff, dQ5, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 3;
+        dgkernelPart2b<20, 56>(coeff, dQ4, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 4;
+        dgkernelPart2b<10, 56>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 5;
+        dgkernelPart2b<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 6;
+        dgkernelPart2b<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+    }
+}
+
+__global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull2a(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
+    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
+        real rhoD = stardata[VECTOR(0, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)];
+        real tempreg2[35 * Quantities * 3];
+        real tempreg[4 * Quantities * 3];
+        real coeff = scale;
+        dgkernel56(tempreg2, Q);
+        coeff *= scale / 2;
+        dgkernelPart2a<35, 56>(coeff, dQ5, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel35(tempreg2, dQ5);
+        coeff *= scale / 3;
+        dgkernelPart2a<20, 56>(coeff, dQ4, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel20(tempreg2, dQ4);
+        coeff *= scale / 4;
+        dgkernelPart2a<10, 56>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel10(tempreg, dQ3);
+        coeff *= scale / 5;
+        dgkernelPart2a<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernel4(tempreg, dQ2);
+        coeff *= scale / 6;
+        dgkernelPart2a<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+    }
+}
+
+__global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull2b(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
+    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
+        real rhoD = stardata[VECTOR(0, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)];
+        real tempreg2[35 * Quantities * 3];
+        real tempreg[4 * Quantities * 3];
+        real coeff = scale;
+
+        dgkernelInit<56>(coeff, I, Q);
+        coeff *= scale / 2;
+        dgkernelPart2b<35, 56>(coeff, dQ5, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 3;
+        dgkernelPart2b<20, 56>(coeff, dQ4, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 4;
+        dgkernelPart2b<10, 56>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 5;
+        dgkernelPart2b<4, 56>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        coeff *= scale / 6;
+        dgkernelPart2b<1, 56>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+    }
+}
+
 __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
     if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
         real rhoD = stardata[VECTOR(0, 3)];
@@ -430,7 +574,8 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
   cudaStream_t streamObject = reinterpret_cast<cudaStream_t>(stream);
   cudaMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<6>, cudaMemcpyDeviceToDevice, streamObject);
-  dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  dgkernelFull2a <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  dgkernelFull2b <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   CHECK_ERR;
 }
 
