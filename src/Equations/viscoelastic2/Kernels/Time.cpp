@@ -88,9 +88,9 @@ void Time::computeAder(double i_timeStepWidth,
    */
   // temporary result
   // TODO(David): move these temporary buffers into the Yateto kernel, maybe
-  real temporaryBuffer[2][tensor::dQ::size(0)] alignas(PagesizeStack);
-  real temporaryBufferExt[2][tensor::dQext::size(1)] alignas(PagesizeStack);
-  real temporaryBufferAne[2][tensor::dQane::size(0)] alignas(PagesizeStack);
+  alignas(PagesizeStack) real temporaryBuffer[2][tensor::dQ::size(0)];
+  alignas(PagesizeStack) real temporaryBufferExt[2][tensor::dQext::size(1)];
+  alignas(PagesizeStack) real temporaryBufferAne[2][tensor::dQane::size(0)];
 
   kernel::derivative krnl = m_krnlPrototype;
 

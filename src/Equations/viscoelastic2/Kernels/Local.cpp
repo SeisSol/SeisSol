@@ -86,7 +86,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
   assert( ((uintptr_t)data.dofs())           % Alignment == 0 );
 #endif
 
-  real Qext[tensor::Qext::size()] alignas(Alignment);
+  alignas(Alignment) real Qext[tensor::Qext::size()];
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
