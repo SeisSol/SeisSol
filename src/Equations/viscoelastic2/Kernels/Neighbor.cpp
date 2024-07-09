@@ -97,7 +97,7 @@ void Neighbor::computeNeighborsIntegral(  NeighborData&                     data
   // alignment of the degrees of freedom
   assert( ((uintptr_t)data.dofs()) % Alignment == 0 );
 
-  real Qext[tensor::Qext::size()] alignas(PagesizeStack) = {};
+  alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
   kernel::neighbourFluxExt nfKrnl = m_nfKrnlPrototype;
   nfKrnl.Qext = Qext;
