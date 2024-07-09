@@ -112,6 +112,8 @@ void seissol::MPI::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
+    } else if (option == "directccl") {
+      preferredDataTransferMode = DataTransferMode::DirectCCL;
     } else {
       logWarning(m_rank) << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
                          << "Expected values: direct, host.";

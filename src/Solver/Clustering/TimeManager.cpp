@@ -56,6 +56,7 @@
 #include <Initializer/typedefs.hpp>
 #include <Kernels/PointSourceCluster.h>
 #include <ResultWriter/ReceiverWriter.h>
+#include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/AbstractGhostTimeCluster.h>
 #include <Solver/Clustering/Communication/GhostTimeClusterFactory.h>
@@ -93,7 +94,7 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<AbstractTimeCluster>> ghostClusters;
   // assert non-zero pointers
   assert(meshStructure != NULL);
 
@@ -213,6 +214,9 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi();
+    GhostTimeClusterFactory::prepare(preferredDataTransferMode,
+                                     timeStepping.numberOfGlobalClusters);
+
     for (unsigned int otherGlobalClusterId = 0;
          otherGlobalClusterId < timeStepping.numberOfGlobalClusters;
          ++otherGlobalClusterId) {
@@ -325,46 +329,53 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
-  // Move all clusters from RestartAfterSync to Corrected
-  // Does not involve any computations
-  for (auto& cluster : clusters) {
-    cluster->act();
-  }
-
-  bool finished = false; // Is true, once all clusters reached next sync point
-  while (!finished) {
-    finished = true;
-    communicationManager->progression();
-
-    // Update all high priority clusters
-    for (int i = 0; i < highPrioClusters.size(); ++i) {
-      std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-        communicationManager->progression();
-        cluster->act();
-      });
-      std::for_each(highPrioClustersDR.begin(), highPrioClustersDR.end(), [&](auto& cluster) {
-        communicationManager->progression();
-        cluster->act();
-      });
+  const auto phaseExecute = [&]() {
+    // Move all clusters from RestartAfterSync to Corrected
+    // Does not involve any computations
+    for (auto& cluster : clusters) {
+      cluster->act();
     }
-    std::for_each(lowPrioClusters.begin(), lowPrioClusters.end(), [&](auto& cluster) {
+
+    bool finished = false; // Is true, once all clusters reached next sync point
+    while (!finished) {
+      finished = true;
       communicationManager->progression();
-      cluster->act();
-    });
-    std::for_each(lowPrioClustersDR.begin(), lowPrioClustersDR.end(), [&](auto& cluster) {
-      communicationManager->progression();
-      cluster->act();
-    });
-    finished =
-        std::all_of(clusters.begin(), clusters.end(), [](auto& c) { return c->synchronized(); });
-    finished &= std::all_of(
-        clustersDR.begin(), clustersDR.end(), [](auto& c) { return c->synchronized(); });
-    finished &= communicationManager->checkIfFinished();
-  }
+
+      // Update all high priority clusters
+      for (int i = 0; i < highPrioClusters.size(); ++i) {
+        std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+          communicationManager->progression();
+          cluster->act();
+        });
+        std::for_each(highPrioClustersDR.begin(), highPrioClustersDR.end(), [&](auto& cluster) {
+          communicationManager->progression();
+          cluster->act();
+        });
+      }
+      std::for_each(lowPrioClusters.begin(), lowPrioClusters.end(), [&](auto& cluster) {
+        communicationManager->progression();
+        cluster->act();
+      });
+      std::for_each(lowPrioClustersDR.begin(), lowPrioClustersDR.end(), [&](auto& cluster) {
+        communicationManager->progression();
+        cluster->act();
+      });
+      finished =
+          std::all_of(clusters.begin(), clusters.end(), [](auto& c) { return c->synchronized(); });
+      finished &= std::all_of(
+          clustersDR.begin(), clustersDR.end(), [](auto& c) { return c->synchronized(); });
+      finished &= communicationManager->checkIfFinished();
+    }
+  };
+
+  std::invoke(phaseExecute);
+
 #ifdef ACL_DEVICE
   device.api->syncDevice();
   device.api->popLastProfilingMark();
 #endif
+
+  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 }
 
 void TimeManager::printComputationTime(const std::string& outputPrefix,

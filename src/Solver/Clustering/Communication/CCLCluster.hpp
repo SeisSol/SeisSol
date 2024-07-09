@@ -26,16 +26,22 @@ class CCLCluster : public CellCluster {
                                         const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
-  void* cclComm;
+  void* cclSendComm;
+  void* cclRecvComm;
+
+  std::vector<void*> memorySendHandles;
+  std::vector<void*> memoryRecvHandles;
 
   public:
   CCLCluster(double maxTimeStepSize,
              int timeStepRate,
              int globalTimeClusterId,
              int otherGlobalTimeClusterId,
-             const MeshStructure* meshStructure);
+             const MeshStructure* meshStructure,
+             void* sendComm,
+             void* recvComm);
 
   void reset() override;
-  ActResult act() override;
+  void finalize() override;
 };
 } // namespace seissol::time_stepping

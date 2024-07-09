@@ -27,7 +27,7 @@ class InstantaneousTimeMirrorManager : Module {
   const TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* ghostTimeClusters;
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
@@ -46,7 +46,7 @@ class InstantaneousTimeMirrorManager : Module {
       std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
 
   void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
+      std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* clusters);
 
   void syncPoint(double currentTime) override;
 

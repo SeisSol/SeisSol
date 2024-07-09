@@ -41,7 +41,7 @@ void CCLCluster::sendCopyLayer() {
              cluster.size,
              CclReal, // TODO(David): use cluster.datatype here instead
              cluster.rank,
-             static_cast<ncclComm_t>(cclComm),
+             static_cast<ncclComm_t>(cclSendComm),
              static_cast<StreamT>(streamRuntime.stream()));
   }
   ncclGroupEnd();
@@ -57,7 +57,7 @@ void CCLCluster::receiveGhostLayer() {
              cluster.size,
              CclReal, // TODO(David): use cluster.datatype here instead
              cluster.rank,
-             static_cast<ncclComm_t>(cclComm),
+             static_cast<ncclComm_t>(cclRecvComm),
              static_cast<StreamT>(streamRuntime.stream()));
   }
   ncclGroupEnd();
@@ -98,9 +98,12 @@ CCLCluster::CCLCluster(double maxTimeStepSize,
                        int timeStepRate,
                        int globalTimeClusterId,
                        int otherGlobalTimeClusterId,
-                       const MeshStructure* meshStructure)
+                       const MeshStructure* meshStructure,
+                       void* sendComm,
+                       void* recvComm)
     : CellCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId) {
+      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
+      cclSendComm(sendComm), cclRecvComm(recvComm) {
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       copyClusters.emplace_back(RemoteCluster{
@@ -117,6 +120,21 @@ CCLCluster::CCLCluster(double maxTimeStepSize,
           meshStructure->neighboringClusters[region][0],
           timeData + meshStructure->receiveIdentifiers[region],
       });
+
+#ifdef USE_CCL
+      void* sendHandle;
+      ncclCommRegister(reinterpret_cast<ncclComm_t>(cclSendComm),
+                       meshStructure->copyRegions[region],
+                       meshStructure->copyRegionSizes[region] * sizeof(real),
+                       &sendHandle);
+      memorySendHandles.push_back(sendHandle);
+      void* recvHandle;
+      ncclCommRegister(reinterpret_cast<ncclComm_t>(cclRecvComm),
+                       meshStructure->ghostRegions[region],
+                       meshStructure->ghostRegionSizes[region] * sizeof(real),
+                       &recvHandle);
+      memoryRecvHandles.push_back(recvHandle);
+#endif
     }
   }
 }
@@ -124,6 +142,17 @@ CCLCluster::CCLCluster(double maxTimeStepSize,
 void CCLCluster::reset() {
   AbstractTimeCluster::reset();
   lastSendTime = -1;
+}
+
+void CCLCluster::finalize() {
+#ifdef USE_CCL
+  for (void* handle : memorySendHandles) {
+    ncclCommDeregister(reinterpret_cast<ncclComm_t>(cclSendComm), &handle);
+  }
+  for (void* handle : memoryRecvHandles) {
+    ncclCommDeregister(reinterpret_cast<ncclComm_t>(cclRecvComm), &handle);
+  }
+#endif
 }
 
 void CCLCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {

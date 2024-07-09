@@ -21,7 +21,7 @@ void AbstractCommunicationManager::reset(double newSyncTime) {
   }
 }
 
-std::vector<std::unique_ptr<AbstractGhostTimeCluster>>*
+std::vector<std::unique_ptr<AbstractTimeCluster>>*
     AbstractCommunicationManager::getGhostClusters() {
   return &ghostClusters;
 }

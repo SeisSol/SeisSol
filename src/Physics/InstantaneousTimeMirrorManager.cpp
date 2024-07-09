@@ -185,7 +185,7 @@ void InstantaneousTimeMirrorManager::setTimeClusterVector(
 }
 
 void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters) {
+    std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* clusters) {
   ghostTimeClusters = clusters;
 }
 
