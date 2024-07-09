@@ -145,7 +145,7 @@ void CCLCluster::reset() {
 }
 
 void CCLCluster::finalize() {
-#ifdef USE_CCL
+#if defined(USE_CCL) && defined(CCL_NCCL)
   for (void* handle : memorySendHandles) {
     ncclCommDeregister(reinterpret_cast<ncclComm_t>(cclSendComm), &handle);
   }
