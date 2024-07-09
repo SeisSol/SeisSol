@@ -50,7 +50,7 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(double maxTimeStepS
       duplicatedCopyRegions[i] = static_cast<real*>(device.api->allocPinnedMem(copyRegionSize));
       duplicatedGhostRegions[i] = static_cast<real*>(device.api->allocPinnedMem(ghostRegionSize));
     } else {
-      static_assert(false, "Unhandled MPI copy case.");
+      logError() << "Unhandled MPI copy case.";
     }
 
     if (persistent) {
