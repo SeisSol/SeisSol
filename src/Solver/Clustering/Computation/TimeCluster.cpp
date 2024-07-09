@@ -440,8 +440,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
 
   if (usePlasticity) {
     updateRelaxTime();
-    PlasticityData* plasticity =
-        layer->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
+    auto* plasticity = layer->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
     const unsigned numAdjustedDofs =
         seissol::kernels::Plasticity::computePlasticityBatched(oneMinusIntegratingFactor,
                                                                timeStepWidth,
@@ -685,10 +684,10 @@ std::pair<long, long>
   streamRuntime.enqueueHost([=]() {
     loopStatistics->begin(regionComputeNeighboringIntegration);
 
-    real*(*faceNeighbors)[4] = layer->var(lts->faceNeighbors);
-    CellDRMapping(*drMapping)[4] = layer->var(lts->drMapping);
-    CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    PlasticityData* plasticity = layer->var(lts->plasticity);
+    auto* faceNeighbors = layer->var(lts->faceNeighbors);
+    auto* drMapping = layer->var(lts->drMapping);
+    auto* cellInformation = layer->var(lts->cellInformation);
+    auto* plasticity = layer->var(lts->plasticity);
     auto* pstrain = layer->var(lts->pstrain);
 
     // (needs to be non-const due to OMP clause)
