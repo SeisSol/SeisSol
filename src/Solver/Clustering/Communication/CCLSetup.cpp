@@ -1,10 +1,10 @@
 #include "Parallel/MPI.h"
 
 #ifdef USE_CCL
-#ifdef SEISSOL_KERNELS_CUDA
+#ifdef CCL_NCCL
 #include <nccl.h>
 #endif
-#ifdef SEISSOL_KERNELS_HIP
+#ifdef CCL_RCCL
 #include <rccl/rccl.h>
 #endif
 #include <device.h>

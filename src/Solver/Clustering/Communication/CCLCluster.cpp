@@ -13,11 +13,11 @@
 #include <utils/logger.h>
 
 #ifdef USE_CCL
-#ifdef SEISSOL_KERNELS_CUDA
+#ifdef CCL_NCCL
 #include <nccl.h>
 using StreamT = cudaStream_t;
 #endif
-#ifdef SEISSOL_KERNELS_HIP
+#ifdef CCL_RCCL
 #include <rccl/rccl.h>
 using StreamT = hipStream_t;
 #endif
@@ -121,7 +121,7 @@ CCLCluster::CCLCluster(double maxTimeStepSize,
           timeData + meshStructure->receiveIdentifiers[region],
       });
 
-#ifdef USE_CCL
+#if defined(USE_CCL) && defined(CCL_NCCL)
       void* sendHandle;
       ncclCommRegister(reinterpret_cast<ncclComm_t>(cclSendComm),
                        meshStructure->copyRegions[region],
