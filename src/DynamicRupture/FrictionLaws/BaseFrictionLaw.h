@@ -30,7 +30,7 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER],
+                const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (layerData.getNumberOfCells() == 0) {
       return;
@@ -45,7 +45,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
       for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-        alignas(ALIGNMENT) FaultStresses faultStresses{};
+        alignas(Alignment) FaultStresses faultStresses{};
         common::precomputeStressFromQInterpolated(faultStresses,
                                                   self.impAndEta[ltsFace],
                                                   self.impedanceMatrices[ltsFace],

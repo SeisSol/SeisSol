@@ -1,5 +1,5 @@
-#include "doctest.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
+#include "doctest.h"
 #include <cassert>
 
 namespace seissol::unit_test {
@@ -22,13 +22,14 @@ real gaussianNucleation(real time, real dt, real tau) {
 TEST_CASE("Gaussian Nucleation Function") {
   constexpr real dt = 0.01;
   constexpr real epsilon = 1e-4;
-  for (real const effectiveRiseTime : {0.8, 1.0}) {
-      for (int i = -10; i < 111; i++) {
-        const real stfEvaluated = seissol::gaussianNucleationFunction::smoothStepIncrement(i * dt, dt, effectiveRiseTime);
-        const real referenceEvaluated = gaussianNucleation(i * dt, dt, effectiveRiseTime);
-        REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(epsilon));
-      }
+  for (const real effectiveRiseTime : {0.8, 1.0}) {
+    for (int i = -10; i < 111; i++) {
+      const real stfEvaluated =
+          seissol::gaussianNucleationFunction::smoothStepIncrement(i * dt, dt, effectiveRiseTime);
+      const real referenceEvaluated = gaussianNucleation(i * dt, dt, effectiveRiseTime);
+      REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(epsilon));
     }
   }
+}
 
 } // namespace seissol::unit_test

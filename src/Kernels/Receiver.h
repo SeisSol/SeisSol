@@ -57,8 +57,8 @@
 #include <optional>
 #include <vector>
 
-struct GlobalData;
 namespace seissol {
+struct GlobalData;
 class SeisSol;
 
 namespace kernels {

@@ -135,8 +135,8 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
     shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)]
-          __attribute__((aligned(ALIGNMENT)));
+      alignas(Alignment)
+          real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
@@ -200,9 +200,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
       projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory = std::unique_ptr<real>(
-      static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
+      static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, Alignment)));
   projectionMatrixFromFace = std::unique_ptr<real>(
-      static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, ALIGNMENT)));
+      static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, Alignment)));
 
   std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
@@ -253,7 +253,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
     const std::array<std::array<double, 3>, numQuadraturePoints>& bfPoints,
     const double* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d - k; ++j) {
         const unsigned i = d - k - j;
@@ -281,7 +281,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
     const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
     const double* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;
@@ -366,9 +366,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
     velocities[dim] =
-        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
     displacements[dim] =
-        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 

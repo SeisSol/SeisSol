@@ -22,19 +22,25 @@ format() {
         src/Reader
         src/Solver
         src/SourceTerm
-        src/tests/Common
-        src/tests/DynamicRupture
-        src/tests/Initializer
-        src/tests/Kernel
-        src/tests/Model
-        src/tests/Reader
-        src/tests/SourceTerm
+        src/tests
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
+        src/Equations/elastic/Model/datastructures.hpp
+        src/Equations/elastic/Model/integrationData.hpp
+        src/Equations/viscoelastic/Model/integrationData.hpp
+        src/Equations/viscoelastic2/Model/datastructures.hpp
+        src/Equations/viscoelastic2/Model/integrationData.hpp
+        src/Equations/anisotropic/Model/datastructures.hpp
+        src/Equations/anisotropic/Model/integrationData.hpp
+        src/Equations/poroelastic/Model/datastructures.hpp
+        src/Equations/poroelastic/Model/integrationData.hpp
+        src/Initializer/Boundary.h
         src/Initializer/BasicTypedefs.hpp
+        src/Initializer/DynamicRupture.h
         src/Initializer/InputAux.hpp
+        src/Initializer/LTS.h
         src/Initializer/MemoryAllocator.h
         src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
@@ -52,6 +58,8 @@ format() {
         src/Kernels/Receiver.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
+        src/Model/common_datastructures.hpp
+        src/Model/plasticity.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp

@@ -1,4 +1,5 @@
 #include "ReceiverBasedOutput.hpp"
+#include "Common/constants.hpp"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "Geometry/MeshDefinition.h"
@@ -76,8 +77,8 @@ void ReceiverOutput::calcFaultOutput(
 #endif
 
   runtime.enqueueOmpFor(outputData->receiverPoints.size(), [=](size_t i) {
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -408,7 +409,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   }
 
   if (needsUpdate) {
-    constexpr int numPoly = CONVERGENCE_ORDER - 1;
+    constexpr int numPoly = ConvergenceOrder - 1;
     constexpr int numDegFr2d = (numPoly + 1) * (numPoly + 2) / 2;
     std::array<double, numDegFr2d> projectedRT{};
     projectedRT.fill(0.0);

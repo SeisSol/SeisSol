@@ -120,7 +120,7 @@ void computeMInvJInvPhisAtSources(
   const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
-      CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+      ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);
   double JInv = 1.0 / (6.0 * volume);
@@ -158,6 +158,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
   faultBasis[8] = subfault.normal(2);
 
   pointSources.A[index] = subfault.area;
+  std::array<double, 81> stiffnessTensor;
   switch (material->getMaterialType()) {
   case seissol::model::MaterialType::anisotropic:
     [[fallthrough]];
@@ -166,14 +167,16 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
       logError() << "There are specific fault parameters for the fault. This is only compatible "
                     "with isotropic (visco)elastic materials.";
     }
-    material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+    material->getFullStiffnessTensor(stiffnessTensor);
     break;
   default:
     seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
     em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
-    em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+    em.getFullStiffnessTensor(stiffnessTensor);
     break;
   }
+  std::copy(
+      stiffnessTensor.begin(), stiffnessTensor.end(), pointSources.stiffnessTensor[index].begin());
   pointSources.onsetTime[index] = subfault.tinit;
   pointSources.samplingInterval[index] = subfault.timestep;
   for (unsigned sr = 0; sr < Offsets().size(); ++sr) {

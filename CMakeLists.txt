@@ -51,7 +51,7 @@ endif()
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -382,7 +382,6 @@ target_include_directories(SeisSol-common-properties INTERFACE
 
 target_compile_definitions(SeisSol-common-properties INTERFACE
     CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
     NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
     ${DR_QUAD_RULE}
 )

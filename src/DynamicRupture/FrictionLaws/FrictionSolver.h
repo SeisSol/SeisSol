@@ -28,14 +28,14 @@ class FrictionSolver {
   virtual void evaluate(seissol::initializer::Layer& layerData,
                         const seissol::initializer::DynamicRupture* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER],
+                        const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[CONVERGENCE_ORDER]);
+  void computeDeltaT(const double timePoints[ConvergenceOrder]);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
@@ -53,7 +53,7 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[CONVERGENCE_ORDER] = {};
+  real deltaT[ConvergenceOrder] = {};
   real sumDt;
 
   seissol::initializer::parameters::DRParameters* drParameters;
@@ -88,8 +88,8 @@ class FrictionSolver {
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
 
-  real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()];
+  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()];
 };
 } // namespace seissol::dr::friction_law
 

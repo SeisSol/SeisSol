@@ -142,20 +142,26 @@ class LTSTree : public LTSInternalNode {
     varInfo.push_back(m);
   }
 
-  void addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode) {
+  void
+      addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode, bool constant = false) {
     handle.index = bucketInfo.size();
     MemoryInfo m;
     m.alignment = alignment;
     m.allocMode = allocMode;
+    m.constant = constant;
     bucketInfo.push_back(m);
   }
 
 #ifdef ACL_DEVICE
-  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, AllocationMode allocMode) {
+  void addScratchpadMemory(ScratchpadMemory& handle,
+                           size_t alignment,
+                           AllocationMode allocMode,
+                           bool constant = false) {
     handle.index = scratchpadMemInfo.size();
     MemoryInfo memoryInfo;
     memoryInfo.alignment = alignment;
     memoryInfo.allocMode = allocMode;
+    memoryInfo.constant = constant;
     scratchpadMemInfo.push_back(memoryInfo);
   }
 #endif // ACL_DEVICE

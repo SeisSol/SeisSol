@@ -1,5 +1,5 @@
-#include "Numerical_aux/Eigenvalues.h"
 #include "Kernels/precision.hpp"
+#include "Numerical_aux/Eigenvalues.h"
 
 namespace seissol::unit_test {
 

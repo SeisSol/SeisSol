@@ -235,7 +235,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     loopStatistics->begin(regionComputeLocalIntegration);
 
     // local integration buffer
-    real integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
+    alignas(Alignment) real integrationBuffer[tensor::I::size()];
 
     // pointer for the call of the ADER-function
     real* bufferPointer;
