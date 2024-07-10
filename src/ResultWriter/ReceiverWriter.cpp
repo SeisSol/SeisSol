@@ -40,6 +40,8 @@
 #include "ReceiverWriter.h"
 
 #include <Kernels/Receiver.h>
+#include <Model/common_datastructures.hpp>
+#include <Model/plasticity.hpp>
 #include <cctype>
 #include <fstream>
 #include <iomanip>
@@ -101,8 +103,7 @@ std::string ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void ReceiverWriter::writeHeader( unsigned               pointId,
-                                                   Eigen::Vector3d const& point   ) {
+void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
   auto name = fileName(pointId);
 
   std::vector<std::string> names(seissol::model::Material_t::Quantities.begin(), seissol::model::Material_t::Quantities.end());
@@ -110,6 +111,9 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
+  names.insert(names.end(),
+               seissol::model::PlasticityData::Quantities.begin(),
+               seissol::model::PlasticityData::Quantities.end());
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -121,12 +125,12 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
     file << "VARIABLES = \"Time\"";
 #ifdef MULTIPLE_SIMULATIONS
     for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
-      for (auto const& name : names) {
+      for (const auto& name : names) {
         file << ",\"" << name << sim << "\"";
       }
     }
 #else
-    for (auto const& name : names) {
+    for (const auto& name : names) {
       file << ",\"" << name << "\"";
     }
 #endif
@@ -148,10 +152,10 @@ void ReceiverWriter::syncPoint(double)
 
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
-      auto ncols = cluster.ncols();
+      auto ncols = cluster.ncols() + 7;
       for (auto &receiver : cluster) {
-        assert(receiver.output.size() % (ncols + 7) == 0);
-        // assert(receiver.output.size() % (ncols) == 0);
+        // assert(receiver.output.size() % (ncols + 7) == 0);
+        assert(receiver.output.size() % (ncols) == 0);
         size_t nSamples = receiver.output.size() / ncols;
 
         std::ofstream file;
@@ -170,7 +174,7 @@ void ReceiverWriter::syncPoint(double)
   }
 
   auto time = m_stopwatch.stop();
-  int const rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
 void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
@@ -195,10 +199,10 @@ void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, con
   Modules::registerHook(*this, ModuleHook::Shutdown);
 }
 
-void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
-                                                const seissol::initializer::Lut& ltsLut,
-                                                const seissol::initializer::LTS& lts,
-                                                const GlobalData* global ) {
+void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
+                               const seissol::initializer::Lut& ltsLut,
+                               const seissol::initializer::LTS& lts,
+                               const GlobalData* global) {
   std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
