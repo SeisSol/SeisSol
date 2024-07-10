@@ -154,7 +154,8 @@ void ReceiverWriter::syncPoint(double)
     for (auto& cluster : clusters) {
       auto ncols = cluster.ncols();
       for (auto &receiver : cluster) {
-        assert(receiver.output.size() % ncols == 0);
+        assert(receiver.output.size() % (ncols + 7) == 0);
+        // assert(receiver.output.size() % (ncols) == 0);
         size_t nSamples = receiver.output.size() / ncols;
 
         std::ofstream file;

@@ -96,6 +96,11 @@ def addKernels(generator, aderdg):
   evaluateDerivativeDOFSAtPoint = QDerivativeAtPoint['pd'] <= aderdg.Q['kp'] * basisFunctionDerivativesAtPoint['kd']
   generator.add('evaluateDerivativeDOFSAtPoint', evaluateDerivativeDOFSAtPoint)
 
+  PstrainAtPoint = OptionalDimTensor('PstrainAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (7,))
+  Pstrain = OptionalDimTensor('Pstrain', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (aderdg.numberOf3DBasisFunctions(), 7))
+  evaluatePstrainAtPoint = PstrainAtPoint['p'] <= Pstrain['kp'] * basisFunctionsAtPoint['k']
+  generator.add('evaluatePstrainAtPoint', evaluatePstrainAtPoint)
+
   stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
   spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
   evaluateDOFSAtPointSTP = QAtPoint['p'] <= spaceTimePredictor['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
