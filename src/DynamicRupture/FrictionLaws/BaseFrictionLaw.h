@@ -26,7 +26,7 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER],
+                const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -37,7 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(ALIGNMENT) FaultStresses faultStresses{};
+      alignas(Alignment) FaultStresses faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
@@ -67,7 +67,7 @@ class BaseFrictionLaw : public FrictionSolver {
       TractionResults tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     initialPressure[ltsFace],

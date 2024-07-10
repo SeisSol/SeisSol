@@ -43,23 +43,14 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include "Common/constants.hpp"
 #include "Initializer/MemoryAllocator.h"
 #include "Kernels/precision.hpp"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>
-#include <memory>
-
-namespace seissol::kernels {
-class PointSourceCluster;
-} // namespace seissol::kernels
 
 namespace seissol::sourceterm {
-struct PointSourceClusterPair {
-  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
-  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
-};
-
 /** Models point sources of the form
  *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
  * where S(t) : t -> \mathbb R is the moment time history,

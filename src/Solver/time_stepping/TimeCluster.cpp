@@ -132,7 +132,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     frictionSolver(i_FrictionSolver),
     frictionSolverDevice(i_FrictionSolverDevice),
     faultOutputManager(i_faultOutputManager),
-    m_sourceCluster(sourceterm::PointSourceClusterPair{nullptr, nullptr}),
+    m_sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
     // cells
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
@@ -176,7 +176,7 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 }
 
 void seissol::time_stepping::TimeCluster::setPointSources(
-    seissol::sourceterm::PointSourceClusterPair sourceCluster) {
+    seissol::kernels::PointSourceClusterPair sourceCluster) {
   m_sourceCluster = std::move(sourceCluster);
 }
 
@@ -355,7 +355,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   // local integration buffer
-  real l_integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
+  real l_integrationBuffer[tensor::I::size()] alignas(Alignment);
 
   // pointer for the call of the ADER-function
   real* l_bufferPointer;
@@ -571,7 +571,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
 
   if (usePlasticity) {
     updateRelaxTime();
-    PlasticityData* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
+    auto* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
     unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                       timeStepWidth,
                                                                                       m_tv,
@@ -889,7 +889,7 @@ template<bool usePlasticity>
       real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
       CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+      auto* plasticity = i_layerData.var(m_lts->plasticity);
       auto* pstrain = i_layerData.var(m_lts->pstrain);
       unsigned numberOTetsWithPlasticYielding = 0;
 

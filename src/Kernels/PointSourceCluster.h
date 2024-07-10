@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 namespace seissol::kernels {
 class PointSourceCluster {
@@ -21,6 +22,11 @@ class PointSourceCluster {
   virtual void addTimeIntegratedPointSources(
       double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
   virtual unsigned size() const = 0;
+};
+
+struct PointSourceClusterPair {
+  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /**

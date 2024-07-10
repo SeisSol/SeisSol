@@ -1,28 +1,30 @@
 #ifndef INITIALIZER_BOUNDARY_H_
 #define INITIALIZER_BOUNDARY_H_
 
-#include "Initializer/typedefs.hpp"
 #include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Layer.hpp"
+#include "Initializer/typedefs.hpp"
 #include "Parallel/Helper.hpp"
 
-#ifndef ACL_DEVICE
-# define MEMKIND_BOUNDARY  initializer::AllocationMode::HostOnly
-#else
-# define MEMKIND_BOUNDARY  useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit
-#endif // ACL_DEVICE
+namespace seissol::initializer {
 
-namespace seissol {
-  namespace initializer {
-    struct Boundary;
-  }
+inline auto allocationModeBoundary() {
+#ifndef ACL_DEVICE
+  return AllocationMode::HostOnly;
+#else
+  return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+#endif
 }
 
-struct seissol::initializer::Boundary {
+struct Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
-  
+
   void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(faceInformation, mask, 1, MEMKIND_BOUNDARY);
+    tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
   }
 };
+
+} // namespace seissol::initializer
+
 #endif

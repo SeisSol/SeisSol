@@ -93,9 +93,9 @@ Receiver::Receiver(unsigned pointId,
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
       elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
-      CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
-      CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
 
@@ -180,16 +180,16 @@ double ReceiverCluster::calcReceivers(
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
-      alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-      alignas(ALIGNMENT) real timeEvaluatedPrev[tensor::Q::size()];
-      alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
-      alignas(ALIGNMENT) real QEtaModal[tensor::QEtaModal::size()];
-      alignas(ALIGNMENT) real QEtaNodal[tensor::QEtaNodal::size()];
-      alignas(ALIGNMENT) real dudt_pstrain[tensor::QStress::size()];
-      alignas(ALIGNMENT) real QStressNodal[tensor::QStressNodal::size()];
+      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
+      alignas(Alignment) real timeEvaluatedPrev[tensor::Q::size()];
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(Alignment) real QEtaModal[tensor::QEtaModal::size()];
+      alignas(Alignment) real QEtaNodal[tensor::QEtaNodal::size()];
+      alignas(Alignment) real dudt_pstrain[tensor::QStress::size()];
+      alignas(Alignment) real QStressNodal[tensor::QStressNodal::size()];
 #ifdef USE_STP
-      alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+      alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
       krnl.spaceTimePredictor = stp;
@@ -197,7 +197,7 @@ double ReceiverCluster::calcReceivers(
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.spaceTimePredictor = stp;
 #else
-      alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
@@ -222,7 +222,7 @@ double ReceiverCluster::calcReceivers(
 
       // we always need a pstrain copy here (the dofs will get overridden by the predictor again,
       // but that's not true for the pstrain)
-      alignas(ALIGNMENT)
+      alignas(Alignment)
           real pstrain[seissol::tensor::QStress::size() + seissol::tensor::QEtaModal::size()];
           
       if (executor == Executor::Device) {
@@ -241,7 +241,7 @@ double ReceiverCluster::calcReceivers(
       double receiverTime = time;
       kernel::evaluatePstrainAtPoint pstrainKrnl;
       pstrainKrnl.Pstrain = pstrain;
-      alignas(ALIGNMENT) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
+      alignas(Alignment) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
       auto pAtPoint = init::QAtPoint::view::create(pStrainAtPoint);
       pstrainKrnl.PstrainAtPoint = pStrainAtPoint;
 
@@ -263,7 +263,7 @@ double ReceiverCluster::calcReceivers(
       kernel::evaluatePstrainAtPoint pstrainKrnl;
       pstrainKrnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       pstrainKrnl.Pstrain = pstrain;
-      alignas(ALIGNMENT) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
+      alignas(Alignment) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
       auto pAtPoint = init::QAtPoint::view::create(pStrainAtPoint);
       pstrainKrnl.PstrainAtPoint = pStrainAtPoint;
 
@@ -271,8 +271,8 @@ double ReceiverCluster::calcReceivers(
 #ifdef USE_STP
         // eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(
-            CONVERGENCE_ORDER, tau);
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
+                                                                                   tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
 #else
