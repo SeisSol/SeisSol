@@ -48,10 +48,13 @@
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/Plasticity.h>
 #include <Kernels/common.hpp>
+#include <Kernels/Plasticity.h>
 #include <cstddef>
+#include <cstring>
 #include <init.h>
 #include <omp.h>
 #include <string>
+#include <tensor.h>
 #include <unordered_map>
 
 #ifdef ACL_DEVICE
@@ -109,7 +112,8 @@ ReceiverCluster::ReceiverCluster(
     seissol::SeisSol& seissolInstance)
     : m_quantities(quantities), m_samplingInterval(samplingInterval),
       m_syncPointInterval(syncPointInterval), derivedQuantities(derivedQuantities),
-      seissolInstance(seissolInstance) {
+      seissolInstance(seissolInstance),
+      m_globalData(global) {
   m_timeKernel.setHostGlobalData(global);
   m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
 }
@@ -119,7 +123,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const seissol::initializer::Lut& ltsLut,
-                                  seissol::initializer::LTS const& lts) {
+                                  const seissol::initializer::LTS& lts) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -164,6 +168,10 @@ double ReceiverCluster::calcReceivers(
   auto oneMinusIntegratingFactor = (tv > 0.0) ? 1.0 - exp(-timeStepWidth / tv) : 1.0;
   auto globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
 
+      auto tv = seissolInstance.getSeisSolParameters().model.tv;
+      auto oneMinusIntegratingFactor = (tv > 0.0) ? 1.0 - exp(-timeStepWidth / tv) : 1.0;
+      auto globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
+
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
     auto threshold = std::max(1000, omp_get_num_threads() * 100);
@@ -173,8 +181,13 @@ double ReceiverCluster::calcReceivers(
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
       alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+      alignas(ALIGNMENT) real timeEvaluatedPrev[tensor::Q::size()];
       alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(ALIGNMENT) real QEtaModal[tensor::QEtaModal::size()];
+      alignas(ALIGNMENT) real QEtaNodal[tensor::QEtaNodal::size()];
+      alignas(ALIGNMENT) real dudt_pstrain[tensor::QStress::size()];
+      alignas(ALIGNMENT) real QStressNodal[tensor::QStressNodal::size()];
 #ifdef USE_STP
       alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
@@ -246,11 +259,15 @@ double ReceiverCluster::calcReceivers(
       seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
       seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
-      m_timeKernel.computeTaylorExpansion(
-            receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+      double receiverTime = time;
+      kernel::evaluatePstrainAtPoint pstrainKrnl;
+      pstrainKrnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+      pstrainKrnl.Pstrain = pstrain;
+      alignas(ALIGNMENT) real pStrainAtPoint[tensor::PstrainAtPoint::size()];
+      auto pAtPoint = init::QAtPoint::view::create(pStrainAtPoint);
+      pstrainKrnl.PstrainAtPoint = pStrainAtPoint;
 
-      Plasticity::computePlasticity(oneMinusIntegratingFactor, m_samplingInterval, tv, globalData, &tmpReceiverData.plasticity(), timeEvaluated, pstrain);
-
+      while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
         // eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
@@ -262,6 +279,79 @@ double ReceiverCluster::calcReceivers(
         m_timeKernel.computeTaylorExpansion(
             receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
 #endif
+
+        // Plasticity::computePlasticity(oneMinusIntegratingFactor,
+        //                               m_samplingInterval,
+        //                               tv,
+        //                               globalData,
+        //                               &tmpReceiverData.plasticity(),
+        //                               timeEvaluated,
+        //                               pstrain);
+      for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
+        /**
+         * Equation (10) from Wollherr et al.:
+         *
+         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
+         *
+         * where (11)
+         *
+         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+         *                 { sigma_{ij} + sigma0_{ij}                else
+         *
+         * Thus,
+         *
+         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
+         *                    { 0                                    else
+         *
+         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+         *
+         * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
+         *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
+         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
+         *
+         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
+         */
+        real factor = tmpReceiverData.plasticity().mufactor / (tv * oneMinusIntegratingFactor);
+        dudt_pstrain[q] = factor * (timeEvaluatedPrev[q] - timeEvaluated[q]);
+        // Integrate with explicit Euler
+        pstrain[q] += m_samplingInterval * dudt_pstrain[q];
+      }
+
+      kernel::plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
+      m2nKrnl_dudt_pstrain.v = m_globalData->vandermondeMatrix;
+      m2nKrnl_dudt_pstrain.QStress = dudt_pstrain;
+      m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
+      m2nKrnl_dudt_pstrain.execute();
+
+      for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+        QEtaModal[q] = pstrain[tensor::QStress::size() + q];
+      }
+
+      kernel::plConvertEtaModal2Nodal m2n_eta_Krnl;
+      m2n_eta_Krnl.v = m_globalData->vandermondeMatrix;
+      m2n_eta_Krnl.QEtaModal = QEtaModal;
+      m2n_eta_Krnl.QEtaNodal = QEtaNodal;
+      m2n_eta_Krnl.execute();
+
+      auto QStressNodalView = init::QStressNodal::view::create(QStressNodal);
+      unsigned numNodes = QStressNodalView.shape(0);
+      for (unsigned i = 0; i < numNodes; ++i) {
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+        QEtaNodal[i] = std::max((real) 0.0, QEtaNodal[i]) + 
+                       timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
+                                                  + QStressNodalView(i, 2) * QStressNodalView(i, 2)  + QStressNodalView(i, 3) * QStressNodalView(i, 3)
+                                                  + QStressNodalView(i, 4) * QStressNodalView(i, 4)  + QStressNodalView(i, 5) * QStressNodalView(i, 5)));
+      }
+      kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
+      n2m_eta_Krnl.vInv = m_globalData->vandermondeMatrixInverse;
+      n2m_eta_Krnl.QEtaNodal = QEtaNodal;
+      n2m_eta_Krnl.QEtaModal = QEtaModal;
+      n2m_eta_Krnl.execute();
+
+      for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+        pstrain[tensor::QStress::size() + q] = QEtaModal[q];
+      }
 
         krnl.execute();
         derivativeKrnl.execute();
@@ -282,13 +372,13 @@ double ReceiverCluster::calcReceivers(
           for (const auto& derived : derivedQuantities) {
             derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
           }
-          for (unsigned int i = 0; i<7 ; i++)
-          {
+          for (unsigned int i=0; i < 7; i++){
             receiver.output.push_back(multisimWrap(pAtPoint, sim, i));
           }
         }
 
         receiverTime += m_samplingInterval;
+        std::memcpy(timeEvaluatedPrev, timeEvaluated, sizeof(timeEvaluatedPrev));
       }
     }
   }
