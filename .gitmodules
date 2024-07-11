@@ -7,9 +7,6 @@
 [submodule "submodules/async"]
 	path = submodules/async
 	url = ../../TUM-I5/ASYNC.git
-[submodule "submodules/scons-tools"]
-	path = submodules/scons-tools
-	url = ../../TUM-I5/scons-tools.git
 [submodule "submodules/PUML"]
 	path = submodules/PUML
 	url = ../../TUM-I5/PUML2.git
