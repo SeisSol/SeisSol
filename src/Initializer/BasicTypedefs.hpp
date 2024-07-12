@@ -1,7 +1,7 @@
 #ifndef SEISSOL_BASICTYPEDEFS_HPP
 #define SEISSOL_BASICTYPEDEFS_HPP
 
-#include <Kernels/precision.hpp>
+#include "Kernels/precision.hpp"
 
 enum mpiTag { localIntegrationData = 0, neighboringIntegrationData = 1, timeData = 2 };
 
@@ -18,7 +18,7 @@ enum TimeClustering {
 
 // face types
 // Note: When introducting new types also change
-// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
+// int seissol::initializer::time_stepping::LtsWeights::getBoundaryCondition
 // and PUMLReader. Otherwise it might become a DR face...
 enum class FaceType {
   // regular: inside the computational domain
@@ -62,15 +62,6 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
 }
 
 enum SystemType { Host = 0, Device = 1 };
-
-// plasticity information per cell
-struct PlasticityData {
-  // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
-};
 
 enum class ComputeGraphType {
   LocalIntegral = 0,

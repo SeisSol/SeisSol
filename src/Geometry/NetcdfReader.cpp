@@ -18,11 +18,11 @@
 
 #endif // NETCDF_PASSIVE
 
-#include "MeshReader.h"
 #include "Initializer/preProcessorMacros.hpp"
+#include "MeshReader.h"
 
-#include "utils/logger.h"
 #include "utils/env.h"
+#include "utils/logger.h"
 
 namespace seissol::geometry {
 
@@ -108,6 +108,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   MPI_Bcast(buf, 2, MPI_UNSIGNED_LONG, 0, seissol::MPI::mpi.comm());
   bndSize = buf[0];
   bndElemSize = buf[1];
+
 #endif // USE_MPI
 
   if (masterRank >= 0) {
@@ -235,6 +236,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemVertices, start, count, reinterpret_cast<int*>(elemVertices)));
+
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemNeighbors, start, count, reinterpret_cast<int*>(elemNeighbors)));
       checkNcError(nc_get_vara_int(
@@ -248,6 +250,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
           ncFile, ncVarElemBoundaries, start, count, reinterpret_cast<int*>(elemBoundaries)));
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemNeighborRanks, start, count, reinterpret_cast<int*>(elemNeighborRanks)));
+
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemMPIIndices, start, count, reinterpret_cast<int*>(elemMPIIndices)));
       if (hasGroup)
@@ -328,8 +331,16 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 #endif // USE_MPI
   }
 
+  const unsigned long localCells = sizes[0];
+  unsigned long localStart = 0;
+
+#ifdef USE_MPI
+  MPI_Exscan(&localCells, &localStart, 1, MPI_UNSIGNED_LONG, MPI_SUM, seissol::MPI::mpi.comm());
+#endif
+
   // Copy buffers to elements
   for (int i = 0; i < sizes[0]; i++) {
+    m_elements[i].globalId = localStart + i;
     m_elements[i].localId = i;
 
     memcpy(m_elements[i].vertices, &elemVertices[i], sizeof(ElemVertices));
@@ -567,6 +578,7 @@ void NetcdfReader::addMPINeighbor(int localID,
   neighbor.localID = localID;
 
   neighbor.elements.resize(elemSize);
+
   for (int i = 0; i < elemSize; i++)
     neighbor.elements[i].localElement = bndElemLocalIds[i];
 

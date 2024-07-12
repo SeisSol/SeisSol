@@ -4,12 +4,14 @@
 #include "Geometry.hpp"
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "Kernels/precision.hpp"
+#include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Initializer/Parameters/FilterParameters.h>
 #include <array>
 #include <cassert>
 #include <cstring>
-#include <limits>
 #include <tuple>
 #include <vector>
 
@@ -120,7 +122,7 @@ struct GeneralParams {
   std::string checkPointBackend{"none"};
   double endTime{15.0};
   size_t maxIteration{1000000000};
-  initializer::parameters::FilterParameters filter;
+  seissol::initializer::parameters::FilterParameters filter;
 };
 
 struct PickpointParams {
@@ -139,7 +141,7 @@ struct ElementwiseFaultParams {
   int refinement{2};
 };
 
-using FaceToLtsMapType = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
@@ -167,6 +169,14 @@ struct ReceiverOutputData {
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
+
+  std::unique_ptr<parallel::DataCollector> deviceDataCollector;
+  std::vector<std::size_t> deviceDataPlus;
+  std::vector<std::size_t> deviceDataMinus;
+  std::size_t cellCount{0};
+
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
+  std::vector<std::size_t> deviceIndices;
 };
 } // namespace seissol::dr
 

@@ -38,7 +38,7 @@
  **/
 
 #include "GlobalData.h"
-#include <generated_code/init.h>
+#include "generated_code/init.h"
 #include <yateto.h>
 
 #include <type_traits>
@@ -52,7 +52,7 @@
 
 namespace init = seissol::init;
 
-namespace seissol::initializers {
+namespace seissol::initializer {
   namespace matrixmanip {
     MemoryProperties OnHost::getProperties() {
       // returns MemoryProperties initialized with default values i.e., CPU memory properties
@@ -207,7 +207,8 @@ namespace seissol::initializers {
 template<typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
-                                                     enum seissol::memory::Memkind memkind) {
+                                                     enum seissol::memory::Memkind memkind,
+                                                     seissol::SeisSol* seissolInstance) {
   MemoryProperties prop = MatrixManipPolicyT::getProperties();
 
   // We ensure that global matrices always start at an aligned memory address,
@@ -295,8 +296,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                              prop.pagesizeStack,
                                              memkind);
 
-
-  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance->getSeisSolParameters();
   auto filter = kernels::makeFilter(seissolParams.filter, 3);
   logInfo() << seissolParams.filter.order;
   logInfo() << static_cast<int>(seissolParams.filter.type);
@@ -307,11 +307,12 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
 template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
                                                                memory::ManagedAllocator& memoryAllocator,
-                                                               enum memory::Memkind memkind);
+                                                               enum memory::Memkind memkind,
+                                                               seissol::SeisSol* seissolInstance);
 
 template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
                                                                  memory::ManagedAllocator& memoryAllocator,
-                                                                 enum memory::Memkind memkind);
+                                                                 enum memory::Memkind memkind,
+                                                                 seissol::SeisSol* seissolInstance);
 
-
-} // namespace seissol::initializers
+} // namespace seissol::initializer

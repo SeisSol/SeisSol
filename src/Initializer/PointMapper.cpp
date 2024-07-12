@@ -69,12 +69,13 @@
  **/
 
 #include "PointMapper.h"
+#include "Geometry/MeshTools.h"
+#include "Initializer/MemoryAllocator.h"
+#include "Parallel/MPI.h"
 #include <cstring>
-#include <Initializer/MemoryAllocator.h>
 #include <utils/logger.h>
-#include <Parallel/MPI.h>
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
                                         seissol::geometry::MeshReader const& mesh,
                                         unsigned numPoints,
                                         short* contained,
@@ -87,7 +88,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
               meshIds);
 }
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
+void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
                                         std::vector<Vertex> const& vertices,
                                         std::vector<Element> const& elements,
                                         unsigned numPoints,
@@ -96,7 +97,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
 
   memset(contained, 0, numPoints * sizeof(short));
 
-  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
+  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), Alignment));
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int face = 0; face < 4; ++face) {
       VrtxCoords n, p;
@@ -181,7 +182,7 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
 }
 
 #ifdef USE_MPI
-void seissol::initializers::cleanDoubles(short* contained, unsigned numPoints)
+void seissol::initializer::cleanDoubles(short* contained, unsigned numPoints)
 {
   int myrank = seissol::MPI::mpi.rank();
   int size = seissol::MPI::mpi.size();

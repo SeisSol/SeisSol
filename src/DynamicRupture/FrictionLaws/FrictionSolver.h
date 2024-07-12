@@ -2,10 +2,11 @@
 #define SEISSOL_FRICTIONSOLVER_H
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Filter.h"
+#include "Parallel/Runtime/Stream.hpp"
 
 namespace seissol::dr::friction_law {
 /**
@@ -17,42 +18,47 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
+  explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
+      : drParameters(userDRParameters) {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
               &init::quadweights::Values[init::quadweights::Stop[0]],
               &spaceWeights[0]);
 
-    auto filter = kernels::makeFilter(userDrParameters->filter, 2);
+    auto filter = kernels::makeFilter(userDRParameters->filter, 2);
     filterMatrix = kernels::computeDRFilterMatrix(*filter);
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializers::Layer& layerData,
-                        seissol::initializers::DynamicRupture const* const dynRup,
+  virtual void evaluate(seissol::initializer::Layer& layerData,
+                        const seissol::initializer::DynamicRupture* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
+                        const double timeWeights[ConvergenceOrder],
+                        seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[CONVERGENCE_ORDER]);
+  void computeDeltaT(const double timePoints[ConvergenceOrder]);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture const* const dynRup,
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime);
+
+  virtual seissol::initializer::AllocationPlace allocationPlace();
 
   protected:
   /**
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[CONVERGENCE_ORDER] = {};
+  real deltaT[ConvergenceOrder] = {};
+  real sumDt;
 
-  dr::DRParameters* drParameters;
+  seissol::initializer::parameters::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
   ImpedanceMatrices* impedanceMatrices;
   real mFullUpdateTime;
@@ -83,11 +89,9 @@ class FrictionSolver {
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
-
   std::array<real, tensor::drFilter::size()> filterMatrix;
-
-  real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()];
+  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()];
 };
 } // namespace seissol::dr::friction_law
 

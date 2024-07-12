@@ -40,70 +40,36 @@
 #ifndef CUBEGENERATOR_H
 #define CUBEGENERATOR_H
 
-#include "utils/logger.h"
-#include "utils/args.h"
-#include "MeshReader.h"
-
+#include <cstring>
 #include <omp.h>
 
-#include <algorithm>
-#include <cstring>
-#include <map>
-#include <utility>
-#include <vector>
-
-#include <iostream>
+#include "Initializer/Parameters/CubeGeneratorParameters.h"
+#include "MeshReader.h"
 
 namespace seissol::geometry {
+  
+class CubeGenerator : public MeshReader {
+  int rank;
+  int nProcs;
 
-struct CubeGeneratorParameters {
-  unsigned int cubeMinX;
-  unsigned int cubeMaxX;
-  unsigned int cubeMinY;
-  unsigned int cubeMaxY;
-  unsigned int cubeMinZ;
-  unsigned int cubeMaxZ;
-  unsigned cubeX;
-  unsigned cubeY;
-  unsigned cubeZ;
-  unsigned cubePx;
-  unsigned cubePy;
-  unsigned cubePz;
-  double cubeS;
-  double cubeSx;
-  double cubeSy;
-  double cubeSz;
-  double cubeTx;
-  double cubeTy;
-  double cubeTz;
-};
-
-class CubeGenerator : public seissol::geometry::MeshReader {
   public:
   CubeGenerator(int rank,
                 int nProcs,
                 const std::string& meshFile,
-                const seissol::geometry::CubeGeneratorParameters& cubeParams);
+                const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams);
 
-  /*
-    inline void loadBar(int x, int n, int r = 100, int w = 50);
-    const char* dim2str(unsigned int dim);
-    template <typename A, typename B>
-    std::pair<B, A> flip_pair(const std::pair<A, B>& p);
-    void checkNcError(int error);
-  */
-  void cubeGenerator(unsigned int numCubes[4],
-                     unsigned int numPartitions[4],
+  void cubeGenerator(const std::array<unsigned int, 4> numCubes,
+                     const std::array<unsigned int, 4> numPartitions,
                      unsigned int boundaryMinx,
                      unsigned int boundaryMaxx,
                      unsigned int boundaryMiny,
                      unsigned int boundaryMaxy,
                      unsigned int boundaryMinz,
                      unsigned int boundaryMaxz,
-                     unsigned int numCubesPerPart[4],
-                     unsigned long numElemPerPart[4],
-                     unsigned int numVrtxPerPart[4],
-                     unsigned int numBndElements[3],
+                     const std::array<unsigned int, 4> numCubesPerPart,
+                     const std::array<unsigned long, 4> numElemPerPart,
+                     const std::array<unsigned int, 4> numVrtxPerPart,
+                     const std::array<unsigned int, 3> numBndElements,
                      double scale,
                      double scaleX,
                      double scaleY,
@@ -111,7 +77,11 @@ class CubeGenerator : public seissol::geometry::MeshReader {
                      double tx,
                      double ty,
                      double tz,
-                     const std::string& output);
+                     const std::string& meshFile);
+
+  private:
+  void findElementsPerVertex();
+  void addMPINeighbor(int localID, int bndRank, int elemSize, const int* bndElemLocalIds);
 };
 } // namespace seissol::geometry
 #endif // CUBEGENERATOR_H

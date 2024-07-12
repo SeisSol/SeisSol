@@ -10,49 +10,57 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
-        src/tests/DynamicRupture
-        src/tests/Model
-        src/tests/Reader
+        src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/tree
+        src/Modules
+        src/Monitoring
+        src/Parallel
+        src/Physics
+        src/Reader
         src/SourceTerm
+        src/tests
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
+        src/Equations/elastic/Model/datastructures.hpp
+        src/Equations/elastic/Model/integrationData.hpp
+        src/Equations/viscoelastic/Model/integrationData.hpp
+        src/Equations/viscoelastic2/Model/datastructures.hpp
+        src/Equations/viscoelastic2/Model/integrationData.hpp
+        src/Equations/anisotropic/Model/datastructures.hpp
+        src/Equations/anisotropic/Model/integrationData.hpp
+        src/Equations/poroelastic/Model/datastructures.hpp
+        src/Equations/poroelastic/Model/integrationData.hpp
+        src/Initializer/Boundary.h
         src/Initializer/BasicTypedefs.hpp
+        src/Initializer/DynamicRupture.h
         src/Initializer/InputAux.hpp
-        src/Initializer/InputParameters.hpp
-        src/Initializer/InputParameters.cpp
+        src/Initializer/LTS.h
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Kernels/Filter.h
         src/Kernels/Filter.cpp
         src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceCluster.cpp
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Monitoring/instrumentation.hpp
-        src/Geometry/MeshReader.h
-        src/Geometry/MeshReader.cpp
-        src/Geometry/NetcdfReader.h
-        src/Geometry/NetcdfReader.cpp
-        src/Geometry/PUMLReader.h
-        src/Geometry/PUMLReader.cpp
-        src/Geometry/PartitioningLib.h
-        src/Geometry/PartitioningLib.cpp
-        src/Geometry/CubeGenerator.h
-        src/Geometry/CubeGenerator.cpp
-        src/Parallel/Helper.hpp
-        src/Physics/Attenuation.hpp
-        src/Physics/Attenuation.cpp
+        src/Kernels/Receiver.h
+        src/Kernels/Receiver.cpp
+        src/Kernels/Touch.h
+        src/Kernels/Touch.cpp
+        src/Model/common_datastructures.hpp
+        src/Model/plasticity.hpp
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
@@ -65,14 +73,21 @@ format() {
     local formatter="${1}"
 
     if [ ! -f "${formatter}" ]; then
-        echo "Could not find a clang-format. Please specify one as the first argument"
-        exit 166
+        echo "Could not find clang-format. Please specify one as the first argument"
+        exit 176
+    fi
+
+    local formatter_version=$(${formatter} --version)
+    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
+        exit 176
     fi
 
     # check for self
     if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/format.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the second argument"
-        exit 166
+        exit 176
     fi
 
     for dir in ${allowlist_dir}; do

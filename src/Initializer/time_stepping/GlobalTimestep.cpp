@@ -1,21 +1,23 @@
 #include "GlobalTimestep.hpp"
 
-#include <vector>
+#include <Eigen/Dense>
 #include <array>
 #include <functional>
-#include <Eigen/Dense>
+#include <vector>
 
 #include "Equations/datastructures.hpp"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/InputParameters.hpp"
+#include "Initializer/Parameters//SeisSolParameters.h"
 
 #include "SeisSol.h"
 
 namespace seissol::initializer {
-static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
-                                  double pWaveVel,
-                                  double cfl,
-                                  double maximumAllowedTimeStep) {
+static double
+    computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
+                        double pWaveVel,
+                        double cfl,
+                        double maximumAllowedTimeStep,
+                        const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
   Eigen::Matrix4d A;
@@ -31,18 +33,18 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
 
   // Compute maximum timestep
   return std::fmin(maximumAllowedTimeStep,
-                   cfl * 2.0 * insphere / (pWaveVel * (2 * CONVERGENCE_ORDER - 1)));
+                   cfl * 2.0 * insphere / (pWaveVel * (2 * ConvergenceOrder - 1)));
 }
 
-GlobalTimestep computeTimesteps(double cfl,
-                                double maximumAllowedTimeStep,
-                                const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& cellToVertex) {
+GlobalTimestep
+    computeTimesteps(double cfl,
+                     double maximumAllowedTimeStep,
+                     const std::string& velocityModel,
+                     const seissol::initializer::CellToVertexArray& cellToVertex,
+                     const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::Material_t;
 
-  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
-
-  auto* queryGen = seissol::initializers::getBestQueryGenerator(
+  auto* queryGen = seissol::initializer::getBestQueryGenerator(
       seissol::initializer::parameters::isModelAnelastic(),
       seissolParams.model.plasticity,
       seissol::initializer::parameters::isModelAnisotropic(),
@@ -50,7 +52,7 @@ GlobalTimestep computeTimesteps(double cfl,
       seissolParams.model.useCellHomogenizedMaterial,
       cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
-  seissol::initializers::MaterialParameterDB<Material> parameterDB;
+  seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(velocityModel, queryGen);
 
@@ -61,7 +63,7 @@ GlobalTimestep computeTimesteps(double cfl,
     double pWaveVel = materials[cell].getMaxWaveSpeed();
     std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep);
+        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep, seissolParams);
   }
 
   const auto minmaxCellPosition =

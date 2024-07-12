@@ -1,20 +1,21 @@
+#include "Kernels/Interface.hpp"
 #include "Recorders.h"
-#include <Kernels/Interface.hpp>
 #include <yateto.h>
 
 using namespace device;
-using namespace seissol::initializers;
-using namespace seissol::initializers::recording;
+using namespace seissol::initializer;
+using namespace seissol::initializer::recording;
 
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
-  kernels::LocalData::Loader loader;
-  loader.load(handler, layer);
-  setUpContext(handler, layer, loader);
+  kernels::LocalData::Loader loader, loaderHost;
+  loader.load(handler, layer, AllocationPlace::Device);
+  loaderHost.load(handler, layer, AllocationPlace::Host);
+  setUpContext(handler, layer, loader, loaderHost);
 
-  auto* pstrains = currentLayer->var(currentHandler->pstrain);
+  auto* pstrains = currentLayer->var(currentHandler->pstrain, AllocationPlace::Device);
   size_t nodalStressTensorCounter = 0;
-  real* scratchMem =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
+  real* scratchMem = static_cast<real*>(currentLayer->getScratchpadMemory(
+      currentHandler->integratedDofsScratch, AllocationPlace::Device));
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
@@ -24,11 +25,11 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
-      dofsPtrs[cell] = static_cast<real*>(data.dofs);
+      dofsPtrs[cell] = static_cast<real*>(data.dofs());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity.initialLoading);
+      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
     }
 
     ConditionalKey key(*KernelNames::Plasticity);

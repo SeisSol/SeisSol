@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-#include <Kernels/DeviceAux/PlasticityAux.h>
+#include "Kernels/DeviceAux/PlasticityAux.h"
 #include <init.h>
 #include <cmath>
 #include <type_traits>
@@ -34,7 +34,7 @@ constexpr size_t leadDim() {
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
                                                unsigned *isAdjustableVector,
-                                               const PlasticityData *plasticity,
+                                               const seissol::model::PlasticityData *plasticity,
                                                const double oneMinusIntegratingFactor) {
   real *elementTensors = nodalStressTensors[blockIdx.x];
   real localStresses[NUM_STRESS_COMPONENTS];
@@ -96,7 +96,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              unsigned *isAdjustableVector,
-                             const PlasticityData *plasticity,
+                             const seissol::model::PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void *streamPtr) {
@@ -162,7 +162,7 @@ void adjustPointers(real *QEtaNodal,
 
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_computePstrains(real **pstrains,
-                                       const PlasticityData *plasticityData,
+                                       const seissol::model::PlasticityData *plasticityData,
                                        real **dofs,
                                        real *prevDofs,
                                        real **dUdTpstrain,
@@ -173,7 +173,7 @@ __global__ void kernel_computePstrains(real **pstrains,
   if (isAdjustableVector[blockIdx.x]) {
     real *localDofs = dofs[blockIdx.x];
     real *localPrevDofs = &prevDofs[tensor::Q::Size * blockIdx.x];
-    const PlasticityData *localData = &plasticityData[blockIdx.x];
+    const seissol::model::PlasticityData *localData = &plasticityData[blockIdx.x];
     real *localPstrain = pstrains[blockIdx.x];
     real *localDuDtPstrain = dUdTpstrain[blockIdx.x];
 
@@ -192,7 +192,7 @@ __global__ void kernel_computePstrains(real **pstrains,
 }
 
 void computePstrains(real **pstrains,
-                     const PlasticityData *plasticityData,
+                     const seissol::model::PlasticityData *plasticityData,
                      real **dofs,
                      real *prevDofs,
                      real **dUdTpstrain,

@@ -1,7 +1,8 @@
 #ifndef SEISSOL_DEVICEAUX_PLASTICITY_H
 #define SEISSOL_DEVICEAUX_PLASTICITY_H
 
-#include <Initializer/BasicTypedefs.hpp>
+#include "Initializer/BasicTypedefs.hpp"
+#include "Model/plasticity.hpp"
 #include <stddef.h>
 
 #define NUM_STRESS_COMPONENTS 6
@@ -14,7 +15,7 @@ namespace aux {
 namespace plasticity {
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              unsigned *isAdjustableVector,
-                             const PlasticityData *plasticity,
+                             const seissol::model::PlasticityData *plasticity,
                              double oneMinusIntegratingFactor,
                              size_t numElements,
                              void* streamPtr);
@@ -29,7 +30,7 @@ void adjustPointers(real *QEtaNodal,
                     void *streamPtr);
 
 void computePstrains(real **pstrains,
-                     const PlasticityData *plasticityData,
+                     const seissol::model::PlasticityData *plasticityData,
                      real **dofs,
                      real *prevDofs,
                      real **dUdTpstrain,

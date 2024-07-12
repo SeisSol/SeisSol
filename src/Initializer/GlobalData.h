@@ -42,6 +42,7 @@
 
 #include "MemoryAllocator.h"
 #include "typedefs.hpp"
+#include <SeisSol.h>
 #include <yateto.h>
 #include <Kernels/Filter.h>
 
@@ -50,7 +51,21 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
+  namespace initializer {
+    /*
+    * \class MemoryProperties
+    *
+    * \brief An auxiliary data structure for a policy-based design
+    *
+    * Attributes are initialized with CPU memory properties by default.
+    * See, an example of a policy-based design in GlobalData.cpp
+    * */
+    struct MemoryProperties {
+      size_t alignment{Alignment};
+      size_t pagesizeHeap{PagesizeHeap};
+      size_t pagesizeStack{PagesizeStack};
+    };
+
     namespace matrixmanip {
       struct OnHost {
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;
@@ -89,13 +104,14 @@ namespace seissol {
     struct GlobalDataInitializer {
       static void init(GlobalData &globalData,
                        memory::ManagedAllocator &memoryAllocator,
-                       enum memory::Memkind memkind);
+                       enum memory::Memkind memkind,
+                       seissol::SeisSol* seissolInstance);
     };
 
     // Specific Global data initializers of SeisSol.
     using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
     using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-  }  // namespace initializers
+  }  // namespace initializer
 } // namespace seissol
 
 #endif

@@ -6,7 +6,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.hpp"
 #include <cstddef>
 
-namespace seissol::initializers {
+namespace seissol::initializer {
 struct GraphKey {
   GraphKey(ComputeGraphType userGraphType,
            double userTimeWidth = 0.0,
@@ -34,5 +34,5 @@ struct GraphKeyHash {
     return result;
   }
 };
-} // namespace seissol::initializers
+} // namespace seissol::initializer
 #endif  // ACL_DEVICE

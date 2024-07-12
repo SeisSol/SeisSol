@@ -9,7 +9,8 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
+#include "Initializer/preProcessorMacros.hpp"
 
 namespace seissol::writer {
 
@@ -47,21 +48,22 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
-  const auto initialConditionType =  seissol::SeisSol::main.getSeisSolParameters().initialization.type;
+  const auto initialConditionType =  seissolInstance.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
      initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
     return;
   }
+
   logInfo(mpi.rank())
     << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
     << " at time " << simulationTime;
   
-  auto& iniFields = seissol::SeisSol::main.getMemoryManager().getInitialConditions();
+  auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = seissol::SeisSol::main.getMemoryManager().getLtsLut();
-  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
+  auto* lts = seissolInstance.getMemoryManager().getLts();
+  auto* ltsLut = seissolInstance.getMemoryManager().getLtsLut();
+  auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
@@ -70,7 +72,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -98,7 +100,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalL2Local = ErrorArray_t{0.0};
     auto analyticalLInfLocal = ErrorArray_t{-1.0};
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     const int numThreads = omp_get_max_threads();
 #else
     const int numThreads = 1;
@@ -117,14 +119,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
 
-    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(ALIGNMENT) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
-#ifdef _OPENMP
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
     for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
       const int curThreadId = omp_get_thread_num();
 #else
       const int curThreadId = 0;

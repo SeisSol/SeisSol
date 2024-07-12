@@ -41,8 +41,9 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
-#include <memory>
+#include "Common/constants.hpp"
 #include "generated_code/kernel.h"
+#include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
@@ -54,14 +55,14 @@
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class LocalBase;
-  }
-}
-struct GlobalData;
+  struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::LocalBase {
+namespace seissol::kernels {
+
+class LocalBase {
   protected:
+    double gravitationalAcceleration;
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::volume m_volumeKernelPrototype;
     kernel::localFlux m_localFluxKernelPrototype;
@@ -86,10 +87,16 @@ public:
       this->initConds = initConds;
     }
 
+    void setGravitationalAcceleration(double g) {
+      gravitationalAcceleration = g;
+    }
+
     physics::InitialField* getInitCond(size_t index) {
       const auto& condition = this->initConds->at(index);
       return condition.get();
     }
 };
+
+} // namespace seissol::kernels
 #endif
 

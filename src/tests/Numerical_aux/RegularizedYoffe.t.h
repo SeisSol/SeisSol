@@ -1,5 +1,5 @@
+#include "Numerical_aux/RegularizedYoffe.h"
 #include "doctest.h"
-#include <Numerical_aux/RegularizedYoffe.h>
 #include <cassert>
 
 namespace seissol::unit_test {
@@ -59,8 +59,8 @@ TEST_CASE("Regularized Yoffe Function") {
   constexpr real dt = 0.01;
   // rather coarse epsilon, since the quadrature to compute the reference is also rather coarse
   constexpr real epsilon = 1e-2;
-  for (real const accTime : {0.2, 0.3}) {
-    for (real const effectiveRiseTime : {0.9, 1.1}) {
+  for (const real accTime : {0.2, 0.3}) {
+    for (const real effectiveRiseTime : {0.9, 1.1}) {
       real tauS = accTime / 1.27;
       real tauR = effectiveRiseTime - 2 * tauS;
 

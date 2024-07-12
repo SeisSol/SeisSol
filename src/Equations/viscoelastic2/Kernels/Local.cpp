@@ -47,14 +47,16 @@
 
 #include <yateto.h>
 
-void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+namespace seissol::kernels {
+
+void Local::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % Alignment == 0 );
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % Alignment == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % Alignment == 0 );
   }
 #endif
 
@@ -65,11 +67,11 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
                                               LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -79,49 +81,49 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)tmp.timeIntegratedAne) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % Alignment == 0 );
+  assert( ((uintptr_t)tmp.timeIntegratedAne) % Alignment == 0 );
+  assert( ((uintptr_t)data.dofs())           % Alignment == 0 );
 #endif
 
-  real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));
+  alignas(Alignment) real Qext[tensor::Qext::size()];
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration.starMatrices[i];
+    volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
   
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
   
   volKrnl.execute();
   
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[face] != FaceType::dynamicRupture ) {
-      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+    if( data.cellInformation().faceTypes[face] != FaceType::dynamicRupture ) {
+      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
   kernel::local lKrnl = m_localKernelPrototype;
-  lKrnl.E = data.localIntegration.specific.E;
+  lKrnl.E = data.localIntegration().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
-  lKrnl.Q = data.dofs;
-  lKrnl.Qane = data.dofsAne;
+  lKrnl.Q = data.dofs();
+  lKrnl.Qane = data.dofsAne();
   lKrnl.Qext = Qext;
-  lKrnl.W = data.localIntegration.specific.W;
-  lKrnl.w = data.localIntegration.specific.w;
+  lKrnl.W = data.localIntegration().specific.W;
+  lKrnl.w = data.localIntegration().specific.w;
 
   lKrnl.execute();
 }
 
-void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+void Local::flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops )
 {
@@ -139,7 +141,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned seissol::kernels::Local::bytesIntegral()
+unsigned Local::bytesIntegral()
 {
   unsigned reals = 0;
 
@@ -156,3 +158,5 @@ unsigned seissol::kernels::Local::bytesIntegral()
   
   return reals * sizeof(real);
 }
+
+} // namespace seissol::kernels

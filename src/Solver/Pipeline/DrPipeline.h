@@ -43,9 +43,9 @@
 #ifndef DR_PIPELINE_H
 #define DR_PIPELINE_H
 
-#include <Solver/Pipeline/GenericPipeline.h>
-#include <Solver/Pipeline/DrTuner.h>
-#include <generated_code/tensor.h>
+#include "Solver/Pipeline/GenericPipeline.h"
+#include "Solver/Pipeline/DrTuner.h"
+#include "generated_code/tensor.h"
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
@@ -58,7 +58,7 @@ namespace seissol::dr::pipeline {
   using DrPipeline = seissol::GenericPipeline<3, 1024, DrPipelineTuner>;
 
   struct DrContext {
-    using QInterpolatedPtrT = real (*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    using QInterpolatedPtrT = real (*)[ConvergenceOrder][tensor::QInterpolated::size()];
     using imposedStatePlusT = real (*)[tensor::QInterpolated::size()];
 
     real* QInterpolatedPlusOnDevice{nullptr};

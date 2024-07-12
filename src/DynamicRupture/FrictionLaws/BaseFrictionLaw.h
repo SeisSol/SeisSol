@@ -4,9 +4,9 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
@@ -17,15 +17,17 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
+      : FrictionSolver(drParameters) {};
 
   /**
    * evaluates the current friction model
    */
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[ConvergenceOrder],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -35,7 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(ALIGNMENT) FaultStresses faultStresses{};
+      alignas(Alignment) FaultStresses faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
@@ -65,7 +67,7 @@ class BaseFrictionLaw : public FrictionSolver {
       TractionResults tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     initialPressure[ltsFace],
@@ -118,6 +120,15 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_END(myRegionHandle)
 
       if (this->drParameters->isFrictionEnergyRequired) {
+
+        if (this->drParameters->isCheckAbortCriteraEnabled) {
+          common::updateTimeSinceSlipRateBelowThreshold(
+              slipRateMagnitude[ltsFace],
+              ruptureTimePending[ltsFace],
+              energyData[ltsFace],
+              this->sumDt,
+              this->drParameters->terminatorSlipRateThreshold);
+        }
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

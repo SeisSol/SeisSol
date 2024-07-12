@@ -9,6 +9,7 @@
 
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/ODEInt.h"
+#include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -19,12 +20,11 @@
 
 namespace seissol {
 
-// Used to avoid including SeisSo.h here as this leads to all sorts of issues
-double getGravitationalAcceleration();
-
 class GravitationalFreeSurfaceBc {
+private:
+  const double gravitationalAcceleration;
 public:
-  GravitationalFreeSurfaceBc() = default;
+  GravitationalFreeSurfaceBc(double gravitationalAcceleration) : gravitationalAcceleration(gravitationalAcceleration) {};
 
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType);
@@ -62,9 +62,9 @@ public:
     projectKernel.Tinv = Tinv.data();
 
     // Prepare projection of displacement/velocity to face-nodal basis.
-    alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
-    alignas(ALIGNMENT) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
+    alignas(Alignment) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
     auto rotateDisplacementToGlobal = init::displacementRotationMatrix::view::create(rotateDisplacementToGlobalData);
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -74,7 +74,7 @@ public:
       }
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
-    alignas(ALIGNMENT) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
+    alignas(Alignment) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
 
     auto integratedDisplacementNodal = init::averageNormalDisplacement::view::create(integratedDisplacementNodalData);
     auto rotatedFaceDisplacement = init::faceDisplacement::view::create(rotatedFaceDisplacementData);
@@ -88,11 +88,11 @@ public:
     rotateFaceDisplacementKrnl.execute();
 
     // Temporary buffer to store nodal face dofs at some time t
-    alignas(ALIGNMENT) real dofsFaceNodalStorage[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceNodalStorage[tensor::INodal::size()];
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     // Temporary buffer to store nodal face coefficients at some time t
-    alignas(ALIGNMENT) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
+    alignas(Alignment) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
 
     const double deltaT = timeStepWidth;
     const double deltaTInt = timeStepWidth;
@@ -114,14 +114,12 @@ public:
       projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
     }
 
-#ifdef USE_ELASTIC
     const double rho = materialData.local.rho;
-    const double g = getGravitationalAcceleration(); // [m/s^2]
-    const double Z = std::sqrt(materialData.local.lambda * rho) ;
-#endif
+    const double g = gravitationalAcceleration; // [m/s^2]
+    const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
-    // Note: Probably need to increase CONVERGENCE_ORDER by 1 here!
-    for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
+    // Note: Probably need to increase ConvergenceOrderby 1 here!
+    for (int order = 1; order < ConvergenceOrder+1; ++order) {
       dofsFaceNodal.setZero();
 
       projectKernel.execute(order - 1, faceIdx);
@@ -140,13 +138,10 @@ public:
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
 
-#ifdef USE_ELASTIC
         const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
         // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
         // 2 add, 2 mul = 4 flops
-#else
-        const double curCoeff = uInside;
-#endif
+
         prevCoefficients[i] = curCoeff;
 
         // 2 * 3 = 6 flops for updating displacement
@@ -175,9 +170,10 @@ public:
                         ConditionalPointersToRealsTable &dataTable,
                         ConditionalMaterialTable &materialTable,
                         double timeStepWidth,
-                        device::DeviceInstance& device) {
+                        device::DeviceInstance& device,
+                        seissol::parallel::runtime::StreamRuntime& runtime) {
 
-    auto* deviceStream = device.api->getDefaultStream();
+    auto* deviceStream = runtime.stream();
     ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if(dataTable.find(key) != dataTable.end()) {
 
@@ -260,10 +256,10 @@ public:
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;
-      const double g = getGravitationalAcceleration();
+      const double g = gravitationalAcceleration;
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
+      for (int order = 1; order < ConvergenceOrder+1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);

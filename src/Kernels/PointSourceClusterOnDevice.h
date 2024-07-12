@@ -1,23 +1,27 @@
-// Copyright (C) 2023 Intel Corporation
+// Copyright (c) 2024 SeisSol Group
+// Copyright (c) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 #define KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 
 #include "PointSourceCluster.h"
-#include <SourceTerm/typedefs.hpp>
+#include "SourceTerm/typedefs.hpp"
 
 #include <array>
 
 namespace seissol::kernels {
 class PointSourceClusterOnDevice : public PointSourceCluster {
   public:
-  PointSourceClusterOnDevice(sourceterm::ClusterMapping mapping, sourceterm::PointSources sources);
-  void addTimeIntegratedPointSources(double from, double to) override;
+  PointSourceClusterOnDevice(std::shared_ptr<sourceterm::ClusterMapping> mapping,
+                             std::shared_ptr<sourceterm::PointSources> sources);
+  void addTimeIntegratedPointSources(double from,
+                                     double to,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
   unsigned size() const override;
 
   private:
-  static void addTimeIntegratedPointSourceNRF(std::array<real, 3> const& slip,
+  static void addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                               real* mInvJInvPhisAtSources,
                                               real* tensor,
                                               real A,
@@ -28,8 +32,8 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   static void addTimeIntegratedPointSourceFSRM(
       real slip, real* mInvJInvPhisAtSources, real* tensor, double from, double to, real* dofs);
 
-  sourceterm::ClusterMapping clusterMapping_;
-  sourceterm::PointSources sources_;
+  std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
+  std::shared_ptr<sourceterm::PointSources> sources_;
 };
 } // namespace seissol::kernels
 

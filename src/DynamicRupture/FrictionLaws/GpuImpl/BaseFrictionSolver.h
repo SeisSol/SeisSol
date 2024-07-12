@@ -1,9 +1,9 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -11,20 +11,23 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() = default;
 
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture const* const dynRup,
+  void evaluate(seissol::initializer::Layer& layerData,
+                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[ConvergenceOrder],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
     auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
 
     {
@@ -52,7 +55,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
@@ -111,8 +114,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devSpaceWeights{this->devSpaceWeights};
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
+      auto devSumDt{this->sumDt};
 
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
+      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
+      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
@@ -133,6 +140,17 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      pointIndex);
 
           if (isFrictionEnergyRequired) {
+
+            if (isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+                  devSlipRateMagnitude[ltsFace],
+                  devRuptureTimePending[ltsFace],
+                  devEnergyData[ltsFace],
+                  devSumDt,
+                  devTerminatorSlipRateThreshold,
+                  pointIndex);
+            }
+
             common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
                                                         devQInterpolatedPlus[ltsFace],
                                                         devQInterpolatedMinus[ltsFace],
@@ -144,8 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-      queue.wait_and_throw();
     }
+
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

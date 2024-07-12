@@ -44,6 +44,7 @@
 
 namespace seissol {
   class Simulator;
+  class SeisSol;
 }
 
 /**
@@ -68,6 +69,9 @@ class seissol::Simulator {
 
     //! If true, a checkpoint is loaded before the simulation
     bool m_loadCheckPoint;
+
+    //! If true, the while loop of the simulation will be aborted (see terminator)
+    bool m_abort;
 
   public:
     /**
@@ -117,9 +121,14 @@ class seissol::Simulator {
     bool checkPointingEnabled();
 
     /**
+     * update m_abort to abort the main loop of the simulation (see terminator)
+     */
+    void abort();
+
+    /**
      * Simulates until finished.
      **/
-    void simulate();
+    void simulate(seissol::SeisSol& seissolInstance);
 };
 
 #endif

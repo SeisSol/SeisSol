@@ -47,13 +47,13 @@
 #include "MPIDummy.h"
 #else // USE_MPI
 
-#include <mpi.h>
-#include "utils/logger.h"
 #include "MPIBasic.h"
-#include <numeric>
+#include "utils/logger.h"
 #include <algorithm>
-#include <string>
+#include <mpi.h>
+#include <numeric>
 #include <optional>
+#include <string>
 
 #endif // USE_MPI
 
@@ -72,7 +72,6 @@ class MPI : public MPIBasic {
   public:
   ~MPI() override = default;
 
-#ifdef ACL_DEVICE
   /**
    * @brief Inits Device(s).
    *
@@ -88,7 +87,8 @@ class MPI : public MPIBasic {
    * OMPI_COMM_WORLD_LOCAL_RANK env. variables
    * */
   void bindAcceleratorDevice();
-#endif // ACL_DEVICE
+
+  void printAcceleratorDeviceInfo();
 
   /**
    * Initialize MPI
@@ -181,8 +181,9 @@ class MPI : public MPIBasic {
     return collected;
   }
 
-  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
-  template<typename F>
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by
+  // rank 0, then by rank 1, then by rank 2 etc.
+  template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
       comm = std::optional<MPI_Comm>(m_comm);
@@ -195,14 +196,14 @@ class MPI : public MPIBasic {
     const int tag = 15; // TODO(David): replace by a tag allocation system one day
     char flag = 0;
     if (rank > 0) {
-      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+      MPI_Recv(&flag, 1, MPI_CHAR, rank - 1, tag, comm.value(), MPI_STATUS_IGNORE);
     }
 
     std::invoke(std::forward<F>(operation));
 
     // size >= 1 is ensured
     if (rank < size - 1) {
-      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+      MPI_Send(&flag, 1, MPI_CHAR, rank + 1, tag, comm.value());
     }
   }
 
@@ -258,13 +259,11 @@ class MPI : public MPIBasic {
   /**
    * Finalize MPI
    */
-  void finalize() {
-    MPI_Finalize();
-  }
+  void finalize() { MPI_Finalize(); }
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutDevice, CopyInCopyOutHost };
+  enum class DataTransferMode { Direct, CopyInCopyOutHost };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
 
   /** The only instance of the class */

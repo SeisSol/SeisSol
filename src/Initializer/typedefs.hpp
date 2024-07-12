@@ -48,15 +48,17 @@
 #endif
 
 #include "BasicTypedefs.hpp"
-#include <Initializer/preProcessorMacros.hpp>
-#include <Kernels/common.hpp>
+#include "Initializer/preProcessorMacros.hpp"
+#include "Kernels/common.hpp"
 #include "Equations/datastructures.hpp"
-#include <generated_code/tensor.h>
-#include <DynamicRupture/Typedefs.hpp>
-#include <DynamicRupture/Misc.h>
+#include "generated_code/tensor.h"
+#include "DynamicRupture/Typedefs.hpp"
+#include "DynamicRupture/Misc.h"
 
 #include <cstddef>
 #include <vector>
+
+namespace seissol {
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -407,7 +409,7 @@ struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
-  // When integrating quantities over the fault (e.g. mu*slip for the seismic moment)
+  // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
   // the transformation, the surface Jacobian (e.g. |n^e(\chi)| in eq. (35) of Uphoff et al. (2023))
@@ -423,6 +425,7 @@ struct DREnergyOutput {
   real slip[seissol::tensor::slipInterpolated::size()];
   real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
   real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
+  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::numPaddedPoints];
 };
 
 struct CellDRMapping {
@@ -449,32 +452,22 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
-
-/*
- * \class MemoryProperties
- *
- * \brief An auxiliary data structure for a policy-based design
- *
- * Attributes are initialized with CPU memory properties by default.
- * See, an example of a policy-based design in GlobalData.cpp
- * */
-struct MemoryProperties {
-  size_t alignment{ALIGNMENT};
-  size_t pagesizeHeap{PAGESIZE_HEAP};
-  size_t pagesizeStack{PAGESIZE_STACK};
-};
-
-namespace seissol {
 struct GravitationSetup {
   double acceleration = 9.81; // m/s
 };
-} // namespace seissol
 
 struct TravellingWaveParameters {
-  std::array<double, 3> origin;
-  std::array<double, 3> kVec;
+  Eigen::Vector3d origin;
+  Eigen::Vector3d kVec;
   std::vector<int> varField;
   std::vector<std::complex<double>> ampField;
+};
+
+struct AcousticTravellingWaveParametersITM {
+  double k;
+  double itmStartingTime;
+  double itmDuration;
+  double itmVelocityScalingFactor;
 };
 
 struct PressureInjectionParameters {
@@ -482,5 +475,7 @@ struct PressureInjectionParameters {
   double magnitude;
   double width;
 };
+
+} // namespace seissol
 
 #endif

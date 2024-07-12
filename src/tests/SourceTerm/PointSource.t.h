@@ -1,4 +1,4 @@
-#include <SourceTerm/PointSource.h>
+#include "SourceTerm/PointSource.h"
 
 #include <memory>
 
@@ -21,7 +21,7 @@ TEST_CASE("Transform moment tensor") {
   real l_localPressureComponent = 0.0;
   real l_localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto l_momentTensor = sourceterm::AlignedArray<real, sourceterm::PointSources::TensorSize>{};
+  auto l_momentTensor = seissol::memory::AlignedArray<real, sourceterm::PointSources::TensorSize>{};
 
   seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY,
                                              l_localSolidVelocityComponent,

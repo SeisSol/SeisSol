@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  */
 
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "FreeSurfaceWriter.h"
 
 #include <algorithm>
@@ -48,8 +48,8 @@
 
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
-#include <Geometry/MeshTools.h>
-#include <Modules/Modules.h>
+#include "Geometry/MeshTools.h"
+#include "Modules/Modules.h"
 
 void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                                                                 unsigned*&        cells,
@@ -109,7 +109,7 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometr
 void seissol::writer::FreeSurfaceWriter::setUp()	{
     setExecutor(m_executor);
     if (isAffinityNecessary()) {
-      const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+      const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
       logInfo(seissol::MPI::mpi.rank()) << "Free surface writer thread affinity:" <<
         parallel::Pinning::maskToString(freeCpus);
       if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -123,7 +123,7 @@ void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
 
-	seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
+	seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 
@@ -152,7 +152,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	unsigned nVertices;
 	constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
 
-	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells, seissolInstance);
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
@@ -163,6 +163,8 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	assert(bufferId == FreeSurfaceWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
+	bufferId = addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
+	assert(bufferId == FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	for (auto & velocity : m_freeSurfaceIntegrator->velocities) {
 		addBuffer(velocity, nCells * sizeof(real));
@@ -170,7 +172,6 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	for (auto & displacement : m_freeSurfaceIntegrator->displacements) {
 		addBuffer(displacement, nCells * sizeof(real));
 	}
-	addBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(double));
 
 	//
 	// Send all buffers for initialization
@@ -179,10 +180,11 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	sendBuffer(FreeSurfaceWriterExecutor::CELLS);
 	sendBuffer(FreeSurfaceWriterExecutor::VERTICES);
+	sendBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
-	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
+	param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 	param.backend = backend;
 	param.backupTimeStamp = backupTimeStamp;
 	callInit(param);
@@ -191,10 +193,11 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	removeBuffer(FreeSurfaceWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FreeSurfaceWriterExecutor::CELLS);
 	removeBuffer(FreeSurfaceWriterExecutor::VERTICES);
+	removeBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
 
 	// Register for the synchronization point hook
-	Modules::registerHook(*this, SIMULATION_START);
-	Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+	Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
 
   delete[] cells;
@@ -219,14 +222,14 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	FreeSurfaceParam param;
 	param.time = time;
 
-	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1; ++i) {
+	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
 		sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
 	}
 
 	call(param);
 
 	// Update the timestep in the checkpoint header
-	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
+	seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
 	m_stopwatch.pause();
 

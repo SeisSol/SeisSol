@@ -25,7 +25,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <generated_code/tensor.h>
+#include "generated_code/tensor.h"
 
 namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
@@ -54,7 +54,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("ader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -83,7 +83,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("localwoader");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -115,7 +115,7 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp;
+    kernels::LocalTmp tmp(9.81);
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -202,14 +202,14 @@ namespace proxy::cpu {
 
   void computeDynRupGodunovState()
   {
-    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    seissol::initializer::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
     DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
-    alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-    alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
 
   #ifdef _OPENMP
     #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)

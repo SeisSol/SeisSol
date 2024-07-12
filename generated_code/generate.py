@@ -42,10 +42,11 @@
 import argparse
 import importlib.util
 import sys
+import os
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
@@ -54,6 +55,7 @@ import SurfaceDisplacement
 import Point
 import NodalBoundaryConditions
 import memlayout
+import general
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations')
@@ -79,6 +81,8 @@ cmdLineArgs = cmdLineParser.parse_args()
 # derive the compute platform
 gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
+
+subfolders = []
 
 if cmdLineArgs.memLayout == 'auto':
   # TODO(Lukas) Don't hardcode this
@@ -176,11 +180,55 @@ if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
   except:
     print('WARNING: ChainForge was not found. Falling back to GemmForge.')
 
+precision = 'double' if cmdLineArgs.host_arch[0] == 'd' else 'single'
+outputDirName = f'equation-{cmdLineArgs.equations}-{cmdLineArgs.order}-{precision}'
+trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
+if not os.path.exists(trueOutputDir):
+  os.mkdir(trueOutputDir)
+
+subfolders += [outputDirName]
 
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)
-generator.generate(outputDir=cmdLineArgs.outputDir,
+generator.generate(outputDir=trueOutputDir,
                    namespace='seissol',
                    gemm_cfg=gemmTools,
                    cost_estimator=cost_estimators,
                    include_tensors=include_tensors)
+
+def generate_general(subfolders):
+  # we use always use double here, since these kernels are only used in the initialization
+  arch = useArchitectureIdentifiedBy('d' + cmdLineArgs.host_arch[1:])
+
+  outputDir = os.path.join(cmdLineArgs.outputDir, 'general')
+  if not os.path.exists(outputDir):
+    os.mkdir(outputDir)
+
+  subfolders += [f'general']
+
+  # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
+  generator = Generator(arch)
+  general.addStiffnessTensor(generator)
+  generator.generate(outputDir=outputDir,
+                    namespace='seissol_general',
+                    gemm_cfg=GeneratorCollection([Eigen(arch)]),
+                    cost_estimator=cost_estimators,
+                    include_tensors=general.includeMatrices(cmdLineArgs.matricesDir))
+
+generate_general(subfolders)
+
+def forward_files(filename):
+  with open(os.path.join(cmdLineArgs.outputDir, filename), 'w') as file:
+    file.writelines(['// IWYU pragma: begin_exports\n'])
+    file.writelines([f'#include "{os.path.join(folder, filename)}"\n' for folder in subfolders])
+    file.writelines(['// IWYU pragma: end_exports\n'])
+
+forward_files('init.h')
+forward_files('kernel.h')
+forward_files('subroutine.h')
+forward_files('tensor.h')
+forward_files('init.cpp')
+forward_files('kernel.cpp')
+forward_files('subroutine.cpp')
+forward_files('tensor.cpp')
+forward_files('gpulike_subroutine.cpp')

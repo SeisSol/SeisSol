@@ -1,7 +1,7 @@
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
-#include <SourceTerm/FSRMReader.h>
+#include "SourceTerm/FSRMReader.h"
 
 namespace seissol::unit_test {
 TEST_CASE("FSRM Reader 1") {

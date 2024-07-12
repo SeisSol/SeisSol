@@ -5,19 +5,28 @@
 #ifndef KERNELS_POINTSOURCECLUSTER_H_
 #define KERNELS_POINTSOURCECLUSTER_H_
 
-#include "SourceTerm/typedefs.hpp"
 #include "Kernels/precision.hpp"
+#include "Numerical_aux/Functions.h"
+#include "Parallel/Runtime/Stream.hpp"
+#include "SourceTerm/typedefs.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 namespace seissol::kernels {
 class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
-  virtual void addTimeIntegratedPointSources(double from, double to) = 0;
+  virtual void addTimeIntegratedPointSources(
+      double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
   virtual unsigned size() const = 0;
+};
+
+struct PointSourceClusterPair {
+  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /**
@@ -30,24 +39,25 @@ class PointSourceCluster {
  * @param sample Pointer to sample
  * @param sampleSize Size of the sample
  */
+template <typename MathFunctions = seissol::functions::HostStdFunctions>
 inline real computeSampleTimeIntegral(double from,
                                       double to,
-                                      double const onsetTime,
-                                      double const samplingInterval,
+                                      const double onsetTime,
+                                      const double samplingInterval,
                                       real* sample,
                                       std::size_t sampleSize) {
-  auto const integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
+  const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
      * int f(t) dt =  S0 (t1 t - 0.5 t^2) / dt + S1 (0.5 t^2 - t0 t) / dt + const, thus
      * int_tFrom^tTo f(t) dt = S0 (t1 (tTo - tFrom) - 0.5 (tTo^2 - tFrom^2)) / dt
      *                       + S1 (0.5 (tTo^2 - tFrom^2) - t0 (tTo - tFrom)) / dt
      */
-    auto const t0 = index * samplingInterval;
-    auto const t1 = t0 + samplingInterval;
-    auto const S0 = sample[index];
-    auto const S1 = sample[index + 1];
-    auto const tdiff = tTo - tFrom;
-    auto const tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
+    const auto t0 = index * samplingInterval;
+    const auto t1 = t0 + samplingInterval;
+    const auto S0 = sample[index];
+    const auto S1 = sample[index + 1];
+    const auto tdiff = tTo - tFrom;
+    const auto tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
     return (S0 * (t1 * tdiff - tdiff2) + S1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
   };
 
@@ -60,16 +70,16 @@ inline real computeSampleTimeIntegral(double from,
   to -= onsetTime;
   // Adjust integration interval to sample time interval
   // Sample is implicitly zero outside of sample time interval
-  from = std::max(from, 0.0);
-  to = std::min(to, (sampleSize - 1) * samplingInterval);
+  from = MathFunctions::max(from, 0.0);
+  to = MathFunctions::min(to, (sampleSize - 1) * samplingInterval);
 
   // j_{from} := \argmax_j s.t. t_{from} >= j*dt = floor[t_{from} / dt]
-  long fromIndex = from / samplingInterval;
+  long fromIndex = MathFunctions::floor(from / samplingInterval);
   // j_{to}   := \argmin_j s.t. t_{to}   <= j*dt =  ceil[t_{to}   / dt]
-  long toIndex = std::ceil(to / samplingInterval);
+  long toIndex = MathFunctions::ceil(to / samplingInterval);
 
-  fromIndex = std::max(0l, fromIndex);
-  toIndex = std::min(static_cast<long>(sampleSize) - 1, toIndex);
+  fromIndex = MathFunctions::max(0l, fromIndex);
+  toIndex = MathFunctions::min(static_cast<long>(sampleSize) - 1, toIndex);
   // Return zero if there is no overlap between integration interval and sample time interval
   if (fromIndex >= toIndex) {
     return 0.0;

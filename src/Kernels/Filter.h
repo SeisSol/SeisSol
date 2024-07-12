@@ -1,13 +1,10 @@
 #ifndef SEISSOL_FILTER_H
 #define SEISSOL_FILTER_H
 
-#include <vector>
+#include <Initializer/Parameters/SeisSolParameters.h>
 #include <array>
+#include <vector>
 
-#include "Initializer/InputParameters.hpp"
-#include "Kernels/common.hpp"
-#include "Kernels/Interface.hpp"
-#include "Kernels/NeighborBase.h"
 namespace seissol::kernels {
 
 class Filter {
@@ -25,7 +22,7 @@ class Filter {
 class IdentityFilter : public Filter {
   public:
   IdentityFilter(initializer::parameters::FilterParameters conf, unsigned int dimensions);
-  real getFilterCoeff(unsigned idx) const;
+  real getFilterCoeff(unsigned idx) const override;
 };
 
 class ExponentialFilter : public Filter {
@@ -33,7 +30,7 @@ class ExponentialFilter : public Filter {
   ExponentialFilter();
   ExponentialFilter(initializer::parameters::FilterParameters conf, unsigned int dimensions);
 
-  real getFilterCoeff(unsigned idx) const;
+  real getFilterCoeff(unsigned idx) const override;
 
   private:
   real evaluateFilter(unsigned i, unsigned j, unsigned k) const;

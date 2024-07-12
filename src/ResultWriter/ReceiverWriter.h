@@ -51,39 +51,41 @@
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 
-struct LocalIntegrationData;
-struct GlobalData;
-namespace seissol::initializer::parameters {
-  struct ReceiverOutputParameters;
-}
+namespace seissol {
+  struct LocalIntegrationData;
+  struct GlobalData;
+  class SeisSol;
+  namespace initializer::parameters {
+    struct ReceiverOutputParameters;
+  } // namespace initializer::parameters
+} // namespace seissol
 
 namespace seissol::writer {
     Eigen::Vector3d parseReceiverLine(const std::string& line);
     std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
-
+    
     class ReceiverWriter : public seissol::Module {
+    private:
+      seissol::SeisSol& seissolInstance;
+
     public:
+      ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+
       void init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
           const seissol::geometry::MeshReader& mesh,
-          const seissol::initializers::Lut& ltsLut,
-          const seissol::initializers::LTS& lts,
+          const seissol::initializer::Lut& ltsLut,
+          const seissol::initializer::LTS& lts,
           const GlobalData* global);
 
-      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
-        assert(layer != Ghost);
-        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-        auto& clusters = m_receiverClusters[layer];
-        if (clusterId < clusters.size()) {
-          return &clusters[clusterId];
-        }
-        return nullptr;
-      }
+      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
       //
       // Hooks
       //
       void syncPoint(double) override;
+      void simulationStart() override;
+      void shutdown() override;
 
     private:
       [[nodiscard]] std::string fileName(unsigned pointId) const;
@@ -92,7 +94,7 @@ namespace seissol::writer {
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
-      bool        m_computeRotation;
+      std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
       // Map needed because LayerType enum casts weirdly to int.
       std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   m_stopwatch;

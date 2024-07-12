@@ -4,8 +4,8 @@
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/precision.hpp"
 
+#include "generated_code/init.h"
 #include <cmath>
-#include <generated_code/init.h>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
