@@ -353,8 +353,14 @@ target_include_directories(SeisSol-common-properties SYSTEM INTERFACE
 )
 
 find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
+
 find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen yaml-cpp)
+
+# required for yaml-cpp@0.6 . With yaml-cpp@0.8 , we can use `yaml-cpp::yaml-cpp`
+if (YAML_CPP_LIBRARIES)
+  target_link_libraries(SeisSol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
+endif()
 
 # Note: eigen3 enables cuda support in its headers by default.
 # The problem happens in `eigen3/Eigen/src/Core/util/Meta.h` while
