@@ -357,7 +357,7 @@ target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
 
 find_package(yaml-cpp REQUIRED)
 
-if (${yaml-cpp_VERSION} VERSION_GREATER_EQUAL 0.7)
+if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")
   target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp::yaml-cpp)
 else()
   # fallback code for old versions
