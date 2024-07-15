@@ -357,9 +357,20 @@ target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
 
 find_package(yaml-cpp REQUIRED)
 
-# required for yaml-cpp@0.6 . With yaml-cpp@0.8 , we can use `yaml-cpp::yaml-cpp`
-if (YAML_CPP_LIBRARIES)
-  target_link_libraries(SeisSol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
+if (${yaml-cpp_VERSION} VERSION_GREATER_EQUAL 0.7)
+  target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+else()
+  # fallback code for old versions
+  if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
+    target_include_directories(SeisSol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
+  endif()
+  if (YAML_CPP_LIBRARIES)
+    # use the YAML_CPP_LIBRARIES, if available (though it may just say `yaml-cpp`)
+    target_link_libraries(SeisSol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
+  else()
+    # fallback
+    target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp)
+  endif()
 endif()
 
 # Note: eigen3 enables cuda support in its headers by default.
@@ -373,10 +384,6 @@ target_compile_definitions(SeisSol-common-properties INTERFACE EIGEN_NO_CUDA)
 
 if (EIGEN3_INCLUDE_DIR)
   target_include_directories(SeisSol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
-endif()
-
-if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
-  target_include_directories(SeisSol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
 endif()
 
 target_include_directories(SeisSol-common-properties INTERFACE
