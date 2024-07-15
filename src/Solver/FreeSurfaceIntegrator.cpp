@@ -117,7 +117,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] alignas(Alignment);
+      alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
