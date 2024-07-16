@@ -305,7 +305,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     real localMin = std::numeric_limits<real>::max();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min : minTimeSinceSlipRateBelowThreshold, localMin) default(    \
+#pragma omp parallel for reduction(min : localMin) default(    \
         none) shared(it, drEnergyOutput, faceInformation)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
