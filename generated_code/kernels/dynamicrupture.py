@@ -1,5 +1,5 @@
 import tensorforge.functions as forge
-from tensorforge.common.basic_types import FloatingPointType
+from tensorforge.common.basic_types import FloatingPointType, Addressing, StridedAddressing
 from tensorforge.type import Tensor, Scalar
 import numpy as np
 
@@ -15,8 +15,12 @@ class ScalarBase:
         self.numberOfPoints = numberOfPoints
         self.aderdg = aderdg
 
-    def drvarcell(self, name, subshape = ()):
-        tensor = Tensor(name, tuple(list(subshape) + []))
+    def drvarcell(self, name, subshape = (), datatype=None, structAddressing=None):
+        if structAddressing is not None:
+            addressing = StridedAddressing(structAddressing[0], structAddressing[1])
+        else:
+            addressing = Addressing.STRIDED
+        tensor = Tensor(name, tuple(list(subshape)), datatype=datatype, addressing=addressing)
         spareIndices = 'ZYXVUW'
         def handleDim(curr, indices, dimid):
             if dimid == len(subshape):
@@ -25,26 +29,51 @@ class ScalarBase:
                 return [handleDim(curr.slice(dimid, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
         return handleDim(tensor, '', 0)
 
-    def drvar(self, name, subshape = ()):
-        tensor = Tensor(name, tuple(list(subshape) + [self.numberOfPoints]))
+    def drvar(self, name, subshape = (), datatype=None, structAddressing=None):
+        if structAddressing is not None:
+            addressing = StridedAddressing(structAddressing[0], structAddressing[1])
+        else:
+            addressing = Addressing.STRIDED
+        tensor = Tensor(name, tuple([self.numberOfPoints] + list(subshape)), alignStride=True, datatype=datatype, addressing=addressing)
         spareIndices = 'ZYXVUW'
         def handleDim(curr, indices, dimid):
             if dimid == len(subshape):
-                return forge.tensor(curr[indices + 'P'])
+                return forge.tensor(curr['P' + indices])
             else:
-                return [handleDim(curr.slice(dimid, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
+                return [handleDim(curr.slice(dimid+1, i), indices + spareIndices[dimid], dimid+1) for i in range(subshape[dimid])]
         return handleDim(tensor, '', 0)
     
-    def drscalar(self, name):
-        return forge.scalar(Scalar(name))
+    def drconst(self, name, subshape = (), datatype=None, data=None):
+        tensor = Tensor(name, tuple(list(subshape)), alignStride=True, datatype=datatype, addressing=Addressing.NONE)
+        spareIndices = 'ZYXVUW'
+        def handleDim(curr, indices, dimid):
+            if dimid == len(subshape):
+                return forge.tensor(curr[indices])
+            else:
+                return handleDim(curr, indices + spareIndices[dimid], dimid+1)
+        return handleDim(tensor, '', 0)
+
+    def drscalar(self, name, datatype=None):
+        return forge.tensor(Tensor(name, (), datatype=datatype, addressing=Addressing.SCALAR)[''])
+        # return forge.scalar(Scalar(name, datatype=datatype))
+    
+    def tempvar(self, subshape=()):
+        def handleDim(dimid):
+            if dimid == len(subshape):
+                return forge.TempVar()
+            else:
+                return [handleDim(dimid+1) for _ in range(subshape[dimid])]
+        return handleDim(0)
 
 class FrictionLawBase(ScalarBase):
     def __init__(self, aderdg, numberOfPoints):
         super().__init__(aderdg, numberOfPoints)
+
+        # TODO: switch order and quantities
         self.plusQ = self.drvar('qInterpolatedPlus', (aderdg.order, aderdg.numberOfQuantities(),))
         self.minusQ = self.drvar('qInterpolatedMinus', (aderdg.order, aderdg.numberOfQuantities(),))
-        self.plusImposedState = self.drvar('plusImposedState', (aderdg.numberOfQuantities(),))
-        self.minusImposedState = self.drvar('minusImposedState', (aderdg.numberOfQuantities(),))
+        self.plusImposedState = self.drvar('imposedStatePlus', (aderdg.numberOfQuantities(),))
+        self.minusImposedState = self.drvar('imposedStateMinus', (aderdg.numberOfQuantities(),))
 
         self.fullUpdateTime = self.drscalar('fullUpdateTime')
         self.t0 = self.drscalar('t0')
@@ -54,18 +83,21 @@ class FrictionLawBase(ScalarBase):
             self.dt += [self.drscalar(f'dt({i})')]
             self.timeWeights += [self.drscalar(f'timeWeights({i})')]
         self.sumDt = self.drscalar('sumDt')
+
+        # zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig
+        self.impandeta = self.drvarcell('impAndEta', (11,))
         
-        self.etaP = self.drvarcell('etaP')
-        self.etaS = self.drvarcell('etaS')
-        self.zp = self.drvarcell('zp')
-        self.zs = self.drvarcell('zs')
-        self.zpNeig = self.drvarcell('zpNeig')
-        self.zsNeig = self.drvarcell('zsNeig')
-        self.invEtaS = self.drvarcell('invEtaS')
-        self.invZp = self.drvarcell('invZp')
-        self.invZs = self.drvarcell('invZs')
-        self.invZpNeig = self.drvarcell('invZpNeig')
-        self.invZsNeig = self.drvarcell('invZsNeig')
+        self.etaP = self.impandeta[4]
+        self.etaS = self.impandeta[5]
+        self.zp = self.impandeta[0]
+        self.zs = self.impandeta[1]
+        self.zpNeig = self.impandeta[2]
+        self.zsNeig = self.impandeta[3]
+        self.invEtaS = self.impandeta[6]
+        self.invZp = self.impandeta[7]
+        self.invZs = self.impandeta[8]
+        self.invZpNeig = self.impandeta[9]
+        self.invZsNeig = self.impandeta[10]
         
         self.initialStressInFaultCS = self.drvar('initialStressInFaultCS', (6,))
         self.nucleationStressInFaultCS = self.drvar('nucleationStressInFaultCS', (6,))
@@ -75,12 +107,12 @@ class FrictionLawBase(ScalarBase):
         self.mu = self.drvar('mu')
         self.stateVariable = self.drvar('stateVariable')
         self.dynStressTime = self.drvar('dynStressTime')
-        self.dynStressTimePending = self.drvar('dynStressTimePending')
+        self.dynStressTimePending = self.drvar('dynStressTimePending', datatype=FloatingPointType.BOOL)
         self.peakSlipRate = self.drvar('peakSlipRate')
         self.slipRateMagnitude = self.drvar('slipRateMagnitude')
         self.accumulatedSlipMagnitude = self.drvar('accumulatedSlipMagnitude')
-        self.accumulatedSlip = self.drvar('accumulatedSlip')
-        self.frictionalEnergy = self.drvar('frictionalEnergy')
+        self.accumulatedSlip = self.drvar('accumulatedSlip', structAddressing=(64*3, 64*6))
+        self.frictionalEnergy = self.drvar('frictionalEnergy', structAddressing=(64*4, 64*6))
         self.slip1 = self.drvar('slip1')
         self.slip2 = self.drvar('slip2')
         self.traction1 = self.drvar('traction1')
@@ -89,23 +121,25 @@ class FrictionLawBase(ScalarBase):
         self.slipRate2 = self.drvar('slipRate2')
         self.strength = self.drvar('strength')
 
-        self.faultStressesNormalStress = self.drvar('faultStressesNormalStress', (aderdg.order,))
-        self.faultStressesTraction1 = self.drvar('faultStressesTraction1', (aderdg.order,))
-        self.faultStressesTraction2 = self.drvar('faultStressesTraction2', (aderdg.order,))
+        self.faultStressesNormalStress = self.tempvar((aderdg.order,)) # self.drvar('faultStressesNormalStress', (aderdg.order,))
+        self.faultStressesTraction1 = self.tempvar((aderdg.order,)) # self.drvar('faultStressesTraction1', (aderdg.order,))
+        self.faultStressesTraction2 = self.tempvar((aderdg.order,)) # self.drvar('faultStressesTraction2', (aderdg.order,))
 
-        self.tractionResultsTraction1 = self.drvar('tractionResultsTraction1', (aderdg.order,))
-        self.tractionResultsTraction2 = self.drvar('tractionResultsTraction2', (aderdg.order,))
+        self.tractionResultsTraction1 = self.tempvar((aderdg.order,)) # self.drvar('tractionResultsTraction1', (aderdg.order,))
+        self.tractionResultsTraction2 = self.tempvar((aderdg.order,)) # self.drvar('tractionResultsTraction2', (aderdg.order,))
 
         self.ruptureTime = self.drvar('ruptureTime')
-        self.ruptureTimePending = self.drvar('ruptureTimePending')
+        self.ruptureTimePending = self.drvar('ruptureTimePending', datatype=FloatingPointType.BOOL)
 
         self.terminatorSlipRateThreshold = self.drscalar('terminatorSlipRateThreshold')
 
-        self.energyDataSlip = self.drvar('energyDataSlip', (3,))
+        self.timeSinceSlipRateBelowThreshold = self.drvar('timeSinceSlipRateBelowThreshold', structAddressing=(64*5, 64*6))
 
-        self.spaceWeights = self.drvar('spaceWeights')
+        self.energyDataSlip = self.drvar('energyDataSlip', (3,), structAddressing=(64*0, 64*6))
 
-        self.doubledSurfaceArea = self.drvarcell('doubledSurfaceArea')
+        self.spaceWeights = self.drconst('spaceWeights', (self.numberOfPoints,))
+
+        self.doubledSurfaceArea = self.drvarcell('doubledSurfaceArea', datatype=FloatingPointType.DOUBLE, structAddressing=(44, 45))
     
     def generate(self, routineName, generator):
         routine = []
@@ -136,6 +170,11 @@ class FrictionLawBase(ScalarBase):
         gNuc = smoothStepIncrement(self.fullUpdateTime, self.dt[i], self.t0)
         routine += [forge.conditional(self.fullUpdateTime <= self.t0, [
             forge.assign(self.initialStressInFaultCS[0], self.initialStressInFaultCS[0] + gNuc * self.nucleationStressInFaultCS[0]),
+            forge.assign(self.initialStressInFaultCS[1], self.initialStressInFaultCS[1] + gNuc * self.nucleationStressInFaultCS[1]),
+            forge.assign(self.initialStressInFaultCS[2], self.initialStressInFaultCS[2] + gNuc * self.nucleationStressInFaultCS[2]),
+            forge.assign(self.initialStressInFaultCS[3], self.initialStressInFaultCS[3] + gNuc * self.nucleationStressInFaultCS[3]),
+            forge.assign(self.initialStressInFaultCS[4], self.initialStressInFaultCS[4] + gNuc * self.nucleationStressInFaultCS[4]),
+            forge.assign(self.initialStressInFaultCS[5], self.initialStressInFaultCS[5] + gNuc * self.nucleationStressInFaultCS[5]),
             forge.assign(self.initialPressure, self.initialPressure + gNuc * self.nucleationPressure)
         ])]
 
@@ -156,13 +195,13 @@ class FrictionLawBase(ScalarBase):
     def postcomputeImposedStateFromNewStress(self, routine):
         U,V,W,N,T1,T2 = 6,7,8,0,3,5
         # TODO: init to zero
-        minusImposedState = [forge.TempVar()] * self.aderdg.numberOfQuantities()
-        plusImposedState = [forge.TempVar()] * self.aderdg.numberOfQuantities()
+        minusImposedState = self.tempvar((self.aderdg.numberOfQuantities(),))
+        plusImposedState = self.tempvar((self.aderdg.numberOfQuantities(),))
         routine += [
-            minusImposedState[i] for i in range(self.aderdg.numberOfQuantities())
+            forge.assign(minusImposedState[i], 0) for i in range(self.aderdg.numberOfQuantities())
         ]
         routine += [
-            plusImposedState[i] for i in range(self.aderdg.numberOfQuantities())
+            forge.assign(plusImposedState[i], 0) for i in range(self.aderdg.numberOfQuantities())
         ]
         for i in range(self.aderdg.order):
             minusImposedState[N] = minusImposedState[N] + self.timeWeights[i] * self.faultStressesNormalStress[i]
@@ -199,7 +238,7 @@ class FrictionLawBase(ScalarBase):
         frictionalEnergy = self.frictionalEnergy
         bPlus = self.etaS * self.invZs
         bMinus = self.etaS * self.invZsNeig
-        energyDataSlip = [forge.TempVar() for _ in range(3)]
+        energyDataSlip = self.tempvar((3,))
         routine += [forge.assign(energyDataSlip[i], 0) for i in range(3)]
         for i in range(self.aderdg.order):
             interpolatedSlipRate1 = self.minusQ[i][U] - self.plusQ[i][U]
@@ -659,8 +698,8 @@ class TP(TPMethod):
         self.initialPressure = self.drscalar('initialPressure')
 
     def calcFluidPressure(self, dt, slipRateMagnitude, routine):
-        temperatureUpdate = forge.TempVar()
-        pressureUpdate = forge.TempVar()
+        temperatureUpdate = self.tempvar()
+        pressureUpdate = self.tempvar()
 
         routine += [
             forge.assign(temperatureUpdate, 0),
