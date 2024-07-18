@@ -104,11 +104,7 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"});
-#ifdef USE_POROELASTIC
-  std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
-  names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
-#endif
+  std::vector<std::string> names(seissol::model::Material_t::Quantities.begin(), seissol::model::Material_t::Quantities.end());
   for (const auto& derived : derivedQuantities) {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
@@ -214,8 +210,7 @@ void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
   std::vector<unsigned> meshIds(numberOfPoints);
   
   // We want to plot all quantities except for the memory variables
-  const int n = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
-  std::vector<unsigned> quantities(n);
+  std::vector<unsigned> quantities(seissol::model::Material_t::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";

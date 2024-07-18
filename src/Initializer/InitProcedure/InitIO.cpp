@@ -7,6 +7,7 @@
 #include "Initializer/BasicTypedefs.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "SeisSol.h"
+#include <Equations/datastructures.hpp>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <cstring>
 #include <kernel.h>
@@ -93,8 +94,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   constexpr auto numberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
-  // numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it
-  // nonetheless.
+  // numberOfQuantities. But the compile-time parameter
+  // seissol::model::Material_t::NumberOfQuantities contains it nonetheless.
 
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
@@ -109,7 +110,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
         numberOfQuantities,
-        CONVERGENCE_ORDER,
+        ConvergenceOrder,
         NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
         seissolInstance.meshReader(),
         ltsClusteringData,
@@ -218,7 +219,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     };
     std::vector<std::string> plasticityLabels = {
         "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};
-    for (std::size_t quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
+    for (std::size_t quantity = 0; quantity < seissol::model::Material_t::NumberOfQuantities;
+         ++quantity) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
         writer.addPointData<real>(
             quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
@@ -227,8 +229,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xv(order) = target;
-              vtkproj.collvv(CONVERGENCE_ORDER, order) =
-                  init::collvv::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
+              vtkproj.collvv(ConvergenceOrder, order) =
+                  init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
               vtkproj.execute(order);
             });
       }
@@ -243,8 +245,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
-                vtkproj.collvv(CONVERGENCE_ORDER, order) =
-                    init::collvv::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
+                vtkproj.collvv(ConvergenceOrder, order) =
+                    init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                 vtkproj.execute(order);
               });
         }
@@ -320,8 +322,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         kernel::projectBasisToVtkFaceFromVolume vtkproj;
         vtkproj.qb = dofsSingleQuantity;
         vtkproj.xf(order) = target;
-        vtkproj.collvf(CONVERGENCE_ORDER, order, side) =
-            init::collvf::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * (order + 8 * side)];
+        vtkproj.collvf(ConvergenceOrder, order, side) =
+            init::collvf::Values[ConvergenceOrder + (ConvergenceOrder + 1) * (order + 8 * side)];
         vtkproj.execute(order, side);
       });
     }
@@ -339,8 +341,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
             vtkproj.pn = faceDisplacementVariable;
             vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
             vtkproj.xf(order) = target;
-            vtkproj.collff(CONVERGENCE_ORDER, order) =
-                init::collff::Values[CONVERGENCE_ORDER + (CONVERGENCE_ORDER + 1) * order];
+            vtkproj.collff(ConvergenceOrder, order) =
+                init::collff::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
             vtkproj.execute(order);
           });
     }

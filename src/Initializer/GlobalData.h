@@ -50,6 +50,20 @@
 
 namespace seissol {
   namespace initializer {
+    /*
+    * \class MemoryProperties
+    *
+    * \brief An auxiliary data structure for a policy-based design
+    *
+    * Attributes are initialized with CPU memory properties by default.
+    * See, an example of a policy-based design in GlobalData.cpp
+    * */
+    struct MemoryProperties {
+      size_t alignment{Alignment};
+      size_t pagesizeHeap{PagesizeHeap};
+      size_t pagesizeStack{PagesizeStack};
+    };
+
     namespace matrixmanip {
       struct OnHost {
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;

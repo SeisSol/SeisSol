@@ -160,17 +160,17 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const DRGodunovData& godunovData,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  alignas(Alignment) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
-  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(Alignment) real QPlus[tensor::Q::size()];
+  alignas(Alignment) real QMinus[tensor::Q::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
@@ -307,7 +307,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
+    shared(it, drEnergyOutput, faceInformation)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -359,7 +359,7 @@ void EnergyOutput::computeVolumeEnergies() {
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
+    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
     constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
     double quadraturePointsTet[numQuadraturePointsTet][3];
@@ -376,7 +376,7 @@ void EnergyOutput::computeVolumeEnergies() {
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
 
-    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
     auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
     // Evaluate numerical solution at quad. nodes
     kernel::evalAtQP krnl;
@@ -457,7 +457,7 @@ void EnergyOutput::computeVolumeEnergies() {
       // We need to rotate it to the global coordinate system.
       auto& boundaryMapping = boundaryMappings[face];
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-      alignas(ALIGNMENT)
+      alignas(Alignment)
           real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
       auto rotateDisplacementToFaceNormal =
@@ -468,7 +468,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
       }
 
-      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+      alignas(Alignment) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
           displQuadData{};
       const auto* curFaceDisplacementsData = faceDisplacements[face];
       seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
