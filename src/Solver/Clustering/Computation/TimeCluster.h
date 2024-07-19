@@ -179,9 +179,6 @@ class TimeCluster : public CellCluster {
   //! Tv parameter for plasticity
   double tv;
 
-  //! Relax time for plasticity
-  double oneMinusIntegratingFactor;
-
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;
   ActorStateStatistics* actorStateStatistics;
@@ -256,8 +253,8 @@ class TimeCluster : public CellCluster {
   void computeFlops();
 
   //! Update relax time for plasticity
-  void updateRelaxTime() {
-    oneMinusIntegratingFactor = (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0;
+  double getRelaxTime() {
+    return (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0;
   }
 
   const LayerType layerType;

@@ -439,7 +439,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
       });
 
   if (usePlasticity) {
-    updateRelaxTime();
+    auto oneMinusIntegratingFactor = getRelaxTime();
     auto* plasticity = layer->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
     const unsigned numAdjustedDofs =
         seissol::kernels::Plasticity::computePlasticityBatched(oneMinusIntegratingFactor,
@@ -681,6 +681,11 @@ std::pair<long, long>
     return {0, 0};
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
 
+  auto tv = this->tv;
+  auto oneMinusIntegratingFactor = getRelaxTime();
+  auto timeStep = timeStepSize();
+  const std::size_t numberOfCells = layer->getNumberOfCells();
+
   streamRuntime.enqueueHost([=]() {
     loopStatistics->begin(regionComputeNeighboringIntegration);
 
@@ -700,8 +705,6 @@ std::pair<long, long>
     real* timeIntegrated[4];
     real* faceNeighborsPrefetch[4];
 
-    const std::size_t numberOfCells = layer->getNumberOfCells();
-    auto timeStep = timeStepSize();
     auto globalDataOnHost = this->globalDataOnHost;
     auto& self = *this;
 
@@ -718,7 +721,9 @@ std::pair<long, long>
                numberOfCells,                                                                      \
                plasticity,                                                                         \
                drMapping,                                                                          \
-               subTimeStart) reduction(+ : numberOTetsWithPlasticYielding)
+               subTimeStart,\
+               tv,\
+               oneMinusIntegratingFactor) reduction(+ : numberOTetsWithPlasticYielding)
 #endif
     for (unsigned int cell = 0; cell < numberOfCells; cell++) {
       auto data = loader.entry(cell);
@@ -762,11 +767,10 @@ std::pair<long, long>
           data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
       if constexpr (usePlasticity) {
-        self.updateRelaxTime(); // TODO(David): refactor away
         numberOTetsWithPlasticYielding +=
-            seissol::kernels::Plasticity::computePlasticity(self.oneMinusIntegratingFactor,
+            seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                             timeStep,
-                                                            self.tv,
+                                                            tv,
                                                             globalDataOnHost,
                                                             &plasticity[cell],
                                                             data.dofs(),
