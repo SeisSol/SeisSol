@@ -1,0 +1,11 @@
+url_path,views_total,views_unique
+/SeisSol/SeisSol,286,87
+/SeisSol/SeisSol/pulls,153,11
+/SeisSol/SeisSol/tree/master/src,81,15
+/SeisSol/SeisSol/commits/master/Documentation,41,2
+/SeisSol/SeisSol/blob/master/preprocessing/science/generating_ASAGI_file.py,34,2
+/SeisSol/SeisSol/tree/master/cmake,29,1
+/SeisSol/SeisSol/tree/master/src/DynamicRupture,23,3
+/SeisSol/SeisSol/blob/master/src/DynamicRupture/FrictionLaws/RateAndState.h,22,1
+/SeisSol/SeisSol/pull/1135,17,7
+/SeisSol/SeisSol/tree/master/.ci,17,2
