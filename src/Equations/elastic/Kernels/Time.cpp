@@ -356,7 +356,7 @@ void seissol::kernels::Time::computeInterleavedAder(
 
     for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
       unpadded.push_back(sizes[i]);
-      padded.push_back(getNumberOfAlignedBasisFunctions(sizes[i]));
+      padded.push_back((sizes[i] + VECTORSIZE - 1) / VECTORSIZE);
       actualSize.push_back(unpadded.back() * NUMBER_OF_QUANTITIES);
       realSize.push_back(padded.back() * NUMBER_OF_QUANTITIES);
     }
