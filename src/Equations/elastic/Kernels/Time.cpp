@@ -349,10 +349,10 @@ void seissol::kernels::Time::computeInterleavedAder(
       sizes.push_back(1);
     }
 
-    std::vector<std::size_t> actualSize {56*9, 35*9, 20*9, 10*9, 4*9, 1*9};
-    std::vector<std::size_t> realSize {tensor::dQ::size(0), tensor::dQ::size(1), tensor::dQ::size(2), tensor::dQ::size(3), tensor::dQ::size(4), tensor::dQ::size(5)};
-    std::vector<std::size_t> unpadded {56,35,20,10,4,1};
-    std::vector<std::size_t> padded {64, 48, 32, 16, 16, 16};
+    std::vector<std::size_t> actualSize;
+    std::vector<std::size_t> realSize;
+    std::vector<std::size_t> unpadded;
+    std::vector<std::size_t> padded;
 
     for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
       unpadded.push_back(sizes[i]);
