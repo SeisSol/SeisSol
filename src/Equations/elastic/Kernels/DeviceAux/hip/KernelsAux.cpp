@@ -678,7 +678,7 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull3(std::siz
     if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
         real rhoD = stardata[VECTOR(0, 3)];
         real lambda = stardata[VECTOR(1, 3)];
-        real mu = stardata[VECTOR(2, 3)]
+        real mu = stardata[VECTOR(2, 3)];
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<10>(coeff, I, Q);
