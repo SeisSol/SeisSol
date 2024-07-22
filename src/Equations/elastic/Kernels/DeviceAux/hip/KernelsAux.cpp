@@ -54,6 +54,102 @@ constexpr size_t AderMultiple = 1;
 #define MATRIX(I,J,N,M) (INDEX((I) + (J) * (N)) + OFFSET(Blocksize * (N) * (M)))
 #define VECTOR(I,N) (INDEX(I) + OFFSET(Blocksize * (N)))
 
+/*
+__device__ __forceinline__ void mctest16(real* __restrict__ output, const real* __restrict__ input, const real* __restrict__ constant) {
+  float constantData0 = constant[0];
+  float constantData1 = constant[1];
+  float constantData2 = constant[2];
+  float constantData3 = constant[3];
+  float constantData4 = constant[4];
+  float constantData5 = constant[5];
+  float constantData6 = constant[6];
+  float constantData7 = constant[7];
+  float constantData8 = constant[8];
+  float constantData9 = constant[9];
+  float constantData10 = constant[10];
+  float constantData11 = constant[11];
+  float constantData12 = constant[12];
+  float constantData13 = constant[13];
+  float constantData14 = constant[14];
+  float constantData15 = constant[15];
+  using float16 = __attribute__( (__vector_size__(16 * sizeof(float)) )) float;
+  // float16 constant = 
+  float16 acc {};
+
+  // constantData row 0
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData0, input[Blocksize * 0], acc, 2, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData0, input[Blocksize * 1], acc, 2, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData0, input[Blocksize * 2], acc, 2, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData0, input[Blocksize * 3], acc, 2, 3, 0);
+
+  // constantData row 1
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData1, input[Blocksize * 4], acc, 2, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData1, input[Blocksize * 5], acc, 2, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData1, input[Blocksize * 6], acc, 2, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData1, input[Blocksize * 7], acc, 2, 3, 0);
+
+  // constantData row 2
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData2, input[Blocksize * 8], acc, 2, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData2, input[Blocksize * 9], acc, 2, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData2, input[Blocksize * 10], acc, 2, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData2, input[Blocksize * 11], acc, 2, 3, 0);
+
+  // constantData row 3
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData3, input[Blocksize * 12], acc, 2, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData3, input[Blocksize * 13], acc, 2, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData3, input[Blocksize * 14], acc, 2, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_16x16x1f32(constantData3, input[Blocksize * 15], acc, 2, 3, 0);
+}
+
+__device__ __forceinline__ void mctest4(real* __restrict__ output, const real* __restrict__ input, const real* __restrict__ constant) {
+  float constantData0 = constant[0];
+  using float4 = __attribute__( (__vector_size__(4 * sizeof(float)) )) float;
+  float4 acc {};
+
+  // constantData row 0
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 0], acc, 4, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 1], acc, 4, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 2], acc, 4, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 3], acc, 4, 3, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 4], acc, 4, 4, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 5], acc, 4, 5, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 6], acc, 4, 6, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 7], acc, 4, 7, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 8], acc, 4, 8, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 9], acc, 4, 9, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 10], acc, 4, 10, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 11], acc, 4, 11, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 12], acc, 4, 12, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 13], acc, 4, 13, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 14], acc, 4, 14, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 15], acc, 4, 15, 0);
+}
+
+template<size_t Padded, size_t Unpadded>
+__global__ void inlinereorder() {
+  __shared__ float reorder[Blocksize * Blocksize];
+  float column[Unpadded];
+  for (int i = 0; i < Blocksize; ++i) {
+    reorder[threadIdx.x ^ i] = source[i];
+  }
+  for (int i = 0; i < Unpadded; ++i) {
+    column[i] = reorder[i * Blocksize + threadIdx.x];
+  }
+}
+
+template<size_t Padded, size_t Unpadded>
+__global__ void inlinerereorder() {
+  __shared__ float reorder[Blocksize * Blocksize];
+  float column[Unpadded];
+  for (int i = 0; i < Blocksize; ++i) {
+    reorder[threadIdx.x ^ i] = source[i];
+  }
+  for (int i = 0; i < Unpadded; ++i) {
+    column[i] = reorder[i * Blocksize + threadIdx.x];
+  }
+}
+*/
+
 __device__ __forceinline__ void dgkernel56(real* __restrict__ temp, const real* __restrict__ dQ) {
 for (int j = 0; j < Quantities; ++j) {
     real column[56];
@@ -558,6 +654,42 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull(std::size
     }
 }
 
+__global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull4(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
+    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
+        real rhoD = stardata[VECTOR(0, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)];
+        real tempreg2[10 * Quantities * 3];
+        real tempreg[4 * Quantities * 3];
+        real coeff = scale;
+        dgkernelInit<20>(coeff, I, Q);
+        coeff *= scale / 2;
+        dgkernelPart2<10, 20>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
+        dgkernel10(tempreg, dQ3);
+        coeff *= scale / 3;
+        dgkernelPart2<4, 20>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernel4(tempreg, dQ2);
+        coeff *= scale / 4;
+        dgkernelPart2<1, 20>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+    }
+}
+
+__global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull3(std::size_t blockCount, real scale, real* __restrict__ I, const real* __restrict__ Q, real* __restrict__ dQ6, real* __restrict__ dQ5, real* __restrict__ dQ4, real* __restrict__ dQ3, real* __restrict__ dQ2, real* __restrict__ dQ1, const real* __restrict__ stardata, const real* __restrict__ coordinates, real* __restrict__ temp) {
+    if (threadIdx.y + AderMultiple * blockIdx.x < blockCount) {
+        real rhoD = stardata[VECTOR(0, 3)];
+        real lambda = stardata[VECTOR(1, 3)];
+        real mu = stardata[VECTOR(2, 3)]
+        real tempreg[4 * Quantities * 3];
+        real coeff = scale;
+        dgkernelInit<10>(coeff, I, Q);
+        coeff *= scale / 2;
+        dgkernelPart2<4, 10>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
+        dgkernel4(tempreg, dQ2);
+        coeff *= scale / 3;
+        dgkernelPart2<1, 10>(coeff, dQ1, I,  tempreg, coordinates, lambda, mu, rhoD);
+    }
+}
+
 void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buffers, real* derivatives, const real* stardata, const real* coordinates, real* temp, void* stream) {
   std::size_t blocks = (count + Blocksize - 1) / Blocksize;
   std::size_t launchSize = (blocks + AderMultiple - 1) / AderMultiple;
@@ -565,18 +697,46 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   dim3 grid(launchSize, 1, 1);
   dim3 block(Blocksize, AderMultiple, 1);
   std::vector<std::size_t> dataOffsets(6);
-  dataOffsets[0] = 0;
-  dataOffsets[1] = dataOffsets[0] + Functions<6> * Blocksize * Quantities * blocks;
-  dataOffsets[2] = dataOffsets[1] + Functions<5> * Blocksize * Quantities * blocks;
-  dataOffsets[3] = dataOffsets[2] + Functions<4> * Blocksize * Quantities * blocks;
-  dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
-  dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
+  if (CONVERGENCE_ORDER==6) {
+    dataOffsets[0] = 0;
+    dataOffsets[1] = dataOffsets[0] + Functions<6> * Blocksize * Quantities * blocks;
+    dataOffsets[2] = dataOffsets[1] + Functions<5> * Blocksize * Quantities * blocks;
+    dataOffsets[3] = dataOffsets[2] + Functions<4> * Blocksize * Quantities * blocks;
+    dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
+    dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
+  }
+  else if (CONVERGENCE_ORDER==4) {
+    dataOffsets[0] = 0;
+    dataOffsets[1] = 0;
+    dataOffsets[2] = 0;
+    dataOffsets[3] = dataOffsets[2] + Functions<4> * Blocksize * Quantities * blocks;
+    dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
+    dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
+  }
+  else if (CONVERGENCE_ORDER==3) {
+    dataOffsets[0] = 0;
+    dataOffsets[1] = 0;
+    dataOffsets[2] = 0;
+    dataOffsets[3] = 0;
+    dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
+    dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
+  }
   hipStream_t streamObject = reinterpret_cast<hipStream_t>(stream);
-  hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<6>, hipMemcpyDeviceToDevice, streamObject);
-  // dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
 
-  dgkernelFull2a <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
-  dgkernelFull2b <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  if (CONVERGENCE_ORDER == 6) {
+    hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<6>, hipMemcpyDeviceToDevice, streamObject);
+  // dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+    dgkernelFull2a <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+    dgkernelFull2b <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  }
+  if (CONVERGENCE_ORDER == 4) {
+    hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<4>, hipMemcpyDeviceToDevice, streamObject);
+    dgkernelFull4 <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  }
+  if (CONVERGENCE_ORDER == 3) {
+    hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<3>, hipMemcpyDeviceToDevice, streamObject);
+    dgkernelFull3 <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
+  }
   CHECK_ERR;
 }
 
