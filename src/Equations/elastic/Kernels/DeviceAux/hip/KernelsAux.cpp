@@ -676,7 +676,7 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull4(std::siz
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<20>(coeff, I, Q);
-        dgkernel20(tempreg2, dQ4);
+        dgkernel20(tempreg2, Q);
         coeff *= scale / 2;
         dgkernelPart2<10, 20>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
         dgkernel10(tempreg, dQ3);
@@ -696,7 +696,7 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull3(std::siz
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<10>(coeff, I, Q);
-        dgkernel10(tempreg, dQ3);
+        dgkernel10(tempreg, Q);
         coeff *= scale / 2;
         dgkernelPart2<4, 10>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
         dgkernel4(tempreg, dQ2);
@@ -767,7 +767,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
       bool notZero = false;
     #pragma unroll
       for (size_t j = 0; j < Blocksize; ++j) {
-        sourcePtrs[j] = source[block * Blocksize + j] + offset;
+        sourcePtrs[j] = source[block * Blocksize + j];
         if (sourcePtrs[j] != nullptr) {
           sourcePtrs[j] += offset;
         }
