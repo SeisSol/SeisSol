@@ -763,10 +763,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
       using TPtr = const T*;
-      TPtr sourcePtrs[Blocksize];
+      TPtr sourcePtrs[Blocksize] = {};
       bool notZero = false;
     #pragma unroll
-      for (size_t j = 0; j < Blocksize; ++j) {
+      for (size_t j = 0; j < Blocksize && block * Blocksize + j < count; ++j) {
         sourcePtrs[j] = source[block * Blocksize + j];
         if (sourcePtrs[j] != nullptr) {
           sourcePtrs[j] += offset;
@@ -804,10 +804,10 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
     const size_t block = blockIdx.x * InterleaveMultiple + threadIdx.y;
     if (block < (count + Blocksize - 1) / Blocksize) {
       using TPtr = T*;
-      TPtr targetPtrs[Blocksize];
+      TPtr targetPtrs[Blocksize] = {};
       bool notZero = false;
     #pragma unroll
-      for (size_t j = 0; j < Blocksize; ++j) {
+      for (size_t j = 0; j < Blocksize && block * Blocksize + j < count; ++j) {
         targetPtrs[j] = target[block * Blocksize + j];
         if (targetPtrs[j] != nullptr) {
           targetPtrs[j] += offset;
