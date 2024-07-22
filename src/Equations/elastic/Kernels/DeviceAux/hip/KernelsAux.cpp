@@ -150,6 +150,19 @@ __global__ void inlinerereorder() {
 }
 */
 
+/*
+template<size_t Padded, size_t Unpadded>
+__global__ void inlinereorder(const float* source, float column[Unpadded]) {
+  __shared__ float reorder[Padded * Unpadded];
+  for (int i = 0; i < Blocksize; ++i) {
+    reorder[threadIdx.x ^ i] = source[i * Blocksize];
+  }
+  for (int i = 0; i < Unpadded; ++i) {
+    column[i] = reorder[i * Blocksize + threadIdx.x];
+  }
+}
+*/
+
 __device__ __forceinline__ void dgkernel56(real* __restrict__ temp, const real* __restrict__ dQ) {
 for (int j = 0; j < Quantities; ++j) {
     real column[56];
@@ -663,6 +676,7 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull4(std::siz
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<20>(coeff, I, Q);
+        dgkernel20(tempreg2, dQ4);
         coeff *= scale / 2;
         dgkernelPart2<10, 20>(coeff, dQ3, I,  tempreg2, coordinates, lambda, mu, rhoD);
         dgkernel10(tempreg, dQ3);
@@ -682,6 +696,7 @@ __global__ __launch_bounds__(AderMultiple*Blocksize) void dgkernelFull3(std::siz
         real tempreg[4 * Quantities * 3];
         real coeff = scale;
         dgkernelInit<10>(coeff, I, Q);
+        dgkernel10(tempreg, dQ3);
         coeff *= scale / 2;
         dgkernelPart2<4, 10>(coeff, dQ2, I,  tempreg, coordinates, lambda, mu, rhoD);
         dgkernel4(tempreg, dQ2);
