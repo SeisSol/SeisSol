@@ -66,6 +66,8 @@ struct FSRMSource {
   std::vector<real> areas;
   real timestep;
   size_t numberOfSamples;
+  size_t numInVelComponents[3];
+  std::vector<std::array<real, 3>> solidVel3cVector;
   std::vector<std::vector<real>> timeHistories;
 
   void read(const std::string& filename);

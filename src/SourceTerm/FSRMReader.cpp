@@ -48,11 +48,11 @@
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...
 
-template <size_t N>
+template <size_t N, typename T>
 static void readArrayOrZero(std::ifstream& filestream,
                             std::string& header,
                             const std::string& keyword,
-                            real* data) {
+                            T* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];
@@ -92,9 +92,10 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
 
   // comment
   std::getline(filestream, lineval);
-  readArrayOrZero<3>(filestream, lineval, "velocity", this->solidVelocityComponent);
-  readArrayOrZero<1>(filestream, lineval, "pressure", &this->pressureComponent);
-  readArrayOrZero<3>(filestream, lineval, "fluid", this->fluidVelocityComponent);
+  readArrayOrZero<3, size_t>(filestream, lineval, "dirNum", this->numInVelComponents);
+  readArrayOrZero<3, real>(filestream, lineval, "velocity", this->solidVelocityComponent);
+  readArrayOrZero<1, real>(filestream, lineval, "pressure", &this->pressureComponent);
+  readArrayOrZero<3, real>(filestream, lineval, "fluid", this->fluidVelocityComponent);
   // (we've last read a header/comment line at this point here)
 
   // read faults
@@ -105,6 +106,10 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
   this->rakes.resize(this->numberOfSources);
   this->onsets.resize(this->numberOfSources);
   this->areas.resize(this->numberOfSources);
+  this->solidVel3cVector.resize(this->numberOfSources);
+  for (auto& arr: this->solidVel3cVector){
+    arr.fill(0.0);
+  }
 
   this->timeHistories.resize(this->numberOfSources);
 
@@ -122,6 +127,19 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
     filestream >> this->rakes[i];
     filestream >> this->areas[i];
     filestream >> this->onsets[i];
+    if( i < this->numInVelComponents[0]){
+      this->solidVel3cVector[i][0] = 1.0;
+    }
+    else if( i < this->numInVelComponents[0] + this->numInVelComponents[1]){
+      this->solidVel3cVector[i][1] = 1.0;
+    }
+    else if( i < this->numInVelComponents[0] + this->numInVelComponents[1] + this->numInVelComponents[2]){
+      this->solidVel3cVector[i][2] = 1.0;
+    }
+    else if(this->numInVelComponents[0] + this->numInVelComponents[1] + this->numInVelComponents[2] < 1e-5)
+      logInfo() << "Multi-components point source is nor specified in the FSRM file.\n";
+    else
+      throw std::runtime_error("Total number of FSRM point sources does not match the sum of each component.");
   }
 
   std::getline(filestream, lineval); // end of line
