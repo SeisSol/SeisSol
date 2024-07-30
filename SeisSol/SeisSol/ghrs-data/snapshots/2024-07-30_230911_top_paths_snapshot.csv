@@ -1,0 +1,11 @@
+url_path,views_total,views_unique
+/SeisSol/SeisSol,190,68
+/SeisSol/SeisSol/tree/master/src,83,15
+/SeisSol/SeisSol/pulls,68,6
+/SeisSol/SeisSol/tree/master/src/Equations,19,4
+/SeisSol/SeisSol/tree/master/src/DynamicRupture,18,3
+/SeisSol/SeisSol/tree/master/src/Initializer,16,5
+/SeisSol/SeisSol/blob/master/preprocessing/science/generating_ASAGI_file.py,16,3
+/SeisSol/SeisSol/tree/master/src/Kernels,16,3
+/SeisSol/SeisSol/tree/master/src/Equations/elastic,14,4
+/SeisSol/SeisSol/tree/master/postprocessing,13,4
