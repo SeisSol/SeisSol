@@ -43,6 +43,7 @@
 #ifndef TYPEDEFS_HPP
 #define TYPEDEFS_HPP
 
+#include <array>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -429,8 +430,10 @@ struct DREnergyOutput {
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
+//  real* godunov; // extend for multiple simulations -> array of pointers
+//  real* fluxSolver; // extend for multiple simulations -> array of pointers
+  std::array<real*, MULTIPLE_SIMULATIONS> godunov;
+  std::array<real*, MULTIPLE_SIMULATIONS> fluxSolver;
 };
 
 struct CellBoundaryMapping {

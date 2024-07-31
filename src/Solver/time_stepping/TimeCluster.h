@@ -71,6 +71,9 @@
 #ifndef TIMECLUSTER_H_
 #define TIMECLUSTER_H_
 
+#include <Initializer/tree/Layer.hpp>
+#include <array>
+#include <memory>
 #ifdef USE_MPI
 #include <mpi.h>
 #include <list>
@@ -127,7 +130,7 @@ private:
     void start() override {}
     void predict() override;
     void correct() override;
-    bool usePlasticity;
+    bool usePlasticity; //(TODO: modify this to const and then remove the if else in .cpp)
 
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
@@ -145,7 +148,7 @@ private:
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
     
-    kernels::DynamicRupture m_dynamicRuptureKernel;
+    kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
 
   /*
    * global data
@@ -162,12 +165,17 @@ private:
      * element data
      */     
     seissol::initializer::Layer* m_clusterData;
-    seissol::initializer::Layer* dynRupInteriorData;
-    seissol::initializer::Layer* dynRupCopyData;
+//    seissol::initializer::Layer* dynRupInteriorData; // Not clear if multiple of these are needed or what this does, duplicate
+    std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInteriorData;
+    //seissol::initializer::Layer* dynRupCopyData; // Not clear if multiple of these are needed or what this does, duplicate
+    std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData;
     seissol::initializer::LTS*         m_lts;
-    seissol::initializer::DynamicRupture* m_dynRup;
-    dr::friction_law::FrictionSolver* frictionSolver;
-    dr::output::OutputManager* faultOutputManager;
+    //seissol::initializer::DynamicRupture* m_dynRup; // will need multiple of this
+    std::array<seissol::initializer::DynamicRupture*, MULTIPLE_SIMULATIONS> m_dynRup;
+    //dr::friction_law::FrictionSolver* frictionSolver;
+    std::array<dr::friction_law::FrictionSolver*, MULTIPLE_SIMULATIONS> frictionSolver;
+    // dr::output::OutputManager* faultOutputManager;
+    std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> faultOutputManager;
 
     std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
 
@@ -261,7 +269,7 @@ private:
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
       real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
+      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping); // What is happening here?
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
       PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
       auto* pstrain = i_layerData.var(m_lts->pstrain);
@@ -313,7 +321,8 @@ private:
         m_neighborKernel.computeNeighborsIntegral( data,
                                                    drMapping[l_cell],
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
-        );
+        ); // Something will needed to be changed here.... Just don't know what yet. Need to implement kernels to do some mapping 
+        // back to the original sequence and stuff. Won't be correct before that
 
         if constexpr (usePlasticity) {
           updateRelaxTime();
@@ -353,9 +362,10 @@ private:
 
     void computeNeighborIntegrationFlops(seissol::initializer::Layer &layerData);
 
-    void computeDynamicRuptureFlops(seissol::initializer::Layer &layerData,
-                                    long long& nonZeroFlops,
-                                    long long& hardwareFlops);
+    void computeDynamicRuptureFlops(  // seissol::initializer::Layer& layerData,
+          std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>& layerData,
+                                                                      long long&                    nonZeroFlops,
+                                                                      long long&                    hardwareFlops);
                                           
     void computeFlops();
     
@@ -379,7 +389,7 @@ private:
   //! id used to identify this cluster (including layer type) when profiling
   const unsigned int m_profilingId;
 
-  DynamicRuptureScheduler* dynamicRuptureScheduler;
+  DynamicRuptureScheduler* dynamicRuptureScheduler; // (TO DISCUSS:Are multiple of these needed and how these need to be changed)
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
@@ -401,15 +411,20 @@ public:
       double maxTimeStepSize,
       long timeStepRate,
       bool printProgress,
-      DynamicRuptureScheduler* dynamicRuptureScheduler,
+      DynamicRuptureScheduler* dynamicRuptureScheduler, // (TO DISCUSS: Do we need multiple schedulers)
       CompoundGlobalData i_globalData,
       seissol::initializer::Layer *i_clusterData,
-      seissol::initializer::Layer* dynRupInteriorData,
-      seissol::initializer::Layer* dynRupCopyData,
+//      seissol::initializer::Layer* dynRupInteriorData,
+      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInteriorData,
+//      seissol::initializer::Layer* dynRupCopyData,
+      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData,
       seissol::initializer::LTS* i_lts,
-      seissol::initializer::DynamicRupture* i_dynRup,
-      seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-      dr::output::OutputManager* i_faultOutputManager,
+      // seissol::initializer::DynamicRupture* i_dynRup,
+      std::array<seissol::initializer::DynamicRupture*, MULTIPLE_SIMULATIONS> i_dynRup,
+      // seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+      std::array<seissol::dr::friction_law::FrictionSolver*, MULTIPLE_SIMULATIONS> i_FrictionSolver,
+      //dr::output::OutputManager* i_faultOutputManager,
+      std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> i_faultOutputManager,
       seissol::SeisSol& seissolInstance,
       LoopStatistics* i_loopStatistics,
       ActorStateStatistics* actorStateStatistics);
@@ -432,7 +447,7 @@ public:
     m_receiverCluster = receiverCluster;
   }
 
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+  void setFaultOutputManager(std::array<dr::output::OutputManager, MULTIPLE_SIMULATIONS> outputManager) {
     faultOutputManager = outputManager;
   }
 

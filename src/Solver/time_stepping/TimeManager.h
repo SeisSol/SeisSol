@@ -41,6 +41,8 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
+#include <DynamicRupture/Output/OutputManager.hpp>
+#include <array>
 #include <vector>
 #include <queue>
 #include <list>
@@ -120,7 +122,8 @@ class seissol::time_stepping::TimeManager {
     ActorStateStatisticsManager actorStateStatisticsManager;
     
     //! dynamic rupture output
-    dr::output::OutputManager* m_faultOutputManager{};
+    // dr::output::OutputManager* m_faultOutputManager{};
+    std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> m_faultOutputManager{}; // Set an array of faultoutputManagers?
 
   public:
     /**
@@ -146,8 +149,8 @@ class seissol::time_stepping::TimeManager {
                      initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
-    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-    seissol::dr::output::OutputManager* getFaultOutputManager();
+    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager, unsigned int i);
+    seissol::dr::output::OutputManager* getFaultOutputManager(unsigned int i);
 
     /**
      * Advance in time until all clusters reach the next synchronization time.

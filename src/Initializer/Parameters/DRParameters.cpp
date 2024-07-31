@@ -1,9 +1,11 @@
 #include "DRParameters.h"
 #include <cmath>
+#include <cstddef>
+#include <string>
 
 namespace seissol::initializer::parameters {
 
-DRParameters readDRParameters(ParameterReader* baseReader) {
+DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   auto* reader = baseReader->readSubNode("dynamicrupture");
 
   const double xref = reader->readWithDefault("xref", 0.0);
@@ -82,7 +84,14 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto vStar = reader->readIfRequired<real>("pc_vstar", isBiMaterial);
   const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
 
-  const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
+  std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
+  
+  if(MULTIPLE_SIMULATIONS > 1){
+    size_t pos = faultFileName.find(".yaml");
+    if (pos != std::string::npos){
+      faultFileName = faultFileName.substr(0, pos) + "_" + std::to_string(i) + ".yaml";
+    }
+  }
 
   auto* outputReader = baseReader->readSubNode("output");
   bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);

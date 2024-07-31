@@ -11,12 +11,14 @@
 #include "ModelParameters.h"
 #include "OutputParameters.h"
 #include "SourceParameters.h"
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
 struct SeisSolParameters {
   CubeGeneratorParameters cubeGenerator;
-  DRParameters drParameters;
+  std::vector<DRParameters> drParameters;
+  // DRParameters drParameters;
   InitializationParameters initialization;
   MeshParameters mesh;
   ModelParameters model;

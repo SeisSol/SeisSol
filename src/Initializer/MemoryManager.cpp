@@ -449,13 +449,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   m_ltsTree.touchVariables();
 
   /// Dynamic rupture tree
-  m_dynRup->addTo(m_dynRupTree);
-
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
-  m_dynRupTree.fixate();
-
-  for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
-    TimeCluster& cluster = m_dynRupTree.child(tc);
+  for (int i=0; i < MULTIPLE_SIMULATIONS; i++) {
+  m_dynRupTree[i]->addTo(m_dynRupTree[i]);
+  m_dynRupTree[i].setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  m_dynRupTree[i].fixate();
+  for (unsigned tc = 0; tc < m_dynRupTree[i].numChildren(); ++tc) {
+    TimeCluster& cluster = m_dynRupTree[i].child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
     if (tc >= i_timeStepping.numberOfLocalClusters) {
         cluster.child<Copy>().setNumberOfCells(0);
@@ -468,6 +467,26 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+  }
+
+  // m_dynRup->addTo(m_dynRupTree);
+  // m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  // m_dynRupTree.fixate();
+
+  // for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
+  //   TimeCluster& cluster = m_dynRupTree.child(tc);
+  //   cluster.child<Ghost>().setNumberOfCells(0);
+  //   if (tc >= i_timeStepping.numberOfLocalClusters) {
+  //       cluster.child<Copy>().setNumberOfCells(0);
+  //       cluster.child<Interior>().setNumberOfCells(0);
+  //   } else {
+  //       cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+  //       cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+  //   }
+  // }
+
+  // m_dynRupTree.allocateVariables();
+  // m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
@@ -848,35 +867,40 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initialize Friction Model";
 
-  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters[i]);
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
-  m_dynRup = std::move(product.ltsTree);
-  m_DRInitializer = std::move(product.initializer);
-  m_FrictionLaw = std::move(product.frictionLaw);
-  m_faultOutputManager = std::move(product.output);
+  m_dynRup[i] = std::move(product.ltsTree);
+  m_DRInitializer[i] = std::move(product.initializer);
+  m_FrictionLaw[i] = std::move(product.frictionLaw);
+  m_faultOutputManager[i] = std::move(product.output);
+  }
 }
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
   // TODO: switch m_dynRup to shared or weak pointer
-  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
-    m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(&m_ltsTree,
+  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
+    m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
+    m_faultOutputManager[i]->setLtsData(&m_ltsTree,
                                      &m_lts,
                                      &m_ltsLut,
-                                     &m_dynRupTree,
-                                     m_dynRup.get());
-    m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
-    m_faultOutputManager->init();
-
+                                     &m_dynRupTree[i],
+                                     m_dynRup[i].get());
+    m_faultOutputManager[i]->setBackupTimeStamp(backupTimeStamp);
+    m_faultOutputManager[i]->init();
+  }
   }
 }
 
 
 void seissol::initializer::MemoryManager::initFrictionData() {
-  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
+  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
 
-    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
+  if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
+
+    m_DRInitializer[i]->initializeFault(m_dynRup[i].get(), &m_dynRupTree[i]);
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLaw.get())) {
@@ -890,6 +914,7 @@ void seissol::initializer::MemoryManager::initFrictionData() {
       impl->copyStaticDataToDevice();
     }
 #endif // ACL_DEVICE
+  }
   }
 }
 

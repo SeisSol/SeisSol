@@ -72,6 +72,8 @@
 #define MEMORYMANAGER_H_
 
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <DynamicRupture/FrictionLaws/FrictionSolver.h>
+#include <array>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -169,11 +171,16 @@ class MemoryManager {
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    LTSTree m_dynRupTree;
-    std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
+    std::array<LTSTree, MULTIPLE_SIMULATIONS> m_dynRupTree;
+    // LTSTree m_dynRupTree;
+    std::array<DynamicRupture, MULTIPLE_SIMULATIONS> m_dynRup;
+    // std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
+    std::array<std::unique_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer;
+    // std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::array<std::unique_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw;
+    // std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+    std::array<std::unique_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager;
+    // std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
@@ -320,11 +327,11 @@ class MemoryManager {
     }
 
     inline LTSTree* getDynamicRuptureTree() {
-      return &m_dynRupTree;
+      return m_dynRupTree.data();
     }
                           
     inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup.get();
+      return m_dynRup.data();
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -349,17 +356,17 @@ class MemoryManager {
       return &m_easiBoundary;
     }
 
-    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
-        return m_FrictionLaw.get();
+    inline std::unique_ptr<dr::friction_law::FrictionSolver>* getFrictionLaw() {
+        return m_FrictionLaw.data();
     }
-    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
-        return m_DRInitializer.get();
+    inline  std::unique_ptr<dr::initializer::BaseDRInitializer>* getDRInitializer() {
+        return m_DRInitializer.data();
     }
-    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
-        return m_faultOutputManager.get();
+    inline std::unique_ptr<seissol::dr::output::OutputManager>* getFaultOutputManager() {
+        return m_faultOutputManager.data();
     }
     inline seissol::initializer::parameters::DRParameters* getDRParameters() {
-        return &(m_seissolParams->drParameters);
+        return m_seissolParams->drParameters.data();
     }
 
     inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
@@ -408,7 +415,7 @@ class MemoryManager {
                               CellMaterialData &material,
                               unsigned int face);
     bool requiresNodalFlux(FaceType f);
-    }
-}
+    } // namespace initializer
+} // namespace seissol
 
 #endif

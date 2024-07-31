@@ -98,7 +98,7 @@ struct seissol::initializer::LTS {
   Variable<NeighboringIntegrationData>    neighboringIntegration;
   Variable<CellMaterialData>              material;
   Variable<PlasticityData>                plasticity;
-  Variable<CellDRMapping[4]>              drMapping;
+  Variable<CellDRMapping[4]>              drMapping; // What is the purpose of this and how does this need to change for fused?
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
   Variable<real*[4]>                      faceDisplacements;

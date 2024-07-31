@@ -48,6 +48,7 @@
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.hpp"
+#include <memory>
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
   m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
@@ -61,7 +62,7 @@ seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstan
   m_loopStatistics.enableSampleOutput(seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 }
 
-seissol::time_stepping::TimeManager::~TimeManager() {}
+seissol::time_stepping::TimeManager::~TimeManager() = default;
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
@@ -123,15 +124,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           timeStepSize,
           timeStepRate,
           printProgress,
-          drScheduler.get(),
+          drScheduler.get(), // ignore it
           globalData,
           layerData,
           dynRupInteriorData,
           dynRupCopyData,
           memoryManager.getLts(),
-          memoryManager.getDynamicRupture(),
-          memoryManager.getFrictionLaw(),
-          memoryManager.getFaultOutputManager(),
+          memoryManager.getDynamicRupture(), // pass arrays for this
+          memoryManager.getFrictionLaw(), // pass arrays for this
+          memoryManager.getFaultOutputManager(), // pass arrays for this
           seissolInstance,
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId))
@@ -142,6 +143,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                            : dynRupInteriorData->getNumberOfCells();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
+      //ignore it for now
     }
     auto& interior = clusters[clusters.size() - 1];
     auto& copy = clusters[clusters.size() - 2];
@@ -247,12 +249,12 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
 }
 
-void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
-  m_faultOutputManager = faultOutputManager;
+void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager, unsigned int i) {
+  m_faultOutputManager[i] = faultOutputManager;
   for(auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
-}
+} // (TO DISCUSS: I don't get a good feeling here. The clusters fault output manager will just get reset multiple times)
 
 seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
   assert(m_faultOutputManager != nullptr);
