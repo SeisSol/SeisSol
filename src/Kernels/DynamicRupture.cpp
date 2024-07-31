@@ -139,7 +139,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 #endif
 
 #ifdef MULTIPLE_SIMULATIONS
-  logError() << "Dynamic Rupture does not work with multiple simulations";
+  logError() << "Dynamic Rupture does not work with multiple simulations"; // (TO DISCUSS: what changes are required for the kernel)
 #endif
 
   alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;

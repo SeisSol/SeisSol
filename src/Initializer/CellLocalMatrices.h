@@ -43,11 +43,12 @@
 
 #include "Initializer/typedefs.hpp"
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Boundary.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include <array>
 
 namespace seissol {
   namespace initializer {
@@ -71,8 +72,10 @@ namespace seissol {
                                             LTSTree*               io_ltsTree,
                                             LTS*                   i_lts,
                                             Lut*                   i_ltsLut,
-                                            LTSTree*               dynRupTree,
-                                            DynamicRupture*        dynRup,
+                                            // LTSTree*               dynRupTree,
+                                            std::array<LTSTree*, MULTIPLE_SIMULATIONS>& dynRupTree,
+                                            // DynamicRupture*        dynRup,
+                                            std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>& dynRup,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             double etaHack );
@@ -83,7 +86,7 @@ namespace seissol {
                                     DynamicRupture*   dynRup,
                                     LTSTree*          boundaryTree,
                                     Boundary*         boundary);
-  }
-}
+  } // namespace initializer
+} // namespace seissol
 
 #endif

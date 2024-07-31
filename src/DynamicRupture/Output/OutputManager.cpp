@@ -344,7 +344,7 @@ void OutputManager::flushPickpointDataToFile() {
 
     const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
     const auto fileName = buildIndexedMPIFileName(
-        seissolParameters.output.prefix, globalIndex, "faultreceiver", "dat");
+        seissolParameters.output.prefix, globalIndex, "faultreceiver", "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or something. 
 
     std::ofstream file(fileName, std::ios_base::app);
     if (file.is_open()) {

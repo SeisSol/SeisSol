@@ -151,14 +151,16 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
     case FaceType::dynamicRupture:
       {
       // No neighboring cell contribution, interior bc.
-      assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      for(unsigned int  i = 0 ; i < MULTIPLE_SIMULATIONS; i++)
+{      assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov[i]) % ALIGNMENT == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-      drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
-      drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
-      drKrnl.Q = data.dofs();
-      drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+      drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver[i];
+      drKrnl.QInterpolated = cellDrMapping[l_face].godunov[i];
+      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the current simulation's dofs
+      drKrnl._prefetch.I = faceNeighbors_prefetch[l_face]; //(TO DISCUSS) This needs to be modified to get just the current simulation's dofs
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+}
       break;
       }
     default:

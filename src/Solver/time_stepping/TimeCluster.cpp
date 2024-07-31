@@ -214,8 +214,15 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 }
 
 #ifndef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializer::Layer&  layerData ) {
-  if (layerData.getNumberOfCells() == 0) return;
+void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>& layerData ) {
+  bool layerzero = true;
+
+  for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  if (layerData[i]->getNumberOfCells() > 0) layerzero = false;
+  }
+
+  if(layerzero) return;
+
   SCOREP_USER_REGION_DEFINE(myRegionHandle)
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_COMMON )
 
@@ -229,18 +236,17 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedPlus;
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;
 
+    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (TO DISCUSS: do we need this to be done multiple times?)
 
   for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     
-    faceInformation[i] = layerData.var(m_dynRup[i]->faceInformation);
-    godunovData[i] = layerData.var(m_dynRup[i]->godunovData);
-    drEnergyOutput[i] = layerData.var(m_dynRup[i]->drEnergyOutput);
-    timeDerivativePlus[i] = layerData.var(m_dynRup[i]->timeDerivativePlus);
-    timeDerivativeMinus[i] = layerData.var(m_dynRup[i]->timeDerivativeMinus);
-    qInterpolatedPlus[i] = layerData.var(m_dynRup[i]->qInterpolatedPlus);
-    qInterpolatedMinus[i] = layerData.var(m_dynRup[i]->qInterpolatedMinus);
-
-    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (TO DISCUSS: do we need this to be done multiple times?)
+    faceInformation[i] = layerData[i]->var(m_dynRup[i]->faceInformation);
+    godunovData[i] = layerData[i]->var(m_dynRup[i]->godunovData);
+    drEnergyOutput[i] = layerData[i]->var(m_dynRup[i]->drEnergyOutput);
+    timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus);
+    timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);
+    qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus);
+    qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus);
     frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel.timePoints);
   }
 
@@ -252,16 +258,16 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   #pragma omp parallel for schedule(static)
 #endif
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-      unsigned prefetchFace = (face < layerData.getNumberOfCells() - 1) ? face + 1 : face;
+    for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
+      unsigned prefetchFace = (face < layerData[i]->getNumberOfCells() - 1) ? face + 1 : face;
       m_dynamicRuptureKernel.spaceTimeInterpolation(
           faceInformation[i][face],
           m_globalDataOnHost,
           &godunovData[i][face],
           &drEnergyOutput[i][face],
-          timeDerivativePlus[i][face],
+          timeDerivativePlus[i][face], // ((TO DISCUSS)This is still DR data or is this wave propagation data?
           timeDerivativeMinus[i][face],
-          qInterpolatedPlus[i][face],
+          qInterpolatedPlus[i][face], // ((TO DISCUSS)This is still DR data or is this wave propagation data?
           qInterpolatedMinus[i][face],
           timeDerivativePlus[i][prefetchFace],
           timeDerivativeMinus[i][prefetchFace]); // Need to work on this now. This might give quite some compilation errors
@@ -285,7 +291,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
 
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
+  unsigned int numberofCells = 0;
+
+  for(unsigned int i = 0 ; i < MULTIPLE_SIMULATIONS; i++){
+    numberofCells += layerData[i]->getNumberOfCells();
+  }
+
+  m_loopStatistics->end(m_regionComputeDynamicRupture, numberofCells, m_profilingId);
 }
 #else
 
@@ -707,7 +719,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
                                             cellNonZero,
                                             cellHardware,
                                             cellDRNonZero,
-                                            cellDRHardware );
+                                            cellDRHardware ); // (TO DISCUSS: Better way to do this?)
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
     drFlopsNonZero += cellDRNonZero;
@@ -803,24 +815,22 @@ void TimeCluster::correct() { // Here, need to think what to do
   // We need to avoid computing it twice.
   if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) { // (TO DISCUSS: if we have only one scheduler, the code below makes sense?)
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
-      for(unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++)
-      {computeDynamicRupture(*dynRupInteriorData);
+     computeDynamicRupture(dynRupInteriorData); // This method deals with fused simulations internally by looping for all
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-      }
+      
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
     if (layerType == Copy) {
-      for(unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++)
-{      computeDynamicRupture(*dynRupCopyData);
+      computeDynamicRupture(dynRupCopyData); // This method deals with fused simulations internally by looping for all
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-}
+
       dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
     }
 
   }
-  computeNeighboringIntegration(*m_clusterData, subTimeStart);
+  computeNeighboringIntegration(*m_clusterData, subTimeStart); // This method needs modification accordingly
 
   seissolInstance.flopCounter().incrementNonZeroFlopsNeighbor(m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)]);
   seissolInstance.flopCounter().incrementHardwareFlopsNeighbor(m_flops_hardware[static_cast<int>(ComputePart::Neighbor)]);
@@ -830,9 +840,12 @@ void TimeCluster::correct() { // Here, need to think what to do
   // First cluster calls fault receiver output
   // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
-  if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces()
-      && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+  if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
+      dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
+    for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+      faultOutputManager[i]->writePickpointOutput(ct.correctionTime + timeStepSize(),
+                                                  timeStepSize());
+    } /// \todo this method needs modification to incorporate fused simulations
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
 

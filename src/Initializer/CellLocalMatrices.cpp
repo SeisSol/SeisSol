@@ -41,6 +41,9 @@
 
 #include "CellLocalMatrices.h"
 
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <array>
 #include <cassert>
 
 #include "Initializer/ParameterDB.h"
@@ -390,11 +393,13 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
                                                               Lut*                   i_ltsLut,
-                                                              LTSTree*               dynRupTree,
-                                                              DynamicRupture*        dynRup,
+                                                              // LTSTree*               dynRupTree,
+                                                              std::array<LTSTree*, MULTIPLE_SIMULATIONS>& dynRupTree,
+                                                              // DynamicRupture*        dynRup,
+                                                              std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>& dynRup,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
-                                                              double etaHack )
+                                                              double etaHack ) // (TO DISCUSS: This needs heavy modifications)
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
@@ -404,7 +409,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
-  CellMaterialData* material = io_ltsTree->var(i_lts->material);
+  CellMaterialData* material = io_ltsTree->var(i_lts->material); // (TO DISCUSS: do we need multiple here? The fused DR assumes different fault parameters, is the material taking care of that?)
   real** derivatives = io_ltsTree->var(i_lts->derivatives);
   real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);

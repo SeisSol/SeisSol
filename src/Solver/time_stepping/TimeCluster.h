@@ -222,7 +222,7 @@ private:
     /**
      * Computes dynamic rupture.
      **/
-    void computeDynamicRupture( seissol::initializer::Layer&  layerData );
+    void computeDynamicRupture( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>&  layerData );
 
     /**
      * Computes all cell local integration.
@@ -269,7 +269,7 @@ private:
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
       real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping); // What is happening here?
+      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
       PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
       auto* pstrain = i_layerData.var(m_lts->pstrain);

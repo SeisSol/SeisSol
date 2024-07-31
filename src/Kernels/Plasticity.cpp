@@ -64,7 +64,7 @@ namespace seissol::kernels {
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
 #ifdef MULTIPLE_SIMULATIONS
-    // Todo(SW) find a better solution here
+    // Todo(VK) find a better solution here.
     logError() << "Plasticity does not work with multiple simulations";
 #else
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
