@@ -415,20 +415,20 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
-
-  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-    real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
-    DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
-    DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
-    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = it->var(dynRup->impedanceMatrices);
+  for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  for (LTSTree::leaf_iterator it = dynRupTree[i]->beginLeaf(LayerMask(Ghost)); it != dynRupTree[i]->endLeaf(); ++it) {
+    real**                                timeDerivativePlus                                        = it->var(dynRup[i]->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                       = it->var(dynRup[i]->timeDerivativeMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup[i]->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup[i]->imposedStateMinus);
+    DRGodunovData*                        godunovData                                               = it->var(dynRup[i]->godunovData);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup[i]->fluxSolverPlus);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup[i]->fluxSolverMinus);
+    DRFaceInformation*                    faceInformation                                           = it->var(dynRup[i]->faceInformation);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup[i]->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup[i]->waveSpeedsMinus);
+    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup[i]->impAndEta);
+    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = it->var(dynRup[i]->impedanceMatrices);
 
 
 #ifdef _OPENMP
@@ -500,8 +500,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
           CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[ltsFace].plusSide ];
           mapping.side = faceInformation[ltsFace].plusSide;
           mapping.faceRelation = 0;
-          mapping.godunov = &imposedStatePlus[ltsFace][0];
-          mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
+          mapping.godunov[i] = &imposedStatePlus[ltsFace][0];
+          mapping.fluxSolver[i] = &fluxSolverPlus[ltsFace][0];
 }
         }
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
@@ -512,8 +512,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
           CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[ltsFace].minusSide ];
           mapping.side = faceInformation[ltsFace].minusSide;
           mapping.faceRelation = faceInformation[ltsFace].faceRelation;
-          mapping.godunov = &imposedStateMinus[ltsFace][0];
-          mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
+          mapping.godunov[i] = &imposedStateMinus[ltsFace][0];
+          mapping.fluxSolver[i] = &fluxSolverMinus[ltsFace][0];
 }
         }
       }
@@ -568,7 +568,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
-          logError() << "Dynamic Rupture does not work with an acoustic material.";
+          logError() << "Dynamic Rupture is not possible with an acoustic material.";
           break;
         }
         case seissol::model::MaterialType::poroelastic: {
@@ -598,7 +598,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
         }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
-          //TODO(SW): Make DR work with anisotropy 
+          //TODO(VK): Make DR work with anisotropy 
           break;
         }
         case seissol::model::MaterialType::elastic: {
@@ -645,6 +645,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
+        logWarning() << "fault[meshFace].element is negative, blowing up solution on purpose";
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
@@ -652,6 +653,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
+        logWarning() << "fault[meshFace].neighborElement is negative, blowing up solution on purpose";
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
@@ -672,11 +674,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
 }
+}
 
 void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                                                      LTS*              lts,
-                                                     LTSTree*          dynRupTree,
-                                                     DynamicRupture*   dynRup,
+                                                     std::array<LTSTree*, MULTIPLE_SIMULATIONS>          dynRupTree,
+                                                     std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>   dynRup,
                                                      LTSTree*          boundaryTree,
                                                      Boundary*         boundary) {
 #ifdef ACL_DEVICE
@@ -692,4 +695,5 @@ void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                      ltsTree->var(lts->neighboringIntegration),
                      variableSizes[lts->neighboringIntegration.index]);
 #endif // ACL_DEVICE
+//(TO DISCUSS: why do we need dynRupTree and dynRup in this function definition? They are not even being used)
 }

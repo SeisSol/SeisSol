@@ -859,7 +859,6 @@ void TimeCluster::correct() { // Here, need to think what to do
 
       }
   }
-
 }
 
 void TimeCluster::reset() {

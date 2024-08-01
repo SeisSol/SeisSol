@@ -301,7 +301,7 @@ private:
 
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
-                                      drMapping[l_cell][1].godunov;
+                                      drMapping[l_cell][1].godunov; // (TO DISCUSS: what to do for these?, the periodic and normal boundary conditions need the prefetch too. So, having mulitple may not work)
         l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][2] :
                                       drMapping[l_cell][2].godunov;

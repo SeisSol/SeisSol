@@ -82,8 +82,8 @@ namespace seissol {
 
       void copyCellMatricesToDevice(LTSTree*          ltsTree,
                                     LTS*              lts,
-                                    LTSTree*          dynRupTree,
-                                    DynamicRupture*   dynRup,
+                                    std::array<LTSTree*, MULTIPLE_SIMULATIONS>          dynRupTree,
+                                    std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>   dynRup,
                                     LTSTree*          boundaryTree,
                                     Boundary*         boundary);
   } // namespace initializer
