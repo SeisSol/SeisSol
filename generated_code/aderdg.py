@@ -136,6 +136,9 @@ class ADERDGBase(ABC):
     self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
     self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
 
+    self.volumeFilter = Tensor('volumeFilter', (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions()))
+
+
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
 

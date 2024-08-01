@@ -90,6 +90,7 @@
 #include <Parallel/Helper.hpp>
 #include <SourceTerm/typedefs.hpp>
 #include <cstring>
+#include "SeisSol.h"
 #include <memory>
 #include <string>
 #include <utils/logger.h>
@@ -109,7 +110,8 @@ void computeMInvJInvPhisAtSources(
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     unsigned meshId,
-    const seissol::geometry::MeshReader& mesh) {
+    const seissol::geometry::MeshReader& mesh,
+    seissol::SeisSol& seissolInstance) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -124,8 +126,12 @@ void computeMInvJInvPhisAtSources(
 
   double volume = MeshTools::volume(elements[meshId], vertices);
   double JInv = 1.0 / (6.0 * volume);
+  const auto& filterParams = seissolInstance.getSeisSolParameters().filter;
+  auto filter = kernels::makeFilter(filterParams, 3);
+  auto volumeFilterMatrix = kernels::computeFilterMatrix(*filter);
 
   kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.volumeFilter = volumeFilterMatrix.data();
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
@@ -143,8 +149,9 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
                                         unsigned index,
-                                        seissol::memory::Memkind memkind) {
-  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
+                                        seissol::memory::Memkind memkind,
+                                        seissol::SeisSol& seissolInstance) {
+  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh, seissolInstance);
 
   auto& faultBasis = pointSources.tensor[index];
   faultBasis[0] = subfault.tan1(0);
@@ -333,7 +340,8 @@ auto loadSourcesFromFSRM(const char* fileName,
                          seissol::initializer::LTSTree* ltsTree,
                          seissol::initializer::LTS* lts,
                          seissol::initializer::Lut* ltsLut,
-                         seissol::memory::Memkind memkind)
+                         seissol::memory::Memkind memkind,
+                         seissol::SeisSol& seissolInstance)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
@@ -393,7 +401,7 @@ auto loadSourcesFromFSRM(const char* fileName,
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
-                                     mesh);
+                                     mesh, seissolInstance);
         transformMomentTensor(fsrm.momentTensor,
                               fsrm.solidVelocityComponent,
                               fsrm.pressureComponent,
@@ -444,7 +452,8 @@ auto loadSourcesFromNRF(const char* fileName,
                         seissol::initializer::LTSTree* ltsTree,
                         seissol::initializer::LTS* lts,
                         seissol::initializer::Lut* ltsLut,
-                        seissol::memory::Memkind memkind)
+                        seissol::memory::Memkind memkind,
+                        seissol::SeisSol& seissolInstance)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   int rank = seissol::MPI::mpi.rank();
 
@@ -535,7 +544,7 @@ auto loadSourcesFromNRF(const char* fileName,
             &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
             sources,
             clusterSource,
-            memkind);
+            memkind, seissolInstance);
       }
       sourceCluster[cluster] = makePointSourceCluster(
           std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
@@ -554,7 +563,8 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           seissol::initializer::LTSTree* ltsTree,
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
-                          time_stepping::TimeManager& timeManager) {
+                          time_stepping::TimeManager& timeManager,
+                          seissol::SeisSol& seissolInstance) {
 #ifdef ACL_DEVICE
   auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
 #else
@@ -565,14 +575,14 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind, seissolInstance);
 #else
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
-    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind, seissolInstance);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
     logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
   } else {

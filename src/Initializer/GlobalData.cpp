@@ -40,10 +40,14 @@
 #include "GlobalData.h"
 #include "generated_code/init.h"
 #include <yateto.h>
+
 #include <type_traits>
+#include "SeisSol.h"
 
 #ifdef _OPENMP
 #  include <omp.h>
+#include <Kernels/Filter.h>
+#include <memory>
 #endif
 
 namespace init = seissol::init;
@@ -95,6 +99,46 @@ namespace seissol::initializer {
       #endif
 
       globalData.integrationBufferLTS = integrationBufferLTS;
+    }
+
+    void OnHost::applyFilterMatrixToGlobalData(GlobalData& globalData,
+                                               const seissol::kernels::Filter* filter) {
+      using namespace init;
+      auto scaleMatrixByFilter = [&filter](auto&& view) {
+        for (int i = 0; i < view.shape(0); ++i) {
+          for (int j = 0; j < view.shape(1); ++j) {
+            if (view.isInRange(i, j)) {
+              view(i, j) *= filter->getFilterCoeff(i);
+            }
+          }
+        }
+      };
+
+      // scaleMatrixByFilter(
+      // rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))));
+
+      // Filter local + neighboring flux
+      scaleMatrixByFilter(
+          rDivM::view<0>::create(const_cast<real*>(globalData.changeOfBasisMatrices(0))));
+      scaleMatrixByFilter(
+          rDivM::view<1>::create(const_cast<real*>(globalData.changeOfBasisMatrices(1))));
+      scaleMatrixByFilter(
+          rDivM::view<2>::create(const_cast<real*>(globalData.changeOfBasisMatrices(2))));
+      scaleMatrixByFilter(
+          rDivM::view<3>::create(const_cast<real*>(globalData.changeOfBasisMatrices(3))));
+
+      // TODO Filter nodal flux for local flux nodal
+      // TODO Filter dynamic rupture update
+
+      scaleMatrixByFilter(
+          kDivM::view<0>::create(const_cast<real*>(globalData.stiffnessMatrices(0))));
+      scaleMatrixByFilter(
+          kDivM::view<1>::create(const_cast<real*>(globalData.stiffnessMatrices(1))));
+      scaleMatrixByFilter(
+          kDivM::view<2>::create(const_cast<real*>(globalData.stiffnessMatrices(2))));
+
+      scaleMatrixByFilter(
+          init::projectQP::view::create(const_cast<real*>(globalData.projectQPMatrix)));
     }
 
     MemoryProperties OnDevice::getProperties() {
@@ -151,13 +195,20 @@ namespace seissol::initializer {
 #endif
     }
 
+    void OnDevice::applyFilterMatrixToGlobalData(GlobalData& globalData, const seissol::kernels::Filter* filter) {
+#ifdef ACL_DEVICE
+      //TODO Implement on GPU
+      // Be careful, need to consider pre-multiplied matrices, e.g. plusFluxMatrixAccessor!
+#endif // ACL_DEVICE
+    }
   } // namespace matrixmanip
 
 
 template<typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
-                                                     enum seissol::memory::Memkind memkind) {
+                                                     enum seissol::memory::Memkind memkind,
+                                                     seissol::SeisSol* seissolInstance) {
   MemoryProperties prop = MatrixManipPolicyT::getProperties();
 
   // We ensure that global matrices always start at an aligned memory address,
@@ -244,14 +295,24 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                              copyManager,
                                              prop.pagesizeStack,
                                              memkind);
+
+  const auto& seissolParams = seissolInstance->getSeisSolParameters();
+  auto filter = kernels::makeFilter(seissolParams.filter, 3);
+  logInfo() << seissolParams.filter.order;
+  logInfo() << static_cast<int>(seissolParams.filter.type);
+
+  // TODO Implement for device
+  MatrixManipPolicyT::applyFilterMatrixToGlobalData(globalData, filter.get());
 }
 
 template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
                                                                memory::ManagedAllocator& memoryAllocator,
-                                                               enum memory::Memkind memkind);
+                                                               enum memory::Memkind memkind,
+                                                               seissol::SeisSol* seissolInstance);
 
 template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
                                                                  memory::ManagedAllocator& memoryAllocator,
-                                                                 enum memory::Memkind memkind);
+                                                                 enum memory::Memkind memkind,
+                                                                 seissol::SeisSol* seissolInstance);
 
 } // namespace seissol::initializer

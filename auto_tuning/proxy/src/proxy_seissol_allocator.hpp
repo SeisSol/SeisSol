@@ -93,11 +93,13 @@ seissol::memory::ManagedAllocator *m_allocator{nullptr};
 seissol::parallel::runtime::StreamRuntime* runtime;
 
 namespace tensor = seissol::tensor;
+seissol::SeisSol* seissolInstance = nullptr;
 
 void initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(m_globalDataOnHost,
                                                            *m_allocator,
-                                                           seissol::memory::Standard);
+                                                           seissol::memory::Standard,
+                                                           seissolInstance);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &m_globalDataOnHost;
@@ -105,7 +107,8 @@ void initGlobalData() {
   if constexpr (seissol::isDeviceOn()) {
     seissol::initializer::GlobalDataInitializerOnDevice::init(m_globalDataOnDevice,
                                                                *m_allocator,
-                                                               seissol::memory::DeviceGlobalMemory);
+                                                               seissol::memory::DeviceGlobalMemory,
+                                                               seissolInstance);
     globalData.onDevice = &m_globalDataOnDevice;
   }
   m_timeKernel.setGlobalData(globalData);

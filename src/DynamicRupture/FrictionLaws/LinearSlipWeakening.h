@@ -4,6 +4,7 @@
 #include "BaseFrictionLaw.h"
 
 #include "utils/logger.h"
+#include <SeisSol.h>
 
 namespace seissol::dr::friction_law {
 
@@ -169,7 +170,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
     alignas(Alignment) real resampledSlipRate[misc::numPaddedPoints]{};
-    specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
+    specialization.resampleSlipRate(
+        resampledSlipRate, this->slipRateMagnitude[ltsFace], this->filterMatrix);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
 #pragma omp simd
@@ -226,7 +228,8 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        const real (&slipRate)[dr::misc::numPaddedPoints]);
+                        const real (&slipRate)[dr::misc::numPaddedPoints],
+                        const std::array<real, tensor::drFilter::Size>& filter);
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
                          real localDc,
@@ -262,7 +265,8 @@ class BiMaterialFault {
    * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        const real (&slipRate)[dr::misc::numPaddedPoints]) {
+                        real const (&slipRate)[dr::misc::numPaddedPoints],
+                        const std::array<real, tensor::drFilter::Size>& filter) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
@@ -301,7 +305,8 @@ class TPApprox {
    * Use a simple copy for now, maybe use proper resampling later
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                        const real (&slipRate)[dr::misc::numPaddedPoints]) {
+                        const real (&slipRate)[dr::misc::numPaddedPoints],
+                        const std::array<real, tensor::drFilter::Size>& filter) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 

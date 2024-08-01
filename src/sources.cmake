@@ -26,6 +26,7 @@ src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
 
 src/Kernels/DynamicRupture.cpp
+src/Kernels/Filter.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Touch.cpp
@@ -124,6 +125,7 @@ src/Initializer/ParameterDB.cpp
 
 src/Initializer/Parameters/CubeGeneratorParameters.cpp
 src/Initializer/Parameters/DRParameters.cpp
+src/Initializer/Parameters/FilterParameters.cpp
 src/Initializer/Parameters/InitializationParameters.cpp
 src/Initializer/Parameters/LtsParameters.cpp
 src/Initializer/Parameters/MeshParameters.cpp

@@ -73,24 +73,24 @@
 #endif
 
 #include "MemoryAllocator.h"
-#include "SeisSol.h"
-#include "MemoryManager.h"
-#include "InternalState.h"
-#include "tree/Layer.hpp"
-#include <cstddef>
-#include <yateto.h>
-#include "MemoryManager.h"
-#include <unordered_set>
-#include <cmath>
-#include <type_traits>
-#include <yateto.h>
 #include "GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "InternalState.h"
-#include "Kernels/common.hpp"
+#include "InternalState.h"
 #include "Kernels/Touch.h"
+#include "Kernels/common.hpp"
+#include "MemoryManager.h"
+#include "MemoryManager.h"
+#include "SeisSol.h"
 #include "SeisSol.h"
 #include "generated_code/tensor.h"
+#include "tree/Layer.hpp"
+#include <cmath>
+#include <cstddef>
+#include <type_traits>
+#include <unordered_set>
+#include <yateto.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
@@ -101,7 +101,7 @@
 void seissol::initializer::MemoryManager::initialize()
 {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
+  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard, &seissolInstance);
   if constexpr (seissol::isDeviceOn()) {
     // the serial order for initialization is needed for some (older) driver versions on some GPUs
     bool serialize = false;
@@ -120,11 +120,11 @@ void seissol::initializer::MemoryManager::initialize()
     if (serialize) {
       logInfo(MPI::mpi.rank()) << "Initializing device global data on a node in serial order.";
       MPI::mpi.serialOrderExecute([&]() {
-        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory, &seissolInstance);
       }, MPI::mpi.sharedMemComm());
     }
     else {
-      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory, &seissolInstance);
     }
   }
 }

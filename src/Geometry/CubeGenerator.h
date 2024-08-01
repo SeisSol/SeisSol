@@ -40,22 +40,15 @@
 #ifndef CUBEGENERATOR_H
 #define CUBEGENERATOR_H
 
-#include <algorithm>
 #include <cstring>
-#include <map>
-#include <utility>
-#include <vector>
-
 #include <omp.h>
-
-#include "utils/logger.h"
 
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "MeshReader.h"
 
 namespace seissol::geometry {
-
-class CubeGenerator : public seissol::geometry::MeshReader {
+  
+class CubeGenerator : public MeshReader {
   int rank;
   int nProcs;
 

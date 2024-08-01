@@ -1,6 +1,8 @@
 #ifndef SEISSOL_DR_PARAMETERS_H
 #define SEISSOL_DR_PARAMETERS_H
 
+#include <Initializer/InputParameters.hpp>
+#include <Initializer/Parameters/FilterParameters.h>
 #include <string>
 
 #include <Eigen/Dense>
@@ -71,6 +73,7 @@ struct DRParameters {
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
+  seissol::initializer::parameters::FilterParameters filter;
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

@@ -79,6 +79,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
   generator.add('resampleParameter', resampleKernel )
 
+  # DR filter
+  numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
+  # Filter matrix
+  drFilter = Tensor("drFilter", (numberOfPoints, numberOfPoints))
+  # Filter weights matrix
+  filterWeights = Tensor("filterWeights", (numberOf2DBasisFunctions, numberOf2DBasisFunctions))
+  # Compute filter matrix kernel
+  generator.add('computeFilterMatrix', drFilter['qp'] <= db.V2mTo2Quad['ql'] * filterWeights['lk'] * db.V2QuadTo2m['kp'])
+  filteredQ = Tensor('filteredQ', (numberOfPoints,))
+  generator.add('filterParameter', filteredQ['i'] <= drFilter['ij'] * originalQ['j'])
+
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 
   fluxScale = Scalar('fluxScaleDR')

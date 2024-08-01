@@ -44,10 +44,10 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/tree/Lut.hpp"
 #include "Solver/time_stepping/TimeManager.h"
+#include <SeisSol.h>
 #include <cstdarg>
 
 namespace seissol::sourceterm {
-
 class Manager {
   public:
   Manager() = default;
@@ -59,7 +59,8 @@ class Manager {
                    seissol::initializer::LTSTree* ltsTree,
                    seissol::initializer::LTS* lts,
                    seissol::initializer::Lut* ltsLut,
-                   time_stepping::TimeManager& timeManager);
+                   time_stepping::TimeManager& timeManager,
+                   seissol::SeisSol& seissolInstance);
 };
 
 } // namespace seissol::sourceterm
