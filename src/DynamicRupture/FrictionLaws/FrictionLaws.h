@@ -4,6 +4,9 @@
 // IWYU pragma: begin_exports
 
 // collect all friction laws here
+#include "AdjointRSF.h"
+#include "AdjointSlowVelWeakening.h"
+#include "AdjointSlip.h"
 #include "AgingLaw.h"
 #include "BaseFrictionLaw.h"
 #include "FastVelocityWeakeningLaw.h"
@@ -15,9 +18,6 @@
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
-#include "AdjointRSF.h"
-#include "AdjointSlowVelWeakening.h"
-#include "AdjointSlip.h"
 
 #ifdef ACL_DEVICE
 #include "GpuImpl/AgingLaw.h"

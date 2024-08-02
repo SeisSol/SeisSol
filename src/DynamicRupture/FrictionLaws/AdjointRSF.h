@@ -81,7 +81,7 @@ class AdjointRSFBase : public BaseFrictionLaw<AdjointRSFBase<Derived, TPMethod>>
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSAdjointRSF* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
