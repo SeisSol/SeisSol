@@ -161,7 +161,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
   m_neighborKernel.setGlobalData(i_globalData);
-  m_dynamicRuptureKernel.setGlobalData(i_globalData); // (TO DISCUSS: Do I need multiple of these kernels and setting of different data?)
+  m_dynamicRuptureKernel.setGlobalData(i_globalData); // (Don't need multiple dynamic rupture kernels)
 
   computeFlops();
 
@@ -236,7 +236,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedPlus;
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;
 
-    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (TO DISCUSS: do we need this to be done multiple times?)
+    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (have only one kernel, do only once)
 
   for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     
@@ -265,9 +265,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
           m_globalDataOnHost,
           &godunovData[i][face],
           &drEnergyOutput[i][face],
-          timeDerivativePlus[i][face], // ((TO DISCUSS)This is still DR data or is this wave propagation data?
+          timeDerivativePlus[i][face], // wave propagation part
           timeDerivativeMinus[i][face],
-          qInterpolatedPlus[i][face], // ((TO DISCUSS)This is still DR data or is this wave propagation data?
+          qInterpolatedPlus[i][face], // DR part
           qInterpolatedMinus[i][face],
           timeDerivativePlus[i][prefetchFace],
           timeDerivativeMinus[i][prefetchFace]); // Need to work on this now. This might give quite some compilation errors
@@ -709,7 +709,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
   drFlopsHardware = 0;
 
   auto* cellInformation = layerData.var(m_lts->cellInformation);
-  auto* drMapping = layerData.var(m_lts->drMapping); // (TO DISCUSS: What to do here?)
+  auto* drMapping = layerData.var(m_lts->drMapping); 
   for (unsigned cell = 0; cell < layerData.getNumberOfCells(); ++cell) {
     unsigned cellNonZero, cellHardware;
     long long cellDRNonZero, cellDRHardware;
@@ -719,7 +719,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
                                             cellNonZero,
                                             cellHardware,
                                             cellDRNonZero,
-                                            cellDRHardware ); // (TO DISCUSS: Better way to do this?)
+                                            cellDRHardware );
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
     drFlopsNonZero += cellDRNonZero;
@@ -762,7 +762,6 @@ void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& nei
 }
 void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
   // Doesn't do anything
-  // (TO DISCUSS: Why is it even here then?)
 }
 void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
@@ -813,7 +812,7 @@ void TimeCluster::correct() { // Here, need to think what to do
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
-  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) { // (TO DISCUSS: if we have only one scheduler, the code below makes sense?)
+  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) { // Only one scheduler because everything is concatenated
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
      computeDynamicRupture(dynRupInteriorData); // This method deals with fused simulations internally by looping for all
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);

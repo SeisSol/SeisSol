@@ -254,7 +254,7 @@ void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::out
   for(auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
-} // (TO DISCUSS: I don't get a good feeling here. The clusters fault output manager will just get reset multiple times)
+} // (TO DISCUSS: Modify to a vector and deal with writing separately)
 
 seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
   assert(m_faultOutputManager != nullptr);

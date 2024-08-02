@@ -76,28 +76,23 @@
 #include <memory>
 #ifdef USE_MPI
 #include <mpi.h>
-#include <list>
 #endif
 
 #include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
-#include <utils/logger.h>
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include <utils/logger.h>
 
-#include "Kernels/Time.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
-#include "Kernels/DynamicRupture.h"
-#include "Kernels/Plasticity.h"
-#include "Kernels/PointSourceCluster.h"
-#include "Kernels/TimeCommon.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "Monitoring/LoopStatistics.h"
-#include "Monitoring/ActorStateStatistics.h"
-#include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Local.h"
+#include "Kernels/Neighbor.h"
+#include "Kernels/Plasticity.h"
+#include "Kernels/PointSourceCluster.h"
+#include "Kernels/Time.h"
+#include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/LoopStatistics.h"
 
 #include "AbstractTimeCluster.h"
 
@@ -301,19 +296,20 @@ private:
 
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
-                                      drMapping[l_cell][1].godunov; // (TO DISCUSS: what to do for these?, the periodic and normal boundary conditions need the prefetch too. So, having mulitple may not work)
+                                      &drMapping[l_cell][1].godunov; // the prefetch does not change anything numerical, just cache behaviour
+                                      /// \todo think of a cleaner way to actually do the prefetch later
         l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][2] :
-                                      drMapping[l_cell][2].godunov;
+                                      &drMapping[l_cell][2].godunov;
         l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][3] :
-                                      drMapping[l_cell][3].godunov;
+                                      &drMapping[l_cell][3].godunov;
 
         // fourth face's prefetches
         if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
           l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
                                         faceNeighbors[l_cell+1][0] :
-                                        drMapping[l_cell+1][0].godunov;
+                                        &drMapping[l_cell+1][0].godunov;
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
@@ -389,7 +385,7 @@ private:
   //! id used to identify this cluster (including layer type) when profiling
   const unsigned int m_profilingId;
 
-  DynamicRuptureScheduler* dynamicRuptureScheduler; // (TO DISCUSS:Are multiple of these needed and how these need to be changed)
+  DynamicRuptureScheduler* dynamicRuptureScheduler; // Only one scheduler needed
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
@@ -411,7 +407,7 @@ public:
       double maxTimeStepSize,
       long timeStepRate,
       bool printProgress,
-      DynamicRuptureScheduler* dynamicRuptureScheduler, // (TO DISCUSS: Do we need multiple schedulers)
+      DynamicRuptureScheduler* dynamicRuptureScheduler, // Need only one scheduler and multiple data structures
       CompoundGlobalData i_globalData,
       seissol::initializer::Layer *i_clusterData,
 //      seissol::initializer::Layer* dynRupInteriorData,

@@ -142,7 +142,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       nfKrnl.Q = data.dofs();
       nfKrnl.I = i_timeIntegrated[lFace];
       nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[lFace];
-      nfKrnl._prefetch.I = faceNeighbors_prefetch[lFace]; //(TO DISCUSS: how to deal with prefetching?)
+      nfKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
       nfKrnl.execute(data.cellInformation().faceRelations[lFace][1],
 		     data.cellInformation().faceRelations[lFace][0],
 		     lFace);
@@ -158,7 +158,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       drKrnl.fluxSolver = cellDrMapping[lFace].fluxSolver[i];
       drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
       drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the current simulation's dofs
-      drKrnl._prefetch.I = faceNeighbors_prefetch[lFace]; //(TO DISCUSS) This needs to be modified to get just the current simulation's dofs
+      drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
       drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation);
 }
       break;

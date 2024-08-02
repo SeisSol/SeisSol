@@ -158,13 +158,13 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
-    krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+    krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0]; // Only Q interpolate changes
     krnl.Q = degreesOfFreedomPlus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
     
-    krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+    krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0]; // Only Q interpolate changes
     krnl.Q = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;

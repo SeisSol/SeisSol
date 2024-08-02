@@ -409,7 +409,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
-  CellMaterialData* material = io_ltsTree->var(i_lts->material); // (TO DISCUSS: do we need multiple here? The fused DR assumes different fault parameters, is the material taking care of that?)
+  CellMaterialData* material = io_ltsTree->var(i_lts->material); // This is only cell material -> only wave propagation stuff
   real** derivatives = io_ltsTree->var(i_lts->derivatives);
   real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
@@ -695,5 +695,4 @@ void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                      ltsTree->var(lts->neighboringIntegration),
                      variableSizes[lts->neighboringIntegration.index]);
 #endif // ACL_DEVICE
-//(TO DISCUSS: why do we need dynRupTree and dynRup in this function definition? They are not even being used)
 }
