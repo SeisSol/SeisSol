@@ -1,6 +1,7 @@
 #ifndef INITIALIZER_BOUNDARY_H_
 #define INITIALIZER_BOUNDARY_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.hpp"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "Initializer/typedefs.hpp"
@@ -23,6 +24,9 @@ struct Boundary {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
   }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) {}
 };
 
 } // namespace seissol::initializer

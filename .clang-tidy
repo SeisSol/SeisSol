@@ -298,6 +298,6 @@ CheckOptions:
 #  - key:             readability-identifier-naming.VirtualMethodSuffix
 #    value:           CamelCase
 
-    # ignore Eigen, fty manually, until added to IWYU
+    # ignore Eigen, until added to IWYU
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*'

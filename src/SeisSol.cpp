@@ -43,6 +43,7 @@
 
 #include <climits>
 #include <memory>
+#include <optional>
 #include <sys/resource.h>
 #include <utils/logger.h>
 
@@ -193,6 +194,10 @@ void SeisSol::finalize() {
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
   m_backupTimeStamp = stamp;
   seissol::MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
+}
+
+void SeisSol::loadCheckpoint(const std::string& file) {
+  checkpointLoadFile = std::make_optional<std::string>(file);
 }
 
 } // namespace seissol

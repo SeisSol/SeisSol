@@ -15,7 +15,7 @@ namespace seissol::initializer::parameters {
 
 constexpr double veryLongTime = 1.0e100;
 
-enum CheckpointingBackend { POSIX, HDF5, MPIO, MPIO_ASYNC, SIONLIB, DISABLED };
+enum CheckpointingBackend { Disabled, Hdf5 };
 
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
@@ -35,6 +35,7 @@ struct ElementwiseFaultParameters {
   std::array<bool, 12> outputMask{true, true, true, true};
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
+  int vtkorder{-1};
 };
 
 struct EnergyOutputParameters {
@@ -42,6 +43,7 @@ struct EnergyOutputParameters {
   int computeVolumeEnergiesEveryOutput;
   double interval;
   bool terminalOutput;
+  int terminalPrecision;
   double terminatorMaxTimePostRupture;
   double terminatorMomentRateThreshold;
 };
@@ -50,6 +52,7 @@ struct FreeSurfaceOutputParameters {
   bool enabled;
   unsigned refinement;
   double interval;
+  int vtkorder{-1};
 };
 
 struct PickpointParameters {
@@ -57,6 +60,7 @@ struct PickpointParameters {
   int maxPickStore{50};
   std::array<bool, 12> outputMask{true, true, true};
   std::string pickpointFileName{};
+  bool collectiveio{false};
 };
 
 struct ReceiverOutputParameters {
@@ -66,6 +70,7 @@ struct ReceiverOutputParameters {
   double interval;
   double samplingInterval;
   std::string fileName;
+  bool collectiveio{false};
 };
 
 struct OutputInterval {
@@ -97,6 +102,7 @@ struct OutputBounds {
 
 struct WaveFieldOutputParameters {
   bool enabled;
+  int vtkorder;
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
