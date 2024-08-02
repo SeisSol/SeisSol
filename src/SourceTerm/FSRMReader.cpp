@@ -107,7 +107,7 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
   this->onsets.resize(this->numberOfSources);
   this->areas.resize(this->numberOfSources);
   this->solidVel3cVector.resize(this->numberOfSources);
-  for (auto& arr: this->solidVel3cVector){
+  for (auto& arr : this->solidVel3cVector) {
     arr.fill(0.0);
   }
 
@@ -127,19 +127,20 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
     filestream >> this->rakes[i];
     filestream >> this->areas[i];
     filestream >> this->onsets[i];
-    if( i < this->numInVelComponents[0]){
+    if (i < this->numInVelComponents[0]) {
       this->solidVel3cVector[i][0] = 1.0;
-    }
-    else if( i < this->numInVelComponents[0] + this->numInVelComponents[1]){
+    } else if (i < this->numInVelComponents[0] + this->numInVelComponents[1]) {
       this->solidVel3cVector[i][1] = 1.0;
-    }
-    else if( i < this->numInVelComponents[0] + this->numInVelComponents[1] + this->numInVelComponents[2]){
+    } else if (i < this->numInVelComponents[0] + this->numInVelComponents[1] +
+                       this->numInVelComponents[2]) {
       this->solidVel3cVector[i][2] = 1.0;
-    }
-    else if(this->numInVelComponents[0] + this->numInVelComponents[1] + this->numInVelComponents[2] < 1e-5)
+    } else if (this->numInVelComponents[0] + this->numInVelComponents[1] +
+                   this->numInVelComponents[2] <
+               1e-5)
       logInfo() << "Multi-components point source is nor specified in the FSRM file.\n";
     else
-      throw std::runtime_error("Total number of FSRM point sources does not match the sum of each component.");
+      throw std::runtime_error(
+          "Total number of FSRM point sources does not match the sum of each component.");
   }
 
   std::getline(filestream, lineval); // end of line

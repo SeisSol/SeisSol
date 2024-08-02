@@ -3,12 +3,12 @@
 
 // IWYU pragma: begin_exports
 
+#include "AdjointRSFInitializer.h"
 #include "BaseDRInitializer.h"
 #include "ImposedSlipRatesInitializer.h"
 #include "LinearSlipWeakeningInitializer.h"
 #include "NoFaultInitializer.h"
 #include "RateAndStateInitializer.h"
-#include "AdjointRSFInitializer.h"
 
 // IWYU pragma: end_exports
 

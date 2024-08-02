@@ -396,7 +396,9 @@ auto loadSourcesFromFSRM(const char* fileName,
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
                                      mesh);
-        if (fsrm.solidVel3cVector[fsrmIndex][0] + fsrm.solidVel3cVector[fsrmIndex][1] + fsrm.solidVel3cVector[fsrmIndex][2] > 1e-5){
+        if (fsrm.solidVel3cVector[fsrmIndex][0] + fsrm.solidVel3cVector[fsrmIndex][1] +
+                fsrm.solidVel3cVector[fsrmIndex][2] >
+            1e-5) {
           ptr_velocityComponent = fsrm.solidVel3cVector[fsrmIndex].data();
         }
         transformMomentTensor(fsrm.momentTensor,
