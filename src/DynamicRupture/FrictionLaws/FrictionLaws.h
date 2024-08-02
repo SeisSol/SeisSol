@@ -15,6 +15,9 @@
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
+#include "AdjointRSF.h"
+#include "AdjointSlowVelWeakening.h"
+#include "AdjointSlip.h"
 
 #ifdef ACL_DEVICE
 #include "GpuImpl/AgingLaw.h"

@@ -8,6 +8,7 @@
 #include "LinearSlipWeakeningInitializer.h"
 #include "NoFaultInitializer.h"
 #include "RateAndStateInitializer.h"
+#include "AdjointRSFInitializer.h"
 
 // IWYU pragma: end_exports
 

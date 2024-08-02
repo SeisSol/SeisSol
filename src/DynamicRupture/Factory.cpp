@@ -46,6 +46,8 @@ std::unique_ptr<AbstractFactory>
   case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters,
                                                                       seissolInstance);
+  case seissol::initializer::parameters::FrictionLawType::AdjointSlip:
+    return std::make_unique<AdjointRSFSlipFactory>(drParameters, seissolInstance);
   default:
     logError() << "unknown friction law";
     return nullptr;
@@ -193,4 +195,25 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
                                                     seissolInstance)};
   }
 }
+
+DynamicRuptureTuple AdjointRSFSlipFactory::produce() {
+  if (drParameters->isThermalPressureOn) {
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(
+                drParameters.get()),
+            std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(
+                drParameters.get()),
+            std::make_unique<output::OutputManager>(
+                std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
+  } else {
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
+            std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
+                                                    seissolInstance)};
+  }
+}
+
 } // namespace seissol::dr::factory
