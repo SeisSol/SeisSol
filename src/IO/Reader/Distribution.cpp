@@ -189,9 +189,13 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   MPI_Datatype pairtype = seissol::io::datatype::convertToMPI(
       seissol::io::datatype::inferDatatype<std::pair<std::size_t, int>>());
 
-  auto sourceMax = *std::max_element(sourceIds.begin(), sourceIds.end());
-  auto targetMax = *std::max_element(targetIds.begin(), targetIds.end());
-  std::size_t localMax = std::max(sourceMax, targetMax);
+  std::size_t localMax = 0;
+  for (const auto& sourceId : sourceIds) {
+    localMax = std::max(localMax, sourceId);
+  }
+  for (const auto& targetId : targetIds) {
+    localMax = std::max(localMax, targetId);
+  }
   std::size_t globalMax;
   MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm);
   auto globalCount = globalMax + 1;
