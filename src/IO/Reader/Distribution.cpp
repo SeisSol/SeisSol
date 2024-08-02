@@ -99,7 +99,7 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
   std::vector<std::pair<T, int>> outputIntermediate(intermediate.size());
   int rank = 0;
   for (std::size_t i = 0; i < intermediate.size(); ++i) {
-    if (sourceToRecvHistogram[rank + 1] <= i) {
+    while (sourceToRecvHistogram[rank + 1] <= i) {
       ++rank;
     }
     outputIntermediate[i] = std::pair<T, int>(intermediate[i], rank);
@@ -202,6 +202,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
   // methods to work correctly right now
+
+  // TODO: split data more evenly (not go by getRank, but by total count?)
 
   std::vector<std::pair<std::size_t, int>> source;
   std::vector<std::pair<std::size_t, int>> target;
