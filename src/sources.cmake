@@ -41,6 +41,7 @@ src/DynamicRupture/Initializer/BaseDRInitializer.cpp
 src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
+src/DynamicRupture/Initializer/AdjointRSFInitializer.cpp
 src/DynamicRupture/Misc.cpp
 
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp

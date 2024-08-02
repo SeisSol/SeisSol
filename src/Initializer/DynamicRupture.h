@@ -272,6 +272,20 @@ struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   }
 };
 
+struct LTSAdjointRSF : public DynamicRupture {
+  Variable<real[dr::misc::numPaddedPoints]> rsA;
+  Variable<real[dr::misc::numPaddedPoints]> rsSl0;
+  Variable<real[dr::misc::numPaddedPoints]> stateVariable;
+
+  virtual void addTo(LTSTree& tree) {
+    DynamicRupture::addTo(tree);
+    LayerMask mask = LayerMask(Ghost);
+    tree.addVar(rsA, mask, 1, allocationModeDR(), true);
+    tree.addVar(rsSl0, mask, 1, allocationModeDR(), true);
+    tree.addVar(stateVariable, mask, 1, allocationModeDR());
+  }
+};
+
 } // namespace seissol::initializer
 
 #endif // INITIALIZER_DR_H_
