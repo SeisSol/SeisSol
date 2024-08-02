@@ -24,7 +24,7 @@
 #include "Numerical_aux/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
-#include "Solver/time_stepping/MiniSeisSol.h"
+#include "Solver/Proxy/MiniSeisSol.h"
 
 #include "Parallel/MPI.h"
 

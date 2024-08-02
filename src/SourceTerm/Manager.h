@@ -43,7 +43,7 @@
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/tree/Lut.hpp"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/Clustering/TimeManager.h"
 #include <cstdarg>
 
 namespace seissol::sourceterm {

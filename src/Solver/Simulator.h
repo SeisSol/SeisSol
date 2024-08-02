@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Alex Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015-2017, SeisSol Group
@@ -43,92 +45,84 @@
 #define SIMULATOR_H_
 
 namespace seissol {
-  class Simulator;
-  class SeisSol;
-}
+class Simulator;
+class SeisSol;
+} // namespace seissol
 
 /**
  * Simulator, which takes care of the simulation: Sync. times, wave field output, checkpoints.
  **/
 class seissol::Simulator {
   // private:
-    //! current time of the simulation
-    double m_currentTime;
+  //! current time of the simulation
+  double currentTime;
 
-    //! final time of the simulation
-    double m_finalTime;
+  //! final time of the simulation
+  double finalTime;
 
-    //! usePlasticity = true if plasticity is on
-    bool m_usePlasticity;
+  //! usePlasticity = true if plasticity is on
+  bool usePlasticity;
 
-    //! last time a checkpoint was written
-    double m_checkPointTime;
+  //! last time a checkpoint was written
+  double checkPointTime;
 
-    //! time interval of the checkpoints
-    double m_checkPointInterval;
+  //! time interval of the checkpoints
+  double checkPointInterval;
 
-    //! If true, a checkpoint is loaded before the simulation
-    bool m_loadCheckPoint;
-
-    //! If true, the while loop of the simulation will be aborted (see terminator)
-    bool m_abort;
+  //! If true, the while loop of the simulation will be aborted (see terminator)
+  bool aborted;
 
   public:
-    /**
-     * Constructor, which initializes all values.
-     * Default:
-     *  All times are set to zero.
-     *  Wave field and checkpoint are disabled, intervals set to infinity.
-     **/
-    Simulator();
+  /**
+   * Constructor, which initializes all values.
+   * Default:
+   *  All times are set to zero.
+   *  Wave field and checkpoint are disabled, intervals set to infinity.
+   **/
+  Simulator();
 
-    /**
-     * Sets the final time of the simulation.
-     *
-     * @param i_finalTime final time.
-     **/
-    void setFinalTime( double i_finalTime );
+  /**
+   * Sets the final time of the simulation.
+   *
+   * @param finalTime final time.
+   **/
+  void setFinalTime(double finalTime);
 
-    /**
-     * Sets the m_usePlasticity
-     *
-     * @param i_plasticity = 1 if plasticity is on
-     **/
-    void setUsePlasticity( bool plasticity );
+  /**
+   * Sets the usePlasticity
+   *
+   * @param plasticity = 1 if plasticity is on
+   **/
+  void setUsePlasticity(bool plasticity);
 
-    /**
-     * Sets the current time of the simulation (useful for checkpoints)
-     *
-     * @param i_currentTime current time
-     */
-    void setCurrentTime( double i_currentTime );
+  /**
+   * Sets the current time of the simulation (useful for checkpoints)
+   *
+   * @param currentTime current time
+   */
+  void setCurrentTime(double currentTime);
 
-    /**
-     * Activates checkpoint loading at the beginning of the simulation
-     */
-    void loadCheckPoint();
+  /**
+   * Sets the interval for checkpointing.
+   *
+   * @param checkPointInterval check point interval.
+   **/
+  void setCheckPointInterval(double checkPointInterval);
 
-    /**
-     * Sets the interval for checkpointing.
-     *
-     * @param i_checkPointInterval check point interval.
-     **/
-    void setCheckPointInterval( double i_checkPointInterval );
+  /**
+   * Returns if the simulator is going to write check points.
+   */
+  bool checkPointingEnabled();
 
-    /**
-     * Returns if the simulator is going to write check points.
-     */
-    bool checkPointingEnabled();
+  /**
+   * update abort to abort the main loop of the simulation (see terminator)
+   */
+  void abort();
 
-    /**
-     * update m_abort to abort the main loop of the simulation (see terminator)
-     */
-    void abort();
-
-    /**
-     * Simulates until finished.
-     **/
-    void simulate(seissol::SeisSol& seissolInstance);
+  /**
+   * Simulates until finished.
+   **/
+  void simulate(seissol::SeisSol& seissolInstance);
 };
 
 #endif

@@ -7,8 +7,8 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Modules/Module.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-#include "Solver/time_stepping/TimeCluster.h"
+#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
+#include "Solver/Clustering/Computation/TimeCluster.h"
 
 namespace seissol {
 class SeisSol;
@@ -27,7 +27,7 @@ class InstantaneousTimeMirrorManager : Module {
   const TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* ghostTimeClusters;
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
@@ -46,7 +46,7 @@ class InstantaneousTimeMirrorManager : Module {
       std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
 
   void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
+      std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* clusters);
 
   void syncPoint(double currentTime) override;
 
