@@ -73,9 +73,9 @@ namespace seissol {
                                             LTS*                   i_lts,
                                             Lut*                   i_ltsLut,
                                             // LTSTree*               dynRupTree,
-                                            std::array<LTSTree*, MULTIPLE_SIMULATIONS>& dynRupTree,
+                                            std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
                                             // DynamicRupture*        dynRup,
-                                            std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>& dynRup,
+                                            std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             double etaHack );
@@ -83,7 +83,7 @@ namespace seissol {
       void copyCellMatricesToDevice(LTSTree*          ltsTree,
                                     LTS*              lts,
                                     std::array<LTSTree*, MULTIPLE_SIMULATIONS>          dynRupTree,
-                                    std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>   dynRup,
+                                    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS>   dynRup,
                                     LTSTree*          boundaryTree,
                                     Boundary*         boundary);
   } // namespace initializer

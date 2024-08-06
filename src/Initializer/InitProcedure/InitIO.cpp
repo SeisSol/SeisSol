@@ -11,60 +11,60 @@
 
 namespace {
 
-static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
+// static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
+//   const auto& seissolParams = seissolInstance.getSeisSolParameters();
+//   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  auto* lts = memoryManager.getLts();
-  auto* ltsTree = memoryManager.getLtsTree();
-  auto* dynRup = memoryManager.getDynamicRupture();
-  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
+//   auto* lts = memoryManager.getLts();
+//   auto* ltsTree = memoryManager.getLtsTree();
+//   auto dynRup = memoryManager.getDynamicRupture();
+//   auto dynRupTree = memoryManager.getDynamicRuptureTree();
 
-  // Initialize checkpointing
-  int faultTimeStep;
+//   // Initialize checkpointing
+//   int faultTimeStep;
 
-  // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip
-  // magnitude
-  real* stateVariable{nullptr};
-  if (dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)) {
-    stateVariable = reinterpret_cast<real*>(dynRupTree->var(
-        dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)->stateVariable));
-  } else {
-    stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->accumulatedSlipMagnitude));
-  }
-  // Only with prakash-clifton regularization, we store the fault strength, otherwise use the
-  // friction coefficient
-  real* strength{nullptr};
-  if (dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)) {
-    stateVariable = reinterpret_cast<real*>(dynRupTree->var(
-        dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)
-            ->regularisedStrength));
-  } else {
-    stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
-  }
+//   // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip
+//   // magnitude
+//   real* stateVariable{nullptr};
+//   if (dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)) {
+//     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
+//         dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)->stateVariable));
+//   } else {
+//     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->accumulatedSlipMagnitude));
+//   }
+//   // Only with prakash-clifton regularization, we store the fault strength, otherwise use the
+//   // friction coefficient
+//   real* strength{nullptr};
+//   if (dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)) {
+//     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
+//         dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)
+//             ->regularisedStrength));
+//   } else {
+//     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
+//   }
 
-  size_t numSides = seissolInstance.meshReader().getFault().size();
-  unsigned int numBndGP = seissol::dr::misc::numberOfBoundaryGaussPoints;
+//   size_t numSides = seissolInstance.meshReader().getFault().size();
+//   unsigned int numBndGP = seissol::dr::misc::numberOfBoundaryGaussPoints;
 
-  bool hasCheckpoint = seissolInstance.checkPointManager().init(
-      reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
-      ltsTree->getNumberOfCells(lts->dofs.mask) * tensor::Q::size(),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->mu)),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->slipRate1)),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->slipRate2)),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->accumulatedSlipMagnitude)),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->slip1)),
-      reinterpret_cast<real*>(dynRupTree->var(dynRup->slip2)),
-      stateVariable,
-      strength,
-      numSides,
-      numBndGP,
-      faultTimeStep);
-  if (hasCheckpoint) {
-    seissolInstance.simulator().setCurrentTime(seissolInstance.checkPointManager().header().time());
-    seissolInstance.faultWriter().setTimestep(faultTimeStep);
-  }
-}
+//   bool hasCheckpoint = seissolInstance.checkPointManager().init(
+//       reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
+//       ltsTree->getNumberOfCells(lts->dofs.mask) * tensor::Q::size(),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->mu)),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->slipRate1)),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->slipRate2)),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->accumulatedSlipMagnitude)),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->slip1)),
+//       reinterpret_cast<real*>(dynRupTree->var(dynRup->slip2)),
+//       stateVariable,
+//       strength,
+//       numSides,
+//       numBndGP,
+//       faultTimeStep);
+//   if (hasCheckpoint) {
+//     seissolInstance.simulator().setCurrentTime(seissolInstance.checkPointManager().header().time());
+//     seissolInstance.faultWriter().setTimestep(faultTimeStep);
+//   }
+// }
 
 static void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -72,8 +72,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* lts = memoryManager.getLts();
   auto* ltsTree = memoryManager.getLtsTree();
   auto* ltsLut = memoryManager.getLtsLut();
-  auto* dynRup = memoryManager.getDynamicRupture();
-  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
+  auto dynRup = memoryManager.getDynamicRupture();
+  auto dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
@@ -163,10 +163,11 @@ static void enableCheckpointing(seissol::SeisSol& seissolInstance) {
 static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
-  auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
+  auto faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
-
-  seissolInstance.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
+  for (unsigned int i = 0; i << MULTIPLE_SIMULATIONS; i++) {
+    seissolInstance.getMemoryManager().getFaultOutputManager()[i]->initFaceToLtsMap();
+  }
 }
 
 static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
@@ -218,12 +219,12 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   MPI::mpi.barrier(MPI::mpi.comm());
 
   // always enable checkpointing first
-  enableCheckpointing(seissolInstance);
+  // enableCheckpointing(seissolInstance);
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);
-  setupCheckpointing(seissolInstance);
+  // setupCheckpointing(seissolInstance);
   setupOutput(seissolInstance);
   logInfo(rank) << "End init output.";
 }

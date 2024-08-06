@@ -36,6 +36,14 @@
 #include <utils/timeutils.h>
 #include <vector>
 
+std::string intToStringWithFixedDigits(int number, int width){
+  std::string str = std::to_string(number);
+  if(str.length() < width){
+    str.insert(0, width - str.length(), '0');
+  }
+  return str;
+}
+
 struct NativeFormat {};
 struct WideFormat {};
 template <typename T, typename U = NativeFormat>
@@ -101,13 +109,15 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 }
 
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
-                             seissol::SeisSol& seissolInstance)
+                             seissol::SeisSol& seissolInstance, unsigned int numFused)
     : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
-      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
+      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)), numFused(numFused) {
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
 
-OutputManager::~OutputManager() { flushPickpointDataToFile(); }
+OutputManager::~OutputManager() { 
+  flushPickpointDataToFile(); 
+}
 
 void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   using namespace initializer;
@@ -116,12 +126,12 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   impl->setMeshReader(&userMesher);
 
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool bothEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool pointEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                                 seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool elementwiseEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   const int rank = seissol::MPI::mpi.rank();
@@ -154,12 +164,12 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool bothEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool pointEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                                 seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
+  const bool elementwiseEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
@@ -306,7 +316,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
       const auto& outputData = ppOutputData;
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
-                            seissolParameters.drParameters.slipRateOutputType,
+                            seissolParameters.drParameters[numFused].slipRateOutputType,
                             ppOutputData,
                             time);
 
@@ -344,7 +354,7 @@ void OutputManager::flushPickpointDataToFile() {
 
     const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
     const auto fileName = buildIndexedMPIFileName(
-        seissolParameters.output.prefix, globalIndex, "faultreceiver", "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or something. 
+        seissolParameters.output.prefix + intToStringWithFixedDigits(numFused, 4), globalIndex, "faultreceiver", "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or something. 
 
     std::ofstream file(fileName, std::ios_base::app);
     if (file.is_open()) {
@@ -361,7 +371,7 @@ void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
-                          seissolParameters.drParameters.slipRateOutputType,
+                          seissolParameters.drParameters[numFused].slipRateOutputType,
                           ewOutputData);
   }
 }

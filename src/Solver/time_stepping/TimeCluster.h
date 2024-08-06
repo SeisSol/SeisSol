@@ -72,6 +72,7 @@
 #define TIMECLUSTER_H_
 
 #include <Initializer/tree/Layer.hpp>
+#include <Kernels/TimeCommon.h>
 #include <array>
 #include <memory>
 #ifdef USE_MPI
@@ -166,11 +167,11 @@ private:
     std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData;
     seissol::initializer::LTS*         m_lts;
     //seissol::initializer::DynamicRupture* m_dynRup; // will need multiple of this
-    std::array<seissol::initializer::DynamicRupture*, MULTIPLE_SIMULATIONS> m_dynRup;
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS> m_dynRup;
     //dr::friction_law::FrictionSolver* frictionSolver;
-    std::array<dr::friction_law::FrictionSolver*, MULTIPLE_SIMULATIONS> frictionSolver;
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> frictionSolver;
     // dr::output::OutputManager* faultOutputManager;
-    std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> faultOutputManager;
+    std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> faultOutputManager;
 
     std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
 
@@ -296,20 +297,23 @@ private:
 
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
-                                      &drMapping[l_cell][1].godunov; // the prefetch does not change anything numerical, just cache behaviour
+                                      drMapping[l_cell][1].godunov[0]; // the prefetch does not change anything numerical, just cache behaviour
                                       /// \todo think of a cleaner way to actually do the prefetch later
         l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][2] :
-                                      &drMapping[l_cell][2].godunov;
+                                      drMapping[l_cell][2].godunov[0];// the prefetch does not change anything numerical, just cache behaviour
+                                      /// \todo think of a cleaner way to actually do the prefetch later
         l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][3] :
-                                      &drMapping[l_cell][3].godunov;
+                                      drMapping[l_cell][3].godunov[0];// the prefetch does not change anything numerical, just cache behaviour
+                                      /// \todo think of a cleaner way to actually do the prefetch later
 
         // fourth face's prefetches
         if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
           l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
                                         faceNeighbors[l_cell+1][0] :
-                                        &drMapping[l_cell+1][0].godunov;
+                                        drMapping[l_cell+1][0].godunov[0]; // the prefetch does not change anything numerical, just cache behaviour
+                                      /// \todo think of a cleaner way to actually do the prefetch later
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
@@ -416,11 +420,11 @@ public:
       std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData,
       seissol::initializer::LTS* i_lts,
       // seissol::initializer::DynamicRupture* i_dynRup,
-      std::array<seissol::initializer::DynamicRupture*, MULTIPLE_SIMULATIONS> i_dynRup,
+      std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS> i_dynRup,
       // seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-      std::array<seissol::dr::friction_law::FrictionSolver*, MULTIPLE_SIMULATIONS> i_FrictionSolver,
+      std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> i_FrictionSolver,
       //dr::output::OutputManager* i_faultOutputManager,
-      std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> i_faultOutputManager,
+      std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> i_faultOutputManager,
       seissol::SeisSol& seissolInstance,
       LoopStatistics* i_loopStatistics,
       ActorStateStatistics* actorStateStatistics);
@@ -443,7 +447,7 @@ public:
     m_receiverCluster = receiverCluster;
   }
 
-  void setFaultOutputManager(std::array<dr::output::OutputManager, MULTIPLE_SIMULATIONS> outputManager) {
+  void setFaultOutputManager(std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> outputManager) {
     faultOutputManager = outputManager;
   }
 

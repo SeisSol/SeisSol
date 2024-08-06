@@ -394,12 +394,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
                                                               LTS*                   i_lts,
                                                               Lut*                   i_ltsLut,
                                                               // LTSTree*               dynRupTree,
-                                                              std::array<LTSTree*, MULTIPLE_SIMULATIONS>& dynRupTree,
+                                                              std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
                                                               // DynamicRupture*        dynRup,
-                                                              std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>& dynRup,
+                                                              std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
-                                                              double etaHack ) // (TO DISCUSS: This needs heavy modifications)
+                                                              double etaHack )
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
@@ -679,7 +679,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
                                                      LTS*              lts,
                                                      std::array<LTSTree*, MULTIPLE_SIMULATIONS>          dynRupTree,
-                                                     std::array<DynamicRupture*, MULTIPLE_SIMULATIONS>   dynRup,
+                                                     std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS>   dynRup,
                                                      LTSTree*          boundaryTree,
                                                      Boundary*         boundary) {
 #ifdef ACL_DEVICE

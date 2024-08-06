@@ -48,6 +48,10 @@
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.hpp"
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Solver/time_stepping/TimeCluster.h>
+#include <array>
 #include <memory>
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
@@ -91,20 +95,28 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
 
+    std::array<long, MULTIPLE_SIMULATIONS> numDynRupCells;
     // Dynamic rupture
-    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
-    // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
+    for (unsigned i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+      auto& dynRupTree = memoryManager.getDynamicRuptureTree()[i]->child(localClusterId);
+      const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
         dynRupTree.child(Copy).getNumberOfCells() +
         dynRupTree.child(Ghost).getNumberOfCells();
+      numDynRupCells[i] = numberOfDynRupCells;
+    } // (TO DISCUSS: does this make remotely any sense? Do all the LTS Trees for Dynamic Rupture have the same number of Cells in Copy, Ghost etc.? If so,
+    // can I do this just once and not run it for the entire loop? I don't understand why we need an array if that is the case)
 
+    // Note: We need to include the Ghost part, as we need to compute its DR part as well.
+ 
     bool isFirstDynamicRuptureCluster = false;
-    if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
+    if (!foundDynamicRuptureCluster && numDynRupCells[0] > 0) {
       foundDynamicRuptureCluster = true;
       isFirstDynamicRuptureCluster = true;
     }
-    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells,
+
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numDynRupCells[0],
                                                                                                         isFirstDynamicRuptureCluster));
+                                                                                                        //(TO DISCUSS: Same as the above issue with the dynRupTree)
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
@@ -113,8 +125,20 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
-      auto* dynRupInteriorData = &dynRupTree.child(Interior);
-      auto* dynRupCopyData = &dynRupTree.child(Copy);
+      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInteriorData;
+      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData;
+
+      // auto* dynRupInteriorData = &dynRupTree.child(Interior);
+      // auto* dynRupCopyData = &dynRupTree.child(Copy);
+      for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+        dynRupCopyData[i] =
+            &memoryManager.getDynamicRuptureTree()[i]->child(localClusterId).child(Copy);
+        dynRupInteriorData[i] =
+            &memoryManager.getDynamicRuptureTree()[i]->child(localClusterId).child(Interior);
+      } // (TO DISCUSS: Do we need different LTS Trees just because we would need different Copy
+        // datas and Interior Datas? Can't we change the structure of the LTS Tree to get multiple
+        // of these there?)
+
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,
@@ -139,8 +163,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       );
 
       const auto clusterSize = layerData->getNumberOfCells();
-      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
-                                           : dynRupInteriorData->getNumberOfCells();
+      const auto dynRupSize =
+          type == Copy ? dynRupCopyData[0]->getNumberOfCells()
+                       : dynRupInteriorData[0]
+                             ->getNumberOfCells(); // (TO DISCUSS: Confirmation that number of cells
+                                                   // would remain the same and that miniseissol
+                                                   // won't do some magic to give different number
+                                                   // of cells for different simulations)
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
       //ignore it for now
@@ -249,15 +278,19 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
 }
 
-void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager, unsigned int i) {
-  m_faultOutputManager[i] = faultOutputManager;
+void seissol::time_stepping::TimeManager::setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS>& faultOutputManager) {
+  for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  m_faultOutputManager[i] = faultOutputManager[i].get();
+  }
+  
   for(auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 } // (TO DISCUSS: Modify to a vector and deal with writing separately)
 
-seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
-  assert(m_faultOutputManager != nullptr);
+std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS> seissol::time_stepping::TimeManager::getFaultOutputManager() {
+  for(unsigned int i = 0 ; i < MULTIPLE_SIMULATIONS; i++)
+{  assert(m_faultOutputManager[i] != nullptr); }
   return m_faultOutputManager;
 }
 

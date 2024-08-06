@@ -30,11 +30,12 @@ class AbstractFactory {
   protected:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
   seissol::SeisSol& seissolInstance;
+  const unsigned int numFused; // (TO DISCUSS: Where are these initialized?, I will need to set this correctly)
 
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
-                  seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance) {};
+                  seissol::SeisSol& seissolInstance, unsigned int numFused)
+      : drParameters(drParameters), seissolInstance(seissolInstance), numFused(numFused) {}; // (TODISCUSS: where are the derived classes' constructors called?)
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
@@ -95,7 +96,7 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
-               seissol::SeisSol& seissolInstance);
+               seissol::SeisSol& seissolInstance, unsigned int numFused);
 
 } // namespace dr::factory
 } // namespace seissol

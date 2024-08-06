@@ -91,8 +91,11 @@ void seissol::Simulator::abort() {
 void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  faultOutputManager->writePickpointOutput(0.0, 0.0);
+  // auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
+   auto faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
+
+  for(unsigned int i = 0; i < MULTIPLE_SIMULATIONS ; i++)
+{  faultOutputManager[i]->writePickpointOutput(0.0, 0.0);}
 
   Stopwatch simulationStopwatch;
   simulationStopwatch.start();

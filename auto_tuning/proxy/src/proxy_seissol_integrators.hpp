@@ -174,16 +174,16 @@ namespace proxy::cpu {
                                                       l_timeIntegrated );
 
       l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
+          ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov[0]; /// \todo need to get the prefetching correctly implemented
       l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
+          ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov[0]; /// \todo need to get the prefetching correctly implemented
       l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
+          ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov[0]; /// \todo need to get the prefetching correctly implemented
 
       // fourth face's prefetches
       if (l_cell < (nrOfCells-1) ) {
         l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-            faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
+            faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov[0]; /// \todo need to get the prefetching correctly implemented
       } else {
         l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
       }

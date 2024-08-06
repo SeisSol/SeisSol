@@ -4,6 +4,7 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "Geometry/MeshReader.h"
@@ -60,8 +61,8 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializer::DynamicRupture* newDynRup,
-            seissol::initializer::LTSTree* newDynRuptTree,
+            std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS>& newDynRup,
+            std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS>& newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
             seissol::initializer::LTSTree* newLtsTree,
             seissol::initializer::LTS* newLts,
@@ -121,8 +122,10 @@ class EnergyOutput : public Module {
   std::ofstream out;
 
   const GlobalData* global = nullptr;
-  seissol::initializer::DynamicRupture* dynRup = nullptr;
-  seissol::initializer::LTSTree* dynRupTree = nullptr;
+  // seissol::initializer::DynamicRupture* dynRup = nullptr;
+  // seissol::initializer::LTSTree* dynRupTree = nullptr;
+  std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup;
+  std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree;
   seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializer::LTSTree* ltsTree = nullptr;
   seissol::initializer::LTS* lts = nullptr;

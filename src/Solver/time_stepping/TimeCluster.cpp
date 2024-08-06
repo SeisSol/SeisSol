@@ -84,42 +84,45 @@
 #include <omp.h>
 #endif
 
-#include "SeisSol.h"
-#include "TimeCluster.h"
-#include "SourceTerm/PointSource.h"
-#include "Kernels/TimeCommon.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
+#include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "Monitoring/instrumentation.hpp"
+#include "SeisSol.h"
+#include "SourceTerm/PointSource.h"
+#include "TimeCluster.h"
 
 #include <cassert>
 #include <cstring>
 
 #include "generated_code/kernel.h"
 
-seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
-                                                 unsigned int profilingId,
-                                                 bool usePlasticity,
-                                                 LayerType layerType, double maxTimeStepSize,
-                                                 long timeStepRate, bool printProgress,
-                                                 DynamicRuptureScheduler *dynamicRuptureScheduler,
-                                                 CompoundGlobalData i_globalData,
-                                                 seissol::initializer::Layer *i_clusterData,
-                                                //  seissol::initializer::Layer *dynRupInteriorData,
-                                                std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInterioData,
-                                                //  seissol::initializer::Layer *dynRupCopyData,
-                                                std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData,
-                                                 seissol::initializer::LTS *i_lts,
-                                                //  seissol::initializer::DynamicRupture* i_dynRup,
-                                                std::array<seissol::initializer::DynamicRupture*, MULTIPLE_SIMULATIONS> i_dynRup,
-                                                // seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-                                                std::array<seissol::dr::friction_law::FrictionSolver*, MULTIPLE_SIMULATIONS> i_FrictionSolver,
-                                                //  dr::output::OutputManager* i_faultOutputManager,
-                                                std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> i_faultOutputManager,
-                                                 seissol::SeisSol& seissolInstance,
-                                                 LoopStatistics *i_loopStatistics,
-                                                 ActorStateStatistics* actorStateStatistics) :
+seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
+                                                  unsigned int i_globalClusterId,
+                                                  unsigned int profilingId,
+                                                  bool usePlasticity,
+                                                  LayerType layerType,
+                                                  double maxTimeStepSize,
+                                                  long timeStepRate,
+                                                  bool printProgress,
+                                                  DynamicRuptureScheduler* dynamicRuptureScheduler, // Need only one scheduler and multiple data structures
+                                                  CompoundGlobalData i_globalData,
+                                                  seissol::initializer::Layer *i_clusterData,
+                                            //      seissol::initializer::Layer* dynRupInteriorData,
+                                                  std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInteriorData,
+                                            //      seissol::initializer::Layer* dynRupCopyData,
+                                                  std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData,
+                                                  seissol::initializer::LTS* i_lts,
+                                                  // seissol::initializer::DynamicRupture* i_dynRup,
+                                                  std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS> i_dynRup,
+                                                  // seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+                                                  std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> i_FrictionSolver,
+                                                  //dr::output::OutputManager* i_faultOutputManager,
+                                                  std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> i_faultOutputManager,
+                                                  seissol::SeisSol& seissolInstance,
+                                                  LoopStatistics* i_loopStatistics,
+                                                  ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
@@ -282,8 +285,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    frictionSolver[i]->evaluate(
-        layerData, m_dynRup[i], ct.correctionTime, m_dynamicRuptureKernel.timeWeights);
+    frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel.timeWeights);
   }
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 

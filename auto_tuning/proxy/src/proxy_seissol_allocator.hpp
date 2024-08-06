@@ -177,8 +177,8 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
         unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
         drm.side = side;
         drm.faceRelation = orientation;
-        drm.godunov = imposedStatePlus[drFace];
-        drm.fluxSolver = fluxSolverPlus[drFace];
+        drm.godunov[0] = imposedStatePlus[drFace]; // For multiple simulations, just do it for the first simulation
+        drm.fluxSolver[0] = fluxSolverPlus[drFace]; // For multiple simulations, just do it for the first simulation
       }
     }
 

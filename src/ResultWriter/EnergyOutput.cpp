@@ -44,8 +44,8 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::DynamicRupture* newDynRup,
-    seissol::initializer::LTSTree* newDynRuptTree,
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS>& newDynRup,
+    std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS>& newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
     seissol::initializer::LTS* newLts,
@@ -220,7 +220,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       return timeDerivativeMinusHost + qSize * i;
     };
 #endif
-    for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    for (auto it = dynRupTree[sim]->beginLeaf(); it != dynRupTree[sim]->endLeaf(); ++it) {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
@@ -255,16 +255,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + qSize * i;
       };
 #else
-      real** timeDerivativePlus = it->var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
+      real** timeDerivativePlus = it->var(dynRup[sim]->timeDerivativePlus);
+      real** timeDerivativeMinus = it->var(dynRup[sim]->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = it->var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
+      DRGodunovData* godunovData = it->var(dynRup[sim]->godunovData);
+      DRFaceInformation* faceInformation = it->var(dynRup[sim]->faceInformation);
+      DREnergyOutput* drEnergyOutput = it->var(dynRup[sim]->drEnergyOutput);
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup[sim]->waveSpeedsPlus);
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup[sim]->waveSpeedsMinus);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \

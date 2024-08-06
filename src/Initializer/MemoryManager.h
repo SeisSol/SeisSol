@@ -171,15 +171,15 @@ class MemoryManager {
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    std::array<LTSTree, MULTIPLE_SIMULATIONS> m_dynRupTree;
+    std::array<LTSTree*, MULTIPLE_SIMULATIONS> m_dynRupTree;
     // LTSTree m_dynRupTree;
-    std::array<DynamicRupture, MULTIPLE_SIMULATIONS> m_dynRup;
+    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> m_dynRup;
     // std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::array<std::unique_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer;
+    std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer;
     // std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-    std::array<std::unique_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw;
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw;
     // std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::array<std::unique_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager;
+    std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager;
     // std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
@@ -245,7 +245,7 @@ class MemoryManager {
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {}
+    ~MemoryManager() = default;
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -326,12 +326,12 @@ class MemoryManager {
       return m_ltsLut;
     }
 
-    inline LTSTree* getDynamicRuptureTree() {
-      return m_dynRupTree.data();
+    inline std::array<LTSTree*, MULTIPLE_SIMULATIONS> getDynamicRuptureTree() {
+      return m_dynRupTree;
     }
                           
-    inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup.data();
+    inline std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> getDynamicRupture() {
+      return m_dynRup;
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -356,14 +356,15 @@ class MemoryManager {
       return &m_easiBoundary;
     }
 
-    inline std::unique_ptr<dr::friction_law::FrictionSolver>* getFrictionLaw() {
-        return m_FrictionLaw.data();
+    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> getFrictionLaw() {
+        return m_FrictionLaw;
     }
-    inline  std::unique_ptr<dr::initializer::BaseDRInitializer>* getDRInitializer() {
-        return m_DRInitializer.data();
+
+    inline std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> getDRInitializer() {
+        return m_DRInitializer;
     }
-    inline std::unique_ptr<seissol::dr::output::OutputManager>* getFaultOutputManager() {
-        return m_faultOutputManager.data();
+    inline std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS> getFaultOutputManager() {
+        return m_faultOutputManager;
     }
     inline seissol::initializer::parameters::DRParameters* getDRParameters() {
         return m_seissolParams->drParameters.data();
