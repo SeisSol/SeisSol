@@ -85,10 +85,10 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
 
   std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
-  
-  if(MULTIPLE_SIMULATIONS > 1){
+
+  if (MULTIPLE_SIMULATIONS > 1) {
     size_t pos = faultFileName.find(".yaml");
-    if (pos != std::string::npos){
+    if (pos != std::string::npos) {
       faultFileName = faultFileName.substr(0, pos) + "_" + std::to_string(i) + ".yaml";
     }
   }

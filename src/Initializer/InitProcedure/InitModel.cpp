@@ -216,7 +216,9 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping);
 
-  if (seissolParams.drParameters[0].etaHack != 1.0) { // (TO DISCUSS: I guess this should be fine. Can etaHack be different for different simulations?)
+  if (seissolParams.drParameters[0].etaHack !=
+      1.0) { // (TO DISCUSS: I guess this should be fine. Can etaHack be different for different
+             // simulations?)
     logWarning(seissol::MPI::mpi.rank())
         << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
            "friction law. The results may not conform to the existing benchmarks.";

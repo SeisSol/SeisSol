@@ -36,9 +36,9 @@
 #include <utils/timeutils.h>
 #include <vector>
 
-std::string intToStringWithFixedDigits(int number, int width){
+std::string intToStringWithFixedDigits(int number, int width) {
   std::string str = std::to_string(number);
-  if(str.length() < width){
+  if (str.length() < width) {
     str.insert(0, width - str.length(), '0');
   }
   return str;
@@ -109,15 +109,15 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 }
 
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
-                             seissol::SeisSol& seissolInstance, unsigned int numFused)
+                             seissol::SeisSol& seissolInstance,
+                             unsigned int numFused)
     : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
-      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)), numFused(numFused) {
+      ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)),
+      numFused(numFused) {
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
 
-OutputManager::~OutputManager() { 
-  flushPickpointDataToFile(); 
-}
+OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
 void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   using namespace initializer;
@@ -354,7 +354,11 @@ void OutputManager::flushPickpointDataToFile() {
 
     const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
     const auto fileName = buildIndexedMPIFileName(
-        seissolParameters.output.prefix + intToStringWithFixedDigits(numFused, 4), globalIndex, "faultreceiver", "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or something. 
+        seissolParameters.output.prefix + intToStringWithFixedDigits(numFused, 4),
+        globalIndex,
+        "faultreceiver",
+        "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or
+                // something.
 
     std::ofstream file(fileName, std::ios_base::app);
     if (file.is_open()) {
