@@ -6,6 +6,7 @@
 // collect all friction laws here
 #include "AdjointRSF.h"
 #include "AdjointSlip.h"
+#include "AdjointFastVelWeakening.h"
 #include "AdjointSlowVelWeakening.h"
 #include "AgingLaw.h"
 #include "BaseFrictionLaw.h"

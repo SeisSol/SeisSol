@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
 template <class TPMethod>
 class AdjointSlip : public AdjointSlowVelWeakening<AdjointSlip<TPMethod>, TPMethod> {
   public:
-  using AdjointSlowVelWeakening<AdjointSlip<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using AdjointSlowVelWeakening<AdjointSlip<TPMethod>, TPMethod>::AdjointSlowVelWeakening;
   using AdjointSlowVelWeakening<AdjointSlip<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
 /**

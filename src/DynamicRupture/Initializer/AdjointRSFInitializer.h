@@ -61,5 +61,48 @@ class AdjointRSFInitializer : public BaseDRInitializer {
                                                           real initialSlipRate);
 };
 
+/**
+ * Derived initializer class for AdjointRSFFastVelWeakening friction laws
+ */
+class AdjointRSFFastVelInitializer : public AdjointRSFInitializer {
+  public:
+  using AdjointRSFInitializer::AdjointRSFInitializer;
+
+  protected:
+  /**
+   * Adds the additional parameters rs_srW
+   */
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               const seissol::initializer::DynamicRupture* const dynRup,
+                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+
+  /**
+  \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
+  \f[ \psi = a \cdot \log\left(\frac{2 \cdot sr_0}{rs_{ini}} \cdot
+  \sinh\left(\left|\frac{\mathbf{\tau}}{(a \cdot p)}\right|\right)\right); \f] \f[ \mu = a \cdot
+  \sinh^{-1}\left(\frac{sr_{ini}}{2 \cdot sr_0} \cdot \exp\left(\frac{\psi}{a}\right)\right); \f]
+   * Computes the initial stateVariable and frictionCoefficient
+   * @param traction1 \f$ \tau_{XY} \f$
+   * @param traction2 \f$ \tau_{XZ} \f$
+   * @param pressure \f$ p \f$
+   * @param rs_a \f$ a \f$
+   * @param rs_b \f$ b \f$
+   * @param rs_sl0 \f$ sl_0 \f$
+   * @param rs_sr0 \f$ sr_0 \f$
+   * @param rs_f0 \f$ f_0 \f$
+   * @param initialSlipRate \f$ rs_{ini} \f$
+   * @return \f$ \left( \psi, \mu \right) \f$
+   */
+  StateAndFriction computeInitialStateAndFriction(real traction1,
+                                                  real traction2,
+                                                  real pressure,
+                                                  real rsA,
+                                                  real rsB,
+                                                  real rsSl0,
+                                                  real rsSr0,
+                                                  real rsF0,
+                                                  real initialSlipRate) override;
+};
+
 } // namespace seissol::dr::initializer
 #endif // SEISSOL_ADJOINTRSFINITIALIZER_H

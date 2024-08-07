@@ -27,6 +27,7 @@ enum class FrictionLawType : unsigned int {
   RateAndStateVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
   AdjointSlip = 204,
+  AdjointRSFFastVelWeakening = 303,
 };
 
 enum class OutputType : int {

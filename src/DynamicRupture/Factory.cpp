@@ -198,19 +198,45 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
 
 DynamicRuptureTuple AdjointRSFSlipFactory::produce() {
   if (drParameters->isThermalPressureOn) {
-    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
-            std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(
+    return {std::make_unique<seissol::initializer::LTSAdjointRSF>(),
+            std::make_unique<initializer::AdjointRSFInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law::AdjointSlip<friction_law::ThermalPressurization>>(
                 drParameters.get()),
-            std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(
+            std::make_unique<friction_law::AdjointSlip<friction_law::ThermalPressurization>>(
                 drParameters.get()),
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
   } else {
-    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
-            std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
-            std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+    return {std::make_unique<seissol::initializer::LTSAdjointRSF>(),
+            std::make_unique<initializer::AdjointRSFInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law::AdjointSlip<friction_law::NoTP>>(drParameters.get()),
+            std::make_unique<friction_law_gpu::AdjointSlip<friction_law_gpu::NoTP>>(drParameters.get()),
+            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
+                                                    seissolInstance)};
+  }
+}
+
+DynamicRuptureTuple AdjointRSFFastVelWeakeningFactory::produce() {
+  if (drParameters->isThermalPressureOn) {
+    return {std::make_unique<seissol::initializer::LTSRateAndStateThermalPressurization>(),
+            std::make_unique<initializer::RateAndStateThermalPressurizationInitializer>(
+                drParameters, seissolInstance),
+            std::make_unique<
+                friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
+                drParameters.get()),
+            std::make_unique<
+                friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
+                drParameters.get()),
+            std::make_unique<output::OutputManager>(
+                std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
+  } else {
+    return {std::make_unique<seissol::initializer::LTSAdjointRSFFastVelWeakening>(),
+            std::make_unique<initializer::AdjointRSFFastVelInitializer>(drParameters,
+                                                                               seissolInstance),
+            std::make_unique<friction_law::AdjointFastVelWeakening<friction_law::NoTP>>(
+                drParameters.get()),
+            std::make_unique<friction_law_gpu::AdjointFastVelWeakening<friction_law_gpu::NoTP>>(
+                drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
                                                     seissolInstance)};
   }

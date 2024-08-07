@@ -101,4 +101,41 @@ void AdjointRSFInitializer::addAdditionalParameters(
   parameterToStorageMap.insert({"rs_sl0", (real*)rsSl0});
   parameterToStorageMap.insert({"rs_a", (real*)rsA});
 }
+
+AdjointRSFInitializer::StateAndFriction
+    AdjointRSFFastVelInitializer::computeInitialStateAndFriction(real traction1,
+                                                                        real traction2,
+                                                                        real pressure,
+                                                                        real rsA,
+                                                                        real rsB,
+                                                                        real rsSl0,
+                                                                        real rsSr0,
+                                                                        real rsF0,
+                                                                        real initialSlipRate) {
+  StateAndFriction result;
+  const real absoluteTraction = misc::magnitude(traction1, traction2);
+  const real tmp = std::abs(absoluteTraction / (rsA * pressure));
+  result.stateVariable =
+      rsA * std::log(2.0 * rsSr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);
+  if (result.stateVariable < 0) {
+    logWarning()
+        << "Found a negative state variable while initializing the fault. Are you sure your "
+           "setup is correct?";
+  }
+  const real tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
+  result.frictionCoefficient = rsA * misc::asinh(tmp2);
+  return result;
+}
+
+void AdjointRSFFastVelInitializer::addAdditionalParameters(
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+  AdjointRSFInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
+  auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSAdjointRSFFastVelWeakening* const>(dynRup);
+  real(*rsSrW)[misc::numPaddedPoints] = it->var(concreteLts->rsSrW);
+  parameterToStorageMap.insert({"rs_srW", (real*)rsSrW});
+}
+
 } // namespace seissol::dr::initializer

@@ -100,6 +100,12 @@ class AdjointRSFSlipFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
+class AdjointRSFFastVelWeakeningFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
                seissol::SeisSol& seissolInstance);

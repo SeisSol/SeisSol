@@ -286,6 +286,16 @@ struct LTSAdjointRSF : public DynamicRupture {
   }
 };
 
+struct LTSAdjointRSFFastVelWeakening : public LTSAdjointRSF {
+  Variable<real[dr::misc::numPaddedPoints]> rsSrW;
+
+  virtual void addTo(LTSTree& tree) {
+    LTSAdjointRSF::addTo(tree);
+    LayerMask mask = LayerMask(Ghost);
+    tree.addVar(rsSrW, mask, 1, allocationModeDR(), true);
+  }
+};
+
 } // namespace seissol::initializer
 
 #endif // INITIALIZER_DR_H_
