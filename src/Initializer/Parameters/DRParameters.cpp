@@ -34,7 +34,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
        FrictionLawType::RateAndStateVelocityWeakening,
-       FrictionLawType::RateAndStateAgingNucleation});
+       FrictionLawType::RateAndStateAgingNucleation,
+       FrictionLawType::AdjointSlip,
+       FrictionLawType::AdjointRSFFastVelWeakening});
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
       SlipRateOutputType::TractionsAndFailure,
@@ -59,7 +61,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
       (frictionLawType == FrictionLawType::RateAndStateSlipLaw) or
       (frictionLawType == FrictionLawType::RateAndStateVelocityWeakening) or
-      (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
+      (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening) or
+      (frictionLawType == FrictionLawType::AdjointSlip) or
+      (frictionLawType == FrictionLawType::AdjointRSFFastVelWeakening);
 
   const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
   const auto rsB = reader->readIfRequired<real>("rs_b", isRateAndState);
@@ -67,8 +71,12 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto rsInitialSlipRate1 = reader->readIfRequired<real>("rs_inisliprate1", isRateAndState);
   const auto rsInitialSlipRate2 = reader->readIfRequired<real>("rs_inisliprate2", isRateAndState);
 
+  const bool isFastVelWeakening =
+      (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening) or
+      (frictionLawType == FrictionLawType::AdjointRSFFastVelWeakening);
+
   const auto muW = reader->readIfRequired<real>(
-      "rs_muw", frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
+      "rs_muw", isFastVelWeakening);
 
   const auto thermalDiffusivity =
       reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
