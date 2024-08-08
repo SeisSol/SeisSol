@@ -75,8 +75,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening) or
       (frictionLawType == FrictionLawType::AdjointRSFFastVelWeakening);
 
-  const auto muW = reader->readIfRequired<real>(
-      "rs_muw", isFastVelWeakening);
+  const auto muW = reader->readIfRequired<real>("rs_muw", isFastVelWeakening);
 
   const auto thermalDiffusivity =
       reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
