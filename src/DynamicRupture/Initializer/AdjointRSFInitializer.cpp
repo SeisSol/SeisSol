@@ -104,14 +104,14 @@ void AdjointRSFInitializer::addAdditionalParameters(
 
 AdjointRSFInitializer::StateAndFriction
     AdjointRSFFastVelInitializer::computeInitialStateAndFriction(real traction1,
-                                                                        real traction2,
-                                                                        real pressure,
-                                                                        real rsA,
-                                                                        real rsB,
-                                                                        real rsSl0,
-                                                                        real rsSr0,
-                                                                        real rsF0,
-                                                                        real initialSlipRate) {
+                                                                 real traction2,
+                                                                 real pressure,
+                                                                 real rsA,
+                                                                 real rsB,
+                                                                 real rsSl0,
+                                                                 real rsSr0,
+                                                                 real rsF0,
+                                                                 real initialSlipRate) {
   StateAndFriction result;
   const real absoluteTraction = misc::magnitude(traction1, traction2);
   const real tmp = std::abs(absoluteTraction / (rsA * pressure));

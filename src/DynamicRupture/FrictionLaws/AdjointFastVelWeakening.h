@@ -6,8 +6,7 @@
 namespace seissol::dr::friction_law {
 
 template <typename TPMethod>
-class AdjointFastVelWeakening
-    : public AdjointRSFBase<AdjointFastVelWeakening<TPMethod>, TPMethod> {
+class AdjointFastVelWeakening : public AdjointRSFBase<AdjointFastVelWeakening<TPMethod>, TPMethod> {
   public:
   using AdjointRSFBase<AdjointFastVelWeakening, TPMethod>::AdjointRSFBase;
 
@@ -18,8 +17,7 @@ class AdjointFastVelWeakening
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSAdjointRSFFastVelWeakening* const>(
-            dynRup);
+        dynamic_cast<const seissol::initializer::LTSAdjointRSFFastVelWeakening* const>(dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
   }
