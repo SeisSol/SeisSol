@@ -54,8 +54,8 @@ namespace proxy::device {
     runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
 #ifdef EXPERIMENTAL_INTERLEAVE
       m_timeKernel.computeInterleavedAder(runtime, timeStepWidth, tmp, dataTable, materialTable, false,
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers)),
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp)));
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers, seissol::initializer::AllocationPlace::Device)),
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.var(m_lts.coordinates, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.var(m_lts.stardata, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp, seissol::initializer::AllocationPlace::Device)));
 #else
       m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
 #endif
@@ -98,8 +98,8 @@ namespace proxy::device {
     runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
 #ifdef EXPERIMENTAL_INTERLEAVE
       m_timeKernel.computeInterleavedAder(runtime, timeStepWidth, tmp, dataTable, materialTable, false,
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers)),
-        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives)), reinterpret_cast<real*>(layer.var(m_lts.coordinates)), reinterpret_cast<real*>(layer.var(m_lts.stardata)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp)));
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDofs, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedBuffers, seissol::initializer::AllocationPlace::Device)),
+        reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedDerivatives, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.var(m_lts.coordinates, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.var(m_lts.stardata, seissol::initializer::AllocationPlace::Device)), reinterpret_cast<real*>(layer.getScratchpadMemory(m_lts.interleavedTemp, seissol::initializer::AllocationPlace::Device)));
 #else
       m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
 #endif
