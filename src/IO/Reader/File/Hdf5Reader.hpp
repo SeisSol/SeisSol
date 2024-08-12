@@ -51,6 +51,8 @@ class Hdf5Reader {
   void closeGroup();
   void closeFile();
 
+  void checkExistence(const std::string& name, const std::string& type);
+
   private:
   std::stack<hid_t> handles;
   MPI_Comm comm;

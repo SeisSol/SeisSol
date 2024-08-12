@@ -1,22 +1,13 @@
 #include "Hdf5Reader.hpp"
 
-#include <H5Apublic.h>
-#include <H5Dpublic.h>
-#include <H5FDmpi.h>
-#include <H5FDmpio.h>
-#include <H5Fpublic.h>
-#include <H5Gpublic.h>
-#include <H5Ipublic.h>
-#include <H5Ppublic.h>
-#include <H5Spublic.h>
-#include <H5public.h>
-#include <H5version.h>
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/HDF5Type.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
+#include <hdf5.h>
 #include <memory>
 #include <mpi.h>
 #include <stack>
@@ -26,17 +17,31 @@
 #include "utils/logger.h"
 
 namespace {
-static hid_t _eh(hid_t data) {
+#define _eh(x) _ehh(x, __FILE__, __LINE__)
+
+static hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
-    logError() << "HDF5 error:" << data;
+    logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;
 }
 } // namespace
 
 namespace seissol::io::reader::file {
+
 Hdf5Reader::Hdf5Reader(MPI_Comm comm) : comm(comm) {}
+void Hdf5Reader::checkExistence(const std::string& name, const std::string& type) {
+  if (handles.empty()) {
+    // we're opening a file, i.e. we'd need to check for the existence here
+  } else {
+    if (_eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT)) == 0) {
+      logError() << "The " << type.c_str() << name << "does not exist in the given Hdf5 file.";
+    }
+  }
+}
+
 void Hdf5Reader::openFile(const std::string& name) {
+  checkExistence(name, "file");
   const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
 #ifdef H5F_LIBVER_V18
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_V18, H5F_LIBVER_V18));
@@ -50,10 +55,12 @@ void Hdf5Reader::openFile(const std::string& name) {
   handles.push(file);
 }
 void Hdf5Reader::openGroup(const std::string& name) {
+  checkExistence(name, "group");
   const hid_t handle = _eh(H5Gopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
+  checkExistence(name, "atttribute");
   const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t attrspace = _eh(H5Aget_space(attr));
   const hid_t rank = _eh(H5Sget_simple_extent_ndims(attrspace));
@@ -66,11 +73,13 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
 void Hdf5Reader::readAttributeRaw(void* data,
                                   const std::string& name,
                                   std::shared_ptr<datatype::Datatype> type) {
+  checkExistence(name, "atttribute");
   const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
 }
 std::size_t Hdf5Reader::dataCount(const std::string& name) {
+  checkExistence(name, "dataset");
   const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));
   const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
@@ -89,6 +98,7 @@ void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
                              std::size_t count,
                              std::shared_ptr<datatype::Datatype> targetType) {
+  checkExistence(name, "dataset");
   const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
 #ifdef USE_MPI
@@ -159,6 +169,7 @@ void Hdf5Reader::readDataRaw(void* data,
     ptr += readcount[0] * subsize * targetType->size();
   }
 
+  _eh(H5Pclose(h5alist));
   _eh(H5Sclose(memspace));
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));

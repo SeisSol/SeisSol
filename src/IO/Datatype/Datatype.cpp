@@ -3,8 +3,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <iomanip>
+#include <ios>
 #include <memory>
 #include <numeric>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
@@ -44,6 +48,79 @@ YAML::Node OpaqueDatatype::serialize() const {
 
 OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
 
+static const std::string base64 =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const std::string base64Pad = "=";
+static const std::array<int, 256> fromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+template <int count>
+static void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, int dataPtr3) {
+  const int data = dataPtr1 | (dataPtr2 << 8) | (dataPtr3 << 16);
+  if constexpr (count > 0) {
+    const auto data1 = data & 0x3f;
+    sstr << base64[data1];
+  }
+  if constexpr (count > 1) {
+    const auto data2 = (data >> 6) & 0x3f;
+    sstr << base64[data2];
+  }
+  if constexpr (count > 2) {
+    const auto data3 = (data >> 12) & 0x3f;
+    sstr << base64[data3];
+  }
+  if constexpr (count > 3) {
+    const auto data4 = (data >> 18) & 0x3f;
+    sstr << base64[data4];
+  }
+}
+
+template <int count>
+static void
+    base64Revert(const std::string& idata, std::size_t ipos, char* odata, std::size_t opos) {
+  const auto idata1 = fromBase64[idata[ipos]];
+  const auto idata2 = fromBase64[idata[ipos + 1]];
+  const auto idata3 = fromBase64[idata[ipos + 2]];
+  const auto idata4 = fromBase64[idata[ipos + 3]];
+  const int idataNumber = idata1 | (idata2 << 6) | (idata3 << 12) | (idata4 << 18);
+  if constexpr (count > 0) {
+    const auto data = idataNumber & 0xff;
+    odata[opos] = data;
+  }
+  if constexpr (count > 1) {
+    const auto data = (idataNumber >> 8) & 0xff;
+    odata[opos + 1] = data;
+  }
+  if constexpr (count > 2) {
+    const auto data = (idataNumber >> 16) & 0xff;
+    odata[opos + 2] = data;
+  }
+}
+
+std::string OpaqueDatatype::toStringRaw(const void* data) const {
+  std::ostringstream sstr;
+  const char* dataPtr = reinterpret_cast<const char*>(data);
+  for (std::size_t i = 0; i < sizeP; i += 3) {
+    base64Convert<4>(sstr, dataPtr[i], dataPtr[i + 1], dataPtr[i + 2]);
+  }
+  if (sizeP % 3 == 1) {
+    base64Convert<2>(sstr, dataPtr[sizeP - 1], 0, 0);
+    sstr << base64Pad << base64Pad;
+  }
+  if (sizeP % 3 == 2) {
+    base64Convert<3>(sstr, dataPtr[sizeP - 2], dataPtr[sizeP - 3], 0);
+    sstr << base64Pad;
+  }
+
+  return sstr.str();
+}
+std::optional<std::vector<char>> OpaqueDatatype::fromStringRaw(const std::string& str) const {
+  std::vector<char> data(sizeP);
+  for (std::size_t i = 0; i < (sizeP + 3) / 4; ++i) {
+    base64Revert<3>(str, 4 * i, data.data(), 3 * i);
+  }
+  return std::make_optional(data);
+}
+
 StringDatatype::StringDatatype(std::size_t size) : sizeP(size) {}
 
 std::size_t StringDatatype::size() const { return sizeP; }
@@ -57,12 +134,46 @@ YAML::Node StringDatatype::serialize() const {
 
 StringDatatype::StringDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
 
+std::string StringDatatype::toStringRaw(const void* data) const {
+  const char* dataPtr = reinterpret_cast<const char*>(data);
+  return std::string(dataPtr, dataPtr + sizeP);
+}
+std::optional<std::vector<char>> StringDatatype::fromStringRaw(const std::string& str) const {
+  return std::make_optional(std::vector<char>(str.begin(), str.end()));
+}
+
 std::size_t F32Datatype::size() const { return 4; }
 
 YAML::Node F32Datatype::serialize() const {
   YAML::Node node;
   node["type"] = "f32";
   return node;
+}
+
+template <typename T>
+static std::string toStringRawPrimitive(const void* data, int precision) {
+  const auto value = *reinterpret_cast<const T*>(data);
+  std::ostringstream sstr;
+  sstr << std::setprecision(precision) << value;
+  return sstr.str();
+}
+
+template <typename T>
+static std::optional<std::vector<char>> fromStringRawPrimitive(const std::string& str) {
+  std::istringstream sstr(str);
+  T value;
+  sstr >> value;
+  std::vector<char> data(sizeof(T));
+  const char* valuePtr = reinterpret_cast<const char*>(&value);
+  std::copy_n(valuePtr, sizeof(T), data.begin());
+  return std::make_optional(data);
+}
+
+std::string F32Datatype::toStringRaw(const void* data) const {
+  return toStringRawPrimitive<float>(data, 8);
+}
+std::optional<std::vector<char>> F32Datatype::fromStringRaw(const std::string& str) const {
+  return fromStringRawPrimitive<float>(str);
 }
 
 std::size_t F64Datatype::size() const { return 8; }
@@ -73,12 +184,26 @@ YAML::Node F64Datatype::serialize() const {
   return node;
 }
 
+std::string F64Datatype::toStringRaw(const void* data) const {
+  return toStringRawPrimitive<double>(data, 16);
+}
+std::optional<std::vector<char>> F64Datatype::fromStringRaw(const std::string& str) const {
+  return fromStringRawPrimitive<double>(str);
+}
+
 std::size_t F80Datatype::size() const { return 10; }
 
 YAML::Node F80Datatype::serialize() const {
   YAML::Node node;
   node["type"] = "f80";
   return node;
+}
+
+std::string F80Datatype::toStringRaw(const void* data) const {
+  return toStringRawPrimitive<long double>(data, 20);
+}
+std::optional<std::vector<char>> F80Datatype::fromStringRaw(const std::string& str) const {
+  return fromStringRawPrimitive<long double>(str);
 }
 
 IntegerDatatype::IntegerDatatype(std::size_t size, bool sign) : sizeP(size), signP(sign) {
@@ -98,6 +223,15 @@ YAML::Node IntegerDatatype::serialize() const {
   node["sign"] = signP;
   node["size"] = sizeP;
   return node;
+}
+
+std::string IntegerDatatype::toStringRaw(const void* data) const {
+  // for now
+  return toStringRawPrimitive<long long>(data, 0);
+}
+std::optional<std::vector<char>> IntegerDatatype::fromStringRaw(const std::string& str) const {
+  // for now
+  return fromStringRawPrimitive<long long>(str);
 }
 
 ArrayDatatype::ArrayDatatype(std::shared_ptr<Datatype> base,
@@ -128,6 +262,11 @@ YAML::Node ArrayDatatype::serialize() const {
   node["base"] = baseP->serialize();
   node["shape"] = dimensionsP;
   return node;
+}
+
+std::string ArrayDatatype::toStringRaw(const void* data) const { return ""; }
+std::optional<std::vector<char>> ArrayDatatype::fromStringRaw(const std::string& str) const {
+  return std::optional<std::vector<char>>();
 }
 
 struct MemberInfo {
@@ -165,6 +304,11 @@ YAML::Node StructDatatype::serialize() const {
   }
   node["members"] = members;
   return node;
+}
+
+std::string StructDatatype::toStringRaw(const void* data) const { return ""; }
+std::optional<std::vector<char>> StructDatatype::fromStringRaw(const std::string& str) const {
+  return std::optional<std::vector<char>>();
 }
 
 std::size_t StructDatatype::minSize(const std::vector<MemberInfo>& members) {
