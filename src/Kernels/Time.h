@@ -114,7 +114,7 @@ class Time : public TimeBase {
                             bool updateDisplacement,
                             seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void computeInterleavedAder(
+    void computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& runtime,
                                                 double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,

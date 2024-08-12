@@ -313,7 +313,7 @@ void Time::computeBatchedAder(double i_timeStepWidth,
 #endif
 }
 
-void Time::computeInterleavedAder(
+void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& runtime,
                                                 double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,
@@ -365,13 +365,13 @@ void Time::computeInterleavedAder(
       realSize.push_back(padded.back() * NUMBER_OF_QUANTITIES);
     }
 
-    seissol::kernels::time::aux::interleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, device.api->getDefaultStream());
-    seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, temp, device.api->getDefaultStream());
-    seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), device.api->getDefaultStream());
+    seissol::kernels::time::aux::interleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, runtime.stream());
+    seissol::kernels::time::aux::aderLauncher(numElements, i_timeStepWidth, interleavedDofs, interleavedBuffers, interleavedDerivatives, stardata, coordinates, temp, runtime.stream());
+    seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), runtime.stream());
     std::size_t offset = 0;
     std::size_t offset2 = 0;
     for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
-      seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[i], realSize[i], unpadded[i], padded[i], offset2, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), device.api->getDefaultStream());
+      seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[i], realSize[i], unpadded[i], padded[i], offset2, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), runtime.stream());
       offset += actualSize[i] * seissol::kernels::time::aux::Blocksize;
       offset2 += realSize[i];
     }
