@@ -361,8 +361,8 @@ void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& run
     for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
       unpadded.push_back(sizes[i]);
       padded.push_back((sizes[i] + VECTORSIZE - 1) / VECTORSIZE);
-      actualSize.push_back(unpadded.back() * NUMBER_OF_QUANTITIES);
-      realSize.push_back(padded.back() * NUMBER_OF_QUANTITIES);
+      actualSize.push_back(unpadded.back() * seissol::model::Material_t::NumberOfQuantities);
+      realSize.push_back(padded.back() * seissol::model::Material_t::NumberOfQuantities);
     }
 
     seissol::kernels::time::aux::interleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()), interleavedDofs, runtime.stream());
@@ -386,7 +386,8 @@ void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& run
                           dataTable,
                           materialTable,
                           i_timeStepWidth,
-                          device);
+                          device,
+                          runtime);
     }
   }
 #endif
