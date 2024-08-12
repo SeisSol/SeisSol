@@ -16,6 +16,7 @@ class Hdf5File {
   Hdf5File(MPI_Comm comm);
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
+  void openDataset(const std::string& name);
   void writeAttribute(const async::ExecInfo& info,
                       const std::string& name,
                       std::shared_ptr<DataSource> source);
@@ -24,6 +25,7 @@ class Hdf5File {
                  std::shared_ptr<DataSource> source,
                  std::shared_ptr<datatype::Datatype> targetType,
                  int compress);
+  void closeDataset();
   void closeGroup();
   void closeFile();
 

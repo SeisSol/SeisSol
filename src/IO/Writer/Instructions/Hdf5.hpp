@@ -20,12 +20,15 @@ class Hdf5Location {
     groupsP = groupParts;
   }
 
-  Hdf5Location(const std::string& file, const std::vector<std::string>& groups)
-      : fileP(file), groupsP(groups) {}
+  Hdf5Location(const std::string& file,
+               const std::vector<std::string>& groups,
+               const std::optional<std::string>& dataset = std::optional<std::string>())
+      : fileP(file), groupsP(groups), datasetP(dataset) {}
 
   explicit Hdf5Location(YAML::Node node)
       : fileP(node["file"].as<std::string>()),
-        groupsP(node["group"].as<std::vector<std::string>>()) {}
+        groupsP(node["group"].as<std::vector<std::string>>()),
+        datasetP(node["dataset"] ? node["dataset"].as<std::string>() : std::optional<std::string>()) {}
 
   std::string file() const { return fileP; }
   std::vector<std::string> groups() const { return groupsP; }
@@ -50,12 +53,16 @@ class Hdf5Location {
     YAML::Node node;
     node["file"] = fileP;
     node["group"] = groupsP;
+    if (datasetP.has_value()) {
+      node["dataset"] = datasetP.value();
+    }
     return node;
   }
 
   private:
   std::string fileP;
   std::vector<std::string> groupsP;
+  std::optional<std::string> datasetP;
 };
 
 struct Hdf5AttributeWrite : public WriteInstruction {

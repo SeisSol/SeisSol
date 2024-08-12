@@ -20,9 +20,11 @@
 #include "utils/logger.h"
 
 namespace {
-static hid_t _eh(hid_t data) {
+#define _eh(x) _ehh(x, __FILE__, __LINE__)
+
+static hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
-    logError() << "HDF5 error:" << data;
+    logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;
 }
@@ -54,6 +56,13 @@ void Hdf5File::openGroup(const std::string& name) {
   } else {
     handle = _eh(H5Gcreate(handles.top(), name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
   }
+  handles.push(handle);
+}
+void Hdf5File::openDataset(const std::string& name) {
+  // cf. https://stackoverflow.com/a/18468735
+  auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
+  hid_t handle;
+  handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
@@ -108,9 +117,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   std::size_t allcount = count;
   std::size_t offset = 0;
 
-  std::size_t rounds = (count + chunksize - 1) / chunksize;
+  std::size_t localRounds = (count + chunksize - 1) / chunksize;
+  std::size_t rounds = localRounds;
 
-  MPI_Allreduce(MPI_IN_PLACE, &rounds, 1, sizetype, MPI_MAX, comm);
+  MPI_Allreduce(&localRounds, &rounds, 1, sizetype, MPI_MAX, comm);
   MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm);
   MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm);
 
@@ -144,7 +154,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
+#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5dxlist, H5FD_MPIO_COLLECTIVE));
+#endif
 
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
@@ -177,6 +189,12 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const char* data = reinterpret_cast<const char*>(source->getPointer(info));
 
+  // TODO(David): maybe always compute in the loop instead?
+  std::size_t baseWriteSize = targetType->size();
+  for (const auto& dim : dimensions) {
+    baseWriteSize *= dim;
+  }
+
   for (std::size_t i = 0; i < rounds; ++i) {
     if (source->distributed()) {
       writeStart[0] = offset + written;
@@ -195,9 +213,12 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
     _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
 
+    std::size_t writeSize = baseWriteSize;
     if (source->distributed()) {
       written += writeLength[0];
+      writeSize *= writeLength[0];
     }
+    dataloc += writeSize;
   }
 
   if (compress > 0) {
@@ -208,6 +229,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   _eh(H5Sclose(h5memspace));
   _eh(H5Dclose(h5data));
   _eh(H5Pclose(h5dxlist));
+}
+void Hdf5File::closeDataset() {
+  _eh(H5Dclose(handles.top()));
+  handles.pop();
 }
 void Hdf5File::closeGroup() {
   _eh(H5Gclose(handles.top()));

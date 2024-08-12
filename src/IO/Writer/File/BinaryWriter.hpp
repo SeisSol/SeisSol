@@ -15,12 +15,13 @@ class BinaryFile {
   public:
   BinaryFile(MPI_Comm comm);
   void openFile(const std::string& name);
-  void writeGlobal(void* data, std::size_t size);
-  void writeDistributed(void* data, std::size_t size);
+  void writeGlobal(const void* data, std::size_t size);
+  void writeDistributed(const void* data, std::size_t size);
   void closeFile();
 
   private:
   MPI_Comm comm;
+  MPI_File file;
 };
 
 class BinaryWriter {

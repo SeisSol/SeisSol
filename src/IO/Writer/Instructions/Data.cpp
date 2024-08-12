@@ -47,6 +47,9 @@ YAML::Node WriteInline::serialize() {
 
 const void* WriteInline::getPointer(const async::ExecInfo& info) { return data.data(); }
 
+const void* WriteInline::getLocalPointer() const { return data.data(); }
+std::size_t WriteInline::getLocalSize() const { return data.size(); }
+
 std::size_t WriteInline::count(const async::ExecInfo& info) {
   return data.size() / datatype()->size();
 }
@@ -81,6 +84,9 @@ std::size_t WriteBufferRemote::count(const async::ExecInfo& info) {
 
 void WriteBufferRemote::assignId(int) {}
 
+const void* WriteBufferRemote::getLocalPointer() const { return nullptr; }
+std::size_t WriteBufferRemote::getLocalSize() const { return 0; }
+
 bool WriteBuffer::distributed() { return true; }
 
 WriteBuffer::WriteBuffer(const void* data,
@@ -98,8 +104,8 @@ YAML::Node WriteBuffer::serialize() {
   return node;
 }
 
-const void* WriteBuffer::getLocalPointer() { return data; }
-size_t WriteBuffer::getLocalSize() {
+const void* WriteBuffer::getLocalPointer() const { return data; }
+size_t WriteBuffer::getLocalSize() const {
   std::size_t shapeprod = 1;
   for (auto dim : shape()) {
     shapeprod *= dim;

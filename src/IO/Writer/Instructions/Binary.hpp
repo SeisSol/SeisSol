@@ -24,7 +24,7 @@ struct BinaryWrite : public WriteInstruction {
       : filename(filename), dataSource(dataSource) {}
 
   explicit BinaryWrite(YAML::Node node)
-      : filename(node["filename"].as<std::string>()),
+      : filename(node["file"].as<std::string>()),
         dataSource(writer::DataSource::deserialize(node["source"])) {}
 
   std::vector<std::shared_ptr<DataSource>> dataSources() override { return {dataSource}; }

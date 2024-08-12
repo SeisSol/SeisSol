@@ -19,6 +19,8 @@ class DataSource {
   virtual std::size_t count(const async::ExecInfo& info) = 0;
   virtual void assignId(int id) = 0;
   virtual bool distributed() = 0;
+  virtual const void* getLocalPointer() const = 0;
+  virtual size_t getLocalSize() const = 0;
 
   const std::vector<std::size_t>& shape() const;
   std::shared_ptr<seissol::io::datatype::Datatype> datatype() const;
@@ -49,6 +51,9 @@ class WriteInline : public DataSource {
 
   void assignId(int) override;
 
+  const void* getLocalPointer() const override;
+  size_t getLocalSize() const override;
+
   template <typename T>
   static std::shared_ptr<DataSource>
       create(const T& data,
@@ -58,8 +63,8 @@ class WriteInline : public DataSource {
 
   static std::shared_ptr<DataSource> createString(const std::string& data) {
     return std::make_shared<WriteInline>(
-        &data,
-        sizeof(char),
+        data.data(),
+        (data.size() + 1) * sizeof(char),
         std::make_shared<datatype::StringDatatype>(data.size() + 1),
         std::vector<std::size_t>());
   }
@@ -90,6 +95,9 @@ class WriteBufferRemote : public DataSource {
 
   bool distributed() override;
 
+  const void* getLocalPointer() const override;
+  size_t getLocalSize() const override;
+
   private:
   int id;
 };
@@ -103,8 +111,8 @@ class WriteBuffer : public DataSource {
 
   YAML::Node serialize() override;
 
-  const void* getLocalPointer();
-  size_t getLocalSize();
+  const void* getLocalPointer() const override;
+  size_t getLocalSize() const override;
 
   const void* getPointer(const async::ExecInfo& info) override;
 
@@ -131,7 +139,7 @@ class WriteBuffer : public DataSource {
 
 class AdhocBuffer : public DataSource {
   public:
-  virtual std::size_t getTargetSize() = 0;
+  virtual std::size_t getTargetSize() const = 0;
   virtual void setData(void* target) = 0;
 
   AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t> shape)
@@ -147,6 +155,9 @@ class AdhocBuffer : public DataSource {
   }
 
   const void* getPointer(const async::ExecInfo& info) override { return nullptr; }
+
+  const void* getLocalPointer() const override { return nullptr; }
+  size_t getLocalSize() const override { return getTargetSize(); }
 
   std::size_t count(const async::ExecInfo& info) override {
     return getTargetSize() / datatype()->size();
@@ -175,7 +186,9 @@ class GeneratedBuffer : public AdhocBuffer {
     }
   }
 
-  std::size_t getTargetSize() override { return targetStride * datatype()->size() * sourceCount; }
+  std::size_t getTargetSize() const override {
+    return targetStride * datatype()->size() * sourceCount;
+  }
 
   void setData(void* targetPtr) override { std::invoke(generator, targetPtr); }
 
