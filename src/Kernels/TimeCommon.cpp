@@ -59,8 +59,8 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
   for( int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
-    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % ALIGNMENT == 0 );
-    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % Alignment == 0 );
+    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % Alignment == 0 );
   }
 #endif
 
@@ -123,7 +123,8 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
 void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
                                                            const double i_timeStepStart,
                                                            const double i_timeStepWidth,
-                                                           ConditionalPointersToRealsTable &table) {
+                                                           ConditionalPointersToRealsTable &table,
+                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Compute time integrated dofs using neighbours derivatives using the GTS relation,
   // i.e. the expansion point is around 'i_timeStepStart'
@@ -135,7 +136,8 @@ void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
                                   i_timeStepStart + i_timeStepWidth,
                                   const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
                                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize());
+                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+                                  runtime);
   }
 
   // Compute time integrated dofs using neighbours derivatives using the LTS relation,
@@ -148,7 +150,8 @@ void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
                                   i_timeStepStart + i_timeStepWidth,
                                   const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
                                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize());
+                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+                                  runtime);
   }
 #else
   assert(false && "no implementation provided");

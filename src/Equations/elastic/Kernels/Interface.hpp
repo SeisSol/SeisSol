@@ -46,7 +46,7 @@
 
 namespace seissol::kernels {
     struct LocalTmp {
-        alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+        alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
         GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
         LocalTmp(double graviationalAcceleration) : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
     };
@@ -54,8 +54,8 @@ namespace seissol::kernels {
     LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
 #else
-    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, neighIntegrationOnDevice, plasticity, boundaryMapping, material)
-    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, faceDisplacementsDevice, plasticity, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
 #endif
   }
 

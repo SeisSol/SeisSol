@@ -1,9 +1,9 @@
 #include "Solver/Pipeline/GenericPipeline.h"
-#include <string>
-#include <memory>
 #include <algorithm>
-#include <iterator>
 #include <iostream>
+#include <iterator>
+#include <memory>
+#include <string>
 
 namespace seissol::unit_test {
 

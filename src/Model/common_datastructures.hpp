@@ -2,23 +2,25 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
+ *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -37,51 +39,65 @@
  *
  * @section DESCRIPTION
  **/
- 
+
 #ifndef MODEL_COMMONDATASTRUCTURES_HPP_
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
 #include "Kernels/precision.hpp"
 #include <array>
+#include <string>
 
+namespace seissol::model {
+enum class MaterialType { solid, acoustic, elastic, viscoelastic, anisotropic, poroelastic };
 
-namespace seissol {
-  namespace model {
-    enum class MaterialType {
-      acoustic,
-      elastic,
-      viscoelastic,
-      anisotropic,
-      poroelastic
-    };
+// the local solvers. CK is the default for elastic, acoustic etc.
+// viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
+// that one as well) poroelastic uses SpaceTimePredictorPoroelastic (someone may generalize that
+// one, but so long I(David) had decided to put poroelastic in its name) the solver Unknown is a
+// dummy to let all other implementations fail
+enum class LocalSolver {
+  Unknown,
+  CauchyKovalevski,
+  CauchyKovalevskiAnelastic,
+  SpaceTimePredictorPoroelastic
+};
 
-    struct Material {
-      double rho;
-      virtual double getMaxWaveSpeed() const = 0;
-      virtual double getPWaveSpeed() const = 0;
-      virtual double getSWaveSpeed() const = 0;
-      virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0; 
-      virtual MaterialType getMaterialType() const = 0 ;
-      virtual ~Material() {};
-    };
+struct Material {
+  static constexpr std::size_t NumberOfQuantities = 0;        // ?
+  static constexpr std::size_t NumberPerMechanism = 0;        // ?
+  static constexpr std::size_t Mechanisms = 0;                // ?
+  static constexpr MaterialType Type = MaterialType::solid;   // ?
+  static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
+  static inline const std::string Text = "material";
+  static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
 
-    struct Plasticity {
-      double bulkFriction;
-      double plastCo;  
-      double s_xx;   
-      double s_yy;   
-      double s_zz;   
-      double s_xy;      
-      double s_yz;      
-      double s_xz;        
-    };
+  double rho;
+  virtual double getMaxWaveSpeed() const = 0;
+  virtual double getPWaveSpeed() const = 0;
+  virtual double getSWaveSpeed() const = 0;
+  virtual double getMuBar() const = 0;
+  virtual double getLambdaBar() const = 0;
+  virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
+  virtual MaterialType getMaterialType() const = 0;
+};
 
-    struct IsotropicWaveSpeeds {
-      double density;
-      double pWaveVelocity;
-      double sWaveVelocity;
-    };
-  }
-}
+struct Plasticity {
+  static const inline std::string Text = "plasticity";
+  double bulkFriction;
+  double plastCo;
+  double s_xx;
+  double s_yy;
+  double s_zz;
+  double s_xy;
+  double s_yz;
+  double s_xz;
+};
+
+struct IsotropicWaveSpeeds {
+  double density;
+  double pWaveVelocity;
+  double sWaveVelocity;
+};
+} // namespace seissol::model
 
 #endif

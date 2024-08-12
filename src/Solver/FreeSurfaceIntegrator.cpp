@@ -53,11 +53,11 @@
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(             side, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
@@ -117,7 +117,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
+      alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
@@ -176,9 +176,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   const auto projectionMatrixFromFaceMemorySize = projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, Alignment)));
   projectionMatrixFromFace =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, Alignment)));
 
   std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
@@ -226,7 +226,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
                                                                         double const* weights) const
 {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d-k; ++j) {
         unsigned i = d-k-j;
@@ -251,7 +251,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
                                                                                  const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
                                                                                  double const* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;
@@ -330,8 +330,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
-    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
+    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 

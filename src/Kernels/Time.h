@@ -71,6 +71,7 @@
 #ifndef TIME_H_
 #define TIME_H_
 
+#include <Parallel/Runtime/Stream.hpp>
 #include <cassert>
 #include <limits>
 #include "Initializer/typedefs.hpp"
@@ -83,13 +84,9 @@
 #include <memory>
 #endif
 
-namespace seissol {
-  namespace kernels {
-    class Time;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Time : public TimeBase {
+class Time : public TimeBase {
   public:
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
@@ -114,7 +111,8 @@ class seissol::kernels::Time : public TimeBase {
                             LocalTmp& tmp,
                             ConditionalPointersToRealsTable &dataTable,
                             ConditionalMaterialTable &materialTable,
-                            bool updateDisplacement = false);
+                            bool updateDisplacement,
+                            seissol::parallel::runtime::StreamRuntime& runtime);
 
     void computeInterleavedAder(
                                                 double i_timeStepWidth,
@@ -145,7 +143,8 @@ class seissol::kernels::Time : public TimeBase {
                                 double i_integrationEnd,
                                 const real** i_timeDerivatives,
                                 real ** o_timeIntegratedDofs,
-                                unsigned numElements);
+                                unsigned numElements,
+                                seissol::parallel::runtime::StreamRuntime& runtime);
 
     void computeTaylorExpansion( real         time,
                                  real         expansionPoint,
@@ -157,12 +156,15 @@ class seissol::kernels::Time : public TimeBase {
                                      real expansionPoint,
                                      real** timeDerivatives,
                                      real** timeEvaluated,
-                                     size_t numElements);
+                                     size_t numElements,
+                                     seissol::parallel::runtime::StreamRuntime& runtime);
 
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
   unsigned int* getDerivativesOffsets();
 };
+
+} // namespace seissol::kernels
 
 #endif
 

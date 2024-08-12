@@ -189,6 +189,8 @@ Running Jobs
 Attached is a job script which does the pinning for us.
 The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
 
+Also, for now we disable the ``HSA_XNACK`` feature, as it is known to cause problems with ROCm 5.6 (cf. https://lumi-supercomputer.github.io/LUMI-EasyBuild-docs/r/rocm ).
+
 .. code-block:: bash
 
     #!/usr/bin/env bash
@@ -221,7 +223,7 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
     CPU_BIND="${CPU_BIND},7e00000000,7e0000000000"
 
     export MPICH_GPU_SUPPORT_ENABLED=1
-    export HSA_XNACK=1
+    export HSA_XNACK=0
 
     export OMP_NUM_THREADS=3
     export OMP_PLACES="cores(3)"

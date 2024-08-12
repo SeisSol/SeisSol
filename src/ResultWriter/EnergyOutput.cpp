@@ -73,6 +73,25 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+
+  if (maxCells > 0) {
+    constexpr auto qSize = tensor::Q::size();
+    timeDerivativePlusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativeMinusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
+    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+  }
+#endif
+
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
@@ -123,23 +142,34 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
+EnergyOutput::~EnergyOutput() {
+#ifdef ACL_DEVICE
+  if (timeDerivativePlusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  }
+  if (timeDerivativeMinusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  }
+#endif
+}
+
 real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const real* degreesOfFreedomMinus,
                                      const DRFaceInformation& faceInfo,
                                      const DRGodunovData& godunovData,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  alignas(Alignment) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
-  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(Alignment) real QPlus[tensor::Q::size()];
+  alignas(Alignment) real QMinus[tensor::Q::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
@@ -185,19 +215,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   minTimeSinceSlipRateBelowThreshold = std::numeric_limits<real>::max();
 
 #ifdef ACL_DEVICE
-  unsigned maxCells = 0;
-  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
-    maxCells = std::max(it->getNumberOfCells(), maxCells);
-  }
-
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
-  constexpr auto qSize = tensor::Q::size();
-  real* timeDerivativePlusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-  real* timeDerivativeMinusHost = reinterpret_cast<real*>(
-      device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
 #endif
+  constexpr auto qSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
@@ -212,14 +232,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativePlusDevice,
-          timeDerivativePlusHost,
+          timeDerivativePlusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),
           stream);
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
           timeDerivativeMinusDevice,
-          timeDerivativeMinusHost,
+          timeDerivativeMinusHostMapped,
           qSize,
           qSize,
           it->getNumberOfCells(),
@@ -286,7 +306,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
+    shared(it, drEnergyOutput, faceInformation)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -299,10 +319,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     }
     minTimeSinceSlipRateBelowThreshold = std::min(localMin, minTimeSinceSlipRateBelowThreshold);
   }
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
-#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {
@@ -342,7 +358,7 @@ void EnergyOutput::computeVolumeEnergies() {
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
+    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
     constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
     double quadraturePointsTet[numQuadraturePointsTet][3];
@@ -359,7 +375,7 @@ void EnergyOutput::computeVolumeEnergies() {
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
 
-    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
     auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
     // Evaluate numerical solution at quad. nodes
     kernel::evalAtQP krnl;
@@ -440,7 +456,7 @@ void EnergyOutput::computeVolumeEnergies() {
       // We need to rotate it to the global coordinate system.
       auto& boundaryMapping = boundaryMappings[face];
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-      alignas(ALIGNMENT)
+      alignas(Alignment)
           real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
       auto rotateDisplacementToFaceNormal =
@@ -451,7 +467,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
       }
 
-      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+      alignas(Alignment) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
           displQuadData{};
       const auto* curFaceDisplacementsData = faceDisplacements[face];
       seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
