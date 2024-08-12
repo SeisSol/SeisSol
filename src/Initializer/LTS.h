@@ -51,6 +51,7 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.hpp"
+#include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #endif
 
 namespace seissol::tensor {
@@ -220,8 +221,8 @@ struct LTS {
     tree.addScratchpadMemory(interleavedDerivatives,               1,      AllocationMode::DeviceOnly, true);
     tree.addScratchpadMemory(interleavedBuffers,               1,      AllocationMode::DeviceOnly, true);
     tree.addScratchpadMemory(interleavedTemp,               1,      AllocationMode::DeviceOnly, true);
-    tree.addVar(coordinates, LayerMask(Ghost),                          PAGESIZE_HEAP,      AllocationMode::HostDeviceSplit , true);
-    tree.addVar(stardata, LayerMask(Ghost),                          PAGESIZE_HEAP,      AllocationMode::HostDeviceSplit , true);
+    tree.addVar(coordinates, LayerMask(Ghost),                          PagesizeHeap,      AllocationMode::HostDeviceSplit , true);
+    tree.addVar(stardata, LayerMask(Ghost),                          PagesizeHeap,      AllocationMode::HostDeviceSplit , true);
 #endif
     tree.addScratchpadMemory(integratedDofsScratch, 1, AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch, 1, AllocationMode::DeviceOnly);
