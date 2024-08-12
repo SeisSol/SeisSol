@@ -161,6 +161,31 @@ __global__ void inlinereorder(const float* source, float column[Unpadded]) {
     column[i] = reorder[i * Blocksize + threadIdx.x];
   }
 }
+
+__device__ __forceinline__ void mctest4(real* __restrict__ output, const real* __restrict__ input, const real* __restrict__ constant) {
+  float constantData0 = constant[0];
+  using float4 = __attribute__( (__vector_size__(4 * sizeof(float)) )) float;
+  float4 acc {};
+
+  // constantData row 0
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 0], acc, 4, 0, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 1], acc, 4, 1, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 2], acc, 4, 2, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 3], acc, 4, 3, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 4], acc, 4, 4, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 5], acc, 4, 5, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 6], acc, 4, 6, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 7], acc, 4, 7, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 8], acc, 4, 8, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 9], acc, 4, 9, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 10], acc, 4, 10, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 11], acc, 4, 11, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 12], acc, 4, 12, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 13], acc, 4, 13, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 14], acc, 4, 14, 0);
+  acc = __builtin_amdgcn_mfma_f32_4x4x1f32(constantData0, input[Blocksize * 15], acc, 4, 15, 0);
+}
+
 */
 
 __device__ __forceinline__ void dgkernel56(real* __restrict__ temp, const real* __restrict__ dQ) {
@@ -461,6 +486,7 @@ __device__ __forceinline__ void dgkernelPart2(real scale, real* __restrict__ out
         #pragma unroll
         for (int j = 0; j < Quantities; ++j) {
             output[MATRIX(i,j, N, Quantities)] = outRow[j];
+            // __builtin_nontemporal_store(outRow[j], &output[MATRIX(i,j, N, Quantities)]);
             acc[MATRIX(i,j, Nmax, Quantities)] = accRow[j] + scale * outRow[j];
         }
     }
@@ -774,11 +800,12 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
         notZero |= sourcePtrs[j] != nullptr;
       }
       if (notZero) {
+        #pragma unroll 4
         for (size_t j = 0; j < paddedsize; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && sourcePtrs[i] != nullptr) {
-                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = sourcePtrs[i][j + threadIdx.x];
+                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = __builtin_nontemporal_load(&sourcePtrs[i][j + threadIdx.x]);
               }
               else {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
@@ -788,9 +815,9 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void interleave(con
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
-              if (i + j < paddedsize && index % paddeddim < realdim) {
+              if (index < paddedsize && index % paddeddim < realdim) {
                 size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
-                target[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
+                __builtin_nontemporal_store(swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i], &target[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x]);
               }
             }
         }
@@ -815,13 +842,14 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
         notZero |= targetPtrs[j] != nullptr;
       }
       if (notZero) {
+        #pragma unroll 4
         for (size_t j = 0; j < paddedsize; j += Blocksize) {
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               size_t index = i + j;
               if (index < paddedsize && index % paddeddim < realdim) {
                 size_t realindex = (index / paddeddim) * realdim + (index % paddeddim);
-                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = source[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x];
+                swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = __builtin_nontemporal_load(&source[realsize * Blocksize * block + realindex * Blocksize + threadIdx.x]);
               }
               else {
                 swap[i * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + threadIdx.x] = 0;
@@ -831,7 +859,7 @@ __global__ __launch_bounds__(Blocksize * InterleaveMultiple) void deinterleave(c
           #pragma unroll
             for (size_t i = 0; i < Blocksize; ++i) {
               if (block * Blocksize + i < count && j + threadIdx.x < paddedsize && targetPtrs[i] != nullptr) {
-                targetPtrs[i][j + threadIdx.x] = swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i];
+                __builtin_nontemporal_store(swap[threadIdx.x * (Blocksize * InterleaveMultiple + 1) + threadIdx.y * Blocksize + i], &targetPtrs[i][j + threadIdx.x]);
               }
             }
         }
