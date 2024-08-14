@@ -171,15 +171,15 @@ class MemoryManager {
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    std::array<LTSTree*, MULTIPLE_SIMULATIONS> m_dynRupTree;
+    std::array<LTSTree*, MULTIPLE_SIMULATIONS> m_dynRupTree = {nullptr};
     // LTSTree m_dynRupTree;
-    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> m_dynRup;
+    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> m_dynRup = {nullptr};
     // std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer;
+    std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer = {nullptr};
     // std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw;
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw = {nullptr};
     // std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager;
+    std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager = {nullptr};
     // std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 

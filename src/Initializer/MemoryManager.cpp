@@ -72,6 +72,7 @@
 #include <cmath>
 #include <type_traits>
 #include <unordered_set>
+#include <utils/logger.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -449,24 +450,23 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   m_ltsTree.touchVariables();
 
   /// Dynamic rupture tree
-  for (int i=0; i < MULTIPLE_SIMULATIONS; i++) {
-  m_dynRup[i]->addTo(*m_dynRupTree[i]);
-  m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
-  m_dynRupTree[i]->fixate();
-  for (unsigned tc = 0; tc < m_dynRupTree[i]->numChildren(); ++tc) {
-    TimeCluster& cluster = m_dynRupTree[i]->child(tc);
-    cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc >= iTimeStepping.numberOfLocalClusters) {
+  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    m_dynRup[i]->addTo(*m_dynRupTree[i]);
+    m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
+    m_dynRupTree[i]->fixate();
+    for (unsigned tc = 0; tc < m_dynRupTree[i]->numChildren(); ++tc) {
+      TimeCluster& cluster = m_dynRupTree[i]->child(tc);
+      cluster.child<Ghost>().setNumberOfCells(0);
+      if (tc >= iTimeStepping.numberOfLocalClusters) {
         cluster.child<Copy>().setNumberOfCells(0);
         cluster.child<Interior>().setNumberOfCells(0);
-    } else {
+      } else {
         cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
         cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+      }
     }
-  }
-
-  m_dynRupTree[i]->allocateVariables();
-  m_dynRupTree[i]->touchVariables();
+    m_dynRupTree[i]->allocateVariables();
+    m_dynRupTree[i]->touchVariables();
   }
 
   // m_dynRup->addTo(m_dynRupTree);

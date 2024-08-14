@@ -71,7 +71,13 @@
 
 #include "Kernels/Neighbor.h"
 
+#include <DynamicRupture/Misc.h>
+#include <Kernels/common.hpp>
+#include <Kernels/precision.hpp>
+#include <Model/datastructures.hpp>
+#include <Model/integrationData.hpp>
 #include <cassert>
+#include <kernel.h>
 #include <stdint.h>
 
 void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
@@ -150,17 +156,26 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       }
     case FaceType::dynamicRupture:
       {
+        real dummydofs[tensor::Q::size()] = {0.0};
+        kernel::dofsModified dofsModifiedKrnl;
+        dofsModifiedKrnl.Q = data.dofs();
+        dofsModifiedKrnl.Q_ijs = dummydofs;
+        dofsModifiedKrnl.execute();
       // No neighboring cell contribution, interior bc.
       for(unsigned int  i = 0 ; i < MULTIPLE_SIMULATIONS; i++)
 {      assert(reinterpret_cast<uintptr_t>(cellDrMapping[lFace].godunov[i]) % ALIGNMENT == 0);
-
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[lFace].fluxSolver[i];
       drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
-      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the current simulation's dofs
+      drKrnl.Q = dummydofs + NUMBER_OF_BASIS_FUNCTIONS*tensor::Q::Shape[2]*i;
+//      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the current simulation's dofs. What is the shape and type of dofs?
       drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
       drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation);
 }
+      kernel::dofsModifiedReversed dofModifiedReversedKrnl;
+      dofModifiedReversedKrnl.Q = data.dofs();
+      dofModifiedReversedKrnl.Q_ijs = dummydofs; 
+      dofModifiedReversedKrnl.execute();
       break;
       }
     default:

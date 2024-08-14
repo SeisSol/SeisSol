@@ -76,6 +76,8 @@ class ADERDGBase(ABC):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
     self.I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=True)
+    if multipleSimulations > 1:
+      self.Q_ijs = Tensor('Q_ijs', (qShape[0], qShape[1], multipleSimulations))
 
     Aplusminus_spp = self.flux_solver_spp()
     self.AplusT = Tensor('AplusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
@@ -258,6 +260,10 @@ class LinearADERDG(ADERDGBase):
 
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+    dofsModified = self.Q_ijs['ijs'] <= self.Q['ij']
+    generator.add('dofsModified', dofsModified)
+    dofsModifiedReversed = self.Q['ij'] <= self.Q_ijs['ijs']
+    generator.add('dofsModifiedReversed', dofsModifiedReversed)
 
   def addLocal(self, generator, targets):
     for target in targets:
