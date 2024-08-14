@@ -48,6 +48,8 @@ std::unique_ptr<AbstractFactory>
                                                                       seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::AdjointSlip:
     return std::make_unique<AdjointRSFSlipFactory>(drParameters, seissolInstance);
+  case seissol::initializer::parameters::FrictionLawType::AdjointRSFFastVelWeakening:
+    return std::make_unique<AdjointRSFFastVelWeakeningFactory>(drParameters, seissolInstance);
   default:
     logError() << "unknown friction law";
     return nullptr;
