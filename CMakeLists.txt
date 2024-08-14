@@ -272,6 +272,9 @@ if (HDF5)
   target_include_directories(SeisSol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_HDF)
+  if (NOT HDF5_IS_PARALLEL)
+    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+  endif()
 endif()  
 
 # Parmetis
