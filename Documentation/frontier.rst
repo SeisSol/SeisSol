@@ -48,7 +48,7 @@ We set the compilers to the cray compiler wrappers (which in our case use ``amdc
     module load rocm/6.0.0
 
     module load cray-hdf5-parallel/1.12.2.9
-    module load cray-parallel-netcdf/1.12.3.9
+    module load cray-netcdf-hdf5parallel/4.9.0.9
     module load cray-python/3.11.5
 
     module load ninja
@@ -64,7 +64,7 @@ We also require a small hotfix for pkg-config, as required by easi (and subseque
 
 .. code-block:: bash
 
-    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.7/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.9/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
 
 Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
 
