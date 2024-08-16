@@ -29,6 +29,7 @@ Run ``pwd`` and copy the path there. Run the following script there.
     export SEISSOL_BASE=$(pwd)
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
     export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    export LD_LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LD_LIBRARY_PATH
 
     mkdir -p $SEISSOL_PREFIX
 
@@ -37,23 +38,27 @@ We set the compilers to the cray compiler wrappers (which in our case use ``amdc
 
 .. code-block:: bash
 
-    # TODO: add modules here (most likely with cpeAMD/23.12 )
+    module load Core/24.07
 
-    module load LUMI/23.09 partition/G
-    module load cpeAMD/23.09
-    module load rocm/5.6.1
-    module load amd/5.6.1
+    module load craype-x86-trento
+    module load craype-accel-amd-gfx90a
 
-    module load Boost/1.82.0-cpeAMD-23.09
-    module load Eigen/3.4.0
+    module load PrgEnv-amd/8.5.0
+    module switch amd/6.0.0
+    module load rocm/6.0.0
 
-    module load cray-hdf5-parallel/1.12.2.7
-    module load cray-netcdf-hdf5parallel/4.9.0.7
-    module load cray-python/3.10.10
+    module load cray-hdf5-parallel/1.12.2.9
+    module load cray-parallel-netcdf/1.12.3.9
+    module load cray-python/3.11.5
+
+    module load ninja
+    module load cmake
 
     export CC=cc
     export CXX=CC
     export FC=ftn
+
+    export HIP_PATH=/opt/rocm-6.0.0
 
 We also require a small hotfix for pkg-config, as required by easi (and subsequently also SeisSol) right now. It is needed to work correctly with the Cray environment (only the folders ``hdf5-parallel`` and ``netcdf-hdf5parallel`` are included by default; but these do not contain the non-parallel pkgconfigs):
 
@@ -73,19 +78,21 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
 
-Then, we can start installing the modules. For convenience, we also add Ninja as a build tool here first.
-(TODO: remove and replace by module load buildtools/23.09)
+Then, we can start installing the modules. For AdaptiveCpp, we need a suitable Boost installation. That can be accomplished as follows:
 
 .. code-block:: bash
 
-    git clone --branch v1.12.0 --depth 1 https://github.com/ninja-build/ninja.git
-    mkdir -p ninja/build
-    cd ninja/build
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
-    make -j 10 install
-    cd ../..
+    wget https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz
+    tar -xf boost_1_80_0.tar.gz
+    cd boost_1_80_0
 
-Next, we choose AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
+    ./bootstrap.sh --prefix=$SEISSOL_PREFIX --with-toolset=gcc --with-libraries=fiber,context,atomic,filesystem --show-libraries
+
+    ./b2 install toolset=gcc threading=multi variant=release link=shared visibility=hidden --with-fiber --with-context --with-atomic --with-filesystem --prefix=$SEISSOL_PREFIX
+
+    cd ..
+
+Next, we build AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
 
 .. code-block:: bash
 
@@ -155,6 +162,18 @@ For easi (depending on the former two):
     mkdir -p easi/build
     cd easi/build
     cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=OFF -DEASICUBE=OFF
+    ninja install
+    cd ../..
+
+For Eigen:
+
+.. code-block:: bash
+
+    wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+    tar -xf eigen-3.4.0.tar.gz
+    mkdir -p eigen-3.4.0/build
+    cd eigen-3.4.0/build
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -GNinja
     ninja install
     cd ../..
 
