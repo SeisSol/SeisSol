@@ -10,6 +10,7 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Physics/Attenuation.hpp"
+#include <utils/logger.h>
 #include <vector>
 
 #include "Init.hpp"
@@ -332,7 +333,6 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
 
 static void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,

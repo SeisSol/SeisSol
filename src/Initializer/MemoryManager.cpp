@@ -69,6 +69,7 @@
  **/
 #include "MemoryManager.h"
 
+#include <Initializer/tree/LTSTree.hpp>
 #include <cmath>
 #include <type_traits>
 #include <unordered_set>
@@ -451,6 +452,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
 
   /// Dynamic rupture tree
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    m_dynRupTree[i] = new LTSTree();
     m_dynRup[i]->addTo(*m_dynRupTree[i]);
     m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
     m_dynRupTree[i]->fixate();
@@ -696,6 +698,7 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
 
 void seissol::initializer::MemoryManager::initializeMemoryLayout()
 {
+
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
 
@@ -741,6 +744,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
+
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
@@ -757,8 +761,10 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
     real** buffers = it->var(m_lts.buffers);
     real** derivatives = it->var(m_lts.derivatives);
+    
     kernels::touchBuffersDerivatives(buffers, derivatives, it->getNumberOfCells());
   }
+
 #endif
 
 #ifdef USE_MPI
@@ -766,7 +772,9 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeCommunicationStructure();
 #endif
 
+
   initializeFaceDisplacements();
+
 
 #ifdef ACL_DEVICE
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
@@ -867,30 +875,27 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initialize Friction Model";
 
-  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
-  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters[i]);
-  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance, i);
-  auto product = factory->produce();
-  m_dynRup[i] = std::move(product.ltsTree);
-  m_DRInitializer[i] = std::move(product.initializer);
-  m_FrictionLaw[i] = std::move(product.frictionLaw);
-  m_faultOutputManager[i] = std::move(product.output);
+  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(
+        m_seissolParams->drParameters[i]);
+    const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance, i);
+    auto product = factory->produce();
+    m_dynRup[i] = std::move(product.ltsTree);
+    m_DRInitializer[i] = std::move(product.initializer);
+    m_FrictionLaw[i] = std::move(product.frictionLaw);
+    m_faultOutputManager[i] = std::move(product.output);
   }
 }
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  // TODO: switch m_dynRup to shared or weak pointer
-  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
-  if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
-    m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager[i]->setLtsData(&m_ltsTree,
-                                     &m_lts,
-                                     &m_ltsLut,
-                                     m_dynRupTree[i],
-                                     m_dynRup[i].get());
-    m_faultOutputManager[i]->setBackupTimeStamp(backupTimeStamp);
-    m_faultOutputManager[i]->init();
-  }
+  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
+      m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
+      m_faultOutputManager[i]->setLtsData(
+          &m_ltsTree, &m_lts, &m_ltsLut, m_dynRupTree[i], m_dynRup[i].get());
+      m_faultOutputManager[i]->setBackupTimeStamp(backupTimeStamp);
+      m_faultOutputManager[i]->init();
+    }
   }
 }
 

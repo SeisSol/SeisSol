@@ -414,8 +414,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
-  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
   for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
+    unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
   for (LTSTree::leaf_iterator it = dynRupTree[i]->beginLeaf(LayerMask(Ghost)); it != dynRupTree[i]->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup[i]->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup[i]->timeDerivativeMinus);
