@@ -154,6 +154,18 @@ For LUA:
     make all install INSTALL_TOP=$SEISSOL_PREFIX
     cd ..
 
+For ImpalaJIT (depending on the former two):
+
+.. code-block:: bash
+
+    git clone https://github.com/uphoffc/ImpalaJIT.git
+    cd ImpalaJIT/
+    mkdir -p build
+    cd build/
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja
+    ninja install
+    cd ../..
+
 For easi (depending on the former two):
 
 .. code-block:: bash
@@ -161,7 +173,7 @@ For easi (depending on the former two):
     git clone --recursive --depth 1 https://github.com/seissol/easi
     mkdir -p easi/build
     cd easi/build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=OFF -DEASICUBE=OFF
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=ON -DEASICUBE=OFF
     ninja install
     cd ../..
 
@@ -194,7 +206,7 @@ Compiling SeisSol
 
 Finally, it's time to clone SeisSol and build it.
 
-However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
+However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``). There is currently a problem with Graph Capturing, so we turn it off for the time-being
 
 In total, we get the following:
 
@@ -203,7 +215,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DUSE_GRAPH_CAPTURING=OFF
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
