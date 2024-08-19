@@ -51,7 +51,7 @@ endif()
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU, DEVICE_VENDOR
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -272,6 +272,9 @@ if (HDF5)
   target_include_directories(SeisSol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_HDF)
+  if (NOT HDF5_IS_PARALLEL)
+    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+  endif()
 endif()  
 
 # Parmetis
@@ -353,8 +356,25 @@ target_include_directories(SeisSol-common-properties SYSTEM INTERFACE
 )
 
 find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
+
 find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen yaml-cpp)
+
+if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")
+  target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+else()
+  # fallback code for old versions
+  if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
+    target_include_directories(SeisSol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
+  endif()
+  if (YAML_CPP_LIBRARIES)
+    # use the YAML_CPP_LIBRARIES, if available (though it may just say `yaml-cpp`)
+    target_link_libraries(SeisSol-common-properties INTERFACE ${YAML_CPP_LIBRARIES})
+  else()
+    # fallback
+    target_link_libraries(SeisSol-common-properties INTERFACE yaml-cpp)
+  endif()
+endif()
 
 # Note: eigen3 enables cuda support in its headers by default.
 # The problem happens in `eigen3/Eigen/src/Core/util/Meta.h` while
@@ -369,10 +389,6 @@ if (EIGEN3_INCLUDE_DIR)
   target_include_directories(SeisSol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
 endif()
 
-if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
-  target_include_directories(SeisSol-common-properties INTERFACE ${YAML_CPP_INCLUDE_DIR})
-endif()
-
 target_include_directories(SeisSol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
@@ -382,7 +398,6 @@ target_include_directories(SeisSol-common-properties INTERFACE
 
 target_compile_definitions(SeisSol-common-properties INTERFACE
     CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
     NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
     ${DR_QUAD_RULE}
 )
@@ -404,6 +419,16 @@ if (SHARED)
 endif()
 
 if (WITH_GPU)
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_CUDA)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_HIP)
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "oneapi")
+    target_compile_definitions(SeisSol-common-properties INTERFACE SEISSOL_KERNELS_SYCL)
+  endif()
+
   # set SeisSol GPU definitions
   target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
 
@@ -421,14 +446,14 @@ if (WITH_GPU)
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-lib)
 
-  set(SYCL_CC "hipsycl" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
-  set(SYCL_CC_OPTIONS hipsycl dpcpp)
+  set(SYCL_CC "acpp" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
+  set(SYCL_CC_OPTIONS acpp hipsycl dpcpp)
   set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
 
-  if (SYCL_CC MATCHES "hipsycl")
-    message(STATUS "Using HipSYCL for general SYCL offloading")
+  if (SYCL_CC MATCHES "hipsycl" OR SYCL_CC MATCHES "acpp")
+    message(STATUS "Using AdaptiveCpp for general SYCL offloading")
     # add GPU dynamic rupture target
-    # always override HIPSYCL_TARGETS, as we may need to override it when the architecture changes
+    # always override ACPP_TARGETS, as we may need to override it when the architecture changes
     if (DEVICE_ARCH MATCHES "sm_*")
       if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
         set(SYCL_USE_NVHPC_DEFAULT ON)
@@ -440,20 +465,28 @@ if (WITH_GPU)
         # we assume that hipsycl was compiled with nvhpc compiler collection
         string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
         set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
+        set(ACPP_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
       else()
         set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+        set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
         target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
       endif()
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
     elseif(DEVICE_ARCH MATCHES "gfx*")
       set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      set(ACPP_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
     else()
       set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      set(ACPP_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
     endif()
 
-    find_package(hipSYCL REQUIRED)
+    find_package(AdaptiveCpp)
+    if (NOT AdaptiveCpp_FOUND)
+      message(WARNING "AdaptiveCpp was not found. Retrying with hipSYCL as package name...")
+      find_package(hipSYCL REQUIRED)
+    endif()
 
     # note, we need to add openmp as a link option explicitly for some compilers.
     # it is probably an issue of `add_sycl_to_target` macro

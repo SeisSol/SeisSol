@@ -18,13 +18,16 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[ConvergenceOrder],
+                seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    runtime.syncToSycl(&this->queue);
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
     auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
 
     {
@@ -52,7 +55,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
@@ -159,8 +162,9 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         });
       });
-      queue.wait_and_throw();
     }
+
+    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

@@ -50,6 +50,7 @@
 #include <omp.h>
 #endif // _OPENMP
 
+#include "Common/constants.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.hpp"
@@ -71,6 +72,7 @@ bool SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
+  logInfo(rank) << "Built with Convergence Order:" << ConvergenceOrder;
 #ifdef COMMIT_HASH
   logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 #endif
@@ -94,6 +96,16 @@ bool SeisSol::init(int argc, char* argv[]) {
   seissol::MPI::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(seissol::MPI::mpi);
+#endif
+#ifdef ACL_DEVICE
+  printUSMInfo(MPI::mpi);
+  printMPIUSMInfo(MPI::mpi);
+  printDeviceHostSwitch(MPI::mpi);
+
+  if (!useUSM() && deviceHostSwitch() > 0) {
+    logWarning(rank) << "Using the host-device execution on non-USM systems is not fully supported "
+                        "yet. Expect incorrect results.";
+  }
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
