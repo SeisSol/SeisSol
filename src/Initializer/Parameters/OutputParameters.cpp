@@ -35,7 +35,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
            {"mpio", CheckpointingBackend::MPIO},
            {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
            {"sionlib", CheckpointingBackend::SIONLIB}});
-        const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
+      const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
     } else {
       reader->markUnused({"checkpointbackend", "checkpointinterval"});
     }
