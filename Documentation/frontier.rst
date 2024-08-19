@@ -1,13 +1,15 @@
-LUMI
-====
+Frontier
+========
 
-[NOTE: this is almost a copy of the Frontier page]
+[NOTE: this is almost a copy of the LUMI page]
 
-Website: https://www.lumi-supercomputer.eu/
+Website: https://www.olcf.ornl.gov/frontier/
 
-Here, we concern ourselves with running SeisSol on the **LUMI-G** partition; that is, on the GPU partition.
+Guide: https://docs.olcf.ornl.gov/systems/frontier_user_guide.html
 
-The nodes then consist of:
+Here, we concern ourselves with running SeisSol on Frontier.
+
+Each node consists of:
 
 - 1× AMD Epyc 7A53 (Zen 3) CPU, configured with 4 NUMA domains
 - 4× AMD Instinct MI250x GPUs, thus 8 GCDs in total
@@ -27,6 +29,7 @@ Run ``pwd`` and copy the path there. Run the following script there.
     export SEISSOL_BASE=$(pwd)
     export SEISSOL_PREFIX=$SEISSOL_BASE/local
     export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
+    export LD_LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LD_LIBRARY_PATH
 
     mkdir -p $SEISSOL_PREFIX
 
@@ -35,27 +38,33 @@ We set the compilers to the cray compiler wrappers (which in our case use ``amdc
 
 .. code-block:: bash
 
-    module load LUMI/23.09 partition/G
-    module load cpeAMD/23.09
-    module load rocm/5.6.1
-    module load amd/5.6.1
+    module load Core/24.07
 
-    module load Boost/1.82.0-cpeAMD-23.09
-    module load Eigen/3.4.0
+    module load craype-x86-trento
+    module load craype-accel-amd-gfx90a
 
-    module load cray-hdf5-parallel/1.12.2.7
-    module load cray-netcdf-hdf5parallel/4.9.0.7
-    module load cray-python/3.10.10
+    module load PrgEnv-amd/8.5.0
+    module switch amd/6.0.0
+    module load rocm/6.0.0
+
+    module load cray-hdf5-parallel/1.12.2.9
+    module load cray-netcdf-hdf5parallel/4.9.0.9
+    module load cray-python/3.11.5
+
+    module load ninja
+    module load cmake
 
     export CC=cc
     export CXX=CC
     export FC=ftn
 
+    export HIP_PATH=/opt/rocm-6.0.0
+
 We also require a small hotfix for pkg-config, as required by easi (and subsequently also SeisSol) right now. It is needed to work correctly with the Cray environment (only the folders ``hdf5-parallel`` and ``netcdf-hdf5parallel`` are included by default; but these do not contain the non-parallel pkgconfigs):
 
 .. code-block:: bash
 
-    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.7/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
+    export PKG_CONFIG_PATH=/opt/cray/pe/netcdf/4.9.0.9/amd/5.0/lib/pkgconfig:/opt/cray/pe/hdf5/1.12.2.7/amd/5.0/lib/pkgconfig:$PKG_CONFIG_PATH
 
 Next, we also start up our Python installation. The virtual environment sets additional paths for e.g. executables to our prefix directory automatically.
 
@@ -69,19 +78,21 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
 
-Then, we can start installing the modules. For convenience, we also add Ninja as a build tool here first.
-(TODO: remove and replace by module load buildtools/23.09)
+Then, we can start installing the modules. For AdaptiveCpp, we need a suitable Boost installation. That can be accomplished as follows:
 
 .. code-block:: bash
 
-    git clone --branch v1.12.0 --depth 1 https://github.com/ninja-build/ninja.git
-    mkdir -p ninja/build
-    cd ninja/build
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
-    make -j 10 install
-    cd ../..
+    wget https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz
+    tar -xf boost_1_80_0.tar.gz
+    cd boost_1_80_0
 
-Next, we choose AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
+    ./bootstrap.sh --prefix=$SEISSOL_PREFIX --with-toolset=gcc --with-libraries=fiber,context,atomic,filesystem --show-libraries
+
+    ./b2 install toolset=gcc threading=multi variant=release link=shared visibility=hidden --with-fiber --with-context --with-atomic --with-filesystem --prefix=$SEISSOL_PREFIX
+
+    cd ..
+
+Next, we build AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
 
 .. code-block:: bash
 
@@ -143,6 +154,18 @@ For LUA:
     make all install INSTALL_TOP=$SEISSOL_PREFIX
     cd ..
 
+For ImpalaJIT (depending on the former two):
+
+.. code-block:: bash
+
+    git clone https://github.com/uphoffc/ImpalaJIT.git
+    cd ImpalaJIT/
+    mkdir -p build
+    cd build/
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja
+    ninja install
+    cd ../..
+
 For easi (depending on the former two):
 
 .. code-block:: bash
@@ -150,7 +173,19 @@ For easi (depending on the former two):
     git clone --recursive --depth 1 https://github.com/seissol/easi
     mkdir -p easi/build
     cd easi/build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=OFF -DEASICUBE=OFF
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DCMAKE_BUILD_TYPE=Release -GNinja -DASAGI=ON -DLUA=ON -DIMPALAJIT=ON -DEASICUBE=OFF
+    ninja install
+    cd ../..
+
+For Eigen:
+
+.. code-block:: bash
+
+    wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+    tar -xf eigen-3.4.0.tar.gz
+    mkdir -p eigen-3.4.0/build
+    cd eigen-3.4.0/build
+    cmake .. -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -GNinja
     ninja install
     cd ../..
 
@@ -171,8 +206,7 @@ Compiling SeisSol
 
 Finally, it's time to clone SeisSol and build it.
 
-However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
-Also, for LUMI, we disable the ROCm graphs, since they are not fully functional with SeisSol and ROCm 5.6.
+However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``). There is currently a problem with Graph Capturing, so we turn it off for the time-being
 
 In total, we get the following:
 
@@ -181,7 +215,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DUSE_GRAPH_CAPTURING=OFF
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
@@ -190,10 +224,7 @@ Running Jobs
 ~~~~~~~~~~~~
 
 Attached is a job script which does the pinning for us.
-The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
-
-Also, for now we disable the ``HSA_XNACK`` feature, as it is known to cause problems with ROCm 5.6 (cf. https://lumi-supercomputer.github.io/LUMI-EasyBuild-docs/r/rocm ).
-Thus, the unified memory functionality may be very slow (``SEISSOL_USM=1`` or ``SEISSOL_USM_MPI=1``).
+The pinning on the Frontier nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS.
 
 .. code-block:: bash
 
