@@ -67,3 +67,7 @@ Load the relevant :ref:`modules <compile_run_supermuc>`.
   cmake ..
   make -j
 
+Aggregated Point Output
+-----------------------
+
+The point output aggregation can be enabled by setting ``receivercollectiveio=1`` in the ``output`` section. The result will be a combined CSV text file.

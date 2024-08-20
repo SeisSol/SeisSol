@@ -144,8 +144,6 @@ surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for t
 
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing
-checkPointFile = 'checkpoint/checkpoint'
-checkPointBackend = 'mpio'           ! Checkpoint backend
 checkPointInterval = 6
 
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,

@@ -48,11 +48,6 @@ In addition to the variables in SeisSol, the
 `ASYNC <https://github.com/TUM-I5/ASYNC>`__ library provides some tuning
 variables listed in the `wiki <https://github.com/TUM-I5/ASYNC/wiki>`__.
 
-Checkpointing
-~~~~~~~~~~~~~
-
-Some environment variables related to checkpointing are described in the :ref:`Checkpointing section <Checkpointing>`.
-
 .. _optimal_environment_variables_on_supermuc_ng:
 
 Optimal environment variables on SuperMUC-NG
