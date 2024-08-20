@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <mpi.h>
 #include <string>
 #include <unordered_set>
 #include <vector>

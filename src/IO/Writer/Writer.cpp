@@ -7,6 +7,10 @@
 #include <IO/Writer/Instructions/Binary.hpp>
 #include <IO/Writer/Instructions/Hdf5.hpp>
 #include <memory>
+#include <mpi.h>
+#include <sstream>
+#include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer {
@@ -34,7 +38,7 @@ void WriteInstance::close() {
 Writer::Writer() = default;
 
 Writer::Writer(const std::string& data) {
-  YAML::Node plan = YAML::Load(data);
+  YAML::Node const plan = YAML::Load(data);
   for (const auto& instruction : plan) {
     instructions.push_back(instructions::WriteInstruction::deserialize(instruction));
   }

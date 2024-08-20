@@ -1,17 +1,18 @@
 #include "VtkHdf.hpp"
 
-#include "utils/logger.h"
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
-#include <IO/Instance/SeisSolMemoryHelper.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
 #include <IO/Writer/Instructions/Hdf5.hpp>
-#include <IO/Writer/Instructions/Instruction.hpp>
 #include <IO/Writer/Writer.hpp>
-#include <Initializer/MemoryManager.h>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <mpi.h>
+#include <string>
+#include <vector>
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
@@ -46,14 +47,14 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
 
   instructions.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "Type",
         writer::WriteInline::create("UnstructuredGrid",
                                     std::make_shared<datatype::StringDatatype>(16)));
   });
   instructions.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "Version",
         writer::WriteInline::createArray<int64_t>({2}, {1, 0}));
   });
@@ -72,7 +73,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   // also, auto-generate them using a managed buffer
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "NumberOfCells",
         writer::WriteInline::createArray<int64_t>({1},
                                                   {static_cast<int64_t>(selfGlobalElementCount)}),
@@ -80,7 +81,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   });
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "NumberOfConnectivityIds",
         writer::WriteInline::createArray<int64_t>({1},
                                                   {static_cast<int64_t>(selfGlobalPointCount)}),
@@ -88,17 +89,17 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   });
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "NumberOfPoints",
         writer::WriteInline::createArray<int64_t>({1},
                                                   {static_cast<int64_t>(selfGlobalPointCount)}),
         datatype::inferDatatype<int64_t>());
   });
 
-  bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
+  bool const isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "Offsets",
         writer::GeneratedBuffer::createElementwise<int64_t>(
             selfLocalElementCount + (isLastRank ? 1 : 0),
@@ -111,7 +112,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   });
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "Types",
         writer::GeneratedBuffer::createElementwise<uint8_t>(
             selfLocalElementCount,
@@ -122,7 +123,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   });
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
+        writer::instructions::Hdf5Location(filename, {groupName}),
         "Connectivity",
         writer::GeneratedBuffer::createElementwise<int64_t>(
             selfLocalPointCount,
@@ -152,12 +153,12 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
       writer.addInstruction(instruction(filename, time));
     }
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+        writer::instructions::Hdf5Location(filename, {groupName, fieldDataName}),
         "Time",
         writer::WriteInline::createArray<double>({1}, {time}),
         datatype::inferDatatype<decltype(time)>()));
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+        writer::instructions::Hdf5Location(filename, {groupName, fieldDataName}),
         "Index",
         writer::WriteInline::createArray<std::size_t>({1}, {counter}),
         datatype::inferDatatype<decltype(counter)>()));

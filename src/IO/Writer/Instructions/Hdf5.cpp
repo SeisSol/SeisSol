@@ -1,10 +1,13 @@
 #include "Hdf5.hpp"
 
 #include "Data.hpp"
-#include "Instruction.hpp"
+#include <IO/Datatype/Datatype.hpp>
+#include <cassert>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #include "utils/stringutils.h"

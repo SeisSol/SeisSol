@@ -1,12 +1,11 @@
 #include "Datatype.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <iomanip>
-#include <ios>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <sstream>
 #include <string>

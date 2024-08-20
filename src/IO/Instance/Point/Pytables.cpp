@@ -1,9 +1,10 @@
 #include "Pytables.hpp"
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Instance/Point/TableWriter.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
 #include <IO/Writer/Instructions/Hdf5.hpp>
+#include <IO/Writer/Writer.hpp>
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 namespace seissol::io::instance::point {

@@ -4,6 +4,7 @@
 #include <IO/Writer/Writer.hpp>
 #include <SeisSol.h>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol {

@@ -1,9 +1,9 @@
 #include "Binary.hpp"
 
 #include "Data.hpp"
-#include "Instruction.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer::instructions {

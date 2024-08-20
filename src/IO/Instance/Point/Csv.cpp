@@ -1,9 +1,10 @@
 #include "Csv.hpp"
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Instance/Point/TableWriter.hpp>
 #include <IO/Writer/Instructions/Binary.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
+#include <IO/Writer/Writer.hpp>
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <string>

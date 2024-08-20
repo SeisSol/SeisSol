@@ -1,15 +1,13 @@
 #include "BinaryWriter.hpp"
 #include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
+#include <async/ExecInfo.h>
+#include <cstddef>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
-#include <stack>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
-#include "utils/logger.h"
 
 namespace seissol::io::writer::file {
 

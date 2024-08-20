@@ -1,12 +1,11 @@
 #include "TableWriter.hpp"
 
 #include <IO/Datatype/Datatype.hpp>
-#include <IO/Writer/Writer.hpp>
-#include <functional>
+#include <algorithm>
+#include <cstddef>
 #include <memory>
-#include <string>
+#include <vector>
 
-#include "utils/logger.h"
 
 namespace seissol::io::instance::point {
 

@@ -28,7 +28,7 @@ class VtkHdfWriter {
 
     instructionsConst.emplace_back([=](const std::string& filename, double time) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName}),
+          writer::instructions::Hdf5Location(filename, {groupName}),
           "Points",
           writer::GeneratedBuffer::createElementwise<double>(
               selfLocalElementCount, selfPointsPerElement, std::vector<std::size_t>{3}, projector),
@@ -45,7 +45,7 @@ class VtkHdfWriter {
 
     instructions.emplace_back([=](const std::string& filename, double time) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
+          writer::instructions::Hdf5Location(filename, {groupName, pointDataName}),
           name,
           writer::GeneratedBuffer::createElementwise<T>(
               selfLocalElementCount, selfPointsPerElement, dimensions, pointMapper),
@@ -61,7 +61,7 @@ class VtkHdfWriter {
 
     instructions.emplace_back([=](const std::string& filename, double time) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
+          writer::instructions::Hdf5Location(filename, {groupName, cellDataName}),
           name,
           writer::GeneratedBuffer::createElementwise<T>(
               selfLocalElementCount, 1, dimensions, cellMapper),
@@ -75,7 +75,7 @@ class VtkHdfWriter {
                     const std::vector<T>& data) {
     instructions.emplace_back([=](const std::string& filename, double time) {
       return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+          writer::instructions::Hdf5Location(filename, {groupName, fieldDataName}),
           name,
           writer::WriteInline::createArray(dimensions, data),
           datatype::inferDatatype<T>());
@@ -103,9 +103,9 @@ class VtkHdfWriter {
       const std::string&, double)>>
       instructions;
   std::size_t type;
-  const static inline std::string GroupName = "VTKHDF";
-  const static inline std::string FieldDataName = "FieldData";
-  const static inline std::string CellDataName = "CellData";
-  const static inline std::string PointDataName = "PointData";
+  const static inline std::string groupName = "VTKHDF";
+  const static inline std::string fieldDataName = "FieldData";
+  const static inline std::string cellDataName = "CellData";
+  const static inline std::string pointDataName = "PointData";
 };
 } // namespace seissol::io::instance::mesh

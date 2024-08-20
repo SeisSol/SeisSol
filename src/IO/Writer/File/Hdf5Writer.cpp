@@ -70,7 +70,7 @@ void Hdf5File::openGroup(const std::string& name) {
 void Hdf5File::openDataset(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
   auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
-  hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  hid_t const handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
