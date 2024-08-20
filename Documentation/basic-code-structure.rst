@@ -32,9 +32,7 @@ preprocessing/
 Folder        Description
 ============= =============
 meshing       Cube generator; gmsh converter; various scripts.
-partitioning  *deprecated*
 science       ASAGI converter; standard rupture format converter; various scripts.
-workflow      *deprecated*
 ============= =============
 
 postprocessing/
@@ -43,7 +41,6 @@ postprocessing/
 ============= =============
 Folder        Description
 ============= =============
-performance   *deprecated*
 science       Various scripts processing simulation output.
 validation    Cube mesh validation.
 visualisation Receiver viewer; scripts.
