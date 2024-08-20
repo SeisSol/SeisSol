@@ -12,19 +12,27 @@
 
 namespace seissol::solver::clustering::communication {
 
-void* createComm() {
+std::vector<void*> createComms(std::size_t count) {
 #ifdef USE_CCL
   // cf. partially https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/examples.html
-  ncclComm_t preComm;
-  ncclUniqueId cclId;
+  std::vector<ncclUniqueId> cclIds(count);
+  std::vector<void*> comms(count);
   if (seissol::MPI::mpi.rank() == 0) {
-    ncclGetUniqueId(&cclId);
+    for (std::size_t i = 0; i < count; ++i) {
+      ncclGetUniqueId(&cclIds[i]);
+    }
   }
-  MPI_Bcast(&cclId, sizeof(ncclUniqueId), MPI_BYTE, 0, seissol::MPI::mpi.comm());
-  ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclId, seissol::MPI::mpi.rank());
-  return static_cast<void*>(preComm);
+  MPI_Bcast(
+      cclIds.data(), sizeof(ncclUniqueId) * cclIds.size(), MPI_BYTE, 0, seissol::MPI::mpi.comm());
+  MPI_Barrier(seissol::MPI::mpi.comm());
+  for (std::size_t i = 0; i < count; ++i) {
+    ncclComm_t preComm;
+    ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclIds[i], seissol::MPI::mpi.rank());
+    comms[i] = static_cast<void*>(preComm);
+  }
+  return comms;
 #else
-  return nullptr;
+  return {};
 #endif
 }
 

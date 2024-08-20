@@ -253,9 +253,7 @@ class TimeCluster : public CellCluster {
   void computeFlops();
 
   //! Update relax time for plasticity
-  double getRelaxTime() {
-    return (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0;
-  }
+  double getRelaxTime() { return (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0; }
 
   const LayerType layerType;
   //! time of the next receiver output
@@ -323,10 +321,7 @@ class TimeCluster : public CellCluster {
   /**
    * Set Tv constant for plasticity.
    */
-  void setTv(double tv) {
-    tv = tv;
-    updateRelaxTime();
-  }
+  void setTv(double tv) { tv = tv; }
 
   void finalize() override;
 

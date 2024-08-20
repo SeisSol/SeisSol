@@ -103,8 +103,6 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
-  bool foundDynamicRuptureCluster = false;
-
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < timeStepping.numberOfLocalClusters;
        localClusterId++) {
@@ -119,16 +117,6 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
 
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
-    // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
-                                     dynRupTree.child(Copy).getNumberOfCells() +
-                                     dynRupTree.child(Ghost).getNumberOfCells();
-
-    bool isFirstDynamicRuptureCluster = false;
-    if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
-      foundDynamicRuptureCluster = true;
-      isFirstDynamicRuptureCluster = true;
-    }
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : timeStepping.numberOfGlobalClusters;

@@ -24,10 +24,8 @@ struct GhostTimeClusterFactory {
     globalClusterCount = clusterCount;
 #ifdef ACL_DEVICE
     if (mode == MPI::DataTransferMode::DirectCCL) {
-      comms.resize((clusterCount * (clusterCount + 1)) / 2);
-      for (std::size_t i = 0; i < comms.size(); ++i) {
-        comms[i] = seissol::solver::clustering::communication::createComm();
-      }
+      const auto commCount = (clusterCount * (clusterCount + 1)) / 2;
+      comms = seissol::solver::clustering::communication::createComms(commCount);
     }
 #endif
   }

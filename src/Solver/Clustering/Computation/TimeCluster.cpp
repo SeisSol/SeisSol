@@ -721,8 +721,8 @@ std::pair<long, long>
                numberOfCells,                                                                      \
                plasticity,                                                                         \
                drMapping,                                                                          \
-               subTimeStart,\
-               tv,\
+               subTimeStart,                                                                       \
+               tv,                                                                                 \
                oneMinusIntegratingFactor) reduction(+ : numberOTetsWithPlasticYielding)
 #endif
     for (unsigned int cell = 0; cell < numberOfCells; cell++) {
