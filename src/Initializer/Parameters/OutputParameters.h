@@ -15,8 +15,6 @@ namespace seissol::initializer::parameters {
 
 constexpr double veryLongTime = 1.0e100;
 
-enum CheckpointingBackend { Disabled, Hdf5 };
-
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
@@ -26,8 +24,6 @@ enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refi
 struct CheckpointParameters {
   bool enabled;
   double interval;
-  CheckpointingBackend backend;
-  std::string fileName;
 };
 
 struct ElementwiseFaultParameters {

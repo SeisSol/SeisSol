@@ -13,26 +13,12 @@ namespace seissol::io::writer {
 
 class WriteInstance {
   public:
-  WriteInstance(MPI_Comm comm) : hdf5(comm), binary(comm) {}
+  WriteInstance(MPI_Comm comm);
 
   void write(const async::ExecInfo& info,
-             std::shared_ptr<instructions::WriteInstruction> instruction) {
-    if (dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()) != nullptr) {
-      hdf5.writeData(info, *dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()));
-    }
-    if (dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()) != nullptr) {
-      hdf5.writeAttribute(info,
-                          *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
-    }
-    if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
-      binary.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
-    }
-  }
+             std::shared_ptr<instructions::WriteInstruction> instruction);
 
-  void close() {
-    hdf5.finalize();
-    binary.finalize();
-  }
+  void close();
 
   private:
   file::Hdf5Writer hdf5;
@@ -41,45 +27,19 @@ class WriteInstance {
 
 class Writer {
   public:
-  Writer() = default;
+  Writer();
 
-  explicit Writer(const std::string& data) {
-    YAML::Node plan = YAML::Load(data);
-    for (const auto& instruction : plan) {
-      instructions.push_back(instructions::WriteInstruction::deserialize(instruction));
-    }
-  }
+  explicit Writer(const std::string& data);
 
-  void addInstruction(std::shared_ptr<instructions::WriteInstruction> instruction) {
-    instructions.push_back(instruction);
-  }
+  void addInstruction(std::shared_ptr<instructions::WriteInstruction> instruction);
 
-  std::string serialize() {
-    std::stringstream sstr;
-    {
-      YAML::Emitter output(sstr);
-      output << YAML::BeginSeq;
-      for (const auto& instruction : instructions) {
-        output << instruction->serialize();
-      }
-      output << YAML::EndSeq;
-    }
-    return sstr.str();
-  }
+  std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info) {
-    WriteInstance instance(MPI_COMM_WORLD);
-    for (auto instruction : instructions) {
-      instance.write(info, instruction);
-    }
-    return instance;
-  }
+  WriteInstance beginWrite(const async::ExecInfo& info);
 
-  void endWrite() {}
+  void endWrite();
 
-  const std::vector<std::shared_ptr<instructions::WriteInstruction>>& getInstructions() const {
-    return instructions;
-  }
+  const std::vector<std::shared_ptr<instructions::WriteInstruction>>& getInstructions() const;
 
   private:
   std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions;

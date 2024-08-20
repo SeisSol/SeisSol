@@ -87,6 +87,9 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading group IDs for" << ckpTree.name;
     auto groupIds = reader.readData<std::size_t>("__ids");
     distributor.setup(groupIds, ckpTree.ids);
+
+    std::vector<reader::Distributor::DistributionInstance> distributions;
+    distributions.reserve(ckpTree.variables.size());
     for (auto& variable : ckpTree.variables) {
       logInfo(seissol::MPI::mpi.rank())
           << "Reading variable" << ckpTree.name << "/" << variable.name;
@@ -97,7 +100,13 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
         storesize = currsize;
       }
       reader.readDataRaw(datastore, variable.name, count, variable.datatype);
-      distributor.distribute(variable.data, datastore, datatype::convertToMPI(variable.datatype));
+      const auto distribution = distributor.distribute(
+          variable.data, datastore, datatype::convertToMPI(variable.datatype));
+      distributions.push_back(distribution);
+    }
+    logInfo(seissol::MPI::mpi.rank()) << "Finishing data distribution for" << ckpTree.name;
+    for (auto& distribution : distributions) {
+      distribution.complete();
     }
 
     reader.closeGroup();

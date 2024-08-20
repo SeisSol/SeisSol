@@ -12,52 +12,21 @@
 namespace seissol::io::writer::instructions {
 class Hdf5Location {
   public:
-  Hdf5Location(const std::string& longstring) {
-    auto parts = utils::StringUtils::split(longstring, ':');
-    assert(parts.size() == 2);
-    fileP = parts[0];
-    auto groupParts = utils::StringUtils::split(parts[1], '/');
-    groupsP = groupParts;
-  }
+  Hdf5Location(const std::string& longstring);
 
   Hdf5Location(const std::string& file,
                const std::vector<std::string>& groups,
-               const std::optional<std::string>& dataset = std::optional<std::string>())
-      : fileP(file), groupsP(groups), datasetP(dataset) {}
+               const std::optional<std::string>& dataset = std::optional<std::string>());
 
-  explicit Hdf5Location(YAML::Node node)
-      : fileP(node["file"].as<std::string>()),
-        groupsP(node["group"].as<std::vector<std::string>>()),
-        datasetP(node["dataset"] ? node["dataset"].as<std::string>() : std::optional<std::string>()) {}
+  explicit Hdf5Location(YAML::Node node);
 
-  std::string file() const { return fileP; }
-  std::vector<std::string> groups() const { return groupsP; }
+  std::string file() const;
+  std::vector<std::string> groups() const;
+  std::optional<std::string> dataset() const;
 
-  std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const {
-    if (other.file() == file()) {
-      std::vector<std::string> commonGroups;
-      for (std::size_t i = 0; i < groups().size() && i < other.groups().size(); ++i) {
-        if (groups()[i] == other.groups()[i]) {
-          commonGroups.push_back(groups()[i]);
-        } else {
-          break;
-        }
-      }
-      return std::make_optional<Hdf5Location>(file(), commonGroups);
-    } else {
-      return std::optional<Hdf5Location>();
-    }
-  }
+  std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const;
 
-  YAML::Node serialize() {
-    YAML::Node node;
-    node["file"] = fileP;
-    node["group"] = groupsP;
-    if (datasetP.has_value()) {
-      node["dataset"] = datasetP.value();
-    }
-    return node;
-  }
+  YAML::Node serialize();
 
   private:
   std::string fileP;
@@ -70,27 +39,15 @@ struct Hdf5AttributeWrite : public WriteInstruction {
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
 
-  YAML::Node serialize() override {
-    YAML::Node node;
-    node["name"] = name;
-    node["source"] = dataSource->serialize();
-    node["location"] = location.serialize();
-    node["writer"] = "hdf5";
-    node["type"] = "attribute";
-    return node;
-  }
+  YAML::Node serialize() override;
 
   Hdf5AttributeWrite(const Hdf5Location& location,
                      const std::string& name,
-                     std::shared_ptr<writer::DataSource> dataSource)
-      : location(location), name(name), dataSource(dataSource) {}
+                     std::shared_ptr<writer::DataSource> dataSource);
 
-  explicit Hdf5AttributeWrite(YAML::Node node)
-      : name(node["name"].as<std::string>()),
-        dataSource(writer::DataSource::deserialize(node["source"])),
-        location(Hdf5Location(node["location"])) {}
+  explicit Hdf5AttributeWrite(YAML::Node node);
 
-  std::vector<std::shared_ptr<DataSource>> dataSources() override { return {dataSource}; }
+  std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };
 
 struct Hdf5DataWrite : public WriteInstruction {
@@ -104,29 +61,12 @@ struct Hdf5DataWrite : public WriteInstruction {
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
-                int compress = 0)
-      : location(location), name(name), dataSource(dataSource), targetType(targetType),
-        compress(compress) {}
+                int compress = 0);
 
-  YAML::Node serialize() override {
-    YAML::Node node;
-    node["name"] = name;
-    node["source"] = dataSource->serialize();
-    node["location"] = location.serialize();
-    node["targetType"] = targetType->serialize();
-    node["writer"] = "hdf5";
-    node["type"] = "data";
-    node["compress"] = compress;
-    return node;
-  }
+  YAML::Node serialize() override;
 
-  explicit Hdf5DataWrite(YAML::Node node)
-      : name(node["name"].as<std::string>()),
-        dataSource(writer::DataSource::deserialize(node["source"])),
-        location(Hdf5Location(node["location"])),
-        targetType(datatype::Datatype::deserialize(node["targetType"])),
-        compress(node["compress"].as<int>()) {}
+  explicit Hdf5DataWrite(YAML::Node node);
 
-  std::vector<std::shared_ptr<DataSource>> dataSources() override { return {dataSource}; }
+  std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };
 } // namespace seissol::io::writer::instructions

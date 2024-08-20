@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <mpi.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -282,7 +283,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 }
 
-void Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
+Distributor::DistributionInstance
+    Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
   constexpr int tag = 30;
 
   int commsize;
@@ -330,16 +332,33 @@ void Distributor::distributeInternal(void* target, const void* source, MPI_Datat
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }
   }
-  MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+  const auto completion =
+      [this, requests, targetChar, sourceReordered, targetReordered, typesize]() {
+        // temporary hack to make requests non-const (as it will not matter)
+        auto requests2 = requests;
+        MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-    std::memcpy(targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
-  }
+        for (std::size_t i = 0; i < recvReorder.size(); ++i) {
+          std::memcpy(
+              targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
+        }
 
-  std::free(sourceReordered);
-  std::free(targetReordered);
+        std::free(sourceReordered);
+        std::free(targetReordered);
+      };
+  return DistributionInstance(completion);
 }
+
+void Distributor::DistributionInstance::complete() {
+  if (!completed) {
+    std::invoke(completion);
+  }
+}
+
+Distributor::DistributionInstance::DistributionInstance(const std::function<void()>& completion)
+    : completion(completion), completed(false) {}
+
 } // namespace seissol::io::reader

@@ -10,6 +10,8 @@
 #include <yaml-cpp/yaml.h>
 
 namespace {
+// (needs to stay non-const)
+// NOLINTNEXTLINE
 static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
 } // namespace
 

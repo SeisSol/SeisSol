@@ -1,5 +1,6 @@
 #pragma once
 
+#include <IO/Datatype/Datatype.hpp>
 #include <memory>
 #include <mpi.h>
 #include <stack>
@@ -27,5 +28,6 @@ class BinaryReader {
 
   private:
   MPI_Comm comm;
+  MPI_File file;
 };
 } // namespace seissol::io::reader::file

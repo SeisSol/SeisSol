@@ -6,7 +6,6 @@
 #include <IO/Datatype/MPIType.hpp>
 #include <algorithm>
 #include <cstddef>
-#include <filesystem>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>

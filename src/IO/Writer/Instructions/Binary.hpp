@@ -12,22 +12,13 @@ struct BinaryWrite : public WriteInstruction {
   std::string filename;
   std::shared_ptr<writer::DataSource> dataSource;
 
-  YAML::Node serialize() override {
-    YAML::Node node;
-    node["file"] = filename;
-    node["source"] = dataSource->serialize();
-    node["writer"] = "binary";
-    return node;
-  }
+  YAML::Node serialize() override;
 
-  BinaryWrite(const std::string& filename, std::shared_ptr<writer::DataSource> dataSource)
-      : filename(filename), dataSource(dataSource) {}
+  BinaryWrite(const std::string& filename, std::shared_ptr<writer::DataSource> dataSource);
 
-  explicit BinaryWrite(YAML::Node node)
-      : filename(node["file"].as<std::string>()),
-        dataSource(writer::DataSource::deserialize(node["source"])) {}
+  explicit BinaryWrite(YAML::Node node);
 
-  std::vector<std::shared_ptr<DataSource>> dataSources() override { return {dataSource}; }
+  std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };
 
 } // namespace seissol::io::writer::instructions

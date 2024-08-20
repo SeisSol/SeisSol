@@ -28,4 +28,20 @@ void OutputManager::shutdown() {
   // uninit ASYNC here
 }
 
+double OutputManager::loadCheckpoint(const std::string& path) {
+  return checkpointManager.loadCheckpoint(path);
+}
+
+void OutputManager::setupCheckpoint(double interval) {
+  writer::ScheduledWriter checkpointScheduled;
+  checkpointScheduled.name = "checkpoint";
+  checkpointScheduled.planWrite = checkpointManager.makeWriter();
+  checkpointScheduled.interval = interval;
+  addOutput(checkpointScheduled);
+}
+
+instance::checkpoint::CheckpointManager& OutputManager::getCheckpointManager() {
+  return checkpointManager;
+}
+
 } // namespace seissol::io

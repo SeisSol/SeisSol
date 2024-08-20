@@ -23,32 +23,13 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("checkpoint", true);
-  auto readBackend = [&reader](bool enabled) {
-    CheckpointingBackend backend = CheckpointingBackend::Disabled;
-    if (enabled) {
-      reader->markUnused({"CheckpointingBackend"});
-    } else {
-      reader->markUnused({"CheckpointingBackend"});
-    }
-    return backend;
-  };
-  const auto backend = readBackend(enabled);
   const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
 
   warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
 
-  auto readFilename = [&reader](bool enabled) {
-    std::string fileName = "";
-    if (enabled) {
-      fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
-    } else {
-      reader->markUnused({"chekpointfileName"});
-    }
-    return fileName;
-  };
-  const auto fileName = readFilename(enabled);
+  reader->warnDeprecated({"checkpointbackend", "checkpointfilename"});
 
-  return CheckpointParameters{enabled, interval, backend, fileName};
+  return CheckpointParameters{enabled, interval};
 }
 
 ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader) {

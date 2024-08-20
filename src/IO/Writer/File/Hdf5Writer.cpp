@@ -28,6 +28,15 @@ static hid_t _ehh(hid_t data, const char* file, int line) {
   }
   return data;
 }
+
+#define h5async(function, ...)                                                                     \
+  [&]() {                                                                                          \
+    if (asyncEnabled) {                                                                            \
+      return _eh(function##_async(__VA_ARGS__, asyncHandle));                                      \
+    } else {                                                                                       \
+      return _eh(function(__VA_ARGS__));                                                           \
+    }                                                                                              \
+  }()
 } // namespace
 
 namespace seissol::io::writer::file {
@@ -61,8 +70,7 @@ void Hdf5File::openGroup(const std::string& name) {
 void Hdf5File::openDataset(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
   auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
-  hid_t handle;
-  handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
+  hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
 void Hdf5File::writeAttribute(const async::ExecInfo& info,
@@ -253,7 +261,13 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   for (auto groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
+  if (write.location.dataset().has_value()) {
+    file.openDataset(write.location.dataset().value());
+  }
   file.writeAttribute(info, write.name, write.dataSource);
+  if (write.location.dataset().has_value()) {
+    file.closeDataset();
+  }
   for (auto _ : write.location.groups()) {
     file.closeGroup();
   }
@@ -269,7 +283,13 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   for (auto groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
+  if (write.location.dataset().has_value()) {
+    file.openDataset(write.location.dataset().value());
+  }
   file.writeData(info, write.name, write.dataSource, write.targetType, write.compress);
+  if (write.location.dataset().has_value()) {
+    file.closeDataset();
+  }
   for (auto _ : write.location.groups()) {
     file.closeGroup();
   }

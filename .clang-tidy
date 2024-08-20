@@ -300,4 +300,4 @@ CheckOptions:
 
     # ignore Eigen, until added to IWYU
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|yaml-cpp/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h'

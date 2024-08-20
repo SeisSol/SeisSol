@@ -2,12 +2,16 @@
 #include "Common/filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "IO/Instance/Mesh/VtkHdf.hpp"
+#include "IO/Instance/Point/Csv.hpp"
 #include "IO/Writer/Writer.hpp"
 #include "Init.hpp"
 #include "Initializer/BasicTypedefs.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "SeisSol.h"
 #include <Equations/datastructures.hpp>
+#include <IO/Datatype/Inference.hpp>
+#include <IO/Instance/Point/Pytables.hpp>
+#include <IO/Instance/Point/TableWriter.hpp>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <cstring>
 #include <kernel.h>
@@ -75,7 +79,6 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
     // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything existent
     seissolInstance.getOutputManager().setupCheckpoint(
-        seissolInstance.getSeisSolParameters().output.checkpointParameters.fileName,
         seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
   }
 }
