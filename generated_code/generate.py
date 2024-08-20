@@ -169,7 +169,7 @@ for tool in gemm_tool_list:
       gemm_generators.append(specific_gemm_class(arch, cmdLineArgs.executable_pspamm))
     else:
       gemm_generators.append(specific_gemm_class(arch))
-  else:
+  elif tool.strip().lower() != 'none':
     print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
           "Please, refer to the documentation".format(tool))
     sys.exit("failure")

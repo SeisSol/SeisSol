@@ -111,14 +111,25 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
       logInfo(rank) << "Boundary format given in PUML file.";
       hid_t boundaryAttribute = _eh(H5Aopen(dataFile, "boundary-format", H5P_DEFAULT));
 
-      char* formatRaw;
       hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
-      _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
+
+      auto format = [&]() {
+        if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
+          char* formatRaw;
+          _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
+          auto format = std::string(formatRaw);
+          _eh(H5free_memory(formatRaw));
+          return format;
+        } else {
+          auto length = H5Tget_size(boundaryAttributeType);
+          std::vector<char> data(length);
+          _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
+          return std::string(data.begin(), data.end());
+        }
+      }();
+
       _eh(H5Aclose(boundaryAttribute));
       _eh(H5Tclose(boundaryAttributeType));
-
-      auto format = std::string(formatRaw);
-      _eh(H5free_memory(formatRaw));
       if (format == "i32x4") {
         boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
       } else if (format == "i64") {

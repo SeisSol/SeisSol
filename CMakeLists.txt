@@ -270,6 +270,9 @@ if (HDF5)
   target_include_directories(SeisSol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_HDF)
+  if (NOT HDF5_IS_PARALLEL)
+    message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
+  endif()
 endif()  
 
 # Parmetis
@@ -439,14 +442,14 @@ if (WITH_GPU)
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-lib)
 
-  set(SYCL_CC "hipsycl" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
-  set(SYCL_CC_OPTIONS hipsycl dpcpp)
+  set(SYCL_CC "acpp" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
+  set(SYCL_CC_OPTIONS acpp hipsycl dpcpp)
   set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
 
-  if (SYCL_CC MATCHES "hipsycl")
-    message(STATUS "Using HipSYCL for general SYCL offloading")
+  if (SYCL_CC MATCHES "hipsycl" OR SYCL_CC MATCHES "acpp")
+    message(STATUS "Using AdaptiveCpp for general SYCL offloading")
     # add GPU dynamic rupture target
-    # always override HIPSYCL_TARGETS, as we may need to override it when the architecture changes
+    # always override ACPP_TARGETS, as we may need to override it when the architecture changes
     if (DEVICE_ARCH MATCHES "sm_*")
       if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
         set(SYCL_USE_NVHPC_DEFAULT ON)
@@ -458,20 +461,28 @@ if (WITH_GPU)
         # we assume that hipsycl was compiled with nvhpc compiler collection
         string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
         set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
+        set(ACPP_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
       else()
         set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+        set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
         target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
       endif()
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
     elseif(DEVICE_ARCH MATCHES "gfx*")
       set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      set(ACPP_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
     else()
       set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
+      set(ACPP_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
       target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
     endif()
 
-    find_package(hipSYCL REQUIRED)
+    find_package(AdaptiveCpp)
+    if (NOT AdaptiveCpp_FOUND)
+      message(WARNING "AdaptiveCpp was not found. Retrying with hipSYCL as package name...")
+      find_package(hipSYCL REQUIRED)
+    endif()
 
     # note, we need to add openmp as a link option explicitly for some compilers.
     # it is probably an issue of `add_sycl_to_target` macro

@@ -23,11 +23,15 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("checkpoint", true);
-  const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
+  double interval = 0.0;
+  if (enabled) {
+    interval = reader->readWithDefault("checkpointinterval", 0.0);
+    warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
+  } else {
+    reader->markUnused({"checkpointinterval"});
+  }
 
-  warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
-
-  reader->warnDeprecated({"checkpointbackend", "checkpointfilename"});
+  reader->warnDeprecated({"checkpointbackend", "checkpointfile"});
 
   return CheckpointParameters{enabled, interval};
 }
