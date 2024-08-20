@@ -124,7 +124,8 @@ int main(int argc, char* argv[]) {
   // Parse command line arguments
   utils::Args args;
   args.addAdditionalOption("file", "The parameter file", false);
-  args.addAdditionalOption("checkpoint", "The checkpoint file to restart from", false);
+  args.addOption(
+      "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
   switch (args.parse(argc, argv)) {
   case utils::Args::Help: {
     [[fallthrough]];
@@ -149,8 +150,8 @@ int main(int argc, char* argv[]) {
   // Initialize SeisSol
   seissol::SeisSol seissolInstance(parameters);
 
-  if (args.isSetAdditional("checkpoint")) {
-    const auto checkpointFile = args.getAdditionalArgument<const char*>("checkpoint");
+  if (args.isSet("checkpoint")) {
+    const auto checkpointFile = args.getArgument<const char*>("checkpoint");
     seissolInstance.loadCheckpoint(checkpointFile);
     logInfo(rank) << "Using the checkpoint file" << checkpointFile;
   }

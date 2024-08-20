@@ -8,7 +8,6 @@
 #include <string>
 #include <unordered_map>
 
-
 namespace seissol::io::writer::file {
 
 BinaryFile::BinaryFile(MPI_Comm comm) : comm(comm) {}

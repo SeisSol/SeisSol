@@ -96,7 +96,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
         datatype::inferDatatype<int64_t>());
   });
 
-  bool const isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
+  const bool isLastRank = MPI::mpi.size() == MPI::mpi.rank() + 1;
   instructionsConst.emplace_back([=](const std::string& filename, double time) {
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {groupName}),

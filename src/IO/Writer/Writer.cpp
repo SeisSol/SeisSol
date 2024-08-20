@@ -38,7 +38,7 @@ void WriteInstance::close() {
 Writer::Writer() = default;
 
 Writer::Writer(const std::string& data) {
-  YAML::Node const plan = YAML::Load(data);
+  const YAML::Node plan = YAML::Load(data);
   for (const auto& instruction : plan) {
     instructions.push_back(instructions::WriteInstruction::deserialize(instruction));
   }

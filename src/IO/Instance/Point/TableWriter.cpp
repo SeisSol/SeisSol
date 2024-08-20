@@ -6,7 +6,6 @@
 #include <memory>
 #include <vector>
 
-
 namespace seissol::io::instance::point {
 
 TableWriter::TableWriter() = default;
