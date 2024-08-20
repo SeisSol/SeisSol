@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
 show_help() {
   echo "Usage - does_image_exist.sh ubuntu 18.04"

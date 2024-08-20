@@ -1,4 +1,7 @@
 #! /usr/bin/env sh
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
 # NOTE: just an adapted format.sh script
 

@@ -1,3 +1,9 @@
+# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+# SPDX-FileCopyrightText: 1993-2015 Ken Martin, Will Schroeder, Bill Lorensen
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 #[==[
 Provides the following variables:
 

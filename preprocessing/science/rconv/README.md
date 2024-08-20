@@ -1,3 +1,9 @@
+<!--
+    SPDX-FileCopyrightText: 2012-2024 SeisSol Group
+    
+    SPDX-License-Identifier: BSD-3-Clause
+-->
+
 # rconv
 rconv is a tool which allows converting files describing kinematic rupture models from the Standard Rupture Format (\*.srf) to the intermediate NetCDF Rupture Format (\*.nrf).
 

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2000-2020 Kitware, Inc. and Contributors
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # modified from https://gitlab.kitware.com/cmake/cmake/blob/master/Modules/FindCxxTest.cmake
 # Original Copyright 2000-2020 Kitware, Inc. and Contributors
 # (BSD-3-Clause)

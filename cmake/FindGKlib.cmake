@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # - Try to find GKLIB
 # Once done this will define
 #

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 #  FILESYSTEM - filesystem component of the standard library
 #
 #  FILESYSTEM_FOUND       - system has std::filesystem

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2010-2012 Garth N. Wells, Anders Logg, Johannes Ring, and Florian Rathgeber
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 # - Try to find ParMETIS
 # Once done this will define
 #

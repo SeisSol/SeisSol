@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
 

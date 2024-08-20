@@ -1,3 +1,9 @@
+<!--
+    SPDX-FileCopyrightText: 2012-2024 SeisSol Group
+    
+    SPDX-License-Identifier: BSD-3-Clause
+-->
+
 gmsh2gambit
 ===============
 Transform msh file (gmsh msh 2.0 mesh file) to neu file (neutral mesh file)

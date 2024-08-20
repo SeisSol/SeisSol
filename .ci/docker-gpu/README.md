@@ -1,3 +1,9 @@
+<!--
+    SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+    
+    SPDX-License-Identifier: BSD-3-Clause
+-->
+
 ## SeisSol test image
 The final image contains a standard SeisSol software stack. Additionall, it
 contains a GPU programming stack, namely: CUDA 10, ROCM 4.2, hipsycl 0.9.1

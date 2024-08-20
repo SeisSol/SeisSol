@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 #  GemmTools - BLAS-like Library Instantiation Software Framework
 #  email: ravil.dorozhinskii@tum.de 
 #
