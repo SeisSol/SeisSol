@@ -83,65 +83,40 @@ void DynamicRuptureCluster::computeDynamicRupture() {
   if (layer->getNumberOfCells() == 0)
     return;
 
-  streamRuntime.enqueueHost([=]() {
-    SCOREP_USER_REGION_DEFINE(myRegionHandle)
-    SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                             "computeDynamicRuptureSpaceTimeInterpolation",
-                             SCOREP_USER_REGION_TYPE_COMMON)
+  loopStatistics->begin(regionComputeDynamicRupture);
 
-    loopStatistics->begin(regionComputeDynamicRupture);
+  DRFaceInformation* faceInformation = layer->var(descr->faceInformation);
+  DRGodunovData* godunovData = layer->var(descr->godunovData);
+  DREnergyOutput* drEnergyOutput = layer->var(descr->drEnergyOutput);
+  real** timeDerivativePlus = layer->var(descr->timeDerivativePlus);
+  real** timeDerivativeMinus = layer->var(descr->timeDerivativeMinus);
+  auto* qInterpolatedPlus = layer->var(descr->qInterpolatedPlus);
+  auto* qInterpolatedMinus = layer->var(descr->qInterpolatedMinus);
 
-    DRFaceInformation* faceInformation = layer->var(descr->faceInformation);
-    DRGodunovData* godunovData = layer->var(descr->godunovData);
-    DREnergyOutput* drEnergyOutput = layer->var(descr->drEnergyOutput);
-    real** timeDerivativePlus = layer->var(descr->timeDerivativePlus);
-    real** timeDerivativeMinus = layer->var(descr->timeDerivativeMinus);
-    auto* qInterpolatedPlus = layer->var(descr->qInterpolatedPlus);
-    auto* qInterpolatedMinus = layer->var(descr->qInterpolatedMinus);
+  dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
+  frictionSolver->computeDeltaT(dynamicRuptureKernel.timePoints);
 
-    dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
-    frictionSolver->computeDeltaT(dynamicRuptureKernel.timePoints);
+  const auto numberOfCells = layer->getNumberOfCells();
 
-#pragma omp parallel
-    { LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation"); }
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-    for (unsigned face = 0; face < layer->getNumberOfCells(); ++face) {
-      const unsigned prefetchFace = (face < layer->getNumberOfCells() - 1) ? face + 1 : face;
-      dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
-                                                  globalDataOnHost,
-                                                  &godunovData[face],
-                                                  &drEnergyOutput[face],
-                                                  timeDerivativePlus[face],
-                                                  timeDerivativeMinus[face],
-                                                  qInterpolatedPlus[face],
-                                                  qInterpolatedMinus[face],
-                                                  timeDerivativePlus[prefetchFace],
-                                                  timeDerivativeMinus[prefetchFace]);
-    }
-    SCOREP_USER_REGION_END(myRegionHandle)
-#pragma omp parallel
-    {
-      LIKWID_MARKER_STOP("computeDynamicRuptureSpaceTimeInterpolation");
-      LIKWID_MARKER_START("computeDynamicRuptureFrictionLaw");
-    }
-
-    SCOREP_USER_REGION_BEGIN(
-        myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
-    frictionSolver->evaluate(*layer,
-                             descr,
-                             ct.time[ComputeStep::Interact],
-                             dynamicRuptureKernel.timeWeights,
-                             streamRuntime);
-    SCOREP_USER_REGION_END(myRegionHandle)
-#pragma omp parallel
-    {
-      LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
-    }
-
-    loopStatistics->end(regionComputeDynamicRupture, layer->getNumberOfCells(), profilingId);
+  streamRuntime.enqueueOmpFor(numberOfCells, [=](std::size_t face) {
+    const unsigned prefetchFace = (face < numberOfCells - 1) ? face + 1 : face;
+    dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
+                                                globalDataOnHost,
+                                                &godunovData[face],
+                                                &drEnergyOutput[face],
+                                                timeDerivativePlus[face],
+                                                timeDerivativeMinus[face],
+                                                qInterpolatedPlus[face],
+                                                qInterpolatedMinus[face],
+                                                timeDerivativePlus[prefetchFace],
+                                                timeDerivativeMinus[prefetchFace]);
   });
+  frictionSolver->evaluate(*layer,
+                           descr,
+                           ct.time[ComputeStep::Interact],
+                           dynamicRuptureKernel.timeWeights,
+                           streamRuntime);
+  loopStatistics->end(regionComputeDynamicRupture, layer->getNumberOfCells(), profilingId);
 }
 void DynamicRuptureCluster::computeDynamicRuptureDevice() {
 #ifdef ACL_DEVICE

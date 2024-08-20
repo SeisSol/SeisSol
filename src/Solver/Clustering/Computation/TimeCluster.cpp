@@ -231,92 +231,86 @@ void TimeCluster::computeSources() {
 void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  streamRuntime.enqueueHost([=]() {
-    loopStatistics->begin(regionComputeLocalIntegration);
+  loopStatistics->begin(regionComputeLocalIntegration);
+  // pointer for the call of the ADER-function
+  real** buffers = layer->var(lts->buffers);
+  real** derivatives = layer->var(lts->derivatives);
+  CellMaterialData* materialData = layer->var(lts->material);
+
+  kernels::LocalData::Loader loader;
+  loader.load(*lts, *layer);
+  const auto acceleration = seissolInstance.getGravitationSetup().acceleration;
+
+  streamRuntime.enqueueOmpFor(layer->getNumberOfCells(), [=](std::size_t cell) {
+    auto data = loader.entry(cell);
 
     // local integration buffer
     alignas(Alignment) real integrationBuffer[tensor::I::size()];
+    kernels::LocalTmp tmp(acceleration);
 
-    // pointer for the call of the ADER-function
+    // We need to check, whether we can overwrite the buffer or if it is
+    // needed by some other time cluster.
+    // If we cannot overwrite the buffer, we compute everything in a temporary
+    // local buffer and accumulate the results later in the shared buffer.
+    const bool buffersProvided =
+        (data.cellInformation().ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers =
+        buffersProvided &&
+        ((data.cellInformation().ltsSetup >> 10) % 2 == 0 || resetBuffers); // they should be reset
+
     real* bufferPointer;
+    if (resetMyBuffers) {
+      // assert presence of the buffer
+      assert(buffers[cell] != nullptr);
 
-    real** buffers = layer->var(lts->buffers);
-    real** derivatives = layer->var(lts->derivatives);
-    CellMaterialData* materialData = layer->var(lts->material);
+      bufferPointer = buffers[cell];
+    } else {
+      // work on local buffer
+      bufferPointer = integrationBuffer;
+    }
 
-    kernels::LocalData::Loader loader;
-    loader.load(*lts, *layer);
-    kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+    timeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
 
-#ifdef _OPENMP
-#pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
-    firstprivate(tmp) schedule(static)
-#endif
-    for (unsigned int cell = 0; cell < layer->getNumberOfCells(); cell++) {
-      auto data = loader.entry(cell);
+    // Compute local integrals (including some boundary conditions)
+    CellBoundaryMapping(*boundaryMapping)[4] = layer->var(lts->boundaryMapping);
+    localKernel.computeIntegral(bufferPointer,
+                                data,
+                                tmp,
+                                &materialData[cell],
+                                &boundaryMapping[cell],
+                                ct.time[ComputeStep::Correct],
+                                timeStepSize());
 
-      // We need to check, whether we can overwrite the buffer or if it is
-      // needed by some other time cluster.
-      // If we cannot overwrite the buffer, we compute everything in a temporary
-      // local buffer and accumulate the results later in the shared buffer.
-      const bool buffersProvided =
-          (data.cellInformation().ltsSetup >> 8) % 2 == 1; // buffers are provided
-      const bool resetMyBuffers =
-          buffersProvided && ((data.cellInformation().ltsSetup >> 10) % 2 == 0 ||
-                              resetBuffers); // they should be reset
+    for (unsigned face = 0; face < 4; ++face) {
+      auto& curFaceDisplacements = data.faceDisplacements()[face];
+      // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
+      if (curFaceDisplacements != nullptr &&
+          data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
+        kernel::addVelocity addVelocityKrnl;
 
-      if (resetMyBuffers) {
-        // assert presence of the buffer
-        assert(buffers[cell] != nullptr);
-
-        bufferPointer = buffers[cell];
-      } else {
-        // work on local buffer
-        bufferPointer = integrationBuffer;
-      }
-
-      timeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
-
-      // Compute local integrals (including some boundary conditions)
-      CellBoundaryMapping(*boundaryMapping)[4] = layer->var(lts->boundaryMapping);
-      localKernel.computeIntegral(bufferPointer,
-                                  data,
-                                  tmp,
-                                  &materialData[cell],
-                                  &boundaryMapping[cell],
-                                  ct.time[ComputeStep::Correct],
-                                  timeStepSize());
-
-      for (unsigned face = 0; face < 4; ++face) {
-        auto& curFaceDisplacements = data.faceDisplacements()[face];
-        // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
-        if (curFaceDisplacements != nullptr &&
-            data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
-          kernel::addVelocity addVelocityKrnl;
-
-          addVelocityKrnl.V3mTo2nFace = globalDataOnHost->V3mTo2nFace;
-          addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
-          addVelocityKrnl.faceDisplacement = data.faceDisplacements()[face];
-          addVelocityKrnl.I = bufferPointer;
-          addVelocityKrnl.execute(face);
-        }
-      }
-
-      // TODO: Integrate this step into the kernel
-      // We've used a temporary buffer -> need to accumulate update in
-      // shared buffer.
-      if (!resetMyBuffers && buffersProvided) {
-        assert(buffers[cell] != nullptr);
-
-        for (unsigned int dof = 0; dof < tensor::I::size(); ++dof) {
-          buffers[cell][dof] += integrationBuffer[dof];
-        }
+        addVelocityKrnl.V3mTo2nFace = globalDataOnHost->V3mTo2nFace;
+        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements()[face];
+        addVelocityKrnl.I = bufferPointer;
+        addVelocityKrnl.execute(face);
       }
     }
 
-    loopStatistics->end(regionComputeLocalIntegration, layer->getNumberOfCells(), profilingId);
+    // TODO: Integrate this step into the kernel
+    // We've used a temporary buffer -> need to accumulate update in
+    // shared buffer.
+    if (!resetMyBuffers && buffersProvided) {
+      assert(buffers[cell] != nullptr);
+
+      for (unsigned int dof = 0; dof < tensor::I::size(); ++dof) {
+        buffers[cell][dof] += integrationBuffer[dof];
+      }
+    }
   });
+
+  loopStatistics->end(regionComputeLocalIntegration, layer->getNumberOfCells(), profilingId);
 }
+
 #ifdef ACL_DEVICE
 void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
@@ -686,112 +680,90 @@ std::pair<long, long>
   auto timeStep = timeStepSize();
   const std::size_t numberOfCells = layer->getNumberOfCells();
 
-  streamRuntime.enqueueHost([=]() {
-    loopStatistics->begin(regionComputeNeighboringIntegration);
+  loopStatistics->begin(regionComputeNeighboringIntegration);
 
-    auto* faceNeighbors = layer->var(lts->faceNeighbors);
-    auto* drMapping = layer->var(lts->drMapping);
-    auto* cellInformation = layer->var(lts->cellInformation);
-    auto* plasticity = layer->var(lts->plasticity);
-    auto* pstrain = layer->var(lts->pstrain);
+  auto* faceNeighbors = layer->var(lts->faceNeighbors);
+  auto* drMapping = layer->var(lts->drMapping);
+  auto* cellInformation = layer->var(lts->cellInformation);
+  auto* plasticity = layer->var(lts->plasticity);
+  auto* pstrain = layer->var(lts->pstrain);
 
-    // (needs to be non-const due to OMP clause)
-    // NOLINTNEXTLINE
-    unsigned numberOTetsWithPlasticYielding = 0;
+  kernels::NeighborData::Loader loader;
+  loader.load(*lts, *layer);
 
-    kernels::NeighborData::Loader loader;
-    loader.load(*lts, *layer);
+  real* timeIntegrated[4];
+  real* faceNeighborsPrefetch[4];
 
+  auto globalDataOnHost = this->globalDataOnHost;
+  auto& self = *this;
+
+  streamRuntime.enqueueOmpFor(numberOfCells, [=](std::size_t cell) {
     real* timeIntegrated[4];
     real* faceNeighborsPrefetch[4];
-
-    auto globalDataOnHost = this->globalDataOnHost;
-    auto& self = *this;
-
+    auto data = loader.entry(cell);
+    seissol::kernels::TimeCommon::computeIntegrals(
+        self.timeKernel,
+        data.cellInformation().ltsSetup,
+        data.cellInformation().faceTypes,
+        subTimeStart,
+        timeStep,
+        faceNeighbors[cell],
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
-                                                                    faceNeighborsPrefetch)         \
-    shared(self,                                                                                   \
-               globalDataOnHost,                                                                   \
-               timeStep,                                                                           \
-               cellInformation,                                                                    \
-               loader,                                                                             \
-               faceNeighbors,                                                                      \
-               pstrain,                                                                            \
-               numberOfCells,                                                                      \
-               plasticity,                                                                         \
-               drMapping,                                                                          \
-               subTimeStart,                                                                       \
-               tv,                                                                                 \
-               oneMinusIntegratingFactor) reduction(+ : numberOTetsWithPlasticYielding)
-#endif
-    for (unsigned int cell = 0; cell < numberOfCells; cell++) {
-      auto data = loader.entry(cell);
-      seissol::kernels::TimeCommon::computeIntegrals(
-          self.timeKernel,
-          data.cellInformation().ltsSetup,
-          data.cellInformation().faceTypes,
-          subTimeStart,
-          timeStep,
-          faceNeighbors[cell],
-#ifdef _OPENMP
-          *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-              &(globalDataOnHost
-                    ->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
+        *reinterpret_cast<real(*)[4][tensor::I::size()]>(&(
+            globalDataOnHost->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
 #else
           *reinterpret_cast<real(*)[4][tensor::I::size()]>(globalDataOnHost->integrationBufferLTS),
 #endif
-          timeIntegrated);
+        timeIntegrated);
 
-      faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::dynamicRupture)
-                                     ? faceNeighbors[cell][1]
-                                     : drMapping[cell][1].godunov;
-      faceNeighborsPrefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::dynamicRupture)
-                                     ? faceNeighbors[cell][2]
-                                     : drMapping[cell][2].godunov;
-      faceNeighborsPrefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::dynamicRupture)
-                                     ? faceNeighbors[cell][3]
-                                     : drMapping[cell][3].godunov;
+    faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::dynamicRupture)
+                                   ? faceNeighbors[cell][1]
+                                   : drMapping[cell][1].godunov;
+    faceNeighborsPrefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::dynamicRupture)
+                                   ? faceNeighbors[cell][2]
+                                   : drMapping[cell][2].godunov;
+    faceNeighborsPrefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::dynamicRupture)
+                                   ? faceNeighbors[cell][3]
+                                   : drMapping[cell][3].godunov;
 
-      // fourth face's prefetches
-      if (cell < (numberOfCells - 1)) {
-        faceNeighborsPrefetch[3] =
-            (cellInformation[cell + 1].faceTypes[0] != FaceType::dynamicRupture)
-                ? faceNeighbors[cell + 1][0]
-                : drMapping[cell + 1][0].godunov;
-      } else {
-        faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
-      }
-
-      self.neighborKernel.computeNeighborsIntegral(
-          data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
-
-      if constexpr (usePlasticity) {
-        numberOTetsWithPlasticYielding +=
-            seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                            timeStep,
-                                                            tv,
-                                                            globalDataOnHost,
-                                                            &plasticity[cell],
-                                                            data.dofs(),
-                                                            pstrain[cell]);
-      }
-#ifdef INTEGRATE_QUANTITIES
-      seissolInstance.postProcessor().integrateQuantities(timeStepWidth, *layer, cell, dofs[cell]);
-#endif // INTEGRATE_QUANTITIES
+    // fourth face's prefetches
+    if (cell < (numberOfCells - 1)) {
+      faceNeighborsPrefetch[3] =
+          (cellInformation[cell + 1].faceTypes[0] != FaceType::dynamicRupture)
+              ? faceNeighbors[cell + 1][0]
+              : drMapping[cell + 1][0].godunov;
+    } else {
+      faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
     }
 
-    const long long nonZeroFlopsPlasticity =
-        numberOfCells * flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +
-        numberOTetsWithPlasticYielding *
-            flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
-    const long long hardwareFlopsPlasticity =
-        numberOfCells * flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
-        numberOTetsWithPlasticYielding *
-            flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
+    self.neighborKernel.computeNeighborsIntegral(
+        data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
-    loopStatistics->end(regionComputeNeighboringIntegration, numberOfCells, profilingId);
+    if constexpr (usePlasticity) {
+      seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
+                                                      timeStep,
+                                                      tv,
+                                                      globalDataOnHost,
+                                                      &plasticity[cell],
+                                                      data.dofs(),
+                                                      pstrain[cell]);
+    }
+#ifdef INTEGRATE_QUANTITIES
+    seissolInstance.postProcessor().integrateQuantities(timeStepWidth, *layer, cell, dofs[cell]);
+#endif // INTEGRATE_QUANTITIES
   });
+
+  const auto numberOTetsWithPlasticYielding = 0;
+  const long long nonZeroFlopsPlasticity =
+      numberOfCells * flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +
+      numberOTetsWithPlasticYielding *
+          flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
+  const long long hardwareFlopsPlasticity =
+      numberOfCells * flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
+      numberOTetsWithPlasticYielding *
+          flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
+
+  loopStatistics->end(regionComputeNeighboringIntegration, numberOfCells, profilingId);
 
   return {0, 0};
 }
