@@ -23,39 +23,30 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("checkpoint", true);
-  auto readBackend = [&reader](bool enabled) {
-    CheckpointingBackend backend = CheckpointingBackend::DISABLED;
-    if (enabled) {
-      backend = reader->readWithDefaultStringEnum<CheckpointingBackend>(
-          "checkpointbackend",
-          "none",
-          {{"none", CheckpointingBackend::DISABLED},
-           {"posix", CheckpointingBackend::POSIX},
-           {"hdf5", CheckpointingBackend::HDF5},
-           {"mpio", CheckpointingBackend::MPIO},
-           {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
-           {"sionlib", CheckpointingBackend::SIONLIB}});
-    } else {
-      reader->markUnused({"CheckpointingBackend"});
-    }
-    return backend;
-  };
-  const auto backend = readBackend(enabled);
-  const auto interval = reader->readWithDefault("checkpointinterval", 0.0);
-
-  warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
-
-  auto readFilename = [&reader](bool enabled) {
-    std::string fileName = "";
-    if (enabled) {
-      fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
-    } else {
-      reader->markUnused({"chekpointfileName"});
-    }
-    return fileName;
-  };
-  const auto fileName = readFilename(enabled);
-
+  CheckpointingBackend backend = CheckpointingBackend::DISABLED;
+  double interval = 0.0;
+  std::string fileName = "";
+  if (enabled) {
+    interval = reader->readWithDefault("checkpointinterval", 0.0);
+    warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
+  } else {
+    reader->markUnused({"checkpointinterval"});
+  }
+  // separate if{} here because `enabled` may change after `warnIntervalAndDisable` function
+  if (enabled) {
+    backend = reader->readWithDefaultStringEnum<CheckpointingBackend>(
+        "checkpointbackend",
+        "none",
+        {{"none", CheckpointingBackend::DISABLED},
+         {"posix", CheckpointingBackend::POSIX},
+         {"hdf5", CheckpointingBackend::HDF5},
+         {"mpio", CheckpointingBackend::MPIO},
+         {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
+         {"sionlib", CheckpointingBackend::SIONLIB}});
+    fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
+  } else {
+    reader->markUnused({"checkpointbackend", "checkpointfile"});
+  }
   return CheckpointParameters{enabled, interval, backend, fileName};
 }
 
