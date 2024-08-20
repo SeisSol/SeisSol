@@ -29,6 +29,8 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   if (enabled) {
     interval = reader->readWithDefault("checkpointinterval", 0.0);
     warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
+  } else {
+    reader->markUnused({"checkpointinterval"});
   }
   // separate if{} here because `enabled` may change after `warnIntervalAndDisable` function
   if (enabled) {
@@ -43,7 +45,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
          {"sionlib", CheckpointingBackend::SIONLIB}});
     fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
   } else {
-    reader->markUnused({"checkpointbackend", "checkpointinterval", "checkpointfile"});
+    reader->markUnused({"checkpointbackend", "checkpointfile"});
   }
   return CheckpointParameters{enabled, interval, backend, fileName};
 }
