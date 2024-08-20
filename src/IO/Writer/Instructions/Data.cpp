@@ -15,6 +15,8 @@ DataSource::DataSource(std::shared_ptr<datatype::Datatype> datatype,
                        const std::vector<std::size_t>& shape)
     : datatypeP(datatype), shapeP(shape) {}
 
+DataSource::~DataSource() = default;
+
 std::shared_ptr<seissol::io::datatype::Datatype> DataSource::datatype() const { return datatypeP; }
 
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP; }

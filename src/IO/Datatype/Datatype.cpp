@@ -25,27 +25,6 @@ static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>
   }
   return memberInfo;
 }
-} // namespace
-
-namespace seissol::io::datatype {
-
-Array::Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions)
-    : type(type), dimensions(dimensions) {}
-
-Array Datatype::unwrap(std::size_t maxDimensions) { return Array(shared_from_this(), {}); }
-
-OpaqueDatatype::OpaqueDatatype(std::size_t size) : sizeP(size) {}
-
-std::size_t OpaqueDatatype::size() const { return sizeP; }
-
-YAML::Node OpaqueDatatype::serialize() const {
-  YAML::Node node;
-  node["type"] = "opaque";
-  node["size"] = sizeP;
-  return node;
-}
-
-OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
 
 static const std::string base64 =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -94,6 +73,48 @@ static void
     odata[opos + 2] = data;
   }
 }
+
+template <typename T>
+static std::string toStringRawPrimitive(const void* data, int precision) {
+  const auto value = *reinterpret_cast<const T*>(data);
+  std::ostringstream sstr;
+  sstr << std::setprecision(precision) << value;
+  return sstr.str();
+}
+
+template <typename T>
+static std::optional<std::vector<char>> fromStringRawPrimitive(const std::string& str) {
+  std::istringstream sstr(str);
+  T value;
+  sstr >> value;
+  std::vector<char> data(sizeof(T));
+  const char* valuePtr = reinterpret_cast<const char*>(&value);
+  std::copy_n(valuePtr, sizeof(T), data.begin());
+  return std::make_optional(data);
+}
+} // namespace
+
+namespace seissol::io::datatype {
+
+Datatype::~Datatype() = default;
+
+Array::Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions)
+    : type(type), dimensions(dimensions) {}
+
+Array Datatype::unwrap(std::size_t maxDimensions) { return Array(shared_from_this(), {}); }
+
+OpaqueDatatype::OpaqueDatatype(std::size_t size) : sizeP(size) {}
+
+std::size_t OpaqueDatatype::size() const { return sizeP; }
+
+YAML::Node OpaqueDatatype::serialize() const {
+  YAML::Node node;
+  node["type"] = "opaque";
+  node["size"] = sizeP;
+  return node;
+}
+
+OpaqueDatatype::OpaqueDatatype(YAML::Node node) : sizeP(node["size"].as<size_t>()) {}
 
 std::string OpaqueDatatype::toStringRaw(const void* data) const {
   std::ostringstream sstr;
@@ -147,25 +168,6 @@ YAML::Node F32Datatype::serialize() const {
   YAML::Node node;
   node["type"] = "f32";
   return node;
-}
-
-template <typename T>
-static std::string toStringRawPrimitive(const void* data, int precision) {
-  const auto value = *reinterpret_cast<const T*>(data);
-  std::ostringstream sstr;
-  sstr << std::setprecision(precision) << value;
-  return sstr.str();
-}
-
-template <typename T>
-static std::optional<std::vector<char>> fromStringRawPrimitive(const std::string& str) {
-  std::istringstream sstr(str);
-  T value;
-  sstr >> value;
-  std::vector<char> data(sizeof(T));
-  const char* valuePtr = reinterpret_cast<const char*>(&value);
-  std::copy_n(valuePtr, sizeof(T), data.begin());
-  return std::make_optional(data);
 }
 
 std::string F32Datatype::toStringRaw(const void* data) const {

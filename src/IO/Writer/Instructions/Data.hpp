@@ -13,6 +13,7 @@ namespace seissol::io::writer {
 class DataSource {
   public:
   DataSource(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t>& shape);
+  virtual ~DataSource();
 
   virtual YAML::Node serialize() = 0;
   virtual const void* getPointer(const async::ExecInfo& info) = 0;
