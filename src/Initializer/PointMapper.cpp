@@ -130,9 +130,9 @@ void findMeshIds(const Eigen::Vector3d* points,
 #ifdef _OPENMP
 #pragma omp simd reduction(+ : notInside)
 #endif
-      for (unsigned dim = 0; dim < 4; ++dim) {
+      for (unsigned face = 0; face < 4; ++face) {
         double resultFace = 0;
-        for (unsigned face = 0; face < 4; ++face) {
+        for (unsigned dim = 0; dim < 4; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
         notInside += (resultFace > 0.0) ? 1 : 0;

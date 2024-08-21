@@ -140,8 +140,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
   assert(timeDerivativeMinus != nullptr);
   assert(((uintptr_t)timeDerivativePlus) % Alignment == 0);
   assert(((uintptr_t)timeDerivativeMinus) % Alignment == 0);
-  assert(((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0);
-  assert(((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0);
+  assert(((uintptr_t)&qInterpolatedPlus[0]) % Alignment == 0);
+  assert(((uintptr_t)&qInterpolatedMinus[0]) % Alignment == 0);
   assert(tensor::Q::size() == tensor::I::size());
 #endif
 
