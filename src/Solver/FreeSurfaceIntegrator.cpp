@@ -299,7 +299,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 
   totalNumberOfFreeSurfaces = 0;
   unsigned baseLtsId = 0;
-  for ( seissol::initializer::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
@@ -338,7 +338,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   /// @ yateto_todo
   baseLtsId = 0;
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
-  for ( seissol::initializer::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);

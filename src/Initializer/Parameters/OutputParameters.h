@@ -13,9 +13,9 @@
 
 namespace seissol::initializer::parameters {
 
-constexpr double veryLongTime = 1.0e100;
+constexpr double VeryLongTime = 1.0e100;
 
-enum CheckpointingBackend { POSIX, HDF5, MPIO, MPIO_ASYNC, SIONLIB, DISABLED };
+enum CheckpointingBackend { POSIX, HDF5, MPIO, MpioAsync, SIONLIB, DISABLED };
 
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 

@@ -48,7 +48,7 @@ class BaseDRInitializer {
       xz.reserve(size);
       p.reserve(size);
     }
-    using VectorOfArrays_t = std::vector<std::array<real, misc::numPaddedPoints>>;
+    using VectorOfArrays_t = std::vector<std::array<real, misc::NumPaddedPoints>>;
     VectorOfArrays_t xx;
     VectorOfArrays_t yy;
     VectorOfArrays_t zz;
@@ -94,7 +94,7 @@ class BaseDRInitializer {
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               const seissol::initializer::DynamicRupture* const dynRup,
-                              seissol::initializer::LTSInternalNode::leaf_iterator& it);
+                              seissol::initializer::LTSInternalNode::LeafIterator& it);
 
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
@@ -104,7 +104,7 @@ class BaseDRInitializer {
    */
   std::vector<unsigned>
       getFaceIDsInIterator(const seissol::initializer::DynamicRupture* const dynRup,
-                           seissol::initializer::LTSInternalNode::leaf_iterator& it);
+                           seissol::initializer::LTSInternalNode::LeafIterator& it);
 
   /**
    * Initialize all other variables:
@@ -122,7 +122,7 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    */
   void initializeOtherVariables(const seissol::initializer::DynamicRupture* const dynRup,
-                                seissol::initializer::LTSInternalNode::leaf_iterator& it);
+                                seissol::initializer::LTSInternalNode::LeafIterator& it);
 
   /**
    * Reads the parameters from the easi file
@@ -149,7 +149,7 @@ class BaseDRInitializer {
    * cartesian coordinates
    */
   void rotateTractionToCartesianStress(const seissol::initializer::DynamicRupture* const dynRup,
-                                       seissol::initializer::LTSTree::leaf_iterator& it,
+                                       seissol::initializer::LTSTree::LeafIterator& it,
                                        StressTensor& stress);
 
   /**
@@ -161,8 +161,8 @@ class BaseDRInitializer {
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
   void rotateStressToFaultCS(const seissol::initializer::DynamicRupture* const dynRup,
-                             seissol::initializer::LTSTree::leaf_iterator& it,
-                             real (*stressInFaultCS)[misc::numPaddedPoints][6],
+                             seissol::initializer::LTSTree::LeafIterator& it,
+                             real (*stressInFaultCS)[misc::NumPaddedPoints][6],
                              const StressTensor& stress);
 
   /**

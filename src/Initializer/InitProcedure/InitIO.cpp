@@ -1,10 +1,15 @@
 #include "InitIO.hpp"
 #include "Common/filesystem.h"
 #include "DynamicRupture/Misc.h"
-#include "Init.hpp"
-#include "Initializer/BasicTypedefs.hpp"
 #include "SeisSol.h"
+#include <Common/constants.hpp>
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/DynamicRupture.h>
+#include <Kernels/common.hpp>
+#include <Kernels/precision.hpp>
 #include <cstring>
+#include <tensor.h>
+#include <utils/logger.h>
 #include <vector>
 
 #include "Parallel/MPI.h"
@@ -43,10 +48,10 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
   }
 
-  size_t numSides = seissolInstance.meshReader().getFault().size();
-  unsigned int numBndGP = seissol::dr::misc::numberOfBoundaryGaussPoints;
+  const size_t numSides = seissolInstance.meshReader().getFault().size();
+  const unsigned int numBndGP = seissol::dr::misc::NumberOfBoundaryGaussPoints;
 
-  bool hasCheckpoint = seissolInstance.checkPointManager().init(
+  const bool hasCheckpoint = seissolInstance.checkPointManager().init(
       reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
       ltsTree->getNumberOfCells(lts->dofs.mask) * tensor::Q::size(),
       reinterpret_cast<real*>(dynRupTree->var(dynRup->mu)),
@@ -77,7 +82,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto numberOfQuantities =
+  constexpr auto NumberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
@@ -93,7 +98,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        numberOfQuantities,
+        NumberOfQuantities,
         ConvergenceOrder,
         NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
         seissolInstance.meshReader(),

@@ -53,7 +53,7 @@ class FastVelocityWeakeningLaw
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -106,20 +106,20 @@ class FastVelocityWeakeningLaw
     return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
-  void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(real (*devStateVariableBuffer)[misc::NumPaddedPoints]) {
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::numPaddedPoints);
+    static_assert(dim0 == misc::NumPaddedPoints);
     static_assert(dim0 >= dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       // NOLINTNEXTLINE
       sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::numPaddedPoints, cgh);
+          deltaStateVar(misc::NumPaddedPoints, cgh);
 
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -143,7 +143,7 @@ class FastVelocityWeakeningLaw
   void executeIfNotConverged() {}
 
   protected:
-  real (*srW)[misc::numPaddedPoints];
+  real (*srW)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law::gpu
 

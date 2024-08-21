@@ -75,7 +75,7 @@ TEST_CASE("Test ODE Solver") {
     const auto timeSpan = seissol::ode::TimeSpan{0, 1};
     const double dt = 0.01;
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
-    odeSolverConfig.solver = seissol::ode::RungeKuttaVariant::RK7_VernerMostEfficient;
+    odeSolverConfig.solver = seissol::ode::RungeKuttaVariant::RK7VernerMostEfficient;
 
     auto solver = seissol::ode::RungeKuttaODESolver({sizeSolution}, odeSolverConfig);
     auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};

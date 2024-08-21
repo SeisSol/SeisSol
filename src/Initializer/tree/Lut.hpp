@@ -48,7 +48,7 @@
 namespace seissol {
 namespace initializer {
 class Lut;
-}
+} // namespace initializer
 } // namespace seissol
 
 class seissol::initializer::Lut {
@@ -81,11 +81,11 @@ class seissol::initializer::Lut {
 
     void createLut(LayerMask mask,
                    LTSTree* ltsTree,
-                   unsigned* globalLtsToMesh,
+                   const unsigned* globalLtsToMesh,
                    unsigned numberOfMeshIds);
   };
 
-  LutsForMask maskedLuts[1 << NUMBER_OF_LAYERS];
+  LutsForMask maskedLuts[1 << NumberOfLayers];
   LTSTree* m_ltsTree;
   unsigned* m_meshToClusters;
   std::vector<LayerType> m_meshToLayer;

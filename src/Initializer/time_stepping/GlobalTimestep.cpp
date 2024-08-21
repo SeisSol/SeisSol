@@ -1,15 +1,18 @@
 #include "GlobalTimestep.hpp"
 
+#include <Common/constants.hpp>
 #include <Eigen/Dense>
+#include <Initializer/Parameters/ModelParameters.h>
+#include <algorithm>
 #include <array>
-#include <functional>
+#include <cmath>
+#include <mpi.h>
+#include <string>
 #include <vector>
 
 #include "Equations/datastructures.hpp"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
-
-#include "SeisSol.h"
 
 namespace seissol::initializer {
 static double
@@ -20,16 +23,16 @@ static double
                         const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   // Compute insphere radius
   std::array<Eigen::Vector3d, 4> x = vertices;
-  Eigen::Matrix4d A;
-  A << x[0](0), x[0](1), x[0](2), 1.0, x[1](0), x[1](1), x[1](2), 1.0, x[2](0), x[2](1), x[2](2),
+  Eigen::Matrix4d a;
+  a << x[0](0), x[0](1), x[0](2), 1.0, x[1](0), x[1](1), x[1](2), 1.0, x[2](0), x[2](1), x[2](2),
       1.0, x[3](0), x[3](1), x[3](2), 1.0;
 
-  double alpha = A.determinant();
-  double Nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
-  double Nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();
-  double Nacd = ((x[2] - x[0]).cross(x[3] - x[0])).norm();
-  double Nbcd = ((x[2] - x[1]).cross(x[3] - x[1])).norm();
-  double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
+  const double alpha = a.determinant();
+  const double nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
+  const double nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();
+  const double nacd = ((x[2] - x[0]).cross(x[3] - x[0])).norm();
+  const double nbcd = ((x[2] - x[1]).cross(x[3] - x[1])).norm();
+  const double insphere = std::fabs(alpha) / (nabc + nabd + nacd + nbcd);
 
   // Compute maximum timestep
   return std::fmin(maximumAllowedTimeStep,
@@ -60,8 +63,8 @@ GlobalTimestep
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
 
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
-    double pWaveVel = materials[cell].getMaxWaveSpeed();
-    std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
+    const double pWaveVel = materials[cell].getMaxWaveSpeed();
+    const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
         computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep, seissolParams);
   }

@@ -25,20 +25,20 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
-static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
+static constexpr inline size_t NumPaddedPoints = leadDim<init::QInterpolated>();
+static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated, 1>();
 
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t numberOfTPGridPoints = 60;
-static constexpr real tpLogDz = 0.3;
-static constexpr real tpMaxWaveNumber = 10.0;
+static constexpr size_t NumberOfTpGridPoints = 60;
+static constexpr real TpLogDz = 0.3;
+static constexpr real TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
+static constexpr unsigned int NumberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

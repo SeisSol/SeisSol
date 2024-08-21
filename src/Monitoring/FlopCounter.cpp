@@ -45,7 +45,11 @@
 
 #include "Unit.hpp"
 #include <cassert>
+#include <cstddef>
 #include <fstream>
+#include <mpi.h>
+#include <ostream>
+#include <string>
 
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
@@ -144,10 +148,10 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
     DRHardwareFlops,
     PLNonZeroFlops,
     PLHardwareFlops,
-    NUM_COUNTERS
+    NumCounters
   };
 
-  double flops[NUM_COUNTERS];
+  double flops[NumCounters];
 
   flops[Libxsmm] = libxsmm_num_total_flops;
   flops[Pspamm] = pspamm_num_total_flops;
@@ -159,8 +163,8 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
   flops[PLHardwareFlops] = hardwareFlopsPlasticity;
 
 #ifdef USE_MPI
-  double totalFlops[NUM_COUNTERS];
-  MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  double totalFlops[NumCounters];
+  MPI_Reduce(&flops, &totalFlops, NumCounters, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
   double* totalFlops = &flops[0];
 #endif

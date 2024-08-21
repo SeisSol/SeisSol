@@ -141,7 +141,7 @@ TEST_CASE("DR Geometry") {
     double(*testTrianglePoints)[2] = unsafe_reshape<2>(&data.points[0]);
 
     constexpr double epsilon = 1e-6;
-    for (unsigned i = 0; i < data.size; ++i) {
+    for (unsigned i = 0; i < data.Size; ++i) {
       REQUIRE(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(epsilon));
       REQUIRE(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(epsilon));
     }

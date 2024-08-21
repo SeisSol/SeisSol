@@ -4,7 +4,7 @@
 #include <cassert>
 
 #include <Eigen/Dense>
-#include <yateto/TensorView.h>
+#include <yateto.h>
 
 #include "Model/common.hpp"
 #include "Kernels/common.hpp"

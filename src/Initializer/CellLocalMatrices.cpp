@@ -97,7 +97,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
     NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
@@ -263,7 +263,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
@@ -415,7 +415,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
-  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+  for (auto it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
     real**                                timeDerivativePlusDevice                                        = it->var(dynRup->timeDerivativePlusDevice);

@@ -44,7 +44,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
       sycl::malloc_device(maxClusterSize * sizeof(TractionResults), queue));
 
   {
-    const size_t requiredNumBytes = misc::numPaddedPoints * maxClusterSize * sizeof(real);
+    const size_t requiredNumBytes = misc::NumPaddedPoints * maxClusterSize * sizeof(real);
     using StateVariableType = decltype(stateVariableBuffer);
     stateVariableBuffer =
         reinterpret_cast<StateVariableType>(sycl::malloc_device(requiredNumBytes, queue));
@@ -60,7 +60,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
     devSpaceWeights = static_cast<real*>(sycl::malloc_device(requiredNumBytes, queue));
   }
 }
@@ -79,7 +79,7 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
   }
 
   {
-    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
     queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
   }
 

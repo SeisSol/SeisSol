@@ -9,6 +9,6 @@ namespace seissol::initializer::initprocedure {
 
 void seissolMain(seissol::SeisSol& seissolInstance);
 
-}
+} // namespace seissol::initializer::initprocedure
 
 #endif

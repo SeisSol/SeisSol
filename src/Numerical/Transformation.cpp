@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,205 +41,219 @@
 
 #include "Transformation.h"
 #include <Eigen/Dense>
+#include <Geometry/MeshDefinition.h>
+#include <Kernels/precision.hpp>
+#include <cassert>
 #include <utils/logger.h>
+#include <yateto.h>
 
-void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
-                                                             double const v1[3],
-                                                             double const v2[3],
-                                                             double const v3[3],
-                                                             double const xiEtaZeta[3],
-                                                             double       xyz[3] ) {
+void seissol::transformations::tetrahedronReferenceToGlobal(const double v0[3],
+                                                            const double v1[3],
+                                                            const double v2[3],
+                                                            const double v3[3],
+                                                            const double xiEtaZeta[3],
+                                                            double xyz[3]) {
   for (unsigned i = 0; i < 3; ++i) {
-    xyz[i] = v0[i] + (v1[i]-v0[i])*xiEtaZeta[0] + (v2[i]-v0[i])*xiEtaZeta[1] + (v3[i]-v0[i])*xiEtaZeta[2];
+    xyz[i] = v0[i] + (v1[i] - v0[i]) * xiEtaZeta[0] + (v2[i] - v0[i]) * xiEtaZeta[1] +
+             (v3[i] - v0[i]) * xiEtaZeta[2];
   }
 }
 
-Eigen::Vector3d seissol::transformations::tetrahedronReferenceToGlobal(
-                                                             const Eigen::Vector3d& v0,
-                                                             const Eigen::Vector3d& v1,
-                                                             const Eigen::Vector3d& v2,
-                                                             const Eigen::Vector3d& v3,
-                                                             double const xiEtaZeta[3]) {
+Eigen::Vector3d seissol::transformations::tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
+                                                                       const Eigen::Vector3d& v1,
+                                                                       const Eigen::Vector3d& v2,
+                                                                       const Eigen::Vector3d& v3,
+                                                                       const double xiEtaZeta[3]) {
   return v0 + (v1 - v0) * xiEtaZeta[0] + (v2 - v0) * xiEtaZeta[1] + (v3 - v0) * xiEtaZeta[2];
 }
 
-Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference( double const           v0[3],
-                                                                        double const           v1[3],
-                                                                        double const           v2[3],
-                                                                        double const           v3[3],
-                                                                        Eigen::Vector3d const& xyz ) {
+Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const double v0[3],
+                                                                       const double v1[3],
+                                                                       const double v2[3],
+                                                                       const double v3[3],
+                                                                       const Eigen::Vector3d& xyz) {
   // Forward transformation
-  Eigen::Matrix4d A;
-  A << v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2], 0.0,
-       v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2], 0.0,
-       v3[0]-v0[0], v3[1]-v0[1], v3[2]-v0[2], 0.0,
-       v0[0], v0[1], v0[2], 1.0;
-  A = A.transpose().eval();
+  Eigen::Matrix4d a;
+  a << v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2], 0.0, v2[0] - v0[0], v2[1] - v0[1],
+      v2[2] - v0[2], 0.0, v3[0] - v0[0], v3[1] - v0[1], v3[2] - v0[2], 0.0, v0[0], v0[1], v0[2],
+      1.0;
+  a = a.transpose().eval();
 
-  Eigen::Vector4d rhs(xyz[0], xyz[1], xyz[2], 1.0);
-  Eigen::Vector4d sol = A.partialPivLu().solve(rhs);
+  const Eigen::Vector4d rhs(xyz[0], xyz[1], xyz[2], 1.0);
+  Eigen::Vector4d sol = a.partialPivLu().solve(rhs);
   Eigen::Vector3d xiEtaZeta(sol[0], sol[1], sol[2]);
 
   return xiEtaZeta;
 }
 
-void seissol::transformations::tetrahedronGlobalToReferenceJacobian( real const i_x[4],
-                                                                     real const i_y[4],
-                                                                     real const i_z[4],
-                                                                     real o_gradXi[3],
-                                                                     real o_gradEta[3],
-                                                                     real o_gradZeta[3] )
-{
-  real determinant = i_x[0] * ( i_y[1]*(i_z[3]-i_z[2]) + i_y[2]*(i_z[1]-i_z[3]) + i_y[3]*(i_z[2]-i_z[1]) )
-                   + i_x[1] * ( i_y[0]*(i_z[2]-i_z[3]) + i_y[2]*(i_z[3]-i_z[0]) + i_y[3]*(i_z[0]-i_z[2]) )
-                   + i_x[2] * ( i_y[0]*(i_z[3]-i_z[1]) + i_y[1]*(i_z[0]-i_z[3]) + i_y[3]*(i_z[1]-i_z[0]) )
-                   + i_x[3] * ( i_y[0]*(i_z[1]-i_z[2]) + i_y[1]*(i_z[2]-i_z[0]) + i_y[2]*(i_z[0]-i_z[1]) );                   
-  real inverseDeterminant = 1.0 / determinant;
-  
+void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const real iX[4],
+                                                                    const real iY[4],
+                                                                    const real iZ[4],
+                                                                    real oGradXi[3],
+                                                                    real oGradEta[3],
+                                                                    real oGradZeta[3]) {
+  const real determinant =
+      iX[0] * (iY[1] * (iZ[3] - iZ[2]) + iY[2] * (iZ[1] - iZ[3]) + iY[3] * (iZ[2] - iZ[1])) +
+      iX[1] * (iY[0] * (iZ[2] - iZ[3]) + iY[2] * (iZ[3] - iZ[0]) + iY[3] * (iZ[0] - iZ[2])) +
+      iX[2] * (iY[0] * (iZ[3] - iZ[1]) + iY[1] * (iZ[0] - iZ[3]) + iY[3] * (iZ[1] - iZ[0])) +
+      iX[3] * (iY[0] * (iZ[1] - iZ[2]) + iY[1] * (iZ[2] - iZ[0]) + iY[2] * (iZ[0] - iZ[1]));
+  const real inverseDeterminant = 1.0 / determinant;
+
   // dxi_dx, dxi_dy, dxi_dz
-  o_gradXi[0] = inverseDeterminant * ( i_y[0]*(i_z[2]-i_z[3]) + i_y[2]*(i_z[3]-i_z[0]) + i_y[3]*(i_z[0]-i_z[2]) );
-  o_gradXi[1] = inverseDeterminant * ( i_x[0]*(i_z[3]-i_z[2]) + i_x[2]*(i_z[0]-i_z[3]) + i_x[3]*(i_z[2]-i_z[0]) );
-  o_gradXi[2] = inverseDeterminant * ( i_x[0]*(i_y[2]-i_y[3]) + i_x[2]*(i_y[3]-i_y[0]) + i_x[3]*(i_y[0]-i_y[2]) );
-  
+  oGradXi[0] = inverseDeterminant *
+               (iY[0] * (iZ[2] - iZ[3]) + iY[2] * (iZ[3] - iZ[0]) + iY[3] * (iZ[0] - iZ[2]));
+  oGradXi[1] = inverseDeterminant *
+               (iX[0] * (iZ[3] - iZ[2]) + iX[2] * (iZ[0] - iZ[3]) + iX[3] * (iZ[2] - iZ[0]));
+  oGradXi[2] = inverseDeterminant *
+               (iX[0] * (iY[2] - iY[3]) + iX[2] * (iY[3] - iY[0]) + iX[3] * (iY[0] - iY[2]));
+
   // deta_dx, deta_dy, deta_dz
-  o_gradEta[0] = inverseDeterminant * ( i_y[0]*(i_z[3]-i_z[1]) + i_y[1]*(i_z[0]-i_z[3]) + i_y[3]*(i_z[1]-i_z[0]) );
-  o_gradEta[1] = inverseDeterminant * ( i_x[0]*(i_z[1]-i_z[3]) + i_x[1]*(i_z[3]-i_z[0]) + i_x[3]*(i_z[0]-i_z[1]) );
-  o_gradEta[2] = inverseDeterminant * ( i_x[0]*(i_y[3]-i_y[1]) + i_x[1]*(i_y[0]-i_y[3]) + i_x[3]*(i_y[1]-i_y[0]) );
-  
+  oGradEta[0] = inverseDeterminant *
+                (iY[0] * (iZ[3] - iZ[1]) + iY[1] * (iZ[0] - iZ[3]) + iY[3] * (iZ[1] - iZ[0]));
+  oGradEta[1] = inverseDeterminant *
+                (iX[0] * (iZ[1] - iZ[3]) + iX[1] * (iZ[3] - iZ[0]) + iX[3] * (iZ[0] - iZ[1]));
+  oGradEta[2] = inverseDeterminant *
+                (iX[0] * (iY[3] - iY[1]) + iX[1] * (iY[0] - iY[3]) + iX[3] * (iY[1] - iY[0]));
+
   // dzeta_dx, dzeta_dx, dzeta_dx
-  o_gradZeta[0] = inverseDeterminant * ( i_y[0]*(i_z[1]-i_z[2]) + i_y[1]*(i_z[2]-i_z[0]) + i_y[2]*(i_z[0]-i_z[1]) );
-  o_gradZeta[1] = inverseDeterminant * ( i_x[0]*(i_z[2]-i_z[1]) + i_x[1]*(i_z[0]-i_z[2]) + i_x[2]*(i_z[1]-i_z[0]) );
-  o_gradZeta[2] = inverseDeterminant * ( i_x[0]*(i_y[1]-i_y[2]) + i_x[1]*(i_y[2]-i_y[0]) + i_x[2]*(i_y[0]-i_y[1]) );
+  oGradZeta[0] = inverseDeterminant *
+                 (iY[0] * (iZ[1] - iZ[2]) + iY[1] * (iZ[2] - iZ[0]) + iY[2] * (iZ[0] - iZ[1]));
+  oGradZeta[1] = inverseDeterminant *
+                 (iX[0] * (iZ[2] - iZ[1]) + iX[1] * (iZ[0] - iZ[2]) + iX[2] * (iZ[1] - iZ[0]));
+  oGradZeta[2] = inverseDeterminant *
+                 (iX[0] * (iY[1] - iY[2]) + iX[1] * (iY[2] - iY[0]) + iX[2] * (iY[0] - iY[1]));
 }
 
-void seissol::transformations::inverseTensor1RotationMatrix( VrtxCoords const i_normal,
-                                                             VrtxCoords const i_tangent1,
-                                                             VrtxCoords const i_tangent2,
-                                                             yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
-                                                             unsigned row,
-                                                             unsigned col )
-{
+void seissol::transformations::inverseTensor1RotationMatrix(
+    const VrtxCoords iNormal,
+    const VrtxCoords iTangent1,
+    const VrtxCoords iTangent2,
+    yateto::DenseTensorView<2, real, unsigned>& oTinv,
+    unsigned row,
+    unsigned col) {
   for (unsigned i = 0; i < 3; ++i) {
-    o_Tinv(row+0,col+i) = i_normal[i];
-    o_Tinv(row+1,col+i) = i_tangent1[i];
-    o_Tinv(row+2,col+i) = i_tangent2[i];
+    oTinv(row + 0, col + i) = iNormal[i];
+    oTinv(row + 1, col + i) = iTangent1[i];
+    oTinv(row + 2, col + i) = iTangent2[i];
   }
 }
 
-void seissol::transformations::tensor1RotationMatrix( VrtxCoords const i_normal,
-                                                      VrtxCoords const i_tangent1,
-                                                      VrtxCoords const i_tangent2,
-                                                      yateto::DenseTensorView<2,real,unsigned>& o_T,
-                                                      unsigned row,
-                                                      unsigned col )
-{
+void seissol::transformations::tensor1RotationMatrix(const VrtxCoords iNormal,
+                                                     const VrtxCoords iTangent1,
+                                                     const VrtxCoords iTangent2,
+                                                     yateto::DenseTensorView<2, real, unsigned>& oT,
+                                                     unsigned row,
+                                                     unsigned col) {
   for (unsigned i = 0; i < 3; ++i) {
-    o_T(row+i,col+0) = i_normal[i];
-    o_T(row+i,col+1) = i_tangent1[i];
-    o_T(row+i,col+2) = i_tangent2[i];
+    oT(row + i, col + 0) = iNormal[i];
+    oT(row + i, col + 1) = iTangent1[i];
+    oT(row + i, col + 2) = iTangent2[i];
   }
 }
 
-void seissol::transformations::symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
-                                                               VrtxCoords const i_tangent1,
-                                                               VrtxCoords const i_tangent2,
-                                                               yateto::DenseTensorView<2,real,unsigned>& o_T,
-                                                               unsigned row,
-                                                               unsigned col )
-{  
-  real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
-  real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
-  real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
-  
-  o_T(row+0,col+0) = nx * nx;
-  o_T(row+1,col+0) = ny * ny;
-  o_T(row+2,col+0) = nz * nz;
-  o_T(row+3,col+0) = ny * nx;
-  o_T(row+4,col+0) = nz * ny;
-  o_T(row+5,col+0) = nz * nx;
-  o_T(row+0,col+1) = sx * sx;
-  o_T(row+1,col+1) = sy * sy;
-  o_T(row+2,col+1) = sz * sz;
-  o_T(row+3,col+1) = sy * sx;
-  o_T(row+4,col+1) = sz * sy;
-  o_T(row+5,col+1) = sz * sx;
-  o_T(row+0,col+2) = tx * tx;
-  o_T(row+1,col+2) = ty * ty;
-  o_T(row+2,col+2) = tz * tz;
-  o_T(row+3,col+2) = ty * tx;
-  o_T(row+4,col+2) = tz * ty;
-  o_T(row+5,col+2) = tz * tx;
-  o_T(row+0,col+3) = 2.0 * nx * sx;
-  o_T(row+1,col+3) = 2.0 * ny * sy;
-  o_T(row+2,col+3) = 2.0 * nz * sz;
-  o_T(row+3,col+3) = ny * sx + nx * sy;
-  o_T(row+4,col+3) = nz * sy + ny * sz;
-  o_T(row+5,col+3) = nz * sx + nx * sz;
-  o_T(row+0,col+4) = 2.0 * sx * tx;
-  o_T(row+1,col+4) = 2.0 * sy * ty;
-  o_T(row+2,col+4) = 2.0 * sz * tz;
-  o_T(row+3,col+4) = sy * tx + sx * ty;
-  o_T(row+4,col+4) = sz * ty + sy * tz;
-  o_T(row+5,col+4) = sz * tx + sx * tz;
-  o_T(row+0,col+5) = 2.0 * nx * tx;
-  o_T(row+1,col+5) = 2.0 * ny * ty;
-  o_T(row+2,col+5) = 2.0 * nz * tz;
-  o_T(row+3,col+5) = ny * tx + nx * ty;
-  o_T(row+4,col+5) = nz * ty + ny * tz;
-  o_T(row+5,col+5) = nz * tx + nx * tz;
+void seissol::transformations::symmetricTensor2RotationMatrix(
+    const VrtxCoords iNormal,
+    const VrtxCoords iTangent1,
+    const VrtxCoords iTangent2,
+    yateto::DenseTensorView<2, real, unsigned>& oT,
+    unsigned row,
+    unsigned col) {
+  real nx = iNormal[0], ny = iNormal[1], nz = iNormal[2];
+  real sx = iTangent1[0], sy = iTangent1[1], sz = iTangent1[2];
+  real tx = iTangent2[0], ty = iTangent2[1], tz = iTangent2[2];
+
+  oT(row + 0, col + 0) = nx * nx;
+  oT(row + 1, col + 0) = ny * ny;
+  oT(row + 2, col + 0) = nz * nz;
+  oT(row + 3, col + 0) = ny * nx;
+  oT(row + 4, col + 0) = nz * ny;
+  oT(row + 5, col + 0) = nz * nx;
+  oT(row + 0, col + 1) = sx * sx;
+  oT(row + 1, col + 1) = sy * sy;
+  oT(row + 2, col + 1) = sz * sz;
+  oT(row + 3, col + 1) = sy * sx;
+  oT(row + 4, col + 1) = sz * sy;
+  oT(row + 5, col + 1) = sz * sx;
+  oT(row + 0, col + 2) = tx * tx;
+  oT(row + 1, col + 2) = ty * ty;
+  oT(row + 2, col + 2) = tz * tz;
+  oT(row + 3, col + 2) = ty * tx;
+  oT(row + 4, col + 2) = tz * ty;
+  oT(row + 5, col + 2) = tz * tx;
+  oT(row + 0, col + 3) = 2.0 * nx * sx;
+  oT(row + 1, col + 3) = 2.0 * ny * sy;
+  oT(row + 2, col + 3) = 2.0 * nz * sz;
+  oT(row + 3, col + 3) = ny * sx + nx * sy;
+  oT(row + 4, col + 3) = nz * sy + ny * sz;
+  oT(row + 5, col + 3) = nz * sx + nx * sz;
+  oT(row + 0, col + 4) = 2.0 * sx * tx;
+  oT(row + 1, col + 4) = 2.0 * sy * ty;
+  oT(row + 2, col + 4) = 2.0 * sz * tz;
+  oT(row + 3, col + 4) = sy * tx + sx * ty;
+  oT(row + 4, col + 4) = sz * ty + sy * tz;
+  oT(row + 5, col + 4) = sz * tx + sx * tz;
+  oT(row + 0, col + 5) = 2.0 * nx * tx;
+  oT(row + 1, col + 5) = 2.0 * ny * ty;
+  oT(row + 2, col + 5) = 2.0 * nz * tz;
+  oT(row + 3, col + 5) = ny * tx + nx * ty;
+  oT(row + 4, col + 5) = nz * ty + ny * tz;
+  oT(row + 5, col + 5) = nz * tx + nx * tz;
 }
 
-
-
-void seissol::transformations::chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3], int sideOrientation) {
+void seissol::transformations::chiTau2XiEtaZeta(unsigned face,
+                                                const double chiTau[2],
+                                                double xiEtaZeta[3],
+                                                int sideOrientation) {
   double chiTauTilde[2];
 
   switch (sideOrientation) {
-    case 0:
-      chiTauTilde[0] = chiTau[1];
-      chiTauTilde[1] = chiTau[0];
-      break;
-    case 1:
-      chiTauTilde[0] = 1.0 - chiTau[0] - chiTau[1];
-      chiTauTilde[1] = chiTau[1];
-      break;
-    case 2:
-      chiTauTilde[0] = chiTau[0];
-      chiTauTilde[1] = 1.0 - chiTau[0] - chiTau[1];
-      break;
-    default:
-      chiTauTilde[0] = chiTau[0];
-      chiTauTilde[1] = chiTau[1];
-      break;
+  case 0:
+    chiTauTilde[0] = chiTau[1];
+    chiTauTilde[1] = chiTau[0];
+    break;
+  case 1:
+    chiTauTilde[0] = 1.0 - chiTau[0] - chiTau[1];
+    chiTauTilde[1] = chiTau[1];
+    break;
+  case 2:
+    chiTauTilde[0] = chiTau[0];
+    chiTauTilde[1] = 1.0 - chiTau[0] - chiTau[1];
+    break;
+  default:
+    chiTauTilde[0] = chiTau[0];
+    chiTauTilde[1] = chiTau[1];
+    break;
   }
 
   switch (face) {
-    case 0:
-      xiEtaZeta[0] = chiTauTilde[1];
-      xiEtaZeta[1] = chiTauTilde[0];
-      xiEtaZeta[2] = 0.0;
-      break;
-    case 1:
-      xiEtaZeta[0] = chiTauTilde[0];
-      xiEtaZeta[1] = 0.0;
-      xiEtaZeta[2] = chiTauTilde[1];
-      break;
-    case 2:
-      xiEtaZeta[0] = 0.0;
-      xiEtaZeta[1] = chiTauTilde[1];
-      xiEtaZeta[2] = chiTauTilde[0];
-      break;
-    case 3:
-      xiEtaZeta[0] = 1.0-chiTauTilde[0]-chiTauTilde[1];
-      xiEtaZeta[1] = chiTauTilde[0];
-      xiEtaZeta[2] = chiTauTilde[1];
-      break;
-    default:
-      break;
+  case 0:
+    xiEtaZeta[0] = chiTauTilde[1];
+    xiEtaZeta[1] = chiTauTilde[0];
+    xiEtaZeta[2] = 0.0;
+    break;
+  case 1:
+    xiEtaZeta[0] = chiTauTilde[0];
+    xiEtaZeta[1] = 0.0;
+    xiEtaZeta[2] = chiTauTilde[1];
+    break;
+  case 2:
+    xiEtaZeta[0] = 0.0;
+    xiEtaZeta[1] = chiTauTilde[1];
+    xiEtaZeta[2] = chiTauTilde[0];
+    break;
+  case 3:
+    xiEtaZeta[0] = 1.0 - chiTauTilde[0] - chiTauTilde[1];
+    xiEtaZeta[1] = chiTauTilde[0];
+    xiEtaZeta[2] = chiTauTilde[1];
+    break;
+  default:
+    break;
   }
 }
 
-void seissol::transformations::XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]) {
+void seissol::transformations::XiEtaZeta2chiTau(unsigned face,
+                                                const double xiEtaZeta[3],
+                                                double chiTau[2]) {
   constexpr double EPS = 1e-6;
 
   switch (face) {
@@ -263,10 +278,12 @@ void seissol::transformations::XiEtaZeta2chiTau(unsigned face, double const xiEt
   case 3: {
     chiTau[0] = xiEtaZeta[1];
     chiTau[1] = xiEtaZeta[2];
-    assert((std::abs(xiEtaZeta[0] + xiEtaZeta[1] + xiEtaZeta[2] - 1.0) < EPS) && "reference coord is not on the 4th face");
+    assert((std::abs(xiEtaZeta[0] + xiEtaZeta[1] + xiEtaZeta[2] - 1.0) < EPS) &&
+           "reference coord is not on the 4th face");
     break;
   }
   default:
-    logError() << "Tried to get the XiEtaZeta2chiTau transformation for face" << face << ", which is not possible. Provide 0 <= face <= 3.";
+    logError() << "Tried to get the XiEtaZeta2chiTau transformation for face" << face
+               << ", which is not possible. Provide 0 <= face <= 3.";
   }
 }

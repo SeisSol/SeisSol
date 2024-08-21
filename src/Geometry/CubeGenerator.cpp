@@ -1,15 +1,17 @@
 #include "CubeGenerator.h"
-#include "utils/args.h"
-#include "utils/env.h"
 #include "utils/logger.h"
 
 #include "Parallel/MPI.h"
 
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/Parameters/CubeGeneratorParameters.h>
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cstring>
-#include <iostream>
+#include <iterator>
 #include <map>
-#include <sstream>
+#include <mpi.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,7 +19,6 @@
 #include <omp.h>
 
 #include "MeshReader.h"
-#include "utils/args.h"
 #include "utils/logger.h"
 
 namespace {
@@ -34,22 +35,22 @@ struct CubeVertex {
 
 // Index of the vertices of a tetraedra in a cube
 // even/odd, index of the tetrahedra, index of vertex, offset of the vertices in x/y/z
-static const t_vertex TET_VERTICES[2][5][4] = {{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
-                                                {{1, 0, 0}, {0, 1, 0}, {1, 1, 1}, {1, 1, 0}},
-                                                {{1, 0, 0}, {1, 1, 1}, {0, 0, 1}, {1, 0, 1}},
-                                                {{0, 1, 0}, {0, 1, 1}, {0, 0, 1}, {1, 1, 1}},
-                                                {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 1, 1}}},
-                                               {{{0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {1, 1, 0}},
-                                                {{0, 0, 0}, {1, 1, 0}, {1, 0, 1}, {1, 0, 0}},
-                                                {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {0, 0, 1}},
-                                                {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
-                                                {{0, 0, 0}, {1, 1, 0}, {0, 1, 1}, {1, 0, 1}}}};
+static const t_vertex TetVertices[2][5][4] = {{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
+                                               {{1, 0, 0}, {0, 1, 0}, {1, 1, 1}, {1, 1, 0}},
+                                               {{1, 0, 0}, {1, 1, 1}, {0, 0, 1}, {1, 0, 1}},
+                                               {{0, 1, 0}, {0, 1, 1}, {0, 0, 1}, {1, 1, 1}},
+                                               {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 1, 1}}},
+                                              {{{0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {1, 1, 0}},
+                                               {{0, 0, 0}, {1, 1, 0}, {1, 0, 1}, {1, 0, 0}},
+                                               {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {0, 0, 1}},
+                                               {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
+                                               {{0, 0, 0}, {1, 1, 0}, {0, 1, 1}, {1, 0, 1}}}};
 
-static const int TET_SIDE_NEIGHBORS[2][5 * 4] = {
+static const int TetSideNeighbors[2][5 * 4] = {
     {3, 3, 3, 0, 1, 3, 0, 2, 2, 2, 2, 1, 0, 1, 3, 1, 3, 0, 0, 2},
     {2, 3, 0, 1, 1, 3, 3, 2, 2, 1, 1, 0, 0, 3, 2, 1, 2, 0, 0, 1}};
 
-static const int TET_SIDE_ORIENTATIONS[2][5 * 4] = {
+static const int TetSideOrientations[2][5 * 4] = {
     {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
     {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
 
@@ -82,25 +83,25 @@ seissol::geometry::CubeGenerator::CubeGenerator(
     : seissol::geometry::MeshReader(rank), // init base class
       rank(rank), nProcs(nProcs) {
   // get cubeGenerator parameters
-  unsigned int cubeMinX = cubeParams.cubeMinX;
-  unsigned int cubeMaxX = cubeParams.cubeMaxX;
-  unsigned int cubeMinY = cubeParams.cubeMinY;
-  unsigned int cubeMaxY = cubeParams.cubeMaxY;
-  unsigned int cubeMinZ = cubeParams.cubeMinZ;
-  unsigned int cubeMaxZ = cubeParams.cubeMaxZ;
-  unsigned int cubeX = cubeParams.cubeX;
-  unsigned int cubeY = cubeParams.cubeY;
-  unsigned int cubeZ = cubeParams.cubeZ;
-  unsigned int cubePx = cubeParams.cubePx;
-  unsigned int cubePy = cubeParams.cubePy;
-  unsigned int cubePz = cubeParams.cubePz;
-  double cubeScale = cubeParams.cubeS;
-  double cubeScaleX = cubeParams.cubeSx;
-  double cubeScaleY = cubeParams.cubeSy;
-  double cubeScaleZ = cubeParams.cubeSz;
-  double cubeTx = cubeParams.cubeTx;
-  double cubeTy = cubeParams.cubeTy;
-  double cubeTz = cubeParams.cubeTz;
+  const unsigned int cubeMinX = cubeParams.cubeMinX;
+  const unsigned int cubeMaxX = cubeParams.cubeMaxX;
+  const unsigned int cubeMinY = cubeParams.cubeMinY;
+  const unsigned int cubeMaxY = cubeParams.cubeMaxY;
+  const unsigned int cubeMinZ = cubeParams.cubeMinZ;
+  const unsigned int cubeMaxZ = cubeParams.cubeMaxZ;
+  const unsigned int cubeX = cubeParams.cubeX;
+  const unsigned int cubeY = cubeParams.cubeY;
+  const unsigned int cubeZ = cubeParams.cubeZ;
+  const unsigned int cubePx = cubeParams.cubePx;
+  const unsigned int cubePy = cubeParams.cubePy;
+  const unsigned int cubePz = cubeParams.cubePz;
+  const double cubeScale = cubeParams.cubeS;
+  const double cubeScaleX = cubeParams.cubeSx;
+  const double cubeScaleY = cubeParams.cubeSy;
+  const double cubeScaleZ = cubeParams.cubeSz;
+  const double cubeTx = cubeParams.cubeTx;
+  const double cubeTy = cubeParams.cubeTy;
+  const double cubeTz = cubeParams.cubeTz;
 
   if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 ||
                      cubeMinZ == 6 || cubeMaxZ == 6))
@@ -149,7 +150,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
                                                       2 * numCubesPerPart[0] * numCubesPerPart[1]};
 
   // output file name
-  std::string fileName = meshFile;
+  const std::string fileName = meshFile;
 
   logInfo(rank) << "Start generating a mesh using the CubeGenerator";
   seissol::geometry::CubeGenerator::cubeGenerator(numCubes,
@@ -209,7 +210,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Setup MPI Communicator
 #ifdef USE_MPI
-  int master = rank;
+  const int master = rank;
   MPI_Comm commMaster;
   MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 #endif // USE_MPI
@@ -221,7 +222,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   int maxSize = 0;
 
   // Get important dimensions
-  size_t partitions = numPartitions[3];
+  const size_t partitions = numPartitions[3];
 
   if (partitions != static_cast<unsigned int>(nProcs))
     logError() << "Number of partitions does not match number of MPI ranks.";
@@ -231,7 +232,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Elements
   sizes = new int[1];
-  int size = numElemPerPart[3];
+  const int size = numElemPerPart[3];
   sizes[0] = size;
   maxSize = std::max(maxSize, size);
   m_elements.resize(sizes[0]);
@@ -246,14 +247,14 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
         unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        int odd = (zz + yy + xx) % 2;
+        const int odd = (zz + yy + xx) % 2;
 
         for (unsigned int i = 0; i < 5; i++) {
           for (unsigned int j = 0; j < 4; j++) {
             CubeVertex v;
-            v.v[0] = TET_VERTICES[odd][i][j][0] + xx;
-            v.v[1] = TET_VERTICES[odd][i][j][1] + yy;
-            v.v[2] = TET_VERTICES[odd][i][j][2] + zz;
+            v.v[0] = TetVertices[odd][i][j][0] + xx;
+            v.v[1] = TetVertices[odd][i][j][1] + yy;
+            v.v[2] = TetVertices[odd][i][j][2] + zz;
             vertices[c] = v;
             c++;
           }
@@ -267,18 +268,18 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Calculate elemVertices
   for (unsigned int i = 0; i < vertices.size(); i++) {
-    std::map<CubeVertex, int>::iterator it = vertexMap.find(vertices[i]);
+    const std::map<CubeVertex, int>::iterator it = vertexMap.find(vertices[i]);
     if (it != vertexMap.end()) {
       elemVertices[i] = it->second;
     } else {
-      int n = vertexMap.size();
+      const int n = vertexMap.size();
       vertexMap[vertices[i]] = n;
       elemVertices[i] = n;
     }
   }
 
   int* elemNeighbors = new int[numElemPerPart[3] * 4];
-  const int TET_NEIGHBORS[2][5 * 4] = {
+  const int tetNeighbors[2][5 * 4] = {
       {-static_cast<int>(numCubesPerPart[1] * numCubesPerPart[0]) * 5 + 2,
        -static_cast<int>(numCubesPerPart[0]) * 5,
        -4,
@@ -327,11 +328,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-        unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        int odd = (zz + yy + xx) % 2;
+        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+        const int odd = (zz + yy + xx) % 2;
 
-        memcpy(&elemNeighbors[c], TET_NEIGHBORS[odd], sizeof(int) * 20);
-        int offset = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 5;
+        memcpy(&elemNeighbors[c], tetNeighbors[odd], sizeof(int) * 20);
+        const int offset = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 5;
         for (int i = 0; i < 20; i++)
           elemNeighbors[c + i] += offset;
 
@@ -462,7 +463,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   // Calculate elemBoundaries
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
+      const unsigned int x = rank;
       memset(elemBoundaries, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       if (x == 0) { // first partition in x dimension
@@ -471,7 +472,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy) % 2;
+            const int odd = (zz + yy) % 2;
             if (odd) {
               elemBoundaries[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
                   boundaryMinx;
@@ -492,7 +493,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy + 1) % 2;
+            const int odd = (zz + yy + 1) % 2;
             if (odd) {
               elemBoundaries[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                               numCubesPerPart[0] - 1) *
@@ -521,7 +522,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx) % 2;
+            const int odd = (zz + xx) % 2;
             if (odd) {
               elemBoundaries[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
                   boundaryMiny;
@@ -542,7 +543,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx + 1) % 2;
+            const int odd = (zz + xx + 1) % 2;
             if (odd) {
               elemBoundaries
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
@@ -571,7 +572,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (yy + xx) % 2;
+            const int odd = (yy + xx) % 2;
             if (odd) {
               elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 1] = boundaryMinz;
               elemBoundaries[(yy * numCubesPerPart[0] + xx) * 20 + 5] = boundaryMinz;
@@ -628,9 +629,9 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-        int odd = (zz + yy + xx) % 2;
-        unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        memcpy(&elemNeighborSidesDef[c], TET_SIDE_NEIGHBORS[odd], sizeof(int) * 20);
+        const int odd = (zz + yy + xx) % 2;
+        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+        memcpy(&elemNeighborSidesDef[c], TetSideNeighbors[odd], sizeof(int) * 20);
       }
     }
   }
@@ -638,7 +639,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   // Calculate elemNeighborSides
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
+      const unsigned int x = rank;
       memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int) * numElemPerPart[3] * 4);
 
       if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
@@ -647,7 +648,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy) % 2;
+            const int odd = (zz + yy) % 2;
             if (odd) {
               elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
               elemNeighborSides[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] = 0;
@@ -664,7 +665,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy + 1) % 2;
+            const int odd = (zz + yy + 1) % 2;
             if (odd) {
               elemNeighborSides[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                                  numCubesPerPart[0] - 1) *
@@ -693,7 +694,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx) % 2;
+            const int odd = (zz + xx) % 2;
             if (odd) {
               elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] = 0;
               elemNeighborSides[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 9] = 0;
@@ -710,7 +711,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx + 1) % 2;
+            const int odd = (zz + xx + 1) % 2;
             if (odd) {
               elemNeighborSides
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
@@ -739,7 +740,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (yy + xx) % 2;
+            const int odd = (yy + xx) % 2;
             if (odd) {
               elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
               elemNeighborSides[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
@@ -796,9 +797,9 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
     for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
       for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-        int odd = (zz + yy + xx) % 2;
-        unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
-        memcpy(&elemSideOrientationsDef[c], TET_SIDE_ORIENTATIONS[odd], sizeof(int) * 20);
+        const int odd = (zz + yy + xx) % 2;
+        const unsigned int c = ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + xx) * 20;
+        memcpy(&elemSideOrientationsDef[c], TetSideOrientations[odd], sizeof(int) * 20);
       }
     }
   }
@@ -806,7 +807,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   // Calculate elemSideOrientations
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
+      const unsigned int x = rank;
 
       memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int) * numElemPerPart[3] * 4);
 
@@ -816,7 +817,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy) % 2;
+            const int odd = (zz + yy) % 2;
             if (odd) {
               elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = 0;
               elemSideOrientations[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
@@ -836,7 +837,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy + 1) % 2;
+            const int odd = (zz + yy + 1) % 2;
             if (odd) {
               elemSideOrientations[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                                     numCubesPerPart[0] - 1) *
@@ -914,7 +915,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (yy + xx) % 2;
+            const int odd = (yy + xx) % 2;
             if (odd) {
               elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 1] = 0;
               elemSideOrientations[(yy * numCubesPerPart[0] + xx) * 20 + 5] = 0;
@@ -969,21 +970,21 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
-      int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
+      const unsigned int x = rank;
+      const int myrank = (z * numPartitions[1] + y) * numPartitions[0] + x;
 
       std::fill(elemNeighborRanks, elemNeighborRanks + numElemPerPart[3] * 4, myrank);
 
       if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
-        int rank = (z * numPartitions[1] + y) * numPartitions[0] +
-                   (x - 1 + numPartitions[0]) % numPartitions[0];
+        const int rank = (z * numPartitions[1] + y) * numPartitions[0] +
+                         (x - 1 + numPartitions[0]) % numPartitions[0];
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy) % 2;
+            const int odd = (zz + yy) % 2;
             if (odd) {
               elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] = rank;
               elemNeighborRanks[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20 + 10] =
@@ -999,14 +1000,14 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
       }
       if ((boundaryMaxx == 6 && numPartitions[0] > 1) ||
           x != numPartitions[0] - 1) { // last partition in x dimension
-        int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
+        const int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy + 1) % 2;
+            const int odd = (zz + yy + 1) % 2;
             if (odd) {
               elemNeighborRanks[((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] +
                                  numCubesPerPart[0] - 1) *
@@ -1030,16 +1031,16 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         }
       }
       if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
-        int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
-                       numPartitions[0] +
-                   x;
+        const int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
+                             numPartitions[0] +
+                         x;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx) % 2;
+            const int odd = (zz + xx) % 2;
             if (odd) {
               elemNeighborRanks[(zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 20 + 6] =
                   rank;
@@ -1056,14 +1057,14 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
       }
       if ((boundaryMaxy == 6 && numPartitions[1] > 1) ||
           y != numPartitions[1] - 1) { // last partition in y dimension
-        int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
+        const int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx + 1) % 2;
+            const int odd = (zz + xx + 1) % 2;
             if (odd) {
               elemNeighborRanks
                   [((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
@@ -1087,16 +1088,16 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         }
       }
       if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
-        int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
-                       numPartitions[0] +
-                   x;
+        const int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
+                             numPartitions[0] +
+                         x;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
 #endif // _OPENMP
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (yy + xx) % 2;
+            const int odd = (yy + xx) % 2;
             if (odd) {
               elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 1] = rank;
               elemNeighborRanks[(yy * numCubesPerPart[0] + xx) * 20 + 5] = rank;
@@ -1109,7 +1110,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
       }
       if ((boundaryMaxz == 6 && numPartitions[2] > 1) ||
           z != numPartitions[2] - 1) { // last partition in z dimension
-        int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
+        const int rank =
+            (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) collapse(2)
@@ -1155,12 +1157,12 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
   int* elemMPIIndicesPtr = new int[numPartitions[3] * numElemPerPart[3] * 4];
 
-  int bndSizeGlobal = bndSize;
+  const int bndSizeGlobal = bndSize;
 
   // calculate bndElem variables, bndLocalIds and elemMPIIndices
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
+      const unsigned int x = rank;
       memset(elemMPIIndices, 0, sizeof(int) * numElemPerPart[3] * 4);
 
       unsigned int bndSize = 0;
@@ -1169,7 +1171,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         int nextMPIIndex = 0;
         for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (yy + xx) % 2;
+            const int odd = (yy + xx) % 2;
             if (odd) {
               bndLocalIds[nextMPIIndex] = (yy * numCubesPerPart[0] + xx) * 5 + 1;
               elemMPIIndices[(yy * numCubesPerPart[0] + xx) * 20 + 5] = nextMPIIndex++;
@@ -1184,11 +1186,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-        int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
-                       numPartitions[0] +
-                   x;
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const int rank = (((z - 1 + numPartitions[2]) % numPartitions[2]) * numPartitions[1] + y) *
+                             numPartitions[0] +
+                         x;
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
@@ -1202,7 +1204,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         int nextMPIIndex = 0;
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx) % 2;
+            const int odd = (zz + xx) % 2;
             if (odd) {
               bndLocalIds[nextMPIIndex] =
                   (zz * numCubesPerPart[1] * numCubesPerPart[0] + xx) * 5 + 1;
@@ -1224,11 +1226,11 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-        int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
-                       numPartitions[0] +
-                   x;
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const int rank = (z * numPartitions[1] + (y - 1 + numPartitions[1]) % numPartitions[1]) *
+                             numPartitions[0] +
+                         x;
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
@@ -1242,7 +1244,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         int nextMPIIndex = 0;
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy) % 2;
+            const int odd = (zz + yy) % 2;
             if (odd) {
               bndLocalIds[nextMPIIndex] = (zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 5;
               elemMPIIndices[(zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] * 20] =
@@ -1263,10 +1265,10 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
-        int rank = (z * numPartitions[1] + y) * numPartitions[0] +
-                   (x - 1 + numPartitions[0]) % numPartitions[0];
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const int rank = (z * numPartitions[1] + y) * numPartitions[0] +
+                         (x - 1 + numPartitions[0]) % numPartitions[0];
 
         bndElemSizePtr[start[0] * bndSizeGlobal + start[1]] = nextMPIIndex;
         bndElemRankPtr[start[0] * bndSizeGlobal + start[1]] = rank;
@@ -1281,7 +1283,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         int nextMPIIndex = 0;
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
-            int odd = (zz + yy + 1) % 2;
+            const int odd = (zz + yy + 1) % 2;
             if (odd) {
               bndLocalIds[nextMPIIndex] =
                   ((zz * numCubesPerPart[1] + yy) * numCubesPerPart[0] + numCubesPerPart[0] - 1) *
@@ -1320,8 +1322,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
         int rank = (z * numPartitions[1] + y) * numPartitions[0] + (x + 1) % numPartitions[0];
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1338,7 +1340,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
         int nextMPIIndex = 0;
         for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
           for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
-            int odd = (zz + xx + 1) % 2;
+            const int odd = (zz + xx + 1) % 2;
             if (odd) {
               bndLocalIds[nextMPIIndex] =
                   ((zz * numCubesPerPart[1] + numCubesPerPart[1] - 1) * numCubesPerPart[0] + xx) *
@@ -1376,8 +1378,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
         int rank = (z * numPartitions[1] + (y + 1) % numPartitions[1]) * numPartitions[0] + x;
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1413,8 +1415,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
           }
         }
 
-        size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
-        size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
+        const size_t start[3] = {(z * numPartitions[1] + y) * numPartitions[0] + x, bndSize, 0u};
+        const size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
         int rank = (((z + 1) % numPartitions[2]) * numPartitions[1] + y) * numPartitions[0] + x;
         rank = (rank + numPartitions[3]) % numPartitions[3];
 
@@ -1470,16 +1472,16 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   m_vertices.resize(uniqueVertices.size());
 
-  double halfWidthX = scaleX / 2.0;
-  double halfWidthY = scaleY / 2.0;
-  double halfWidthZ = scaleZ / 2.0;
+  const double halfWidthX = scaleX / 2.0;
+  const double halfWidthY = scaleY / 2.0;
+  const double halfWidthZ = scaleZ / 2.0;
 
   // Calculate vrtxCoords
   double* vrtxCoords = new double[uniqueVertices.size() * 3];
 
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
-      unsigned int x = rank;
+      const unsigned int x = rank;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif // _OPENMP
@@ -1512,7 +1514,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   sizes[0] = bndSizePtr[static_cast<size_t>(rank)];
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
-  int maxNeighbors = bndSize;
+  const int maxNeighbors = bndSize;
   // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
 
@@ -1526,12 +1528,12 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
     bndStart[1] = static_cast<size_t>(i);
 
     // Get neighbor rank
-    int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
+    const int bndRank = bndElemRankPtr[bndStart[0] * bndSize + bndStart[1]];
 
     // Get size of this boundary
-    int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
+    const int elemSize = bndElemSizePtr[bndStart[0] * bndSize + bndStart[1]];
 
-    size_t bndCount[3] = {1, 1, bndElemSize};
+    const size_t bndCount[3] = {1, 1, bndElemSize};
     memcpy(bndElemLocalIds,
            &bndElemLocalIdsPtr[(bndStart[0] * bndSize + bndStart[1]) * bndElemSize],
            sizeof(int) * bndCount[2]);

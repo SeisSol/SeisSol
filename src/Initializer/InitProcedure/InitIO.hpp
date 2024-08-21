@@ -7,7 +7,7 @@ namespace seissol {
 class SeisSol;
 namespace initializer::initprocedure {
 void initIO(seissol::SeisSol& seissolInstance);
-}
+} // namespace initializer::initprocedure
 } // namespace seissol
 
 #endif

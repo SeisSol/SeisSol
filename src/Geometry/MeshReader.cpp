@@ -3,12 +3,14 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Parallel/MPI.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <map>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #ifdef USE_MPI
 #include <mpi.h>
@@ -16,9 +18,9 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader(int rank) : m_rank(rank), m_hasPlusFault(false) {}
+MeshReader::MeshReader(int rank) : mRank(rank), m_hasPlusFault(false) {}
 
-MeshReader::~MeshReader() {}
+MeshReader::~MeshReader() = default;
 
 const std::vector<Element>& MeshReader::getElements() const { return m_elements; }
 
@@ -30,7 +32,7 @@ const std::map<int, std::vector<MPINeighborElement>>& MeshReader::getMPIFaultNei
   return m_MPIFaultNeighbors;
 }
 
-const std::unordered_map<int, std::vector<GhostElementMetadata>>
+std::unordered_map<int, std::vector<GhostElementMetadata>>
     MeshReader::getGhostlayerMetadata() const {
   return m_ghostlayerMetadata;
 }
@@ -80,7 +82,7 @@ void MeshReader::extractFaultInformation(
 
       // DR boundary
 
-      if (i.neighborRanks[j] == m_rank) {
+      if (i.neighborRanks[j] == mRank) {
         // Completely local DR boundary
 
         if (i.neighbors[j] < i.localId)
@@ -91,7 +93,7 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
+        const MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -169,7 +171,7 @@ void MeshReader::extractFaultInformation(
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
       // Index of the element on the other side
-      int neighborIndex =
+      const int neighborIndex =
           i.neighbors[j] == static_cast<int>(m_elements.size()) ? -1 : i.neighbors[j];
 
       if (isPlus) {
@@ -197,7 +199,7 @@ void MeshReader::extractFaultInformation(
   // Sort fault neighbor lists and update MPI fault indices
   for (auto& i : m_MPIFaultNeighbors) {
 
-    if (i.first > m_rank) {
+    if (i.first > mRank) {
       std::sort(i.second.begin(),
                 i.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
@@ -227,7 +229,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> sendData;
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
-  constexpr int tag = 10;
+  constexpr int Tag = 10;
   const auto comm = seissol::MPI::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
@@ -277,14 +279,14 @@ void MeshReader::exchangeGhostlayerMetadata() {
               count,
               ghostElementType,
               targetRank,
-              tag,
+              Tag,
               comm,
               &requests[counter]);
     MPI_Isend(sendData[targetRank].data(),
               count,
               ghostElementType,
               targetRank,
-              tag,
+              Tag,
               comm,
               &requests[counter + 1]);
   }

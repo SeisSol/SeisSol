@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,144 +41,146 @@
 #ifndef TRANSFORMATION_H_
 #define TRANSFORMATION_H_
 
-#include <yateto.h>
-#include "Initializer/typedefs.hpp"
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/typedefs.hpp"
 #include <Eigen/Dense>
+#include <yateto.h>
 
 namespace seissol {
-  namespace transformations {
-    /**
-     * Calculates the global coordinates from
-     * reference tetrahedron coordinates.
-     */
-    void tetrahedronReferenceToGlobal( double const v0[3],
-                                       double const v1[3],
-                                       double const v2[3],
-                                       double const v3[3],
-                                       double const xiEtaZeta[3],
-                                       double       xyz[3] );
+namespace transformations {
+/**
+ * Calculates the global coordinates from
+ * reference tetrahedron coordinates.
+ */
+void tetrahedronReferenceToGlobal(const double v0[3],
+                                  const double v1[3],
+                                  const double v2[3],
+                                  const double v3[3],
+                                  const double xiEtaZeta[3],
+                                  double xyz[3]);
 
-    Eigen::Vector3d tetrahedronReferenceToGlobal( const Eigen::Vector3d& v0,
-                                                  const Eigen::Vector3d& v1,
-                                                  const Eigen::Vector3d& v2,
-                                                  const Eigen::Vector3d& v3,
-                                                  double const xiEtaZeta[3]);
+Eigen::Vector3d tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
+                                             const Eigen::Vector3d& v1,
+                                             const Eigen::Vector3d& v2,
+                                             const Eigen::Vector3d& v3,
+                                             const double xiEtaZeta[3]);
 
-    /**
-     * Calculates the reference tetrahedron coordinates from
-     * global tetrahedron coordinates.
-     */
-    Eigen::Vector3d tetrahedronGlobalToReference( double const           v0[3],
-                                                  double const           v1[3],
-                                                  double const           v2[3],
-                                                  double const           v3[3],
-                                                  Eigen::Vector3d const& xyz );
+/**
+ * Calculates the reference tetrahedron coordinates from
+ * global tetrahedron coordinates.
+ */
+Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
+                                             const double v1[3],
+                                             const double v2[3],
+                                             const double v3[3],
+                                             const Eigen::Vector3d& xyz);
 
-    /**
-     * Calculates the Jacobian for the coordinate transformation
-     * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
-     * from a global tetrahedron to the reference tetrahedron.
-     **/    
-    void tetrahedronGlobalToReferenceJacobian( real const i_x[4],
-                                               real const i_y[4],
-                                               real const i_z[4],
-                                               real o_gradXi[3],
-                                               real o_gradEta[3],
-                                               real o_gradZeta[3] );
+/**
+ * Calculates the Jacobian for the coordinate transformation
+ * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
+ * from a global tetrahedron to the reference tetrahedron.
+ **/
+void tetrahedronGlobalToReferenceJacobian(const real iX[4],
+                                          const real iY[4],
+                                          const real iZ[4],
+                                          real oGradXi[3],
+                                          real oGradEta[3],
+                                          real oGradZeta[3]);
 
-    /**
-     * Inverse of Tensor1RotationMatrix().
-     **/
-    void inverseTensor1RotationMatrix( VrtxCoords const i_normal,
-                                       VrtxCoords const i_tangent1,
-                                       VrtxCoords const i_tangent2,
-                                       yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
-                                       unsigned row = 0,
-                                       unsigned col = 0 );
+/**
+ * Inverse of Tensor1RotationMatrix().
+ **/
+void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
+                                  const VrtxCoords iTangent1,
+                                  const VrtxCoords iTangent2,
+                                  yateto::DenseTensorView<2, real, unsigned>& oTinv,
+                                  unsigned row = 0,
+                                  unsigned col = 0);
 
-    /**
-     * Returns a column-major matrix that rotates a first-order tensor
-     * (u_x, u_y, u_y) into a new coordinate system aligned with normal
-     * and tangents.
-     * u' = T*u
-     **/
-    void tensor1RotationMatrix( VrtxCoords const i_normal,
-                                VrtxCoords const i_tangent1,
-                                VrtxCoords const i_tangent2,
-                                yateto::DenseTensorView<2,real,unsigned>& o_T,
-                                unsigned row = 0,
-                                unsigned col = 0 );
+/**
+ * Returns a column-major matrix that rotates a first-order tensor
+ * (u_x, u_y, u_y) into a new coordinate system aligned with normal
+ * and tangents.
+ * u' = T*u
+ **/
+void tensor1RotationMatrix(const VrtxCoords iNormal,
+                           const VrtxCoords iTangent1,
+                           const VrtxCoords iTangent2,
+                           yateto::DenseTensorView<2, real, unsigned>& oT,
+                           unsigned row = 0,
+                           unsigned col = 0);
 
-    /**
-     * Inverse of SymmetricTensor2RotationMatrix().
-     **/
-    template<typename Tmatrix>
-    void inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
-                                                VrtxCoords const i_tangent1,
-                                                VrtxCoords const i_tangent2,
-                                                Tmatrix& o_Tinv,
-                                                unsigned row = 0,
-                                                unsigned col = 0 )
-  {
-    real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
-    real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
-    real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
+/**
+ * Inverse of SymmetricTensor2RotationMatrix().
+ **/
+template <typename Tmatrix>
+void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
+                                           const VrtxCoords iTangent1,
+                                           const VrtxCoords iTangent2,
+                                           Tmatrix& oTinv,
+                                           unsigned row = 0,
+                                           unsigned col = 0) {
+  real nx = iNormal[0], ny = iNormal[1], nz = iNormal[2];
+  real sx = iTangent1[0], sy = iTangent1[1], sz = iTangent1[2];
+  real tx = iTangent2[0], ty = iTangent2[1], tz = iTangent2[2];
 
-    o_Tinv(row+0,col+0) = nx * nx;
-    o_Tinv(row+1,col+0) = sx * sx;
-    o_Tinv(row+2,col+0) = tx * tx;
-    o_Tinv(row+3,col+0) = nx * sx;
-    o_Tinv(row+4,col+0) = sx * tx;
-    o_Tinv(row+5,col+0) = nx * tx;
-    o_Tinv(row+0,col+1) = ny * ny;
-    o_Tinv(row+1,col+1) = sy * sy;
-    o_Tinv(row+2,col+1) = ty * ty;
-    o_Tinv(row+3,col+1) = ny * sy;
-    o_Tinv(row+4,col+1) = sy * ty;
-    o_Tinv(row+5,col+1) = ny * ty;
-    o_Tinv(row+0,col+2) = nz * nz;
-    o_Tinv(row+1,col+2) = sz * sz;
-    o_Tinv(row+2,col+2) = tz * tz;
-    o_Tinv(row+3,col+2) = nz * sz;
-    o_Tinv(row+4,col+2) = sz * tz;
-    o_Tinv(row+5,col+2) = nz * tz;
-    o_Tinv(row+0,col+3) = 2.0 * ny * nx;
-    o_Tinv(row+1,col+3) = 2.0 * sy * sx;
-    o_Tinv(row+2,col+3) = 2.0 * ty * tx;
-    o_Tinv(row+3,col+3) = ny * sx + nx * sy;
-    o_Tinv(row+4,col+3) = sy * tx + sx * ty;
-    o_Tinv(row+5,col+3) = ny * tx + nx * ty;
-    o_Tinv(row+0,col+4) = 2.0 * nz * ny;
-    o_Tinv(row+1,col+4) = 2.0 * sz * sy;
-    o_Tinv(row+2,col+4) = 2.0 * tz * ty;
-    o_Tinv(row+3,col+4) = nz * sy + ny * sz;
-    o_Tinv(row+4,col+4) = sz * ty + sy * tz;
-    o_Tinv(row+5,col+4) = nz * ty + ny * tz;
-    o_Tinv(row+0,col+5) = 2.0 * nz * nx;
-    o_Tinv(row+1,col+5) = 2.0 * sz * sx;
-    o_Tinv(row+2,col+5) = 2.0 * tz * tx;
-    o_Tinv(row+3,col+5) = nz * sx + nx * sz;
-    o_Tinv(row+4,col+5) = sz * tx + sx * tz;
-    o_Tinv(row+5,col+5) = nz * tx + nx * tz;
-  }
-
-    /**
-     * Returns a column-major matrix that rotates a symmetric second-order
-     * tensor, given as vector (u_xx, u_yy, u_zz, u_xy, u_yz, u_xz),
-     * into a new coordinate system aligned with normal and tangents.
-     * u' = T*u
-     **/
-    void symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
-                                         VrtxCoords const i_tangent1,
-                                         VrtxCoords const i_tangent2,
-                                         yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
-                                         unsigned row = 0,
-                                         unsigned col = 0 );
-
-    void chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3], int sideOrientation = -1);
-    void XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]);
-  }
+  oTinv(row + 0, col + 0) = nx * nx;
+  oTinv(row + 1, col + 0) = sx * sx;
+  oTinv(row + 2, col + 0) = tx * tx;
+  oTinv(row + 3, col + 0) = nx * sx;
+  oTinv(row + 4, col + 0) = sx * tx;
+  oTinv(row + 5, col + 0) = nx * tx;
+  oTinv(row + 0, col + 1) = ny * ny;
+  oTinv(row + 1, col + 1) = sy * sy;
+  oTinv(row + 2, col + 1) = ty * ty;
+  oTinv(row + 3, col + 1) = ny * sy;
+  oTinv(row + 4, col + 1) = sy * ty;
+  oTinv(row + 5, col + 1) = ny * ty;
+  oTinv(row + 0, col + 2) = nz * nz;
+  oTinv(row + 1, col + 2) = sz * sz;
+  oTinv(row + 2, col + 2) = tz * tz;
+  oTinv(row + 3, col + 2) = nz * sz;
+  oTinv(row + 4, col + 2) = sz * tz;
+  oTinv(row + 5, col + 2) = nz * tz;
+  oTinv(row + 0, col + 3) = 2.0 * ny * nx;
+  oTinv(row + 1, col + 3) = 2.0 * sy * sx;
+  oTinv(row + 2, col + 3) = 2.0 * ty * tx;
+  oTinv(row + 3, col + 3) = ny * sx + nx * sy;
+  oTinv(row + 4, col + 3) = sy * tx + sx * ty;
+  oTinv(row + 5, col + 3) = ny * tx + nx * ty;
+  oTinv(row + 0, col + 4) = 2.0 * nz * ny;
+  oTinv(row + 1, col + 4) = 2.0 * sz * sy;
+  oTinv(row + 2, col + 4) = 2.0 * tz * ty;
+  oTinv(row + 3, col + 4) = nz * sy + ny * sz;
+  oTinv(row + 4, col + 4) = sz * ty + sy * tz;
+  oTinv(row + 5, col + 4) = nz * ty + ny * tz;
+  oTinv(row + 0, col + 5) = 2.0 * nz * nx;
+  oTinv(row + 1, col + 5) = 2.0 * sz * sx;
+  oTinv(row + 2, col + 5) = 2.0 * tz * tx;
+  oTinv(row + 3, col + 5) = nz * sx + nx * sz;
+  oTinv(row + 4, col + 5) = sz * tx + sx * tz;
+  oTinv(row + 5, col + 5) = nz * tx + nx * tz;
 }
+
+/**
+ * Returns a column-major matrix that rotates a symmetric second-order
+ * tensor, given as vector (u_xx, u_yy, u_zz, u_xy, u_yz, u_xz),
+ * into a new coordinate system aligned with normal and tangents.
+ * u' = T*u
+ **/
+void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
+                                    const VrtxCoords iTangent1,
+                                    const VrtxCoords iTangent2,
+                                    yateto::DenseTensorView<2, real, unsigned>& oTinv,
+                                    unsigned row = 0,
+                                    unsigned col = 0);
+
+void chiTau2XiEtaZeta(unsigned face,
+                      const double chiTau[2],
+                      double xiEtaZeta[3],
+                      int sideOrientation = -1);
+void XiEtaZeta2chiTau(unsigned face, const double xiEtaZeta[3], double chiTau[2]);
+} // namespace transformations
+} // namespace seissol
 
 #endif

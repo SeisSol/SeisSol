@@ -1,17 +1,22 @@
 #include "Init.hpp"
 
-#include <sstream>
+#include <Initializer/tree/Layer.hpp>
+#include <Monitoring/Stopwatch.h>
+#include <utils/logger.h>
 
 #include "InitIO.hpp"
 #include "InitMesh.hpp"
 #include "InitModel.hpp"
 #include "InitSideConditions.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Monitoring/Unit.hpp"
-#include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
+
+#ifdef ACL_DEVICE
+#include "Monitoring/Unit.hpp"
+#include "Numerical/Statistics.h"
+#endif
 
 namespace {
 

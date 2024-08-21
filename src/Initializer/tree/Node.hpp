@@ -80,7 +80,7 @@ class Node {
 
   inline unsigned numChildren() const { return m_children.size(); }
 
-  class iterator {
+  class Iterator {
 public:
     using iterator_category = std::input_iterator_tag;
     using value_type = Node;
@@ -88,10 +88,10 @@ public:
     using pointer = Node*;
     using reference = Node&;
 
-    iterator() : m_node(NULL) {}
-    iterator(Node* node) : m_node(node) {}
+    Iterator() : m_node(NULL) {}
+    Iterator(Node* node) : m_node(node) {}
 
-    inline iterator& operator++() {
+    inline Iterator& operator++() {
       m_node = m_node->m_next;
       return *this;
     }
@@ -100,27 +100,27 @@ public:
 
     inline pointer operator->() { return m_node; }
 
-    inline bool operator==(const iterator& other) const { return other.m_node == m_node; }
+    inline bool operator==(const Iterator& other) const { return other.m_node == m_node; }
 
-    inline bool operator!=(const iterator& other) const { return other.m_node != m_node; }
+    inline bool operator!=(const Iterator& other) const { return other.m_node != m_node; }
 
 protected:
     value_type* m_node;
   };
 
-  inline iterator begin() {
+  inline Iterator begin() {
     Node* start = this;
     while (!start->isLeaf()) {
       start = start->m_children[0].get();
     }
     assert(start == this || start->m_next != NULL);
-    return iterator(start);
+    return Iterator(start);
   }
 
-  inline iterator end() {
+  inline Iterator end() {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
-    return iterator(this->m_next);
+    return Iterator(this->m_next);
   }
 };
 

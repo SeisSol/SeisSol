@@ -41,9 +41,21 @@
 #include "LoopStatistics.h"
 #include "Unit.hpp"
 
+#include <algorithm>
+#include <bits/time.h>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <ctime>
+#include <fstream>
+#include <iterator>
+#include <mpi.h>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <time.h>
+#include <utils/logger.h>
+#include <vector>
 #ifdef USE_NETCDF
 #include <netcdf.h>
 #ifdef USE_MPI
@@ -53,7 +65,6 @@
 
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
-#include <utils/env.h>
 
 namespace seissol {
 
@@ -116,28 +127,28 @@ void LoopStatistics::reset() {
 
 void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions.size();
-  constexpr int numberOfSumComponents = 6;
-  auto sums = std::vector<double>(numberOfSumComponents * nRegions);
+  constexpr int NumberOfSumComponents = 6;
+  auto sums = std::vector<double>(NumberOfSumComponents * nRegions);
   double totalTimePerRank = 0.0;
 
   // Helper functions to access sums
   auto getNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 0];
+    return sums[NumberOfSumComponents * region + 0];
   };
   auto getNumItersSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 1];
+    return sums[NumberOfSumComponents * region + 1];
   };
   auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 2];
+    return sums[NumberOfSumComponents * region + 2];
   };
   auto getTime = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 3];
+    return sums[NumberOfSumComponents * region + 3];
   };
   auto getTimeSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 4];
+    return sums[NumberOfSumComponents * region + 4];
   };
   auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 5];
+    return sums[NumberOfSumComponents * region + 5];
   };
 
   for (unsigned region = 0; region < nRegions; ++region) {
@@ -270,12 +281,12 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
     logInfo(rank) << "Starting to write loop statistics samples to disk.";
-    unsigned nRegions = regions.size();
+    const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
-      std::ofstream file;
+      const std::ofstream file;
       std::stringstream ss;
       ss << loopStatFile << regions[region].name << ".nc";
-      std::string fileName = ss.str();
+      const std::string fileName = ss.str();
 
       long nSamples = regions[region].times.size();
       long sampleOffset;

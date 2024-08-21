@@ -92,7 +92,7 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.size; ++i) {
+  for (size_t i = 0; i < data.Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
     data.weights[i] = weightsView(i);
@@ -138,7 +138,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.size);
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }

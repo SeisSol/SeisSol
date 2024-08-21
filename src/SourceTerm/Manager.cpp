@@ -83,16 +83,37 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Common/constants.hpp>
+#include <Geometry/MeshReader.h>
+#include <Geometry/MeshTools.h>
+#include <Initializer/LTS.h>
 #include <Initializer/MemoryAllocator.h>
+#include <Initializer/Parameters/SourceParameters.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Kernels/PointSourceCluster.h>
 #include <Kernels/PointSourceClusterOnHost.h>
-#include <Parallel/Helper.hpp>
+#include <Kernels/precision.hpp>
+#include <Model/common_datastructures.hpp>
+#include <Model/datastructures.hpp>
+#include <Numerical/BasisFunction.h>
+#include <Solver/time_stepping/TimeManager.h>
+#include <SourceTerm/NRF.h>
 #include <SourceTerm/typedefs.hpp>
+#include <algorithm>
+#include <array>
+#include <cassert>
 #include <cstring>
+#include <limits>
 #include <memory>
+#include <mpi.h>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
@@ -122,14 +143,14 @@ void computeMInvJInvPhisAtSources(
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
-  double volume = MeshTools::volume(elements[meshId], vertices);
-  double JInv = 1.0 / (6.0 * volume);
+  const double volume = MeshTools::volume(elements[meshId], vertices);
+  const double jInv = 1.0 / (6.0 * volume);
 
   kernel::computeMInvJInvPhisAtSources krnl;
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
   krnl.M3inv = init::M3inv::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
-  krnl.JInv = JInv;
+  krnl.JInv = jInv;
   krnl.execute();
 }
 
@@ -197,7 +218,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
   unsigned clusterSource = 0;
   unsigned mapping = 0;
   while (clusterSource < clusterMapping.sources.size()) {
-    unsigned meshId = meshIds[clusterMapping.sources[clusterSource]];
+    const unsigned meshId = meshIds[clusterMapping.sources[clusterSource]];
     unsigned next = clusterSource + 1;
     while (next < clusterMapping.sources.size() &&
            meshIds[clusterMapping.sources[next]] == meshId) {
@@ -235,9 +256,9 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
   layerClusterToMeshIds[Interior].resize(ltsTree->numChildren());
 
   for (unsigned source = 0; source < numberOfSources; ++source) {
-    unsigned meshId = meshIds[source];
-    unsigned cluster = ltsLut->cluster(meshId);
-    LayerType layer = ltsLut->layer(meshId);
+    const unsigned meshId = meshIds[source];
+    const unsigned cluster = ltsLut->cluster(meshId);
+    const LayerType layer = ltsLut->layer(meshId);
     assert(layer != Ghost);
     layerClusterToPointSources[layer][cluster].push_back(source);
     layerClusterToMeshIds[layer][cluster].push_back(meshId);
@@ -255,7 +276,7 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
       auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
       unsigned numberOfMappings = 0;
       for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
-        unsigned meshId = *it;
+        const unsigned meshId = *it;
         for (unsigned dup = 0;
              dup < seissol::initializer::Lut::MaxDuplicates &&
              ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max();
@@ -337,7 +358,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
-  int rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
 
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(std::string(fileName));
@@ -387,8 +408,8 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-        unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-        unsigned fsrmIndex = originalIndex[sourceIndex];
+        const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+        const unsigned fsrmIndex = originalIndex[sourceIndex];
 
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
@@ -407,7 +428,7 @@ auto loadSourcesFromFSRM(const char* fileName,
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
 #ifndef USE_POROELASTIC
-        seissol::model::Material& material =
+        const seissol::model::Material& material =
             ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
         for (unsigned i = 0; i < 3; ++i) {
           sources.tensor[clusterSource][6 + i] /= material.rho;
@@ -446,7 +467,7 @@ auto loadSourcesFromNRF(const char* fileName,
                         seissol::initializer::Lut* ltsLut,
                         seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
-  int rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
 
   logInfo(rank) << "Reading" << fileName;
   NRF nrf;
@@ -478,7 +499,7 @@ auto loadSourcesFromNRF(const char* fileName,
 #endif
 
   if (rank == 0) {
-    int numSourceOutside = nrf.size() - globalnumSources;
+    const int numSourceOutside = nrf.size() - globalnumSources;
     if (numSourceOutside > 0) {
       logError() << nrf.size() - globalnumSources << " point sources are outside the domain.";
     }
@@ -514,16 +535,16 @@ auto loadSourcesFromNRF(const char* fileName,
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
         std::size_t sampleSize = 0;
         for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-          unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-          unsigned nrfIndex = originalIndex[sourceIndex];
+          const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+          const unsigned nrfIndex = originalIndex[sourceIndex];
           sampleSize += nrf.sroffsets[nrfIndex + 1][i] - nrf.sroffsets[nrfIndex][i];
         }
         sources.sample[i].resize(sampleSize);
       }
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-        unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-        unsigned nrfIndex = originalIndex[sourceIndex];
+        const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+        const unsigned nrfIndex = originalIndex[sourceIndex];
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

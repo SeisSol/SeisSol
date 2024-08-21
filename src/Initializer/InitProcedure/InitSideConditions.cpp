@@ -1,12 +1,22 @@
 #include "SeisSol.h"
 
-#include "Init.hpp"
 #include "InitSideConditions.hpp"
 
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include "Parallel/MPI.h"
+#include <Equations/datastructures.hpp>
+#include <Initializer/Parameters/InitializationParameters.h>
+#include <Initializer/typedefs.hpp>
+#include <Physics/InitialField.h>
+#include <cstddef>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 namespace {
 
@@ -16,9 +26,9 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   TravellingWaveParameters travellingWaveParameters;
   travellingWaveParameters.origin = initConditionParams.origin;
   travellingWaveParameters.kVec = initConditionParams.kVec;
-  constexpr double eps = 1e-15;
+  constexpr double Eps = 1e-15;
   for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
-    if (std::abs(initConditionParams.ampField[i]) > eps) {
+    if (std::abs(initConditionParams.ampField[i]) > Eps) {
       travellingWaveParameters.varField.push_back(i);
       travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);
     }

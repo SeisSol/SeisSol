@@ -3,6 +3,8 @@
 
 #include "PartitioningLib.h"
 #include "Common/fnv1a.h"
+#include <PUML/Partition.h>
+#include <string_view>
 
 using PUML::PartitionerType;
 using namespace std::literals;

@@ -10,16 +10,28 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Physics/Attenuation.hpp"
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/MemoryManager.h>
+#include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/tree/Layer.hpp>
+#include <Model/common_datastructures.hpp>
+#include <Modules/Modules.h>
+#include <Monitoring/Stopwatch.h>
+#include <Physics/InstantaneousTimeMirrorManager.h>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <string>
+#include <unordered_map>
+#include <utils/logger.h>
 #include <vector>
 
-#include "Init.hpp"
 #include "InitModel.hpp"
 #include "SeisSol.h"
 
 #include "Parallel/MPI.h"
 
 #include <cmath>
-#include <type_traits>
 
 using namespace seissol::initializer;
 
@@ -122,8 +134,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   unsigned* ltsToMesh =
       memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
 
-  for (seissol::initializer::LTSTree::leaf_iterator it =
-           memoryManager.getLtsTree()->beginLeaf(seissol::initializer::LayerMask(Ghost));
+  for (auto it = memoryManager.getLtsTree()->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != memoryManager.getLtsTree()->endLeaf();
        ++it) {
     auto* cellInformation = it->var(memoryManager.getLts()->cellInformation);
@@ -236,24 +247,24 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
-    double scalingFactor = itmParameters.itmVelocityScalingFactor;
-    double startingTime = itmParameters.itmStartingTime;
+    const double scalingFactor = itmParameters.itmVelocityScalingFactor;
+    const double startingTime = itmParameters.itmStartingTime;
 
-    auto m_ltsTree = memoryManager.getLtsTree();
-    auto m_lts = memoryManager.getLts();
-    auto m_ltsLut = memoryManager.getLtsLut();
-    auto m_timeStepping = seissolInstance.timeManager().getTimeStepping();
+    auto mLtsTree = memoryManager.getLtsTree();
+    auto mLts = memoryManager.getLts();
+    auto mLtsLut = memoryManager.getLtsLut();
+    auto mTimeStepping = seissolInstance.timeManager().getTimeStepping();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
                                  &meshReader,
-                                 m_ltsTree,
-                                 m_lts,
-                                 m_ltsLut,
+                                 mLtsTree,
+                                 mLts,
+                                 mLtsLut,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
-                                 m_timeStepping);
+                                 mTimeStepping);
   }
 }
 

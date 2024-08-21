@@ -66,7 +66,7 @@ class FastVelocityWeakeningLaw
     const real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
     const real localStateVariable =
         steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
-    assert((std::isfinite(localStateVariable) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumberOfBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
@@ -90,7 +90,7 @@ class FastVelocityWeakeningLaw
     const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
                      localSlipRateMagnitude;
     const double result = localA * misc::asinh(x);
-    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    assert((std::isfinite(result) || pointIndex >= misc::NumberOfBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;
   }
@@ -112,7 +112,7 @@ class FastVelocityWeakeningLaw
     const double c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
     const double result =
         localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
-    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    assert((std::isfinite(result) || pointIndex >= misc::NumberOfBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;
   }
@@ -120,12 +120,12 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
-    std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
-    std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
     }
@@ -136,13 +136,13 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
           this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
                                       exp(localStateVariable[0] / this->a[ltsFace][0]) *
@@ -151,7 +151,7 @@ class FastVelocityWeakeningLaw
   }
 
   protected:
-  real (*srW)[misc::numPaddedPoints];
+  real (*srW)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law
 

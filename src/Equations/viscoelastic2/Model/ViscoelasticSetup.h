@@ -46,7 +46,7 @@
 #include "Kernels/common.hpp"
 #include "Numerical/Transformation.h"
 
-#include <yateto/TensorView.h>
+#include <yateto.h>
 #include "generated_code/init.h"
 
 namespace seissol {

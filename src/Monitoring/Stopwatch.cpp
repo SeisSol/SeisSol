@@ -2,6 +2,8 @@
 
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <bits/time.h>
+#include <mpi.h>
 #include <time.h>
 
 #include "Unit.hpp"
@@ -52,7 +54,7 @@ double Stopwatch::pause() {
  * @return measured time in seconds
  */
 double Stopwatch::stop() {
-  double time = pause();
+  const double time = pause();
   reset();
   return time;
 }

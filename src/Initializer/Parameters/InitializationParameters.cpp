@@ -1,4 +1,8 @@
 #include "InitializationParameters.h"
+#include <Equations/datastructures.hpp>
+#include <Initializer/InputAux.hpp>
+#include <Initializer/Parameters/ParameterReader.h>
+#include <limits>
 
 namespace seissol::initializer::parameters {
 

@@ -1,5 +1,9 @@
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
+#include <Solver/time_stepping/ActorState.h>
+#include <bits/time.h>
+#include <optional>
+#include <time.h>
 
 namespace seissol {
 

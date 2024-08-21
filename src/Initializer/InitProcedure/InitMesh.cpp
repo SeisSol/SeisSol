@@ -1,13 +1,16 @@
 #include "InitMesh.hpp"
-#include "Init.hpp"
 
-#include <algorithm>
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/Parameters/MeshParameters.h>
+#include <Initializer/Parameters/SeisSolParameters.h>
+#include <Initializer/time_stepping/LtsWeights/LtsWeights.h>
 #include <cstring>
-#include <iostream>
 
 #include "utils/env.h"
 #include "utils/logger.h"
 #include <Eigen/Dense>
+#include <mpi.h>
+#include <vector>
 
 #ifdef USE_NETCDF
 #include "Geometry/CubeGenerator.h"
@@ -58,9 +61,9 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
 
   auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
-  VrtxCoords center{drParameters->referencePoint[0],
-                    drParameters->referencePoint[1],
-                    drParameters->referencePoint[2]};
+  const VrtxCoords center{drParameters->referencePoint[0],
+                          drParameters->referencePoint[1],
+                          drParameters->referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters->refPointMethod);
 
   logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
@@ -103,11 +106,11 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
     logInfo(rank) << "Inferring boundary format.";
     MPI_Info info = MPI_INFO_NULL;
-    hid_t plist_id = _eh(H5Pcreate(H5P_FILE_ACCESS));
-    _eh(H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info));
-    hid_t dataFile =
-        _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plist_id));
-    hid_t existenceTest = _eh(H5Aexists(dataFile, "boundary-format"));
+    const hid_t plistId = _eh(H5Pcreate(H5P_FILE_ACCESS));
+    _eh(H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info));
+    const hid_t dataFile =
+        _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
+    const hid_t existenceTest = _eh(H5Aexists(dataFile, "boundary-format"));
     if (existenceTest > 0) {
       logInfo(rank) << "Boundary format given in PUML file.";
       hid_t boundaryAttribute = _eh(H5Aopen(dataFile, "boundary-format", H5P_DEFAULT));
@@ -142,8 +145,8 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
       }
     } else {
       logInfo(rank) << "Boundary format not given in PUML file; inferring from array shape.";
-      hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
-      hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
+      const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
+      const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
       auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
 
       _eh(H5Sclose(boundarySpace));
@@ -160,7 +163,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
     }
 
     _eh(H5Fclose(dataFile));
-    _eh(H5Pclose(plist_id));
+    _eh(H5Pclose(plistId));
   }
 
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
@@ -176,15 +179,16 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   seissol::Stopwatch watch;
   watch.start();
 
-  bool readPartitionFromFile = seissolInstance.simulator().checkPointingEnabled();
+  const bool readPartitionFromFile = seissolInstance.simulator().checkPointingEnabled();
 
   using namespace seissol::initializer::time_stepping;
-  LtsWeightsConfig config{boundaryFormat,
-                          seissolParams.model.materialFileName,
-                          static_cast<unsigned int>(seissolParams.timeStepping.lts.getRate()),
-                          seissolParams.timeStepping.vertexWeight.weightElement,
-                          seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-                          seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
+  const LtsWeightsConfig config{
+      boundaryFormat,
+      seissolParams.model.materialFileName,
+      static_cast<unsigned int>(seissolParams.timeStepping.lts.getRate()),
+      seissolParams.timeStepping.vertexWeight.weightElement,
+      seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
+      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
@@ -235,7 +239,7 @@ static void
 
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
-  std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+  const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
   seissolInstance.setMeshReader(new seissol::geometry::CubeGenerator(
       commRank, commSize, realMeshFileName.c_str(), cubeParameters));

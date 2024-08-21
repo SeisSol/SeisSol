@@ -36,14 +36,14 @@
  **/
 
 #include "FSRMReader.h"
+#include <Kernels/precision.hpp>
+#include <cstddef>
 #include <utils/logger.h>
 
 #include <cassert>
 #include <fstream>
 #include <stdexcept>
 #include <string>
-
-#include "Initializer/BasicTypedefs.hpp"
 
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...

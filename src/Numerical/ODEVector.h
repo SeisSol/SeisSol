@@ -18,7 +18,7 @@ class ODEVector {
 
   [[nodiscard]] std::pair<std::size_t, std::size_t> index(std::size_t idx) const;
 
-public:
+  public:
   ODEVector() = default;
   ODEVector(const ODEVector&) = default;
 
@@ -27,9 +27,7 @@ public:
    * @param storages a vector of pointers to arrays of real which are used as storage
    * @param sizes a vector is size_t that gives the size of the storages
    */
-  ODEVector(std::vector<real*> storages,
-            std::vector<std::size_t> sizes);
-
+  ODEVector(std::vector<real*> storages, std::vector<std::size_t> sizes);
 
   /**
    * Updates storages and sizes
@@ -108,4 +106,4 @@ public:
 
 } // namespace seissol::ode
 
-#endif //SEISSOL_ODEVECTOR_H
+#endif // SEISSOL_ODEVECTOR_H

@@ -884,13 +884,13 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
+  for (auto it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
     recorder.record(m_lts, *it);
   }
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (LTSTree::leaf_iterator it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
+  for (auto it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
     drRecorder.record(*m_dynRup, *it);
   }
 }
