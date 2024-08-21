@@ -91,8 +91,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.FunctionSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.GlobalConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantSuffix
@@ -225,8 +225,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.PublicMethodSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.StaticConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.StaticConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantSuffix
