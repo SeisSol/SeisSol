@@ -28,14 +28,20 @@ allowlist_file="
     src/Equations/poroelastic/Model/datastructures.hpp
     src/Equations/poroelastic/Model/integrationData.hpp
     src/Initializer/Boundary.h
-    src/Initializer/BasicTypedefs.hpp
     src/Initializer/DynamicRupture.h
+    src/Initializer/DeviceGraph.h
+    src/Initializer/GlobalData.h
+    src/Initializer/GlobalData.cpp
+    src/Initializer/InitialFieldProjection.h
+    src/Initializer/InitialFieldProjection.cpp
     src/Initializer/InputAux.hpp
     src/Initializer/LTS.h
     src/Initializer/MemoryAllocator.h
     src/Initializer/MemoryAllocator.cpp
     src/Initializer/ParameterDB.h
     src/Initializer/ParameterDB.cpp
+    src/Initializer/PointMapper.h
+    src/Initializer/PointMapper.cpp
     src/Initializer/preProcessorMacros.hpp
     src/Initializer/time_stepping/GlobalTimestep.hpp
     src/Initializer/time_stepping/GlobalTimestep.cpp
