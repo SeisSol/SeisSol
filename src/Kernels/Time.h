@@ -32,7 +32,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -71,14 +72,14 @@
 #ifndef TIME_H_
 #define TIME_H_
 
+#include "Initializer/typedefs.hpp"
+#include "Kernels/Interface.hpp"
+#include "Kernels/TimeBase.h"
+#include "Kernels/common.hpp"
+#include "generated_code/tensor.h"
 #include <Parallel/Runtime/Stream.hpp>
 #include <cassert>
 #include <limits>
-#include "Initializer/typedefs.hpp"
-#include "Kernels/common.hpp"
-#include "Kernels/Interface.hpp"
-#include "Kernels/TimeBase.h"
-#include "generated_code/tensor.h"
 #ifdef USE_STP
 #include "Numerical/BasisFunction.h"
 #include <memory>
@@ -88,56 +89,57 @@ namespace seissol::kernels {
 
 class Time : public TimeBase {
   public:
-    void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const CompoundGlobalData& global);
+  void setHostGlobalData(const GlobalData* global);
+  void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder(double timeStepWidth,
-                     LocalData& data,
-                     LocalTmp& tmp,
-                     real timeIntegrated[tensor::I::size()],
-                     real* timeDerivatives = nullptr,
-                     bool updateDisplacement = false);
+  void computeAder(double timeStepWidth,
+                   LocalData& data,
+                   LocalTmp& tmp,
+                   real timeIntegrated[tensor::I::size()],
+                   real* timeDerivatives = nullptr,
+                   bool updateDisplacement = false);
 
 #ifdef USE_STP
-    void executeSTP( double     timeStepWidth,
-                     LocalData& data,
-                     real       timeIntegrated[tensor::I::size()],
-                     real*      stp );
-    void evaluateAtTime(std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions, real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]);
-    void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
+  void executeSTP(double timeStepWidth,
+                  LocalData& data,
+                  real timeIntegrated[tensor::I::size()],
+                  real* stp);
+  void evaluateAtTime(
+      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
+      const real* timeDerivatives,
+      real timeEvaluated[tensor::Q::size()]);
+  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
 
 #endif
-    void computeBatchedAder(double timeStepWidth,
-                            LocalTmp& tmp,
-                            ConditionalPointersToRealsTable &dataTable,
-                            ConditionalMaterialTable &materialTable,
-                            bool updateDisplacement,
-                            seissol::parallel::runtime::StreamRuntime& runtime);
+  void computeBatchedAder(double timeStepWidth,
+                          LocalTmp& tmp,
+                          ConditionalPointersToRealsTable& dataTable,
+                          ConditionalMaterialTable& materialTable,
+                          bool updateDisplacement,
+                          seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void flopsAder( unsigned int &o_nonZeroFlops,
-                    unsigned int &o_hardwareFlops );
+  void flopsAder(unsigned int& o_nonZeroFlops, unsigned int& o_hardwareFlops);
 
-    unsigned bytesAder();
+  unsigned bytesAder();
 
-    void computeIntegral( double                                      expansionPoint,
-                          double                                      integrationStart,
-                          double                                      integrationEnd,
-                          real const*                                 timeDerivatives,
-                          real                                        timeIntegrated[tensor::I::size()] );
+  void computeIntegral(double expansionPoint,
+                       double integrationStart,
+                       double integrationEnd,
+                       const real* timeDerivatives,
+                       real timeIntegrated[tensor::I::size()]);
 
-    void computeBatchedIntegral(double expansionPoint,
-                                double integrationStart,
-                                double integrationEnd,
-                                const real** timeDerivatives,
-                                real ** timeIntegratedDofs,
-                                unsigned numElements,
-                                seissol::parallel::runtime::StreamRuntime& runtime);
+  void computeBatchedIntegral(double expansionPoint,
+                              double integrationStart,
+                              double integrationEnd,
+                              const real** timeDerivatives,
+                              real** timeIntegratedDofs,
+                              unsigned numElements,
+                              seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void computeTaylorExpansion( real         time,
-                                 real         expansionPoint,
-                                 real const*  timeDerivatives,
-                                 real         timeEvaluated[tensor::Q::size()] );
-
+  void computeTaylorExpansion(real time,
+                              real expansionPoint,
+                              const real* timeDerivatives,
+                              real timeEvaluated[tensor::Q::size()]);
 
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
@@ -154,4 +156,3 @@ class Time : public TimeBase {
 } // namespace seissol::kernels
 
 #endif
-

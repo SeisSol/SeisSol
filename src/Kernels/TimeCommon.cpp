@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -47,122 +49,122 @@
 #include <Kernels/precision.hpp>
 #include <Parallel/Runtime/Stream.hpp>
 #include <cassert>
-#include <tensor.h>
 #include <stdint.h>
+#include <tensor.h>
 
 namespace seissol::kernels {
 
 void TimeCommon::computeIntegrals(Time& time,
-                                                    unsigned short ltsSetup,
-                                                    const FaceType faceTypes[4],
-                                                    const double currentTime[5],
-                                                    double timeStepWidth,
-                                                    real * const timeDofs[4],
-                                                    real integrationBuffer[4][tensor::I::size()],
-                                                    real * timeIntegrated[4] )
-{
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double currentTime[5],
+                                  double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][tensor::I::size()],
+                                  real* timeIntegrated[4]) {
   /*
    * assert valid input.
    */
   // only lower 10 bits are used for lts encoding
-  assert (ltsSetup < 2048 );
+  assert(ltsSetup < 2048);
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
-  for( int dofeighbor = 0; dofeighbor < 4; dofeighbor++ ) {
-    assert( ((uintptr_t)timeDofs[dofeighbor])          % Alignment == 0 );
-    assert( ((uintptr_t)integrationBuffer[dofeighbor]) % Alignment == 0 );
+  for (int dofeighbor = 0; dofeighbor < 4; dofeighbor++) {
+    assert(((uintptr_t)timeDofs[dofeighbor]) % Alignment == 0);
+    assert(((uintptr_t)integrationBuffer[dofeighbor]) % Alignment == 0);
   }
 #endif
 
   /*
    * set/compute time integrated DOFs.
    */
-  for( int dofeighbor = 0; dofeighbor < 4; ++dofeighbor ) {
+  for (int dofeighbor = 0; dofeighbor < 4; ++dofeighbor) {
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofeighbor] != FaceType::outflow &&
-	faceTypes[dofeighbor] != FaceType::dynamicRupture) {
+        faceTypes[dofeighbor] != FaceType::dynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
-      if( (ltsSetup >> dofeighbor ) % 2 == 0 ) {
+      if ((ltsSetup >> dofeighbor) % 2 == 0) {
         timeIntegrated[dofeighbor] = timeDofs[dofeighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
-        time.computeIntegral( currentTime[    dofeighbor+1],
-                                currentTime[    0           ],
-                                currentTime[    0           ] + timeStepWidth,
-                                timeDofs[       dofeighbor],
-                                integrationBuffer[ dofeighbor] );
+        time.computeIntegral(currentTime[dofeighbor + 1],
+                             currentTime[0],
+                             currentTime[0] + timeStepWidth,
+                             timeDofs[dofeighbor],
+                             integrationBuffer[dofeighbor]);
 
-        timeIntegrated[dofeighbor] = integrationBuffer[ dofeighbor];
+        timeIntegrated[dofeighbor] = integrationBuffer[dofeighbor];
       }
     }
   }
 }
 
 void TimeCommon::computeIntegrals(Time& time,
-                                                    unsigned short ltsSetup,
-                                                    const FaceType faceTypes[4],
-                                                    const double timeStepStart,
-                                                    const double timeStepWidth,
-                                                    real * const timeDofs[4],
-                                                    real integrationBuffer[4][tensor::I::size()],
-                                                    real * timeIntegrated[4])
-{
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double timeStepStart,
+                                  const double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][tensor::I::size()],
+                                  real* timeIntegrated[4]) {
   double startTimes[5];
   startTimes[0] = timeStepStart;
   startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
 
   // adjust start times for GTS on derivatives
-  for( unsigned int face = 0; face < 4; face++ ) {
-    if( (ltsSetup >> (face + 4) ) % 2 ) {
-      startTimes[face+1] = timeStepStart;
+  for (unsigned int face = 0; face < 4; face++) {
+    if ((ltsSetup >> (face + 4)) % 2) {
+      startTimes[face + 1] = timeStepStart;
     }
   }
 
   // call the more general assembly
-  computeIntegrals( time,
-                    ltsSetup,
-                    faceTypes,
-                    startTimes,
-                    timeStepWidth,
-                    timeDofs,
-                    integrationBuffer,
-                    timeIntegrated );
+  computeIntegrals(time,
+                   ltsSetup,
+                   faceTypes,
+                   startTimes,
+                   timeStepWidth,
+                   timeDofs,
+                   integrationBuffer,
+                   timeIntegrated);
 }
 
 void TimeCommon::computeBatchedIntegrals(Time& time,
-                                                           const double timeStepStart,
-                                                           const double timeStepWidth,
-                                                           ConditionalPointersToRealsTable &table,
-                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+                                         const double timeStepStart,
+                                         const double timeStepWidth,
+                                         ConditionalPointersToRealsTable& table,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Compute time integrated dofs using neighbours derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
-  if(table.find(key) != table.end()) {
+  if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(timeStepStart,
-                                  timeStepStart,
-                                  timeStepStart + timeStepWidth,
-                                  const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-                                  runtime);
+    time.computeBatchedIntegral(
+        timeStepStart,
+        timeStepStart,
+        timeStepStart + timeStepWidth,
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        runtime);
   }
 
   // Compute time integrated dofs using neighbours derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
-  if(table.find(key) != table.end()) {
+  if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(0.0,
-                                  timeStepStart,
-                                  timeStepStart + timeStepWidth,
-                                  const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-                                  runtime);
+    time.computeBatchedIntegral(
+        0.0,
+        timeStepStart,
+        timeStepStart + timeStepWidth,
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        runtime);
   }
 #else
   assert(false && "no implementation provided");
