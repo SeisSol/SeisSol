@@ -99,6 +99,7 @@
 #include <Model/common_datastructures.hpp>
 #include <Model/datastructures.hpp>
 #include <Numerical/BasisFunction.h>
+#include <Parallel/Helper.hpp>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/typedefs.hpp>
@@ -325,7 +326,7 @@ auto makePointSourceCluster(ClusterMapping mapping,
     if (useUSM()) {
       return hostData;
     } else {
-      constexpr auto gpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
+      constexpr auto GpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
       auto predeviceClusterMapping = mapping;
       mapClusterToMesh(predeviceClusterMapping,
                        meshIds,
@@ -334,8 +335,8 @@ auto makePointSourceCluster(ClusterMapping mapping,
                        ltsLut,
                        seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
-          std::make_shared<ClusterMapping>(predeviceClusterMapping, gpuMemkind);
-      auto devicePointSources = std::make_shared<PointSources>(sources, gpuMemkind);
+          std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
+      auto devicePointSources = std::make_shared<PointSources>(sources, GpuMemkind);
       return {deviceClusterMapping, devicePointSources};
     }
   }();

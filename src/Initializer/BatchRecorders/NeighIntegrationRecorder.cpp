@@ -1,6 +1,18 @@
 #include "Kernels/Interface.hpp"
 #include "Recorders.h"
 #include "utils/logger.h"
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <tensor.h>
+#include <vector>
 #include <yateto.h>
 
 using namespace device;
@@ -44,22 +56,23 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
             if (dataHost.cellInformation().faceTypes[face] != FaceType::outflow &&
                 dataHost.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
 
-              bool isNeighbProvidesDerivatives =
+              const bool isNeighbProvidesDerivatives =
                   ((dataHost.cellInformation().ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
-                real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
+                real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                bool isGtsNeigbour = ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
+                const bool isGtsNeigbour =
+                    ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {
 
-                  idofsAddressRegistry[neighbourBuffer] = NextTempIDofsPtr;
-                  gtsIDofsPtrs.push_back(NextTempIDofsPtr);
+                  idofsAddressRegistry[neighbourBuffer] = nextTempIDofsPtr;
+                  gtsIDofsPtrs.push_back(nextTempIDofsPtr);
                   gtsDerivativesPtrs.push_back(neighbourBuffer);
 
                 } else {
-                  idofsAddressRegistry[neighbourBuffer] = NextTempIDofsPtr;
-                  ltsIDofsPtrs.push_back(NextTempIDofsPtr);
+                  idofsAddressRegistry[neighbourBuffer] = nextTempIDofsPtr;
+                  ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighbourBuffer);
                 }
                 integratedDofsAddressCounter += tensor::I::size();
@@ -73,14 +86,14 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     }
 
     if (!gtsIDofsPtrs.empty()) {
-      ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
+      const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
       checkKey(key);
       (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, gtsDerivativesPtrs);
       (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, gtsIDofsPtrs);
     }
 
     if (!ltsIDofsPtrs.empty()) {
-      ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
+      const ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
       checkKey(key);
       (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, ltsDerivativesPtrs);
       (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, ltsIDofsPtrs);
@@ -116,8 +129,9 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         real* neighbourBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighbourBufferPtr != nullptr) {
-          unsigned faceRelation = dataHost.cellInformation().faceRelations[face][1] +
-                                  3 * dataHost.cellInformation().faceRelations[face][0] + 12 * face;
+          const unsigned faceRelation = dataHost.cellInformation().faceRelations[face][1] +
+                                        3 * dataHost.cellInformation().faceRelations[face][0] +
+                                        12 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
@@ -134,7 +148,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         break;
       }
       case FaceType::dynamicRupture: {
-        unsigned faceRelation =
+        const unsigned faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
@@ -168,10 +182,10 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
       if (!regularPeriodicDofs[face][faceRelation].empty()) {
-        ConditionalKey key(*KernelNames::NeighborFlux,
-                           (FaceKinds::Regular || FaceKinds::Periodic),
-                           face,
-                           faceRelation);
+        const ConditionalKey key(*KernelNames::NeighborFlux,
+                                 (FaceKinds::Regular || FaceKinds::Periodic),
+                                 face,
+                                 faceRelation);
         checkKey(key);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
@@ -185,7 +199,7 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
     // dynamic rupture
     for (unsigned faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
       if (!drDofs[face][faceRelation].empty()) {
-        ConditionalKey key(
+        const ConditionalKey key(
             *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
         checkKey(key);
 

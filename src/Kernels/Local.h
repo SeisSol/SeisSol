@@ -56,7 +56,7 @@ class Local : public LocalBase {
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+    void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                          LocalData& data,
                          LocalTmp& tmp,
                          const CellMaterialData* materialData,
@@ -81,9 +81,9 @@ class Local : public LocalBase {
                                         double timeStepWidth,
                                         seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void flopsIntegral(FaceType const i_faceTypes[4],
-                       unsigned int &o_nonZeroFlops,
-                       unsigned int &o_hardwareFlops );
+    void flopsIntegral(FaceType const faceTypes[4],
+                       unsigned int &nonZeroFlops,
+                       unsigned int &hardwareFlops );
                         
     unsigned bytesIntegral();
 };

@@ -66,6 +66,37 @@
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
 
+#ifdef USE_NETCDF
+namespace {
+
+static void check_err(const int stat, const int line, const char* file) {
+  if (stat != NC_NOERR) {
+    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
+  }
+}
+
+template <typename T>
+static nc_type type2nc() {
+  if constexpr (std::is_signed_v<T>) {
+    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
+                  "type2nc supports 32 or 64 bit integral types only");
+    if constexpr (sizeof(T) == 4) {
+      return NC_INT;
+    } else {
+      return NC_INT64;
+    }
+  } else {
+    if constexpr (sizeof(T) == 4) {
+      return NC_UINT;
+    } else {
+      return NC_UINT64;
+    }
+  }
+}
+
+} // namespace
+#endif
+
 namespace seissol {
 
 void LoopStatistics::enableSampleOutput(bool enabled) { outputSamples = enabled; }
@@ -246,33 +277,6 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
                   << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
 }
-
-#ifdef USE_NETCDF
-static void check_err(const int stat, const int line, const char* file) {
-  if (stat != NC_NOERR) {
-    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
-  }
-}
-
-template <typename T>
-static nc_type type2nc() {
-  if constexpr (std::is_signed_v<T>) {
-    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
-                  "type2nc supports 32 or 64 bit integral types only");
-    if constexpr (sizeof(T) == 4) {
-      return NC_INT;
-    } else {
-      return NC_INT64;
-    }
-  } else {
-    if constexpr (sizeof(T) == 4) {
-      return NC_UINT;
-    } else {
-      return NC_UINT64;
-    }
-  }
-}
-#endif
 
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {

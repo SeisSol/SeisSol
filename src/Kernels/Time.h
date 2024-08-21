@@ -91,23 +91,23 @@ class Time : public TimeBase {
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder(double i_timeStepWidth,
+    void computeAder(double timeStepWidth,
                      LocalData& data,
                      LocalTmp& tmp,
-                     real o_timeIntegrated[tensor::I::size()],
-                     real* o_timeDerivatives = nullptr,
+                     real timeIntegrated[tensor::I::size()],
+                     real* timeDerivatives = nullptr,
                      bool updateDisplacement = false);
 
 #ifdef USE_STP
-    void executeSTP( double     i_timeStepWidth,
+    void executeSTP( double     timeStepWidth,
                      LocalData& data,
-                     real       o_timeIntegrated[tensor::I::size()],
+                     real       timeIntegrated[tensor::I::size()],
                      real*      stp );
     void evaluateAtTime(std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions, real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]);
     void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
 
 #endif
-    void computeBatchedAder(double i_timeStepWidth,
+    void computeBatchedAder(double timeStepWidth,
                             LocalTmp& tmp,
                             ConditionalPointersToRealsTable &dataTable,
                             ConditionalMaterialTable &materialTable,
@@ -119,17 +119,17 @@ class Time : public TimeBase {
 
     unsigned bytesAder();
 
-    void computeIntegral( double                                      i_expansionPoint,
-                          double                                      i_integrationStart,
-                          double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::I::size()] );
+    void computeIntegral( double                                      expansionPoint,
+                          double                                      integrationStart,
+                          double                                      integrationEnd,
+                          real const*                                 timeDerivatives,
+                          real                                        timeIntegrated[tensor::I::size()] );
 
-    void computeBatchedIntegral(double i_expansionPoint,
-                                double i_integrationStart,
-                                double i_integrationEnd,
-                                const real** i_timeDerivatives,
-                                real ** o_timeIntegratedDofs,
+    void computeBatchedIntegral(double expansionPoint,
+                                double integrationStart,
+                                double integrationEnd,
+                                const real** timeDerivatives,
+                                real ** timeIntegratedDofs,
                                 unsigned numElements,
                                 seissol::parallel::runtime::StreamRuntime& runtime);
 

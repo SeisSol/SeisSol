@@ -60,7 +60,7 @@
 #include <Physics/InitialField.h>
 #include <array>
 #include <cstddef>
-#include <equation-elastic-6-double/init.h>
+#include <init.h>
 #include <memory>
 #include <vector>
 

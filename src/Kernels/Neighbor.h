@@ -85,18 +85,18 @@ class Neighbor : public NeighborBase {
 
     void computeNeighborsIntegral(NeighborData& data,
                                   CellDRMapping const (&cellDrMapping)[4],
-                                  real* i_timeIntegrated[4],
+                                  real* timeIntegrated[4],
                                   real* faceNeighbors_prefetch[4]);
 
     void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table, seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void flopsNeighborsIntegral(const FaceType i_faceTypes[4],
-                                const int i_neighboringIndices[4][2],
+    void flopsNeighborsIntegral(const FaceType faceTypes[4],
+                                const int neighboringIndices[4][2],
                                 CellDRMapping const (&cellDrMapping)[4],
-                                unsigned int &o_nonZeroFlops,
-                                unsigned int &o_hardwareFlops,
-                                long long& o_drNonZeroFlops,
-                                long long& o_drHardwareFlops );
+                                unsigned int &nonZeroFlops,
+                                unsigned int &hardwareFlops,
+                                long long& drNonZeroFlops,
+                                long long& drHardwareFlops );
                                  
     unsigned bytesNeighborsIntegral();
 };

@@ -40,14 +40,20 @@
 
 #include "DynamicRupture.h"
 
+#include <Common/constants.hpp>
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/ConditionalTable.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <Parallel/Runtime/Stream.hpp>
 #include <cassert>
 #include <cstring>
+#include <tensor.h>
 #include <stdint.h>
 
-#include "generated_code/kernel.h"
-#include "Kernels/common.hpp"
 #include "Numerical/Quadrature.h"
-#include "Numerical/BasisFunction.h"
+#include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -123,10 +129,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
                                                                 DREnergyOutput*             drEnergyOutput,
                                                                 real const*                 timeDerivativePlus,
                                                                 real const*                 timeDerivativeMinus,
-                                                                real                        QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                                                real                        QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                                                real const*                 timeDerivativePlus_prefetch,
-                                                                real const*                 timeDerivativeMinus_prefetch ) {
+                                                                real                        qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                                                real                        qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                                                real const*                 timeDerivativePlusPrefetch,
+                                                                real const*                 timeDerivativeMinusPrefetch ) {
   // assert alignments
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
@@ -151,16 +157,16 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 #endif
 
-    real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
+    real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &qInterpolatedPlus[timeInterval+1][0] : timeDerivativePlusPrefetch;
+    real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &qInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinusPrefetch;
     
-    krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+    krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
     krnl.Q = degreesOfFreedomPlus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
     
-    krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+    krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
     krnl.Q = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
@@ -261,21 +267,21 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrCondition
 }
 
 void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation const&  faceInfo,
-                                                          long long&                o_nonZeroFlops,
-                                                          long long&                o_hardwareFlops )
+                                                          long long&                nonZeroFlops,
+                                                          long long&                hardwareFlops )
 {
-  m_timeKernel.flopsTaylorExpansion(o_nonZeroFlops, o_hardwareFlops);
+  m_timeKernel.flopsTaylorExpansion(nonZeroFlops, hardwareFlops);
  
   // 2x evaluateTaylorExpansion
-  o_nonZeroFlops *= 2;
-  o_hardwareFlops *= 2;
+  nonZeroFlops *= 2;
+  hardwareFlops *= 2;
   
-  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.plusSide, 0);
-  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.plusSide, 0);
+  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.plusSide, 0);
+  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.plusSide, 0);
   
-  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
-  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
 
-  o_nonZeroFlops *= ConvergenceOrder;
-  o_hardwareFlops *= ConvergenceOrder;
+  nonZeroFlops *= ConvergenceOrder;
+  hardwareFlops *= ConvergenceOrder;
 }

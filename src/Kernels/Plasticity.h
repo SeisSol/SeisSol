@@ -42,11 +42,11 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
-#include "Model/plasticity.hpp"
-#include "Initializer/typedefs.hpp"
-#include "generated_code/tensor.h"
-#include "Parallel/Runtime/Stream.hpp"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/typedefs.hpp"
+#include "Model/plasticity.hpp"
+#include "Parallel/Runtime/Stream.hpp"
+#include "generated_code/tensor.h"
 #include <limits>
 
 namespace seissol::kernels {
@@ -57,7 +57,7 @@ public:
    */
   static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
                                      double                      timeStepWidth,
-                                     double                      T_v,
+                                     double                      tV,
                                      GlobalData const*           global,
                                      seissol::model::PlasticityData const*       plasticityData,
                                      real                        degreesOfFreedom[tensor::Q::size()],
@@ -65,19 +65,19 @@ public:
 
   static unsigned computePlasticityBatched(double relaxTime,
                                            double timeStepWidth,
-                                           double T_v,
+                                           double tV,
                                            GlobalData const *global,
                                            initializer::recording::ConditionalPointersToRealsTable &table,
                                            seissol::model::PlasticityData *plasticity,
                                            seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
-                                long long&  o_hardwareFlopsCheck,
-                                long long&  o_nonZeroFlopsYield,
-                                long long&  o_hardwareFlopsYield );
+  static void flopsPlasticity(  long long&  nonZeroFlopsCheck,
+                                long long&  hardwareFlopsCheck,
+                                long long&  nonZeroFlopsYield,
+                                long long&  hardwareFlopsYield );
 };
 
-}
+} // namespace seissol::kernels
 
 #endif
 

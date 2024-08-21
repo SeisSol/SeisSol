@@ -45,7 +45,7 @@
 #include <Kernels/precision.hpp>
 #include <cassert>
 #include <cstddef>
-#include <equation-elastic-6-double/tensor.h>
+#include <tensor.h>
 #include <yateto.h>
 
 #ifdef _OPENMP

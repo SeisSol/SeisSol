@@ -42,9 +42,9 @@
 #define KERNELS_DYNAMICRUPTURE_H_
 
 #include "Initializer/typedefs.hpp"
-#include "generated_code/tensor.h"
-#include "generated_code/kernel.h"
 #include "Kernels/Time.h"
+#include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 #ifdef USE_STP
 #include <array>
 #include <memory>
@@ -56,8 +56,8 @@
 namespace seissol {
   namespace kernels {
     class DynamicRupture;
-  }
-}
+  } // namespace kernels
+} // namespace seissol
 
 class seissol::kernels::DynamicRupture {
   private:
@@ -76,7 +76,7 @@ class seissol::kernels::DynamicRupture {
     std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, ConvergenceOrder> timeBasisFunctions;
 #endif
 
-  DynamicRupture() {}
+  DynamicRupture() = default;
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     void setHostGlobalData(GlobalData const* global);
@@ -90,16 +90,16 @@ class seissol::kernels::DynamicRupture {
                                 DREnergyOutput*             drEnergyOutput,
                                 real const*                 timeDerivativePlus,
                                 real const*                 timeDerivativeMinus,
-                                real                        QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                real                        QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-                                real const*                 timeDerivativePlus_prefetch,
-                                real const*                 timeDerivativeMinus_prefetch);
+                                real                        qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                real                        qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                real const*                 timeDerivativePlusPrefetch,
+                                real const*                 timeDerivativeMinusPrefetch);
 
   void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime);
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
-                            long long&                o_nonZeroFlops,
-                            long long&                o_hardwareFlops );
+                            long long&                nonZeroFlops,
+                            long long&                hardwareFlops );
 };
 
 #endif

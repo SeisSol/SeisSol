@@ -52,6 +52,7 @@
 #include <Kernels/common.hpp>
 #include <Kernels/precision.hpp>
 #include <Numerical/Transformation.h>
+#include <Parallel/Helper.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -60,6 +61,7 @@
 #include <omp.h>
 #include <string>
 #include <tensor.h>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>

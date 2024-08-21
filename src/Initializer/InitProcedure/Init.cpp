@@ -2,6 +2,8 @@
 
 #include <Initializer/tree/Layer.hpp>
 #include <Monitoring/Stopwatch.h>
+#include <ostream>
+#include <sstream>
 #include <utils/logger.h>
 
 #include "InitIO.hpp"
@@ -37,8 +39,8 @@ static void reportDeviceMemoryStatus() {
 
     logError() << stream.str();
   } else {
-    double fraction = device.api->getCurrentlyOccupiedMem() /
-                      static_cast<double>(device.api->getMaxAvailableMem());
+    const double fraction = device.api->getCurrentlyOccupiedMem() /
+                            static_cast<double>(device.api->getMaxAvailableMem());
     const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
     logInfo(rank) << "occupied memory on devices (%):"
                   << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min

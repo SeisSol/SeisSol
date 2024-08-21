@@ -70,9 +70,9 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
     return;
 
   {
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    const size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
+    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    const size_t requiredNumBytes = Dim0 * Dim1 * sizeof(real);
 
     resampleMatrix = static_cast<real*>(sycl::malloc_device(requiredNumBytes, queue));
     queue.memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes);

@@ -110,10 +110,10 @@ class FastVelocityWeakeningLaw
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::NumPaddedPoints);
-    static_assert(dim0 >= dim1);
+    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 >= Dim1);
 
     sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -131,8 +131,8 @@ class FastVelocityWeakeningLaw
         item.barrier(sycl::access::fence_space::local_space);
 
         real resampledDeltaStateVar{0.0};
-        for (size_t i{0}; i < dim1; ++i) {
-          resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
+        for (size_t i{0}; i < Dim1; ++i) {
+          resampledDeltaStateVar += resampleMatrix[pointIndex + i * Dim0] * deltaStateVar[i];
         }
 
         devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;

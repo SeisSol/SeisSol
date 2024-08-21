@@ -13,6 +13,7 @@
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
 #include "Numerical/Transformation.h"
+#include <Initializer/tree/Layer.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>

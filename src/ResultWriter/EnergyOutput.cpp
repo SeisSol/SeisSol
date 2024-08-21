@@ -36,6 +36,11 @@
 #include <utils/logger.h>
 #include <vector>
 
+#ifdef ACL_DEVICE
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#endif
+
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy() { return energies[0]; }
@@ -250,7 +255,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
-    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     auto& table = it->getConditionalTable<inner_keys::Dr>();
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];

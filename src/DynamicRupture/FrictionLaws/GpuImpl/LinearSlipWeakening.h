@@ -154,7 +154,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
   void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
 
   protected:
-  static constexpr real u0 = 10e-14;
+  static constexpr real U0 = 10e-14;
   real (*dC)[misc::NumPaddedPoints];
   real (*muS)[misc::NumPaddedPoints];
   real (*muD)[misc::NumPaddedPoints];
@@ -293,14 +293,14 @@ class NoSpecialization {
 
     // perform matrix vector multiplication
 
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::NumPaddedPoints);
-    static_assert(dim0 >= dim1);
+    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 >= Dim1);
 
     real result{0.0};
-    for (size_t i{0}; i < dim1; ++i) {
-      result += resampleMatrix[pointIndex + i * dim0] * slipRateMagnitude[i];
+    for (size_t i{0}; i < Dim1; ++i) {
+      result += resampleMatrix[pointIndex + i * Dim0] * slipRateMagnitude[i];
     }
     return result;
   };
