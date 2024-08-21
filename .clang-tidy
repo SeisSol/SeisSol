@@ -68,7 +68,7 @@ CheckOptions:
 #  - key:             readability-identifier-naming.ConstexprMethodSuffix
 #    value:           CamelCase
   - key:             readability-identifier-naming.ConstexprVariableCase
-    value:           camelBack
+    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariablePrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariableSuffix
@@ -155,10 +155,12 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.MemberCase
     value:           camelBack
-  - key:             readability-identifier-naming.MemberPrefix
-    value:           ""
+  - key:             readability-identifier-naming.MemberIgnoredRegexp
+    value:           "^m_|_$" # TODO: temporary! Remove after more refactoring.
+#  - key:             readability-identifier-naming.MemberPrefix
+#    value:           ""
 #  - key:             readability-identifier-naming.MemberSuffix
-#    value:           CamelCase
+#    value:           ""
 #  - key:             readability-identifier-naming.MethodCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.MethodPrefix
@@ -300,4 +302,4 @@ CheckOptions:
 
     # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*'
