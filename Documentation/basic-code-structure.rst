@@ -15,7 +15,7 @@ Kernels       Common kernel code.
 Model         Common model code.
 Modules       Modules system implementation which allows adding code at pre-defined hooks.
 Monitoring    Contains code for HPC statistics collected during a run.
-Numerical_aux Helper code for numerics, e.g. quadrature rules.
+Numerical     Helper code for numerics, e.g. quadrature rules.
 Parallel      MPI communicator related code.
 Physics       Contains friction laws.
 Reader        Code for reading parameter files.

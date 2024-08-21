@@ -55,8 +55,8 @@
 #include <cmath>
 
 #include "DynamicRupture/Misc.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "SeisSol.h"
 #include "easi/ResultAdapter.h"

@@ -43,9 +43,9 @@
 #include "Initializer/tree/LTSSync.hpp"
 
 #include "Initializer/MemoryManager.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 

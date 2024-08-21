@@ -3,8 +3,8 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
-#include "Numerical_aux/RegularizedYoffe.h"
+#include "Numerical/GaussianNucleationFunction.h"
+#include "Numerical/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law {
 class YoffeSTF {

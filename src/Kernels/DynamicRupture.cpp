@@ -46,8 +46,8 @@
 
 #include "generated_code/kernel.h"
 #include "Kernels/common.hpp"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/BasisFunction.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif

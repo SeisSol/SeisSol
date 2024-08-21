@@ -7,9 +7,9 @@
 #include <iostream>
 
 #include "Physics/InitialField.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
+#include "Numerical/BasisFunction.h"
 #include "Parallel/MPI.h"
 #include "Initializer/tree/Lut.hpp"
 

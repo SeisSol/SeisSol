@@ -8,7 +8,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
+#include "Numerical/GaussianNucleationFunction.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.

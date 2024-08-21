@@ -8,7 +8,7 @@ allowlist_dir="
     src/Initializer/tree
     src/Modules
     src/Monitoring
-    src/Numerical_aux
+    src/Numerical
     src/Parallel
     src/Physics
     src/Reader

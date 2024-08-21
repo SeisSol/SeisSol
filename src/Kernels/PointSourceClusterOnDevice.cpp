@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <utility>
 
-#include "Numerical_aux/SyclFunctions.h"
+#include "Numerical/SyclFunctions.h"
 
 namespace seissol::kernels {
 

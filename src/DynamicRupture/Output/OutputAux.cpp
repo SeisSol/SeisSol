@@ -5,8 +5,8 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 #include <cstddef>
 #include <init.h>

@@ -47,8 +47,8 @@
 #include "Initializer/typedefs.hpp"
 #include "generated_code/init.h"
 #include "Geometry/MeshTools.h"
-#include "Numerical_aux/Transformation.h"
-#include "Numerical_aux/Eigenvalues.h"
+#include "Numerical/Transformation.h"
+#include "Numerical/Eigenvalues.h"
 
 #include "Model/common_datastructures.hpp"
 

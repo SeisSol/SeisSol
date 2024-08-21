@@ -8,7 +8,7 @@
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>

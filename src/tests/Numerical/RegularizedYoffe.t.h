@@ -1,4 +1,4 @@
-#include "Numerical_aux/RegularizedYoffe.h"
+#include "Numerical/RegularizedYoffe.h"
 #include "doctest.h"
 #include <cassert>
 

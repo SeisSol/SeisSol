@@ -5,7 +5,7 @@
 #include "Equations/Setup.h"
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
-#include "Numerical_aux/Eigenvalues.h"
+#include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
 #include <utility>
 #include <utils/logger.h>

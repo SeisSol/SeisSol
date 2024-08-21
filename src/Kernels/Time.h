@@ -80,7 +80,7 @@
 #include "Kernels/TimeBase.h"
 #include "generated_code/tensor.h"
 #ifdef USE_STP
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include <memory>
 #endif
 

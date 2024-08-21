@@ -77,7 +77,7 @@
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Manager.h"
 #include "NRFReader.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "PointSource.h"
 #include "generated_code/init.h"

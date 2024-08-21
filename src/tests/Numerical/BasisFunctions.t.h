@@ -1,5 +1,5 @@
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include "doctest.h"
 #include "generated_code/init.h"
 

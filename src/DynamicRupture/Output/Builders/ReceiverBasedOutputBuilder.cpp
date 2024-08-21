@@ -12,7 +12,7 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Kernels/precision.hpp"
 #include "Model/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include <algorithm>
 #include <array>
 #include <cassert>

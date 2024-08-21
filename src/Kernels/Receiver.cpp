@@ -40,7 +40,7 @@
 
 #include "Receiver.h"
 #include "Monitoring/FlopCounter.hpp"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include "Parallel/DataCollector.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"

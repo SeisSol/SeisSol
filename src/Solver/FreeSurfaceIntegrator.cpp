@@ -43,9 +43,9 @@
 #include "Initializer/MemoryManager.h"
 #include "Kernels/common.hpp"
 #include "Kernels/denseMatrixOps.hpp"
-#include "Numerical_aux/Functions.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Functions.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "generated_code/kernel.h"
 #include <utils/logger.h>

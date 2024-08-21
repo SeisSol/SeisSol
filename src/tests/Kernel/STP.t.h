@@ -8,7 +8,7 @@
 
 #include "Model/PoroelasticSetup.h"
 #include "Model/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 

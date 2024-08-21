@@ -1,4 +1,4 @@
-#include "Numerical_aux/GaussianNucleationFunction.h"
+#include "Numerical/GaussianNucleationFunction.h"
 #include "doctest.h"
 #include <cassert>
 

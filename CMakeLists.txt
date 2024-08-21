@@ -628,7 +628,7 @@ if (TESTING)
   set(seissol_test_sources
           src/tests/Model/TestModel.cpp
           src/tests/Initializer/TestInitializer.cpp
-          src/tests/Numerical_aux/TestNumerical_aux.cpp
+          src/tests/Numerical/TestNumerical.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp

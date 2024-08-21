@@ -6,7 +6,7 @@
 #define KERNELS_POINTSOURCECLUSTER_H_
 
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/Functions.h"
+#include "Numerical/Functions.h"
 #include "Parallel/Runtime/Stream.hpp"
 #include "SourceTerm/typedefs.hpp"
 

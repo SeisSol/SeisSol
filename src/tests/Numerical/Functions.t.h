@@ -1,4 +1,4 @@
-#include "Numerical_aux/Functions.h"
+#include "Numerical/Functions.h"
 #include "doctest.h"
 
 namespace seissol::unit_test {

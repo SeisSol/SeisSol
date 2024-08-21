@@ -46,7 +46,7 @@
 #include <vector>
 
 #include "utils/logger.h"
-#include "Numerical_aux/Functions.h"
+#include "Numerical/Functions.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

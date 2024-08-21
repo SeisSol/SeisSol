@@ -8,8 +8,8 @@
 
 #include "Model/common.hpp"
 #include "Kernels/common.hpp"
-#include "Numerical_aux/Transformation.h"
-#include "Numerical_aux/Eigenvalues.h"
+#include "Numerical/Transformation.h"
+#include "Numerical/Eigenvalues.h"
 #include "generated_code/init.h"
 
 namespace seissol {

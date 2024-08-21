@@ -8,7 +8,7 @@
 #include "InitSideConditions.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Monitoring/Unit.hpp"
-#include "Numerical_aux/Statistics.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"

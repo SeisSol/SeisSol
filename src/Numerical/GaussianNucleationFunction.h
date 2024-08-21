@@ -1,7 +1,7 @@
 #ifndef SEISSOL_GAUSSIANNUCELATIONFUNCTION_H
 #define SEISSOL_GAUSSIANNUCELATIONFUNCTION_H
 
-#include "Numerical_aux/Functions.h"
+#include "Numerical/Functions.h"
 
 namespace seissol::gaussianNucleationFunction {
 /**

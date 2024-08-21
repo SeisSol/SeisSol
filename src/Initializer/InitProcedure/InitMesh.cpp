@@ -21,7 +21,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/instrumentation.hpp"
-#include "Numerical_aux/Statistics.h"
+#include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/time_stepping/MiniSeisSol.h"

@@ -3,7 +3,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
-#include "Numerical_aux/Quadrature.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <array>

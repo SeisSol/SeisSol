@@ -3,7 +3,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Numerical_aux/SyclFunctions.h"
+#include "Numerical/SyclFunctions.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {

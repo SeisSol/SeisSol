@@ -5,8 +5,8 @@
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include "tests/Geometry/MockReader.h"
 #include <Eigen/Dense>
 #include <iostream>

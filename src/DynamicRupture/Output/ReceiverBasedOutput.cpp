@@ -12,7 +12,7 @@
 #include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/Lut.hpp"
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <algorithm>

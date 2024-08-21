@@ -1,4 +1,4 @@
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 
 namespace seissol::unit_test {

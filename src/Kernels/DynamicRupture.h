@@ -48,7 +48,7 @@
 #ifdef USE_STP
 #include <array>
 #include <memory>
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #endif
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((ConvergenceOrder+1)*(ConvergenceOrder+1))

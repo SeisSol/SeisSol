@@ -52,7 +52,7 @@
 #endif // USE_NETCDF
 
 #include "Monitoring/Stopwatch.h"
-#include "Numerical_aux/Statistics.h"
+#include "Numerical/Statistics.h"
 #include <utils/env.h>
 
 namespace seissol {
