@@ -15,7 +15,7 @@
 SeisSol is a scientific software for the numerical simulation of seismic wave phenomena and earthquake dynamics. It is based on the discontinuous Galerkin method combined with ADER time discretization. Visit our [official website](http://www.seissol.org/) and also read our [documentation](https://seissol.readthedocs.io) in order to learn more about SeisSol. Our [discussion forum](https://github.com/SeisSol/SeisSol/discussions) can help you to communicate with SeisSol developers or other users, share your ideas, ask questions, etc.
 
 ### Note
-SeisSol is still under heavy development and comes without any guaranteed funcitonality. At the moment we can only provide very limited support for general users.
+SeisSol is still under heavy development and comes without any guaranteed functionality. At the moment we can only provide very limited support for general users.
 
 # Collaboration
 If you are interested in a close collaboration, please, contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel).
