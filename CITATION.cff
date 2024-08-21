@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # This CITATION.cff file was generated with cffinit.
 # Visit https://bit.ly/cffinit to generate yours today!
 
@@ -17,11 +21,14 @@ authors:
    family-names: Ulrich
  - given-names: Sebastian 
    family-names: Wolf
+ - given-names: David 
+   family-names: Schneller
+   orcid: 'https://orcid.org/0000-0002-2145-6133'
+ - given-names: Vikas
+   family-names: Kurapati
+   orcid: 'https://orcid.org/0009-0001-7682-508X'
  - given-names: Adrian 
    family-names: Knoll
- - given-names: Schneller 
-   family-names: David
-   orcid: 'https://orcid.org/0000-0002-2145-6133'
  - given-names: Duo 
    family-names: Li
  - given-names: Ravil 

@@ -46,7 +46,7 @@ format() {
         FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
 
-    python3 ${SEISSOL_SOURCE_DIR}/.ci/run-clang-tidy.py -use-color -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
+    run-clang-tidy -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
 }
 
 format $@
