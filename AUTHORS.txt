@@ -24,7 +24,6 @@ The SeisSol group appreciates the work of following contributors and former core
  * Jordan, Kirk - IBM Research
  * Kaeser, Martin - MunichRE
  * Krenz, Lukas - TUM
- * Kurapati, Vikas - TUM
  * Li, Yang - TUM
  * Madden, Elizabeth - LMU
  * Mai, Martin - KAUST
@@ -36,7 +35,6 @@ The SeisSol group appreciates the work of following contributors and former core
  * Rannabauer, Leonhard - TUM
  * Rettenberger, Sebastian - TUM
  * Sachdeva, Vipin - IBM Research
- * Schneller, David - TUM
  * Simon, Marek
  * Uphoff, Carsten - TUM, LMU, Intel
  * Wenk, Stefan
