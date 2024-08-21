@@ -47,7 +47,9 @@
 #include <cassert>
 #include <fstream>
 
+// NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
+// NOLINTNEXTLINE
 long long pspamm_num_total_flops = 0;
 
 #include "Parallel/MPI.h"
