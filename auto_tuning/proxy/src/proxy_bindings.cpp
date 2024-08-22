@@ -8,7 +8,7 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
   py::enum_<Kernel>(module, "Kernel")
       .value("all", Kernel::All)
       .value("local", Kernel::Local)
-      .value("neigh", Kernel::Neigh)
+      .value("neigh", Kernel::Neighbor)
       .value("ader", Kernel::Ader)
       .value("localwoader", Kernel::LocalWOAder)
       .value("neigh_dr", Kernel::NeighborDR)
