@@ -105,7 +105,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
   
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation().faceTypes[face] != FaceType::dynamicRupture ) {
+    if( data.cellInformation().faceTypes[face] != FaceType::DynamicRupture ) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
@@ -131,7 +131,7 @@ void Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    if (i_faceTypes[face] != FaceType::dynamicRupture) {
+    if (i_faceTypes[face] != FaceType::DynamicRupture) {
       o_nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }

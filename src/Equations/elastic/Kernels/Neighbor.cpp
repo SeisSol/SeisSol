@@ -131,9 +131,9 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 
   for (unsigned int l_face = 0; l_face < 4; l_face++) {
     switch (data.cellInformation().faceTypes[l_face]) {
-    case FaceType::regular:
+    case FaceType::Regular:
       // Fallthrough intended
-    case FaceType::periodic:
+    case FaceType::Periodic:
       {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
@@ -150,7 +150,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 		     l_face);
       break;
       }
-    case FaceType::dynamicRupture:
+    case FaceType::DynamicRupture:
       {
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % Alignment == 0);
@@ -266,15 +266,15 @@ void Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
   for (unsigned int face = 0; face < 4; face++) {
     // compute the neighboring elements flux matrix id.
     switch (i_faceTypes[face]) {
-    case FaceType::regular:
+    case FaceType::Regular:
       // Fallthrough intended
-    case FaceType::periodic:
+    case FaceType::Periodic:
       // regular neighbor
       assert(i_neighboringIndices[face][0] < 4 && i_neighboringIndices[face][1] < 3);
       o_nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(i_neighboringIndices[face][1], i_neighboringIndices[face][0], face);
       o_hardwareFlops += kernel::neighboringFlux::hardwareFlops(i_neighboringIndices[face][1], i_neighboringIndices[face][0], face);
       break;
-    case FaceType::dynamicRupture:
+    case FaceType::DynamicRupture:
       o_drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       o_drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;

@@ -274,9 +274,9 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
     return LocationFlag::Acoustic;
   } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Elastic;
-  } else if (faceType == FaceType::freeSurface) {
+  } else if (faceType == FaceType::FreeSurface) {
     return LocationFlag::FreeSurface;
-  } else if (faceType == FaceType::freeSurfaceGravity) {
+  } else if (faceType == FaceType::FreeSurfaceGravity) {
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
@@ -312,8 +312,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
-          || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity
           || initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
             ++numberOfFreeSurfaces;
           }

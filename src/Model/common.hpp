@@ -235,7 +235,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
                                                            T&        QgodNeighbor,
                                                            Tmatrix&  R)
 {
-  if (materialtype == MaterialType::poroelastic) {
+  if (materialtype == MaterialType::Poroelastic) {
     logError() << "Poroelastic Free Surface has a template spezialization for the FreeSurfaceGodunovState. You should never end up here";
   }
 
@@ -249,7 +249,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
 
   QgodLocal.setZero();
   switch(materialtype) {
-    case MaterialType::acoustic: {
+    case MaterialType::Acoustic: {
       // Acoustic material only has one traction (=pressure) and one velocity comp.
       // relevant to the Riemann problem
       QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S

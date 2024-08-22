@@ -50,7 +50,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
         sources_->sample[0].data(), sources_->sample[1].data(), sources_->sample[2].data()};
 
     sycl::range rng{mapping.size()};
-    if (sources_->mode == sourceterm::PointSources::NRF) {
+    if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
       queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::item<1> id) {
           const unsigned startSource = mappingPtr[id[0]].pointSourcesOffset;

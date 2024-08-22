@@ -53,7 +53,7 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t NumberOfQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
-  static constexpr MaterialType Type = MaterialType::elastic;
+  static constexpr MaterialType Type = MaterialType::Elastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "elastic";
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {

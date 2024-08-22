@@ -54,7 +54,7 @@ struct AnisotropicMaterial : Material {
   static constexpr std::size_t NumberOfQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
-  static constexpr MaterialType Type = MaterialType::anisotropic;
+  static constexpr MaterialType Type = MaterialType::Anisotropic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {
@@ -279,7 +279,7 @@ struct AnisotropicMaterial : Material {
     return std::sqrt(muBar / rho);
   }
 
-  MaterialType getMaterialType() const override { return MaterialType::anisotropic; }
+  MaterialType getMaterialType() const override { return MaterialType::Anisotropic; }
 };
 } // namespace seissol::model
 

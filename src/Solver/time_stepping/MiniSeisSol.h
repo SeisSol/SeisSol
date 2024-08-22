@@ -60,7 +60,7 @@ namespace seissol {
 
   void fakeData(initializer::LTS& lts,
                 initializer::Layer& layer,
-                FaceType faceTp = FaceType::regular);
+                FaceType faceTp = FaceType::Regular);
   
   double miniSeisSol(initializer::MemoryManager& memoryManager,
                      bool usePlasticity,

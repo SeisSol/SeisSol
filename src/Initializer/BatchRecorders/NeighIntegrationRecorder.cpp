@@ -53,8 +53,8 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighbourBuffer != nullptr) {
-            if (dataHost.cellInformation().faceTypes[face] != FaceType::outflow &&
-                dataHost.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
+            if (dataHost.cellInformation().faceTypes[face] != FaceType::Outflow &&
+                dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
 
               const bool isNeighbProvidesDerivatives =
                   ((dataHost.cellInformation().ltsSetup >> face) % 2) == 1;
@@ -121,9 +121,9 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
 
     for (unsigned int face = 0; face < 4; face++) {
       switch (dataHost.cellInformation().faceTypes[face]) {
-      case FaceType::regular:
+      case FaceType::Regular:
         [[fallthrough]];
-      case FaceType::periodic: {
+      case FaceType::Periodic: {
         // compute face type relation
 
         real* neighbourBufferPtr = faceNeighborsDevice[cell][face];
@@ -144,10 +144,10 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         }
         break;
       }
-      case FaceType::freeSurface: {
+      case FaceType::FreeSurface: {
         break;
       }
-      case FaceType::dynamicRupture: {
+      case FaceType::DynamicRupture: {
         const unsigned faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
@@ -158,13 +158,13 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
 
         break;
       }
-      case FaceType::outflow:
+      case FaceType::Outflow:
         [[fallthrough]];
-      case FaceType::analytical:
+      case FaceType::Analytical:
         [[fallthrough]];
-      case FaceType::freeSurfaceGravity:
+      case FaceType::FreeSurfaceGravity:
         [[fallthrough]];
-      case FaceType::dirichlet: {
+      case FaceType::Dirichlet: {
         // Do not need to compute anything in the neighboring macro-kernel
         // for outflow, analytical, freeSurfaceGravity and dirichlet
         // boundary conditions

@@ -482,7 +482,7 @@ void EnergyOutput::computeVolumeEnergies() {
     auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
     // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
-      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
+      if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity)
         continue;
 
       // Displacements are stored in face-aligned coordinate system.

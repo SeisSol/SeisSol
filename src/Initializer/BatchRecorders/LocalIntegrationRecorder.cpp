@@ -138,7 +138,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
-      if (dataHost.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
+      if (dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.dofs()));
         aplusTPtrs.push_back(static_cast<real*>(data.localIntegration().nApNm1[face]));
@@ -168,7 +168,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
     for (unsigned face = 0; face < 4; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
       auto notFreeSurfaceGravity =
-          dataHost.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity;
+          dataHost.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I::view::create(idofsAddressRegistry[cell]);
@@ -219,7 +219,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation().faceTypes[face] == FaceType::freeSurfaceGravity) {
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
           assert(data.faceDisplacements()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
@@ -284,7 +284,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation().faceTypes[face] == FaceType::dirichlet) {
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::Dirichlet) {
 
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
@@ -333,7 +333,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
       auto data = currentLoader->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.cellInformation().faceTypes[face] == FaceType::analytical) {
+        if (dataHost.cellInformation().faceTypes[face] == FaceType::Analytical) {
           cellIndices[face].push_back(cell);
           dofsPtrs[face].push_back(data.dofs());
           aminustPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);

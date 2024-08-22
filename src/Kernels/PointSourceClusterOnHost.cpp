@@ -31,7 +31,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
     for (unsigned m = 0; m < mapping.size(); ++m) {
       const unsigned startSource = mapping[m].pointSourcesOffset;
       const unsigned endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
-      if (sources_->mode == sourceterm::PointSources::NRF) {
+      if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
         for (unsigned source = startSource; source < endSource; ++source) {
           addTimeIntegratedPointSourceNRF(source, from, to, *mapping[m].dofs);
         }

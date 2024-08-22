@@ -27,6 +27,7 @@ allowlist_file="
     src/Equations/anisotropic/Model/integrationData.hpp
     src/Equations/poroelastic/Model/datastructures.hpp
     src/Equations/poroelastic/Model/integrationData.hpp
+    src/Initializer/BasicTypedefs.hpp
     src/Initializer/Boundary.h
     src/Initializer/DynamicRupture.h
     src/Initializer/DeviceGraph.h

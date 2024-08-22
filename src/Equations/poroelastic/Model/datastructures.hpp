@@ -10,7 +10,7 @@ struct PoroElasticMaterial : ElasticMaterial {
   static constexpr std::size_t NumberOfQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
-  static constexpr MaterialType Type = MaterialType::poroelastic;
+  static constexpr MaterialType Type = MaterialType::Poroelastic;
   static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {

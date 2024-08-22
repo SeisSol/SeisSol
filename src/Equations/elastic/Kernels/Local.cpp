@@ -167,7 +167,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::dynamicRupture) {
+    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
@@ -182,7 +182,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
     // Include some boundary conditions here.
     switch (data.cellInformation().faceTypes[face]) {
-    case FaceType::freeSurfaceGravity:
+    case FaceType::FreeSurfaceGravity:
       {
         assert(cellBoundaryMapping != nullptr);
         assert(materialData != nullptr);
@@ -214,7 +214,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       nodalLfKrnl.execute(face);
       break;
       }
-    case FaceType::dirichlet:
+    case FaceType::Dirichlet:
       {
       assert(cellBoundaryMapping != nullptr);
       auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
@@ -247,7 +247,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       nodalLfKrnl.execute(face);
       break;
       }
-      case FaceType::analytical:
+      case FaceType::Analytical:
       {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
@@ -440,7 +440,7 @@ void Local::flopsIntegral(FaceType const i_faceTypes[4],
   for( unsigned int face = 0; face < 4; ++face ) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    if (i_faceTypes[face] != FaceType::dynamicRupture) {
+    if (i_faceTypes[face] != FaceType::DynamicRupture) {
       o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
     }
@@ -450,19 +450,19 @@ void Local::flopsIntegral(FaceType const i_faceTypes[4],
     // boundary condition implementation.
     // The (probably incorrect) assumption is that they are negligible.
     switch (i_faceTypes[face]) {
-    case FaceType::freeSurfaceGravity:
+    case FaceType::FreeSurfaceGravity:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
-    case FaceType::dirichlet:
+    case FaceType::Dirichlet:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
-    case FaceType::analytical:
+    case FaceType::Analytical:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +

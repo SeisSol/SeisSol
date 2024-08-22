@@ -58,7 +58,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberOfQuantities =
       NumberOfElasticQuantities + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechanisms = MechanismsP;
-  static constexpr MaterialType Type = MaterialType::viscoelastic;
+  static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {

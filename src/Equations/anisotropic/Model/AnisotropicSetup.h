@@ -261,8 +261,8 @@ namespace seissol {
         Matrix99 R = Matrix99::Zero();
         getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
-        if(faceType == FaceType::freeSurface) {
-          getTransposedFreeSurfaceGodunovState(MaterialType::anisotropic, QgodLocal, QgodNeighbor, R);
+        if(faceType == FaceType::FreeSurface) {
+          getTransposedFreeSurfaceGodunovState(MaterialType::Anisotropic, QgodLocal, QgodNeighbor, R);
 
         } else {
           Matrix99 chi = Matrix99::Zero();

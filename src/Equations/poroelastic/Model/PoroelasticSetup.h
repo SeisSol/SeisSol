@@ -229,7 +229,7 @@ namespace seissol {
                                                T&        QgodNeighbor,
                                                Eigen::Matrix<double, 13,13>& R)
     {
-      if (materialtype != MaterialType::poroelastic) {
+      if (materialtype != MaterialType::Poroelastic) {
         logError() << "This is only used for poroelastic materials. You should never end up here.";
       }
     
@@ -345,9 +345,9 @@ namespace seissol {
       R(12,6) = 1.0;
       R(11,7) = 1.0;
       R(4,8) = 1.0;
-      if (faceType == FaceType::freeSurface) {
+      if (faceType == FaceType::FreeSurface) {
         Matrix realR = R.real();
-        getTransposedFreeSurfaceGodunovState(MaterialType::poroelastic, QgodLocal, QgodNeighbor, realR);
+        getTransposedFreeSurfaceGodunovState(MaterialType::Poroelastic, QgodLocal, QgodNeighbor, realR);
       } else {
         CMatrix invR = R.inverse();
         CMatrix godunovMinus = R * chiMinus * invR;

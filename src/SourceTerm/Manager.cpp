@@ -182,9 +182,9 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
   pointSources.A[index] = subfault.area;
   std::array<double, 81> stiffnessTensor;
   switch (material->getMaterialType()) {
-  case seissol::model::MaterialType::anisotropic:
+  case seissol::model::MaterialType::Anisotropic:
     [[fallthrough]];
-  case seissol::model::MaterialType::poroelastic:
+  case seissol::model::MaterialType::Poroelastic:
     if (subfault.mu != 0) {
       logError() << "There are specific fault parameters for the fault. This is only compatible "
                     "with isotropic (visco)elastic materials.";
@@ -398,7 +398,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
       auto numberOfSources = clusterMappings[cluster].sources.size();
       auto sources = PointSources{memkind};
-      sources.mode = PointSources::FSRM;
+      sources.mode = PointSourceMode::Fsrm;
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
@@ -520,7 +520,7 @@ auto loadSourcesFromNRF(const char* fileName,
     for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
       auto numberOfSources = clusterMappings[cluster].sources.size();
       auto sources = PointSources{memkind};
-      sources.mode = PointSources::NRF;
+      sources.mode = PointSourceMode::Nrf;
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);

@@ -81,8 +81,8 @@ void TimeCommon::computeIntegrals(Time& time,
    */
   for (int dofeighbor = 0; dofeighbor < 4; ++dofeighbor) {
     // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofeighbor] != FaceType::outflow &&
-        faceTypes[dofeighbor] != FaceType::dynamicRupture) {
+    if (faceTypes[dofeighbor] != FaceType::Outflow &&
+        faceTypes[dofeighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
       if ((ltsSetup >> dofeighbor) % 2 == 0) {
         timeIntegrated[dofeighbor] = timeDofs[dofeighbor];

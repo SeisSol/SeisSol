@@ -6,13 +6,13 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(seissol_proxy_bindings, module) {
   py::enum_<Kernel>(module, "Kernel")
-      .value("all", Kernel::all)
-      .value("local", Kernel::local)
-      .value("neigh", Kernel::neigh)
-      .value("ader", Kernel::ader)
-      .value("localwoader", Kernel::localwoader)
-      .value("neigh_dr", Kernel::neigh_dr)
-      .value("godunov_dr", Kernel::godunov_dr)
+      .value("all", Kernel::All)
+      .value("local", Kernel::Local)
+      .value("neigh", Kernel::Neigh)
+      .value("ader", Kernel::Ader)
+      .value("localwoader", Kernel::LocalWOAder)
+      .value("neigh_dr", Kernel::NeighborDR)
+      .value("godunov_dr", Kernel::GodunovDR)
       .export_values();
 
   py::class_<ProxyConfig>(module, "ProxyConfig")

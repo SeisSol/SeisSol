@@ -318,12 +318,12 @@ void MaterialParameterDB<Plasticity>::addBindingPoints(
     easi::ArrayOfStructsAdapter<Plasticity>& adapter) {
   adapter.addBindingPoint("bulkFriction", &Plasticity::bulkFriction);
   adapter.addBindingPoint("plastCo", &Plasticity::plastCo);
-  adapter.addBindingPoint("s_xx", &Plasticity::s_xx);
-  adapter.addBindingPoint("s_yy", &Plasticity::s_yy);
-  adapter.addBindingPoint("s_zz", &Plasticity::s_zz);
-  adapter.addBindingPoint("s_xy", &Plasticity::s_xy);
-  adapter.addBindingPoint("s_yz", &Plasticity::s_yz);
-  adapter.addBindingPoint("s_xz", &Plasticity::s_xz);
+  adapter.addBindingPoint("s_xx", &Plasticity::sXX);
+  adapter.addBindingPoint("s_yy", &Plasticity::sYY);
+  adapter.addBindingPoint("s_zz", &Plasticity::sZZ);
+  adapter.addBindingPoint("s_xy", &Plasticity::sXY);
+  adapter.addBindingPoint("s_yz", &Plasticity::sYZ);
+  adapter.addBindingPoint("s_xz", &Plasticity::sXZ);
 }
 
 template <>

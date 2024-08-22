@@ -274,9 +274,9 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
   assert(seissolParams.timeStepping.lts.getRate() > 0);
 
   if (seissolParams.timeStepping.lts.getRate() == 1) {
-    seissolInstance.getLtsLayout().deriveLayout(single, 1);
+    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::Single, 1);
   } else {
-    seissolInstance.getLtsLayout().deriveLayout(multiRate,
+    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
                                                 seissolParams.timeStepping.lts.getRate());
   }
 

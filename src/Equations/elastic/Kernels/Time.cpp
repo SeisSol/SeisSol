@@ -165,7 +165,7 @@ void Time::computeAder(double i_timeStepWidth,
   updateDisplacement &= std::any_of(std::begin(data.cellInformation().faceTypes),
                                     std::end(data.cellInformation().faceTypes),
                                     [](const FaceType f) {
-                                      return f == FaceType::freeSurfaceGravity;
+                                      return f == FaceType::FreeSurfaceGravity;
                                     });
 
 #ifdef USE_STP
@@ -224,7 +224,7 @@ void Time::computeAder(double i_timeStepWidth,
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements()[face] != nullptr
-          && data.cellInformation().faceTypes[face] == FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(
             face,
             projectDerivativeToNodalBoundaryRotated,

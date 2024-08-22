@@ -56,12 +56,12 @@ TEST_CASE("Godunov state is correct") {
   model::ElasticMaterial neighbor(materialVal_1, 3);
 #endif
 
-  model::getTransposedGodunovState(local, neighbor, FaceType::regular, QgodLocal, QgodNeighbor);
+  model::getTransposedGodunovState(local, neighbor, FaceType::Regular, QgodLocal, QgodNeighbor);
   test_matrix(QgodLocal, solution_homogeneous_local, epsilon);
   test_matrix(QgodNeighbor, solution_homogeneous_neighbor, epsilon);
 
   // test free surface
-  model::getTransposedGodunovState(local, neighbor, FaceType::freeSurface, QgodLocal, QgodNeighbor);
+  model::getTransposedGodunovState(local, neighbor, FaceType::FreeSurface, QgodLocal, QgodNeighbor);
   test_matrix(QgodLocal, unit_test::solution_boundary, epsilon);
   test_nan(QgodNeighbor);
 
@@ -76,7 +76,7 @@ TEST_CASE("Godunov state is correct") {
   neighbor = model::ElasticMaterial(materialVal_2, 3);
 #endif
 
-  model::getTransposedGodunovState(local, neighbor, FaceType::regular, QgodLocal, QgodNeighbor);
+  model::getTransposedGodunovState(local, neighbor, FaceType::Regular, QgodLocal, QgodNeighbor);
   test_matrix(QgodLocal, solution_heterogeneous_local, epsilon);
   test_matrix(QgodNeighbor, solution_heterogeneous_neighbor, epsilon);
 }

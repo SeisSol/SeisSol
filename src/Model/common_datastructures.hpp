@@ -48,7 +48,7 @@
 #include <string>
 
 namespace seissol::model {
-enum class MaterialType { solid, acoustic, elastic, viscoelastic, anisotropic, poroelastic };
+enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
@@ -66,7 +66,7 @@ struct Material {
   static constexpr std::size_t NumberOfQuantities = 0;        // ?
   static constexpr std::size_t NumberPerMechanism = 0;        // ?
   static constexpr std::size_t Mechanisms = 0;                // ?
-  static constexpr MaterialType Type = MaterialType::solid;   // ?
+  static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
   static inline const std::string Text = "material";
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
@@ -85,12 +85,12 @@ struct Plasticity {
   static const inline std::string Text = "plasticity";
   double bulkFriction;
   double plastCo;
-  double s_xx;
-  double s_yy;
-  double s_zz;
-  double s_xy;
-  double s_yz;
-  double s_xz;
+  double sXX;
+  double sYY;
+  double sZZ;
+  double sXY;
+  double sYZ;
+  double sXZ;
 };
 
 struct IsotropicWaveSpeeds {
