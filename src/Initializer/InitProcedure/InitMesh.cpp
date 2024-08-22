@@ -228,8 +228,6 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   return numEdges;
 }
 
-} // namespace
-
 static void
     readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                       seissol::SeisSol& seissolInstance) {
@@ -248,6 +246,8 @@ static void
                 "not linked to Netcdf.";
 #endif
 }
+
+} // namespace
 
 void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);

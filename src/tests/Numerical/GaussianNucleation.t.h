@@ -6,7 +6,7 @@ namespace seissol::unit_test {
 /**
  * Reference implementation for the Gaussian Nucleation function
  */
-real gaussianNucleation(real time, real dt, real tau) {
+inline real gaussianNucleation(real time, real dt, real tau) {
   const auto step = [&tau](real t) {
     if (t < 0) {
       return static_cast<real>(0.0);
@@ -20,14 +20,14 @@ real gaussianNucleation(real time, real dt, real tau) {
 }
 
 TEST_CASE("Gaussian Nucleation Function") {
-  constexpr real dt = 0.01;
-  constexpr real epsilon = 1e-4;
+  constexpr real Dt = 0.01;
+  constexpr real Epsilon = 1e-4;
   for (const real effectiveRiseTime : {0.8, 1.0}) {
     for (int i = -10; i < 111; i++) {
       const real stfEvaluated =
-          seissol::gaussianNucleationFunction::smoothStepIncrement(i * dt, dt, effectiveRiseTime);
-      const real referenceEvaluated = gaussianNucleation(i * dt, dt, effectiveRiseTime);
-      REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(epsilon));
+          seissol::gaussianNucleationFunction::smoothStepIncrement(i * Dt, Dt, effectiveRiseTime);
+      const real referenceEvaluated = gaussianNucleation(i * Dt, Dt, effectiveRiseTime);
+      REQUIRE(stfEvaluated == AbsApprox(referenceEvaluated).epsilon(Epsilon));
     }
   }
 }

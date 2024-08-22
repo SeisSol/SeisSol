@@ -1,6 +1,3 @@
-#ifndef SEISSOL_PINTEST_T_H
-#define SEISSOL_PINTEST_T_H
-
 #include "Parallel/Pin.h"
 
 namespace seissol::unit_test {
@@ -44,4 +41,3 @@ TEST_CASE("Online Mask Parsing") {
 }
 
 } // namespace seissol::unit_test
-#endif // SEISSOL_PINTEST_T_H

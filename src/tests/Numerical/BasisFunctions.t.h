@@ -5,7 +5,7 @@
 
 namespace seissol::unit_test {
 TEST_CASE("Sampled Basis Functions") {
-  constexpr double epsilon = 10 * std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = 10 * std::numeric_limits<real>::epsilon();
   std::vector<real> precomputedValues = {1.0,
                                          0.19999999999999998,
                                          0.20000000000000007,
@@ -66,12 +66,12 @@ TEST_CASE("Sampled Basis Functions") {
   basisFunction::SampledBasisFunctions<real> sampledBasisFunctions(6, 0.3, 0.3, 0.3);
   for (size_t i = 0; i < precomputedValues.size(); ++i) {
     REQUIRE(sampledBasisFunctions.m_data.at(i) ==
-            AbsApprox(precomputedValues.at(i)).epsilon(epsilon));
+            AbsApprox(precomputedValues.at(i)).epsilon(Epsilon));
   }
 }
 
 TEST_CASE("Sampled Derivatives Functions") {
-  constexpr double epsilon = 100 * std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   std::array<std::vector<real>, 3> precomputedValues = {{{0.0,
                                                           1.9999999999999996,
@@ -249,7 +249,7 @@ TEST_CASE("Sampled Derivatives Functions") {
   for (size_t i = 0; i < precomputedValues[0].size(); ++i) {
     for (size_t direction = 0; direction < 3; ++direction) {
       REQUIRE(dataView(i, direction) ==
-              AbsApprox(precomputedValues[direction].at(i)).epsilon(epsilon));
+              AbsApprox(precomputedValues[direction].at(i)).epsilon(Epsilon));
     }
   }
 }

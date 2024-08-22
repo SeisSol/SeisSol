@@ -99,7 +99,6 @@
 #include <Model/common_datastructures.hpp>
 #include <Model/datastructures.hpp>
 #include <Numerical/BasisFunction.h>
-#include <Parallel/Helper.hpp>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/typedefs.hpp>
@@ -118,6 +117,7 @@
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
+#include <Parallel/Helper.hpp>
 #endif
 
 namespace seissol::sourceterm {

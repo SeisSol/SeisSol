@@ -143,8 +143,8 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   const std::array<unsigned int, 4> numVrtxPerPart = {numCubesPerPart[0] + 1,
                                                       numCubesPerPart[1] + 1,
                                                       numCubesPerPart[2] + 1,
-                                                      numVrtxPerPart[0] * numVrtxPerPart[1] *
-                                                          numVrtxPerPart[2]};
+                                                      numCubesPerPart[0] * numCubesPerPart[1] *
+                                                          numCubesPerPart[2]};
   const std::array<unsigned int, 3> numBndElements = {2 * numCubesPerPart[1] * numCubesPerPart[2],
                                                       2 * numCubesPerPart[0] * numCubesPerPart[2],
                                                       2 * numCubesPerPart[0] * numCubesPerPart[1]};

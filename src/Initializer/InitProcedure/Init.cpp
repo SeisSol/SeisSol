@@ -2,8 +2,6 @@
 
 #include <Initializer/tree/Layer.hpp>
 #include <Monitoring/Stopwatch.h>
-#include <ostream>
-#include <sstream>
 #include <utils/logger.h>
 
 #include "InitIO.hpp"
@@ -18,6 +16,8 @@
 #ifdef ACL_DEVICE
 #include "Monitoring/Unit.hpp"
 #include "Numerical/Statistics.h"
+#include <ostream>
+#include <sstream>
 #endif
 
 namespace {

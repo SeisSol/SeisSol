@@ -6,7 +6,7 @@ namespace seissol::unit_test {
 TEST_CASE("Dr tuner") {
   constexpr static size_t ComputeStageId{1};
   std::array<double, 3> timing{};
-  constexpr static double eps{2.0};
+  constexpr static double Eps{2.0};
   size_t batchSize{0};
   dr::pipeline::DrPipelineTuner tuner;
 
@@ -19,7 +19,7 @@ TEST_CASE("Dr tuner") {
       timing[ComputeStageId] = squareFunction(batchSize);
       tuner.tune(timing);
     }
-    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(eps));
+    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(Eps));
   }
 
   SUBCASE("Goes to right") {
@@ -30,7 +30,7 @@ TEST_CASE("Dr tuner") {
       timing[ComputeStageId] = hyperbolicTime(batchSize);
       tuner.tune(timing);
     }
-    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(eps));
+    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(Eps));
   }
 
   SUBCASE("Max is withing range") {
@@ -43,7 +43,7 @@ TEST_CASE("Dr tuner") {
       timing[ComputeStageId] = hatFunction(batchSize);
       tuner.tune(timing);
     }
-    REQUIRE(batchSize == AbsApprox(midPoint).epsilon(eps));
+    REQUIRE(batchSize == AbsApprox(midPoint).epsilon(Eps));
   }
 }
 } // namespace seissol::unit_test

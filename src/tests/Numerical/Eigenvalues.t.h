@@ -4,29 +4,29 @@
 namespace seissol::unit_test {
 
 template <unsigned dim>
-void testResidual(std::array<std::complex<double>, dim * dim>& M,
+void testResidual(std::array<std::complex<double>, dim * dim>& m,
                   seissol::eigenvalues::Eigenpair<std::complex<double>, dim>& eigenpair) {
-  constexpr auto epsilon = std::numeric_limits<double>::epsilon() * 10;
+  constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
 
   // compute M*R
-  std::array<std::complex<double>, dim * dim> M_R{};
+  std::array<std::complex<double>, dim * dim> mR{};
   for (unsigned int i = 0; i < dim; i++) {
     for (unsigned int j = 0; j < dim; j++) {
       for (unsigned int k = 0; k < dim; k++) {
-        M_R[i + dim * j] += M[i + dim * k] * eigenpair.vectors[k + dim * j];
+        mR[i + dim * j] += m[i + dim * k] * eigenpair.vectors[k + dim * j];
       }
     }
   }
   // compute R*L
-  std::array<std::complex<double>, dim * dim> R_L{};
+  std::array<std::complex<double>, dim * dim> rL{};
   for (unsigned int i = 0; i < dim; i++) {
     for (unsigned int j = 0; j < dim; j++) {
-      R_L[i + dim * j] = eigenpair.vectors[i + dim * j] * eigenpair.values[j];
+      rL[i + dim * j] = eigenpair.vectors[i + dim * j] * eigenpair.values[j];
     }
   }
   // compare residual
   for (unsigned i = 0; i < dim * dim; i++) {
-    REQUIRE(std::abs(M_R[i] - R_L[i]) == AbsApprox(0.0).epsilon(epsilon));
+    REQUIRE(std::abs(mR[i] - rL[i]) == AbsApprox(0.0).epsilon(Epsilon));
   }
 }
 
@@ -38,10 +38,10 @@ TEST_CASE("Eigenvalues are correctly computed") {
         {2.0, -3.0, -3.0, -2.0, 1.0, -2.0, -1.0, 1.0, 4.0},
         {-2.0, 3.0, 3.0, 2.0, -1.0, 2.0, 1.0, -1.0, -4.0},
     }};
-    for (auto& M : matrices) {
+    for (auto& m : matrices) {
       seissol::eigenvalues::Eigenpair<std::complex<double>, dim> eigenpair{};
-      seissol::eigenvalues::computeEigenvaluesWithEigen3(M, eigenpair);
-      testResidual<dim>(M, eigenpair);
+      seissol::eigenvalues::computeEigenvaluesWithEigen3(m, eigenpair);
+      testResidual<dim>(m, eigenpair);
 #ifdef USE_POROELASTIC
       seissol::eigenvalues::computeEigenvaluesWithLapack(M, eigenpair);
       testResidual<dim>(M, eigenpair);
