@@ -42,8 +42,10 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
+#include <array>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "utils/logger.h"
 
@@ -126,7 +128,9 @@ class SeisSol {
   /**
    * Get the fault writer module
    */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
+  
+  std::vector<writer::FaultWriter>& faultWriter() {return m_faultWriter;}
+  // writer::FaultWriter& faultWriter() { return m_faultWriter; }
 
   /**
    * Get the receiver writer module
@@ -260,7 +264,8 @@ class SeisSol {
   writer::WaveFieldWriter m_waveFieldWriter;
 
   //! Fault output module
-  writer::FaultWriter m_faultWriter;
+  std::vector<writer::FaultWriter> m_faultWriter;
+  // writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -283,9 +288,13 @@ class SeisSol {
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
       : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
-        m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
+        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_faultWriter( MULTIPLE_SIMULATIONS, writer::FaultWriter(*this)), m_analysisWriter(*this),
+        m_waveFieldWriter(*this), m_receiverWriter(*this),
+        m_energyOutput(*this), timeMirrorManagers(*this, *this) {
+          for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++){
+            m_faultWriter[i].setfusedNumber(i);
+          }
+        }
 };
 
 } // namespace seissol

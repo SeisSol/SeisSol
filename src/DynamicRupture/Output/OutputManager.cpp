@@ -203,20 +203,21 @@ void OutputManager::initElementwiseOutput() {
     }
   };
   misc::forEach(ewOutputData->vars, recordPointers);
+  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    seissolInstance.faultWriter()[i].init(cellConnectivity.data(),
+                                       vertices.data(),
+                                       faultTags.data(),
+                                       static_cast<unsigned int>(receiverPoints.size()),
+                                       static_cast<unsigned int>(3 * receiverPoints.size()),
+                                       &intMask[0],
+                                       const_cast<const real**>(dataPointers.data()),
+                                       seissolParameters.output.prefix.data(),
+                                       printTime,
+                                       backendType,
+                                       backupTimeStamp);
 
-  seissolInstance.faultWriter().init(cellConnectivity.data(),
-                                     vertices.data(),
-                                     faultTags.data(),
-                                     static_cast<unsigned int>(receiverPoints.size()),
-                                     static_cast<unsigned int>(3 * receiverPoints.size()),
-                                     &intMask[0],
-                                     const_cast<const real**>(dataPointers.data()),
-                                     seissolParameters.output.prefix.data(),
-                                     printTime,
-                                     backendType,
-                                     backupTimeStamp);
-
-  seissolInstance.faultWriter().setupCallbackObject(this);
+    seissolInstance.faultWriter()[i].setupCallbackObject(this);
+  }
 }
 
 void OutputManager::initPickpointOutput() {

@@ -68,7 +68,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 #endif // USE_MPI
 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
-		outputName += "-fault";
+		outputName += "_" + std::to_string(nFused) + "-fault";
 
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < FaultInitParam::OUTPUT_MASK_SIZE; i++) {

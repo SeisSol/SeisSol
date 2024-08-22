@@ -84,6 +84,7 @@ private:
 	Stopwatch m_stopwatch;
 
 	dr::output::OutputManager* callbackObject{nullptr};
+	int nFused = 0;
 
 public:
 	FaultWriter(seissol::SeisSol& seissolInstance) : 
@@ -92,6 +93,11 @@ public:
 		m_numVariables(0),
 		m_timestep(0)
 	{
+		m_executor.nFused = nFused;
+	}
+
+	void setfusedNumber(int i_numFused){
+		nFused= i_numFused;
 	}
 
 	/**

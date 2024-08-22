@@ -81,6 +81,8 @@ public:
 		VARIABLES0 = 4
 	};
 
+	int nFused = 0;
+
 private:
 	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter;
 

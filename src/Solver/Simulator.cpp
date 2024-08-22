@@ -159,11 +159,13 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
 
     // write checkpoint if required
-    if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
-      const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
-      seissolInstance.checkPointManager().write(m_currentTime, faultTimeStep);
-      m_checkPointTime += m_checkPointInterval;
-    }
+    //TODO: fix checkpointing stuff later
+    // if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
+    //   const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
+    //   seissolInstance.checkPointManager().write(m_currentTime, faultTimeStep);
+    //   m_checkPointTime += m_checkPointInterval;
+    // }
+
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
     ioStopwatch.pause();
