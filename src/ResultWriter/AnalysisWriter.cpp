@@ -1,21 +1,41 @@
 #include "AnalysisWriter.h"
 
-#include <vector>
+#include <Common/constants.hpp>
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshTools.h>
+#include <Initializer/Parameters/InitializationParameters.h>
+#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
+#include <Numerical/Quadrature.h>
+#include <Numerical/Transformation.h>
+#include <Parallel/MPI.h>
+#include <algorithm>
+#include <array>
+#include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <init.h>
+#include <kernel.h>
+#include <mpi.h>
 #include <string>
+#include <string_view>
+#include <tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#include "Physics/InitialField.h"
 #include "Initializer/preProcessorMacros.hpp"
+#include "Physics/InitialField.h"
+#include "SeisSol.h"
 
 namespace seissol::writer {
 
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) :
-    out(), isEnabled(false), fileName(std::move(fileName)) { }
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName)
+    : out(), isEnabled(false), fileName(std::move(fileName)) {}
 
 void CsvAnalysisWriter::writeHeader() {
   if (isEnabled) {
@@ -48,49 +68,50 @@ CsvAnalysisWriter::~CsvAnalysisWriter() {
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
-  const auto initialConditionType =  seissolInstance.getSeisSolParameters().initialization.type;
+  const auto initialConditionType = seissolInstance.getSeisSolParameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
-     initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
-     initialConditionType == seissol::initializer::parameters::InitializationType::PressureInjection) {
+      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
+      initialConditionType ==
+          seissol::initializer::parameters::InitializationType::PressureInjection) {
     return;
   }
 
-  logInfo(mpi.rank())
-    << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
-    << " at time " << simulationTime;
-  
+  logInfo(mpi.rank()) << "Print analysis for initial conditions"
+                      << static_cast<int>(initialConditionType) << " at time " << simulationTime;
+
   auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
   auto* lts = seissolInstance.getMemoryManager().getLts();
   auto* ltsLut = seissolInstance.getMemoryManager().getLtsLut();
   auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
 
-  std::vector<Vertex> const& vertices = meshReader->getVertices();
-  std::vector<Element> const& elements = meshReader->getElements();
+  const std::vector<Vertex>& vertices = meshReader->getVertices();
+  const std::vector<Element>& elements = meshReader->getElements();
 
-  constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+  constexpr auto NumberOfQuantities =
+      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto quadPolyDegree = ConvergenceOrder+1;
-  constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePoints[numQuadPoints][3];
-  double quadratureWeights[numQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
+  double quadraturePoints[NumQuadPoints][3];
+  double quadratureWeights[NumQuadPoints];
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
 #ifdef MULTIPLE_SIMULATIONS
   constexpr unsigned multipleSimulations = MULTIPLE_SIMULATIONS;
 #else
-  constexpr unsigned multipleSimulations = 1;
+  constexpr unsigned MultipleSimulations = 1;
 #endif
 
-  for (unsigned sim = 0; sim < multipleSimulations; ++sim) {
+  for (unsigned sim = 0; sim < MultipleSimulations; ++sim) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
-    using ErrorArray_t = std::array<double, numberOfQuantities>;
-    using MeshIdArray_t = std::array<unsigned int, numberOfQuantities>;
+    using ErrorArray_t = std::array<double, NumberOfQuantities>;
+    using MeshIdArray_t = std::array<unsigned int, NumberOfQuantities>;
 
     auto errL1Local = ErrorArray_t{0.0};
     auto errL2Local = ErrorArray_t{0.0};
@@ -117,13 +138,30 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
     // Note: We iterate over mesh cells by id to avoid
     // cells that are duplicates.
-    std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
+    std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(Alignment) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
+    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumberOfQuantities];
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     // Note: Adding default(none) leads error when using gcc-8
-#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+#pragma omp parallel for shared(elements,                                                          \
+                                    vertices,                                                      \
+                                    iniFields,                                                     \
+                                    quadraturePoints,                                              \
+                                    globalData,                                                    \
+                                    errsLInfLocal,                                                 \
+                                    simulationTime,                                                \
+                                    ltsLut,                                                        \
+                                    lts,                                                           \
+                                    sim,                                                           \
+                                    quadratureWeights,                                             \
+                                    elemsLInfLocal,                                                \
+                                    errsL2Local,                                                   \
+                                    errsL1Local,                                                   \
+                                    analyticalsL1Local,                                            \
+                                    analyticalsL2Local,                                            \
+                                    analyticalsLInfLocal)                                          \
+    firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
     for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -132,19 +170,25 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       const int curThreadId = 0;
 #endif
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-      auto analyticalSolution = yateto::DenseTensorView<2,real>(analyticalSolutionData, {numQuadPoints, numberOfQuantities});
+      auto analyticalSolution = yateto::DenseTensorView<2, real>(
+          analyticalSolutionData, {NumQuadPoints, NumberOfQuantities});
 
       // Needed to weight the integral.
       const auto volume = MeshTools::volume(elements[meshId], vertices);
       const auto jacobiDet = 6 * volume;
 
       // Compute global position of quadrature points.
-      double const* elementCoords[4];
+      const double* elementCoords[4];
       for (unsigned v = 0; v < 4; ++v) {
-        elementCoords[v] = vertices[elements[meshId].vertices[ v ] ].coords;
+        elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
       }
-      for (unsigned int i = 0; i < numQuadPoints; ++i) {
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
+      for (unsigned int i = 0; i < NumQuadPoints; ++i) {
+        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                               elementCoords[1],
+                                                               elementCoords[2],
+                                                               elementCoords[3],
+                                                               quadraturePoints[i],
+                                                               quadraturePointsXyz[i].data());
       }
 
       // Evaluate numerical solution at quad. nodes
@@ -156,21 +200,19 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
       // Evaluate analytical solution at quad. nodes
       const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
-      iniFields[sim % iniFields.size()]->evaluate(simulationTime,
-						  quadraturePointsXyz,
-						  material,
-						  analyticalSolution);
+      iniFields[sim % iniFields.size()]->evaluate(
+          simulationTime, quadraturePointsXyz, material, analyticalSolution);
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
       auto numSub = numericalSolution;
 #endif
 
-      for (size_t i = 0; i < numQuadPoints; ++i) {
+      for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
-        for (size_t v = 0; v < numberOfQuantities; ++v) {
-          const auto curError = std::abs(numSub(i,v) - analyticalSolution(i,v));
-          const auto curAnalytical = std::abs(analyticalSolution(i,v));
+        for (size_t v = 0; v < NumberOfQuantities; ++v) {
+          const auto curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
+          const auto curAnalytical = std::abs(analyticalSolution(i, v));
 
           errsL1Local[curThreadId][v] += curWeight * curError;
           errsL2Local[curThreadId][v] += curWeight * curError * curError;
@@ -189,7 +231,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 
     for (int i = 0; i < numThreads; ++i) {
-      for (unsigned v = 0; v < numberOfQuantities; ++v) {
+      for (unsigned v = 0; v < NumberOfQuantities; ++v) {
         errL1Local[v] += errsL1Local[i][v];
         errL2Local[v] += errsL2Local[i][v];
         analyticalL1Local[v] += analyticalsL1Local[i][v];
@@ -199,18 +241,15 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           elemLInfLocal[v] = elemsLInfLocal[i][v];
         }
         if (analyticalsLInfLocal[i][v] > analyticalLInfLocal[v]) {
-           analyticalLInfLocal[v] = analyticalsLInfLocal[i][v];
+          analyticalLInfLocal[v] = analyticalsLInfLocal[i][v];
         }
       }
     }
 
-    for (unsigned int i = 0; i < numberOfQuantities; ++i) {
+    for (unsigned int i = 0; i < NumberOfQuantities; ++i) {
       // Find position of element with lowest LInf error.
       VrtxCoords center;
-      MeshTools::center(elements[elemLInfLocal[i]],
-              vertices,
-              center);
-
+      MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
     }
 
 #ifdef USE_MPI
@@ -224,23 +263,42 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
     MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
     MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(analyticalL1Local.data(), analyticalL1MPI.data(), analyticalL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(analyticalL2Local.data(), analyticalL2MPI.data(), analyticalL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(analyticalL1Local.data(),
+               analyticalL1MPI.data(),
+               analyticalL1Local.size(),
+               MPI_DOUBLE,
+               MPI_SUM,
+               0,
+               comm);
+    MPI_Reduce(analyticalL2Local.data(),
+               analyticalL2MPI.data(),
+               analyticalL2Local.size(),
+               MPI_DOUBLE,
+               MPI_SUM,
+               0,
+               comm);
 
     // Find maximum element and its location.
-    auto errLInfSend = std::array<data, errLInfLocal.size()>{};
-    auto errLInfRecv = std::array<data, errLInfLocal.size()>{};
+    auto errLInfSend = std::array<Data, errLInfLocal.size()>{};
+    auto errLInfRecv = std::array<Data, errLInfLocal.size()>{};
     for (size_t i = 0; i < errLInfLocal.size(); ++i) {
-      errLInfSend[i] = data{errLInfLocal[i], mpi.rank()};
+      errLInfSend[i] = Data{errLInfLocal[i], mpi.rank()};
     }
-    MPI_Allreduce(errLInfSend.data(), errLInfRecv.data(),
-      errLInfSend.size(),
-      MPI_DOUBLE_INT,
-      MPI_MAXLOC,
-      comm);
+    MPI_Allreduce(errLInfSend.data(),
+                  errLInfRecv.data(),
+                  errLInfSend.size(),
+                  MPI_DOUBLE_INT,
+                  MPI_MAXLOC,
+                  comm);
 
     auto analyticalLInfMPI = ErrorArray_t{0.0};
-    MPI_Reduce(analyticalLInfLocal.data(), analyticalLInfMPI.data(), analyticalLInfLocal.size(), MPI_DOUBLE, MPI_MAX, 0, comm);
+    MPI_Reduce(analyticalLInfLocal.data(),
+               analyticalLInfMPI.data(),
+               analyticalLInfLocal.size(),
+               MPI_DOUBLE,
+               MPI_MAX,
+               0,
+               comm);
 
     auto csvWriter = CsvAnalysisWriter(fileName);
 
@@ -249,14 +307,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.writeHeader();
     }
 
-    for (unsigned int i = 0; i < numberOfQuantities; ++i) {
+    for (unsigned int i = 0; i < NumberOfQuantities; ++i) {
       VrtxCoords centerSend{};
-      MeshTools::center(elements[elemLInfLocal[i]],
-            vertices,
-            centerSend);
+      MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 
-
-      if (mpi.rank() == errLInfRecv[i].rank && errLInfRecv[i].rank != 0)  {
+      if (mpi.rank() == errLInfRecv[i].rank && errLInfRecv[i].rank != 0) {
         MPI_Send(centerSend, 3, MPI_DOUBLE, 0, i, comm);
       }
 
@@ -265,7 +320,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         if (errLInfRecv[i].rank == 0) {
           std::copy_n(centerSend, 3, centerRecv);
         } else {
-          MPI_Recv(centerRecv, 3, MPI_DOUBLE,  errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
+          MPI_Recv(centerRecv, 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
         }
 
         const auto errL1 = errL1MPI[i];
@@ -277,8 +332,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
         logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
         logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
-            << "at rank " << errLInfRecv[i].rank
-            << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
+                            << "at rank " << errLInfRecv[i].rank << "\tat [" << centerRecv[0]
+                            << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
         csvWriter.addObservation(std::to_string(i), "L1", errL1);
         csvWriter.addObservation(std::to_string(i), "L2", errL2);
         csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
@@ -290,9 +345,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 #else
     for (unsigned int i = 0; i < numberOfQuantities; ++i) {
       VrtxCoords center;
-      MeshTools::center(elements[elemLInfLocal[i]],
-            vertices,
-            center);
+      MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
       const auto errL1 = errL1Local[i];
       const auto errL2 = std::sqrt(errL2Local[i]);
       const auto errLInf = errLInfLocal[i];
@@ -301,8 +354,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       const auto errLInfRel = errLInf / analyticalLInfLocal[i];
       logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
       logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
-          << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "\tat ["
+                << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
       csvWriter.addObservation(std::to_string(i), "L1", errL1);
       csvWriter.addObservation(std::to_string(i), "L2", errL2);
       csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
@@ -314,4 +367,3 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   }
 }
 } // namespace seissol::writer
-
