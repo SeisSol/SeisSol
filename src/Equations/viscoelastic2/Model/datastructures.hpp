@@ -47,8 +47,10 @@
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Initializer/preProcessorMacros.hpp"
 #include "Model/common_datastructures.hpp"
-#include "cstddef"
 #include "generated_code/tensor.h"
+#include <array>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 template <std::size_t MechanismsP>
