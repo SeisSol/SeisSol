@@ -1,4 +1,5 @@
 #include "SourceTerm/PointSource.h"
+#include "tests/TestHelper.h"
 
 #include <memory>
 

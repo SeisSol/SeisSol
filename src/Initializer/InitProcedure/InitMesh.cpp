@@ -268,27 +268,30 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   seissol::Stopwatch watch;
   watch.start();
 
-  std::string realMeshFileName = seissolParams.mesh.meshFileName;
+  const std::string realMeshFileName = seissolParams.mesh.meshFileName;
   switch (meshFormat) {
-  case seissol::initializer::parameters::MeshFormat::Netcdf:
+  case seissol::initializer::parameters::MeshFormat::Netcdf: {
 #if USE_NETCDF
-    realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+    const auto realMeshFileNameNetcdf = seissolParams.mesh.meshFileName + ".nc";
     logInfo(commRank)
         << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
-        << realMeshFileName;
+        << realMeshFileNameNetcdf;
     seissolInstance.setMeshReader(
-        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
+        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileNameNetcdf.c_str()));
 #else
     logError()
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
 #endif
     break;
-  case seissol::initializer::parameters::MeshFormat::PUML:
+  }
+  case seissol::initializer::parameters::MeshFormat::PUML: {
     readMeshPUML(seissolParams, seissolInstance);
     break;
-  case seissol::initializer::parameters::MeshFormat::CubeGenerator:
+  }
+  case seissol::initializer::parameters::MeshFormat::CubeGenerator: {
     readCubeGenerator(seissolParams, seissolInstance);
     break;
+  }
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);
   }

@@ -43,41 +43,41 @@ TEST_CASE("Godunov state is correct") {
 
   // test homogeneous material
 #ifdef USE_ANISOTROPIC
-  model::AnisotropicMaterial local(materialVal_1, 22);
-  model::AnisotropicMaterial neighbor(materialVal_1, 22);
+  model::AnisotropicMaterial local(materialVal1, 22);
+  model::AnisotropicMaterial neighbor(materialVal1, 22);
 #elif defined USE_POROELASTIC
-  model::PoroElasticMaterial local(materialVal_1, 10);
-  model::PoroElasticMaterial neighbor(materialVal_1, 10);
+  model::PoroElasticMaterial local(materialVal1, 10);
+  model::PoroElasticMaterial neighbor(materialVal1, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  model::ViscoElasticMaterial local(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-  model::ViscoElasticMaterial neighbor(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  model::ViscoElasticMaterial local(materialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  model::ViscoElasticMaterial neighbor(materialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
-  const model::ElasticMaterial local(materialVal1, 3);
-  model::ElasticMaterial neighbor(materialVal1, 3);
+  const model::ElasticMaterial local(MaterialVal1, 3);
+  model::ElasticMaterial neighbor(MaterialVal1, 3);
 #endif
 
   model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, solutionHomogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, solutionHomogeneousNeighbor, Epsilon);
+  test_matrix(qgodLocal, SolutionHomogeneousLocal, Epsilon);
+  test_matrix(qgodNeighbor, SolutionHomogeneousNeighbor, Epsilon);
 
   // test free surface
   model::getTransposedGodunovState(local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, unit_test::solutionBoundary, Epsilon);
+  test_matrix(qgodLocal, unit_test::SolutionBoundary, Epsilon);
   test_nan(qgodNeighbor);
 
   // test heterogeneous material
 #ifdef USE_ANISOTROPIC
-  neighbor = model::AnisotropicMaterial(materialVal_2, 22);
+  neighbor = model::AnisotropicMaterial(materialVal2, 22);
 #elif defined USE_POROELASTIC
-  neighbor = model::PoroElasticMaterial(materialVal_2, 10);
+  neighbor = model::PoroElasticMaterial(materialVal2, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  neighbor = model::ViscoElasticMaterial(materialVal_2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  neighbor = model::ViscoElasticMaterial(materialVal2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
-  neighbor = model::ElasticMaterial(materialVal2, 3);
+  neighbor = model::ElasticMaterial(MaterialVal2, 3);
 #endif
 
   model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, solutionHeterogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, solutionHeterogeneousNeighbor, Epsilon);
+  test_matrix(qgodLocal, SolutionHeterogeneousLocal, Epsilon);
+  test_matrix(qgodNeighbor, SolutionHeterogeneousNeighbor, Epsilon);
 }
 } // namespace seissol::unit_test

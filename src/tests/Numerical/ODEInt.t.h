@@ -7,7 +7,7 @@ namespace seissol::unit_test {
 
 TEST_CASE("Test ODE Solver") {
 #ifdef SINGLE_PRECISION
-  constexpr real eps = 10e-4;
+  constexpr real Eps = 10e-4;
 #else
   constexpr real Eps = 10e-11;
 #endif

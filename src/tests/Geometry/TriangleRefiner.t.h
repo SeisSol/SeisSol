@@ -1,3 +1,4 @@
+#include "tests/TestHelper.h"
 #include <array>
 #include <iomanip>
 #include <iostream>

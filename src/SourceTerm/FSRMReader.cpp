@@ -48,6 +48,8 @@
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...
 
+namespace {
+
 template <size_t N>
 static void readArrayOrZero(std::ifstream& filestream,
                             std::string& header,
@@ -65,6 +67,8 @@ static void readArrayOrZero(std::ifstream& filestream,
     }
   }
 }
+
+} // namespace
 
 void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
   logInfo() << "Reading FSRM point sources from file " << filename;

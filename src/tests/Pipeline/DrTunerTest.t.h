@@ -1,4 +1,5 @@
 #include "Solver/Pipeline/DrTuner.h"
+#include "tests/TestHelper.h"
 #include <array>
 
 namespace seissol::unit_test {

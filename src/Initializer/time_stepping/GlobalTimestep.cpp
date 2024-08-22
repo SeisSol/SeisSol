@@ -14,7 +14,8 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 
-namespace seissol::initializer {
+namespace {
+
 static double
     computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                         double pWaveVel,
@@ -36,8 +37,12 @@ static double
 
   // Compute maximum timestep
   return std::fmin(maximumAllowedTimeStep,
-                   cfl * 2.0 * insphere / (pWaveVel * (2 * ConvergenceOrder - 1)));
+                   cfl * 2.0 * insphere / (pWaveVel * (2 * seissol::ConvergenceOrder - 1)));
 }
+
+} // namespace
+
+namespace seissol::initializer {
 
 GlobalTimestep
     computeTimesteps(double cfl,

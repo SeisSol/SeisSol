@@ -572,9 +572,12 @@ void seissol::initializer::EasiBoundary::query(const real* nodes,
                                                real* mapTermsData,
                                                real* constantTermsData) const {
   if (model == nullptr) {
-    logError() << "Model for easiBoundary is not initialized!";
+    logError() << "Model for easi-provided boundary is not initialized.";
   }
-  assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
+  if (tensor::INodal::Shape[1] != 9) {
+    logError() << "easi-provided boundary data is only supported for elastic material at the "
+                  "moment currently.";
+  }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
   constexpr auto NumNodes = tensor::INodal::Shape[0];

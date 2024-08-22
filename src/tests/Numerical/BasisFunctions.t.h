@@ -2,6 +2,7 @@
 #include "Numerical/BasisFunction.h"
 #include "doctest.h"
 #include "generated_code/init.h"
+#include "tests/TestHelper.h"
 
 namespace seissol::unit_test {
 TEST_CASE("Sampled Basis Functions") {

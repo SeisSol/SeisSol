@@ -44,6 +44,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Kernels/precision.hpp>
 #include <cassert>
+#include <cmath>
 #include <utils/logger.h>
 #include <yateto.h>
 
@@ -158,9 +159,9 @@ void seissol::transformations::symmetricTensor2RotationMatrix(
     yateto::DenseTensorView<2, real, unsigned>& oT,
     unsigned row,
     unsigned col) {
-  real nx = iNormal[0], ny = iNormal[1], nz = iNormal[2];
-  real sx = iTangent1[0], sy = iTangent1[1], sz = iTangent1[2];
-  real tx = iTangent2[0], ty = iTangent2[1], tz = iTangent2[2];
+  const real nx = iNormal[0], ny = iNormal[1], nz = iNormal[2];
+  const real sx = iTangent1[0], sy = iTangent1[1], sz = iTangent1[2];
+  const real tx = iTangent2[0], ty = iTangent2[1], tz = iTangent2[2];
 
   oT(row + 0, col + 0) = nx * nx;
   oT(row + 1, col + 0) = ny * ny;

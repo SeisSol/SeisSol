@@ -76,7 +76,6 @@
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Manager.h"
-#include "NRFReader.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "PointSource.h"
@@ -108,12 +107,16 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <mpi.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#ifdef USE_NETCDF
+#include "NRFReader.h"
+#include <mpi.h>
+#endif
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"

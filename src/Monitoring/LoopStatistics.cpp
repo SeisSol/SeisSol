@@ -47,17 +47,17 @@
 #include <cmath>
 #include <cstddef>
 #include <ctime>
-#include <fstream>
 #include <iterator>
 #include <mpi.h>
-#include <ostream>
-#include <sstream>
 #include <string>
 #include <time.h>
 #include <utils/logger.h>
 #include <vector>
 #ifdef USE_NETCDF
+#include <fstream>
 #include <netcdf.h>
+#include <ostream>
+#include <sstream>
 #ifdef USE_MPI
 #include <netcdf_par.h>
 #endif // USE_MPI

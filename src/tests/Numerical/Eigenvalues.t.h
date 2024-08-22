@@ -1,5 +1,6 @@
 #include "Kernels/precision.hpp"
 #include "Numerical/Eigenvalues.h"
+#include "tests/TestHelper.h"
 
 namespace seissol::unit_test {
 
@@ -43,8 +44,8 @@ TEST_CASE("Eigenvalues are correctly computed") {
       seissol::eigenvalues::computeEigenvaluesWithEigen3(m, eigenpair);
       testResidual<dim>(m, eigenpair);
 #ifdef USE_POROELASTIC
-      seissol::eigenvalues::computeEigenvaluesWithLapack(M, eigenpair);
-      testResidual<dim>(M, eigenpair);
+      seissol::eigenvalues::computeEigenvaluesWithLapack(m, eigenpair);
+      testResidual<dim>(m, eigenpair);
 #endif
     }
   }
