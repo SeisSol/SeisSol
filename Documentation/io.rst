@@ -6,7 +6,7 @@ The SeisSol IO infrastructure is currently under refactoring, to offer a simpler
 The new IO infrastructure already covers:
 
 * high-order 3D and 2D output (wavefield, surface, elementwise fault)
-* checkpointing or arbitrary friction laws and equations
+* checkpointing of arbitrary friction laws and equations
 
 Support for aggregated point output is under development.
 
