@@ -46,7 +46,10 @@
 #include "Model/common_datastructures.hpp"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 struct ElasticMaterial : Material {

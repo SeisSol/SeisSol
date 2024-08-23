@@ -47,7 +47,9 @@
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <array>
 #include <cstddef>
+#include <string>
 
 namespace seissol::model {
 struct AnisotropicMaterial : Material {
