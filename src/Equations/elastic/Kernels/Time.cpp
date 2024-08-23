@@ -503,7 +503,7 @@ void Time::computeBatchedTaylorExpansion(real time,
 }
 
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   nonZeroFlops  = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }

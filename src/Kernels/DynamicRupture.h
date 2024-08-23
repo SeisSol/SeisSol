@@ -52,15 +52,12 @@
 #include <memory>
 #endif
 
-#define NUMBER_OF_SPACE_QUADRATURE_POINTS ((ConvergenceOrder + 1) * (ConvergenceOrder + 1))
+namespace seissol::kernels {
 
-namespace seissol {
-namespace kernels {
-class DynamicRupture;
-} // namespace kernels
-} // namespace seissol
+constexpr std::size_t NumberOfSpaceQuadraturePoints =
+    (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 
-class seissol::kernels::DynamicRupture {
+class DynamicRupture {
   private:
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
   kernels::Time m_timeKernel;
@@ -72,7 +69,7 @@ class seissol::kernels::DynamicRupture {
   public:
   double timePoints[ConvergenceOrder];
   double timeWeights[ConvergenceOrder];
-  real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  real spaceWeights[NumberOfSpaceQuadraturePoints];
 #ifdef USE_STP
   std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, ConvergenceOrder>
       timeBasisFunctions;
@@ -105,5 +102,7 @@ class seissol::kernels::DynamicRupture {
                          long long& nonZeroFlops,
                          long long& hardwareFlops);
 };
+
+} // namespace seissol::kernels
 
 #endif

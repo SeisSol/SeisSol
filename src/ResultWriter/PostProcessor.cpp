@@ -53,7 +53,7 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
   real* integrals = layerData.var(m_integrals);
   for (int i = 0; i < m_numberOfVariables; i++) {
     integrals[cell * m_numberOfVariables + i] +=
-        dofs[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * m_integerMap[i]] * timestep;
+        dofs[NumberOfAlignedBasisFunctions * m_integerMap[i]] * timestep;
   }
 }
 

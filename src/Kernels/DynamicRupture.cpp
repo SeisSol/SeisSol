@@ -64,7 +64,9 @@
 #include <cstdint>
 #endif
 
-void seissol::kernels::DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
+namespace seissol::kernels {
+
+void DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned h = 0; h < 4; ++h) {
@@ -74,13 +76,13 @@ void seissol::kernels::DynamicRupture::checkGlobalData(const GlobalData* global,
 #endif
 }
 
-void seissol::kernels::DynamicRupture::setHostGlobalData(const GlobalData* global) {
+void DynamicRupture::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
   m_timeKernel.setHostGlobalData(global);
 }
 
-void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
+void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   this->setHostGlobalData(global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -91,7 +93,7 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
 #endif
 }
 
-void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep) {
+void DynamicRupture::setTimeStepWidth(double timestep) {
 #ifdef USE_DR_CELLAVERAGE
   static_assert(false, "Cell average currently not supported");
   /*double subIntervalWidth = timestep / ConvergenceOrder;
@@ -127,7 +129,7 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep) {
 #endif
 }
 
-void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
+void DynamicRupture::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
     const GlobalData* global,
     const DRGodunovData* godunovData,
@@ -188,7 +190,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
   }
 }
 
-void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(
+void DynamicRupture::batchedSpaceTimeInterpolation(
     DrConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -290,9 +292,9 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-void seissol::kernels::DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                                         long long& nonZeroFlops,
-                                                         long long& hardwareFlops) {
+void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
+                                       long long& nonZeroFlops,
+                                       long long& hardwareFlops) {
   m_timeKernel.flopsTaylorExpansion(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
@@ -312,3 +314,5 @@ void seissol::kernels::DynamicRupture::flopsGodunovState(const DRFaceInformation
   nonZeroFlops *= ConvergenceOrder;
   hardwareFlops *= ConvergenceOrder;
 }
+
+} // namespace seissol::kernels

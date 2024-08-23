@@ -496,7 +496,7 @@ inline void computeFrictionEnergy(
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     const ImpedancesAndEta& impAndEta,
     const double timeWeights[ConvergenceOrder],
-    const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
+    const real spaceWeights[seissol::kernels::NumberOfSpaceQuadraturePoints],
     const DRGodunovData& godunovData,
     size_t startIndex = 0) {
 

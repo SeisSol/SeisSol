@@ -100,7 +100,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     seissolInstance.waveFieldWriter().init(
         NumberOfQuantities,
         ConvergenceOrder,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        NumberOfAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),

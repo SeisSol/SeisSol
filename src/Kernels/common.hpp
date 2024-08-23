@@ -169,33 +169,6 @@ constexpr unsigned
 }
 
 /**
- * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
- *zero padding) storage.
- *
- * @param alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
- * @param o_unalignedDofs unaligned degrees of freedom.
- **/
-template <typename real_from, typename real_to>
-void convertAlignedDofs(const real_from alignedDofs[tensor::Q::size()],
-                        real_to o_unalignedDofs[tensor::QFortran::size()]) {
-  kernel::copyQToQFortran krnl;
-  krnl.Q = alignedDofs;
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
-#endif
-
-  if (std::is_same<real_from, real_to>::value) {
-    krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
-    krnl.execute();
-  } else {
-    real_from unalignedDofs[tensor::QFortran::size()];
-    krnl.QFortran = unalignedDofs;
-    krnl.execute();
-    std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
-  }
-}
-
-/**
  * uses SFINAE to check if class T has a size() function.
  */
 template <typename T>
@@ -233,13 +206,10 @@ constexpr bool isDeviceOn() {
 } // namespace seissol
 
 // for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr unsigned int NUMBER_OF_BASIS_FUNCTIONS = seissol::kernels::getNumberOfBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS =
+constexpr std::size_t NumberOfBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
+constexpr std::size_t NumberOfAlignedBasisFunctions =
     seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS =
+constexpr std::size_t NumberOfAlignedDerivativeBasisFunctions =
     seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
-
-// for attenuation
-constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
 
 #endif

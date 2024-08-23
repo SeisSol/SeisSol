@@ -191,8 +191,8 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const DRFaceInformation& faceInfo,
                                      const DRGodunovData& godunovData,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
-  real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  alignas(Alignment) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  real points[seissol::kernels::NumberOfSpaceQuadraturePoints][2];
+  alignas(Alignment) real spaceWeights[seissol::kernels::NumberOfSpaceQuadraturePoints];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;

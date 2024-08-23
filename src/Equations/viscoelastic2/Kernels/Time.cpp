@@ -238,7 +238,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.execute();
 }
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // interate over derivatives
   nonZeroFlops  = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;

@@ -21,7 +21,7 @@ namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
   protected:
   const int N =
-      seissol::model::MaterialT::NumberOfQuantities * NUMBER_OF_BASIS_FUNCTIONS * ConvergenceOrder;
+      seissol::model::MaterialT::NumberOfQuantities * NumberOfBasisFunctions * ConvergenceOrder;
   constexpr static const double epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double dt = 1.05109e-06;
   real starMatrices0[tensor::star::size(0)];
@@ -159,7 +159,7 @@ class SpaceTimePredictorTestFixture {
     auto Q = init::Q::view::create(QData);
     std::srand(1234);
     for (int q = 0; q < seissol::model::MaterialT::NumberOfQuantities; q++) {
-      for (int bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; bf++) {
+      for (int bf = 0; bf < NumberOfBasisFunctions; bf++) {
         Q(bf, q) = (real)std::rand() / RAND_MAX * factor.at(q);
       }
     }
@@ -235,7 +235,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
   alignas(PagesizeStack)
-      real QData[seissol::model::MaterialT::NumberOfQuantities * NUMBER_OF_BASIS_FUNCTIONS];
+      real QData[seissol::model::MaterialT::NumberOfQuantities * NumberOfBasisFunctions];
   std::fill(std::begin(stp), std::end(stp), 0);
   std::fill(std::begin(rhs), std::end(rhs), 0);
   std::fill(std::begin(lhs), std::end(lhs), 0);
