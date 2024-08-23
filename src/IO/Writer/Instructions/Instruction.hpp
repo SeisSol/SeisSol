@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_
 
 #include <IO/Writer/Instructions/Data.hpp>
 #include <memory>
@@ -15,3 +20,5 @@ class WriteInstruction {
 };
 
 } // namespace seissol::io::writer::instructions
+
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_

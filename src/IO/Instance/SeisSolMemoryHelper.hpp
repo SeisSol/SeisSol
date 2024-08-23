@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_
+#define SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_
 
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
@@ -31,3 +36,5 @@ std::shared_ptr<writer::DataSource> variableBuffer(initializer::LTSTree& tree,
 // point of time)
 
 } // namespace seissol::io::instance
+
+#endif // SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_

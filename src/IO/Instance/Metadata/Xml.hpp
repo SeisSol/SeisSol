@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_
+#define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_
 
 #include <IO/Writer/Instructions/Binary.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
@@ -152,3 +157,5 @@ class XmlFile {
 };
 
 } // namespace seissol::io::instance::metadata
+
+#endif // SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_

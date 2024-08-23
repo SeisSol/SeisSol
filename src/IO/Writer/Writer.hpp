@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_WRITER_HPP_
+#define SEISSOL_SRC_IO_WRITER_WRITER_HPP_
 
 #include "Instructions/Instruction.hpp"
 #include "async/ExecInfo.h"
@@ -52,3 +57,5 @@ struct ScheduledWriter {
 };
 
 } // namespace seissol::io::writer
+
+#endif // SEISSOL_SRC_IO_WRITER_WRITER_HPP_

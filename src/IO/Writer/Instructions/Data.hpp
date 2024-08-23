@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_
 
 #include "async/ExecInfo.h"
 #include <IO/Datatype/Datatype.hpp>
@@ -228,3 +233,5 @@ class GeneratedBuffer : public AdhocBuffer {
 };
 
 } // namespace seissol::io::writer
+
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_

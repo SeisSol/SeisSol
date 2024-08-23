@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 add_library(seissol-io STATIC
     Datatype/Datatype.cpp
     Datatype/HDF5Type.cpp

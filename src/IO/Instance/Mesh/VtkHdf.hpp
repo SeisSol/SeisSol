@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_
+#define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_
 
 #include "utils/logger.h"
 #include <IO/Datatype/Datatype.hpp>
@@ -109,3 +114,5 @@ class VtkHdfWriter {
   const static inline std::string pointDataName = "PointData";
 };
 } // namespace seissol::io::instance::mesh
+
+#endif // SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_

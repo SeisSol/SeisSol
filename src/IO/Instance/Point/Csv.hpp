@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_
+#define SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_
 
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Instance/Point/TableWriter.hpp>
@@ -32,3 +37,5 @@ class Csv : public TableWriter {
 };
 
 } // namespace seissol::io::instance::point
+
+#endif // SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_

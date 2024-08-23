@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_
+#define SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_
 #include <IO/Writer/Instructions/Binary.hpp>
 #include <IO/Writer/Instructions/Data.hpp>
 #include <hdf5.h>
@@ -37,3 +42,5 @@ class BinaryWriter {
   MPI_Comm comm;
 };
 } // namespace seissol::io::writer::file
+
+#endif // SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_

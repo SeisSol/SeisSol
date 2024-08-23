@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_
+#define SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_
 
 #include "Datatype.hpp"
 #include <limits>
@@ -118,3 +123,5 @@ std::shared_ptr<Datatype> inferDatatype() {
   return std::make_shared<decltype(InferDatatypeStruct<T>::type())>(InferDatatypeStruct<T>::type());
 }
 } // namespace seissol::io::datatype
+
+#endif // SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_

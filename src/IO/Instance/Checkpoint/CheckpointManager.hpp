@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_
+#define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_
 
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
@@ -59,3 +64,5 @@ class CheckpointManager {
 };
 
 } // namespace seissol::io::instance::checkpoint
+
+#endif // SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_

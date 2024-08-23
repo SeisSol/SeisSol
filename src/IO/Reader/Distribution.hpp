@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_
+#define SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_
 
 #include <IO/Datatype/Inference.hpp>
 #include <IO/Datatype/MPIType.hpp>
@@ -44,3 +49,5 @@ private:
   MPI_Comm comm;
 };
 } // namespace seissol::io::reader
+
+#endif // SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_

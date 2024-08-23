@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_
+#define SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_
 
 #include <IO/Datatype/Datatype.hpp>
 #include <IO/Datatype/Inference.hpp>
@@ -58,3 +63,5 @@ class Hdf5Reader {
   MPI_Comm comm;
 };
 } // namespace seissol::io::reader::file
+
+#endif // SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_

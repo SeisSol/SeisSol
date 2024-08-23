@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_
+#define SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_
 
 #include <IO/Datatype/Datatype.hpp>
 #include <memory>
@@ -31,3 +36,5 @@ class BinaryReader {
   MPI_File file;
 };
 } // namespace seissol::io::reader::file
+
+#endif // SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_

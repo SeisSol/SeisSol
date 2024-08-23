@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_HPP_
+#define SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_HPP_
 
 #include "async/ExecInfo.h"
 #include "async/Module.h"
@@ -29,3 +34,5 @@ class AsyncWriter {
 
 using AsyncWriterModule = async::Module<AsyncWriter, AsyncWriterInit, AsyncWriterExec>;
 } // namespace seissol::io::writer::module
+
+#endif // SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_HPP_

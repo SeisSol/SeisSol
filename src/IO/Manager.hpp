@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_MANAGER_HPP_
+#define SEISSOL_SRC_IO_MANAGER_HPP_
 
 #include "Writer/Module/WriterModule.hpp"
 #include <IO/Instance/Checkpoint/CheckpointManager.hpp>
@@ -43,3 +48,5 @@ class OutputManager : public seissol::Module {
 };
 
 } // namespace seissol::io
+
+#endif // SEISSOL_SRC_IO_MANAGER_HPP_

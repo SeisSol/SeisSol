@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_
 
 #include "Data.hpp"
 #include "Instruction.hpp"
@@ -70,3 +75,5 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };
 } // namespace seissol::io::writer::instructions
+
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_

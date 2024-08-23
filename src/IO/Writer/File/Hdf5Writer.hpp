@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_HPP_
+#define SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_HPP_
 #include <IO/Writer/Instructions/Data.hpp>
 #include <IO/Writer/Instructions/Hdf5.hpp>
 #include <hdf5.h>
@@ -50,3 +55,5 @@ class Hdf5Writer {
   MPI_Comm comm;
 };
 } // namespace seissol::io::writer::file
+
+#endif // SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_HPP_
