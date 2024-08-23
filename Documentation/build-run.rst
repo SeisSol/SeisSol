@@ -2,7 +2,7 @@ Running SeisSol
 ===============
 
 At this point, you should have a compiled SeisSol binary ready.
-Note that for different scenarios, you will need different.
+Note that for different scenarios, you will need different binaries, as the underlying equation system varies.
 
 Here, we will only focus on successfully running SeisSol.
 And for that, we are going to use the ``SeisSol/Examples`` repository.
@@ -11,9 +11,19 @@ Running the Proxy
 -----------------
 
 To test if your SeisSol installation works, and to get an estimate on its performance,
-you can run the SeisSol proxy. For that, take
+you can run the SeisSol proxy. To test for full functionality, run
 
 .. code-block::
+    SeisSol_proxy_YOUR_CONFIGURATION 1000 10 all
+
+Note that you will need a matching GPU for a SeisSol GPU build.
+
+For benchmarking the performance (make sure you don't do that on a login node), check
+
+.. code-block::
+    SeisSol_proxy_YOUR_CONFIGURATION 1000000 50 all
+
+Sometimes, it is useful to only run a specific kernel, e.g. ``ader``.
 
 Running SeisSol on a PC
 -----------------------
@@ -48,7 +58,9 @@ so that it can be used by the MPI communication thread and the IO thread. Genera
     unset KMP_AFFINITY
 
 Note that this list is non-exhaustive, and the exact variables are likely cluster-dependent.
-You will need to take special care of offline CPUs, as SeisSol currently does not detect them automatically.
+You will need to take special care of some masked CPUs, as SeisSol currently does not detect them automatically.
+Offline CPUs are detected automatically on Linux systems and avoided in the free CPU masks.
+
 Use the environment variable ``SEISSOL_FREE_CPUS_MASK`` to explicitly specify the CPUs that can be used for communication/IO threads.
 The variable accepts a comma separated list of elements where an element can be either 1) an integer, or 2) a range of
 integers defined as ``[start, end]`` or 3) a comma separated list of integers
@@ -69,17 +81,16 @@ locations for the *i*-th MPI process on the node.
 GPU Visibility
 --------------
 
-SeisSol provides a launch script given as ``seissol-launch`` which selects the GPU according to the local SLURM rank.
-It is needed due to SeisSol currently only supports one GPU per rank; and the first available device visible is taken automatically.
-
-GPU Memory Management
----------------------
-
-
-
-For AMD GPUs, the ``HSA_XNACK`` may need to be set for unified memory to work—if it is supported by your GPU.
+For GPUs, SeisSol should be best launched with one rank per GPU. To select, SeisSol will automatically pick the first visible GPU to it.
+However, some systems make all GPUs on a node visible to all processes running on it—potentially resulting in all SeisSol processes
+selecting the same GPU. To avoid that, SeisSol provides a launch script given as ``shared/seissol-launch`` which selects the GPU according to the node-local SLURM rank.
 
 Starting SeisSol
 ----------------
 
+Finally, to run SeisSol, you simply invoke your compiled binary (not the proxy) with a SeisSol parameter file. Like this:
 
+.. code-block::
+    SeisSol_YOUR_CONFIGURATION parameters.par
+
+If your parameter file is in your launch directory and called ``parameters.par``, you may also leave that parameter away.

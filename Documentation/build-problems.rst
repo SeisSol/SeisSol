@@ -14,11 +14,15 @@ Code Generation fails
 ---------------------
 
 There is unfortunately no general remedy to that, as the problem may lie elsewhere.
-For a fast, but stable installation, you can use
-``PspaMM``, ``gemmforge`` and ``chainforge``; all three of them being Python packages.
+For a fast, but stable installation, you can use ``PSpaMM``, ``gemmforge`` and ``chainforge``; all three of them being Python packages.
+
+Then, you will need to set ``GEMM_TOOLS_LIST=PSpaMM`` to avoid any other code generators.
+
+If nothing works, you can also try ``GEMM_TOOLS_LIST=Eigen`` without installing any additional generator. However, be aware that using Eigen
+usually comes with a substantial performance penalty against small matrix code generators like libxsmm or PSpaMM; hence, we can only recommend it if nothing else works (or you just want to get a minimal build up and running and your meshes and/or simulations are small enough).
 
 Running SeisSol gives ``SIGILL`` (reason 1)
------------------------------------------
+-------------------------------------------
 
 The underlying reason for this problem is usually that your selected ``HOST_ARCH`` in the CMake file and
 the architecture you are running on do not match.
@@ -32,7 +36,7 @@ To get a working build, choose ``noarch``. If that works, you are good on your l
 or ``neon`` (for ARM machines).
 
 Running SeisSol gives ``SIGILL`` (reason 2)
------------------------------------------
+-------------------------------------------
 
 This problem also occurs, if you use the ImpalaJIT backend for easi on ARM-based CPUs, like e.g. in the latest Apple computers or the Nvidia Grace Hopper Superchip.
 The crash usually happens then when reading material parameters, i.e. around the log messages of ``Computing LTS weights.``, or after ``Begin init model.``.
