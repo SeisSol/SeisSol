@@ -69,10 +69,10 @@ class Planarwave : public InitialField {
   std::vector<std::complex<double>> m_ampField;
   const double m_phase;
   const Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> m_lambdaA;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities> m_lambdaA;
   std::array<std::complex<double>,
-             seissol::model::Material_t::NumberOfQuantities *
-                 seissol::model::Material_t::NumberOfQuantities>
+             seissol::model::MaterialT::NumberOfQuantities *
+                 seissol::model::MaterialT::NumberOfQuantities>
       m_eigenvectors;
 
   private:

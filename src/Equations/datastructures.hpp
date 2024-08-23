@@ -1,7 +1,7 @@
 #ifndef EQUATIONS_DATASTRUCTURES_H_
 #define EQUATIONS_DATASTRUCTURES_H_
 
-//Gather all datastructure Headers here
+// Gather all datastructure Headers here
 #include "Equations/anisotropic/Model/datastructures.hpp"
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
@@ -21,16 +21,16 @@
 
 namespace seissol::model {
 #if defined(USE_ANISOTROPIC)
-using Material_t = AnisotropicMaterial;
-#elif defined(USE_VISCOELASTIC) || defined (USE_VISCOELASTIC2)
-using Material_t = ViscoElasticMaterial;
+using MaterialT = AnisotropicMaterial;
+#elif defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
+using MaterialT = ViscoElasticMaterial;
 #elif defined(USE_ELASTIC)
-using Material_t = ElasticMaterial;
+using MaterialT = ElasticMaterial;
 #elif defined(USE_POROELASTIC)
-using Material_t = PoroElasticMaterial;
+using MaterialT = PoroElasticMaterial;
 #else
 #error "Material class unknown."
 #endif
-}
+} // namespace seissol::model
 
 #endif

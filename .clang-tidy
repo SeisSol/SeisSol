@@ -245,26 +245,26 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StructSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateTemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateTemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypeAliasCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypeAliasCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypedefCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypedefCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefSuffix

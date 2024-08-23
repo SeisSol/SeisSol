@@ -4,29 +4,29 @@
 
 namespace seissol::unit_test {
 
-template <unsigned dim>
-void testResidual(std::array<std::complex<double>, dim * dim>& m,
-                  seissol::eigenvalues::Eigenpair<std::complex<double>, dim>& eigenpair) {
+template <unsigned Dim>
+void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
+                  seissol::eigenvalues::Eigenpair<std::complex<double>, Dim>& eigenpair) {
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
 
   // compute M*R
-  std::array<std::complex<double>, dim * dim> mR{};
-  for (unsigned int i = 0; i < dim; i++) {
-    for (unsigned int j = 0; j < dim; j++) {
-      for (unsigned int k = 0; k < dim; k++) {
-        mR[i + dim * j] += m[i + dim * k] * eigenpair.vectors[k + dim * j];
+  std::array<std::complex<double>, Dim * Dim> mR{};
+  for (unsigned int i = 0; i < Dim; i++) {
+    for (unsigned int j = 0; j < Dim; j++) {
+      for (unsigned int k = 0; k < Dim; k++) {
+        mR[i + Dim * j] += m[i + Dim * k] * eigenpair.vectors[k + Dim * j];
       }
     }
   }
   // compute R*L
-  std::array<std::complex<double>, dim * dim> rL{};
-  for (unsigned int i = 0; i < dim; i++) {
-    for (unsigned int j = 0; j < dim; j++) {
-      rL[i + dim * j] = eigenpair.vectors[i + dim * j] * eigenpair.values[j];
+  std::array<std::complex<double>, Dim * Dim> rL{};
+  for (unsigned int i = 0; i < Dim; i++) {
+    for (unsigned int j = 0; j < Dim; j++) {
+      rL[i + Dim * j] = eigenpair.vectors[i + Dim * j] * eigenpair.values[j];
     }
   }
   // compare residual
-  for (unsigned i = 0; i < dim * dim; i++) {
+  for (unsigned i = 0; i < Dim * Dim; i++) {
     REQUIRE(std::abs(mR[i] - rL[i]) == AbsApprox(0.0).epsilon(Epsilon));
   }
 }

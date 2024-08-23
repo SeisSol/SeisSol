@@ -42,13 +42,6 @@
 #ifndef ASYNCIO_H
 #define ASYNCIO_H
 
-#include "Parallel/MPI.h"
-
-#include <algorithm>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-
 #include "async/Dispatcher.h"
 
 namespace seissol::io {
@@ -59,26 +52,8 @@ class AsyncIO : public async::Dispatcher {
    * @return False if this rank is an MPI executor that does not contribute to the
    *  computation.
    */
-  bool init() {
-    async::Dispatcher::init();
-
-#ifdef USE_MPI
-    seissol::MPI::mpi.setComm(commWorld());
-    // TODO Update fault communicator (not really sure how we can do this at this point)
-#endif // USE_MPI
-
-    return dispatch();
-  }
-
-  void finalize() {
-    // Call parent class
-    async::Dispatcher::finalize();
-
-#ifdef USE_MPI
-    // Reset the MPI communicator
-    seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif // USE_MPI
-  }
+  bool init();
+  void finalize();
 };
 
 } // namespace seissol::io

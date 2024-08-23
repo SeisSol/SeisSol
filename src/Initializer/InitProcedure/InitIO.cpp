@@ -86,7 +86,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
-  // seissol::model::Material_t::NumberOfQuantities contains it nonetheless.
+  // seissol::model::MaterialT::NumberOfQuantities contains it nonetheless.
 
   if (seissolParams.output.waveFieldParameters.enabled) {
     // record the clustering info i.e., distribution of elements within an LTS tree

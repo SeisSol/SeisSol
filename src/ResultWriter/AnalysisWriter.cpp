@@ -110,16 +110,16 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
-    using ErrorArray_t = std::array<double, NumberOfQuantities>;
-    using MeshIdArray_t = std::array<unsigned int, NumberOfQuantities>;
+    using ErrorArrayT = std::array<double, NumberOfQuantities>;
+    using MeshIdArrayT = std::array<unsigned int, NumberOfQuantities>;
 
-    auto errL1Local = ErrorArray_t{0.0};
-    auto errL2Local = ErrorArray_t{0.0};
-    auto errLInfLocal = ErrorArray_t{-1.0};
-    auto elemLInfLocal = MeshIdArray_t{0};
-    auto analyticalL1Local = ErrorArray_t{0.0};
-    auto analyticalL2Local = ErrorArray_t{0.0};
-    auto analyticalLInfLocal = ErrorArray_t{-1.0};
+    auto errL1Local = ErrorArrayT{0.0};
+    auto errL2Local = ErrorArrayT{0.0};
+    auto errLInfLocal = ErrorArrayT{-1.0};
+    auto elemLInfLocal = MeshIdArrayT{0};
+    auto analyticalL1Local = ErrorArrayT{0.0};
+    auto analyticalL2Local = ErrorArrayT{0.0};
+    auto analyticalLInfLocal = ErrorArrayT{-1.0};
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     const int numThreads = omp_get_max_threads();
@@ -128,13 +128,13 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 #endif
     assert(numThreads > 0);
     // Allocate one array per thread to avoid synchronization.
-    auto errsL1Local = std::vector<ErrorArray_t>(numThreads);
-    auto errsL2Local = std::vector<ErrorArray_t>(numThreads);
-    auto errsLInfLocal = std::vector<ErrorArray_t>(numThreads, {-1});
-    auto elemsLInfLocal = std::vector<MeshIdArray_t>(numThreads);
-    auto analyticalsL1Local = std::vector<ErrorArray_t>(numThreads);
-    auto analyticalsL2Local = std::vector<ErrorArray_t>(numThreads);
-    auto analyticalsLInfLocal = std::vector<ErrorArray_t>(numThreads, {-1});
+    auto errsL1Local = std::vector<ErrorArrayT>(numThreads);
+    auto errsL2Local = std::vector<ErrorArrayT>(numThreads);
+    auto errsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
+    auto elemsLInfLocal = std::vector<MeshIdArrayT>(numThreads);
+    auto analyticalsL1Local = std::vector<ErrorArrayT>(numThreads);
+    auto analyticalsL2Local = std::vector<ErrorArrayT>(numThreads);
+    auto analyticalsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
 
     // Note: We iterate over mesh cells by id to avoid
     // cells that are duplicates.
@@ -256,10 +256,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     const auto& comm = mpi.comm();
 
     // Reduce error over all MPI ranks.
-    auto errL1MPI = ErrorArray_t{0.0};
-    auto errL2MPI = ErrorArray_t{0.0};
-    auto analyticalL1MPI = ErrorArray_t{0.0};
-    auto analyticalL2MPI = ErrorArray_t{0.0};
+    auto errL1MPI = ErrorArrayT{0.0};
+    auto errL2MPI = ErrorArrayT{0.0};
+    auto analyticalL1MPI = ErrorArrayT{0.0};
+    auto analyticalL2MPI = ErrorArrayT{0.0};
 
     MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
     MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
@@ -291,7 +291,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                   MPI_MAXLOC,
                   comm);
 
-    auto analyticalLInfMPI = ErrorArray_t{0.0};
+    auto analyticalLInfMPI = ErrorArrayT{0.0};
     MPI_Reduce(analyticalLInfLocal.data(),
                analyticalLInfMPI.data(),
                analyticalLInfLocal.size(),

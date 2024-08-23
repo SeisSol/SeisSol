@@ -69,12 +69,12 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   assert(m_varField.size() == m_ampField.size());
 
   std::array<std::complex<double>,
-             seissol::model::Material_t::NumberOfQuantities *
-                 seissol::model::Material_t::NumberOfQuantities>
+             seissol::model::MaterialT::NumberOfQuantities *
+                 seissol::model::MaterialT::NumberOfQuantities>
       planeWaveOperator{};
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>,
-                                  seissol::model::Material_t::NumberOfQuantities>
+                                  seissol::model::MaterialT::NumberOfQuantities>
       eigendecomposition;
 #ifdef USE_POROELASTIC
   computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
@@ -94,8 +94,8 @@ void seissol::physics::Planarwave::evaluate(
 
   auto r = yateto::DenseTensorView<2, std::complex<double>>(
       const_cast<std::complex<double>*>(m_eigenvectors.data()),
-      {seissol::model::Material_t::NumberOfQuantities,
-       seissol::model::Material_t::NumberOfQuantities});
+      {seissol::model::MaterialT::NumberOfQuantities,
+       seissol::model::MaterialT::NumberOfQuantities});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
@@ -269,8 +269,8 @@ void seissol::physics::TravellingWave::evaluate(
 
   auto r = yateto::DenseTensorView<2, std::complex<double>>(
       const_cast<std::complex<double>*>(m_eigenvectors.data()),
-      {seissol::model::Material_t::NumberOfQuantities,
-       seissol::model::Material_t::NumberOfQuantities});
+      {seissol::model::MaterialT::NumberOfQuantities,
+       seissol::model::MaterialT::NumberOfQuantities});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {

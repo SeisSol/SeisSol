@@ -46,9 +46,7 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include <Common/constants.hpp>
-#include <DataTypes/ConditionalKey.hpp>
 #include <DataTypes/ConditionalTable.hpp>
-#include <DataTypes/EncodedConstants.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/precision.hpp>
 #include <Model/plasticity.hpp>
@@ -62,7 +60,13 @@
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
 #include "device.h"
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
 using namespace device;
+#endif
+
+#ifndef NDEBUG
+#include <cstddef>
 #endif
 
 namespace seissol::kernels {

@@ -82,10 +82,15 @@ class Node {
 
   class Iterator {
 public:
+    // NOLINTNEXTLINE
     using iterator_category = std::input_iterator_tag;
+    // NOLINTNEXTLINE
     using value_type = Node;
+    // NOLINTNEXTLINE
     using difference_type = size_t;
+    // NOLINTNEXTLINE
     using pointer = Node*;
+    // NOLINTNEXTLINE
     using reference = Node&;
 
     Iterator() : m_node(NULL) {}

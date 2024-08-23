@@ -27,7 +27,7 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   travellingWaveParameters.origin = initConditionParams.origin;
   travellingWaveParameters.kVec = initConditionParams.kVec;
   constexpr double Eps = 1e-15;
-  for (size_t i = 0; i < seissol::model::Material_t::NumberOfQuantities; i++) {
+  for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
     if (std::abs(initConditionParams.ampField[i]) > Eps) {
       travellingWaveParameters.varField.push_back(i);
       travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);

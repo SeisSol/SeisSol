@@ -50,7 +50,7 @@ GlobalTimestep
                      const std::string& velocityModel,
                      const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
-  using Material = seissol::model::Material_t;
+  using Material = seissol::model::MaterialT;
 
   auto* queryGen = seissol::initializer::getBestQueryGenerator(
       seissol::initializer::parameters::isModelAnelastic(),

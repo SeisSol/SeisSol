@@ -41,7 +41,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](StressTensor& initialStress,
                                                                        bool readNucleation) {
       // return pointer to first element
-      auto getRawData = [](StressTensor::VectorOfArrays_t& vectorOfArrays) {
+      auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
         return vectorOfArrays.data()->data();
       };
       // fault can be either initialized by traction or by cartesian stress

@@ -13,11 +13,15 @@
 #error REAL_SIZE not supported.
 #endif
 
+// (real should be lower-case)
+
 #ifdef SINGLE_PRECISION
-typedef float real;
+// NOLINTNEXTLINE
+using real = float;
 #endif
 #ifdef DOUBLE_PRECISION
-typedef double real;
+// NOLINTNEXTLINE
+using real = double;
 #endif
 
 #ifdef USE_MPI

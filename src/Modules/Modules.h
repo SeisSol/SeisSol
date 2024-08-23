@@ -121,13 +121,13 @@ class Modules {
   /**
    * Do the real work for handling a hook
    */
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   void _callHook() {
     for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
-      call<hook>(module);
+      call<Hook>(module);
     }
 
-    nextHook = static_cast<ModuleHook>(static_cast<int>(hook) + 1);
+    nextHook = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
   }
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
@@ -141,7 +141,7 @@ class Modules {
   void _setSimulationStartTime(double time);
 
   private:
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   static void call(Module* module);
 
   static const char* strHook(ModuleHook hook);
@@ -159,9 +159,9 @@ class Modules {
                            ModuleHook hook,
                            ModulePriority priority = ModulePriority::Default);
 
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   static void callHook() {
-    instance()._callHook<hook>();
+    instance()._callHook<Hook>();
   }
 
   /**

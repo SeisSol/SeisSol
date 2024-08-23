@@ -104,7 +104,7 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names(seissol::model::Material_t::Quantities.begin(), seissol::model::Material_t::Quantities.end());
+  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(), seissol::model::MaterialT::Quantities.end());
   for (const auto& derived : derivedQuantities) {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
@@ -210,7 +210,7 @@ void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
   std::vector<unsigned> meshIds(numberOfPoints);
   
   // We want to plot all quantities except for the memory variables
-  std::vector<unsigned> quantities(seissol::model::Material_t::Quantities.size());
+  std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";

@@ -60,10 +60,10 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
-template <size_t exp, typename T>
+template <size_t Exp, typename T>
 inline auto power(T base) -> T {
   T result = static_cast<T>(1.0);
-  for (size_t i = 0; i < exp; ++i) {
+  for (size_t i = 0; i < Exp; ++i) {
     result *= base;
   }
   return result;

@@ -37,7 +37,7 @@ using namespace seissol::initializer;
 
 namespace {
 
-using Material_t = seissol::model::Material_t;
+using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
@@ -90,7 +90,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // material retrieval for copy+interior layers
   seissol::initializer::QueryGenerator* queryGen =
       getBestQueryGenerator(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader));
-  auto materialsDB = queryDB<Material_t>(
+  auto materialsDB = queryDB<MaterialT>(
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
 
   // plasticity (if needed)
@@ -104,8 +104,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // material retrieval for ghost layers
   seissol::initializer::QueryGenerator* queryGenGhost = getBestQueryGenerator(
       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost = queryDB<Material_t>(
-      queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
+  auto materialsDBGhost =
+      queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
   // we need to compute all model parameters before we can use them...

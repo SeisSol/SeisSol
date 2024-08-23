@@ -31,15 +31,15 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto kVecRaw = seissol::initializer::convertStringToArray<double, 3>(kVecString);
   const Eigen::Vector3d kVec(kVecRaw.data());
   std::string defaultAmpFieldString;
-  for (int i = 0; i < seissol::model::Material_t::NumberOfQuantities; ++i) {
+  for (int i = 0; i < seissol::model::MaterialT::NumberOfQuantities; ++i) {
     defaultAmpFieldString += " 0.0";
   }
   const auto ampFieldString = reader->readWithDefault("ampfield", defaultAmpFieldString);
   const auto ampFieldRaw =
       seissol::initializer::convertStringToArray<double,
-                                                 seissol::model::Material_t::NumberOfQuantities>(
+                                                 seissol::model::MaterialT::NumberOfQuantities>(
           ampFieldString);
-  const Eigen::Vector<double, seissol::model::Material_t::NumberOfQuantities> ampField(
+  const Eigen::Vector<double, seissol::model::MaterialT::NumberOfQuantities> ampField(
       ampFieldRaw.data());
 
   const auto magnitude = reader->readWithDefault("magnitude", 0.0);

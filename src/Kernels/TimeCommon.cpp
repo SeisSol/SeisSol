@@ -41,9 +41,7 @@
  **/
 
 #include "TimeCommon.h"
-#include <DataTypes/ConditionalKey.hpp>
 #include <DataTypes/ConditionalTable.hpp>
-#include <DataTypes/EncodedConstants.hpp>
 #include <Initializer/BasicTypedefs.hpp>
 #include <Kernels/Time.h>
 #include <Kernels/precision.hpp>
@@ -51,6 +49,15 @@
 #include <cassert>
 #include <stdint.h>
 #include <tensor.h>
+
+#ifdef ACL_DEVICE
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#endif
+
+#ifndef NDEBUG
+#include <cstddef>
+#endif
 
 namespace seissol::kernels {
 
@@ -70,32 +77,32 @@ void TimeCommon::computeIntegrals(Time& time,
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
-  for (int dofeighbor = 0; dofeighbor < 4; dofeighbor++) {
-    assert(((uintptr_t)timeDofs[dofeighbor]) % Alignment == 0);
-    assert(((uintptr_t)integrationBuffer[dofeighbor]) % Alignment == 0);
+  for (int dofneighbor = 0; dofneighbor < 4; dofneighbor++) {
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
   }
 #endif
 
   /*
    * set/compute time integrated DOFs.
    */
-  for (int dofeighbor = 0; dofeighbor < 4; ++dofeighbor) {
+  for (int dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofeighbor] != FaceType::Outflow &&
-        faceTypes[dofeighbor] != FaceType::DynamicRupture) {
+    if (faceTypes[dofneighbor] != FaceType::Outflow &&
+        faceTypes[dofneighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
-      if ((ltsSetup >> dofeighbor) % 2 == 0) {
-        timeIntegrated[dofeighbor] = timeDofs[dofeighbor];
+      if ((ltsSetup >> dofneighbor) % 2 == 0) {
+        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
-        time.computeIntegral(currentTime[dofeighbor + 1],
+        time.computeIntegral(currentTime[dofneighbor + 1],
                              currentTime[0],
                              currentTime[0] + timeStepWidth,
-                             timeDofs[dofeighbor],
-                             integrationBuffer[dofeighbor]);
+                             timeDofs[dofneighbor],
+                             integrationBuffer[dofneighbor]);
 
-        timeIntegrated[dofeighbor] = integrationBuffer[dofeighbor];
+        timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
     }
   }

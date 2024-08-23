@@ -2,12 +2,11 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * Copyright (c) 2023, Intel Corporation
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,63 +25,52 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Point source computation.
- **/
+ * Asynchronous I/O
+ */
 
-#ifndef SOURCETERM_NRF_H_
-#define SOURCETERM_NRF_H_
+#include "AsyncIO.h"
 
-#include <Eigen/Dense>
-#include <array>
-#include <cstddef>
-#include <vector>
+#include "Parallel/MPI.h"
 
-namespace seissol::sourceterm {
+#include <algorithm>
 
-// (NOTE: naming also used in rconv; hence avoid clang-tidy styleguiding here)
+#include "utils/env.h"
+#include "utils/logger.h"
 
-// NOLINTNEXTLINE
-typedef struct Subfault_units {
-  char* tinit;
-  char* timestep;
-  char* mu;
-  char* area;
-  char* tan1;
-  char* tan2;
-  char* normal;
-  // NOLINTNEXTLINE
-} Subfault_units;
+#include "async/Dispatcher.h"
 
-typedef struct Subfault {
-  double tinit;
-  double timestep;
-  double mu;
-  double area;
-  Eigen::Vector3d tan1;
-  Eigen::Vector3d tan2;
-  Eigen::Vector3d normal;
-} Subfault;
+namespace seissol::io {
 
-using Offsets = std::array<unsigned, 3u>;
+bool AsyncIO::init() {
+  async::Dispatcher::init();
 
-struct NRF {
-  std::vector<Eigen::Vector3d> centres;
-  std::vector<Subfault> subfaults;
-  std::vector<Offsets> sroffsets;
-  std::array<std::vector<double>, 3u> sliprates;
-  inline std::size_t size() { return centres.size(); }
-};
-} // namespace seissol::sourceterm
+#ifdef USE_MPI
+  seissol::MPI::mpi.setComm(commWorld());
+  // TODO Update fault communicator (not really sure how we can do this at this point)
+#endif // USE_MPI
 
-#endif
+  return dispatch();
+}
+
+void AsyncIO::finalize() {
+  // Call parent class
+  async::Dispatcher::finalize();
+
+#ifdef USE_MPI
+  // Reset the MPI communicator
+  seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
+#endif // USE_MPI
+}
+
+} // namespace seissol::io

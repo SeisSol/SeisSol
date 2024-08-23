@@ -42,9 +42,7 @@
 #include "DynamicRupture.h"
 
 #include <Common/constants.hpp>
-#include <DataTypes/ConditionalKey.hpp>
 #include <DataTypes/ConditionalTable.hpp>
-#include <DataTypes/EncodedConstants.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/precision.hpp>
 #include <Parallel/Runtime/Stream.hpp>
@@ -57,8 +55,14 @@
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
 #endif
 #include <yateto.h>
+
+#ifndef NDEBUG
+#include <cstddef>
+#endif
 
 void seissol::kernels::DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
@@ -138,11 +142,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(
 #ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
-  assert(((uintptr_t)timeDerivativePlus) % Alignment == 0);
-  assert(((uintptr_t)timeDerivativeMinus) % Alignment == 0);
-  assert(((uintptr_t)&qInterpolatedPlus[0]) % Alignment == 0);
-  assert(((uintptr_t)&qInterpolatedMinus[0]) % Alignment == 0);
-  assert(tensor::Q::size() == tensor::I::size());
+  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
+  static_assert(tensor::Q::size() == tensor::I::size(),
+                "The tensors Q and I need to match in size");
 #endif
 
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
