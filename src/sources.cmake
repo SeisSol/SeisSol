@@ -62,6 +62,7 @@ src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/AsyncIO.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp

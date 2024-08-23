@@ -61,7 +61,7 @@
 #include <yateto.h>
 
 #ifndef NDEBUG
-#include <cstddef>
+#include <cstdint>
 #endif
 
 void seissol::kernels::DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {

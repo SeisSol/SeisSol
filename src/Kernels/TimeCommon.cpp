@@ -56,7 +56,8 @@
 #endif
 
 #ifndef NDEBUG
-#include <cstddef>
+#include "Common/constants.hpp"
+#include <cstdint>
 #endif
 
 namespace seissol::kernels {

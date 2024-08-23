@@ -66,7 +66,7 @@ using namespace device;
 #endif
 
 #ifndef NDEBUG
-#include <cstddef>
+#include <cstdint>
 #endif
 
 namespace seissol::kernels {
