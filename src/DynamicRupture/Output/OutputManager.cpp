@@ -217,7 +217,13 @@ void OutputManager::initElementwiseOutput() {
 
     seissolInstance.faultWriter().setupCallbackObject(this);
   } else {
+    // Code to be refactored.
+
     auto order = seissolParameters.output.elementwiseParameters.vtkorder;
+    if (order == 0) {
+      logError() << "VTK order 0 is currently not supported for the elementwise fault output.";
+    }
+
     io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
                                             receiverPoints.size() /
                                                 seissol::init::vtk2d::Shape[order][1],
@@ -264,6 +270,10 @@ void OutputManager::initElementwiseOutput() {
 void OutputManager::initPickpointOutput() {
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+
+  if (seissolParameters.output.pickpointParameters.collectiveio) {
+    logError() << "Collective IO for the Fault Pickpoint output is still under construction.";
+  }
 
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";

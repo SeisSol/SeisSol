@@ -133,6 +133,12 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder >= 0) {
+
+    // Effectively temporary code for now. To be refactored.
+    if (seissolParams.output.waveFieldParameters.vtkorder == 0) {
+      logError() << "VTK order 0 is currently not supported for the wavefield output.";
+    }
+
     auto order = seissolParams.output.waveFieldParameters.vtkorder;
     auto& meshReader = seissolInstance.meshReader();
 
@@ -203,6 +209,8 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
             &target[i * 3]);
       }
     });
+
+    // TODO: make those being read from the material class
     std::vector<std::string> quantityLabels = {
         "sigma_xx",
         "sigma_yy",
@@ -272,6 +280,11 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.freeSurfaceParameters.enabled &&
       seissolParams.output.freeSurfaceParameters.vtkorder >= 0) {
+    // Effectively temporary code for now. To be refactored.
+    if (seissolParams.output.freeSurfaceParameters.vtkorder == 0) {
+      logError() << "VTK order 0 is currently not supported for the free surface output.";
+    }
+
     auto order = seissolParams.output.freeSurfaceParameters.vtkorder;
     auto& freeSurfaceIntegrator = seissolInstance.freeSurfaceIntegrator();
     auto& meshReader = seissolInstance.meshReader();
