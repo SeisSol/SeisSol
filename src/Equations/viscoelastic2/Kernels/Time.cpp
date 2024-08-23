@@ -57,9 +57,9 @@ extern long long libxsmm_num_total_flops;
 namespace seissol::kernels {
 
 void Time::setHostGlobalData(GlobalData const* global) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(0))) % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(1))) % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % Alignment == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
   m_krnlPrototype.selectAne = init::selectAne::Values;
@@ -79,9 +79,9 @@ void Time::computeAder(double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs()) % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated) % Alignment == 0 );
-  assert( ((uintptr_t)o_timeDerivatives) % Alignment == 0 || o_timeDerivatives == NULL );
+  assert( (reinterpret_cast<uintptr_t>(data.dofs())) % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(o_timeIntegrated)) % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(o_timeDerivatives)) % Alignment == 0 || o_timeDerivatives == NULL );
 
   /*
    * compute ADER scheme.
@@ -171,17 +171,17 @@ void Time::computeIntegral( double                                      i_expans
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(i_timeDerivatives))  % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(o_timeIntegrated))   % Alignment == 0 );
 
   // compute lengths of integration intervals
-  real l_deltaTLower = i_integrationStart - i_expansionPoint;
-  real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
+  real deltaTLower = i_integrationStart - i_expansionPoint;
+  real deltaTUpper = i_integrationEnd   - i_expansionPoint;
   
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = static_cast<real>(1.0);
-  real l_secondTerm = static_cast<real>(1.0);
-  real l_factorial  = static_cast<real>(1.0);
+  real firstTerm  = static_cast<real>(1.0);
+  real secondTerm = static_cast<real>(1.0);
+  real factorial  = static_cast<real>(1.0);
   
   kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = o_timeIntegrated;
@@ -193,12 +193,12 @@ void Time::computeIntegral( double                                      i_expans
 
   // iterate over time derivatives
   for(int der = 0; der < ConvergenceOrder; ++der ) {
-    l_firstTerm  *= l_deltaTUpper;
-    l_secondTerm *= l_deltaTLower;
-    l_factorial  *= static_cast<real>(der+1);
+    firstTerm  *= deltaTUpper;
+    secondTerm *= deltaTLower;
+    factorial  *= static_cast<real>(der+1);
 
-    intKrnl.power(der)  = l_firstTerm - l_secondTerm;
-    intKrnl.power(der) /= l_factorial;
+    intKrnl.power(der)  = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
   }
 
   intKrnl.execute();
@@ -211,8 +211,8 @@ void Time::computeTaylorExpansion( real         time,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeDerivatives))  % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeEvaluated))    % Alignment == 0 );
 
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );

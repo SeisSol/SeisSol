@@ -57,14 +57,14 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Time::executeSTP( double                      i_timeStepWidth,
+void Time::executeSTP( double                      timeStepWidth,
                                          LocalData&                  data,
-                                         real                        o_timeIntegrated[tensor::I::size()],
+                                         real                        timeIntegrated[tensor::I::size()],
                                          real*                       stp )
 
 {
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
-  assert( ((uintptr_t)stp) % Alignment == 0);
+  assert( (reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
@@ -75,31 +75,31 @@ void Time::executeSTP( double                      i_timeStepWidth,
   real B_values[init::star::size(1)];
   real C_values[init::star::size(2)];
   for (size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[0][i];
-    B_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[1][i];
-    C_values[i] = i_timeStepWidth * data.localIntegration().starMatrices[2][i];
+    A_values[i] = timeStepWidth * data.localIntegration().starMatrices[0][i];
+    B_values[i] = timeStepWidth * data.localIntegration().starMatrices[1][i];
+    C_values[i] = timeStepWidth * data.localIntegration().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.localIntegration().specific.G[10] * i_timeStepWidth;
-  krnl.Gl = data.localIntegration().specific.G[11] * i_timeStepWidth;
-  krnl.Gm = data.localIntegration().specific.G[12] * i_timeStepWidth;
+  krnl.Gk = data.localIntegration().specific.G[10] * timeStepWidth;
+  krnl.Gl = data.localIntegration().specific.G[11] * timeStepWidth;
+  krnl.Gm = data.localIntegration().specific.G[12] * timeStepWidth;
 
   krnl.Q = const_cast<real*>(data.dofs());
-  krnl.I = o_timeIntegrated;
-  krnl.timestep = i_timeStepWidth;
+  krnl.I = timeIntegrated;
+  krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
   krnl.spaceTimePredictorRhs = stpRhs;
 
   //The matrix Zinv depends on the timestep
   //If the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
-  if (i_timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
+  if (timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder];
-    model::zInvInitializerForLoop<0, seissol::model::MaterialT::NumberOfQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
+    model::zInvInitializerForLoop<0, seissol::model::MaterialT::NumberOfQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
     for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
@@ -114,23 +114,23 @@ void Time::executeSTP( double                      i_timeStepWidth,
 }
                                           
 
-void Time::computeAder( double i_timeStepWidth,
+void Time::computeAder( double timeStepWidth,
                                           LocalData& data,
                                           LocalTmp& tmp,
-                                          real o_timeIntegrated[tensor::I::size()],
-                                          real* o_timeDerivatives,
+                                          real timeIntegrated[tensor::I::size()],
+                                          real* timeDerivatives,
                                           bool updateDisplacement)
 {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs())            % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated )      % Alignment == 0 );
-  assert( ((uintptr_t)o_timeDerivatives)      % Alignment == 0 || o_timeDerivatives == NULL );
+  assert( (reinterpret_cast<uintptr_t>(data.dofs()))            % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeIntegrated) )      % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeDerivatives))      % Alignment == 0 || timeDerivatives == NULL );
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
-  real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-  executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
+  real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+  executeSTP( timeStepWidth, data, timeIntegrated, stpBuffer );
 }
 
 void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
@@ -150,16 +150,16 @@ void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
   hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
 }
 
-void Time::flopsAder( unsigned int        &o_nonZeroFlops,
-                                        unsigned int        &o_hardwareFlops ) {
+void Time::flopsAder( unsigned int        &nonZeroFlops,
+                                        unsigned int        &hardwareFlops ) {
   // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
+  nonZeroFlops = 0; hardwareFlops =0;
 
-  o_nonZeroFlops = kernel::spaceTimePredictor::NonZeroFlops;
-  o_hardwareFlops = kernel::spaceTimePredictor::HardwareFlops;
+  nonZeroFlops = kernel::spaceTimePredictor::NonZeroFlops;
+  hardwareFlops = kernel::spaceTimePredictor::HardwareFlops;
   //we multiply the star matrices with dt before we execute the kernel
-  o_nonZeroFlops += 3*init::star::size(0);
-  o_hardwareFlops += 3*init::star::size(0);
+  nonZeroFlops += 3*init::star::size(0);
+  hardwareFlops += 3*init::star::size(0);
 }
 
 unsigned Time::bytesAder()
@@ -180,48 +180,48 @@ unsigned Time::bytesAder()
   return reals * sizeof(real);
 }
 
-void Time::computeIntegral( double                            i_expansionPoint,
-                                              double                            i_integrationStart,
-                                              double                            i_integrationEnd,
-                                              const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[tensor::I::size()] )
+void Time::computeIntegral( double                            expansionPoint,
+                                              double                            integrationStart,
+                                              double                            integrationEnd,
+                                              const real*                       timeDerivatives,
+                                              real                              timeIntegrated[tensor::I::size()] )
 {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeDerivatives))  % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeIntegrated))   % Alignment == 0 );
 
   // assert that this is a forwared integration in time
-  assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
-  assert( i_integrationEnd                   > i_integrationStart );
+  assert( integrationStart + (real) 1.E-10 > expansionPoint   );
+  assert( integrationEnd                   > integrationStart );
 
   /*
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real l_deltaTLower = i_integrationStart - i_expansionPoint;
-  real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
+  real deltaTLower = integrationStart - expansionPoint;
+  real deltaTUpper = integrationEnd   - expansionPoint;
 
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = (real) 1;
-  real l_secondTerm = (real) 1;
-  real l_factorial  = (real) 1;
+  real firstTerm  = (real) 1;
+  real secondTerm = (real) 1;
+  real factorial  = (real) 1;
   
   kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
+  intKrnl.I = timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
  
   // iterate over time derivatives
   for(int der = 0; der < ConvergenceOrder; ++der ) {
-    l_firstTerm  *= l_deltaTUpper;
-    l_secondTerm *= l_deltaTLower;
-    l_factorial  *= (real)(der+1);
+    firstTerm  *= deltaTUpper;
+    secondTerm *= deltaTLower;
+    factorial  *= (real)(der+1);
 
-    intKrnl.power(der)  = l_firstTerm - l_secondTerm;
-    intKrnl.power(der) /= l_factorial;
+    intKrnl.power(der)  = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
   }
   intKrnl.execute();
 }
@@ -233,8 +233,8 @@ void Time::computeTaylorExpansion( real         time,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeDerivatives))  % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeEvaluated))    % Alignment == 0 );
 
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );

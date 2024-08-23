@@ -65,11 +65,11 @@ namespace seissol::kernels {
 void LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % alignment == 0 );
+    assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % alignment == 0 );
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % alignment == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % alignment == 0 );
+    assert( (reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) % alignment == 0 );
+    assert( (reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % alignment == 0 );
   }
 #endif
 }
@@ -430,42 +430,42 @@ void Local::evaluateBatchedTimeDependentBc(
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(FaceType const i_faceTypes[4],
-                                            unsigned int &o_nonZeroFlops,
-                                            unsigned int &o_hardwareFlops)
+void Local::flopsIntegral(FaceType const faceTypes[4],
+                                            unsigned int &nonZeroFlops,
+                                            unsigned int &hardwareFlops)
 {
-  o_nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
-  o_hardwareFlops = seissol::kernel::volume::HardwareFlops;
+  nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
+  hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    if (i_faceTypes[face] != FaceType::DynamicRupture) {
-      o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
-      o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+    if (faceTypes[face] != FaceType::DynamicRupture) {
+      nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
     }
 
     // Take boundary condition flops into account.
     // Note that this only includes the flops of the kernels but not of the
     // boundary condition implementation.
     // The (probably incorrect) assumption is that they are negligible.
-    switch (i_faceTypes[face]) {
+    switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
-      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
     case FaceType::Dirichlet:
-      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
-      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
     case FaceType::Analytical:
-      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
-      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
       break;
     default:
