@@ -4,6 +4,8 @@ add_library(seissol-io STATIC
     Datatype/MPIType.cpp
     Instance/Checkpoint/CheckpointManager.cpp
     Instance/Mesh/VtkHdf.cpp
+    Instance/Metadata/Pvd.cpp
+    Instance/Metadata/Xml.cpp
     Instance/Point/Csv.cpp
     Instance/Point/Pytables.cpp
     Instance/Point/TableWriter.cpp
