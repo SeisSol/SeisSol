@@ -301,5 +301,6 @@ CheckOptions:
 #    value:           CamelCase
 
     # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
+    # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*|bits/.*'

@@ -2,7 +2,6 @@
 
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
-#include <bits/time.h>
 #include <mpi.h>
 #include <time.h>
 

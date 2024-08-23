@@ -42,7 +42,6 @@
 #include "Unit.hpp"
 
 #include <algorithm>
-#include <bits/time.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
