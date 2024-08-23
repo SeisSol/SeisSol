@@ -1,4 +1,4 @@
-Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,modernize-use-override,modernize-use-equals-default,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
+Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,-misc-no-recursion,modernize-use-override,modernize-use-equals-default,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
@@ -298,6 +298,6 @@ CheckOptions:
 #  - key:             readability-identifier-naming.VirtualMethodSuffix
 #    value:           CamelCase
 
-    # ignore Eigen, until added to IWYU
+    # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*'

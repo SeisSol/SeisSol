@@ -138,6 +138,7 @@ void EnergyOutput::syncPoint(double time) {
 void EnergyOutput::simulationStart() {
   if (isFileOutputEnabled) {
     out.open(outputFileName);
+    out << std::scientific;
     writeHeader();
   }
   syncPoint(0.0);
