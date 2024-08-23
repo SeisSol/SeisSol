@@ -75,7 +75,7 @@ static void closeSeisSol(seissol::SeisSol& seissolInstance) {
   seissolInstance.waveFieldWriter().close();
   seissolInstance.checkPointManager().close();
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    seissolInstance.faultWriter()[i].close();
+    seissolInstance.faultWriter()[i]->close();
   }
   seissolInstance.freeSurfaceWriter().close();
 

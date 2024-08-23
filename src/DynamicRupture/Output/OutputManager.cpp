@@ -203,8 +203,9 @@ void OutputManager::initElementwiseOutput() {
     }
   };
   misc::forEach(ewOutputData->vars, recordPointers);
-  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    seissolInstance.faultWriter()[i].init(cellConnectivity.data(),
+    // This should not be in a loop but should be tracked by the number of Simulation and then put there
+    logInfo() << "Debugging info, simulation number: " << numFused;
+    seissolInstance.faultWriter()[numFused]->init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
                                        static_cast<unsigned int>(receiverPoints.size()),
@@ -215,9 +216,7 @@ void OutputManager::initElementwiseOutput() {
                                        printTime,
                                        backendType,
                                        backupTimeStamp);
-
-    seissolInstance.faultWriter()[i].setupCallbackObject(this);
-  }
+    seissolInstance.faultWriter()[numFused]->setupCallbackObject(this);
 }
 
 void OutputManager::initPickpointOutput() {

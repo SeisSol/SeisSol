@@ -18,7 +18,7 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                 seissol::SeisSol& seissolInstance,
-                unsigned int numFused); // (TO DISCUSS: where is the constructor called?)
+                unsigned int numFused);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::LTS* userWpDescr,

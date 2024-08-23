@@ -75,7 +75,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 {
 	const int rank = seissol::MPI::mpi.rank();
 
-	logInfo(rank) << "Initializing XDMF fault output.";
+	logInfo(rank) << "Initializing XDMF fault output for Simulation: " << nFused;
 
 	// Initialize the asynchronous module
 	async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>::init();
