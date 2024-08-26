@@ -53,7 +53,13 @@ CCLSendNeighborCluster::CCLSendNeighborCluster(const std::vector<RemoteCluster>&
   }
 #endif
 }
-CCLSendNeighborCluster::~CCLSendNeighborCluster() = default;
+CCLSendNeighborCluster::~CCLSendNeighborCluster() {
+#if defined(USE_CCL) && defined(CCL_NCCL)
+  for (void* handle : memoryHandles) {
+    ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
+  }
+#endif
+}
 
 bool CCLRecvNeighborCluster::poll() { return true; }
 void CCLRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
@@ -86,6 +92,12 @@ CCLRecvNeighborCluster::CCLRecvNeighborCluster(const std::vector<RemoteCluster>&
   }
 #endif
 }
-CCLRecvNeighborCluster::~CCLRecvNeighborCluster() = default;
+CCLRecvNeighborCluster::~CCLRecvNeighborCluster() {
+#if defined(USE_CCL) && defined(CCL_NCCL)
+  for (void* handle : memoryHandles) {
+    ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
+  }
+#endif
+}
 
 } // namespace seissol::solver::clustering::communication
