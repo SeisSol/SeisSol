@@ -8,6 +8,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
 
+#include <DynamicRupture/Output/DataTypes.hpp>
 #include <memory>
 #include <vector>
 

@@ -45,6 +45,7 @@
 #include <cassert>
 #include <cstring>
 #include <Eigen/Dense>
+#include <utils/logger.h>
 
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
@@ -185,6 +186,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 	// Initialize the executor
 	FreeSurfaceInitParam param;
 	// param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
+	param.timestep = 0;
 	param.backend = backend;
 	param.backupTimeStamp = backupTimeStamp;
 	callInit(param);

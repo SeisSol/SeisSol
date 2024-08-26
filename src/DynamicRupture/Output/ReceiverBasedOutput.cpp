@@ -14,6 +14,7 @@
 #include "Numerical_aux/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Common/constants.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -22,6 +23,7 @@
 #include <cstring>
 #include <init.h>
 #include <memory>
+#include <utils/logger.h>
 #include <vector>
 
 using namespace seissol::dr::misc::quantity_indices;
@@ -81,20 +83,23 @@ void ReceiverOutput::calcFaultOutput(
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for
-#endif
+// #if defined(_OPENMP) && !NVHPC_AVOID_OMP
+// #pragma omp parallel for
+// #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+    #ifdef MULTIPLE_SIMULATIONS
+    alignas(Alignment) real dofsPlus[tensor::Q::Shape[1]*tensor::Q::Shape[2]]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::Shape[1]*tensor::Q::Shape[2]]{};
+    #else
     alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
-
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};    
+    #endif
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
     LocalInfo local{};
-
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
     local.layer = layer;
     local.ltsId = ltsId;
@@ -117,10 +122,15 @@ void ReceiverOutput::calcFaultOutput(
     }
 #else
     getDofs(dofsPlus, faultInfo.element);
+
+    logInfo() << faultInfo.neighborElement;
+
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
+    logInfo() << "Reached here neighbor element";
     } else {
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
+    logInfo() << "Reached here non neighbor element";
     }
 #endif
 
@@ -143,6 +153,7 @@ void ReceiverOutput::calcFaultOutput(
 
     auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
+
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();

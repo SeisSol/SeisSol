@@ -204,7 +204,6 @@ void OutputManager::initElementwiseOutput() {
   };
   misc::forEach(ewOutputData->vars, recordPointers);
     // This should not be in a loop but should be tracked by the number of Simulation and then put there
-    logInfo() << "Debugging info, simulation number: " << numFused;
     seissolInstance.faultWriter()[numFused]->init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
@@ -313,13 +312,11 @@ void OutputManager::writePickpointOutput(double time, double dt) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
-
       const auto& outputData = ppOutputData;
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters[numFused].slipRateOutputType,
                             ppOutputData,
                             time);
-
       const bool isMaxCacheLevel =
           outputData->currentCacheLevel >=
           static_cast<size_t>(seissolParameters.output.pickpointParameters.maxPickStore);

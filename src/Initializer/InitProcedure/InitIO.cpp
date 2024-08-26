@@ -165,7 +165,7 @@ static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
-  for (unsigned int i = 0; i << MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
     seissolInstance.getMemoryManager().getFaultOutputManager()[i]->initFaceToLtsMap();
   }
 }

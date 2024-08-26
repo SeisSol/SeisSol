@@ -40,6 +40,7 @@
  **/
 
 #include <limits>
+#include <utils/logger.h>
 
 #include "Simulator.h"
 #include "Modules/Modules.h"
@@ -94,8 +95,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
    auto faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
 
-  for(unsigned int i = 0; i < MULTIPLE_SIMULATIONS ; i++)
-{  faultOutputManager[i]->writePickpointOutput(0.0, 0.0);}
+   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+     faultOutputManager[i]->writePickpointOutput(0.0, 0.0);
+   }
 
   Stopwatch simulationStopwatch;
   simulationStopwatch.start();
