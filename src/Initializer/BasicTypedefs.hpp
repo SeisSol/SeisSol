@@ -57,8 +57,6 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
          faceType == FaceType::Dirichlet || faceType == FaceType::Analytical;
 }
 
-enum SystemType { Host = 0, Device = 1 };
-
 enum class ComputeGraphType {
   LocalIntegral = 0,
   AccumulatedVelocities,

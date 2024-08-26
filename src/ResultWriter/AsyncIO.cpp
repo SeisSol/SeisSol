@@ -54,7 +54,6 @@ bool AsyncIO::init() {
 
 #ifdef USE_MPI
   seissol::MPI::mpi.setComm(commWorld());
-  // TODO Update fault communicator (not really sure how we can do this at this point)
 #endif // USE_MPI
 
   return dispatch();

@@ -32,7 +32,7 @@ const std::map<int, std::vector<MPINeighborElement>>& MeshReader::getMPIFaultNei
   return m_MPIFaultNeighbors;
 }
 
-std::unordered_map<int, std::vector<GhostElementMetadata>>
+const std::unordered_map<int, std::vector<GhostElementMetadata>>&
     MeshReader::getGhostlayerMetadata() const {
   return m_ghostlayerMetadata;
 }
