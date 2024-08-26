@@ -184,7 +184,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
-	param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
+	// param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 	param.backend = backend;
 	param.backupTimeStamp = backupTimeStamp;
 	callInit(param);
@@ -197,7 +197,7 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	// Register for the synchronization point hook
 	Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  	Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
 
   delete[] cells;

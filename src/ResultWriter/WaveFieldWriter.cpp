@@ -173,7 +173,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   /** All initialization parameters */
   WaveFieldInitParam param{};
 
-  param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
+  // param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 
   /** List of all buffer ids */
   param.bufferIds[OUTPUT_PREFIX] =
