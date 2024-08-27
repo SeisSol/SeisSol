@@ -80,7 +80,7 @@
 #include <kernel.h>
 #include <stdint.h>
 
-void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+void seissol::kernels::NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % alignment == 0 );
@@ -100,7 +100,7 @@ void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, s
 #endif
 }
 
-void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
+void seissol::kernels::Neighbor::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, ALIGNMENT);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
@@ -161,23 +161,24 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
         dofsModifiedKrnl.Q = data.dofs();
         dofsModifiedKrnl.Q_ijs = dummydofs;
         dofsModifiedKrnl.execute();
-      // No neighboring cell contribution, interior bc.
-      for(unsigned int  i = 0 ; i < MULTIPLE_SIMULATIONS; i++)
-{      assert(reinterpret_cast<uintptr_t>(cellDrMapping[lFace].godunov[i]) % ALIGNMENT == 0);
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-      drKrnl.fluxSolver = cellDrMapping[lFace].fluxSolver[i];
-      drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
-      drKrnl.Q = dummydofs + NUMBER_OF_BASIS_FUNCTIONS*tensor::Q::Shape[2]*i;
-//      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the current simulation's dofs. What is the shape and type of dofs?
-      drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
-      drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation);
-}
-      kernel::dofsModifiedReversed dofModifiedReversedKrnl;
-      dofModifiedReversedKrnl.Q = data.dofs();
-      dofModifiedReversedKrnl.Q_ijs = dummydofs; 
-      dofModifiedReversedKrnl.execute();
-      break;
-      }
+        // No neighboring cell contribution, interior bc.
+        for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+          assert(reinterpret_cast<uintptr_t>(cellDrMapping[lFace].godunov[i]) % ALIGNMENT == 0);
+          dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+          drKrnl.fluxSolver = cellDrMapping[lFace].fluxSolver[i];
+          drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
+          drKrnl.Q = dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * i;
+          //      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the
+          //      current simulation's dofs. What is the shape and type of dofs?
+          drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
+          drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation);
+        }
+        kernel::dofsModifiedReversed dofModifiedReversedKrnl;
+        dofModifiedReversedKrnl.Q = data.dofs();
+        dofModifiedReversedKrnl.Q_ijs = dummydofs;
+        dofModifiedReversedKrnl.execute();
+        break;
+    }
     default:
       // No contribution for all other cases.
       // Note: some other bcs are handled in the local kernel.
@@ -247,7 +248,8 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
         drKrnl.numElements = numElements;
 
         drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
-        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+        drKrnl.QInterpolated =
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
         drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
         tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));

@@ -40,8 +40,12 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
 }
-
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+#ifdef MULTIPLE_SIMULATIONS
+void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]], int meshId, unsigned int nFused)
+#else
+void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
+#endif
+{
   // get DOFs from 0th derivatives
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
@@ -50,11 +54,24 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   device::DeviceInstance::getInstance().api->copyFrom(
       &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  real dummydofs[tensor::Q::size()] = {0.0};
+  kernel::dofsModified dofsModifiedKrnl;
+  dofsModifiedKrnl.Q = derivatives;
+  dofsModifiedKrnl.Q_ijs = dummydofs;
+  dofsModifiedKrnl.execute();
+
+  std::copy(
+      dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * nFused,
+      dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * (nFused + 1),
+      &dofs[0]);
 #endif
 }
-
-void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+#ifdef MULTIPLE_SIMULATIONS
+void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1]*tensor::Q::Shape[2]], int meshId, int side, unsigned int nFused)
+#else
+void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshId, int side) 
+#endif
+{
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
@@ -62,7 +79,18 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
   device::DeviceInstance::getInstance().api->copyFrom(
       &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+// yes, dofs is correctly-sized while derivatives is too big (and the copy)
+  // std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  real dummydofs[tensor::Q::size()] = {0.0};
+  kernel::dofsModified dofsModifiedKrnl;
+  dofsModifiedKrnl.Q = derivatives;
+  dofsModifiedKrnl.Q_ijs = dummydofs;
+  dofsModifiedKrnl.execute();
+
+  std::copy(dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * nFused,
+            dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * (nFused + 1),
+            &dofs[0]);
+
 #endif
 }
 
@@ -70,6 +98,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
+    unsigned int nFused,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -121,16 +150,13 @@ void ReceiverOutput::calcFaultOutput(
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
     }
 #else
-    getDofs(dofsPlus, faultInfo.element);
 
-    logInfo() << faultInfo.neighborElement;
+    getDofs(dofsPlus, faultInfo.element, nFused);
 
     if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
-    logInfo() << "Reached here neighbor element";
+      getDofs(dofsMinus, faultInfo.neighborElement, nFused);
     } else {
-      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
-    logInfo() << "Reached here non neighbor element";
+      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side, nFused);
     }
 #endif
 
@@ -154,19 +180,21 @@ void ReceiverOutput::calcFaultOutput(
     auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
-
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
+    logInfo() << "Here 1";
     kernel.Q = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
+    logInfo() << "Here 2";
 
     kernel.Q = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
+    logInfo() << "Here 3";
 
     this->computeLocalStresses(local);
     const real strength = this->computeLocalStrength(local);
