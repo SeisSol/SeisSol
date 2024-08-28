@@ -9,7 +9,7 @@ Communication Thread
 By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
 For that, it is required to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
 
-If you do not want to use a communication thread, you may set `SEISSOL_COMMTHREAD=0` to make SeisSol poll the progress from time to time.
+If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
 
 Load Balancing
 --------------
@@ -19,7 +19,7 @@ For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hi
 thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer, especially when running only on a single node with multiple ranks.
-To disable it, set `SEISSOL_MINISEISSOL=0`.
+To disable it, set ``SEISSOL_MINISEISSOL=0``.
 
 Persistent MPI Operations
 -------------------------
@@ -27,7 +27,7 @@ Persistent MPI Operations
 Since SeisSol has a static communication pattern which means, we issue the same MPI transfer requests. 
 Thus, we use persistent MPI communication which may reduce communication latency.
 
-To disable persistent communication, set `SEISSOL_MPI_PERSISTENT=0`. Then, SeisSol will use `MPI_Isend` and `MPI_Irecv` instead. To explicitly enable the persistent communication, set `SEISSOL_MPI_PERSISTENT=1`. Right now, it is enabled by default.
+To disable persistent communication, set ``SEISSOL_MPI_PERSISTENT=0``. Then, SeisSol will use ``MPI_Isend`` and ``MPI_Irecv`` instead. To explicitly enable the persistent communication, set ``SEISSOL_MPI_PERSISTENT=1``. Right now, it is enabled by default.
 
 Output
 ------
@@ -79,5 +79,5 @@ Here are some proposed environment variables to be added before invoking SeisSol
 
 A complete batch script for SuperMUC-NG can be found in the chapter about ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
 
-In previous versions of SeisSol, you had to explicitly compile the software with `-DCOMMTHREAD=ON`. That is not necessary anymore, as
+In previous versions of SeisSol, you had to explicitly compile the software with ``-DCOMMTHREAD=ON``. That is not necessary anymore, as
 any configuration with more than one MPI rank uses the communication thread by default.
