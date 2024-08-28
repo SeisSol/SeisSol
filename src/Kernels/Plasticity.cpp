@@ -41,13 +41,13 @@
 
 #include "Plasticity.h"
 
-#include <cstring>
+#include "common.hpp"
+#include "generated_code/init.h"
+#include "generated_code/kernel.h"
+#include "utils/logger.h"
 #include <algorithm>
 #include <cmath>
-#include "generated_code/kernel.h"
-#include "generated_code/init.h"
-#include "common.hpp"
-#include "utils/logger.h"
+#include <cstring>
 
 #ifdef ACL_DEVICE
 #include "device.h"

@@ -183,18 +183,15 @@ void ReceiverOutput::calcFaultOutput(
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    logInfo() << "Here 1";
     kernel.Q = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
-    logInfo() << "Here 2";
 
     kernel.Q = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
-    logInfo() << "Here 3";
 
     this->computeLocalStresses(local);
     const real strength = this->computeLocalStrength(local);

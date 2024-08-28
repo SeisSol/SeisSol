@@ -87,10 +87,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
-  QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
+  qShape = (aderdg.numberOf3DBasisFunctions(), aderdg.numberOfQuantities())
+  QuantitiesSingleSim = Tensor('Q', qShape)
+  QAtPoint = Tensor('QAtPoint', (aderdg.numberOfQuantities(), ))
+  # QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
 
-  generator.add('evaluateFaceAlignedDOFSAtPoint',
-                QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
+  # generator.add('evaluateFaceAlignedDOFSAtPoint',
+  #               QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
+
+  generator.add('evaluateFaceAlignedDOFSAtPoint', QAtPoint['q'] <= aderdg.Tinv['qp']*QuantitiesSingleSim['lp']*basisFunctionsAtPoint['l'])
 
   def interpolateQGenerator(i,h):
     return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
