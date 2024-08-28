@@ -2,6 +2,7 @@
 #define MODEL_POROELASTIC_INTEGRATIONDATA_H_
 
 #include "Common/constants.hpp"
+#include "Kernels/precision.hpp"
 #include "datastructures.hpp"
 #include "generated_code/tensor.h"
 

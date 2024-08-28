@@ -65,13 +65,13 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   //! Relaxation frequencies
-  double omega[ZeroLengthArrayHandler(Mechanisms)];
+  double omega[zeroLengthArrayHandler(Mechanisms)];
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[ZeroLengthArrayHandler(Mechanisms)][3];
+  double theta[zeroLengthArrayHandler(Mechanisms)][3];
   double Qp;
   double Qs;
 

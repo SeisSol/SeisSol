@@ -75,7 +75,7 @@ struct ElasticMaterial : Material {
     this->lambda = materialValues[2];
   }
 
-  virtual ~ElasticMaterial() = default;
+  ~ElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 

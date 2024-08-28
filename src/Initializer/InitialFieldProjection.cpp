@@ -136,7 +136,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #endif
 
       krnl.Q = ltsLut.lookup(lts.dofs, meshId);
-      if (kernels::has_size<tensor::Qane>::value) {
+      if constexpr (kernels::HasSize<tensor::Qane>::Value) {
         kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
       }
       krnl.execute();

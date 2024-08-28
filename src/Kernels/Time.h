@@ -118,7 +118,7 @@ class Time : public TimeBase {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime);
 
-  void flopsAder(unsigned int& o_nonZeroFlops, unsigned int& o_hardwareFlops);
+  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops);
 
   unsigned bytesAder();
 

@@ -45,10 +45,9 @@
 #define COMMON_HPP_
 
 #include "Common/constants.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Kernels/precision.hpp"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include <algorithm>
 #include <cassert>
 #include <type_traits>
 #include <utility>
@@ -172,7 +171,7 @@ constexpr unsigned
  * uses SFINAE to check if class T has a size() function.
  */
 template <typename T>
-struct has_size {
+struct HasSize {
   template <typename U>
   static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
     return true;
@@ -181,18 +180,18 @@ struct has_size {
   static constexpr bool test(...) {
     return false;
   }
-  static constexpr bool value = test<T>(int());
+  static constexpr bool Value = test<T>(int());
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise
  */
 template <class T>
-constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type {
+constexpr auto size() -> std::enable_if_t<HasSize<T>::Value, unsigned> {
   return T::size();
 }
 template <class T>
-constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type {
+constexpr auto size() -> std::enable_if_t<!HasSize<T>::Value, unsigned> {
   return 0;
 }
 } // namespace kernels

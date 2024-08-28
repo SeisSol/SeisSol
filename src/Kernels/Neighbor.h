@@ -87,7 +87,7 @@ class Neighbor : public NeighborBase {
   void computeNeighborsIntegral(NeighborData& data,
                                 const CellDRMapping (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
-                                real* faceNeighbors_prefetch[4]);
+                                real* faceNeighborsPrefetch[4]);
 
   void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime);

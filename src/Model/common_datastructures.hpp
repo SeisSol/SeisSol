@@ -43,7 +43,6 @@
 #ifndef MODEL_COMMONDATASTRUCTURES_HPP_
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
-#include "Kernels/precision.hpp"
 #include <array>
 #include <string>
 
@@ -70,6 +69,8 @@ struct Material {
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
   static inline const std::string Text = "material";
   static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
+
+  virtual ~Material() = default;
 
   double rho;
   virtual double getMaxWaveSpeed() const = 0;

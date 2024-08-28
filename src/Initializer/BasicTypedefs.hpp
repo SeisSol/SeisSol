@@ -1,8 +1,6 @@
 #ifndef SEISSOL_BASICTYPEDEFS_HPP
 #define SEISSOL_BASICTYPEDEFS_HPP
 
-#include "Kernels/precision.hpp"
-
 constexpr int DataTagOffset = 2;
 
 enum class TimeClustering {

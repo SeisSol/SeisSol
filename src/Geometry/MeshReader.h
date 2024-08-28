@@ -52,8 +52,6 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/DRParameters.h"
-#include "MeshTools.h"
-#include "Parallel/MPI.h"
 
 namespace seissol::geometry {
 

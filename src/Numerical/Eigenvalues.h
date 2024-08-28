@@ -16,26 +16,26 @@ namespace seissol::eigenvalues {
  * Stores an eigenpair of a dim x dim matrix of type T, i.e. a vector of eigenvalues and a matrix of
  * eigenvectors
  */
-template <typename T, size_t dim>
+template <typename T, size_t Dim>
 struct Eigenpair {
   /**
    * vectors: Matrix of Eigenvectors in column-major format
    */
-  std::array<T, dim * dim> vectors;
+  std::array<T, Dim * Dim> vectors;
   /**
    * values: Vector of eigenvalues, in the same ordering as the eigenvectors
    */
-  std::array<T, dim> values;
+  std::array<T, Dim> values;
   /**
    * returns: eigenvectors as Eigen3 matrix
    */
-  Eigen::Matrix<T, dim, dim> getVectorsAsMatrix() {
-    return Eigen::Matrix<T, dim, dim>(vectors.data());
+  Eigen::Matrix<T, Dim, Dim> getVectorsAsMatrix() {
+    return Eigen::Matrix<T, Dim, Dim>(vectors.data());
   }
   /**
    * returns: eigenvalues as Eigen3 vector
    */
-  Eigen::Matrix<T, dim, 1> getValuesAsVector() { return Eigen::Matrix<T, dim, 1>(values.data()); }
+  Eigen::Matrix<T, Dim, 1> getValuesAsVector() { return Eigen::Matrix<T, Dim, 1>(values.data()); }
 };
 
 /**
@@ -45,32 +45,32 @@ struct Eigenpair {
  * @param M: Dense matrix of size dim x dim, stored in column-major format
  * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
  */
-template <typename T, size_t dim>
-void computeEigenvaluesWithEigen3(std::array<std::complex<T>, dim * dim>& M,
-                                  Eigenpair<std::complex<T>, dim>& output) {
-  using Matrix = Eigen::Matrix<std::complex<T>, dim, dim, Eigen::ColMajor>;
-  Matrix op(M.data());
+template <typename T, size_t Dim>
+void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
+                                  Eigenpair<std::complex<T>, Dim>& output) {
+  using Matrix = Eigen::Matrix<std::complex<T>, Dim, Dim, Eigen::ColMajor>;
+  Matrix op(m.data());
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(op);
 
   // sort eigenvalues so that we know which eigenvalue corresponds to which mode
   auto eigenvalues = ces.eigenvalues();
-  std::vector<size_t> sortedIndices(dim);
+  std::vector<size_t> sortedIndices(Dim);
   std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
   std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
     return eigenvalues[a].real() < eigenvalues[b].real();
   });
 
-  for (size_t i = 0; i < dim; ++i) {
+  for (size_t i = 0; i < Dim; ++i) {
     output.values[i] = eigenvalues(sortedIndices[i], 0);
   }
 
   auto eigenvectors = ces.eigenvectors();
 
-  auto R = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {dim, dim});
-  for (size_t j = 0; j < dim; ++j) {
-    for (size_t i = 0; i < dim; ++i) {
-      R(i, j) = eigenvectors(i, sortedIndices[j]);
+  auto r = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {Dim, Dim});
+  for (size_t j = 0; j < Dim; ++j) {
+    for (size_t i = 0; i < Dim; ++i) {
+      r(i, j) = eigenvectors(i, sortedIndices[j]);
     }
   }
 }
@@ -177,22 +177,22 @@ inline void callLapackEigenvalueRoutine(char* jobVl,
  * @param M: Dense matrix of size dim x dim, stored in column-major format
  * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
  */
-template <typename T, size_t dim>
-void computeEigenvaluesWithLapack(std::array<std::complex<T>, dim * dim>& M,
-                                  Eigenpair<std::complex<T>, dim>& output) {
+template <typename T, size_t Dim>
+void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
+                                  Eigenpair<std::complex<T>, Dim>& output) {
   // set up lapack variables
-  int n = dim, lda = dim, ldvl = dim, ldvr = dim;
+  int n = Dim, lda = Dim, ldvl = Dim, ldvr = Dim;
   int info;
-  int lwork = 2 * dim;
-  T rwork[2 * dim];
-  std::complex<T> w[dim], vl[dim * dim], vr[dim * dim];
-  std::complex<T> work[2 * dim];
+  int lwork = 2 * Dim;
+  T rwork[2 * Dim];
+  std::complex<T> w[Dim], vl[Dim * Dim], vr[Dim * Dim];
+  std::complex<T> work[2 * Dim];
   char computeVectors = 'V';
   char dontComputeVectors = 'N';
 
   // lapack overrides matrix, so copy to auxiliary array
-  std::complex<T> a[dim * dim];
-  std::copy(M.begin(), M.end(), a);
+  std::complex<T> a[Dim * Dim];
+  std::copy(m.begin(), m.end(), a);
 
   // Call LAPACK
   callLapackEigenvalueRoutine<T>(&dontComputeVectors,
@@ -210,21 +210,21 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, dim * dim>& M,
                                  rwork,
                                  &info);
 
-  std::vector<size_t> sortedIndices(dim);
+  std::vector<size_t> sortedIndices(Dim);
   std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
   std::sort(sortedIndices.begin(), sortedIndices.end(), [&w](size_t a, size_t b) {
     return w[a].real() < w[b].real();
   });
 
-  for (size_t i = 0; i < dim; ++i) {
+  for (size_t i = 0; i < Dim; ++i) {
     output.values[i] = w[sortedIndices[i]];
   }
 
-  auto R = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {dim, dim});
-  for (size_t j = 0; j < dim; ++j) {
-    for (size_t i = 0; i < dim; ++i) {
-      size_t sorted_j = sortedIndices[j];
-      R(i, j) = vr[sorted_j * dim + i];
+  auto r = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {Dim, Dim});
+  for (size_t j = 0; j < Dim; ++j) {
+    for (size_t i = 0; i < Dim; ++i) {
+      size_t sortedJ = sortedIndices[j];
+      r(i, j) = vr[sortedJ * Dim + i];
     }
   }
 }

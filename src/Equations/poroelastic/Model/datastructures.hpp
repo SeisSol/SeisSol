@@ -40,7 +40,7 @@ struct PoroElasticMaterial : ElasticMaterial {
     this->rhoFluid = materialValues[8];
     this->viscosity = materialValues[9];
   };
-  virtual ~PoroElasticMaterial() = default;
+  ~PoroElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
     double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};

@@ -84,10 +84,7 @@ struct AnisotropicMaterial : Material {
 
   double getLambdaBar() const override { return (c11 + c22 + c33) / 3.0 - 2.0 * getMuBar(); }
 
-  double getMuBar() const override {
-    return (c44 + c55 + c66) / 3.0;
-    ;
-  }
+  double getMuBar() const override { return (c44 + c55 + c66) / 3.0; }
 
   AnisotropicMaterial() = default;
 
@@ -143,7 +140,7 @@ struct AnisotropicMaterial : Material {
     this->c66 = materialValues[21];
   }
 
-  virtual ~AnisotropicMaterial() = default;
+  ~AnisotropicMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const final {
     auto stiffnessTensorView =
@@ -252,12 +249,12 @@ struct AnisotropicMaterial : Material {
 
     for (unsigned j = 0; j < 200; ++j) {
       double n[3] = {samplingDirections(j, 0), samplingDirections(j, 1), samplingDirections(j, 2)};
-      double M[9];
+      double m[9];
       computeChristoffel.direction = n;
-      computeChristoffel.christoffel = M;
+      computeChristoffel.christoffel = m;
       computeChristoffel.execute();
 
-      saes.compute(Eigen::Matrix<double, 3, 3>(M).cast<double>());
+      saes.compute(Eigen::Matrix<double, 3, 3>(m).cast<double>());
       auto eigenvalues = saes.eigenvalues();
       for (unsigned i = 0; i < 3; ++i) {
         maxEv = std::max(eigenvalues(i), maxEv);

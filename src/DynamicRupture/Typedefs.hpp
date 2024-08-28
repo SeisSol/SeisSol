@@ -1,6 +1,7 @@
 #ifndef DR_TYPEDEFS
 #define DR_TYPEDEFS
 
+#include "Common/constants.hpp"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/precision.hpp"
 
