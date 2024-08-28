@@ -7,14 +7,14 @@ Communication Thread
 --------------------
 
 By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
-For that, you must leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
+For that, it is required to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
 
-If you do not want to use a communication thread, you may set `SEISSOL_COMMTHREAD=0`; then, SeisSol polls the progress from time to time.
+If you do not want to use a communication thread, you may set `SEISSOL_COMMTHREAD=0` to make SeisSol poll the progress from time to time.
 
 Load Balancing
 --------------
 
-When running with multiple ranks, SeisSol will estimate a node's performance, enabling better load balancing.
+When running with multiple ranks, SeisSol will estimate the node-level performance, enabling better load balancing.
 For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints, it simulates a small test workload on each node;
 thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
 
@@ -24,10 +24,10 @@ To disable it, set `SEISSOL_MINISEISSOL=0`.
 Persistent MPI Operations
 -------------------------
 
-Since SeisSol has a static communication pattern (in the sense that per iteration, we issue the same MPI transfer requests). 
-We may use persistent MPI communication, which may reduce communication latency.
+Since SeisSol has a static communication pattern which means, we issue the same MPI transfer requests. 
+Thus, we use persistent MPI communication which may reduce communication latency.
 
-You may enable persistent communication by setting `SEISSOL_MPI_PERSISTENT=1`, explicitly disabling it with `SEISSOL_MPI_PERSISTENT=0`. Right now, it is enabled by default.
+To disable persistent communication, set `SEISSOL_MPI_PERSISTENT=0`. Then, SeisSol will use `MPI_Isend` and `MPI_Irecv` instead. To explicitly enable the persistent communication, set `SEISSOL_MPI_PERSISTENT=1`. Right now, it is enabled by default.
 
 Output
 ------
