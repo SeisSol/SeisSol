@@ -74,6 +74,7 @@ class ADERDGBase(ABC):
     self.db.update(parseJSONMatrixFile('{}/mass_{}.json'.format(matricesDir, order)))
 
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    self.QsingleSim = Tensor('QSingleSim', qShape)
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
     self.I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=True)
     if multipleSimulations > 1:
@@ -247,6 +248,9 @@ class LinearADERDG(ADERDGBase):
 
   def extendedQTensor(self):
     return self.Q
+  
+  def singleSimQTensor(self):
+    return self.QsingleSim
 
   def numberOfExtendedQuantities(self):
     return self.numberOfQuantities()

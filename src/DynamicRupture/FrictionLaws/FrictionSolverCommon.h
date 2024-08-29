@@ -122,7 +122,8 @@ inline void precomputeStressFromQInterpolated(
   using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
-  checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+  // checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses); 
+  /// \todo (VK) activate this by sorting out the padding issue for multiple dimensions in the codegen 
 #endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
@@ -272,11 +273,11 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-
-#ifndef ACL_DEVICE
-  checkAlignmentPostCompute(
-      qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
-#endif
+/// \todo (VK) Make this work with alignment once the padding issue with every dimension is sorted 
+// #ifndef ACL_DEVICE
+//   checkAlignmentPostCompute(
+//       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
+// #endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];

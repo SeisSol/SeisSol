@@ -231,7 +231,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	call(param);
 
 	// Update the timestep in the checkpoint header
-	seissolInstance.checkPointManager().header().value(m_timestepComp)++;
+	// seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
 	m_stopwatch.pause();
 

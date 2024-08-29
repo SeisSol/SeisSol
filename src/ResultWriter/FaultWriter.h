@@ -140,7 +140,7 @@ public:
 
 		wait();
 
-		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
+		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << " for simulation number: " << nFused << ".";
 
 		FaultParam param;
 		param.time = time;
@@ -155,7 +155,7 @@ public:
 
 		m_stopwatch.pause();
 
-		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
+		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time <<" for simulation number: " << nFused<< " . Done.";
 	}
 
 	void close()

@@ -88,7 +88,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   numberOfQuantities = aderdg.numberOfQuantities()
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
   qShape = (aderdg.numberOf3DBasisFunctions(), aderdg.numberOfQuantities())
-  QuantitiesSingleSim = Tensor('Q', qShape)
+  QuantitiesSingleSim = Tensor('singleSimQ', qShape, alignStride=False)
   QAtPoint = Tensor('QAtPoint', (aderdg.numberOfQuantities(), ))
   # QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
 
@@ -109,7 +109,10 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
                         interpolateQPrefetch if target == 'cpu' else None,
                         target=target)
 
-  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
+  QInterpolatedSingleSim = Tensor('QInterpolatedSingleSim', gShape)
+#  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
+  # TODO (VK): make this work in the original tensor format by making the other variables in tensor format later
+  nodalFluxGenerator = lambda i,h: QuantitiesSingleSim['kp'] <= QuantitiesSingleSim['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedSingleSim['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
 
   for target in targets:
@@ -168,6 +171,5 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']
   generator.add('computeImposedStateM', computeImposedStateM)
   generator.add('computeImposedStateP', computeImposedStateP)
-
 
   return {db.resample, db.quadpoints, db.quadweights}

@@ -502,7 +502,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   call(param);
 
   // Update last time step
-  seissolInstance.checkPointManager().header().value(m_timestepComp)++;
+  // seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
   m_stopwatch.pause();
 

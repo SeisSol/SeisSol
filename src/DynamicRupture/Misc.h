@@ -25,9 +25,13 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
+#ifdef MULTIPLE_SIMULATIONS
+static constexpr inline size_t numPaddedPoints = misc::dimSize<init::QInterpolated, 1>();
+static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 2>();
+#else
 static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
 static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
-
+#endif
 /**
  * Constants for Thermal Pressurization
  */
