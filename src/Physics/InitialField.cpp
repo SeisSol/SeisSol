@@ -1,6 +1,7 @@
 #include <Equations/datastructures.hpp>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/typedefs.hpp>
+#include <Model/common.hpp>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -71,8 +72,6 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   assert(m_varField.size() == m_ampField.size());
 
-  logInfo() << materialData.local.rho << materialData.local.lambda << materialData.local.mu;
-
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumberOfQuantities *
                  seissol::model::MaterialT::NumberOfQuantities>
@@ -88,8 +87,6 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
 #endif
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
-  logInfo() << std::vector<std::complex<double>>(planeWaveOperator.begin(),
-                                                 planeWaveOperator.end());
 }
 
 void seissol::physics::Planarwave::evaluate(

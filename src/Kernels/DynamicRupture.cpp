@@ -64,6 +64,11 @@
 #include <cstdint>
 #endif
 
+#ifdef USE_STP
+#include <Numerical/BasisFunction.h>
+#include <memory>
+#endif
+
 namespace seissol::kernels {
 
 void DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
@@ -118,7 +123,7 @@ void DynamicRupture::setTimeStepWidth(double timestep) {
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
   for (unsigned point = 0; point < ConvergenceOrder; ++point) {
 #ifdef USE_STP
-    double tau = timePoints[point];
+    const double tau = timePoints[point];
     timeBasisFunctions[point] =
         std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(ConvergenceOrder,
                                                                                   tau);

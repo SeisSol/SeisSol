@@ -43,6 +43,7 @@
 
 #include <Common/constants.hpp>
 #include <Equations/anisotropic/Model/datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
 #include <Equations/poroelastic/Model/datastructures.hpp>
 #include <Equations/viscoelastic2/Model/datastructures.hpp>
 #include <Geometry/MeshDefinition.h>

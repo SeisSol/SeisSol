@@ -96,7 +96,6 @@
 #include <Kernels/PointSourceClusterOnHost.h>
 #include <Kernels/precision.hpp>
 #include <Model/common_datastructures.hpp>
-#include <Model/datastructures.hpp>
 #include <Numerical/BasisFunction.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
@@ -112,6 +111,8 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#include <Model/datastructures.hpp> // IWYU pragma: keep
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"

@@ -49,7 +49,7 @@ class SpaceTimePredictorTestFixture {
     // prepare Material
     std::array<double, 10> materialVals = {
         {40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
-    model::PoroElasticMaterial material(materialVals.data(), 10);
+    const model::PoroElasticMaterial material(materialVals.data(), 10);
 
     // prepare Geometry
     std::srand(0);

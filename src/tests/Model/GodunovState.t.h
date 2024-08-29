@@ -43,14 +43,14 @@ TEST_CASE("Godunov state is correct") {
 
   // test homogeneous material
 #ifdef USE_ANISOTROPIC
-  model::AnisotropicMaterial local(materialVal1, 22);
-  model::AnisotropicMaterial neighbor(materialVal1, 22);
+  const model::AnisotropicMaterial local(MaterialVal1, 22);
+  model::AnisotropicMaterial neighbor(MaterialVal1, 22);
 #elif defined USE_POROELASTIC
-  model::PoroElasticMaterial local(materialVal1, 10);
-  model::PoroElasticMaterial neighbor(materialVal1, 10);
+  const model::PoroElasticMaterial local(MaterialVal1, 10);
+  model::PoroElasticMaterial neighbor(MaterialVal1, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  model::ViscoElasticMaterial local(materialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-  model::ViscoElasticMaterial neighbor(materialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  const model::ViscoElasticMaterial local(MaterialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  model::ViscoElasticMaterial neighbor(MaterialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
   const model::ElasticMaterial local(MaterialVal1, 3);
   model::ElasticMaterial neighbor(MaterialVal1, 3);
@@ -67,11 +67,11 @@ TEST_CASE("Godunov state is correct") {
 
   // test heterogeneous material
 #ifdef USE_ANISOTROPIC
-  neighbor = model::AnisotropicMaterial(materialVal2, 22);
+  neighbor = model::AnisotropicMaterial(MaterialVal2, 22);
 #elif defined USE_POROELASTIC
-  neighbor = model::PoroElasticMaterial(materialVal2, 10);
+  neighbor = model::PoroElasticMaterial(MaterialVal2, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  neighbor = model::ViscoElasticMaterial(materialVal2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  neighbor = model::ViscoElasticMaterial(MaterialVal2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
   neighbor = model::ElasticMaterial(MaterialVal2, 3);
 #endif

@@ -238,7 +238,7 @@ double ReceiverCluster::calcReceivers(
       while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
         // eval time basis
-        double tau = (time - expansionPoint) / timeStepWidth;
+        const double tau = (time - expansionPoint) / timeStepWidth;
         seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
                                                                                    tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();

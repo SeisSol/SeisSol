@@ -7,16 +7,16 @@
 namespace seissol::unit_test {
 // define material values
 #ifdef USE_ANISOTROPIC
-const double materialVal1[22] = {2700,        97200000000, 32403801600, 32403801600, 0,           0,
+const double MaterialVal1[22] = {2700,        97200000000, 32403801600, 32403801600, 0,           0,
                                  0,           97200000000, 32403801600, 0,           0,           0,
                                  97200000000, 0,           0,           0,           32398099200, 0,
                                  0,           32398099200, 0,           32398099200};
-const double materialVal2[22] = {2600.0,      41600000000, 20800000000, 20800000000, 0,           0,
+const double MaterialVal2[22] = {2600.0,      41600000000, 20800000000, 20800000000, 0,           0,
                                  0,           41600000000, 20800000000, 0,           0,           0,
                                  41600000000, 0,           0,           0,           10400000000, 0,
                                  0,           10400000000, 0,           10400000000};
 #elif defined USE_POROELASTIC
-const double materialVal1[10] = {
+const double MaterialVal1[10] = {
     40.0e9,  // bulk_solid
     2.5e3,   // rho
     12.0e9,  // lambda
@@ -28,7 +28,7 @@ const double materialVal1[10] = {
     1.04e3,  // rho_fluid
     0.001    // viscosity
 };
-const double materialVal2[10] = {
+const double MaterialVal2[10] = {
     30.0e9,  // bulk_solid
     2.6e3,   // rho
     10.0e9,  // lambda
@@ -41,9 +41,9 @@ const double materialVal2[10] = {
     0.001    // viscosity
 };
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-const double materialVal1[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4] = {
+const double MaterialVal1[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4] = {
     2700, 3.23980992e10, 3.24038016e10};
-const double materialVal2[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4] = {2600, 1.04e10, 2.08e10};
+const double MaterialVal2[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4] = {2600, 1.04e10, 2.08e10};
 #else
 const double MaterialVal1[3] = {2700, 3.23980992e10, 3.24038016e10};
 const double MaterialVal2[3] = {2600, 1.04e10, 2.08e10};
