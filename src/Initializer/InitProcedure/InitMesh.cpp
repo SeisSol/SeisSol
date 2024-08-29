@@ -125,7 +125,14 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
           auto length = H5Tget_size(boundaryAttributeType);
           std::vector<char> data(length);
           _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
-          return std::string(data.begin(), data.end());
+          std::size_t actualLength = length;
+          for (std::size_t i = 0; i < length; ++i) {
+            if (data[i] == '\0') {
+              actualLength = i;
+              break;
+            }
+          }
+          return std::string(data.begin(), data.begin() + actualLength);
         }
       }();
 
