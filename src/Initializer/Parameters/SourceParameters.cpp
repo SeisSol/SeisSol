@@ -9,8 +9,15 @@ SourceParameters readSourceParameters(ParameterReader* baseReader) {
       "type",
       PointSourceType::None,
       {PointSourceType::None, PointSourceType::FsrmSource, PointSourceType::NrfSource});
-  const auto fileName =
-      reader->readIfRequired<std::string>("filename", type != PointSourceType::None);
+  const auto fileName = [&]() -> std::string {
+    if (type == PointSourceType::None) {
+      reader->markUnused({"filename"});
+      return "";
+    } else {
+      return reader->readPathOrFail("filename",
+                                    "Point sources were enabled but no file was given.");
+    }
+  }();
   reader->warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
 
   return SourceParameters{type, fileName};

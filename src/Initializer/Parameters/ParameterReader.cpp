@@ -1,6 +1,46 @@
 #include "ParameterReader.h"
 
+#include "Common/filesystem.h"
+
 namespace seissol::initializer::parameters {
+
+ParameterReader::ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty)
+    : node(node), rootPath(rootPath), empty(empty) {}
+
+std::optional<std::string> ParameterReader::readPath(const std::string& field) {
+  const auto fileName = read<std::string>(field);
+  if (fileName.has_value()) {
+    const auto lastPath = filesystem::path(rootPath);
+    const auto nextPath = filesystem::path(fileName.value());
+    const auto loadFileName = [&]() {
+      if (nextPath.is_relative()) {
+        // remove file
+        return lastPath.parent_path() / nextPath;
+      } else {
+        return nextPath;
+      }
+    }();
+    if (filesystem::exists(loadFileName)) {
+      return loadFileName;
+    } else {
+      return filesystem::current_path() / nextPath;
+    }
+  } else {
+    return std::optional<std::string>();
+  }
+}
+
+std::string ParameterReader::readPathOrFail(const std::string& field,
+                                            const std::string& failMessage) {
+  const auto path = readPath(field);
+  if (path.has_value()) {
+    return path.value();
+  } else {
+    logError() << "The field" << field
+               << "was not found, but it is required (details: " << failMessage.c_str() << ")";
+    return "";
+  }
+}
 
 void ParameterReader::warnDeprecatedSingle(const std::string& field) {
   if (hasField(field)) {
@@ -53,7 +93,8 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
       empty = true;
     }
     subreaders.emplace(
-        subnodeName, std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], empty)));
+        subnodeName,
+        std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], rootPath, empty)));
   }
   return subreaders.at(subnodeName).get();
 }

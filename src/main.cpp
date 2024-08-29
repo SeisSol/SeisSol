@@ -142,7 +142,8 @@ int main(int argc, char* argv[]) {
   logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
-  seissol::initializer::parameters::ParameterReader parameterReader(*yamlParams.get(), false);
+  seissol::initializer::parameters::ParameterReader parameterReader(
+      *yamlParams.get(), parameterFile, false);
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
