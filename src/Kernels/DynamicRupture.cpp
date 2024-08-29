@@ -44,10 +44,10 @@
 #include <cstring>
 #include <stdint.h>
 
-#include "generated_code/kernel.h"
 #include "Kernels/common.hpp"
-#include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/BasisFunction.h"
+#include "Numerical_aux/Quadrature.h"
+#include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
@@ -135,12 +135,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0 );
-  assert( tensor::Q::size() == tensor::I::size() );
+  static_assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-#ifdef MULTIPLE_SIMULATIONS
-  logError() << "Dynamic Rupture does not work with multiple simulations"; // (TO DISCUSS: what changes are required for the kernel)
-#endif
+// #ifdef MULTIPLE_SIMULATIONS
+//   logError() << "Dynamic Rupture does not work with multiple simulations"; // (TO DISCUSS: what changes are required for the kernel)
+// #endif
 
   alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];

@@ -66,6 +66,7 @@ namespace seissol::kernels {
 #ifdef MULTIPLE_SIMULATIONS
     // Todo(VK) find a better solution here.
     logError() << "Plasticity does not work with multiple simulations";
+    return 0;
 #else
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);

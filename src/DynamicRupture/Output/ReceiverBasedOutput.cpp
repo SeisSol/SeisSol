@@ -112,9 +112,9 @@ void ReceiverOutput::calcFaultOutput(
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
-// #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-// #pragma omp parallel for
-// #endif
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+#pragma omp parallel for
+#endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
     #ifdef MULTIPLE_SIMULATIONS
     alignas(Alignment) real dofsPlus[tensor::Q::Shape[1]*tensor::Q::Shape[2]]{};
@@ -183,12 +183,12 @@ void ReceiverOutput::calcFaultOutput(
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    kernel.Q = dofsPlus;
+    kernel.singleSimQ = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
 
-    kernel.Q = dofsMinus;
+    kernel.singleSimQ = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();

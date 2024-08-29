@@ -166,8 +166,9 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
           assert(reinterpret_cast<uintptr_t>(cellDrMapping[lFace].godunov[i]) % ALIGNMENT == 0);
           dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
           drKrnl.fluxSolver = cellDrMapping[lFace].fluxSolver[i];
-          drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
-          drKrnl.Q = dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * i;
+          // drKrnl.QInterpolated = cellDrMapping[lFace].godunov[i];
+          drKrnl.QInterpolatedSingleSim = cellDrMapping[lFace].godunov[i];
+          drKrnl.singleSimQ = dummydofs + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
           //      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the
           //      current simulation's dofs. What is the shape and type of dofs?
           drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
