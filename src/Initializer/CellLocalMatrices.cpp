@@ -47,7 +47,7 @@
 #include "Initializer/ParameterDB.h"
 #include "tree/Layer.hpp"
 #include "Numerical/Transformation.h"
-#include "Equations/Setup.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "Model/common.hpp"
 #include "Geometry/MeshTools.h"
 #include "generated_code/tensor.h"

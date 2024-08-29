@@ -12,7 +12,6 @@
 #include <tensor.h>
 
 #include "Kernels/precision.hpp"
-#include "Model/common.hpp"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
 #include <stdexcept>
@@ -21,6 +20,10 @@
 #include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
+
+// FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
+// (template specializations for the equations).
+#include "Equations/Setup.h" // IWYU pragma: keep
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
@@ -68,6 +71,8 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   assert(m_varField.size() == m_ampField.size());
 
+  logInfo() << materialData.local.rho << materialData.local.lambda << materialData.local.mu;
+
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumberOfQuantities *
                  seissol::model::MaterialT::NumberOfQuantities>
@@ -83,6 +88,8 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
 #endif
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
+  logInfo() << std::vector<std::complex<double>>(planeWaveOperator.begin(),
+                                                 planeWaveOperator.end());
 }
 
 void seissol::physics::Planarwave::evaluate(
