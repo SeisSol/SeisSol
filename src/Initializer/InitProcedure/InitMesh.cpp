@@ -1,6 +1,7 @@
 #include "InitMesh.hpp"
 #include "Init.hpp"
 
+#include <Kernels/precision.hpp>
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -265,13 +266,21 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   watch.start();
 
   std::string realMeshFileName = seissolParams.mesh.meshFileName;
+  bool addNC = true;
+  if (realMeshFileName.size() >= 3) {
+    const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
+    addNC = lastCharacters != ".nc";
+  }
+
   switch (meshFormat) {
   case seissol::initializer::parameters::MeshFormat::Netcdf:
 #if USE_NETCDF
-    realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-    logInfo(commRank)
-        << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
-        << realMeshFileName;
+    if (addNC) {
+      realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
+      logInfo(commRank)
+          << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
+          << realMeshFileName;
+    }
     seissolInstance.setMeshReader(
         new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
 #else
