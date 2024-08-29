@@ -145,7 +145,7 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
-    
+
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
     seissol::parallel::runtime::StreamRuntime streamRuntime;

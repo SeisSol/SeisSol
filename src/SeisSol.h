@@ -71,6 +71,9 @@ namespace seissol {
 namespace geometry {
 class MeshReader;
 } // namespace geometry
+namespace sourceterm {
+class Manager;
+} //namespace sourceterm
 
 /**
  * @todo Initialize rank
@@ -104,7 +107,7 @@ class SeisSol {
 
   checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
 
-  sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
+  sourceterm::Manager& sourceTermManager() { return *m_sourceTermManager; }
 
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
 
@@ -242,7 +245,7 @@ class SeisSol {
   checkpoint::Manager m_checkPointManager;
 
   //! Source term module
-  sourceterm::Manager m_sourceTermManager;
+  sourceterm::Manager* m_sourceTermManager;
 
   //! PostProcessor module
   writer::PostProcessor m_postProcessor;

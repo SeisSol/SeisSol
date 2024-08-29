@@ -83,6 +83,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            ltsFace,
                                                            timeIndex);
       }
+
       LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
       SCOREP_USER_REGION_END(myRegionHandle)
 

@@ -1,4 +1,5 @@
 #include "SeisSolParameters.h"
+#include <Initializer/InputParameters.hpp>
 
 namespace seissol::initializer::parameters {
 
@@ -15,6 +16,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const OutputParameters outputParameters = readOutputParameters(parameterReader);
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters = readTimeSteppingParameters(parameterReader);
+  const FilterParameters filter = readFilter(parameterReader);
 
   parameterReader->warnDeprecated({"boundaries",
                                    "rffile",
@@ -51,6 +53,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
                            modelParameters,
                            outputParameters,
                            sourceParameters,
-                           timeSteppingParameters};
+                           timeSteppingParameters,
+                           filter};
 }
 } // namespace seissol::initializer::parameters

@@ -5,12 +5,14 @@
 
 #include "CubeGeneratorParameters.h"
 #include "DRParameters.h"
+#include "FilterParameters.h"
 #include "InitializationParameters.h"
 #include "LtsParameters.h"
 #include "MeshParameters.h"
 #include "ModelParameters.h"
 #include "OutputParameters.h"
 #include "SourceParameters.h"
+#include <Initializer/InputParameters.hpp>
 
 namespace seissol::initializer::parameters {
 
@@ -23,6 +25,7 @@ struct SeisSolParameters {
   OutputParameters output;
   SourceParameters source;
   TimeSteppingParameters timeStepping;
+  FilterParameters filter;
 };
 
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader);

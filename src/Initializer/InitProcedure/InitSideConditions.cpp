@@ -164,7 +164,8 @@ static void initSource(seissol::SeisSol& seissolInstance) {
                                                   memoryManager.getLtsTree(),
                                                   memoryManager.getLts(),
                                                   memoryManager.getLtsLut(),
-                                                  seissolInstance.timeManager());
+                                                  seissolInstance.timeManager(),
+                                                  seissolInstance);
 }
 
 static void initBoundary(seissol::SeisSol& seissolInstance) {

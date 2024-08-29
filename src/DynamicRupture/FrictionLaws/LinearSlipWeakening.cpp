@@ -11,7 +11,13 @@ namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    const real (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+    const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+    const std::array<real, tensor::drFilter::Size>& filter) {
+  auto filterKrnl = dynamicRupture::kernel::filterParameter{};
+  filterKrnl.drFilter = filter.data();
+  filterKrnl.originalQ = slipRateMagnitude;
+  filterKrnl.filteredQ = resampledSlipRate;
+  filterKrnl.execute();
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
   resampleKrnl.originalQ = slipRateMagnitude;

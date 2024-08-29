@@ -48,6 +48,8 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Kernels/common.hpp
+        src/Kernels/Filter.h
+        src/Kernels/Filter.cpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
