@@ -47,8 +47,10 @@
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Initializer/preProcessorMacros.hpp"
 #include "Model/common_datastructures.hpp"
-#include "cstddef"
 #include "generated_code/tensor.h"
+#include <array>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 template <std::size_t MechanismsP>
@@ -61,7 +63,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumberOfElasticQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   //! Relaxation frequencies

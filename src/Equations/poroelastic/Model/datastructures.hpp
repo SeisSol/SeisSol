@@ -3,7 +3,10 @@
 
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Model/common_datastructures.hpp"
+#include <array>
 #include <cassert>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 struct PoroElasticMaterial : ElasticMaterial {
