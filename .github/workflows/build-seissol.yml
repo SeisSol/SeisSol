@@ -8,11 +8,16 @@ jobs:
     runs-on: ubuntu-24.04
     container: seissol/gha-cpu:sha-44e8ec6
     strategy:
+      fail-fast: false
       matrix:
+        order:
+          - 6
+        arch:
+          - hsw
         build_type:
           - Release
           - Debug
-        equations:
+        equation:
           - elastic
           - poroelastic
           - viscoelastic2
@@ -20,24 +25,89 @@ jobs:
         precision:
           - single
           - double
+        compiler:
+          - cc: gcc-13
+            cxx: g++-13
+            fc: gfortran-13
+          - cc: clang-19
+            cxx: clang++-19
+            fc: gfortran-13 # TODO?
     steps:
       - name: checkout-seissol
         uses: actions/checkout@v4
 
-      - name: build-seissol
+      - id: build
+        name: build-seissol
         run: |
           git config --global --add safe.directory '*'
           git submodule update --init
           mkdir build && cd build
-          if [ "${{ matrix.equations }}" = viscoelastic2 ]; then
+          if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
               mechanisms=3
           else
               mechanisms=0
           fi
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DTESTING=ON -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equations}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+
+          # TODO: change to `-Wall -Werror` at some point
+          EXTRA_FLAGS="-Wall"
+
+          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
+          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
+          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
+
+          export CC=${{matrix.compiler.cc}}
+          export CXX=${{matrix.compiler.cxx}}
+          export FC=${{matrix.compiler.fc}}
+
+          cmake .. -GNinja -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja
 
       - name: test-seissol
+        if: steps.build.outcome == 'success'
         run: |
           cd build
           ninja test
+      
+      - name: run-seissol-no-input
+        if: steps.build.outcome == 'success'
+        run: |
+          if [ "${{ matrix.precision }}" = single ]; then
+              precision=s
+          else
+              precision=d
+          fi
+          cd build
+          set +e
+          ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          RETVAL_EXE=$?
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          RETVAL_PROXY=$?
+          set -e
+
+          if [ $RETVAL_EXE -ne 134 ]; then
+            echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
+            exit 1
+          fi
+          if [ $RETVAL_PROXY -ne 255 ]; then
+            echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
+            exit 1
+          fi
+
+          echo "Success!"
+
+      - name: run-proxy
+        if: steps.build.outcome == 'success'
+        run: |
+          if [ "${{ matrix.precision }}" = single ]; then
+              precision=s
+          else
+              precision=d
+          fi
+          cd build
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 ader
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 localwoader
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 local
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh_dr
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 godunov_dr
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 all
