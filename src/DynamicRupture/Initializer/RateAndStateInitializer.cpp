@@ -150,18 +150,18 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
        ++it) {
     real(*temperature)[misc::NumPaddedPoints] = it->var(concreteLts->temperature);
     real(*pressure)[misc::NumPaddedPoints] = it->var(concreteLts->pressure);
-    real(*theta)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints] = it->var(concreteLts->theta);
-    real(*sigma)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints] = it->var(concreteLts->sigma);
-    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints] =
+    real(*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints] = it->var(concreteLts->theta);
+    real(*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints] = it->var(concreteLts->sigma);
+    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
         it->var(concreteLts->thetaTmpBuffer);
-    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints] =
+    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
         it->var(concreteLts->sigmaTmpBuffer);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
-        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumberOfTpGridPoints;
+        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
           theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
           sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;

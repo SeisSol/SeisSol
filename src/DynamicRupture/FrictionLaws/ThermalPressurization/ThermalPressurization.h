@@ -20,7 +20,7 @@ class GridPoints {
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
       values[i] =
-          misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumberOfTpGridPoints - i - 1));
+          misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumTpGridPoints - i - 1));
     }
   }
   const real& operator[](size_t i) const { return values[i]; };
@@ -129,10 +129,10 @@ class ThermalPressurization {
   protected:
   real (*temperature)[misc::NumPaddedPoints];
   real (*pressure)[misc::NumPaddedPoints];
-  real (*theta)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints];
-  real (*sigma)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints];
-  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints];
-  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumberOfTpGridPoints];
+  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints];
+  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints];
+  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints];
+  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints];
   real (*halfWidthShearZone)[misc::NumPaddedPoints];
   real (*hydraulicDiffusivity)[misc::NumPaddedPoints];
   real (*faultStrength)[misc::NumPaddedPoints];

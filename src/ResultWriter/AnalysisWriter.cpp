@@ -88,7 +88,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
 
-  constexpr auto NumberOfQuantities =
+  constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
@@ -110,8 +110,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
-    using ErrorArrayT = std::array<double, NumberOfQuantities>;
-    using MeshIdArrayT = std::array<unsigned int, NumberOfQuantities>;
+    using ErrorArrayT = std::array<double, NumQuantities>;
+    using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
 
     auto errL1Local = ErrorArrayT{0.0};
     auto errL2Local = ErrorArrayT{0.0};
@@ -141,7 +141,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumberOfQuantities];
+    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \
@@ -170,8 +170,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       const int curThreadId = 0;
 #endif
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-      auto analyticalSolution = yateto::DenseTensorView<2, real>(
-          analyticalSolutionData, {NumQuadPoints, NumberOfQuantities});
+      auto analyticalSolution =
+          yateto::DenseTensorView<2, real>(analyticalSolutionData, {NumQuadPoints, NumQuantities});
 
       // Needed to weight the integral.
       const auto volume = MeshTools::volume(elements[meshId], vertices);
@@ -210,7 +210,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
-        for (size_t v = 0; v < NumberOfQuantities; ++v) {
+        for (size_t v = 0; v < NumQuantities; ++v) {
           const auto curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
           const auto curAnalytical = std::abs(analyticalSolution(i, v));
 
@@ -231,7 +231,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 
     for (int i = 0; i < numThreads; ++i) {
-      for (unsigned v = 0; v < NumberOfQuantities; ++v) {
+      for (unsigned v = 0; v < NumQuantities; ++v) {
         errL1Local[v] += errsL1Local[i][v];
         errL2Local[v] += errsL2Local[i][v];
         analyticalL1Local[v] += analyticalsL1Local[i][v];
@@ -246,7 +246,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
     }
 
-    for (unsigned int i = 0; i < NumberOfQuantities; ++i) {
+    for (unsigned int i = 0; i < NumQuantities; ++i) {
       // Find position of element with lowest LInf error.
       VrtxCoords center;
       MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
@@ -307,7 +307,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.writeHeader();
     }
 
-    for (unsigned int i = 0; i < NumberOfQuantities; ++i) {
+    for (unsigned int i = 0; i < NumQuantities; ++i) {
       VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 

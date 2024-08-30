@@ -56,14 +56,14 @@ namespace seissol::model {
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
-  static constexpr std::size_t NumberOfElasticQuantities = 9;
-  static constexpr std::size_t NumberOfQuantities =
-      NumberOfElasticQuantities + MechanismsP * NumberPerMechanism;
+  static constexpr std::size_t NumElasticQuantities = 9;
+  static constexpr std::size_t NumQuantities =
+      NumElasticQuantities + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
-  static inline const std::array<std::string, NumberOfElasticQuantities> Quantities = {
+  static inline const std::array<std::string, NumElasticQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   //! Relaxation frequencies

@@ -68,7 +68,7 @@ namespace seissol {
                                                 T& E) {}
 
     template <typename Tmaterial>
-    seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities> getEigenDecomposition (Tmaterial const& material, double zeroThreshold=1e-7);
+    seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> getEigenDecomposition (Tmaterial const& material, double zeroThreshold=1e-7);
 
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
@@ -86,7 +86,7 @@ namespace seissol {
     template<typename T>
     void getPlaneWaveOperator( T const& material,
                                double const n[3],
-                               std::complex<double> Mdata[seissol::model::MaterialT::NumberOfQuantities*seissol::model::MaterialT::NumberOfQuantities] );
+                               std::complex<double> Mdata[seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities] );
 
     template<typename T, typename S>
     void initializeSpecificLocalData( T const&,
@@ -130,20 +130,20 @@ namespace seissol {
 template<typename T>
 void seissol::model::getPlaneWaveOperator(  T const& material,
                                             double const n[3],
-                                            std::complex<double> Mdata[seissol::model::MaterialT::NumberOfQuantities*seissol::model::MaterialT::NumberOfQuantities] )
+                                            std::complex<double> Mdata[seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities] )
 {
-  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {seissol::model::MaterialT::NumberOfQuantities, seissol::model::MaterialT::NumberOfQuantities});
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   M.setZero();
 
-  double data[seissol::model::MaterialT::NumberOfQuantities * seissol::model::MaterialT::NumberOfQuantities];
-  yateto::DenseTensorView<2,double> Coeff(data, {seissol::model::MaterialT::NumberOfQuantities, seissol::model::MaterialT::NumberOfQuantities});
+  double data[seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities];
+  yateto::DenseTensorView<2,double> Coeff(data, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
     getTransposedCoefficientMatrix(material, d, Coeff);
     
-    for (unsigned i = 0; i < seissol::model::MaterialT::NumberOfQuantities; ++i) {
-      for (unsigned j = 0; j < seissol::model::MaterialT::NumberOfQuantities; ++j) {
+    for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+      for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
         M(i,j) += n[d] * Coeff(j,i);
       }
     }
@@ -151,8 +151,8 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
   Coeff.setZero();
   getTransposedSourceCoefficientTensor(material, Coeff);
 
-  for (unsigned i = 0; i < seissol::model::MaterialT::NumberOfQuantities; ++i) {
-    for (unsigned j = 0; j < seissol::model::MaterialT::NumberOfQuantities; ++j) {
+  for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+    for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
       M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
     }
   }
@@ -178,29 +178,29 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
 }
 
 template <typename Tmaterial>
-seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities> seissol::model::getEigenDecomposition (Tmaterial const& material, double zeroThreshold) {
-  std::array<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities*seissol::model::MaterialT::NumberOfQuantities> AT;
-  auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {seissol::model::MaterialT::NumberOfQuantities, seissol::model::MaterialT::NumberOfQuantities});
+seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> seissol::model::getEigenDecomposition (Tmaterial const& material, double zeroThreshold) {
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities> AT;
+  auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
   getTransposedCoefficientMatrix(material, 0, ATView);
-  std::array<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities*seissol::model::MaterialT::NumberOfQuantities> A;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities> A;
   //transpose AT to get A
-  for (int i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
-    for (int j = 0; j < seissol::model::MaterialT::NumberOfQuantities; j++) {
-      A[i+seissol::model::MaterialT::NumberOfQuantities*j] = AT[seissol::model::MaterialT::NumberOfQuantities*i+j];
+  for (int i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    for (int j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
+      A[i+seissol::model::MaterialT::NumQuantities*j] = AT[seissol::model::MaterialT::NumQuantities*i+j];
     }
   }
-  seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities> eigenpair;
+  seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> eigenpair;
   seissol::eigenvalues::computeEigenvaluesWithEigen3(A, eigenpair);
 #ifndef NDEBUG
-  using CMatrix = Eigen::Matrix<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities, seissol::model::MaterialT::NumberOfQuantities>;
-  using CVector = Eigen::Matrix<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities, 1>;
+  using CMatrix = Eigen::Matrix<std::complex<double>, seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities>;
+  using CVector = Eigen::Matrix<std::complex<double>, seissol::model::MaterialT::NumQuantities, 1>;
   CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
   CVector eigenvalues = CVector(eigenpair.values.data());
   //check number of eigenvalues
   //also check that the imaginary parts are zero
   int evNeg = 0;
   int evPos = 0;
-  for (int i = 0; i < seissol::model::MaterialT::NumberOfQuantities; ++i) {
+  for (int i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
     assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
     if (eigenvalues(i).real() < -zeroThreshold) {
       ++evNeg;
@@ -215,7 +215,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   CMatrix coeff(A.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
-  for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
+  for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
     eigenvalueMatrix(i,i) = eigenvalues(i);
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
@@ -239,7 +239,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
     logError() << "Poroelastic Free Surface has a template spezialization for the FreeSurfaceGodunovState. You should never end up here";
   }
 
-  constexpr size_t relevant_quantities = seissol::model::MaterialT::NumberOfQuantities
+  constexpr size_t relevant_quantities = seissol::model::MaterialT::NumQuantities
       - seissol::model::MaterialT::NumberPerMechanism * seissol::model::MaterialT::Mechanisms;
   for (size_t i = 0; i < relevant_quantities; i++) {
     for (size_t j = 0; j < relevant_quantities; j++) {

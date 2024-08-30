@@ -10,13 +10,13 @@
 
 namespace seissol::model {
 struct PoroElasticMaterial : ElasticMaterial {
-  static constexpr std::size_t NumberOfQuantities = 13;
+  static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3", "p", "v1_f", "v2_f", "v3_f"};
 
   double bulkSolid;

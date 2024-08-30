@@ -400,7 +400,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
-  for (size_t point = 0; point < misc::NumberOfBoundaryGaussPoints; ++point) {
+  for (size_t point = 0; point < misc::NumBoundaryGaussPoints; ++point) {
     if (ruptureTime[point] == 0.0) {
       needsUpdate = false;
     }
@@ -420,7 +420,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
-    for (size_t jBndGP = 0; jBndGP < misc::NumberOfBoundaryGaussPoints; ++jBndGP) {
+    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
       const real chi = chiTau2dPoints(jBndGP, 0);
       const real tau = chiTau2dPoints(jBndGP, 1);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);

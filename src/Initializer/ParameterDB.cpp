@@ -236,9 +236,9 @@ easi::Query seissol::initializer::FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumberOfPoints = dr::misc::NumPaddedPoints;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPoints;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  easi::Query query(NumberOfPoints * m_faceIDs.size(), 3);
+  easi::Query query(NumPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
@@ -256,11 +256,11 @@ easi::Query seissol::initializer::FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    for (unsigned n = 0; n < NumberOfPoints; ++n, ++q) {
+    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
       double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
       // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumberOfBoundaryGaussPoints) {
+      if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;
         localPoints[1] = 1.0 / 3.0;
       }

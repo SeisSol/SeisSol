@@ -25,7 +25,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::NumberOfBoundaryGaussPoints << " points.";
+                << misc::NumBoundaryGaussPoints << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
 
   for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));

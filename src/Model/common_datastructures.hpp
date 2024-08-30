@@ -62,13 +62,13 @@ enum class LocalSolver {
 };
 
 struct Material {
-  static constexpr std::size_t NumberOfQuantities = 0;        // ?
+  static constexpr std::size_t NumQuantities = 0;             // ?
   static constexpr std::size_t NumberPerMechanism = 0;        // ?
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
   static inline const std::string Text = "material";
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {};
+  static inline const std::array<std::string, NumQuantities> Quantities = {};
 
   virtual ~Material() = default;
 

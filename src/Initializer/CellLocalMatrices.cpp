@@ -369,7 +369,7 @@ void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
 }
 
 constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumberOfQuantities> eigenpair) {
+Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> eigenpair) {
 #ifdef USE_POROELASTIC
   constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
   constexpr std::array<int, 4> velocityIndices = {6,7,8,10};

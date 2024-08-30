@@ -157,28 +157,28 @@ void LoopStatistics::reset() {
 
 void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions.size();
-  constexpr int NumberOfSumComponents = 6;
-  auto sums = std::vector<double>(NumberOfSumComponents * nRegions);
+  constexpr int NumSumComponents = 6;
+  auto sums = std::vector<double>(NumSumComponents * nRegions);
   double totalTimePerRank = 0.0;
 
   // Helper functions to access sums
   auto getNumIters = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 0];
+    return sums[NumSumComponents * region + 0];
   };
   auto getNumItersSquared = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 1];
+    return sums[NumSumComponents * region + 1];
   };
   auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 2];
+    return sums[NumSumComponents * region + 2];
   };
   auto getTime = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 3];
+    return sums[NumSumComponents * region + 3];
   };
   auto getTimeSquared = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 4];
+    return sums[NumSumComponents * region + 4];
   };
   auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
-    return sums[NumberOfSumComponents * region + 5];
+    return sums[NumSumComponents * region + 5];
   };
 
   for (unsigned region = 0; region < nRegions; ++region) {

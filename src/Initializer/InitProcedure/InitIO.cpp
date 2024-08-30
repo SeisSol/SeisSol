@@ -49,7 +49,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 
   const size_t numSides = seissolInstance.meshReader().getFault().size();
-  const unsigned int numBndGP = seissol::dr::misc::NumberOfBoundaryGaussPoints;
+  const unsigned int numBndGP = seissol::dr::misc::NumBoundaryGaussPoints;
 
   const bool hasCheckpoint = seissolInstance.checkPointManager().init(
       reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
@@ -82,11 +82,11 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto NumberOfQuantities =
+  constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
-  // seissol::model::MaterialT::NumberOfQuantities contains it nonetheless.
+  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
   if (seissolParams.output.waveFieldParameters.enabled) {
     // record the clustering info i.e., distribution of elements within an LTS tree
@@ -98,9 +98,9 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        NumberOfQuantities,
+        NumQuantities,
         ConvergenceOrder,
-        NumberOfAlignedBasisFunctions,
+        NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),

@@ -213,10 +213,10 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndStateFastVelocity
 
   Variable<real[dr::misc::NumPaddedPoints]> temperature;
   Variable<real[dr::misc::NumPaddedPoints]> pressure;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumberOfTpGridPoints]> theta;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumberOfTpGridPoints]> sigma;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumberOfTpGridPoints]> thetaTmpBuffer;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumberOfTpGridPoints]> sigmaTmpBuffer;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> theta;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigma;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> thetaTmpBuffer;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigmaTmpBuffer;
   Variable<real[dr::misc::NumPaddedPoints]> faultStrength;
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;

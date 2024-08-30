@@ -85,7 +85,7 @@ class seissol::initializer::Lut {
                    unsigned numberOfMeshIds);
   };
 
-  LutsForMask maskedLuts[1 << NumberOfLayers];
+  LutsForMask maskedLuts[1 << NumLayers];
   LTSTree* m_ltsTree;
   unsigned* m_meshToClusters;
   std::vector<LayerType> m_meshToLayer;

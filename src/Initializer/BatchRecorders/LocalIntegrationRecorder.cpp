@@ -207,7 +207,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> idofsPtrs{};
     std::array<std::vector<real*>, 4> aminusTPtrs{};
     std::array<std::vector<real*>, 4> t{};
-    std::array<std::vector<real*>, 4> tinv{};
+    std::array<std::vector<real*>, 4> tInv{};
 
     std::array<std::vector<inner_keys::Material::DataType>, 4> rhos;
     std::array<std::vector<inner_keys::Material::DataType>, 4> lambdas;
@@ -230,7 +230,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
           displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice()[face]);
           t[face].push_back(data.boundaryMapping()[face].TData);
-          tinv[face].push_back(data.boundaryMapping()[face].TinvData);
+          tInv[face].push_back(data.boundaryMapping()[face].TinvData);
 
           rhos[face].push_back(data.material().local.rho);
           lambdas[face].push_back(data.material().local.getLambdaBar());
@@ -255,7 +255,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
         (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, aminusTPtrs[face]);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::T, t[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, tinv[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, tInv[face]);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::FaceDisplacement, displacementsPtrs[face]);
         (*currentMaterialTable)[key].set(inner_keys::Material::Id::Rho, rhos[face]);
@@ -273,7 +273,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
     std::array<std::vector<real*>, 4> idofsPtrs{};
-    std::array<std::vector<real*>, 4> tinv{};
+    std::array<std::vector<real*>, 4> tInv{};
     std::array<std::vector<real*>, 4> aminusTPtrs{};
 
     std::array<std::vector<real*>, 4> easiBoundaryMapPtrs{};
@@ -289,7 +289,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          tinv[face].push_back(data.boundaryMapping()[face].TinvData);
+          tInv[face].push_back(data.boundaryMapping()[face].TinvData);
           aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
 
           easiBoundaryMapPtrs[face].push_back(data.boundaryMapping()[face].easiBoundaryMap);
@@ -307,7 +307,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
         (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, aminusTPtrs[face]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, tinv[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, tInv[face]);
 
         (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryMap, easiBoundaryMapPtrs[face]);
         (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,

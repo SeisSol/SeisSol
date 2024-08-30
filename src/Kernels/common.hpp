@@ -205,10 +205,10 @@ constexpr bool isDeviceOn() {
 } // namespace seissol
 
 // for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr std::size_t NumberOfBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
-constexpr std::size_t NumberOfAlignedBasisFunctions =
+constexpr std::size_t NumBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
+constexpr std::size_t NumAlignedBasisFunctions =
     seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr std::size_t NumberOfAlignedDerivativeBasisFunctions =
+constexpr std::size_t NumAlignedDerivativeBasisFunctions =
     seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
 
 #endif

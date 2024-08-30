@@ -186,9 +186,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, seissol::model::MaterialT::NumberOfQuantities> outputMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumberOfQuantities>(outputMaskString,
-                                                                                false);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(outputMaskString, false);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));

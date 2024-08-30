@@ -21,14 +21,14 @@ namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
   protected:
   constexpr static auto N =
-      seissol::model::MaterialT::NumberOfQuantities * NumberOfBasisFunctions * ConvergenceOrder;
+      seissol::model::MaterialT::NumQuantities * NumBasisFunctions * ConvergenceOrder;
   constexpr static const double Epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
   real starMatrices0[tensor::star::size(0)];
   real starMatrices1[tensor::star::size(1)];
   real starMatrices2[tensor::star::size(2)];
   real sourceMatrix[tensor::ET::size()];
-  real zMatrix[seissol::model::MaterialT::NumberOfQuantities][tensor::Zinv::size(0)];
+  real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
 
   void setStarMatrix(
       const real* at, const real* bt, const real* ct, const real grad[3], real* starMatrix) {
@@ -131,7 +131,7 @@ class SpaceTimePredictorTestFixture {
       krnlPrototype.selectModes(n) =
           seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
     }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumberOfQuantities; k++) {
+    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
       krnlPrototype.selectQuantity(k) =
           seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
       krnlPrototype.selectQuantityG(k) =
@@ -159,8 +159,8 @@ class SpaceTimePredictorTestFixture {
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto q = init::Q::view::create(qData);
     std::srand(1234);
-    for (std::size_t qi = 0; qi < seissol::model::MaterialT::NumberOfQuantities; ++qi) {
-      for (std::size_t bf = 0; bf < NumberOfBasisFunctions; ++bf) {
+    for (std::size_t qi = 0; qi < seissol::model::MaterialT::NumQuantities; ++qi) {
+      for (std::size_t bf = 0; bf < NumBasisFunctions; ++bf) {
         q(bf, qi) = (real)std::rand() / RAND_MAX * factor.at(qi);
       }
     }
@@ -187,7 +187,7 @@ class SpaceTimePredictorTestFixture {
     krnl.star(1) = bValues;
     krnl.star(2) = cValues;
 
-    for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
+    for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = zMatrix[i];
     }
 
@@ -235,8 +235,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
   alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
-  alignas(PagesizeStack)
-      real qData[seissol::model::MaterialT::NumberOfQuantities * NumberOfBasisFunctions];
+  alignas(PagesizeStack) real qData[seissol::model::MaterialT::NumQuantities * NumBasisFunctions];
   std::fill(std::begin(stp), std::end(stp), 0);
   std::fill(std::begin(rhs), std::end(rhs), 0);
   std::fill(std::begin(lhs), std::end(lhs), 0);

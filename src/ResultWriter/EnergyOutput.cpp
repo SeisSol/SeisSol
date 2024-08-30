@@ -191,8 +191,8 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const DRFaceInformation& faceInfo,
                                      const DRGodunovData& godunovData,
                                      const real slip[seissol::tensor::slipInterpolated::size()]) {
-  real points[seissol::kernels::NumberOfSpaceQuadraturePoints][2];
-  alignas(Alignment) real spaceWeights[seissol::kernels::NumberOfSpaceQuadraturePoints];
+  real points[seissol::kernels::NumSpaceQuadraturePoints][2];
+  alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -311,7 +311,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        for (unsigned j = 0; j < seissol::dr::misc::NumberOfBoundaryGaussPoints; ++j) {
+        for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
           totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
         }
         staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
@@ -326,11 +326,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                              waveSpeedsMinus[i].sWaveVelocity;
         const real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
         real potencyIncrease = 0.0;
-        for (unsigned k = 0; k < seissol::dr::misc::NumberOfBoundaryGaussPoints; ++k) {
+        for (unsigned k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
           potencyIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
-        potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea /
-                           seissol::dr::misc::NumberOfBoundaryGaussPoints;
+        potencyIncrease *=
+            0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
         potency += potencyIncrease;
         seismicMoment += potencyIncrease * mu;
       }
@@ -343,7 +343,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        for (unsigned j = 0; j < seissol::dr::misc::NumberOfBoundaryGaussPoints; ++j) {
+        for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
           if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
             localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
           }
@@ -488,7 +488,7 @@ void EnergyOutput::computeVolumeEnergies() {
       // Displacements are stored in face-aligned coordinate system.
       // We need to rotate it to the global coordinate system.
       auto& boundaryMapping = boundaryMappings[face];
-      auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+      auto tInv = init::Tinv::view::create(boundaryMapping.TinvData);
       alignas(Alignment)
           real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
@@ -496,7 +496,7 @@ void EnergyOutput::computeVolumeEnergies() {
           init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
-          rotateDisplacementToFaceNormal(i, j) = tinv(i + 6, j + 6);
+          rotateDisplacementToFaceNormal(i, j) = tInv(i + 6, j + 6);
         }
       }
 

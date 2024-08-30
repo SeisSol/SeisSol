@@ -41,7 +41,7 @@ void Time::setHostGlobalData(GlobalData const* global) {
     }
     m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
-  for (int k = 0; k < seissol::model::MaterialT::NumberOfQuantities; k++) {
+  for (int k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
     m_krnlPrototype.selectQuantityG(k) = init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
@@ -98,15 +98,15 @@ void Time::executeSTP( double                      timeStepWidth,
   //we have to recalculate it
   if (timeStepWidth != data.localIntegration().specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialT::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder];
-    model::zInvInitializerForLoop<0, seissol::model::MaterialT::NumberOfQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
-    for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
+    real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder*ConvergenceOrder];
+    model::zInvInitializerForLoop<0, seissol::model::MaterialT::NumQuantities, decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+    for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
     // krnl.execute has to be run here: ZinvData is only allocated locally
     krnl.execute();
   } else {
-    for (size_t i = 0; i < seissol::model::MaterialT::NumberOfQuantities; i++) {
+    for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = data.localIntegration().specific.Zinv[i];
     }
     krnl.execute();

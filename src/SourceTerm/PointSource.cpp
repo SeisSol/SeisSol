@@ -98,7 +98,7 @@ void seissol::sourceterm::transformMomentTensor(
     }
   }
 
-  static_assert(seissol::model::MaterialT::NumberOfQuantities >= 6,
+  static_assert(seissol::model::MaterialT::NumQuantities >= 6,
                 "You cannot use PointSource with less than 6 quantities.");
 
   std::fill(forceComponents.data(), forceComponents.data() + forceComponents.size(), 0);

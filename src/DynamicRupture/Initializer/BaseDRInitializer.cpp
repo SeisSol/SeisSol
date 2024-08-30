@@ -28,7 +28,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
                                         seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::NumberOfBoundaryGaussPoints << " points.";
+                << misc::NumBoundaryGaussPoints << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
   for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
@@ -215,7 +215,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues;
 
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    constexpr unsigned int NumberOfStressComponents = 6;
+    constexpr unsigned int NumStressComponents = 6;
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
@@ -235,7 +235,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       cartesianToFaultCSRotationKernel.initialStress = initialStress;
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();
-      for (unsigned int stressIndex = 0; stressIndex < NumberOfStressComponents; ++stressIndex) {
+      for (unsigned int stressIndex = 0; stressIndex < NumStressComponents; ++stressIndex) {
         stressInFaultCS[ltsFace][pointIndex][stressIndex] = rotatedStress[stressIndex];
       }
     }

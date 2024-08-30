@@ -46,11 +46,13 @@ static const TVertex TetVertices[2][5][4] = {{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, 
                                               {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
                                               {{0, 0, 0}, {1, 1, 0}, {0, 1, 1}, {1, 0, 1}}}};
 
-static const int TetSideNeighbors[2][5 * 4] = {
+// neighbor tetrahedra for each face, enumerated per cell (5) and side (4), i.e. 5 * 4 = 20
+static const int TetSideNeighbors[2][20] = {
     {3, 3, 3, 0, 1, 3, 0, 2, 2, 2, 2, 1, 0, 1, 3, 1, 3, 0, 0, 2},
     {2, 3, 0, 1, 1, 3, 3, 2, 2, 1, 1, 0, 0, 3, 2, 1, 2, 0, 0, 1}};
 
-static const int TetSideOrientations[2][5 * 4] = {
+// orientation of the tetrahedra for each face
+static const int TetSideOrientations[2][20] = {
     {2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0},
     {0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}};
 
@@ -279,7 +281,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   }
 
   int* elemNeighbors = new int[numElemPerPart[3] * 4];
-  const int tetNeighbors[2][5 * 4] = {
+  const int tetNeighbors[2][20] = {
       {-static_cast<int>(numCubesPerPart[1] * numCubesPerPart[0]) * 5 + 2,
        -static_cast<int>(numCubesPerPart[0]) * 5,
        -4,

@@ -54,8 +54,7 @@
 
 namespace seissol::kernels {
 
-constexpr std::size_t NumberOfSpaceQuadraturePoints =
-    (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 
 class DynamicRupture {
   private:
@@ -69,7 +68,7 @@ class DynamicRupture {
   public:
   double timePoints[ConvergenceOrder];
   double timeWeights[ConvergenceOrder];
-  real spaceWeights[NumberOfSpaceQuadraturePoints];
+  real spaceWeights[NumSpaceQuadraturePoints];
 #ifdef USE_STP
   std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, ConvergenceOrder>
       timeBasisFunctions;

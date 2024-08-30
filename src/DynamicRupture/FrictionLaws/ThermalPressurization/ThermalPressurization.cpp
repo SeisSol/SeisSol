@@ -9,9 +9,9 @@
 
 namespace seissol::dr::friction_law {
 
-static const GridPoints<misc::NumberOfTpGridPoints> TpGridPoints;
-static const InverseFourierCoefficients<misc::NumberOfTpGridPoints> TpInverseFourierCoefficients;
-static const GaussianHeatSource<misc::NumberOfTpGridPoints> HeatSource;
+static const GridPoints<misc::NumTpGridPoints> TpGridPoints;
+static const InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
+static const GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
@@ -43,10 +43,10 @@ void ThermalPressurization::calcFluidPressure(
     faultStrength[ltsFace][pointIndex] = -mu[ltsFace][pointIndex] * normalStress[pointIndex];
 
     std::copy(&theta[ltsFace][pointIndex][0],
-              &theta[ltsFace][pointIndex][misc::NumberOfTpGridPoints],
+              &theta[ltsFace][pointIndex][misc::NumTpGridPoints],
               &thetaTmpBuffer[ltsFace][pointIndex][0]);
     std::copy(&sigma[ltsFace][pointIndex][0],
-              &sigma[ltsFace][pointIndex][misc::NumberOfTpGridPoints],
+              &sigma[ltsFace][pointIndex][misc::NumTpGridPoints],
               &sigmaTmpBuffer[ltsFace][pointIndex][0]);
 
     // use Theta/Sigma from last timestep
@@ -56,10 +56,10 @@ void ThermalPressurization::calcFluidPressure(
     // copy back to LTS tree, if necessary
     if (saveTPinLTS) {
       std::copy(&thetaTmpBuffer[ltsFace][pointIndex][0],
-                &thetaTmpBuffer[ltsFace][pointIndex][misc::NumberOfTpGridPoints],
+                &thetaTmpBuffer[ltsFace][pointIndex][misc::NumTpGridPoints],
                 &theta[ltsFace][pointIndex][0]);
       std::copy(&sigmaTmpBuffer[ltsFace][pointIndex][0],
-                &sigmaTmpBuffer[ltsFace][pointIndex][misc::NumberOfTpGridPoints],
+                &sigmaTmpBuffer[ltsFace][pointIndex][misc::NumTpGridPoints],
                 &sigma[ltsFace][pointIndex][0]);
     }
   }
@@ -79,7 +79,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
       (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
 
 #pragma omp simd
-  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumberOfTpGridPoints;
+  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
     // \hat{l} / w

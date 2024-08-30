@@ -31,14 +31,14 @@ static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t NumberOfTpGridPoints = 60;
+static constexpr size_t NumTpGridPoints = 60;
 static constexpr real TpLogDz = 0.3;
 static constexpr real TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
+static constexpr unsigned int NumBoundaryGaussPoints = init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

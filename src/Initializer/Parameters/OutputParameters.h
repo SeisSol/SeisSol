@@ -100,7 +100,7 @@ struct WaveFieldOutputParameters {
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
-  std::array<bool, seissol::model::MaterialT::NumberOfQuantities> outputMask;
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask;
   std::array<bool, 7> plasticityMask;
   std::array<bool, 9> integrationMask;
   std::unordered_set<int> groups;

@@ -31,10 +31,10 @@ struct PlasticityData {
     mufactor = 1.0 / (2.0 * material->getMuBar());
   }
 
-  static constexpr std::size_t NumberOfQuantities = 7;
+  static constexpr std::size_t NumQuantities = 7;
   static constexpr std::size_t NumberPerMechanism = 0;
   static const inline std::string Text = "plasticity";
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumQuantities> Quantities = {
       "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};
 };
 
