@@ -79,17 +79,14 @@
 #include "tree/Layer.hpp"
 #include <cstddef>
 #include <yateto.h>
-#include "MemoryManager.h"
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include <yateto.h>
 #include "GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "InternalState.h"
 #include "Kernels/common.hpp"
 #include "Kernels/Touch.h"
-#include "SeisSol.h"
+
 #include "generated_code/tensor.h"
 
 #ifdef ACL_DEVICE
