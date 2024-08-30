@@ -1,4 +1,5 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
+#include "Common/constants.hpp"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.hpp"
@@ -6,7 +7,6 @@
 #include "Kernels/precision.hpp"
 #include "Parallel/AcceleratorDevice.h"
 #include <cstddef>
-#include <hipSYCL/sycl/usm.hpp>
 #include <init.h>
 
 namespace seissol::dr::friction_law::gpu {
@@ -55,7 +55,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    const size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
     devTimeWeights = static_cast<double*>(sycl::malloc_device(requiredNumBytes, queue));
   }
 

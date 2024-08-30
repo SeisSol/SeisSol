@@ -78,6 +78,8 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
+  ~EnergyOutput();
+
   private:
   std::array<real, multipleSimulations::numberOfSimulations>
       computeStaticWork(const real* degreesOfFreedomPlus,
@@ -122,6 +124,10 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
+  real* timeDerivativePlusHost = nullptr;
+  real* timeDerivativeMinusHost = nullptr;
+  real* timeDerivativePlusHostMapped = nullptr;
+  real* timeDerivativeMinusHostMapped = nullptr;
   const GlobalData* global = nullptr;
   // seissol::initializer::DynamicRupture* dynRup = nullptr;
   // seissol::initializer::LTSTree* dynRupTree = nullptr;

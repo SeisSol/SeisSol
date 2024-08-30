@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "tree/Layer.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <array>
@@ -178,6 +179,7 @@ class MemoryManager {
     std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer = {nullptr};
     // std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw = {nullptr};
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLawDevice = {nullptr};
     // std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager = {nullptr};
     // std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
@@ -363,6 +365,11 @@ class MemoryManager {
     inline std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> getDRInitializer() {
         return m_DRInitializer;
     }
+    
+    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> getFrictionLawDevice() {
+        return m_FrictionLawDevice;
+    }
+    
     inline std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS> getFaultOutputManager() {
         return m_faultOutputManager;
     }
@@ -403,6 +410,7 @@ class MemoryManager {
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
 
 

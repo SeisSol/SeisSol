@@ -139,10 +139,12 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
+  const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
-  return ReceiverOutputParameters{enabled, computeRotation, interval, samplingInterval, fileName};
+  return ReceiverOutputParameters{
+      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
@@ -183,8 +185,9 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, NUMBER_OF_QUANTITIES> outputMask =
-      convertStringToArray<bool, NUMBER_OF_QUANTITIES>(outputMaskString, false);
+  const std::array<bool, seissol::model::Material_t::NumberOfQuantities> outputMask =
+      convertStringToArray<bool, seissol::model::Material_t::NumberOfQuantities>(outputMaskString,
+                                                                                 false);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));

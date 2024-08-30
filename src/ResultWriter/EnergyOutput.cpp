@@ -82,6 +82,25 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
+#ifdef ACL_DEVICE
+  unsigned maxCells = 0;
+  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+    maxCells = std::max(it->getNumberOfCells(), maxCells);
+  }
+
+  if (maxCells > 0) {
+    constexpr auto qSize = tensor::Q::size();
+    timeDerivativePlusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativeMinusHost = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
+    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
+    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
+        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+  }
+#endif
+
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
@@ -133,6 +152,17 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
+EnergyOutput::~EnergyOutput() {
+#ifdef ACL_DEVICE
+  if (timeDerivativePlusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
+  }
+  if (timeDerivativeMinusHost != nullptr) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
+  }
+#endif
+}
+
 std::array<real, multipleSimulations::numberOfSimulations>
     EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                     const real* degreesOfFreedomMinus,
@@ -140,17 +170,17 @@ std::array<real, multipleSimulations::numberOfSimulations>
                                     const DRGodunovData& godunovData,
                                     const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  alignas(ALIGNMENT) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  alignas(Alignment) real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(ALIGNMENT) real QPlus[tensor::Q::size()];
-  alignas(ALIGNMENT) real QMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(Alignment) real QPlus[tensor::Q::size()];
+  alignas(Alignment) real QMinus[tensor::Q::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
@@ -202,9 +232,36 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<real>::max();
 
 #ifdef ACL_DEVICE
-    unsigned maxCells = 0;
-    for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
-      maxCells = std::max(it->getNumberOfCells(), maxCells);
+  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+#endif
+  constexpr auto qSize = tensor::Q::size();
+  for (auto it = dynRupTree[sim]->beginLeaf(); it != dynRupTree[sim]->endLeaf(); ++it) {
+    /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
+    /// (We'd need to send the dofs over the network in order to fix this.)
+#ifdef ACL_DEVICE
+    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    auto& table = it->getConditionalTable<inner_keys::Dr>();
+    if (table.find(timeIntegrationKey) != table.end()) {
+      auto& entry = table[timeIntegrationKey];
+      real** timeDerivativePlusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+      real** timeDerivativeMinusDevice =
+          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativePlusDevice,
+          timeDerivativePlusHostMapped,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+          timeDerivativeMinusDevice,
+          timeDerivativeMinusHostMapped,
+          qSize,
+          qSize,
+          it->getNumberOfCells(),
+          stream);
+      device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     }
 
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -220,41 +277,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     const auto timeDerivativeMinusPtr = [&](unsigned i) {
       return timeDerivativeMinusHost + qSize * i;
     };
-#endif
-    for (auto it = dynRupTree[sim]->beginLeaf(); it != dynRupTree[sim]->endLeaf(); ++it) {
-      /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
-      /// (We'd need to send the dofs over the network in order to fix this.)
-#ifdef ACL_DEVICE
-      ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
-      auto& table = it->getConditionalTable<inner_keys::Dr>();
-      if (table.find(timeIntegrationKey) != table.end()) {
-        auto& entry = table[timeIntegrationKey];
-        real** timeDerivativePlusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-        real** timeDerivativeMinusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
-        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-            timeDerivativePlusDevice,
-            timeDerivativePlusHost,
-            qSize,
-            qSize,
-            it->getNumberOfCells(),
-            stream);
-        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-            timeDerivativeMinusDevice,
-            timeDerivativeMinusHost,
-            qSize,
-            qSize,
-            it->getNumberOfCells(),
-            stream);
-        device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-      }
-      const auto timeDerivativePlusPtr = [&](unsigned i) {
-        return timeDerivativePlusHost + qSize * i;
-      };
-      const auto timeDerivativeMinusPtr = [&](unsigned i) {
-        return timeDerivativeMinusHost + qSize * i;
-      };
 #else
       real** timeDerivativePlus = it->var(dynRup[sim]->timeDerivativePlus);
       real** timeDerivativeMinus = it->var(dynRup[sim]->timeDerivativeMinus);
@@ -310,8 +332,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       real localMin = std::numeric_limits<real>::max();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(it, drEnergyOutput, faceInformation, minTimeSinceSlipRateBelowThreshold)
+#pragma omp parallel for reduction(min : minTimeSinceSlipRateBelowThreshold, localMin) default(    \
+        none) shared(it, drEnergyOutput, faceInformation)
 #endif
       for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
@@ -326,10 +348,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
     }
   }
-#ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-  device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
-#endif
 }
 
 void EnergyOutput::computeVolumeEnergies() {
@@ -370,8 +388,8 @@ void EnergyOutput::computeVolumeEnergies() {
       auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
       auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-      constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
-      constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
+    constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
       double quadraturePointsTet[numQuadraturePointsTet][3];
       double quadratureWeightsTet[numQuadraturePointsTet];
@@ -387,14 +405,14 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
-      auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-      // Evaluate numerical solution at quad. nodes
-      kernel::evalAtQP krnl;
-      krnl.evalAtQP = global->evalAtQPMatrix;
-      krnl.dofsQP = numericalSolutionData;
-      krnl.Q = ltsLut->lookup(lts->dofs, elementId);
-      krnl.execute();
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+    auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+    // Evaluate numerical solution at quad. nodes
+    kernel::evalAtQP krnl;
+    krnl.evalAtQP = global->evalAtQPMatrix;
+    krnl.dofsQP = numericalSolutionData;
+    krnl.Q = ltsLut->lookup(lts->dofs, elementId);
+    krnl.execute();
 
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());

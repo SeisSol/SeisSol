@@ -208,8 +208,8 @@ namespace proxy::cpu {
     DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
-    alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-    alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
 
   #ifdef _OPENMP
     #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)

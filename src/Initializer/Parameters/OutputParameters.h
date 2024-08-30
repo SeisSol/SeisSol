@@ -7,6 +7,7 @@
 
 #include <xdmfwriter/backends/Backend.h>
 
+#include "Equations/datastructures.hpp"
 #include "Initializer/InputAux.hpp"
 #include "ParameterReader.h"
 
@@ -61,6 +62,7 @@ struct PickpointParameters {
 struct ReceiverOutputParameters {
   bool enabled;
   bool computeRotation;
+  bool computeStrain;
   double interval;
   double samplingInterval;
   std::string fileName;
@@ -98,7 +100,7 @@ struct WaveFieldOutputParameters {
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
-  std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
+  std::array<bool, seissol::model::Material_t::NumberOfQuantities> outputMask;
   std::array<bool, 7> plasticityMask;
   std::array<bool, 9> integrationMask;
   std::unordered_set<int> groups;

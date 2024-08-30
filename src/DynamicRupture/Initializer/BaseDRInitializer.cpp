@@ -24,6 +24,14 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
+
+BaseDRInitializer::BaseDRInitializer(
+    std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
+    seissol::SeisSol& seissolInstance)
+    : seissolInstance(seissolInstance), drParameters(drParameters),
+      faultParameterNames(
+          seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
+
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();

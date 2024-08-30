@@ -64,10 +64,7 @@ class BaseDRInitializer {
    * DynamicRupture namelist in the parameters.par file
    */
   BaseDRInitializer(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
-                    seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), drParameters(drParameters),
-        faultParameterNames(
-            seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)) {};
+                    seissol::SeisSol& seissolInstance);
 
   virtual ~BaseDRInitializer() = default;
 

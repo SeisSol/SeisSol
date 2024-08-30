@@ -51,28 +51,28 @@ struct QInterpolated {
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
     const FaultStresses& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % Alignment == 0);
   }
 }
 
@@ -96,8 +96,8 @@ inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 #ifdef MULTIPLE_SIMULATIONS
   const size_t index = 1;
@@ -126,7 +126,7 @@ inline void precomputeStressFromQInterpolated(
   /// \todo (VK) activate this by sorting out the padding issue for multiple dimensions in the codegen 
 #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
@@ -157,11 +157,11 @@ inline void precomputeStressFromQInterpolated(
   krnl.Zminus = impedanceMatrices.impedanceNeig;
   krnl.eta = impedanceMatrices.eta;
 
-  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
   krnl.theta = thetaBuffer;
   auto thetaView = init::theta::view::create(thetaBuffer);
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     krnl.Qplus = qInterpolatedPlus[o];
     krnl.Qminus = qInterpolatedMinus[o];
     krnl.execute();
@@ -180,46 +180,46 @@ inline void precomputeStressFromQInterpolated(
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPostCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real imposedStateP[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const real imposedStateM[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
+    const real qIPlus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::numQuantities][dr::misc::numPaddedPoints],
+    const real imposedStateP[ConvergenceOrder][dr::misc::numPaddedPoints],
+    const real imposedStateM[ConvergenceOrder][dr::misc::numPaddedPoints],
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % Alignment == 0);
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % Alignment == 0);
   }
 }
 
@@ -245,9 +245,9 @@ inline void postcomputeImposedStateFromNewStress(
     const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const double timeWeights[CONVERGENCE_ORDER],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const double timeWeights[ConvergenceOrder],
     unsigned startIndex = 0) {
 
   // set imposed state to zero
@@ -279,7 +279,7 @@ inline void postcomputeImposedStateFromNewStress(
 //       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 // #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
 
     using NumPointsRange = typename NumPoints<Type>::Range;
@@ -330,12 +330,12 @@ inline void postcomputeImposedStateFromNewStress(
   krnlP.Zplus = impedanceMatrices.impedance;
   krnlP.imposedState = imposedStatePlus;
 
-  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
+  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
   auto thetaView = init::theta::view::create(thetaBuffer);
   krnlM.theta = thetaBuffer;
   krnlP.theta = thetaBuffer;
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
     // copy values to yateto dataformat
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
@@ -497,10 +497,10 @@ inline void
 template <RangeType Type = RangeType::CPU>
 inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     const ImpedancesAndEta& impAndEta,
-    const double timeWeights[CONVERGENCE_ORDER],
+    const double timeWeights[ConvergenceOrder],
     const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
     const DRGodunovData& godunovData,
     size_t startIndex = 0) {
@@ -520,7 +520,7 @@ inline void computeFrictionEnergy(
   using Range = typename NumPoints<Type>::Range;
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE

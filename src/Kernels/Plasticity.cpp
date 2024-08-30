@@ -60,7 +60,7 @@ namespace seissol::kernels {
                                          double timeStepWidth,
                                          double T_v,
                                          GlobalData const *global,
-                                         PlasticityData const *plasticityData,
+                                         seissol::model::PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
 #ifdef MULTIPLE_SIMULATIONS
@@ -72,15 +72,15 @@ namespace seissol::kernels {
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0);
 
-    real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
-    real QEtaNodal[tensor::QEtaNodal::size()] __attribute__((aligned(ALIGNMENT)));
-    real QEtaModal[tensor::QEtaModal::size()] __attribute__((aligned(ALIGNMENT)));
-    real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
-    real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
-    real tau[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
-    real taulim[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
-    real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(ALIGNMENT)));
-    real dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(ALIGNMENT)));
+    alignas(Alignment) real QStressNodal[tensor::QStressNodal::size()];
+    alignas(Alignment) real QEtaNodal[tensor::QEtaNodal::size()];
+    alignas(Alignment) real QEtaModal[tensor::QEtaModal::size()];
+    alignas(Alignment) real meanStress[tensor::meanStress::size()];
+    alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
+    alignas(Alignment) real tau[tensor::secondInvariant::size()];
+    alignas(Alignment) real taulim[tensor::meanStress::size()];
+    alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
+    alignas(Alignment) real dudt_pstrain[tensor::QStress::size()];
 
     static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                   "Second invariant tensor and mean stress tensor must be of the same size().");
@@ -257,7 +257,8 @@ namespace seissol::kernels {
                                                 double T_v,
                                                 GlobalData const *global,
                                                 initializer::recording::ConditionalPointersToRealsTable &table,
-                                                PlasticityData *plasticityData) {
+                                                seissol::model::PlasticityData *plasticityData,
+                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                   "modal and nodal dofs must have the same leading dimensions");
@@ -266,7 +267,7 @@ namespace seissol::kernels {
 
     DeviceInstance &device = DeviceInstance::getInstance();
     ConditionalKey key(*KernelNames::Plasticity);
-    auto defaultStream = device.api->getDefaultStream();
+    auto defaultStream = runtime.stream();
 
     if (table.find(key) != table.end()) {
       unsigned stackMemCounter{0};

@@ -163,6 +163,7 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+  initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters[numFused].outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
@@ -173,10 +174,13 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ppOutputBuilder->setVariableList(impl->getOutputVariables());
+    ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }
 
@@ -283,6 +287,7 @@ void OutputManager::initFaceToLtsMap() {
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
+    globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto it = drTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
          it != drTree->endLeaf();
          ++it) {
@@ -291,6 +296,11 @@ void OutputManager::initFaceToLtsMap() {
       for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
       }
+    }
+
+    DRFaceInformation* faceInformation = drTree->var(drDescr->faceInformation);
+    for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
+      globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);

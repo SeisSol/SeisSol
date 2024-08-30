@@ -1,14 +1,14 @@
 #include <array>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include <Eigen/Dense>
 
-#include "Kernels/precision.hpp"
-#include "MockReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Geometry/refinement/RefinerUtils.h"
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Kernels/precision.hpp"
+#include "MockReader.h"
 
 namespace seissol::unit_test {
 

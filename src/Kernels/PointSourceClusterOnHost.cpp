@@ -1,5 +1,5 @@
-// Copyright (c) 2015-2020 SeisSol Group
-// Copyright (C) 2023 Intel Corporation
+// Copyright (c) 2015-2024 SeisSol Group
+// Copyright (c) 2023 Intel Corporation
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "PointSourceClusterOnHost.h"
@@ -7,17 +7,20 @@
 #include "SourceTerm/PointSource.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include "precision.hpp"
 
 #include <utility>
 
 namespace seissol::kernels {
 
-PointSourceClusterOnHost::PointSourceClusterOnHost(sourceterm::ClusterMapping mapping,
-                                                   sourceterm::PointSources sources)
-    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
+PointSourceClusterOnHost::PointSourceClusterOnHost(
+    std::shared_ptr<sourceterm::ClusterMapping> mapping,
+    std::shared_ptr<sourceterm::PointSources> sources)
+    : clusterMapping_(mapping), sources_(sources) {}
 
-void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double to) {
-  auto& mapping = clusterMapping_.cellToSources;
+void PointSourceClusterOnHost::addTimeIntegratedPointSources(
+    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
+  auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -26,7 +29,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double
       unsigned startSource = mapping[m].pointSourcesOffset;
       unsigned endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
       for (unsigned source = startSource; source < endSource; ++source) {
-        if (sources_.mode == sourceterm::PointSources::NRF) {
+        if (sources_->mode == sourceterm::PointSources::NRF) {
           addTimeIntegratedPointSourceNRF(source, from, to, *mapping[m].dofs);
         } else {
           addTimeIntegratedPointSourceFSRM(source, from, to, *mapping[m].dofs);
@@ -36,7 +39,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(double from, double
   }
 }
 
-unsigned PointSourceClusterOnHost::size() const { return sources_.numberOfSources; }
+unsigned PointSourceClusterOnHost::size() const { return sources_->numberOfSources; }
 
 void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
                                                                double from,
@@ -44,33 +47,33 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
                                                                real dofs[tensor::Q::size()]) {
   real slip[] = {0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
-    auto o0 = sources_.sampleOffsets[i][source];
-    auto o1 = sources_.sampleOffsets[i][source + 1];
+    auto o0 = sources_->sampleOffsets[i][source];
+    auto o1 = sources_->sampleOffsets[i][source + 1];
     slip[i] = computeSampleTimeIntegral(from,
                                         to,
-                                        sources_.onsetTime[source],
-                                        sources_.samplingInterval[source],
-                                        sources_.sample[i].data() + o0,
+                                        sources_->onsetTime[source],
+                                        sources_->samplingInterval[source],
+                                        sources_->sample[i].data() + o0,
                                         o1 - o0);
   }
 
   real rotatedSlip[] = {0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
     for (unsigned j = 0; j < 3; ++j) {
-      rotatedSlip[j] += sources_.tensor[source][j + i * 3] * slip[i];
+      rotatedSlip[j] += sources_->tensor[source][j + i * 3] * slip[i];
     }
   }
 
   kernel::sourceNRF krnl;
   krnl.Q = dofs;
-  krnl.mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources[source].data();
-  krnl.stiffnessTensor = sources_.stiffnessTensor[source].data();
+  krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
+  krnl.stiffnessTensor = sources_->stiffnessTensor[source].data();
   krnl.mSlip = rotatedSlip;
-  krnl.mNormal = sources_.tensor[source].data() + 6;
-  krnl.mArea = -sources_.A[source];
+  krnl.mNormal = sources_->tensor[source].data() + 6;
+  krnl.mArea = -sources_->A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
-  const auto originalIndex = sources_.originalIndex[source];
+  const auto originalIndex = sources_->originalIndex[source];
   std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
   sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
@@ -82,21 +85,21 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
                                                                 double from,
                                                                 double to,
                                                                 real dofs[tensor::Q::size()]) {
-  auto o0 = sources_.sampleOffsets[0][source];
-  auto o1 = sources_.sampleOffsets[0][source + 1];
+  auto o0 = sources_->sampleOffsets[0][source];
+  auto o1 = sources_->sampleOffsets[0][source + 1];
   auto slip = computeSampleTimeIntegral(from,
                                         to,
-                                        sources_.onsetTime[source],
-                                        sources_.samplingInterval[source],
-                                        sources_.sample[0].data() + o0,
+                                        sources_->onsetTime[source],
+                                        sources_->samplingInterval[source],
+                                        sources_->sample[0].data() + o0,
                                         o1 - o0);
   kernel::sourceFSRM krnl;
   krnl.Q = dofs;
-  krnl.mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources[source].data();
-  krnl.momentFSRM = sources_.tensor[source].data();
+  krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
+  krnl.momentFSRM = sources_->tensor[source].data();
   krnl.stfIntegral = slip;
 #ifdef MULTIPLE_SIMULATIONS
-  const auto originalIndex = sources_.originalIndex[source];
+  const auto originalIndex = sources_->originalIndex[source];
   std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
   sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
