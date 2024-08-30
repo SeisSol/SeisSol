@@ -112,6 +112,9 @@ void initGlobalData() {
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
+
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  m_dynRupKernel.setTimeStepWidth(timeStepWidth);
 }
 
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
