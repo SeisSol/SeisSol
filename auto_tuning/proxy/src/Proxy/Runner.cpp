@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "likwid_wrapper.h"
 #include <utils/args.h>
-#include "proxy_common.hpp"
+#include "Common.hpp"
 
 #ifdef __MIC__
 #define __USE_RDTSC
@@ -84,13 +84,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cassert>
 
 // seissol_kernel includes
-#include "proxy_seissol_tools.hpp"
-#include "proxy_seissol_allocator.hpp"
-#include "proxy_seissol_flops.hpp"
-#include "proxy_seissol_bytes.hpp"
-#include "proxy_seissol_integrators.hpp"
+#include "Tools.hpp"
+#include "Allocator.hpp"
+#include "FlopCounter.hpp"
+#include "BandwidthEstimator.hpp"
+#include "Integrator.hpp"
 #ifdef ACL_DEVICE
-#include "proxy_seissol_device_integrators.hpp"
+#include "DeviceIntegrator.hpp"
 #endif
 
 #ifdef ACL_DEVICE

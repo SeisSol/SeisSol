@@ -1,6 +1,6 @@
-#include <utils/args.h>
-#include "proxy_common.hpp"
+#include "Proxy/Common.hpp"
 #include <iostream>
+#include <utils/args.h>
 
 
 int main(int argc, char* argv[]) {

@@ -572,7 +572,7 @@ endif()
 
 # build SeisSol-proxy
   # SeisSol proxy-core
-  add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
+  add_library(SeisSol-proxy-core auto_tuning/proxy/src/Proxy/Runner.cpp)
   target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
   if (PROXY_PYBINDING)
@@ -582,7 +582,7 @@ endif()
       find_package(pybind11 2.3.0 REQUIRED)
     endif()
 
-    pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
+    pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/Bindings.cpp)
     target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
     file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   endif()
@@ -592,7 +592,7 @@ endif()
   endif()
 
   # C/C++ proxy interface
-  add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
+  add_executable(SeisSol-proxy auto_tuning/proxy/src/Main.cpp)
   target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
   set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
   install(TARGETS SeisSol-proxy RUNTIME)
