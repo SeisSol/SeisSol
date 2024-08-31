@@ -104,6 +104,30 @@ public:
     }
     return numCells;
   }
+
+  class LeafIteratorWrapper {
+private:
+    LTSInternalNode& node;
+    LayerMask mask;
+
+public:
+    LeafIteratorWrapper(LTSInternalNode& node, LayerMask mask) : node(node), mask(mask) {}
+
+    inline leaf_iterator begin() { return node.beginLeaf(mask); }
+
+    inline leaf_iterator end() { return node.endLeaf(); }
+  };
+
+  inline LeafIteratorWrapper leaves(LayerMask mask = LayerMask()) {
+    return LeafIteratorWrapper(*this, mask);
+  }
+
+  template <typename F>
+  inline void iterateLeaves(F&& leafFunction, LayerMask mask = LayerMask()) {
+    for (auto& leaf : leaves(mask)) {
+      leafFunction(leaf);
+    }
+  }
 };
 
 #endif
