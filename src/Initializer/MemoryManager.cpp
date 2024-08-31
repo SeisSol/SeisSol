@@ -509,7 +509,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
-  m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_ltsTree.setTimeClusters(i_timeStepping.numberOfLocalClusters, i_timeStepping.clusterIds);
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();

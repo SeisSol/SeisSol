@@ -200,6 +200,7 @@ struct MemoryInfo {
 
 class Layer : public Node {
   private:
+  int m_clusterId;
   enum LayerType m_layerType;
   unsigned m_numberOfCells;
   std::vector<DualMemoryContainer> m_vars;
@@ -241,6 +242,12 @@ class Layer : public Node {
     return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
+  void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
+    assert(index != std::numeric_limits<unsigned>::max());
+    assert(m_vars.size() > index);
+    return m_vars[index].get(place);
+  }
+
   template <typename T>
   void varSynchronizeTo(const Variable<T>& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
@@ -277,6 +284,10 @@ class Layer : public Node {
   inline void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
 
   inline enum LayerType getLayerType() const { return m_layerType; }
+
+  inline void setClusterId(int clusterId) { m_clusterId = clusterId; }
+
+  inline int getClusterId() const { return m_clusterId; }
 
   inline unsigned getNumberOfCells() const { return m_numberOfCells; }
 

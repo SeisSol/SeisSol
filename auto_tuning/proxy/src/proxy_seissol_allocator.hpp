@@ -117,7 +117,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   // init RNG
   srand48(i_cells);
   m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
-  m_ltsTree->setNumberOfTimeClusters(1);
+  m_ltsTree->setTimeClusters({0});
   m_ltsTree->fixate();
   
   seissol::initializer::TimeCluster& cluster = m_ltsTree->child(0);
