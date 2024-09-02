@@ -3,8 +3,8 @@
 
 #include <Eigen/Dense>
 
-#include "ODEVector.h"
 #include "Kernels/precision.hpp"
+#include "ODEVector.h"
 #include <cassert>
 
 namespace seissol::ode {
@@ -16,15 +16,15 @@ struct TimeSpan {
 
 enum class RungeKuttaVariant {
   RK4,
-  RK4_3_8,
-  RK4_Ralston,
-  RK6_Butcher_1,
-  RK6_Butcher_2,
-  RK7_VernerMostEfficient
+  RK438,
+  RK4Ralston,
+  RK6Butcher1,
+  RK6Butcher2,
+  RK7VernerMostEfficient
 };
 
 struct ODESolverConfig {
-  RungeKuttaVariant solver = RungeKuttaVariant::RK7_VernerMostEfficient;
+  RungeKuttaVariant solver = RungeKuttaVariant::RK7VernerMostEfficient;
   double initialDt;
 
   ODESolverConfig() = delete;
@@ -41,7 +41,7 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
                                 Eigen::VectorXd& c);
 
 class RungeKuttaODESolver {
-private:
+  private:
   ODESolverConfig config;
   int numberOfStages{};
 
@@ -55,12 +55,10 @@ private:
   std::vector<std::vector<real>> storages{};
   ODEVector buffer;
 
-public:
-  RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
-                      ODESolverConfig config);
+  public:
+  RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes, ODESolverConfig config);
 
   void setConfig(ODESolverConfig newConfig);
-
 
   /*!
    * @tparam Func is a callable type (e.g. functor/lambda)
@@ -71,11 +69,11 @@ public:
    * @param curValue is the current solution of the ODE
    * @param timeSpan is the time span in which the ODE should be solved.
    */
-  template<typename Func>
+  template <typename Func>
   void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
-    double dt = config.initialDt;
+    const double dt = config.initialDt;
     while (curTime < timeSpan.end) {
       const double adjustedDt = std::min(dt, timeSpan.end - curTime);
 
@@ -83,7 +81,7 @@ public:
         buffer = curValue;
         // j < i due to explict RK scheme
         for (auto j = 0U; j < i; ++j) {
-          if (a(i,j) != 0.0) {
+          if (a(i, j) != 0.0) {
             const auto curWeight = a(i, j) * adjustedDt;
             buffer.weightedAddInplace(curWeight, stages[j]);
           }
@@ -104,4 +102,4 @@ public:
 
 } // namespace seissol::ode
 
-#endif //SEISSOL_ODEINT_H
+#endif // SEISSOL_ODEINT_H

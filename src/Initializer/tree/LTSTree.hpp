@@ -93,7 +93,7 @@ class LTSTree : public LTSInternalNode {
 
   void fixate() {
     setPostOrderPointers();
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
 #ifdef ACL_DEVICE
       it->allocateScratchpadArrays(scratchpadMemInfo.size());
@@ -170,7 +170,7 @@ class LTSTree : public LTSInternalNode {
     m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->addVariableSizes(varInfo, variableSizes);
     }
 
@@ -181,7 +181,7 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
       it->addVariableSizes(varInfo, variableSizes);
     }
@@ -191,7 +191,7 @@ class LTSTree : public LTSInternalNode {
     m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
 
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->addBucketSizes(bucketSizes);
     }
 
@@ -203,7 +203,7 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
       it->addBucketSizes(bucketSizes);
     }
@@ -220,7 +220,7 @@ class LTSTree : public LTSInternalNode {
     scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->findMaxScratchpadSizes(scratchpadMemSizes);
     }
 
@@ -233,14 +233,14 @@ class LTSTree : public LTSInternalNode {
                                       scratchpadMemInfo[id].allocMode);
     }
 
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
 
   void touchVariables() {
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
       it->touchVariables(varInfo);
     }
   }
@@ -252,7 +252,7 @@ class LTSTree : public LTSInternalNode {
   size_t getMaxClusterSize(LayerMask mask) {
     size_t maxClusterSize{0};
     for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
-      size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+      const size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

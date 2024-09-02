@@ -1,8 +1,11 @@
+#include <Kernels/precision.hpp>
+#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <utility>
-#include <tuple>
 #include <vector>
 
 #include "ODEVector.h"
@@ -20,22 +23,22 @@ std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {
   std::abort(); // Unreachable!
 }
 
-ODEVector::ODEVector(std::vector<real*> storages,
-                     std::vector<std::size_t> sizes)
+ODEVector::ODEVector(std::vector<real*> storages, std::vector<std::size_t> sizes)
     : storages(std::move(storages)), sizes(std::move(sizes)) {
   std::size_t curOffset = 0;
-  for (unsigned long size : this->sizes) {
+  for (const unsigned long size : this->sizes) {
     offsets.push_back(curOffset);
     curOffset += size;
   }
 }
 
-void ODEVector::updateStoragesAndSizes(std::vector<real*> newStorages, std::vector<std::size_t> newSizes) {
+void ODEVector::updateStoragesAndSizes(std::vector<real*> newStorages,
+                                       std::vector<std::size_t> newSizes) {
   storages = std::move(newStorages);
   sizes = std::move(newSizes);
   offsets.clear();
   std::size_t curOffset = 0;
-  for (unsigned long size : this->sizes) {
+  for (const unsigned long size : this->sizes) {
     offsets.push_back(curOffset);
     curOffset += size;
   }
@@ -77,7 +80,8 @@ ODEVector& ODEVector::operator*=(real scalar) {
 }
 
 void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
-  if (weight == 0.0) return;
+  if (weight == 0.0)
+    return;
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == rhs.sizes[i]);
 #pragma omp simd
@@ -110,7 +114,8 @@ real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
       maxError = std::max(std::abs(curDiff), maxError);
     }
   }
-  if (useLInfNorm) return maxError;
+  if (useLInfNorm)
+    return maxError;
   return std::sqrt(error);
 }
 

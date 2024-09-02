@@ -1,36 +1,36 @@
 #ifndef EQUATIONS_DATASTRUCTURES_H_
 #define EQUATIONS_DATASTRUCTURES_H_
 
-//Gather all datastructure Headers here
-#include "Equations/anisotropic/Model/datastructures.hpp"
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Equations/poroelastic/Model/datastructures.hpp"
-#include "Equations/viscoelastic2/Model/datastructures.hpp"
+// Gather all datastructure Headers here
+#include "Equations/anisotropic/Model/datastructures.hpp"   // IWYU pragma: keep
+#include "Equations/elastic/Model/datastructures.hpp"       // IWYU pragma: keep
+#include "Equations/poroelastic/Model/datastructures.hpp"   // IWYU pragma: keep
+#include "Equations/viscoelastic2/Model/datastructures.hpp" // IWYU pragma: keep
 
-#include "Equations/anisotropic/Model/integrationData.hpp"
-#include "Equations/elastic/Model/integrationData.hpp"
+#include "Equations/anisotropic/Model/integrationData.hpp" // IWYU pragma: keep
+#include "Equations/elastic/Model/integrationData.hpp"     // IWYU pragma: keep
 #ifdef USE_POROELASTIC
-#include "Equations/poroelastic/Model/integrationData.hpp"
+#include "Equations/poroelastic/Model/integrationData.hpp" // IWYU pragma: keep
 #endif
 #ifdef USE_VISCOELASTIC
-#include "Equations/viscoelastic/Model/integrationData.hpp"
+#include "Equations/viscoelastic/Model/integrationData.hpp" // IWYU pragma: keep
 #endif
 #ifdef USE_VISCOELASTIC2
-#include "Equations/viscoelastic2/Model/integrationData.hpp"
+#include "Equations/viscoelastic2/Model/integrationData.hpp" // IWYU pragma: keep
 #endif
 
 namespace seissol::model {
 #if defined(USE_ANISOTROPIC)
-using Material_t = AnisotropicMaterial;
-#elif defined(USE_VISCOELASTIC) || defined (USE_VISCOELASTIC2)
-using Material_t = ViscoElasticMaterial;
+using MaterialT = AnisotropicMaterial;
+#elif defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
+using MaterialT = ViscoElasticMaterial;
 #elif defined(USE_ELASTIC)
-using Material_t = ElasticMaterial;
+using MaterialT = ElasticMaterial;
 #elif defined(USE_POROELASTIC)
-using Material_t = PoroElasticMaterial;
+using MaterialT = PoroElasticMaterial;
 #else
 #error "Material class unknown."
 #endif
-}
+} // namespace seissol::model
 
 #endif

@@ -3,15 +3,15 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
-#include "Numerical_aux/RegularizedYoffe.h"
+#include "Numerical/GaussianNucleationFunction.h"
+#include "Numerical/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law {
 class YoffeSTF {
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*tauS)[misc::numPaddedPoints];
-  real (*tauR)[misc::numPaddedPoints];
+  real (*onsetTime)[misc::NumPaddedPoints];
+  real (*tauS)[misc::NumPaddedPoints];
+  real (*tauR)[misc::NumPaddedPoints];
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
@@ -26,8 +26,8 @@ class YoffeSTF {
 
 class GaussianSTF {
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*riseTime)[misc::numPaddedPoints];
+  real (*onsetTime)[misc::NumPaddedPoints];
+  real (*riseTime)[misc::NumPaddedPoints];
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,

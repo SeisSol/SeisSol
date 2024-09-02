@@ -69,7 +69,7 @@ void seissol::checkpoint::createBackend(seissol::initializer::parameters::Checkp
       waveField = new mpio::Wavefield();
       fault = new mpio::Fault();
       break;
-    case seissol::initializer::parameters::CheckpointingBackend::MPIO_ASYNC:
+    case seissol::initializer::parameters::CheckpointingBackend::MpioAsync:
       waveField = new mpio::WavefieldAsync();
       fault = new mpio::FaultAsync();
       break;

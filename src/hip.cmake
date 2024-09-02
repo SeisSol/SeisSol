@@ -13,8 +13,7 @@ set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MO
 
 find_package(HIP REQUIRED)
 
-# Note: -std=c++14 because of cuda@10
-set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++14; -O3)
+set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++17; -O3)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})

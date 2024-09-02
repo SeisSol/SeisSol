@@ -60,6 +60,8 @@ class Module {
   public:
   Module();
 
+  virtual ~Module();
+
   /**
    * Called by {@link Modules} at every synchronization point
    *

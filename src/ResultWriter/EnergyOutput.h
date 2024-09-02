@@ -68,7 +68,7 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-  ~EnergyOutput();
+  ~EnergyOutput() override;
 
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
@@ -89,7 +89,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefixMessage);
 
   void writeHeader();
 

@@ -45,10 +45,9 @@
 #define COMMON_HPP_
 
 #include "Common/constants.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Kernels/precision.hpp"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include <algorithm>
 #include <cassert>
 #include <type_traits>
 #include <utility>
@@ -169,37 +168,10 @@ constexpr unsigned
 }
 
 /**
- * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
- *zero padding) storage.
- *
- * @param alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
- * @param o_unalignedDofs unaligned degrees of freedom.
- **/
-template <typename real_from, typename real_to>
-void convertAlignedDofs(const real_from alignedDofs[tensor::Q::size()],
-                        real_to o_unalignedDofs[tensor::QFortran::size()]) {
-  kernel::copyQToQFortran krnl;
-  krnl.Q = alignedDofs;
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
-#endif
-
-  if (std::is_same<real_from, real_to>::value) {
-    krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
-    krnl.execute();
-  } else {
-    real_from unalignedDofs[tensor::QFortran::size()];
-    krnl.QFortran = unalignedDofs;
-    krnl.execute();
-    std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
-  }
-}
-
-/**
  * uses SFINAE to check if class T has a size() function.
  */
 template <typename T>
-struct has_size {
+struct HasSize {
   template <typename U>
   static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
     return true;
@@ -208,18 +180,18 @@ struct has_size {
   static constexpr bool test(...) {
     return false;
   }
-  static constexpr bool value = test<T>(int());
+  static constexpr bool Value = test<T>(int());
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise
  */
 template <class T>
-constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type {
+constexpr auto size() -> std::enable_if_t<HasSize<T>::Value, unsigned> {
   return T::size();
 }
 template <class T>
-constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type {
+constexpr auto size() -> std::enable_if_t<!HasSize<T>::Value, unsigned> {
   return 0;
 }
 } // namespace kernels
@@ -233,13 +205,10 @@ constexpr bool isDeviceOn() {
 } // namespace seissol
 
 // for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr unsigned int NUMBER_OF_BASIS_FUNCTIONS = seissol::kernels::getNumberOfBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS =
+constexpr std::size_t NumBasisFunctions = seissol::kernels::getNumberOfBasisFunctions();
+constexpr std::size_t NumAlignedBasisFunctions =
     seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS =
+constexpr std::size_t NumAlignedDerivativeBasisFunctions =
     seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
-
-// for attenuation
-constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
 
 #endif

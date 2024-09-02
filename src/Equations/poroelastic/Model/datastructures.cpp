@@ -4,7 +4,7 @@
 //such that e.g. seissol::Interoperability::initializeModel work without ifdefs
 #ifdef USE_POROELASTIC
 #include "PoroelasticSetup.h"
-#include "Numerical_aux/Eigenvalues.h"
+#include "Numerical/Eigenvalues.h"
 double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   eigenvalues::Eigenpair<std::complex<double>, 13> eigendecomposition;
   std::array<std::complex<double>, 169> AT_values{};

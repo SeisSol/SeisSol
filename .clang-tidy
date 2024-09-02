@@ -1,4 +1,23 @@
-Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,modernize-use-override,modernize-use-equals-default,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
+# TODO: enable as much as possible from modernize, performance, and readability
+
+Checks: |
+  -*,
+  clang-diagnostic-*,
+  cppcoreguidelines-avoid-non-const-global-variables,
+  llvm-*,
+  -llvm-else-after-return,
+  -llvm-header-guard,
+  -llvm-qualified-auto,
+  misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -misc-unused-parameters,
+  -misc-no-recursion,
+  modernize-use-override,
+  modernize-use-equals-default,
+  performance-move-const-arg,
+  readability-non-const-parameter,
+  readability-const-return-type,
+  readability-identifier-naming
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
@@ -68,7 +87,7 @@ CheckOptions:
 #  - key:             readability-identifier-naming.ConstexprMethodSuffix
 #    value:           CamelCase
   - key:             readability-identifier-naming.ConstexprVariableCase
-    value:           camelBack
+    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariablePrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariableSuffix
@@ -91,8 +110,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.FunctionSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.GlobalConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantSuffix
@@ -155,10 +174,12 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.MemberCase
     value:           camelBack
-  - key:             readability-identifier-naming.MemberPrefix
-    value:           ""
+  - key:             readability-identifier-naming.MemberIgnoredRegexp
+    value:           "^m_|_$" # TODO: temporary! Remove after more refactoring.
+#  - key:             readability-identifier-naming.MemberPrefix
+#    value:           ""
 #  - key:             readability-identifier-naming.MemberSuffix
-#    value:           CamelCase
+#    value:           ""
 #  - key:             readability-identifier-naming.MethodCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.MethodPrefix
@@ -225,8 +246,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.PublicMethodSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.StaticConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.StaticConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantSuffix
@@ -243,26 +264,26 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StructSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateTemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateTemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypeAliasCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypeAliasCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypedefCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypedefCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefSuffix
@@ -298,6 +319,7 @@ CheckOptions:
 #  - key:             readability-identifier-naming.VirtualMethodSuffix
 #    value:           CamelCase
 
-    # ignore Eigen, fty manually, until added to IWYU
+    # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
+    # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*|bits/.*|external/.*'

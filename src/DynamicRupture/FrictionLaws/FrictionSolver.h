@@ -59,32 +59,32 @@ class FrictionSolver {
   ImpedanceMatrices* impedanceMatrices;
   real mFullUpdateTime;
   // CS = coordinate system
-  real (*initialStressInFaultCS)[misc::numPaddedPoints][6];
-  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
-  real (*cohesion)[misc::numPaddedPoints];
-  real (*mu)[misc::numPaddedPoints];
-  real (*accumulatedSlipMagnitude)[misc::numPaddedPoints];
-  real (*slip1)[misc::numPaddedPoints];
-  real (*slip2)[misc::numPaddedPoints];
-  real (*slipRateMagnitude)[misc::numPaddedPoints];
-  real (*slipRate1)[misc::numPaddedPoints];
-  real (*slipRate2)[misc::numPaddedPoints];
-  real (*ruptureTime)[misc::numPaddedPoints];
-  bool (*ruptureTimePending)[misc::numPaddedPoints];
-  real (*peakSlipRate)[misc::numPaddedPoints];
-  real (*traction1)[misc::numPaddedPoints];
-  real (*traction2)[misc::numPaddedPoints];
+  real (*initialStressInFaultCS)[misc::NumPaddedPoints][6];
+  real (*nucleationStressInFaultCS)[misc::NumPaddedPoints][6];
+  real (*cohesion)[misc::NumPaddedPoints];
+  real (*mu)[misc::NumPaddedPoints];
+  real (*accumulatedSlipMagnitude)[misc::NumPaddedPoints];
+  real (*slip1)[misc::NumPaddedPoints];
+  real (*slip2)[misc::NumPaddedPoints];
+  real (*slipRateMagnitude)[misc::NumPaddedPoints];
+  real (*slipRate1)[misc::NumPaddedPoints];
+  real (*slipRate2)[misc::NumPaddedPoints];
+  real (*ruptureTime)[misc::NumPaddedPoints];
+  bool (*ruptureTimePending)[misc::NumPaddedPoints];
+  real (*peakSlipRate)[misc::NumPaddedPoints];
+  real (*traction1)[misc::NumPaddedPoints];
+  real (*traction2)[misc::NumPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
-  real spaceWeights[misc::numPaddedPoints];
+  real spaceWeights[misc::NumPaddedPoints];
   DREnergyOutput* energyData{};
   DRGodunovData* godunovData{};
-  real (*initialPressure)[misc::numPaddedPoints];
-  real (*nucleationPressure)[misc::numPaddedPoints];
+  real (*initialPressure)[misc::NumPaddedPoints];
+  real (*nucleationPressure)[misc::NumPaddedPoints];
 
   // be careful only for some FLs initialized:
-  real (*dynStressTime)[misc::numPaddedPoints];
-  bool (*dynStressTimePending)[misc::numPaddedPoints];
+  real (*dynStressTime)[misc::NumPaddedPoints];
+  bool (*dynStressTimePending)[misc::NumPaddedPoints];
 
   real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()];
   real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()];
