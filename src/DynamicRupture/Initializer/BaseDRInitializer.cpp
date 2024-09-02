@@ -30,7 +30,7 @@ BaseDRInitializer::BaseDRInitializer(
     seissol::SeisSol& seissolInstance)
     : seissolInstance(seissolInstance), drParameters(drParameters),
       faultParameterNames(
-          seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
+          seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)) {};
 
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {

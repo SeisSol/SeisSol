@@ -114,13 +114,12 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
                 seissolInstance,
                 numFused)};
   } else {
-    return {
-        std::make_unique<seissol::initializer::LTSRateAndState>(),
-        std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
-        std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
-        std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
-        std::make_unique<output::OutputManager>(
-            std::make_unique<output::RateAndState>(), seissolInstance, numFused)};
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
+            std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+            std::make_unique<output::OutputManager>(
+                std::make_unique<output::RateAndState>(), seissolInstance, numFused)};
   }
 }
 

@@ -30,7 +30,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
                                         real dofs[tensor::Q::size()]);
 
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
-  std::shared_ptr<sourceterm::PointSources>   sources_;
+  std::shared_ptr<sourceterm::PointSources> sources_;
 };
 } // namespace seissol::kernels
 

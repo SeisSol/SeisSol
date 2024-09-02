@@ -42,7 +42,9 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drDescr = userDrDescr;
 }
 #ifdef MULTIPLE_SIMULATIONS
-void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]], int meshId, unsigned int nFused)
+void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                             int meshId,
+                             unsigned int nFused)
 #else
 void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
 #endif
@@ -61,16 +63,18 @@ void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
   dofsModifiedKrnl.Q_ijs = dummydofs;
   dofsModifiedKrnl.execute();
 
-  std::copy(
-      dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * nFused,
-      dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * (nFused + 1),
-      &dofs[0]);
+  std::copy(dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * nFused,
+            dummydofs + NUMBER_OF_BASIS_FUNCTIONS * tensor::Q::Shape[2] * (nFused + 1),
+            &dofs[0]);
 #endif
 }
 #ifdef MULTIPLE_SIMULATIONS
-void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1]*tensor::Q::Shape[2]], int meshId, int side, unsigned int nFused)
+void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                                      int meshId,
+                                      int side,
+                                      unsigned int nFused)
 #else
-void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshId, int side) 
+void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshId, int side)
 #endif
 {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
@@ -119,13 +123,13 @@ void ReceiverOutput::calcFaultOutput(
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-    #ifdef MULTIPLE_SIMULATIONS
-    alignas(Alignment) real dofsPlus[tensor::Q::Shape[1]*tensor::Q::Shape[2]]{};
-    alignas(Alignment) real dofsMinus[tensor::Q::Shape[1]*tensor::Q::Shape[2]]{};
-    #else
+#ifdef MULTIPLE_SIMULATIONS
+    alignas(Alignment) real dofsPlus[tensor::Q::Shape[1] * tensor::Q::Shape[2]]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::Shape[1] * tensor::Q::Shape[2]]{};
+#else
     alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};    
-    #endif
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+#endif
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
 

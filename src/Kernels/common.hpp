@@ -244,7 +244,6 @@ constexpr unsigned int NUMBER_OF_QUANTITIES = seissol::tensor::Q::Shape[2];
 constexpr unsigned int NUMBER_OF_QUANTITIES = seissol::tensor::Q::Shape[1];
 #endif
 
-
 // for attenuation
 constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
 

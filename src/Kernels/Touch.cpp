@@ -24,12 +24,12 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     real* buffer = buffers[cell];
     // logInfo() << "Reached here 2";
     if (buffer != NULL) {
-    // logInfo() << "Reached here 3";
+      // logInfo() << "Reached here 3";
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
         // zero time integration buffers
-      // logInfo() << "Reached here 4";
+        // logInfo() << "Reached here 4";
         buffer[dof] = (real)0;
-    // logInfo() << "Reached here 5";
+        // logInfo() << "Reached here 5";
       }
     }
     // logInfo() << "Reached here 6";
@@ -38,11 +38,11 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     real* derivative = derivatives[cell];
     // logInfo() << "Reached here 7";
     if (derivative != NULL) {
-    // logInfo() << "Reached here 8";
+      // logInfo() << "Reached here 8";
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
-    // logInfo() << "Reached here 9";
+        // logInfo() << "Reached here 9";
         derivative[dof] = (real)0;
-    // logInfo() << "Reached here 10";
+        // logInfo() << "Reached here 10";
       }
     }
   }

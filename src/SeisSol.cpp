@@ -162,8 +162,8 @@ bool SeisSol::init(int argc, char* argv[]) {
   // Call post MPI initialization hooks
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
-  // Initialize the ASYNC I/O library // TO DISCUSS: activating this gives a seg fault. I don't know what the issue is
-  // if (!m_asyncIO.init()) {
+  // Initialize the ASYNC I/O library // TO DISCUSS: activating this gives a seg fault. I don't know
+  // what the issue is if (!m_asyncIO.init()) {
   //   return false;
   // }
 

@@ -40,7 +40,8 @@ static constexpr real tpLogDz = 0.3;
 static constexpr real tpMaxWaveNumber = 10.0;
 
 /**
- * Number of gauss points on an element surface. QInterpolated's shape is transposed for multiple simulations
+ * Number of gauss points on an element surface. QInterpolated's shape is transposed for multiple
+ * simulations
  */
 
 #ifdef MULTIPLE_SIMULATIONS

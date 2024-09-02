@@ -232,51 +232,53 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<real>::max();
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-#endif
-  constexpr auto qSize = tensor::Q::size();
-  for (auto it = dynRupTree[sim]->beginLeaf(); it != dynRupTree[sim]->endLeaf(); ++it) {
-    /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
-    /// (We'd need to send the dofs over the network in order to fix this.)
-#ifdef ACL_DEVICE
-    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
-    auto& table = it->getConditionalTable<inner_keys::Dr>();
-    if (table.find(timeIntegrationKey) != table.end()) {
-      auto& entry = table[timeIntegrationKey];
-      real** timeDerivativePlusDevice =
-          (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-      real** timeDerivativeMinusDevice =
-          (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
-      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-          timeDerivativePlusDevice,
-          timeDerivativePlusHostMapped,
-          qSize,
-          qSize,
-          it->getNumberOfCells(),
-          stream);
-      device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-          timeDerivativeMinusDevice,
-          timeDerivativeMinusHostMapped,
-          qSize,
-          qSize,
-          it->getNumberOfCells(),
-          stream);
-      device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-    }
-
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
+#endif
     constexpr auto qSize = tensor::Q::size();
-    real* timeDerivativePlusHost = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-    real* timeDerivativeMinusHost = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * qSize * sizeof(real)));
-    const auto timeDerivativePlusPtr = [&](unsigned i) {
-      return timeDerivativePlusHost + qSize * i;
-    };
-    const auto timeDerivativeMinusPtr = [&](unsigned i) {
-      return timeDerivativeMinusHost + qSize * i;
-    };
+    for (auto it = dynRupTree[sim]->beginLeaf(); it != dynRupTree[sim]->endLeaf(); ++it) {
+      /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
+      /// (We'd need to send the dofs over the network in order to fix this.)
+#ifdef ACL_DEVICE
+      ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+      auto& table = it->getConditionalTable<inner_keys::Dr>();
+      if (table.find(timeIntegrationKey) != table.end()) {
+        auto& entry = table[timeIntegrationKey];
+        real** timeDerivativePlusDevice =
+            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
+        real** timeDerivativeMinusDevice =
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+            timeDerivativePlusDevice,
+            timeDerivativePlusHostMapped,
+            qSize,
+            qSize,
+            it->getNumberOfCells(),
+            stream);
+        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
+            timeDerivativeMinusDevice,
+            timeDerivativeMinusHostMapped,
+            qSize,
+            qSize,
+            it->getNumberOfCells(),
+            stream);
+        device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+      }
+
+      void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+
+      constexpr auto qSize = tensor::Q::size();
+      real* timeDerivativePlusHost =
+          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+              maxCells * qSize * sizeof(real)));
+      real* timeDerivativeMinusHost =
+          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+              maxCells * qSize * sizeof(real)));
+      const auto timeDerivativePlusPtr = [&](unsigned i) {
+        return timeDerivativePlusHost + qSize * i;
+      };
+      const auto timeDerivativeMinusPtr = [&](unsigned i) {
+        return timeDerivativeMinusHost + qSize * i;
+      };
 #else
       real** timeDerivativePlus = it->var(dynRup[sim]->timeDerivativePlus);
       real** timeDerivativeMinus = it->var(dynRup[sim]->timeDerivativeMinus);
@@ -388,8 +390,8 @@ void EnergyOutput::computeVolumeEnergies() {
       auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
       auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
-    constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+      constexpr auto quadPolyDegree = ConvergenceOrder + 1;
+      constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
       double quadraturePointsTet[numQuadraturePointsTet][3];
       double quadratureWeightsTet[numQuadraturePointsTet];
@@ -405,14 +407,14 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-    auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-    // Evaluate numerical solution at quad. nodes
-    kernel::evalAtQP krnl;
-    krnl.evalAtQP = global->evalAtQPMatrix;
-    krnl.dofsQP = numericalSolutionData;
-    krnl.Q = ltsLut->lookup(lts->dofs, elementId);
-    krnl.execute();
+      alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+      auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+      // Evaluate numerical solution at quad. nodes
+      kernel::evalAtQP krnl;
+      krnl.evalAtQP = global->evalAtQPMatrix;
+      krnl.dofsQP = numericalSolutionData;
+      krnl.Q = ltsLut->lookup(lts->dofs, elementId);
+      krnl.execute();
 
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());

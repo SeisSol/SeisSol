@@ -53,7 +53,7 @@
 #include "device.h"
 #endif
 
-namespace { 
+namespace {
 #ifdef MULTIPLE_SIMULATIONS
 template <typename F, typename... Args>
 auto multisimWrap(F&& function, size_t sim, Args&&... args) {

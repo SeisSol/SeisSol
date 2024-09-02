@@ -105,7 +105,8 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
          << makeFormatted<int, WideFormat>(numFused) << '-'
          << makeFormatted<int, WideFormat>(MPI::mpi.rank());
 #else
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-' << makeFormatted<int, WideFormat>(numFused);
+  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
+         << makeFormatted<int, WideFormat>(numFused);
 #endif
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
@@ -116,7 +117,7 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
     : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
       ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)),
       numFused(numFused) {
-  
+
   logInfo() << "Receiver output called for simulation: " << numFused;
 
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
@@ -212,19 +213,21 @@ void OutputManager::initElementwiseOutput() {
     }
   };
   misc::forEach(ewOutputData->vars, recordPointers);
-    // This should not be in a loop but should be tracked by the number of Simulation and then put there
-    seissolInstance.faultWriter()[numFused]->init(cellConnectivity.data(),
-                                       vertices.data(),
-                                       faultTags.data(),
-                                       static_cast<unsigned int>(receiverPoints.size()),
-                                       static_cast<unsigned int>(3 * receiverPoints.size()),
-                                       &intMask[0],
-                                       const_cast<const real**>(dataPointers.data()),
-                                       seissolParameters.output.prefix.data(),
-                                       printTime,
-                                       backendType,
-                                       backupTimeStamp);
-    seissolInstance.faultWriter()[numFused]->setupCallbackObject(this);
+  // This should not be in a loop but should be tracked by the number of Simulation and then put
+  // there
+  seissolInstance.faultWriter()[numFused]->init(
+      cellConnectivity.data(),
+      vertices.data(),
+      faultTags.data(),
+      static_cast<unsigned int>(receiverPoints.size()),
+      static_cast<unsigned int>(3 * receiverPoints.size()),
+      &intMask[0],
+      const_cast<const real**>(dataPointers.data()),
+      seissolParameters.output.prefix.data(),
+      printTime,
+      backendType,
+      backupTimeStamp);
+  seissolInstance.faultWriter()[numFused]->setupCallbackObject(this);
 }
 
 void OutputManager::initPickpointOutput() {
@@ -250,8 +253,8 @@ void OutputManager::initPickpointOutput() {
   for (const auto& receiver : outputData->receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
-    auto fileName =
-        buildIndexedMPIFileName(seissolParameters.output.prefix, globalIndex, numFused, "faultreceiver");
+    auto fileName = buildIndexedMPIFileName(
+        seissolParameters.output.prefix, globalIndex, numFused, "faultreceiver");
 
     seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
     fileName += ".dat";
@@ -260,7 +263,8 @@ void OutputManager::initPickpointOutput() {
       std::ofstream file(fileName, std::ios_base::out);
       if (file.is_open()) {
         std::stringstream title;
-        title << "TITLE = \"Temporal Signal for fault receiver number " << globalIndex << "for simulation: " << numFused << "\"";
+        title << "TITLE = \"Temporal Signal for fault receiver number " << globalIndex
+              << "for simulation: " << numFused << "\"";
 
         file << title.str() << '\n';
         file << baseHeader.str() << '\n';
@@ -367,13 +371,13 @@ void OutputManager::flushPickpointDataToFile() {
     }
 
     const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
-    const auto fileName = buildIndexedMPIFileName(
-        seissolParameters.output.prefix,
-        globalIndex,
-        numFused,
-        "faultreceiver",
-        "dat"); // add the simulation number in suffix, something like faultreceiver_0001 or
-                // something.
+    const auto fileName =
+        buildIndexedMPIFileName(seissolParameters.output.prefix,
+                                globalIndex,
+                                numFused,
+                                "faultreceiver",
+                                "dat"); // add the simulation number in suffix, something like
+                                        // faultreceiver_0001 or something.
 
     std::ofstream file(fileName, std::ios_base::app);
     if (file.is_open()) {
@@ -391,7 +395,8 @@ void OutputManager::updateElementwiseOutput() {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters[numFused].slipRateOutputType,
-                          ewOutputData, numFused);
+                          ewOutputData,
+                          numFused);
   }
 }
 } // namespace seissol::dr::output

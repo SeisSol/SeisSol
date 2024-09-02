@@ -8,8 +8,8 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/tree/Lut.hpp"
 
-#include <DynamicRupture/Output/DataTypes.hpp>
 #include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Output/DataTypes.hpp>
 #include <memory>
 #include <tensor.h>
 #include <vector>
@@ -98,13 +98,18 @@ class ReceiverOutput {
     }
   }
 
-  #ifdef MULTIPLE_SIMULATIONS
-  void getDofs(real (&dofs)[tensor::Q::Shape[1]*tensor::Q::Shape[2]], int meshId, unsigned int nFused=0.0);
-  void getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1]*tensor::Q::Shape[2]], int meshId, int side, unsigned int nFused=0.0);
-  #else
+#ifdef MULTIPLE_SIMULATIONS
+  void getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+               int meshId,
+               unsigned int nFused = 0.0);
+  void getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                        int meshId,
+                        int side,
+                        unsigned int nFused = 0.0);
+#else
   void getDofs(real dofs[tensor::Q::size()], int meshId);
   void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
-  #endif
+#endif
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
