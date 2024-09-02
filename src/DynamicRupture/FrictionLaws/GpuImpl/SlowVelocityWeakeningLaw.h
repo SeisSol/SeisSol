@@ -71,11 +71,11 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  void resampleStateVar(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{layerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);

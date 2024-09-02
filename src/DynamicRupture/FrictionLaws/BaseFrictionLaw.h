@@ -53,8 +53,8 @@ class BaseFrictionLaw : public FrictionSolver {
                                                   self.qInterpolatedMinus[ltsFace]);
 
         // define some temporary variables
-        std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-        std::array<real, misc::numPaddedPoints> strengthBuffer{0};
+        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
+        std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
 
         static_cast<Derived&>(self).preHook(stateVariableBuffer, ltsFace);
         TractionResults tractionResults = {};

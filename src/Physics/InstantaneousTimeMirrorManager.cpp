@@ -2,6 +2,16 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
+#include <Initializer/LTS.h>
+#include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Initializer/typedefs.hpp>
+#include <Modules/Module.h>
+#include <memory>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::ITM {
 
@@ -208,7 +218,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        timestepping); // An empty timestepping is added. Need to discuss what
                                       // exactly is to be sent here
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
-  double eps = itmParameters.itmDuration;
+  const double eps = itmParameters.itmDuration;
 
   // const double eps = 1.0;
   decreaseManager.init(1 / scalingFactor,

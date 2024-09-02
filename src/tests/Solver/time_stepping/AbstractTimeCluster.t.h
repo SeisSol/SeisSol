@@ -1,4 +1,5 @@
 #include "Solver/Clustering/Solver/Clustering/AbstractTimeCluster.h"
+#include "tests/TestHelper.h"
 #include <iostream>
 namespace seissol::unit_test {
 using namespace time_stepping;

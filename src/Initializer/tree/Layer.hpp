@@ -52,10 +52,10 @@
 #include <type_traits>
 #include <vector>
 
-enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NUMBER_OF_LAYERS };
+enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers };
 
 namespace seissol::initializer {
-using LayerMask = std::bitset<NUMBER_OF_LAYERS>;
+using LayerMask = std::bitset<NumLayers>;
 
 enum class AllocationMode {
   HostOnly,

@@ -52,8 +52,6 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/DRParameters.h"
-#include "MeshTools.h"
-#include "Parallel/MPI.h"
 
 namespace seissol::geometry {
 
@@ -64,7 +62,7 @@ struct GhostElementMetadata {
 
 class MeshReader {
   protected:
-  const int m_rank;
+  const int mRank;
 
   std::vector<Element> m_elements;
 
@@ -101,7 +99,7 @@ class MeshReader {
   const std::vector<Vertex>& getVertices() const;
   const std::map<int, MPINeighbor>& getMPINeighbors() const;
   const std::map<int, std::vector<MPINeighborElement>>& getMPIFaultNeighbors() const;
-  const std::unordered_map<int, std::vector<GhostElementMetadata>> getGhostlayerMetadata() const;
+  const std::unordered_map<int, std::vector<GhostElementMetadata>>& getGhostlayerMetadata() const;
   const std::vector<Fault>& getFault() const;
   bool hasFault() const;
   bool hasPlusFault() const;

@@ -59,11 +59,13 @@ namespace seissol::sourceterm {
  *
  * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
  **/
+
+enum class PointSourceMode { Nrf, Fsrm };
+
 struct PointSources {
   constexpr static unsigned TensorSize =
       (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
-  enum Mode { NRF, FSRM };
-  enum Mode mode = NRF;
+  PointSourceMode mode = PointSourceMode::Nrf;
 
   /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
    * the l-th basis function and xi_s, eta_s, and zeta_s are the space position

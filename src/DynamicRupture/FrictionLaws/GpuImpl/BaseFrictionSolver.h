@@ -3,7 +3,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Numerical_aux/SyclFunctions.h"
+#include "Numerical/SyclFunctions.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -43,7 +43,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
 
-      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+      sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           const auto ltsFace = item.get_group().get_group_id(0);

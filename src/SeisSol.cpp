@@ -50,6 +50,7 @@
 #include <omp.h>
 #endif // _OPENMP
 
+#include "Common/constants.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.hpp"
@@ -71,6 +72,7 @@ bool SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
+  logInfo(rank) << "Built with Convergence Order:" << ConvergenceOrder;
 #ifdef COMMIT_HASH
   logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 #endif
@@ -140,20 +142,20 @@ bool SeisSol::init(int argc, char* argv[]) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
     // Softlimit (rlim_cur) is enforced by the kernel.
     // This limit is pretty arbitrarily set to 2GiB.
-    constexpr auto reasonableStackLimitInKb = 0x200'000ULL;                    // [kiB] (2 GiB)
-    constexpr auto reasonableStackLimit = reasonableStackLimitInKb * 0x400ULL; // [B] (2 GiB)
+    constexpr auto ReasonableStackLimitInKb = 0x200'000ULL;                    // [kiB] (2 GiB)
+    constexpr auto ReasonableStackLimit = ReasonableStackLimitInKb * 0x400ULL; // [B] (2 GiB)
     if (rlim.rlim_cur == RLIM_INFINITY) {
       logInfo(rank) << "The stack size ulimit is unlimited.";
     } else {
       logInfo(rank) << "The stack size ulimit is" << rlimInKb
                     << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str() << ").";
     }
-    if (rlim.rlim_cur < reasonableStackLimit) {
+    if (rlim.rlim_cur < ReasonableStackLimit) {
       logWarning(rank)
           << "Stack size of" << rlimInKb
           << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str()
-          << ") is lower than recommended minimum of" << reasonableStackLimitInKb
-          << "[kiB] ( =" << UnitByte.formatPrefix(reasonableStackLimit).c_str() << ")."
+          << ") is lower than recommended minimum of" << ReasonableStackLimitInKb
+          << "[kiB] ( =" << UnitByte.formatPrefix(ReasonableStackLimit).c_str() << ")."
           << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
     }
   } else {

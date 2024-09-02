@@ -28,10 +28,10 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override =
-      0;
+  void
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                              const seissol::initializer::DynamicRupture* const dynRup,
+                              seissol::initializer::LTSInternalNode::LeafIterator& it) override = 0;
 
   /**
    * Ensure that all parameters are correct.
@@ -40,7 +40,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    */
   virtual void
       fixInterpolatedSTFParameters(const seissol::initializer::DynamicRupture* const dynRup,
-                                   seissol::initializer::LTSInternalNode::leaf_iterator& it);
+                                   seissol::initializer::LTSInternalNode::LeafIterator& it);
 
   private:
   /**
@@ -53,29 +53,29 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
   void rotateSlipToFaultCS(const seissol::initializer::DynamicRupture* const dynRup,
-                           seissol::initializer::LTSTree::leaf_iterator& it,
-                           const std::vector<std::array<real, misc::numPaddedPoints>>& strikeSlip,
-                           const std::vector<std::array<real, misc::numPaddedPoints>>& dipSlip,
-                           real (*imposedSlipDirection1)[misc::numPaddedPoints],
-                           real (*imposedSlipDirection2)[misc::numPaddedPoints]);
+                           seissol::initializer::LTSTree::LeafIterator& it,
+                           const std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
+                           const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
+                           real (*imposedSlipDirection1)[misc::NumPaddedPoints],
+                           real (*imposedSlipDirection2)[misc::NumPaddedPoints]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
 
   void fixInterpolatedSTFParameters(
       const seissol::initializer::DynamicRupture* const dynRup,
-      seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+      seissol::initializer::LTSInternalNode::LeafIterator& it) override;
 };
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
 };
 } // namespace seissol::dr::initializer
 

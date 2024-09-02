@@ -42,9 +42,11 @@
 
 #include "Initializer/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
-#include "Numerical_aux/Functions.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
+#include "Kernels/common.hpp"
+#include "Kernels/denseMatrixOps.hpp"
+#include "Numerical/Functions.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "generated_code/kernel.h"
 #include <Geometry/refinement/TriangleRefiner.h>
@@ -306,9 +308,9 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag
     return LocationFlag::Acoustic;
   } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Elastic;
-  } else if (faceType == FaceType::freeSurface) {
+  } else if (faceType == FaceType::FreeSurface) {
     return LocationFlag::FreeSurface;
-  } else if (faceType == FaceType::freeSurfaceGravity) {
+  } else if (faceType == FaceType::FreeSurfaceGravity) {
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
@@ -332,11 +334,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
 
   totalNumberOfFreeSurfaces = 0;
   unsigned baseLtsId = 0;
-  for (seissol::initializer::LTSTree::leaf_iterator
-           layer = ltsTree->beginLeaf(ghostMask),
-           surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-       layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-       ++layer, ++surfaceLayer) {
+  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
+        ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     CellMaterialData* cellMaterialData = layer->var(lts->material);
 
@@ -347,9 +347,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
-              cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-              initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity
+          || initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
             ++numberOfFreeSurfaces;
           }
         }
@@ -375,11 +375,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
   /// @ yateto_todo
   baseLtsId = 0;
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
-  for (seissol::initializer::LTSTree::leaf_iterator
-           layer = ltsTree->beginLeaf(ghostMask),
-           surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-       layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-       ++layer, ++surfaceLayer) {
+  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
+        ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     real(*dofs)[tensor::Q::size()] = layer->var(lts->dofs);
     real*(*faceDisplacements)[4] = layer->var(lts->faceDisplacements);

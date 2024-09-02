@@ -48,21 +48,21 @@
 namespace seissol {
 namespace initializer {
 class LTSInternalNode;
-}
+} // namespace initializer
 } // namespace seissol
 
 class seissol::initializer::LTSInternalNode : public seissol::initializer::Node {
   public:
-  class leaf_iterator : public iterator {
+  class LeafIterator : public Iterator {
     friend class LTSInternalNode;
 
 private:
-    iterator m_end;
+    Iterator m_end;
     LayerMask m_layerMask;
 
     inline void nextLeaf() {
       do {
-        iterator::operator++();
+        Iterator::operator++();
       } while (*this != m_end && !m_node->isLeaf());
     }
 
@@ -74,11 +74,11 @@ private:
     }
 
 public:
-    leaf_iterator(const iterator& end) : iterator(end) {}
-    leaf_iterator(const iterator& begin, const iterator& end, LayerMask layerMask)
-        : iterator(begin), m_end(end), m_layerMask(layerMask) {}
+    LeafIterator(const Iterator& end) : Iterator(end) {}
+    LeafIterator(const Iterator& begin, const Iterator& end, LayerMask layerMask)
+        : Iterator(begin), m_end(end), m_layerMask(layerMask) {}
 
-    inline leaf_iterator& operator++() {
+    inline LeafIterator& operator++() {
       nextLeaf();
       skipMaskedLayer();
       return *this;
@@ -89,17 +89,17 @@ public:
     inline Layer* operator->() { return static_cast<Layer*>(m_node); }
   };
 
-  inline leaf_iterator beginLeaf(LayerMask layerMask = LayerMask()) {
-    leaf_iterator it = leaf_iterator(begin(), end(), layerMask);
+  inline LeafIterator beginLeaf(LayerMask layerMask = LayerMask()) {
+    LeafIterator it = LeafIterator(begin(), end(), layerMask);
     it.skipMaskedLayer();
     return it;
   }
 
-  inline leaf_iterator endLeaf() { return leaf_iterator(end()); }
+  inline LeafIterator endLeaf() { return LeafIterator(end()); }
 
   unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) {
     unsigned numCells = 0;
-    for (LTSInternalNode::leaf_iterator it = beginLeaf(layerMask); it != endLeaf(); ++it) {
+    for (auto it = beginLeaf(layerMask); it != endLeaf(); ++it) {
       numCells += it->getNumberOfCells();
     }
     return numCells;

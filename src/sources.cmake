@@ -59,11 +59,12 @@ src/Monitoring/Unit.cpp
 
 src/Kernels/Receiver.cpp
 src/Model/common.cpp
-src/Numerical_aux/Functions.cpp
-src/Numerical_aux/Statistics.cpp
+src/Numerical/Functions.cpp
+src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/AsyncIO.cpp
 
 src/Parallel/Runtime/Stream.cpp
 src/Parallel/HelperThread.cpp
@@ -143,9 +144,9 @@ src/Initializer/time_stepping/LtsLayout.cpp
 
 src/Initializer/tree/Lut.cpp
 
-src/Numerical_aux/ODEInt.cpp
-src/Numerical_aux/ODEVector.cpp
-src/Numerical_aux/Transformation.cpp
+src/Numerical/ODEInt.cpp
+src/Numerical/ODEVector.cpp
+src/Numerical/Transformation.cpp
 
 src/Physics/InitialField.cpp
 

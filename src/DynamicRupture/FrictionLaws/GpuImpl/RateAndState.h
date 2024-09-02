@@ -38,8 +38,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       return;
 
     {
-      using gpPointType = real(*)[misc::numPaddedPoints];
-      const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(real);
+      using gpPointType = real(*)[misc::NumPaddedPoints];
+      const size_t requiredNumBytes = misc::NumPaddedPoints * this->maxClusterSize * sizeof(real);
       initialVariables.absoluteShearTraction =
           static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
       initialVariables.localSlipRate =
@@ -50,7 +50,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
           static_cast<gpPointType>(sycl::malloc_device(requiredNumBytes, this->queue));
     }
     {
-      const size_t requiredNumBytes = misc::numPaddedPoints * this->maxClusterSize * sizeof(bool);
+      const size_t requiredNumBytes = misc::NumPaddedPoints * this->maxClusterSize * sizeof(bool);
       hasConverged = static_cast<bool*>(sycl::malloc_device(requiredNumBytes, this->queue));
     }
   }
@@ -82,11 +82,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     this->calcSlipRateAndTraction(timeIndex);
   }
 
-  void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void preHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     // copy state variable from last time step
 
     auto* devLocalStateVariable{this->stateVariable};
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -96,7 +96,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     });
   }
 
-  void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer);
   }
 
@@ -116,10 +116,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * Contains all the variables, which are to be computed initially in each timestep.
    */
   struct InitialVariables {
-    real (*absoluteShearTraction)[misc::numPaddedPoints]{nullptr};
-    real (*localSlipRate)[misc::numPaddedPoints]{nullptr};
-    real (*normalStress)[misc::numPaddedPoints]{nullptr};
-    real (*stateVarReference)[misc::numPaddedPoints]{nullptr};
+    real (*absoluteShearTraction)[misc::NumPaddedPoints]{nullptr};
+    real (*localSlipRate)[misc::NumPaddedPoints]{nullptr};
+    real (*normalStress)[misc::NumPaddedPoints]{nullptr};
+    real (*stateVarReference)[misc::NumPaddedPoints]{nullptr};
   } initialVariables;
 
   /*
@@ -140,7 +140,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     updateNormalStress(timeIndex);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -180,7 +180,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto solverSettings{this->settings};
 
     auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     for (unsigned j = 0; j < this->settings.numberStateVariableUpdates; j++) {
 
       const auto dt{this->deltaT[timeIndex]};
@@ -250,7 +250,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -323,7 +323,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto* devRuptureTime{this->ruptureTime};
     auto* devMu{this->mu};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -386,7 +386,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     auto tpCurrentLayerDetails = tpMethod.getCurrentLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -403,9 +403,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   protected:
-  real (*a)[misc::numPaddedPoints];
-  real (*sl0)[misc::numPaddedPoints];
-  real (*stateVariable)[misc::numPaddedPoints];
+  real (*a)[misc::NumPaddedPoints];
+  real (*sl0)[misc::NumPaddedPoints];
+  real (*stateVariable)[misc::NumPaddedPoints];
   bool* hasConverged{};
 
   TPMethod tpMethod;

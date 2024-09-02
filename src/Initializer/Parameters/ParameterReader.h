@@ -45,7 +45,7 @@ class ParameterReader {
   T readWithDefaultEnum(const std::string& field,
                         const T& defaultValue,
                         const std::unordered_set<T>& validValues) {
-    int value = readWithDefault(field, static_cast<int>(defaultValue));
+    const int value = readWithDefault(field, static_cast<int>(defaultValue));
     if (validValues.find(static_cast<T>(value)) == validValues.end()) {
       logError() << "The field" << field << "had an invalid enum value:" << value;
     }

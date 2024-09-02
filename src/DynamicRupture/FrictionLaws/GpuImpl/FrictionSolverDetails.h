@@ -30,8 +30,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 
   FaultStresses* faultStresses{nullptr};
   TractionResults* tractionResults{nullptr};
-  real (*stateVariableBuffer)[misc::numPaddedPoints]{nullptr};
-  real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
+  real (*stateVariableBuffer)[misc::NumPaddedPoints]{nullptr};
+  real (*strengthBuffer)[misc::NumPaddedPoints]{nullptr};
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};

@@ -40,18 +40,35 @@
 
 #include "Receiver.h"
 #include "Monitoring/FlopCounter.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Parallel/DataCollector.h"
+#include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Common/Executor.hpp>
+#include <Common/constants.hpp>
+#include <Initializer/LTS.h>
 #include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/Lut.hpp>
+#include <Kernels/Interface.hpp>
 #include <Kernels/common.hpp>
+#include <Kernels/precision.hpp>
+#include <Numerical/Transformation.h>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <init.h>
+#include <memory>
 #include <omp.h>
-#include <unordered_map>
+#include <string>
+#include <tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
+#include <Parallel/Helper.hpp>
+#include <unordered_map>
 #endif
 
 namespace {
@@ -125,7 +142,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   }
 
   // (time + number of quantities) * number of samples until sync point
-  size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
+  const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back(
       pointId,
       point,
@@ -145,7 +162,7 @@ double ReceiverCluster::calcReceivers(double time,
                                       Executor executor,
                                       seissol::parallel::runtime::StreamRuntime& runtime) {
 
-  std::size_t ncols = this->ncols();
+  const std::size_t ncols = this->ncols();
 
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
@@ -224,7 +241,7 @@ double ReceiverCluster::calcReceivers(double time,
       while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
         // eval time basis
-        double tau = (time - expansionPoint) / timeStepWidth;
+        const double tau = (time - expansionPoint) / timeStepWidth;
         seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
                                                                                    tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();

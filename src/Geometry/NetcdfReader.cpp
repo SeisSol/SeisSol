@@ -1,4 +1,8 @@
 #include "NetcdfReader.h"
+#include <Geometry/MeshDefinition.h>
+#include <algorithm>
+#include <mpi.h>
+#include <vector>
 
 #ifdef USE_NETCDF
 
@@ -18,7 +22,6 @@
 
 #endif // NETCDF_PASSIVE
 
-#include "Initializer/preProcessorMacros.hpp"
 #include "MeshReader.h"
 
 #include "utils/env.h"
@@ -37,7 +40,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   if (nProcs % groupSize != 0)
     logError() << "#Processes must be a multiple of the group size" << groupSize;
 
-  int master = (rank / groupSize) * groupSize;
+  const int master = (rank / groupSize) * groupSize;
   MPI_Comm commMaster;
   MPI_Comm_split(
       seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
@@ -140,7 +143,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     checkNcError(nc_inq_varid(ncFile, "element_mpi_indices", &ncVarElemMPIIndices));
     collectiveAccess(ncFile, ncVarElemMPIIndices);
 
-    int ncResult = nc_inq_varid(ncFile, "element_group", &ncVarElemGroup);
+    const int ncResult = nc_inq_varid(ncFile, "element_group", &ncVarElemGroup);
 
     if (ncResult != NC_ENOTVAR) {
       checkNcError(ncResult);
@@ -172,7 +175,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     sizes = new int[groupSize];
 
     for (int i = groupSize - 1; i >= 0; i--) {
-      size_t start = static_cast<size_t>(i + rank);
+      const size_t start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, &start, &size));
@@ -370,7 +373,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      size_t start = static_cast<size_t>(i + rank);
+      const size_t start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarVrtxSize, &start, &size));
@@ -454,7 +457,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      size_t start = static_cast<size_t>(i + rank);
+      const size_t start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
@@ -478,7 +481,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   }
 
   // Get maximum number of neighbors (required to get collective MPI-IO right)
-  int maxNeighbors = bndSize;
+  const int maxNeighbors = bndSize;
   // MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
   int* bndElemLocalIds = new int[bndElemSize];
 

@@ -1,7 +1,8 @@
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
 #include <Solver/Clustering/ActorState.h>
-
+#include <optional>
+#include <time.h>
 namespace seissol {
 
 ActorStateStatistics::ActorStateStatistics(unsigned globalClusterId, LoopStatistics& loopStatistics)

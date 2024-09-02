@@ -11,7 +11,7 @@
 #include "Initializer/tree/Layer.hpp"
 #include "Initializer/tree/Lut.hpp"
 #include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Parallel/Runtime/Stream.hpp>
@@ -402,19 +402,19 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
-  for (size_t point = 0; point < misc::numberOfBoundaryGaussPoints; ++point) {
+  for (size_t point = 0; point < misc::NumBoundaryGaussPoints; ++point) {
     if (ruptureTime[point] == 0.0) {
       needsUpdate = false;
     }
   }
 
   if (needsUpdate) {
-    constexpr int numPoly = ConvergenceOrder - 1;
-    constexpr int numDegFr2d = (numPoly + 1) * (numPoly + 2) / 2;
-    std::array<double, numDegFr2d> projectedRT{};
+    constexpr int NumPoly = ConvergenceOrder - 1;
+    constexpr int NumDegFr2d = (NumPoly + 1) * (NumPoly + 2) / 2;
+    std::array<double, NumDegFr2d> projectedRT{};
     projectedRT.fill(0.0);
 
-    std::array<double, 2 * numDegFr2d> phiAtPoint{};
+    std::array<double, 2 * NumDegFr2d> phiAtPoint{};
     phiAtPoint.fill(0.0);
 
     auto chiTau2dPoints =
@@ -422,30 +422,30 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
-    for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
+    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
       const real chi = chiTau2dPoints(jBndGP, 0);
       const real tau = chiTau2dPoints(jBndGP, 1);
-      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
+      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
-      for (size_t d = 0; d < numDegFr2d; ++d) {
+      for (size_t d = 0; d < NumDegFr2d; ++d) {
         projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
 
     auto m2inv =
         seissol::init::M2inv::view::create(const_cast<real*>(seissol::init::M2inv::Values));
-    for (size_t d = 0; d < numDegFr2d; ++d) {
+    for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
 
     const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
     const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
 
-    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
+    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};
-    for (size_t d = 0; d < numDegFr2d; ++d) {
+    for (size_t d = 0; d < NumDegFr2d; ++d) {
       dTdChi += projectedRT[d] * phiAtPoint[2 * d];
       dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
     }

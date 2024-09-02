@@ -1,8 +1,6 @@
-#pragma once
-
 #include "Common/IntegerMaskParser.h"
 
-namespace seissol::unit_test::common {
+namespace seissol::unit_test {
 
 using namespace seissol;
 
@@ -59,4 +57,4 @@ TEST_CASE("Integer Mask Parser") {
     REQUIRE(result[1] == std::vector<int>{3, 4, 5});
   }
 }
-} // namespace seissol::unit_test::common
+} // namespace seissol::unit_test
