@@ -10,6 +10,8 @@ namespace seissol {
 Module::Module()
     : isyncInterval(0), nextSyncPoint(0), lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
 
+Module::~Module() = default;
+
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
   if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
     const int rank = seissol::MPI::mpi.rank();

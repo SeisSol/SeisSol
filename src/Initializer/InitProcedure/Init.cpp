@@ -1,17 +1,24 @@
 #include "Init.hpp"
 
-#include <sstream>
+#include <Initializer/tree/Layer.hpp>
+#include <Monitoring/Stopwatch.h>
+#include <utils/logger.h>
 
 #include "InitIO.hpp"
 #include "InitMesh.hpp"
 #include "InitModel.hpp"
 #include "InitSideConditions.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Monitoring/Unit.hpp"
-#include "Numerical_aux/Statistics.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
+
+#ifdef ACL_DEVICE
+#include "Monitoring/Unit.hpp"
+#include "Numerical/Statistics.h"
+#include <ostream>
+#include <sstream>
+#endif
 
 namespace {
 
@@ -32,8 +39,8 @@ static void reportDeviceMemoryStatus() {
 
     logError() << stream.str();
   } else {
-    double fraction = device.api->getCurrentlyOccupiedMem() /
-                      static_cast<double>(device.api->getMaxAvailableMem());
+    const double fraction = device.api->getCurrentlyOccupiedMem() /
+                            static_cast<double>(device.api->getMaxAvailableMem());
     const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
     logInfo(rank) << "occupied memory on devices (%):"
                   << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min

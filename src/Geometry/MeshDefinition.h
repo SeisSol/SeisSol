@@ -43,7 +43,6 @@
 #define MESH_DEFINITION_H
 
 #include <cstddef>
-#include <cstdint>
 #include <vector>
 
 namespace seissol {

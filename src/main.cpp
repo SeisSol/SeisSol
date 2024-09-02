@@ -122,7 +122,8 @@ int main(int argc, char* argv[]) {
 
   // TODO Read parameters here
   // Parse command line arguments
-  utils::Args args;
+  utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
+                   "phenomena and earthquake dynamics.");
   args.addAdditionalOption("file", "The parameter file", false);
   args.addOption(
       "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);

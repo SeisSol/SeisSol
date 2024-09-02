@@ -13,7 +13,7 @@
 
 namespace seissol::initializer::parameters {
 
-constexpr double veryLongTime = 1.0e100;
+constexpr double VeryLongTime = 1.0e100;
 
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
@@ -102,7 +102,7 @@ struct WaveFieldOutputParameters {
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
-  std::array<bool, seissol::model::Material_t::NumberOfQuantities> outputMask;
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask;
   std::array<bool, 7> plasticityMask;
   std::array<bool, 9> integrationMask;
   std::unordered_set<int> groups;

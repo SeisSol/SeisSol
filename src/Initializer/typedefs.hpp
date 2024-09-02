@@ -425,9 +425,9 @@ struct DRGodunovData {
 
 struct DREnergyOutput {
   real slip[seissol::tensor::slipInterpolated::size()];
-  real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
-  real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
-  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::numPaddedPoints];
+  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints];
+  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints];
+  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints];
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {

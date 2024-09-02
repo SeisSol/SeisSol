@@ -1,7 +1,7 @@
 #include <array>
 
 namespace seissol::unit_test {
-std::array<std::array<double, 80>, 3> slipRates = {
+const std::array<std::array<double, 80>, 3> SlipRates = {
     {{0.0,
       1.996003997334666e+00,
       3.984031957375965e+00,

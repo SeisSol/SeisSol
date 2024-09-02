@@ -88,7 +88,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp();
+	void setUp() override;
 
 	void enable();
 
@@ -114,7 +114,7 @@ public:
 		m_stopwatch.printTime("Time free surface writer frontend:");
 	}
 
-	void tearDown()
+	void tearDown() override
 	{
 		m_executor.finalize();
 	}
@@ -122,13 +122,13 @@ public:
 	//
 	// Hooks
 	//
-	void simulationStart();
+	void simulationStart() override;
 
-	void syncPoint(double currentTime);
+	void syncPoint(double currentTime) override;
 };
 
-}
+} // namespace writer
 
-}
+} // namespace seissol
 
 #endif // FREESURFACEWRITER_H

@@ -1,4 +1,5 @@
 #include "CubeGeneratorParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
 
 namespace seissol::initializer::parameters {
 

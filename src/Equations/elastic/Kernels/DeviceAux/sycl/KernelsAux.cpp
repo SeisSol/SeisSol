@@ -123,7 +123,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     });
   });
 }
-} // seissol::kernels::local_flux::aux::details
+} // namespace seissol::kernels::local_flux::aux::details
 
 
 namespace seissol::kernels::time::aux {

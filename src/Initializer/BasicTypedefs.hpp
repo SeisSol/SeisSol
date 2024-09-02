@@ -1,19 +1,13 @@
 #ifndef SEISSOL_BASICTYPEDEFS_HPP
 #define SEISSOL_BASICTYPEDEFS_HPP
 
-#include "Kernels/precision.hpp"
+constexpr int DataTagOffset = 2;
 
-enum mpiTag { localIntegrationData = 0, neighboringIntegrationData = 1, timeData = 2 };
-
-enum TimeClustering {
+enum class TimeClustering {
   // global time stepping
-  single = 0,
-  // offline clustering computed in pre-processing
-  offline = 1,
+  Single = 0,
   // online clustering resulting in a multi-rate scheme
-  multiRate = 2,
-  // online clustering aiming at LTS for slithers only
-  slithers = 3
+  MultiRate = 2,
 };
 
 // face types
@@ -22,28 +16,28 @@ enum TimeClustering {
 // and PUMLReader. Otherwise it might become a DR face...
 enum class FaceType {
   // regular: inside the computational domain
-  regular = 0,
+  Regular = 0,
 
   // free surface boundary
-  freeSurface = 1,
+  FreeSurface = 1,
 
   // free surface boundary with gravity
-  freeSurfaceGravity = 2,
+  FreeSurfaceGravity = 2,
 
   // dynamic rupture boundary
-  dynamicRupture = 3,
+  DynamicRupture = 3,
 
   // Dirichlet boundary
-  dirichlet = 4,
+  Dirichlet = 4,
 
   // absorbing/outflow boundary
-  outflow = 5,
+  Outflow = 5,
 
   // periodic boundary
-  periodic = 6,
+  Periodic = 6,
 
   // analytical boundary (from initial cond.)
-  analytical = 7
+  Analytical = 7
 };
 
 // Once the FaceType enum is updated, make sure to update these methods here as well.
@@ -51,17 +45,15 @@ enum class FaceType {
 // Checks if a face type is an internal face (i.e. there are two cells adjacent to it).
 // That includes all interior and dynamic rupture faces, but also periodic faces.
 constexpr bool isInternalFaceType(FaceType faceType) {
-  return faceType == FaceType::regular || faceType == FaceType::dynamicRupture ||
-         faceType == FaceType::periodic;
+  return faceType == FaceType::Regular || faceType == FaceType::DynamicRupture ||
+         faceType == FaceType::Periodic;
 }
 
 // Checks if a face type is an external boundary face (i.e. there is only one cell adjacent to it).
 constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
-  return faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity ||
-         faceType == FaceType::dirichlet || faceType == FaceType::analytical;
+  return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
+         faceType == FaceType::Dirichlet || faceType == FaceType::Analytical;
 }
-
-enum SystemType { Host = 0, Device = 1 };
 
 enum class ComputeGraphType {
   LocalIntegral = 0,

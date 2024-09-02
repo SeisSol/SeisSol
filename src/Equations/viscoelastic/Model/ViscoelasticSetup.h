@@ -43,9 +43,9 @@
 
 #include "Model/common.hpp"
 #include "Kernels/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 
-#include <yateto/TensorView.h>
+#include <yateto.h>
 #include "generated_code/init.h"
 
 namespace seissol {

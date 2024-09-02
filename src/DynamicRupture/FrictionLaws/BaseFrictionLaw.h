@@ -53,8 +53,8 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePreHook");
       // define some temporary variables
-      std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-      std::array<real, misc::numPaddedPoints> strengthBuffer{0};
+      std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
+      std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("computeDynamicRupturePreHook");

@@ -68,7 +68,7 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-  ~EnergyOutput();
+  ~EnergyOutput() override;
 
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,

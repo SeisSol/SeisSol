@@ -44,9 +44,9 @@
 
 #include "Model/common.hpp"
 #include "Kernels/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 
-#include <yateto/TensorView.h>
+#include <yateto.h>
 #include "generated_code/init.h"
 
 namespace seissol {
@@ -135,13 +135,13 @@ namespace seissol {
     template<>
     inline void getPlaneWaveOperator( ViscoElasticMaterial const& material,
                                       double const n[3],
-                                      std::complex<double> Mdata[seissol::model::Material_t::NumberOfQuantities*seissol::model::Material_t::NumberOfQuantities] )
+                                      std::complex<double> Mdata[seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities] )
       {
-        yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities});
+        yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
         M.setZero();
 
-        double data[seissol::model::Material_t::NumberOfQuantities * seissol::model::Material_t::NumberOfQuantities];
-        yateto::DenseTensorView<2,double> Coeff(data, {seissol::model::Material_t::NumberOfQuantities, seissol::model::Material_t::NumberOfQuantities});
+        double data[seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities];
+        yateto::DenseTensorView<2,double> Coeff(data, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
 
         for (unsigned d = 0; d < 3; ++d) {
           Coeff.setZero();
@@ -153,13 +153,13 @@ namespace seissol {
                 Coeff );
           }
 
-          for (unsigned i = 0; i < seissol::model::Material_t::NumberOfQuantities; ++i) {
-            for (unsigned j = 0; j < seissol::model::Material_t::NumberOfQuantities; ++j) {
+          for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+            for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
               M(i,j) += n[d] * Coeff(j,i);
             }
           }
         }
-        double Edata[seissol::model::Material_t::NumberOfQuantities * seissol::model::Material_t::NumberOfQuantities];
+        double Edata[seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities];
         yateto::DenseTensorView<3,double> E(Edata, tensor::E::Shape);
         E.setZero();
         getTransposedSourceCoefficientTensor(material, E);
@@ -176,14 +176,14 @@ namespace seissol {
         // E' = diag(-omega_1 I, ..., -omega_L I)
         for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
           unsigned offset = 9 + 6*mech;
-          yateto::DenseTensorView<2,double> ETblock(data + offset + offset * seissol::model::Material_t::NumberOfQuantities, {seissol::model::Material_t::NumberOfQuantities, 6});
+          yateto::DenseTensorView<2,double> ETblock(data + offset + offset * seissol::model::MaterialT::NumQuantities, {seissol::model::MaterialT::NumQuantities, 6});
           for (unsigned i = 0; i < 6; ++i) {
             ETblock(i, i) = -material.omega[mech];
           }
         }
 
-        for (unsigned i = 0; i < seissol::model::Material_t::NumberOfQuantities; ++i) {
-          for (unsigned j = 0; j < seissol::model::Material_t::NumberOfQuantities; ++j) {
+        for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+          for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
             M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
           }
         }

@@ -186,9 +186,9 @@ void OutputManager::initElementwiseOutput() {
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
+  constexpr auto MaxNumVars = std::tuple_size<DrVarsT>::value;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
-  const auto intMask = convertMaskFromBoolToInt<maxNumVars>(outputMask);
+  const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
   const auto backendType = seissolParameters.output.xdmfWriterBackend;

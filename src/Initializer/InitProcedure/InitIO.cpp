@@ -17,6 +17,15 @@
 #include <kernel.h>
 #include <string>
 #include <tensor.h>
+#include "SeisSol.h"
+#include <Common/constants.hpp>
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/DynamicRupture.h>
+#include <Kernels/common.hpp>
+#include <Kernels/precision.hpp>
+#include <cstring>
+#include <tensor.h>
+#include <utils/logger.h>
 #include <vector>
 
 #include "Parallel/MPI.h"
@@ -94,11 +103,11 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto numberOfQuantities =
+  constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
-  // seissol::model::Material_t::NumberOfQuantities contains it nonetheless.
+  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
@@ -112,9 +121,9 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        numberOfQuantities,
+        NumQuantities,
         ConvergenceOrder,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),

@@ -108,7 +108,9 @@ inline auto allocationModeWP(AllocationPreset preset,
   case seissol::initializer::AllocationPreset::Dofs:
     [[fallthrough]];
   case seissol::initializer::AllocationPreset::PlasticityData:
-    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+  case seissol::initializer::AllocationPreset::Timebucket:
+    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
   default:
     return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
   }
@@ -118,7 +120,7 @@ inline auto allocationModeWP(AllocationPreset preset,
 struct LTS {
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
-  Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
   Variable<real*> buffers;
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;

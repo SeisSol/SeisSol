@@ -1,5 +1,13 @@
 #include "Kernels/Interface.hpp"
 #include "Recorders.h"
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/Layer.hpp>
+#include <Kernels/precision.hpp>
+#include <cstddef>
+#include <tensor.h>
+#include <vector>
 #include <yateto.h>
 
 using namespace device;
@@ -32,7 +40,7 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
       initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
     }
 
-    ConditionalKey key(*KernelNames::Plasticity);
+    const ConditionalKey key(*KernelNames::Plasticity);
     checkKey(key);
     (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qstressNodalPtrs);
