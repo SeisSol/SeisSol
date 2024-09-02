@@ -20,10 +20,14 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
         return nextPath;
       }
     }();
+    // try to get the full file name (if that works)
     if (filesystem::exists(loadFileName)) {
-      return loadFileName;
+      return filesystem::canonical(loadFileName);
+    } else if (filesystem::exists(nextPath)) {
+      return filesystem::canonical(nextPath);
     } else {
-      return filesystem::current_path() / nextPath;
+      // otherwise, just return the string (TODO: or should be fail here then?)
+      return nextPath;
     }
   } else {
     return std::optional<std::string>();
