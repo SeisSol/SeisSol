@@ -13,7 +13,7 @@ constexpr std::size_t Vectorsize = VECTORSIZE;
 constexpr std::size_t PagesizeHeap = 2097152;
 constexpr std::size_t PagesizeStack = 4096;
 
-constexpr std::size_t ZeroLengthArrayHandler(std::size_t X) { return X == 0 ? 1 : X; }
+constexpr std::size_t zeroLengthArrayHandler(std::size_t x) { return x == 0 ? 1 : x; }
 } // namespace seissol
 
 #endif

@@ -80,29 +80,29 @@ struct DynamicRupture {
   Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system
-  Variable<real[dr::misc::numPaddedPoints][6]> initialStressInFaultCS;
-  Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;
+  Variable<real[dr::misc::NumPaddedPoints][6]> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
-  Variable<real[dr::misc::numPaddedPoints]> initialPressure;
-  Variable<real[dr::misc::numPaddedPoints]> nucleationPressure;
-  Variable<real[dr::misc::numPaddedPoints]> mu;
-  Variable<real[dr::misc::numPaddedPoints]> accumulatedSlipMagnitude;
-  Variable<real[dr::misc::numPaddedPoints]>
+  Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
+  Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
+  Variable<real[dr::misc::NumPaddedPoints]> mu;
+  Variable<real[dr::misc::NumPaddedPoints]> accumulatedSlipMagnitude;
+  Variable<real[dr::misc::NumPaddedPoints]>
       slip1; // slip at given fault node along local direction 1
-  Variable<real[dr::misc::numPaddedPoints]>
+  Variable<real[dr::misc::NumPaddedPoints]>
       slip2; // slip at given fault node along local direction 2
-  Variable<real[dr::misc::numPaddedPoints]> slipRateMagnitude;
-  Variable<real[dr::misc::numPaddedPoints]>
+  Variable<real[dr::misc::NumPaddedPoints]> slipRateMagnitude;
+  Variable<real[dr::misc::NumPaddedPoints]>
       slipRate1; // slip rate at given fault node along local direction 1
-  Variable<real[dr::misc::numPaddedPoints]>
+  Variable<real[dr::misc::NumPaddedPoints]>
       slipRate2; // slip rate at given fault node along local direction 2
-  Variable<real[dr::misc::numPaddedPoints]> ruptureTime;
-  Variable<real[dr::misc::numPaddedPoints]> dynStressTime;
-  Variable<bool[dr::misc::numPaddedPoints]> ruptureTimePending;
-  Variable<bool[dr::misc::numPaddedPoints]> dynStressTimePending;
-  Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
-  Variable<real[dr::misc::numPaddedPoints]> traction1;
-  Variable<real[dr::misc::numPaddedPoints]> traction2;
+  Variable<real[dr::misc::NumPaddedPoints]> ruptureTime;
+  Variable<real[dr::misc::NumPaddedPoints]> dynStressTime;
+  Variable<bool[dr::misc::NumPaddedPoints]> ruptureTimePending;
+  Variable<bool[dr::misc::NumPaddedPoints]> dynStressTimePending;
+  Variable<real[dr::misc::NumPaddedPoints]> peakSlipRate;
+  Variable<real[dr::misc::NumPaddedPoints]> traction1;
+  Variable<real[dr::misc::NumPaddedPoints]> traction2;
   Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedPlus;
   Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
@@ -158,11 +158,11 @@ struct DynamicRupture {
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
-  Variable<real[dr::misc::numPaddedPoints]> dC;
-  Variable<real[dr::misc::numPaddedPoints]> muS;
-  Variable<real[dr::misc::numPaddedPoints]> muD;
-  Variable<real[dr::misc::numPaddedPoints]> cohesion;
-  Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
+  Variable<real[dr::misc::NumPaddedPoints]> dC;
+  Variable<real[dr::misc::NumPaddedPoints]> muS;
+  Variable<real[dr::misc::NumPaddedPoints]> muD;
+  Variable<real[dr::misc::NumPaddedPoints]> cohesion;
+  Variable<real[dr::misc::NumPaddedPoints]> forcedRuptureTime;
 
   virtual void addTo(LTSTree& tree) {
     DynamicRupture::addTo(tree);
@@ -176,7 +176,7 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
-  Variable<real[dr::misc::numPaddedPoints]> regularisedStrength;
+  Variable<real[dr::misc::NumPaddedPoints]> regularisedStrength;
 
   virtual void addTo(LTSTree& tree) {
     LTSLinearSlipWeakening::addTo(tree);
@@ -186,9 +186,9 @@ struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
 };
 
 struct LTSRateAndState : public DynamicRupture {
-  Variable<real[dr::misc::numPaddedPoints]> rsA;
-  Variable<real[dr::misc::numPaddedPoints]> rsSl0;
-  Variable<real[dr::misc::numPaddedPoints]> stateVariable;
+  Variable<real[dr::misc::NumPaddedPoints]> rsA;
+  Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
+  Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
 
   virtual void addTo(LTSTree& tree) {
     DynamicRupture::addTo(tree);
@@ -200,7 +200,7 @@ struct LTSRateAndState : public DynamicRupture {
 };
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
-  Variable<real[dr::misc::numPaddedPoints]> rsSrW;
+  Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
 
   virtual void addTo(LTSTree& tree) {
     LTSRateAndState::addTo(tree);
@@ -211,15 +211,15 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 
 struct LTSRateAndStateThermalPressurization : public LTSRateAndStateFastVelocityWeakening {
 
-  Variable<real[dr::misc::numPaddedPoints]> temperature;
-  Variable<real[dr::misc::numPaddedPoints]> pressure;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> theta;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigma;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> thetaTmpBuffer;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigmaTmpBuffer;
-  Variable<real[dr::misc::numPaddedPoints]> faultStrength;
-  Variable<real[dr::misc::numPaddedPoints]> halfWidthShearZone;
-  Variable<real[dr::misc::numPaddedPoints]> hydraulicDiffusivity;
+  Variable<real[dr::misc::NumPaddedPoints]> temperature;
+  Variable<real[dr::misc::NumPaddedPoints]> pressure;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> theta;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigma;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> thetaTmpBuffer;
+  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigmaTmpBuffer;
+  Variable<real[dr::misc::NumPaddedPoints]> faultStrength;
+  Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
+  Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
 
   virtual void addTo(LTSTree& tree) {
     LTSRateAndStateFastVelocityWeakening::addTo(tree);
@@ -237,9 +237,9 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndStateFastVelocity
 };
 
 struct LTSImposedSlipRates : public DynamicRupture {
-  Variable<real[dr::misc::numPaddedPoints]> imposedSlipDirection1;
-  Variable<real[dr::misc::numPaddedPoints]> imposedSlipDirection2;
-  Variable<real[dr::misc::numPaddedPoints]> onsetTime;
+  Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection1;
+  Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection2;
+  Variable<real[dr::misc::NumPaddedPoints]> onsetTime;
 
   virtual void addTo(LTSTree& tree) {
     DynamicRupture::addTo(tree);
@@ -251,8 +251,8 @@ struct LTSImposedSlipRates : public DynamicRupture {
 };
 
 struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
-  Variable<real[dr::misc::numPaddedPoints]> tauS;
-  Variable<real[dr::misc::numPaddedPoints]> tauR;
+  Variable<real[dr::misc::NumPaddedPoints]> tauS;
+  Variable<real[dr::misc::NumPaddedPoints]> tauR;
 
   virtual void addTo(LTSTree& tree) {
     LTSImposedSlipRates::addTo(tree);
@@ -263,7 +263,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
 };
 
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
-  Variable<real[dr::misc::numPaddedPoints]> riseTime;
+  Variable<real[dr::misc::NumPaddedPoints]> riseTime;
 
   virtual void addTo(LTSTree& tree) {
     LTSImposedSlipRates::addTo(tree);

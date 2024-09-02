@@ -31,8 +31,8 @@
 #ifndef FUNCTIONS_20201026_H
 #define FUNCTIONS_20201026_H
 
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -42,11 +42,26 @@ namespace seissol::functions {
  * @brief host standard math functions used in template metaprogramming
  */
 struct HostStdFunctions {
-  template <typename T> static inline T exp(T value) { return std::exp(value); }
-  template <typename T1, typename ...T> static inline T1 max(T1 value1, T... value) { return std::max(value1, value...); }
-  template <typename T1, typename ...T> static inline T1 min(T1 value1, T... value) { return std::min(value1, value...); }
-  template <typename T> static inline T ceil(T value) { return std::ceil(value); }
-  template <typename T> static inline T floor(T value) { return std::floor(value); }
+  template <typename T>
+  static inline T exp(T value) {
+    return std::exp(value);
+  }
+  template <typename T1, typename... T>
+  static inline T1 max(T1 value1, T... value) {
+    return std::max(value1, value...);
+  }
+  template <typename T1, typename... T>
+  static inline T1 min(T1 value1, T... value) {
+    return std::min(value1, value...);
+  }
+  template <typename T>
+  static inline T ceil(T value) {
+    return std::ceil(value);
+  }
+  template <typename T>
+  static inline T floor(T value) {
+    return std::floor(value);
+  }
 };
 
 /**
@@ -86,8 +101,8 @@ std::array<double, 5> SingularityFreeJacobiPFactors(unsigned m, unsigned a, unsi
  * @param Pm_2 JacobiP(n-2, a, b, x/y) * y^{n-2}
  *
  */
-double SingularityFreeJacobiPRecursion(double x, double y, std::array<double, 5> const& cm,
-                                       double Pm_1, double Pm_2);
+double SingularityFreeJacobiPRecursion(
+    double x, double y, const std::array<double, 5>& cm, double pm1, double pm2);
 
 /**
  * @brief Computes JacobiP(n, a, b, x/y) * y^n.
@@ -103,8 +118,8 @@ double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, doub
  *
  * return {K, dKdx, dKdy}
  */
-std::array<double, 3> SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b,
-                                                           double x, double y);
+std::array<double, 3>
+    SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b, double x, double y);
 
 /**
  * @brief Evaluate Dubiner basis on reference triangle
@@ -116,7 +131,7 @@ std::array<double, 3> SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned 
  *
  * @return Function value at xi
  */
-double TriDubinerP(std::array<unsigned, 2> const& i, std::array<double, 2> const& xi);
+double TriDubinerP(const std::array<unsigned, 2>& i, const std::array<double, 2>& xi);
 
 /**
  * @brief Gradient of Dubiner basis on triangle
@@ -125,8 +140,8 @@ double TriDubinerP(std::array<unsigned, 2> const& i, std::array<double, 2> const
  *
  * @return Gradient at xi
  */
-std::array<double, 2> gradTriDubinerP(std::array<unsigned, 2> const& i,
-                                      std::array<double, 2> const& xi);
+std::array<double, 2> gradTriDubinerP(const std::array<unsigned, 2>& i,
+                                      const std::array<double, 2>& xi);
 
 /**
  * @brief Evaluate Dubiner basis on reference tetrahedron
@@ -142,7 +157,7 @@ std::array<double, 2> gradTriDubinerP(std::array<unsigned, 2> const& i,
  *
  * @return Function value at xi
  */
-double TetraDubinerP(std::array<unsigned, 3> const& i, std::array<double, 3> const& xi);
+double TetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 3>& xi);
 
 /**
  * @brief Gradient of Dubiner basis on tetrahedron
@@ -151,8 +166,8 @@ double TetraDubinerP(std::array<unsigned, 3> const& i, std::array<double, 3> con
  *
  * @return Gradient at xi
  */
-std::array<double, 3> gradTetraDubinerP(std::array<unsigned, 3> const& i,
-                                        std::array<double, 3> const& xi);
+std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
+                                        const std::array<double, 3>& xi);
 
 /**
  * @brief Templated Dubiner basis for D=1,2,3.
@@ -163,14 +178,14 @@ std::array<double, 3> gradTetraDubinerP(std::array<unsigned, 3> const& i,
  * D = 3: (0,0,0), (1,0,0), (0,1,0), (0,0,1)
  */
 template <std::size_t D>
-double DubinerP(std::array<unsigned, D> const& i, std::array<double, D> const& xi);
+double DubinerP(const std::array<unsigned, D>& i, const std::array<double, D>& xi);
 
 /**
  * @brief Templated gradient for D=1,2,3.
  */
 template <std::size_t D>
-std::array<double, D> gradDubinerP(std::array<unsigned, D> const& i,
-                                   std::array<double, D> const& xi);
+std::array<double, D> gradDubinerP(const std::array<unsigned, D>& i,
+                                   const std::array<double, D>& xi);
 
 } // namespace seissol::functions
 

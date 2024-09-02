@@ -1,4 +1,8 @@
 #include "ParameterReader.h"
+#include <memory>
+#include <string>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 

@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
 
   context.applyCommandLine(argc, argv);
 
-  int returnValue = context.run();
+  const int returnValue = context.run();
 
   seissol::MPI::mpi.finalize();
 

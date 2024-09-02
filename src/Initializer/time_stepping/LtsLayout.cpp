@@ -269,9 +269,9 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
     for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         // asert this is a regular, dynamic rupture or periodic face
-        assert(getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::regular ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::dynamicRupture ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::periodic);
+        assert(getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Regular ||
+               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::DynamicRupture ||
+               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Periodic);
 
         // derive id of the local region
         int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
@@ -542,9 +542,9 @@ unsigned int seissol::initializer::time_stepping::LtsLayout::enforceMaximumDiffe
       // get the ids
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
         FaceType l_faceType = getFaceType( m_cells[l_cell].boundaries[l_face] );
-        if (l_faceType == FaceType::regular ||
-           l_faceType == FaceType::periodic ||
-           l_faceType == FaceType::dynamicRupture) {
+        if (l_faceType == FaceType::Regular ||
+           l_faceType == FaceType::Periodic ||
+           l_faceType == FaceType::DynamicRupture) {
           // neighbor cell is part of copy layer/interior
           if( m_cells[l_cell].neighborRanks[l_face] == rank ) {
             unsigned int l_neighborId = m_cells[l_cell].neighbors[l_face];
@@ -613,10 +613,10 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
     l_dynamicRupture = enforceDynamicRuptureGTS();
 
     // enforce maximum difference of cluster ids
-    if( m_clusteringStrategy == single ) {
+    if( m_clusteringStrategy == TimeClustering::Single ) {
       l_maximumDifference = enforceMaximumDifference( 0 );
     }
-    else if( m_clusteringStrategy == multiRate ) {
+    else if( m_clusteringStrategy == TimeClustering::MultiRate ) {
       l_maximumDifference = enforceMaximumDifference( 1 );
     }
     else logError() << "clustering stategy not supported";
@@ -792,14 +792,14 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
       // check if the cell qualifies for reordering because of dynamic rupture
       if( // m_cells[l_meshId].neighborRanks[l_face] == io_copyRegion.first[0] && // Dynamic rupture cells in the copy layer communicate derivatives only
                                                                                   // TODO: Here's some minor potential for optimizations
-	 getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::dynamicRupture ) {
+	 getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::DynamicRupture ) {
         l_reorder = true;
       }
 
       // check if the cells qualifies for reordering because of "GTS on der"
       if(m_cells[l_meshId].neighborRanks[l_face] == rank &&
-         ( getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::regular ||
-           getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::periodic )) {
+         ( getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::Regular ||
+           getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::Periodic )) {
         // get neighboring mesh id
         unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 
@@ -1153,14 +1153,14 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
 #endif // USE_MPI
 }
 
-void seissol::initializer::time_stepping::LtsLayout::deriveLayout( enum TimeClustering i_timeClustering,
+void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,
                                                                     unsigned int        i_clusterRate ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   m_clusteringStrategy = i_timeClustering;
 
   // derive time stepping clusters and per-cell cluster ids (w/o normalizations)
-  if( m_clusteringStrategy == single ) {
+  if( m_clusteringStrategy == TimeClustering::Single ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  std::numeric_limits<unsigned int>::max(),
                                  seissolParams.timeStepping.lts.getWiggleFactor(),
@@ -1171,7 +1171,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( enum TimeClus
                                  m_globalTimeStepWidths,
                                  m_globalTimeStepRates  );
   }
-  else if ( m_clusteringStrategy == multiRate ) {
+  else if ( m_clusteringStrategy == TimeClustering::MultiRate ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  i_clusterRate,
                                  seissolParams.timeStepping.lts.getWiggleFactor(),
@@ -1386,9 +1386,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
           }
           // else neighboring cell is part of the interior or copy layer
-          else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::regular ||
-                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::periodic ||
-                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::dynamicRupture) {
+          else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
+                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Periodic ||
+                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::DynamicRupture) {
             // neighboring mesh id
             unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 
@@ -1451,9 +1451,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][1] = m_cells[l_meshId].sideOrientations[l_face];
 
-        if(io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::regular ||
-           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::periodic ||
-           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::dynamicRupture) {
+        if(io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
+           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Periodic ||
+           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::DynamicRupture) {
           // neighboring mesh id
           unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 

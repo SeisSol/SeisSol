@@ -454,8 +454,8 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
 
     for (unsigned face = 0; face < 4; ++face) {
       const auto faceType = static_cast<FaceType>(getBoundaryCondition(boundaryCond, cell, face));
-      dynamicRupture += (faceType == FaceType::dynamicRupture) ? 1 : 0;
-      freeSurfaceWithGravity += (faceType == FaceType::freeSurfaceGravity) ? 1 : 0;
+      dynamicRupture += (faceType == FaceType::DynamicRupture) ? 1 : 0;
+      freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
     }
 
     const int costDynamicRupture = m_vertexWeightDynamicRupture * dynamicRupture;

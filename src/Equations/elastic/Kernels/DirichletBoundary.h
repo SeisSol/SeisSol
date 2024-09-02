@@ -7,7 +7,7 @@
 
 #include "Initializer/typedefs.hpp"
 
-#include "Numerical_aux/Quadrature.h"
+#include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.hpp>
 
 #ifdef ACL_DEVICE

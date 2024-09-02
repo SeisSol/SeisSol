@@ -27,7 +27,7 @@ struct InitializationParameters {
   InitializationType type;
   Eigen::Vector3d origin;
   Eigen::Vector3d kVec;
-  Eigen::Vector<double, seissol::model::Material_t::NumberOfQuantities> ampField;
+  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField;
   double magnitude;
   double width;
   double k;

@@ -10,9 +10,9 @@ class NoTP {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,
-                         real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints],
+                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          unsigned int timeIndex,
