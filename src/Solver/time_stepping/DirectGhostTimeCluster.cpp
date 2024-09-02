@@ -17,7 +17,7 @@ void DirectGhostTimeCluster::sendCopyLayer() {
                     static_cast<int>(meshStructure->copyRegionSizes[region]),
                     MPI_C_REAL,
                     meshStructure->neighboringClusters[region][0],
-                    timeData + meshStructure->sendIdentifiers[region],
+                    DataTagOffset + meshStructure->sendIdentifiers[region],
                     seissol::MPI::mpi.comm(),
                     meshStructure->sendRequests + region
                   );
@@ -40,7 +40,7 @@ void DirectGhostTimeCluster::receiveGhostLayer() {
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
+                  DataTagOffset + meshStructure->receiveIdentifiers[region],
                   seissol::MPI::mpi.comm(),
                   meshStructure->receiveRequests + region);
       }
@@ -72,14 +72,14 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
                     static_cast<int>(meshStructure->copyRegionSizes[region]),
                     MPI_C_REAL,
                     meshStructure->neighboringClusters[region][0],
-                    timeData + meshStructure->sendIdentifiers[region],
+                    DataTagOffset + meshStructure->sendIdentifiers[region],
                     seissol::MPI::mpi.comm(),
                     meshStructure->sendRequests + region);
           MPI_Recv_init(meshStructure->ghostRegions[region],
                     static_cast<int>(meshStructure->ghostRegionSizes[region]),
                     MPI_C_REAL,
                     meshStructure->neighboringClusters[region][0],
-                    timeData + meshStructure->receiveIdentifiers[region],
+                    DataTagOffset + meshStructure->receiveIdentifiers[region],
                     seissol::MPI::mpi.comm(),
                     meshStructure->receiveRequests + region);
         }

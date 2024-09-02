@@ -14,7 +14,7 @@ struct GlobalTimestep {
 
 namespace parameters {
 struct SeisSolParameters;
-}
+} // namespace parameters
 
 GlobalTimestep
     computeTimesteps(double cfl,

@@ -1,5 +1,9 @@
 #include "DRParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
+#include <Kernels/precision.hpp>
 #include <cmath>
+#include <limits>
+#include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 
@@ -85,14 +89,14 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto faultFileName = reader->readPath("modelfilename");
 
   auto* outputReader = baseReader->readSubNode("output");
-  bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
+  const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
       "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
-  bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";

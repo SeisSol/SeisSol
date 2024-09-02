@@ -1,4 +1,9 @@
 #include "ParameterReader.h"
+#include <memory>
+#include <optional>
+#include <string>
+#include <utils/logger.h>
+#include <vector>
 
 #include "Common/filesystem.h"
 

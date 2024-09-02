@@ -413,7 +413,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
@@ -611,7 +611,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
     flopsHardware += cellHardware;
     // Contribution from displacement/integrated displacement
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
+      if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
                                                              cellInformation[cell].faceTypes[face]);
@@ -917,19 +917,19 @@ template<bool usePlasticity>
 #endif
                                                        l_timeIntegrated);
 
-        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;
-        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][2] :
                                       drMapping[l_cell][2].godunov;
-        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][3] :
                                       drMapping[l_cell][3].godunov;
 
         // fourth face's prefetches
         if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::DynamicRupture) ?
                                         faceNeighbors[l_cell+1][0] :
                                         drMapping[l_cell+1][0].godunov;
         } else {

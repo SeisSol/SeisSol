@@ -1,11 +1,12 @@
 #ifndef INITPROC_CELLS_H
 #define INITPROC_CELLS_H
 
-#include "Initializer/InitProcedure/Init.hpp"
-#include "SeisSol.h"
+namespace seissol {
+class SeisSol;
+} // namespace seissol
 
 namespace seissol::initializer::initprocedure {
 void initModel(seissol::SeisSol& seissolInstance);
-}
+} // namespace seissol::initializer::initprocedure
 
 #endif

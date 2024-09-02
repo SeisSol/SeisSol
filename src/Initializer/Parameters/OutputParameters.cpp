@@ -1,4 +1,14 @@
 #include "OutputParameters.h"
+#include <Equations/datastructures.hpp>
+#include <Initializer/InputAux.hpp>
+#include <Initializer/Parameters/ParameterReader.h>
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <string>
+#include <unordered_set>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -41,7 +51,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
          {"posix", CheckpointingBackend::POSIX},
          {"hdf5", CheckpointingBackend::HDF5},
          {"mpio", CheckpointingBackend::MPIO},
-         {"mpio_async", CheckpointingBackend::MPIO_ASYNC},
+         {"mpio_async", CheckpointingBackend::MpioAsync},
          {"sionlib", CheckpointingBackend::SIONLIB}});
     fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
   } else {
@@ -61,7 +71,7 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
       "refinement_strategy",
       FaultRefinement::None,
       {FaultRefinement::Triple, FaultRefinement::Quad, FaultRefinement::None});
-  int refinement = reader->readWithDefault("refinement", 2);
+  const int refinement = reader->readWithDefault("refinement", 2);
   reader->warnDeprecated({"printintervalcriterion"});
 
   return ElementwiseFaultParameters{
@@ -72,7 +82,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = reader->readWithDefault("energyoutput", false);
-  const auto interval = reader->readWithDefault("energyoutputinterval", veryLongTime);
+  const auto interval = reader->readWithDefault("energyoutputinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "energyoutput", "energyoutputinterval");
 
   const auto computeVolumeEnergiesEveryOutput =
@@ -97,7 +107,7 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
-  const auto interval = reader->readWithDefault("surfaceoutputinterval", veryLongTime);
+  const auto interval = reader->readWithDefault("surfaceoutputinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "surfaceoutput", "surfaceoutputinterval");
 
   const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
@@ -125,7 +135,7 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
-  const auto interval = reader->readWithDefault("receiveroutputinterval", veryLongTime);
+  const auto interval = reader->readWithDefault("receiveroutputinterval", VeryLongTime);
   auto enabled = reader->readWithDefault("receiveroutput", true);
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
@@ -142,7 +152,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("wavefieldoutput", true);
-  const auto interval = reader->readWithDefault("timeinterval", veryLongTime);
+  const auto interval = reader->readWithDefault("timeinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "wavefieldoutput", "timeinterval");
   const auto refinement =
       reader->readWithDefaultEnum<VolumeRefinement>("refinement",
@@ -176,9 +186,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, seissol::model::Material_t::NumberOfQuantities> outputMask =
-      convertStringToArray<bool, seissol::model::Material_t::NumberOfQuantities>(outputMaskString,
-                                                                                 false);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(outputMaskString, false);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));

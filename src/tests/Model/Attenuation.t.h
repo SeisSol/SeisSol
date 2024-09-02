@@ -19,10 +19,10 @@ TEST_CASE("Attenuation") {
   vm.Qp = 58.40512125971850566;
   vm.Qs = 29.20256062985925283;
 
-  double freqCentral = 0.3;
-  double freqRatio = 100;
+  constexpr double FreqCentral = 0.3;
+  constexpr double FreqRatio = 100;
 
-  seissol::physics::fitAttenuation(vm, freqCentral, freqRatio);
+  seissol::physics::fitAttenuation(vm, FreqCentral, FreqRatio);
 
   REQUIRE(vm.rho == rho);
 

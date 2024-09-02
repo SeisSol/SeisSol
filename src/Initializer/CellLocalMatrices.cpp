@@ -46,8 +46,8 @@
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
 #include "tree/Layer.hpp"
-#include "Numerical_aux/Transformation.h"
-#include "Equations/Setup.h"
+#include "Numerical/Transformation.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "Model/common.hpp"
 #include "Geometry/MeshTools.h"
 #include "generated_code/tensor.h"
@@ -97,7 +97,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
     NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
@@ -173,7 +173,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
 
         real NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::Anisotropic) {
           seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
                                                       seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
                                                       cellInformation[cell].faceTypes[side],
@@ -212,8 +212,8 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
-            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }
@@ -263,7 +263,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
@@ -277,9 +277,9 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
         coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
-            && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
-            && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
+        if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity
+            && cellInformation[cell].faceTypes[side] != FaceType::Dirichlet
+            && cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
           continue;
         }
         // Compute nodal points in global coordinates for each side.
@@ -333,7 +333,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
         real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
         assert(easiBoundaryMap != nullptr);
         assert(easiBoundaryConstant != nullptr);
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
           easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
         } else {
           // Boundary should not be evaluated
@@ -369,7 +369,7 @@ void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
 }
 
 constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> eigenpair) {
+Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> eigenpair) {
 #ifdef USE_POROELASTIC
   constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
   constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
@@ -415,7 +415,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
-  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+  for (auto it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
     real**                                timeDerivativePlusDevice                                        = it->var(dynRup->timeDerivativePlusDevice);
@@ -590,11 +590,11 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-        case seissol::model::MaterialType::acoustic: {
+        case seissol::model::MaterialType::Acoustic: {
           logError() << "Dynamic Rupture does not work with an acoustic material.";
           break;
         }
-        case seissol::model::MaterialType::poroelastic: {
+        case seissol::model::MaterialType::Poroelastic: {
           // TODO (SW) Extract this into a function
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
@@ -619,17 +619,17 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
           break;
         }
-        case seissol::model::MaterialType::anisotropic: {
+        case seissol::model::MaterialType::Anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 
           break;
         }
-        case seissol::model::MaterialType::elastic: {
+        case seissol::model::MaterialType::Elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
-        case seissol::model::MaterialType::viscoelastic: {
+        case seissol::model::MaterialType::Viscoelastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
