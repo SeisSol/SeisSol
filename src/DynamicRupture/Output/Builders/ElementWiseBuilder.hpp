@@ -5,7 +5,7 @@
 #include "DynamicRupture/Output/Geometry.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/Parameters/OutputParameters.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.hpp"
 #include <init.h>
 

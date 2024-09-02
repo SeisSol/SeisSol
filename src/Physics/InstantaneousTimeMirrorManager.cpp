@@ -2,7 +2,6 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <cmath>
 #include <Initializer/LTS.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/tree/LTSTree.hpp>
@@ -10,6 +9,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Modules/Module.h>
+#include <cmath>
 #include <memory>
 #include <utils/logger.h>
 #include <vector>

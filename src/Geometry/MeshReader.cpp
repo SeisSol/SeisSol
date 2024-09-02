@@ -3,7 +3,6 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
 #include <Initializer/Parameters/DRParameters.h>
@@ -177,7 +176,7 @@ void MeshReader::extractFaultInformation(
       // Index of the element on the other side
       const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
 
-      GlobalElemId neighborGlobalId =
+      const GlobalElemId neighborGlobalId =
           remoteNeighbor ? m_ghostlayerMetadata[i.neighborRanks[j]][i.mpiIndices[j]].globalId
                          : m_elements[i.neighbors[j]].globalId;
 

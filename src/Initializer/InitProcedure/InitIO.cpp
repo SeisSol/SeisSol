@@ -1,29 +1,23 @@
 #include "InitIO.hpp"
 #include "Common/filesystem.h"
-#include "DynamicRupture/Misc.h"
+#include "Equations/datastructures.hpp"
 #include "IO/Instance/Mesh/VtkHdf.hpp"
-#include "IO/Instance/Point/Csv.hpp"
 #include "IO/Writer/Writer.hpp"
 #include "Init.hpp"
-#include "Initializer/BasicTypedefs.hpp"
-#include "Numerical_aux/Transformation.h"
-#include "SeisSol.h"
-#include <Equations/datastructures.hpp>
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Instance/Point/Pytables.hpp>
-#include <IO/Instance/Point/TableWriter.hpp>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include <cstring>
-#include <kernel.h>
-#include <string>
-#include <tensor.h>
+#include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/constants.hpp>
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/tree/Layer.hpp>
 #include <Kernels/common.hpp>
 #include <Kernels/precision.hpp>
+#include <Solver/FreeSurfaceIntegrator.h>
+#include <algorithm>
 #include <cstring>
+#include <init.h>
+#include <kernel.h>
+#include <string>
 #include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
@@ -80,7 +74,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     }*/
 
   if (seissolInstance.getCheckpointLoadFile().has_value()) {
-    double time = seissolInstance.getOutputManager().loadCheckpoint(
+    const double time = seissolInstance.getOutputManager().loadCheckpoint(
         seissolInstance.getCheckpointLoadFile().value());
     seissolInstance.simulator().setCurrentTime(time);
   }
@@ -163,18 +157,18 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         const auto& vertex1 = vertexArray[element.vertices[1]].coords;
         const auto& vertex2 = vertexArray[element.vertices[2]].coords;
         const auto& vertex3 = vertexArray[element.vertices[3]].coords;
-        bool inGroup = seissolParams.output.waveFieldParameters.groups.empty() ||
-                       seissolParams.output.waveFieldParameters.groups.find(element.group) !=
-                           seissolParams.output.waveFieldParameters.groups.end();
-        bool inRegion = !seissolParams.output.waveFieldParameters.bounds.enabled ||
-                        (seissolParams.output.waveFieldParameters.bounds.contains(
-                             vertex0[0], vertex0[1], vertex0[2]) ||
-                         seissolParams.output.waveFieldParameters.bounds.contains(
-                             vertex1[0], vertex1[1], vertex1[2]) ||
-                         seissolParams.output.waveFieldParameters.bounds.contains(
-                             vertex2[0], vertex2[1], vertex2[2]) ||
-                         seissolParams.output.waveFieldParameters.bounds.contains(
-                             vertex3[0], vertex3[1], vertex3[2]));
+        const bool inGroup = seissolParams.output.waveFieldParameters.groups.empty() ||
+                             seissolParams.output.waveFieldParameters.groups.find(element.group) !=
+                                 seissolParams.output.waveFieldParameters.groups.end();
+        const bool inRegion = !seissolParams.output.waveFieldParameters.bounds.enabled ||
+                              (seissolParams.output.waveFieldParameters.bounds.contains(
+                                   vertex0[0], vertex0[1], vertex0[2]) ||
+                               seissolParams.output.waveFieldParameters.bounds.contains(
+                                   vertex1[0], vertex1[1], vertex1[2]) ||
+                               seissolParams.output.waveFieldParameters.bounds.contains(
+                                   vertex2[0], vertex2[1], vertex2[2]) ||
+                               seissolParams.output.waveFieldParameters.bounds.contains(
+                                   vertex3[0], vertex3[1], vertex3[2]));
         if (inGroup && inRegion) {
           celllist.push_back(i);
         }
@@ -239,7 +233,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     };
     std::vector<std::string> plasticityLabels = {
         "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};
-    for (std::size_t quantity = 0; quantity < seissol::model::Material_t::NumberOfQuantities;
+    for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::NumQuantities;
          ++quantity) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
         writer.addPointData<real>(

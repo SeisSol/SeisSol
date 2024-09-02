@@ -21,8 +21,8 @@ void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& p
   // (do nothing here)
 }
 void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& params) {
-  const void* data = info.buffer(planId);
-  const size_t size = info.bufferSize(planId);
+  const void* data = info.buffer(PlanId);
+  const size_t size = info.bufferSize(PlanId);
   const char* strData = reinterpret_cast<const char*>(data);
 
   int rank;

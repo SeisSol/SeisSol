@@ -37,7 +37,6 @@
  */
 
 #include "Geometry/MeshDefinition.h"
-#include <Common/constants.hpp>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/TypeInference.h>
@@ -65,7 +64,6 @@
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
-#include <fstream>
 #include <hdf5.h>
 #include <sstream>
 #include <string_view>

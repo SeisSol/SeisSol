@@ -30,49 +30,49 @@ static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>
   return memberInfo;
 }
 
-static const std::string base64 =
+static const std::string Base64 =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static const std::string base64Pad = "=";
-static const std::array<int, 256> fromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static const std::string Base64Pad = "=";
+static const std::array<int, 256> FromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-template <int count>
+template <int Count>
 static void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, int dataPtr3) {
   const int data = dataPtr1 | (dataPtr2 << 8) | (dataPtr3 << 16);
-  if constexpr (count > 0) {
+  if constexpr (Count > 0) {
     const auto data1 = data & 0x3f;
-    sstr << base64[data1];
+    sstr << Base64[data1];
   }
-  if constexpr (count > 1) {
+  if constexpr (Count > 1) {
     const auto data2 = (data >> 6) & 0x3f;
-    sstr << base64[data2];
+    sstr << Base64[data2];
   }
-  if constexpr (count > 2) {
+  if constexpr (Count > 2) {
     const auto data3 = (data >> 12) & 0x3f;
-    sstr << base64[data3];
+    sstr << Base64[data3];
   }
-  if constexpr (count > 3) {
+  if constexpr (Count > 3) {
     const auto data4 = (data >> 18) & 0x3f;
-    sstr << base64[data4];
+    sstr << Base64[data4];
   }
 }
 
-template <int count>
+template <int Count>
 static void
     base64Revert(const std::string& idata, std::size_t ipos, char* odata, std::size_t opos) {
-  const auto idata1 = fromBase64[idata[ipos]];
-  const auto idata2 = fromBase64[idata[ipos + 1]];
-  const auto idata3 = fromBase64[idata[ipos + 2]];
-  const auto idata4 = fromBase64[idata[ipos + 3]];
+  const auto idata1 = FromBase64[idata[ipos]];
+  const auto idata2 = FromBase64[idata[ipos + 1]];
+  const auto idata3 = FromBase64[idata[ipos + 2]];
+  const auto idata4 = FromBase64[idata[ipos + 3]];
   const int idataNumber = idata1 | (idata2 << 6) | (idata3 << 12) | (idata4 << 18);
-  if constexpr (count > 0) {
+  if constexpr (Count > 0) {
     const auto data = idataNumber & 0xff;
     odata[opos] = data;
   }
-  if constexpr (count > 1) {
+  if constexpr (Count > 1) {
     const auto data = (idataNumber >> 8) & 0xff;
     odata[opos + 1] = data;
   }
-  if constexpr (count > 2) {
+  if constexpr (Count > 2) {
     const auto data = (idataNumber >> 16) & 0xff;
     odata[opos + 2] = data;
   }
@@ -128,11 +128,11 @@ std::string OpaqueDatatype::toStringRaw(const void* data) const {
   }
   if (sizeP % 3 == 1) {
     base64Convert<2>(sstr, dataPtr[sizeP - 1], 0, 0);
-    sstr << base64Pad << base64Pad;
+    sstr << Base64Pad << Base64Pad;
   }
   if (sizeP % 3 == 2) {
     base64Convert<3>(sstr, dataPtr[sizeP - 2], dataPtr[sizeP - 3], 0);
-    sstr << base64Pad;
+    sstr << Base64Pad;
   }
 
   return sstr.str();

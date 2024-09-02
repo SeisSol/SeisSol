@@ -181,10 +181,10 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   int commsize;
   int commrank;
 
-  constexpr int tagToIntermediateSource = 20;
-  constexpr int tagToIntermediateTarget = 21;
-  constexpr int tagFromIntermediateSource = 22;
-  constexpr int tagFromIntermediateTarget = 23;
+  constexpr int TagToIntermediateSource = 20;
+  constexpr int TagToIntermediateTarget = 21;
+  constexpr int TagFromIntermediateSource = 22;
+  constexpr int TagFromIntermediateTarget = 23;
 
   MPI_Comm_size(comm, &commsize);
   MPI_Comm_rank(comm, &commrank);
@@ -238,9 +238,9 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto intermediateSource =
-      distributeIds<std::size_t>(source, comm, sizetype, sizetype, tagToIntermediateSource);
+      distributeIds<std::size_t>(source, comm, sizetype, sizetype, TagToIntermediateSource);
   auto intermediateTarget =
-      distributeIds<std::size_t>(target, comm, sizetype, sizetype, tagToIntermediateTarget);
+      distributeIds<std::size_t>(target, comm, sizetype, sizetype, TagToIntermediateTarget);
 
   // we need the same ordering, to transfer the IDs in the right order
   // TODO(David): may be removable
@@ -265,12 +265,12 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 
   auto sendResult = matchRanks(
-      sourceToTargetRankMap, sourceIds, false, comm, sizetype, pairtype, tagFromIntermediateSource);
+      sourceToTargetRankMap, sourceIds, false, comm, sizetype, pairtype, TagFromIntermediateSource);
   sendOffsets = sendResult.first;
   sendReorder = sendResult.second;
 
   auto recvResult = matchRanks(
-      targetToSourceRankMap, targetIds, true, comm, sizetype, pairtype, tagFromIntermediateTarget);
+      targetToSourceRankMap, targetIds, true, comm, sizetype, pairtype, TagFromIntermediateTarget);
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
@@ -289,7 +289,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
 
 Distributor::DistributionInstance
     Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
-  constexpr int tag = 30;
+  constexpr int Tag = 30;
 
   int commsize;
   int commrank;
@@ -322,7 +322,7 @@ Distributor::DistributionInstance
                 sendOffsets[i + 1] - sendOffsets[i],
                 datatype,
                 i,
-                tag,
+                Tag,
                 comm,
                 &requests[i]);
     }
@@ -331,7 +331,7 @@ Distributor::DistributionInstance
                 recvOffsets[i + 1] - recvOffsets[i],
                 datatype,
                 i,
-                tag,
+                Tag,
                 comm,
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }

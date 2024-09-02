@@ -24,7 +24,7 @@ class AsyncWriter {
   void finalize();
 
   private:
-  static constexpr int planId = 0;
+  static constexpr int PlanId = 0;
   bool printPlan{false};
   seissol::io::writer::Writer writer;
   std::optional<seissol::io::writer::WriteInstance> instance;

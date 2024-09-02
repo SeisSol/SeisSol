@@ -286,11 +286,12 @@ class SeisSol {
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
+      : pinning(), outputManager(*this), m_seissolParameters(parameters), m_meshReader(nullptr),
+        m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this), outputManager(*this) {}
+        timeMirrorManagers(*this, *this) {}
 };
 
 } // namespace seissol

@@ -100,7 +100,7 @@ enum VariableID {
   Size
 };
 
-const inline std::vector<std::vector<std::string>> variableLabels = {{"SRs", "SRd"},
+const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SRd"},
                                                                      {"T_s", "T_d", "P_n"},
                                                                      {"u_n"},
                                                                      {"Mud", "StV"},
