@@ -334,22 +334,22 @@ void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& run
     std::size_t blocks = (numElements + seissol::kernels::time::aux::Blocksize - 1) / seissol::kernels::time::aux::Blocksize;
 
     std::vector<std::size_t> sizes;
-    if (CONVERGENCE_ORDER >= 6) {
+    if (ConvergenceOrder >= 6) {
       sizes.push_back(56);
     }
-    if (CONVERGENCE_ORDER >= 5) {
+    if (ConvergenceOrder >= 5) {
       sizes.push_back(35);
     }
-    if (CONVERGENCE_ORDER >= 4) {
+    if (ConvergenceOrder >= 4) {
       sizes.push_back(20);
     }
-    if (CONVERGENCE_ORDER >= 3) {
+    if (ConvergenceOrder >= 3) {
       sizes.push_back(10);
     }
-    if (CONVERGENCE_ORDER >= 2) {
+    if (ConvergenceOrder >= 2) {
       sizes.push_back(4);
     }
-    if (CONVERGENCE_ORDER >= 1) {
+    if (ConvergenceOrder >= 1) {
       sizes.push_back(1);
     }
 
@@ -358,7 +358,7 @@ void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& run
     std::vector<std::size_t> unpadded;
     std::vector<std::size_t> padded;
 
-    for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
+    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
       unpadded.push_back(sizes[i]);
       padded.push_back((sizes[i] + VECTORSIZE - 1) / VECTORSIZE);
       actualSize.push_back(unpadded.back() * seissol::model::Material_t::NumberOfQuantities);
@@ -370,7 +370,7 @@ void Time::computeInterleavedAder(seissol::parallel::runtime::StreamRuntime& run
     seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[0], realSize[0], unpadded[0], padded[0], 0, const_cast<const real*>(interleavedBuffers), (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(), runtime.stream());
     std::size_t offset = 0;
     std::size_t offset2 = 0;
-    for (std::size_t i = 0; i < CONVERGENCE_ORDER; ++i) {
+    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
       seissol::kernels::time::aux::deinterleaveLauncher(numElements, actualSize[i], realSize[i], unpadded[i], padded[i], offset2, const_cast<const real*>(interleavedDerivatives) + offset * blocks, (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(), runtime.stream());
       offset += actualSize[i] * seissol::kernels::time::aux::Blocksize;
       offset2 += realSize[i];

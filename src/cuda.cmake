@@ -19,6 +19,7 @@ string(REPLACE "sm_" "" CUDA_DEVICE_ARCH "${DEVICE_ARCH}")
 set_target_properties(SeisSol-device-lib PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
 
 target_compile_definitions(SeisSol-device-lib PRIVATE EXPERIMENTAL_INTERLEAVE)
+target_compile_definitions(SeisSol-device-lib PRIVATE CONVERGENCE_ORDER=${ORDER})
 
 target_compile_definitions(SeisSol-device-lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         -DREAL_SIZE=${REAL_SIZE_IN_BYTES}

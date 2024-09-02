@@ -61,6 +61,7 @@ target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 set_property(TARGET SeisSol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
 
 target_compile_definitions(SeisSol-device-lib PRIVATE EXPERIMENTAL_INTERLEAVE)
+target_compile_definitions(SeisSol-device-lib PRIVATE CONVERGENCE_ORDER=${ORDER})
 
 if (IS_NVCC_PLATFORM)
     set_target_properties(SeisSol-device-lib PROPERTIES LINKER_LANGUAGE HIP)

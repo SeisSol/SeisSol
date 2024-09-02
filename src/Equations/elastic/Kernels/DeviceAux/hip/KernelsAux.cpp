@@ -10,6 +10,8 @@
 #include <vector>
 #include <cstdlib>
 
+#include "Common/constants.hpp"
+
 void checkErr(const std::string &file, int line) {
   hipError_t error = hipGetLastError();
   if (error != hipSuccess) {
@@ -545,6 +547,59 @@ __device__ __forceinline__ void dgkernelPart2b(real scale, const real* __restric
 }
 
 template<size_t N, size_t Nmax>
+__device__ __forceinline__ void dgkernelPart2bbLoad(float* __restrict__ local, const real* __restrict__ acc) {
+  std::size_t blockpos = Nmax * Quantities * Blocksize * (blockIdx.x * AderMultiple + threadIdx.y);
+  #pragma unroll
+  for (int j = 0; j < Quantities; ++j) {
+    for (int i = 0; i < N - (N % 4); i += 4) {
+      *(float4*)&local[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4] = __builtin_nontemporal_load((float4*)&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4]);
+    }
+    #pragma unroll
+    for (int i = N - (N % 4); i < N; ++i) {
+      local[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x] = __builtin_nontemporal_load(&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x]);
+    }
+  }
+}
+
+template<size_t N, size_t Nmax>
+__device__ __forceinline__ void dgkernelPart2bbStore(float* __restrict__ local, const real* __restrict__ acc) {
+  std::size_t blockpos = Nmax * Quantities * Blocksize * (blockIdx.x * AderMultiple + threadIdx.y);
+  #pragma unroll
+  for (int j = 0; j < Quantities; ++j) {
+    for (int i = 0; i < N - (N % 4); i += 4) {
+      __builtin_nontemporal_store();
+      *(float4*)&local[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4] = __builtin_nontemporal_load((float4*)&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4]);
+    }
+    #pragma unroll
+    for (int i = N - (N % 4); i < N; ++i) {
+      local[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x] = __builtin_nontemporal_load(&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x]);
+    }
+  }
+}
+
+template<size_t N, size_t Nmax>
+__device__ __forceinline__ void dgkernelPart2bb(real scale, const real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
+    real lambda, real mu, real rhoD) {
+        std::size_t blockpos = Nmax * Quantities * Blocksize * (blockIdx.x * AderMultiple + threadIdx.y);
+        #pragma unroll
+        for (int j = 0; j < Quantities; ++j) {
+          for (int i = 0; i < N - (N % 4); i += 4) {
+            float4 inres = *(float4*)&output[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4];
+            inres.x *= scale;
+            inres.y *= scale;
+            inres.z *= scale;
+            inres.w *= scale;
+            *(float4*)&acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x * 4] = inres;
+          }
+          #pragma unroll
+          for (int i = N - (N % 4); i < N; ++i) {
+            real inres = output[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x];
+            acc[blockpos + Blocksize * (i + Nmax * j) + threadIdx.x] += inres * scale;
+          }
+        }
+}
+
+template<size_t N, size_t Nmax>
 __device__ __forceinline__ void dgkernelPart2a(real scale, real* __restrict__ output, real* __restrict__ acc, const real* __restrict__ temp, const real* __restrict__ coordinates,
     real lambda, real mu, real rhoD) {
         real l2mu = lambda + 2 * mu;
@@ -738,7 +793,7 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   dim3 grid(launchSize, 1, 1);
   dim3 block(Blocksize, AderMultiple, 1);
   std::vector<std::size_t> dataOffsets(6);
-  if (CONVERGENCE_ORDER==6) {
+  if (ConvergenceOrder==6) {
     dataOffsets[0] = 0;
     dataOffsets[1] = dataOffsets[0] + Functions<6> * Blocksize * Quantities * blocks;
     dataOffsets[2] = dataOffsets[1] + Functions<5> * Blocksize * Quantities * blocks;
@@ -746,7 +801,7 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
     dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
     dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
   }
-  else if (CONVERGENCE_ORDER==4) {
+  else if (ConvergenceOrder==4) {
     dataOffsets[0] = 0;
     dataOffsets[1] = 0;
     dataOffsets[2] = 0;
@@ -754,7 +809,7 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
     dataOffsets[4] = dataOffsets[3] + Functions<3> * Blocksize * Quantities * blocks;
     dataOffsets[5] = dataOffsets[4] + Functions<2> * Blocksize * Quantities * blocks;
   }
-  else if (CONVERGENCE_ORDER==3) {
+  else if (ConvergenceOrder==3) {
     dataOffsets[0] = 0;
     dataOffsets[1] = 0;
     dataOffsets[2] = 0;
@@ -764,17 +819,17 @@ void aderLauncher(std::size_t count, real timestep, const real* dofs, real* buff
   }
   hipStream_t streamObject = reinterpret_cast<hipStream_t>(stream);
 
-  if (CONVERGENCE_ORDER == 6) {
+  if (ConvergenceOrder == 6) {
     hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<6>, hipMemcpyDeviceToDevice, streamObject);
   // dgkernelFull <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
     dgkernelFull2a <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
     dgkernelFull2b <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   }
-  if (CONVERGENCE_ORDER == 4) {
+  if (ConvergenceOrder == 4) {
     hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<4>, hipMemcpyDeviceToDevice, streamObject);
     dgkernelFull4 <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   }
-  if (CONVERGENCE_ORDER == 3) {
+  if (ConvergenceOrder == 3) {
     hipMemcpyAsync(derivatives, dofs, sizeof(real) * blocks * Blocksize * Quantities * Functions<3>, hipMemcpyDeviceToDevice, streamObject);
     dgkernelFull3 <<<grid, block, 0, streamObject>>> (blocks, timestep, buffers, dofs, derivatives, derivatives + dataOffsets[1], derivatives + dataOffsets[2], derivatives + dataOffsets[3], derivatives + dataOffsets[4], derivatives + dataOffsets[5], stardata, coordinates, temp);
   }

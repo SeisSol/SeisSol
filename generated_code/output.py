@@ -23,12 +23,18 @@ for (int j = 0; j < Quantities; ++j) {{
                 for v in values:
                     if k == v[0] and v[1] < limits[o]:
                         entries += [f'{values[v]}f * column[{v[1]}]']
-                if limits[o+1] >= 10:
+                if limits[o+1] >= 100:
                     print(f'    temp[MATRIX({k}, j + Quantities * {d}, {limits[o+1]}, Quantities * 3)] = {" + ".join(entries)};')
                 else:
                     print(f'    temp[{k} * Quantities * 3 + (j + Quantities * {d})] = {" + ".join(entries)};')
         print('    }')
         print('}')
+    for d in range(3):
+        derivative = data.kDivMT[d]
+        values = derivative.values()
+        with open(f'kdivmt{d}', 'w') as f:
+            for v in values:
+                print(f'({v[0]}, {v[1]}): {values[v]}', file=f)
 
 
 if __name__ == '__main__':
