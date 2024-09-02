@@ -1,4 +1,48 @@
+import numpy as np
 from math import sqrt, asin, atan, pi
+
+def asymmetric_cosine(t, trise, tfall=None):
+    """
+    Initialize a source time function with asymmetric cosine, normalized to 1
+    modified from instaseis
+    https://github.com/krischer/instaseis/blob/master/instaseis/source.py#L174
+    """
+    # initialize
+    if not isinstance(tfall, np.ndarray):
+        tfall = trise
+    # build slices
+    slrise = np.logical_and(t > 0.0, t <= trise)
+    slfall = np.logical_and(t > trise, t <= trise + tfall)
+
+    # compute stf
+    asc = np.zeros_like(t)
+    asc[slrise] = 1.0 - np.cos(np.pi * t[slrise] / trise[slrise])
+    asc[slfall] = 1.0 - np.cos(
+        np.pi * (t[slfall] - trise[slfall] + tfall[slfall]) / tfall[slfall]
+    )
+
+    # normalize
+    asc /= trise + tfall
+    return asc
+
+def smoothStep(time, Tnuc):
+    positive_ids = time > 0
+    result = np.zeros_like(time)
+    result[positive_ids] = np.exp(
+        (time[positive_ids] - Tnuc[positive_ids]) ** 2
+        / (time[positive_ids] * (time[positive_ids] - 2.0 * Tnuc[positive_ids]))
+    )
+    result[time >= Tnuc] = 1.0
+    return result
+
+
+def gaussianSTF(time, Tnuc, dt):
+    Gnuc = np.where(
+        (time > 0) & (time < Tnuc),
+        smoothStep(time, Tnuc) - smoothStep(time - dt, Tnuc),
+        0,
+    )
+    return Gnuc / dt
 
 
 def C1(t, ts, tr):
