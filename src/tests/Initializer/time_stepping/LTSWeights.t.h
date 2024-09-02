@@ -43,11 +43,13 @@ TEST_CASE("LTS Weights") {
       ltsWeights.get());
   std::cout.clear();
 
-  std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
-                                              2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
-  for (int i = 0; i < 24; i++) {
-    REQUIRE(ltsWeights->vertexWeights()[i] == expectedWeights[i]);
-  }
+  const auto givenWeights =
+      std::vector<unsigned>(ltsWeights->vertexWeights(), ltsWeights->vertexWeights() + 24);
+
+  const auto expectedWeights =
+      std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
+
+  REQUIRE(givenWeights == expectedWeights);
 #endif
 }
 
