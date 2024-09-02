@@ -76,6 +76,10 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
+if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+  message(FATAL_ERROR "SeisSol does not support Fused Simulations yet")
+endif()
+
 # Generate version.h
 
 include(GetGitRevisionDescription)
