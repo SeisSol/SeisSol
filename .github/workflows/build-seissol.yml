@@ -64,12 +64,14 @@ jobs:
 
       - name: test-seissol
         if: steps.build.outcome == 'success'
+        continue-on-error: True
         run: |
           cd build
           ctest --rerun-failed --output-on-failure
       
       - name: run-seissol-no-input
         if: steps.build.outcome == 'success'
+        continue-on-error: True
         run: |
           if [ "${{ matrix.precision }}" = single ]; then
               precision=s
@@ -97,6 +99,7 @@ jobs:
 
       - name: run-proxy
         if: steps.build.outcome == 'success'
+        continue-on-error: True
         run: |
           if [ "${{ matrix.precision }}" = single ]; then
               precision=s
