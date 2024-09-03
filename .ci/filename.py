@@ -37,12 +37,13 @@ def main():
                 file.rename(file.parent / name)
 
     def checkFile(file, suffixmask, suffix):
-        if suffixmask is None or file.suffix.startswith(suffixmask):
+        if suffixmask is None or file.suffix == suffixmask:
             sanitized = fixName(file.stem) + suffix
             sanitizeFile(file, sanitized)
 
     for root,dirs,files in pathlib.Path(args.path).walk(top_down=False):
         for prefile in files:
+            checkFile(root / prefile, '.hpp', '.h')
             checkFile(root / prefile, '.h', '.h')
             checkFile(root / prefile, '.cpp', '.cpp')
         if args.dirs:
