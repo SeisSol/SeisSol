@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DR_OUTPUT_MANAGER_HPP
 #define SEISSOL_DR_OUTPUT_MANAGER_HPP
 
-#include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
-#include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
-#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
+#include "DynamicRupture/Output/Builders/PickPointBuilder.h"
+#include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <memory>
 

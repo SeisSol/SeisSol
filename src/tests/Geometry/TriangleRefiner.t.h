@@ -5,7 +5,7 @@
 
 #include <Eigen/Dense>
 
-#include "Geometry/refinement/TriangleRefiner.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
 
 namespace seissol::unit_test {
 

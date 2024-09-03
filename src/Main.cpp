@@ -39,7 +39,7 @@
  */
 
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/PreProcessorMacros.h"
 #include "Modules/Modules.h"
 #include <cstdlib>
 #include <ctime>
@@ -53,7 +53,7 @@
 #include <xdmfwriter/scorep_wrapper.h>
 #include <yaml-cpp/node/node.h>
 
-#include "Initializer/InitProcedure/Init.hpp"
+#include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
 #include "utils/args.h"

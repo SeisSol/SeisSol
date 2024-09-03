@@ -1,4 +1,4 @@
-#include "datastructures.hpp"
+#include "Datastructures.h"
 
 //Also if we don't use poroelastic materials, the material has to be properly defined
 //such that e.g. seissol::Interoperability::initializeModel work without ifdefs

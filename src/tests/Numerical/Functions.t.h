@@ -1,7 +1,7 @@
 #include "Numerical/Functions.h"
 #include "doctest.h"
 #include "tests/TestHelper.h"
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 
 namespace seissol::unit_test {
 

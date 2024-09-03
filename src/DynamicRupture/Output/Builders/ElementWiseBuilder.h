@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 #define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
-#include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
+#include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "Initializer/Parameters/OutputParameters.h"
-#include "ReceiverBasedOutputBuilder.hpp"
+#include "ReceiverBasedOutputBuilder.h"
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {

@@ -2,21 +2,21 @@
 #define EQUATIONS_DATASTRUCTURES_H_
 
 // Gather all datastructure Headers here
-#include "Equations/anisotropic/Model/datastructures.hpp"   // IWYU pragma: keep
-#include "Equations/elastic/Model/datastructures.hpp"       // IWYU pragma: keep
-#include "Equations/poroelastic/Model/datastructures.hpp"   // IWYU pragma: keep
-#include "Equations/viscoelastic2/Model/datastructures.hpp" // IWYU pragma: keep
+#include "Equations/anisotropic/Model/Datastructures.h"   // IWYU pragma: keep
+#include "Equations/elastic/Model/Datastructures.h"       // IWYU pragma: keep
+#include "Equations/poroelastic/Model/Datastructures.h"   // IWYU pragma: keep
+#include "Equations/viscoelastic2/Model/Datastructures.h" // IWYU pragma: keep
 
-#include "Equations/anisotropic/Model/integrationData.hpp" // IWYU pragma: keep
-#include "Equations/elastic/Model/integrationData.hpp"     // IWYU pragma: keep
+#include "Equations/anisotropic/Model/IntegrationData.h" // IWYU pragma: keep
+#include "Equations/elastic/Model/IntegrationData.h"     // IWYU pragma: keep
 #ifdef USE_POROELASTIC
-#include "Equations/poroelastic/Model/integrationData.hpp" // IWYU pragma: keep
+#include "Equations/poroelastic/Model/IntegrationData.h" // IWYU pragma: keep
 #endif
 #ifdef USE_VISCOELASTIC
-#include "Equations/viscoelastic/Model/integrationData.hpp" // IWYU pragma: keep
+#include "Equations/viscoelastic/Model/IntegrationData.h" // IWYU pragma: keep
 #endif
 #ifdef USE_VISCOELASTIC2
-#include "Equations/viscoelastic2/Model/integrationData.hpp" // IWYU pragma: keep
+#include "Equations/viscoelastic2/Model/IntegrationData.h" // IWYU pragma: keep
 #endif
 
 namespace seissol::model {

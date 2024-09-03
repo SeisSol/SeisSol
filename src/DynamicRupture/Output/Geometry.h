@@ -2,7 +2,7 @@
 #define SEISSOL_DR_OUTPUT_GEOMETRY_HPP
 
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>

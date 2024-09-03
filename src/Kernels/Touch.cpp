@@ -5,7 +5,7 @@
 #include "Touch.h"
 
 #include "generated_code/tensor.h"
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cstddef>
 #include <yateto.h>
 

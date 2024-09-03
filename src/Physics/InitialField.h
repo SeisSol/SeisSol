@@ -8,8 +8,8 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::physics {

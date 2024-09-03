@@ -47,12 +47,12 @@
 #include <mpi.h>
 #endif
 
-#include "BasicTypedefs.hpp"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Kernels/common.hpp"
-#include "Equations/datastructures.hpp"
+#include "BasicTypedefs.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Kernels/Common.h"
+#include "Equations/Datastructures.h"
 #include "generated_code/tensor.h"
-#include "DynamicRupture/Typedefs.hpp"
+#include "DynamicRupture/Typedefs.h"
 #include "DynamicRupture/Misc.h"
 
 #include <cstddef>

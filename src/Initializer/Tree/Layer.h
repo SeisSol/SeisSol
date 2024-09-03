@@ -41,10 +41,10 @@
 #ifndef INITIALIZER_TREE_LAYER_HPP_
 #define INITIALIZER_TREE_LAYER_HPP_
 
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
 #include "Initializer/MemoryAllocator.h"
-#include "Node.hpp"
+#include "Node.h"
 #include <bitset>
 #include <cstring>
 #include <limits>

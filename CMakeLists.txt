@@ -96,8 +96,8 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("src/version_template.h"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
+configure_file("src/VersionTemplate.h"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
@@ -559,7 +559,7 @@ if (HAS_REDZONE)
 endif()
 
 # build SeisSol-bin
-  add_executable(SeisSol-bin src/main.cpp)
+  add_executable(SeisSol-bin src/Main.cpp)
   set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
   if (WITH_GPU)

@@ -51,8 +51,8 @@
 #include "CheckPoint.h"
 #include "WavefieldHeader.h"
 
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
 
 namespace seissol
 {

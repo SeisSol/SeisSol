@@ -1,7 +1,7 @@
 #ifndef SEISSOL_DR_OUTPUT_REFINERS_HPP
 #define SEISSOL_DR_OUTPUT_REFINERS_HPP
 
-#include "DynamicRupture/Output/DataTypes.hpp"
+#include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include <memory>
 #include <tuple>

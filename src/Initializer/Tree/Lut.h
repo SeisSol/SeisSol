@@ -42,8 +42,8 @@
 #ifndef INITIALIZER_TREE_LUT_HPP_
 #define INITIALIZER_TREE_LUT_HPP_
 
-#include "LTSTree.hpp"
-#include "Layer.hpp"
+#include "LTSTree.h"
+#include "Layer.h"
 
 namespace seissol {
 namespace initializer {

@@ -1,6 +1,6 @@
-#include "GlobalTimestep.hpp"
+#include "GlobalTimestep.h"
 
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Eigen/Dense>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <algorithm>
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "Equations/datastructures.hpp"
+#include "Equations/Datastructures.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 

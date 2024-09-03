@@ -2,10 +2,10 @@
 #ifndef PRE_PROCESSOR_MACROS_HPP
 #define PRE_PROCESSOR_MACROS_HPP
 
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 #include <cstddef>
 
-#include "Common/constants.hpp"
+#include "Common/Constants.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)

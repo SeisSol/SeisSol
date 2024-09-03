@@ -5,7 +5,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 
 namespace seissol::dr::friction_law {
 /**

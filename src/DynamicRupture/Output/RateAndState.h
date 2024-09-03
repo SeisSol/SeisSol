@@ -1,7 +1,7 @@
 #ifndef SEISSOL_DR_OUTPUT_RS_HPP
 #define SEISSOL_DR_OUTPUT_RS_HPP
 
-#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
 class RateAndState : public ReceiverOutput {

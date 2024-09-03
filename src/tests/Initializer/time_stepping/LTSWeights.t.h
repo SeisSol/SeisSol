@@ -5,8 +5,8 @@
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
+#include "Initializer/Typedefs.h"
 #include "SeisSol.h"
 
 namespace seissol::unit_test {

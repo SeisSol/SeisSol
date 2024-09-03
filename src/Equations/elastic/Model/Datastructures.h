@@ -43,7 +43,7 @@
 #ifndef MODEL_ELASTIC_DATASTRUCTURES_H_
 #define MODEL_ELASTIC_DATASTRUCTURES_H_
 
-#include "Model/common_datastructures.hpp"
+#include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include <array>

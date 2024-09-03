@@ -43,11 +43,11 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

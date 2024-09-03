@@ -1,7 +1,7 @@
 #ifndef SEISSOL_ENCODINGCONSTANTS_HPP
 #define SEISSOL_ENCODINGCONSTANTS_HPP
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include <cstdlib>
 
 namespace seissol::initializer::recording::inner_keys {

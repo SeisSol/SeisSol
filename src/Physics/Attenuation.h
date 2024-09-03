@@ -1,5 +1,5 @@
 
-#include "Equations/datastructures.hpp"
+#include "Equations/Datastructures.h"
 #include <cmath>
 #include <cstddef>
 

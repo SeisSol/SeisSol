@@ -3,8 +3,8 @@
 
 #include <Eigen/Dense>
 
-#include "Equations/datastructures.hpp"
-#include "Initializer/InputAux.hpp"
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {

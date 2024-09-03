@@ -42,8 +42,8 @@
 #ifndef INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 #define INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 
-#include "Layer.hpp"
-#include "Node.hpp"
+#include "Layer.h"
+#include "Node.h"
 
 namespace seissol {
 namespace initializer {

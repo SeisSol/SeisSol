@@ -38,9 +38,9 @@
  * @section DESCRIPTION
  **/
 
-#include "Lut.hpp"
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
+#include "Lut.h"
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Layer.h>
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

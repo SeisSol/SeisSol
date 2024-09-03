@@ -42,14 +42,14 @@
 
 #include <Eigen/Eigenvalues>
 #include "Geometry/PUMLReader.h"
-#include "Kernels/precision.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Kernels/Precision.h"
+#include "Initializer/Typedefs.h"
 
 #include "PUML/PUML.h"
 #include "PUML/Downward.h"
 #include "PUML/Upward.h"
 
-#include "Initializer/time_stepping/GlobalTimestep.hpp"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "generated_code/init.h"

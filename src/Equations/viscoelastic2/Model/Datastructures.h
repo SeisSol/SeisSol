@@ -43,10 +43,10 @@
 #ifndef MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 #define MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 
-#include "Common/constants.hpp"
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Model/common_datastructures.hpp"
+#include "Common/Constants.h"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Initializer/PreProcessorMacros.h"
+#include "Model/CommonDatastructures.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstddef>

@@ -3,8 +3,8 @@
 
 #ifdef ACL_DEVICE
 
-#include "Condition.hpp"
-#include "EncodedConstants.hpp"
+#include "Condition.h"
+#include "EncodedConstants.h"
 #include <array>
 #include <device.h>
 #include <string>

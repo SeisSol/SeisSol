@@ -1,5 +1,5 @@
 #include "MeshParameters.h"
-#include <Initializer/InputAux.hpp>
+#include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
 
 namespace seissol::initializer::parameters {

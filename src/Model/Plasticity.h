@@ -1,8 +1,8 @@
 #ifndef SEISSOL_MODEL_PLASTICITY_HPP_
 #define SEISSOL_MODEL_PLASTICITY_HPP_
 
-#include "Model/common_datastructures.hpp"
-#include <Kernels/precision.hpp>
+#include "Model/CommonDatastructures.h"
+#include <Kernels/Precision.h>
 #include <cmath>
 #include <string>
 

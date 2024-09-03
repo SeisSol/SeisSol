@@ -43,7 +43,7 @@
  * Counts the floating point operations in SeisSol.
  **/
 
-#include "Unit.hpp"
+#include "Unit.h"
 #include <cassert>
 #include <cstddef>
 #include <fstream>
@@ -58,7 +58,7 @@ long long pspamm_num_total_flops = 0;
 
 #include "Parallel/MPI.h"
 
-#include "FlopCounter.hpp"
+#include "FlopCounter.h"
 
 #include <utils/logger.h>
 

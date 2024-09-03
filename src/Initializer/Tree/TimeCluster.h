@@ -41,8 +41,8 @@
 #ifndef INITIALIZER_TREE_TIMECLUSTER_HPP_
 #define INITIALIZER_TREE_TIMECLUSTER_HPP_
 
-#include "LTSInternalNode.hpp"
-#include "Log2.hpp"
+#include "LTSInternalNode.h"
+#include "Log2.h"
 
 namespace seissol::initializer {
 

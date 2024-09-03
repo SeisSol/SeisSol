@@ -38,7 +38,7 @@
  * @section DESCRIPTION
  **/
  
-#include "Model/common.hpp"
+#include "Model/Common.h"
 #include <cmath>
 #include <iostream>
 

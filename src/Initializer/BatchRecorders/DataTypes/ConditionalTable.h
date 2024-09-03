@@ -1,10 +1,10 @@
 #ifndef SEISSOL_CONDITIONALTABLE_HPP
 #define SEISSOL_CONDITIONALTABLE_HPP
 
-#include "Condition.hpp"
-#include "ConditionalKey.hpp"
-#include "EncodedConstants.hpp"
-#include "Table.hpp"
+#include "Condition.h"
+#include "ConditionalKey.h"
+#include "EncodedConstants.h"
+#include "Table.h"
 
 namespace seissol::initializer::recording {
 using ConditionalPointersToRealsTable =

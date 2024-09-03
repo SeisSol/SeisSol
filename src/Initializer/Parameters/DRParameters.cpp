@@ -1,6 +1,6 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cmath>
 #include <limits>
 #include <utils/logger.h>

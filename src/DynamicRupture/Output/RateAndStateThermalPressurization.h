@@ -1,8 +1,8 @@
 #ifndef SEISSOL_DR_OUTPUT_RS_TP_HPP
 #define SEISSOL_DR_OUTPUT_RS_TP_HPP
 
-#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include <DynamicRupture/Output/RateAndState.hpp>
+#include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include <DynamicRupture/Output/RateAndState.h>
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {

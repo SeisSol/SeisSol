@@ -5,7 +5,7 @@
 #include <mpi.h>
 #include <time.h>
 
-#include "Unit.hpp"
+#include "Unit.h"
 #include <string>
 
 namespace seissol {

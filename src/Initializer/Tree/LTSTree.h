@@ -42,9 +42,9 @@
 #ifndef INITIALIZER_TREE_LTSTREE_HPP_
 #define INITIALIZER_TREE_LTSTREE_HPP_
 
-#include "LTSInternalNode.hpp"
-#include "Layer.hpp"
-#include "TimeCluster.hpp"
+#include "LTSInternalNode.h"
+#include "Layer.h"
+#include "TimeCluster.h"
 
 #include "Initializer/MemoryAllocator.h"
 

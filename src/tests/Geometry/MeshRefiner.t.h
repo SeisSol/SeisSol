@@ -2,8 +2,8 @@
 #include <Eigen/Dense>
 #include <array>
 
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Geometry/refinement/RefinerUtils.h"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
 #include "MockReader.h"
 
 namespace seissol::unit_test {

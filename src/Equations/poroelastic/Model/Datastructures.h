@@ -1,8 +1,8 @@
 #ifndef MODEL_POROELASTIC_DATASTRUCTURES_H_
 #define MODEL_POROELASTIC_DATASTRUCTURES_H_
 
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Model/common_datastructures.hpp"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "Model/CommonDatastructures.h"
 #include <array>
 #include <cassert>
 #include <cstddef>

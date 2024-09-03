@@ -4,7 +4,7 @@
 
 #include "WeightsModels.h"
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Parallel/MPI.h"
 

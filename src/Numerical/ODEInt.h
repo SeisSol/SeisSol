@@ -3,7 +3,7 @@
 
 #include <Eigen/Dense>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "ODEVector.h"
 #include <cassert>
 

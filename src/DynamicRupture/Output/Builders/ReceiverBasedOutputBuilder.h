@@ -2,16 +2,16 @@
 #define SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/InputAux.hpp"
+#include "Initializer/InputAux.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Kernels/precision.hpp"
-#include "Model/common.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include <vector>

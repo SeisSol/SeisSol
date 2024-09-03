@@ -46,7 +46,7 @@
 #include <set>
 
 #include "Parallel/MPI.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
 namespace seissol {
 namespace initializer {

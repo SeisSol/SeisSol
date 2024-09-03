@@ -42,7 +42,7 @@
 #ifndef LTSLAYOUT_H_
 #define LTSLAYOUT_H_
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"

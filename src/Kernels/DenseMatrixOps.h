@@ -46,17 +46,17 @@
 #endif
 
 #if defined(__AVX512F__)
-#include "denseMatrixOps_AVX512.hpp"
+#include "DenseMatrixOpsAVX512.h"
 #elif defined(__MIC__)
-#include "denseMatrixOps_MIC.hpp"
+#include "DenseMatrixOpsMIC.h"
 #elif defined(__AVX2__)
-#include "denseMatrixOps_AVX2.hpp"
+#include "DenseMatrixOpsAVX2.h"
 #elif defined(__AVX__)
-#include "denseMatrixOps_AVX.hpp"
+#include "DenseMatrixOpsAVX.h"
 #elif defined(__SSE3__)
-#include "denseMatrixOps_SSE3.hpp"
+#include "DenseMatrixOpsSSE3.h"
 #else
-#include "denseMatrixOps_noarch.hpp"
+#include "DenseMatrixOpsNoarch.h"
 #endif
 
 #include <cassert>

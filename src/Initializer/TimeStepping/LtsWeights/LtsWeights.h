@@ -49,7 +49,7 @@
 #include <string>
 #include <vector>
 
-#include "Initializer/time_stepping/GlobalTimestep.hpp"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }

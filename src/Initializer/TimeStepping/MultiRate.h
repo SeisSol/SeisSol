@@ -41,7 +41,7 @@
 
 #include "Parallel/MPI.h"
 
-#include "common.hpp"
+#include "Common.h"
 #include <algorithm>
 #include <limits>
 

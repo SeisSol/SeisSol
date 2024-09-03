@@ -58,7 +58,7 @@
 #include "utils/stringutils.h"
 
 #include "Checkpoint/CheckPoint.h"
-#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/PreProcessorMacros.h"
 
 namespace seissol
 {

@@ -45,8 +45,8 @@
 #include "utils/logger.h"
 
 #include "LtsLayout.h"
-#include "MultiRate.hpp"
-#include "GlobalTimestep.hpp"
+#include "MultiRate.h"
+#include "GlobalTimestep.h"
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"

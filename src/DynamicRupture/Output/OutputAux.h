@@ -1,7 +1,7 @@
 #ifndef SEISSOL_DR_OUTPUT_AUX_HPP
 #define SEISSOL_DR_OUTPUT_AUX_HPP
 
-#include "DataTypes.hpp"
+#include "DataTypes.h"
 #include "Geometry/MeshReader.h"
 #include <array>
 #include <memory>

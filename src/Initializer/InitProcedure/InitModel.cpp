@@ -1,20 +1,20 @@
 
-#include "Equations/datastructures.hpp"
+#include "Equations/Datastructures.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/time_stepping/common.hpp"
-#include "Initializer/tree/LTSSync.hpp"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Physics/Attenuation.hpp"
-#include <Initializer/BasicTypedefs.hpp>
+#include "Initializer/TimeStepping/Common.h"
+#include "Initializer/Tree/LTSSync.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
+#include "Physics/Attenuation.h"
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Model/common_datastructures.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
@@ -26,7 +26,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "InitModel.hpp"
+#include "InitModel.h"
 #include "SeisSol.h"
 
 #include "Parallel/MPI.h"

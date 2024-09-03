@@ -1,7 +1,7 @@
 #ifndef SEISSOL_CONDITION_HPP
 #define SEISSOL_CONDITION_HPP
 
-#include "EncodedConstants.hpp"
+#include "EncodedConstants.h"
 #include <assert.h>
 #include <type_traits>
 

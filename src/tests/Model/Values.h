@@ -1,7 +1,7 @@
 #ifndef UNIT_TEST_GODUNOVSTATE_VALUES
 #define UNIT_TEST_GODUNOVSTATE_VALUES
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include <array>
 
 namespace seissol::unit_test {

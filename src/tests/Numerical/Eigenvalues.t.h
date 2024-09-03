@@ -1,4 +1,4 @@
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "tests/TestHelper.h"
 

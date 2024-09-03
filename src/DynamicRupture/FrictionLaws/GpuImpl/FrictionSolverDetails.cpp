@@ -1,10 +1,10 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Common/constants.hpp"
+#include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.hpp"
+#include "DynamicRupture/Typedefs.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "Parallel/AcceleratorDevice.h"
 #include <cstddef>
 #include <init.h>

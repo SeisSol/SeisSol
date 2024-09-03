@@ -1,10 +1,10 @@
 #ifndef SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
 #define SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
 
-#include "Geometry.hpp"
+#include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
 #include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>

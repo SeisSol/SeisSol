@@ -1,8 +1,8 @@
 #ifndef SEISSOL_DEVICEAUX_PLASTICITY_H
 #define SEISSOL_DEVICEAUX_PLASTICITY_H
 
-#include "Initializer/BasicTypedefs.hpp"
-#include "Model/plasticity.hpp"
+#include "Initializer/BasicTypedefs.h"
+#include "Model/Plasticity.h"
 #include <stddef.h>
 
 #define NUM_STRESS_COMPONENTS 6

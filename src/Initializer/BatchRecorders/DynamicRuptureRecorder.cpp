@@ -1,10 +1,10 @@
 #include "Recorders.h"
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
 #include <array>
 #include <cstddef>
 #include <tensor.h>

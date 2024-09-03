@@ -43,12 +43,12 @@
 #include <memory>
 
 #include "Geometry/MeshReader.h"
-#include "Geometry/refinement/TriangleRefiner.h"
-#include "Kernels/precision.hpp"
-#include "Kernels/common.hpp"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Common.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
 
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3

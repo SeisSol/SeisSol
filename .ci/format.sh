@@ -14,7 +14,7 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
-        src/Initializer/tree
+        src/Initializer/Tree
         src/Modules
         src/Monitoring
         src/Numerical
@@ -27,18 +27,18 @@ format() {
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Equations/elastic/Model/datastructures.hpp
-        src/Equations/elastic/Model/integrationData.hpp
-        src/Equations/viscoelastic/Model/integrationData.hpp
-        src/Equations/viscoelastic2/Model/datastructures.hpp
-        src/Equations/viscoelastic2/Model/integrationData.hpp
-        src/Equations/anisotropic/Model/datastructures.hpp
-        src/Equations/anisotropic/Model/integrationData.hpp
-        src/Equations/poroelastic/Model/datastructures.hpp
-        src/Equations/poroelastic/Model/integrationData.hpp
-        src/Equations/datastructures.hpp
+        src/Equations/elastic/Model/Datastructures.h
+        src/Equations/elastic/Model/IntegrationData.h
+        src/Equations/viscoelastic/Model/IntegrationData.h
+        src/Equations/viscoelastic2/Model/Datastructures.h
+        src/Equations/viscoelastic2/Model/IntegrationData.h
+        src/Equations/anisotropic/Model/Datastructures.h
+        src/Equations/anisotropic/Model/IntegrationData.h
+        src/Equations/poroelastic/Model/Datastructures.h
+        src/Equations/poroelastic/Model/IntegrationData.h
+        src/Equations/Datastructures.h
         src/Equations/Setup.h
-        src/Initializer/BasicTypedefs.hpp
+        src/Initializer/BasicTypedefs.h
         src/Initializer/Boundary.h
         src/Initializer/DynamicRupture.h
         src/Initializer/DeviceGraph.h
@@ -46,7 +46,7 @@ format() {
         src/Initializer/GlobalData.cpp
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp
-        src/Initializer/InputAux.hpp
+        src/Initializer/InputAux.h
         src/Initializer/LTS.h
         src/Initializer/MemoryAllocator.h
         src/Initializer/MemoryAllocator.cpp
@@ -54,10 +54,10 @@ format() {
         src/Initializer/ParameterDB.cpp
         src/Initializer/PointMapper.h
         src/Initializer/PointMapper.cpp
-        src/Initializer/preProcessorMacros.hpp
-        src/Initializer/time_stepping/GlobalTimestep.hpp
-        src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Kernels/common.hpp
+        src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/GlobalTimestep.h
+        src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Kernels/Common.h
         src/Kernels/DynamicRupture.h
         src/Kernels/DynamicRupture.cpp
         src/Kernels/Local.h
@@ -69,7 +69,7 @@ format() {
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Kernels/precision.hpp
+        src/Kernels/Precision.h
         src/Kernels/Receiver.h
         src/Kernels/Receiver.cpp
         src/Kernels/Time.h
@@ -77,8 +77,8 @@ format() {
         src/Kernels/TimeCommon.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Model/common_datastructures.hpp
-        src/Model/plasticity.hpp
+        src/Model/CommonDatastructures.h
+        src/Model/Plasticity.h
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
@@ -95,7 +95,7 @@ format() {
         src/ResultWriter/ThreadsPinningWriter.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/main.cpp
+        src/Main.cpp
         "
 
 

@@ -41,22 +41,22 @@
  **/
 
 #include "TimeCommon.h"
-#include <DataTypes/ConditionalTable.hpp>
-#include <Initializer/BasicTypedefs.hpp>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Kernels/Precision.h>
 #include <Kernels/Time.h>
-#include <Kernels/precision.hpp>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <stdint.h>
 #include <tensor.h>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #endif
 
 #ifndef NDEBUG
-#include "Common/constants.hpp"
+#include "Common/Constants.h"
 #include <cstdint>
 #endif
 

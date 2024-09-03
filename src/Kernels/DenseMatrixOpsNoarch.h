@@ -38,7 +38,7 @@
  * Common kernel-level functions
  **/
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #define DMO_INCREMENT 1
 #define DMO_BROADCAST(IN, OUT) real OUT = *(IN);

@@ -1,9 +1,9 @@
-#include "InitMesh.hpp"
+#include "InitMesh.h"
 
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
-#include <Initializer/time_stepping/LtsWeights/LtsWeights.h>
+#include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
 #include <cstring>
 
 #include "utils/env.h"
@@ -20,10 +20,10 @@
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
+#include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/instrumentation.hpp"
 #include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"

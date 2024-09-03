@@ -43,9 +43,9 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
-#include "Common/constants.hpp"
+#include "Common/Constants.h"
 #include "Initializer/MemoryAllocator.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>

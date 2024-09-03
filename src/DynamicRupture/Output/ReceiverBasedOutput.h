@@ -1,12 +1,12 @@
 #ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
 #define SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
 
-#include "DynamicRupture/Output/ParametersInitializer.hpp"
+#include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/tree/Lut.hpp"
+#include "Initializer/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
 #include <memory>

@@ -6,8 +6,8 @@
 #include <type_traits>
 
 #include "Initializer/MemoryManager.h"
-#include "LTSTree.hpp"
-#include "Lut.hpp"
+#include "LTSTree.h"
+#include "Lut.h"
 
 namespace seissol {
 class SeisSol;

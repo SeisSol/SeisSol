@@ -44,13 +44,13 @@
 #include <Eigen/Dense>
 
 #include "utils/logger.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "generated_code/init.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical/Transformation.h"
 #include "Numerical/Eigenvalues.h"
 
-#include "Model/common_datastructures.hpp"
+#include "Model/CommonDatastructures.h"
 
 
 namespace seissol {

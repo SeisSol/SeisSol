@@ -3,7 +3,7 @@
 
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
-#include "ReceiverBasedOutputBuilder.hpp"
+#include "ReceiverBasedOutputBuilder.h"
 
 namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
