@@ -690,7 +690,7 @@ if (TESTING)
 
   add_executable(SeisSol-serial-test
             ${seissol_test_sources}
-            src/tests/test_main.cpp)
+            src/tests/TestMain.cpp)
   target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
 if(WITH_GPU)
   target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)

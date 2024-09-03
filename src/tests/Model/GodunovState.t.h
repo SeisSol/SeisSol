@@ -4,7 +4,7 @@
 #include "Equations/Setup.h"
 #include "Model/Common.h"
 
-#include "values.h"
+#include "Values.h"
 
 namespace seissol::unit_test {
 template <typename T>
