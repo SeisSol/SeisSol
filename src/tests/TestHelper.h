@@ -3,6 +3,8 @@
 
 #include <cmath>
 #include <limits>
+#include <ostream>
+#include <vector>
 
 #include "doctest.h"
 
@@ -94,5 +96,17 @@ inline doctest::String toString(const AbsApprox& in) {
 }
 
 } // namespace seissol::unit_test
+
+namespace std {
+template <typename T>
+ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
+  stream << "{";
+  for (const auto& item : vec) {
+    stream << item << ",";
+  }
+  stream << "}";
+  return stream;
+}
+} // namespace std
 
 #endif // SEISSOL_TESTHELPER_H
