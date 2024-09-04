@@ -5,7 +5,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include "Common/filesystem.h"
+#include "Common/Filesystem.h"
 
 namespace seissol::initializer::parameters {
 
