@@ -43,35 +43,39 @@
  **/
 
 #include "PointSource.h"
+#include <Equations/Datastructures.h>
+#include <Initializer/MemoryAllocator.h>
+#include <Kernels/Precision.h>
+#include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <cmath>
 
 void seissol::sourceterm::transformMomentTensor(
-    const real i_localMomentTensor[3][3],
-    const real i_localSolidVelocityComponent[3],
-    real i_localPressureComponent,
-    const real i_localFluidVelocityComponent[3],
+    const real localMomentTensor[3][3],
+    const real localSolidVelocityComponent[3],
+    real localPressureComponent,
+    const real localFluidVelocityComponent[3],
     real strike,
     real dip,
     real rake,
-    AlignedArray<real, PointSources::TensorSize>& o_forceComponents) {
-  real cstrike = cos(strike);
-  real sstrike = sin(strike);
+    seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents) {
+  const real cstrike = cos(strike);
+  const real sstrike = sin(strike);
   real cdip = cos(dip);
-  real sdip = sin(dip);
-  real crake = cos(rake);
-  real srake = sin(rake);
+  const real sdip = sin(dip);
+  const real crake = cos(rake);
+  const real srake = sin(rake);
 
   // Note, that R[j][i] = R_{ij} here.
-  real R[3][3] = {{crake * cstrike + cdip * srake * sstrike,
-                   cdip * crake * sstrike - cstrike * srake,
-                   sdip * sstrike},
-                  {cdip * cstrike * srake - crake * sstrike,
-                   srake * sstrike + cdip * crake * cstrike,
-                   cstrike * sdip},
-                  {-sdip * srake, -crake * sdip, cdip}};
+  const real r[3][3] = {{crake * cstrike + cdip * srake * sstrike,
+                         cdip * crake * sstrike - cstrike * srake,
+                         sdip * sstrike},
+                        {cdip * cstrike * srake - crake * sstrike,
+                         srake * sstrike + cdip * crake * cstrike,
+                         cstrike * sdip},
+                        {-sdip * srake, -crake * sdip, cdip}};
 
-  real M[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+  real m[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
   // Calculate M_{ij} = R_{ki} * LM_{kl} * R_{lj}.
   // Note, again, that X[j][i] = X_{ij} here.
@@ -81,7 +85,7 @@ void seissol::sourceterm::transformMomentTensor(
     for (unsigned i = j; i < 3; ++i) {
       for (unsigned k = 0; k < 3; ++k) {
         for (unsigned l = 0; l < 3; ++l) {
-          M[j][i] += R[i][k] * i_localMomentTensor[l][k] * R[j][l];
+          m[j][i] += r[i][k] * localMomentTensor[l][k] * r[j][l];
         }
       }
     }
@@ -89,31 +93,30 @@ void seissol::sourceterm::transformMomentTensor(
   real f[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   for (unsigned j = 0; j < 3; ++j) {
     for (unsigned k = 0; k < 3; ++k) {
-      f[k] += R[k][j] * i_localSolidVelocityComponent[j];
-      f[k + 3] += R[k][j] * i_localFluidVelocityComponent[j];
+      f[k] += r[k][j] * localSolidVelocityComponent[j];
+      f[k + 3] += r[k][j] * localFluidVelocityComponent[j];
     }
   }
 
-#if NUMBER_OF_QUANTITIES < 6
-#error You cannot use PointSource with less than 6 quantities.
-#endif
+  static_assert(seissol::model::MaterialT::NumQuantities >= 6,
+                "You cannot use PointSource with less than 6 quantities.");
 
-  std::fill(o_forceComponents.data(), o_forceComponents.data() + o_forceComponents.size(), 0);
+  std::fill(forceComponents.data(), forceComponents.data() + forceComponents.size(), 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
-  o_forceComponents[0] = M[0][0];
-  o_forceComponents[1] = M[1][1];
-  o_forceComponents[2] = M[2][2];
-  o_forceComponents[3] = M[0][1];
-  o_forceComponents[4] = M[1][2];
-  o_forceComponents[5] = M[0][2];
-  o_forceComponents[6] = f[0];
-  o_forceComponents[7] = f[1];
-  o_forceComponents[8] = f[2];
+  forceComponents[0] = m[0][0];
+  forceComponents[1] = m[1][1];
+  forceComponents[2] = m[2][2];
+  forceComponents[3] = m[0][1];
+  forceComponents[4] = m[1][2];
+  forceComponents[5] = m[0][2];
+  forceComponents[6] = f[0];
+  forceComponents[7] = f[1];
+  forceComponents[8] = f[2];
 #ifdef USE_POROELASTIC
-  o_forceComponents[9] = i_localPressureComponent;
-  o_forceComponents[10] = f[3];
-  o_forceComponents[11] = f[4];
-  o_forceComponents[12] = f[5];
+  forceComponents[9] = localPressureComponent;
+  forceComponents[10] = f[3];
+  forceComponents[11] = f[4];
+  forceComponents[12] = f[5];
 #endif
 }

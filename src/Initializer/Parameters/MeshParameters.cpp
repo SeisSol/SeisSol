@@ -1,4 +1,6 @@
 #include "MeshParameters.h"
+#include <Initializer/InputAux.h>
+#include <Initializer/Parameters/ParameterReader.h>
 
 namespace seissol::initializer::parameters {
 
@@ -11,8 +13,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                                                     {{"netcdf", MeshFormat::Netcdf},
                                                      {"puml", MeshFormat::PUML},
                                                      {"cubegenerator", MeshFormat::CubeGenerator}});
-  const std::string meshFileName =
-      reader->readOrFail<std::string>("meshfile", "No mesh file given.");
+  const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
   const BoundaryFormat pumlBoundaryFormat =
@@ -27,7 +28,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
-  Eigen::Vector3d displacement(displacementRaw.data());
+  const Eigen::Vector3d displacement(displacementRaw.data());
   const auto scalingXRaw = seissol::initializer::convertStringToArray<double, 3>(
       reader->readWithDefault("scalingmatrixx", std::string("1.0 0.0 0.0")));
   const auto scalingYRaw = seissol::initializer::convertStringToArray<double, 3>(

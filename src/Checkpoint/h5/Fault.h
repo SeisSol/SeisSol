@@ -58,8 +58,8 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Fault.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Typedefs.h"
 
 #endif // USE_HDF
 

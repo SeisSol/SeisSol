@@ -43,9 +43,9 @@
 
 #include "Simulator.h"
 #include "Modules/Modules.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/Unit.hpp"
+#include "Monitoring/Unit.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -152,6 +152,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     // Set new upcoming time (might by overwritten by any of the modules)
     upcomingTime = m_finalTime;
 
+    // synchronize data (TODO(David): synchronize lazily)
+    seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
 
@@ -172,6 +175,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }
+
+  // synchronize data (TODO(David): synchronize lazily)
+  seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 

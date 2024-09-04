@@ -1,7 +1,12 @@
 #include "ClusteringWriter.h"
 
-#include "Common/filesystem.h"
+#include "Common/Filesystem.h"
+#include <Initializer/Tree/Layer.h>
+#include <cstddef>
 #include <fstream>
+#include <ios>
+#include <string>
+#include <utils/logger.h>
 
 #include "Parallel/MPI.h"
 namespace seissol::writer {

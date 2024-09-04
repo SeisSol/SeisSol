@@ -52,14 +52,15 @@ namespace seissol {
   void localIntegrationOnDevice(CompoundGlobalData& globalData,
                                 initializer::LTS& lts,
                                 initializer::Layer& layer,
-                                seissol::SeisSol& seissolInstance);
+                                seissol::SeisSol& seissolInstance,
+                                seissol::parallel::runtime::StreamRuntime& runtime);
   
   void fillWithStuff(real* buffer,
                      unsigned nValues);
 
   void fakeData(initializer::LTS& lts,
                 initializer::Layer& layer,
-                FaceType faceTp = FaceType::regular);
+                FaceType faceTp = FaceType::Regular);
   
   double miniSeisSol(initializer::MemoryManager& memoryManager,
                      bool usePlasticity,

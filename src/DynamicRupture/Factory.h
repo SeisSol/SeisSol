@@ -7,7 +7,7 @@
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
 #include "Initializer/DynamicRupture.h"
-#include "Output/Output.hpp"
+#include "Output/Output.h"
 
 namespace seissol {
 class SeisSol;
@@ -23,6 +23,7 @@ struct DynamicRuptureTuple {
   std::unique_ptr<seissol::initializer::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
+  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLawDevice;
   std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 

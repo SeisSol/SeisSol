@@ -5,6 +5,8 @@
 #include "Touch.h"
 
 #include "generated_code/tensor.h"
+#include <Kernels/Precision.h>
+#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

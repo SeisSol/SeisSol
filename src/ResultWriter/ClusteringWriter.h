@@ -1,10 +1,10 @@
 #ifndef SEISSOL_CLUSTERINGWRITER_H
 #define SEISSOL_CLUSTERINGWRITER_H
 
+#include "Initializer/Tree/Layer.h"
 #include <string>
-#include <vector>
 #include <type_traits>
-#include "Initializer/tree/Layer.hpp"
+#include <vector>
 
 namespace seissol::writer {
 

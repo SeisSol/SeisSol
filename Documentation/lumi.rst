@@ -1,6 +1,8 @@
 LUMI
 ====
 
+[NOTE: this is almost a copy of the Frontier page]
+
 Website: https://www.lumi-supercomputer.eu/
 
 Here, we concern ourselves with running SeisSol on the **LUMI-G** partition; that is, on the GPU partition.
@@ -152,8 +154,6 @@ For easi (depending on the former two):
     ninja install
     cd ../..
 
-**WARNING: libxsmm gives errors at the moment. We recommend to only resort to PSpaMM for the time being (add ``-DGEMM_TOOLS_LIST=PSpaMM`` to your CMake configuration of SeisSol)**
-
 For libxsmm (note that we need 1.17 sharp; the latest main will not work as intended with the generator):
 
 .. code-block:: bash
@@ -164,12 +164,15 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
     cd ..
 
+In case there are problems with using libxsmm, you can also consider using only PSpaMM instead; at a tiny performance penalty.
+
 Compiling SeisSol
 ~~~~~~~~~~~~~~~~~
 
 Finally, it's time to clone SeisSol and build it.
 
 However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
+Also, for LUMI, we disable the ROCm graphs, since they are not fully functional with SeisSol and ROCm 5.6.
 
 In total, we get the following:
 
@@ -178,7 +181,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
@@ -188,6 +191,9 @@ Running Jobs
 
 Attached is a job script which does the pinning for us.
 The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
+
+Also, for now we disable the ``HSA_XNACK`` feature, as it is known to cause problems with ROCm 5.6 (cf. https://lumi-supercomputer.github.io/LUMI-EasyBuild-docs/r/rocm ).
+Thus, the unified memory functionality may be very slow (``SEISSOL_USM=1`` or ``SEISSOL_USM_MPI=1``).
 
 .. code-block:: bash
 
@@ -221,7 +227,7 @@ The pinning on the LUMI nodes needs some special attention, since 8 out of the 6
     CPU_BIND="${CPU_BIND},7e00000000,7e0000000000"
 
     export MPICH_GPU_SUPPORT_ENABLED=1
-    export HSA_XNACK=1
+    export HSA_XNACK=0
 
     export OMP_NUM_THREADS=3
     export OMP_PLACES="cores(3)"

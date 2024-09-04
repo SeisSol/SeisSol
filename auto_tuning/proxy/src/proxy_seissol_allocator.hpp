@@ -56,13 +56,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/Tree/LTSTree.h"
 #include "Initializer/LTS.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/GlobalData.h"
 #include "Solver/time_stepping/MiniSeisSol.cpp"
 #include <yateto.h>
 #include <unordered_set>
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -80,6 +81,7 @@ GlobalData m_globalDataOnHost;
 GlobalData m_globalDataOnDevice;
 
 real* m_fakeDerivatives = nullptr;
+real* m_fakeDerivativesHost = nullptr;
 
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
@@ -88,12 +90,14 @@ seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator *m_allocator{nullptr};
 
+seissol::parallel::runtime::StreamRuntime* runtime;
+
 namespace tensor = seissol::tensor;
 
 void initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(m_globalDataOnHost,
                                                            *m_allocator,
-                                                           MEMKIND_GLOBAL);
+                                                           seissol::memory::Standard);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &m_globalDataOnHost;
@@ -108,6 +112,9 @@ void initGlobalData() {
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
+
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  m_dynRupKernel.setTimeStepWidth(timeStepWidth);
 }
 
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
@@ -142,19 +149,27 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
     
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
+    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::Standard);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
       for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-        m_fakeDerivatives[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
+        m_fakeDerivativesHost[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
       }
     }
+
+#ifdef ACL_DEVICE
+    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::DeviceGlobalMemory);
+    const auto& device = ::device::DeviceInstance::getInstance();
+    device.api->copyTo(m_fakeDerivatives, m_fakeDerivativesHost, i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
+#else
+    m_fakeDerivatives = m_fakeDerivativesHost;
+#endif
   }
 
   /* cell information and integration data*/
-  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
+  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDynamicRupture) {
     // From lts tree
@@ -200,6 +215,10 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 
 #ifdef ACL_DEVICE
 void initDataStructuresOnDevice(bool enableDynamicRupture) {
+  const auto& device = ::device::DeviceInstance::getInstance();
+  m_ltsTree->synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  device.api->syncDefaultStreamWithHost();
+
   seissol::initializer::TimeCluster& cluster = m_ltsTree->child(0);
   seissol::initializer::Layer& layer = cluster.child<Interior>();
 

@@ -1,11 +1,12 @@
-#include "OutputAux.hpp"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/Geometry.hpp"
+#include "OutputAux.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Kernels/Precision.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 #include <cstddef>
 #include <init.h>
@@ -91,7 +92,7 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.size; ++i) {
+  for (size_t i = 0; i < data.Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
     data.weights[i] = weightsView(i);
@@ -125,7 +126,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
+  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
   double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
 
   for (auto& geoPoint : geoPoints) {
@@ -137,7 +138,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.size);
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
@@ -193,7 +194,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
     auto referenceCoords = transformations::tetrahedronGlobalToReference(
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
     const basisFunction::SampledBasisFunctions<real> sampler(
-        CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;
   };
 
