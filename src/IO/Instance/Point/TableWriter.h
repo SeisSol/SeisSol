@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
+#define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Writer/Writer.h>
 #include <functional>
 #include <memory>
 #include <string>
@@ -49,4 +49,4 @@ class TableWriter {
 
 } // namespace seissol::io::instance::point
 
-#endif // SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_

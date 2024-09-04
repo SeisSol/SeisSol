@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_DATATYPE_DATATYPE_HPP_
-#define SEISSOL_SRC_IO_DATATYPE_DATATYPE_HPP_
+#ifndef SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
+#define SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
 
 #include <memory>
 #include <optional>
@@ -191,4 +191,4 @@ class StructDatatype : public Datatype {
 
 } // namespace seissol::io::datatype
 
-#endif // SEISSOL_SRC_IO_DATATYPE_DATATYPE_HPP_
+#endif // SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_

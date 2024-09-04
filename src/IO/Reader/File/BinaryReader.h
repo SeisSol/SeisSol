@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_
-#define SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_
+#ifndef SEISSOL_SRC_IO_READER_FILE_BINARYREADER_H_
+#define SEISSOL_SRC_IO_READER_FILE_BINARYREADER_H_
 
-#include <IO/Datatype/Datatype.hpp>
+#include <IO/Datatype/Datatype.h>
 #include <memory>
 #include <mpi.h>
 #include <stack>
@@ -37,4 +37,4 @@ class BinaryReader {
 };
 } // namespace seissol::io::reader::file
 
-#endif // SEISSOL_SRC_IO_READER_FILE_BINARYREADER_HPP_
+#endif // SEISSOL_SRC_IO_READER_FILE_BINARYREADER_H_

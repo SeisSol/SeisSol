@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Datatype.hpp"
+#include "Datatype.h"
 
 #include <algorithm>
 #include <array>

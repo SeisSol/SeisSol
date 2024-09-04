@@ -37,7 +37,6 @@
  */
 
 #include "Geometry/MeshDefinition.h"
-#include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/TypeInference.h>

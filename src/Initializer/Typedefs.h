@@ -54,8 +54,8 @@
 #include "generated_code/tensor.h"
 #include "DynamicRupture/Typedefs.h"
 #include "DynamicRupture/Misc.h"
-#include "IO/Datatype/Datatype.hpp"
-#include "IO/Datatype/Inference.hpp"
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
 
 #include <cstddef>
 #include <vector>

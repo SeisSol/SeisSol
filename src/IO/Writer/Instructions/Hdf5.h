@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_
-#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_H_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_H_
 
-#include "Data.hpp"
-#include "Instruction.hpp"
+#include "Data.h"
+#include "Instruction.h"
 #include <memory>
 #include <optional>
 #include <string>
@@ -76,4 +76,4 @@ struct Hdf5DataWrite : public WriteInstruction {
 };
 } // namespace seissol::io::writer::instructions
 
-#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_HDF5_H_

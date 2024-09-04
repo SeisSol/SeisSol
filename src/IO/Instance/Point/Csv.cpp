@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Csv.hpp"
+#include "Csv.h"
 
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Writer.h>
 #include <cstddef>
 #include <functional>
 #include <memory>

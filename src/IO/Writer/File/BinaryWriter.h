@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_
-#define SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
+#ifndef SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_
+#define SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Data.h>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -43,4 +43,4 @@ class BinaryWriter {
 };
 } // namespace seissol::io::writer::file
 
-#endif // SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_FILE_BINARYWRITER_H_

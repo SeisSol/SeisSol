@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "MPIType.hpp"
-#include <IO/Datatype/Datatype.hpp>
+#include "MPIType.h"
+#include <IO/Datatype/Datatype.h>
 #include <cstddef>
 #include <iosfwd>
 #include <memory>

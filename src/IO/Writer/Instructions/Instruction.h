@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_
-#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_H_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_H_
 
-#include <IO/Writer/Instructions/Data.hpp>
+#include <IO/Writer/Instructions/Data.h>
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
@@ -21,4 +21,4 @@ class WriteInstruction {
 
 } // namespace seissol::io::writer::instructions
 
-#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_INSTRUCTION_H_

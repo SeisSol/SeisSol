@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "HDF5Type.hpp"
+#include "HDF5Type.h"
 
-#include "Datatype.hpp"
+#include "Datatype.h"
 #include <H5Ipublic.h>
 #include <H5Tpublic.h>
 #include <H5public.h>

@@ -42,7 +42,7 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
-#include <IO/Manager.hpp>
+#include <IO/Manager.h>
 #include <memory>
 #include <string>
 

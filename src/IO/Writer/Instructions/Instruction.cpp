@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Instruction.hpp"
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
+#include "Instruction.h"
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <string>
 #include <yaml-cpp/yaml.h>

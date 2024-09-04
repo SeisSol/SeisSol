@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_
-#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
 #include "async/ExecInfo.h"
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Datatype/Inference.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Datatype/Inference.h>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -234,4 +234,4 @@ class GeneratedBuffer : public AdhocBuffer {
 
 } // namespace seissol::io::writer
 
-#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_

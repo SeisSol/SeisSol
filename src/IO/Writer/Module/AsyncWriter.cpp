@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "AsyncWriter.hpp"
+#include "AsyncWriter.h"
 
 #include "async/ExecInfo.h"
-#include <IO/Writer/Writer.hpp>
+#include <IO/Writer/Writer.h>
 #include <cstddef>
 #include <mpi.h>
 #include <mutex>

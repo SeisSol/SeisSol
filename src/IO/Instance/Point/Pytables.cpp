@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Pytables.hpp"
+#include "Pytables.h"
 
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Hdf5.h>
+#include <IO/Writer/Writer.h>
 #include <cstddef>
 #include <functional>
 #include <memory>

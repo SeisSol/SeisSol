@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Hdf5.hpp"
+#include "Hdf5.h"
 
-#include "Data.hpp"
-#include <IO/Datatype/Datatype.hpp>
+#include "Data.h"
+#include <IO/Datatype/Datatype.h>
 #include <cassert>
 #include <cstddef>
 #include <memory>

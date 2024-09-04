@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_CSV_H_
+#define SEISSOL_SRC_IO_INSTANCE_POINT_CSV_H_
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Instance/Point/TableWriter.hpp>
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Instance/Point/TableWriter.h>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Data.h>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -38,4 +38,4 @@ class Csv : public TableWriter {
 
 } // namespace seissol::io::instance::point
 
-#endif // SEISSOL_SRC_IO_INSTANCE_POINT_CSV_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_POINT_CSV_H_

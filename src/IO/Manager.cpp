@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Manager.hpp"
+#include "Manager.h"
 
-#include "Writer/Module/WriterModule.hpp"
-#include <IO/Writer/Writer.hpp>
+#include "Writer/Module/WriterModule.h"
+#include <IO/Writer/Writer.h>
 #include <SeisSol.h>
 #include <memory>
 #include <string>

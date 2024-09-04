@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_FILE_FILE_HPP_
-#define SEISSOL_SRC_IO_WRITER_FILE_FILE_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_FILE_FILE_H_
+#define SEISSOL_SRC_IO_WRITER_FILE_FILE_H_
 
 #include <string>
 namespace seissol::io::writer::file {
@@ -16,4 +16,4 @@ class File {
 };
 } // namespace seissol::io::writer::file
 
-#endif // SEISSOL_SRC_IO_WRITER_FILE_FILE_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_FILE_FILE_H_

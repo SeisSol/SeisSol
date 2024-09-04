@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "BinaryWriter.hpp"
-#include <IO/Writer/Instructions/Binary.hpp>
+#include "BinaryWriter.h"
+#include <IO/Writer/Instructions/Binary.h>
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <hdf5.h>

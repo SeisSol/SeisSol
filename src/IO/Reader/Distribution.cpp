@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Distribution.hpp"
+#include "Distribution.h"
 
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Datatype/MPIType.hpp>
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

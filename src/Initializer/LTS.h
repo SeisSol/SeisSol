@@ -41,7 +41,7 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
-#include "IO/Instance/Checkpoint/CheckpointManager.hpp"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"

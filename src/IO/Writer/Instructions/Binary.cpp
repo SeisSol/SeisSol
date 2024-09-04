@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Binary.hpp"
+#include "Binary.h"
 
-#include "Data.hpp"
+#include "Data.h"
 #include <memory>
 #include <string>
 #include <vector>

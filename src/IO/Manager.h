@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_MANAGER_HPP_
-#define SEISSOL_SRC_IO_MANAGER_HPP_
+#ifndef SEISSOL_SRC_IO_MANAGER_H_
+#define SEISSOL_SRC_IO_MANAGER_H_
 
-#include "Writer/Module/WriterModule.hpp"
-#include <IO/Instance/Checkpoint/CheckpointManager.hpp>
-#include <IO/Writer/Writer.hpp>
+#include "Writer/Module/WriterModule.h"
+#include <IO/Instance/Checkpoint/CheckpointManager.h>
+#include <IO/Writer/Writer.h>
 #include <Modules/Module.h>
 #include <Modules/Modules.h>
 #include <memory>
@@ -49,4 +49,4 @@ class OutputManager : public seissol::Module {
 
 } // namespace seissol::io
 
-#endif // SEISSOL_SRC_IO_MANAGER_HPP_
+#endif // SEISSOL_SRC_IO_MANAGER_H_

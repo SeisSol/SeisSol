@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_HPP_
-#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_H_
+#define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_H_
 
-#include "Data.hpp"
-#include "Instruction.hpp"
+#include "Data.h"
+#include "Instruction.h"
 #include <memory>
 #include <string>
 #include <yaml-cpp/yaml.h>
@@ -28,4 +28,4 @@ struct BinaryWrite : public WriteInstruction {
 
 } // namespace seissol::io::writer::instructions
 
-#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_BINARY_H_

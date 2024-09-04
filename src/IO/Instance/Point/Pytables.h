@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
+#define SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Instance/Point/TableWriter.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Instance/Point/TableWriter.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <string>
 namespace seissol::io::instance::point {
@@ -27,4 +27,4 @@ class Pytables : public TableWriter {
 
 } // namespace seissol::io::instance::point
 
-#endif // SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_

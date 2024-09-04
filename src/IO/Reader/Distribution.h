@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_
-#define SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_
+#ifndef SEISSOL_SRC_IO_READER_DISTRIBUTION_H_
+#define SEISSOL_SRC_IO_READER_DISTRIBUTION_H_
 
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Datatype/MPIType.hpp>
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
 #include <cstddef>
 #include <functional>
 #include <mpi.h>
@@ -50,4 +50,4 @@ private:
 };
 } // namespace seissol::io::reader
 
-#endif // SEISSOL_SRC_IO_READER_DISTRIBUTION_HPP_
+#endif // SEISSOL_SRC_IO_READER_DISTRIBUTION_H_

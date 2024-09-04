@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
+#define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 
 #include "utils/logger.h"
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Datatype/MPIType.hpp>
-#include <IO/Instance/SeisSolMemoryHelper.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
-#include <IO/Writer/Instructions/Instruction.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
+#include <IO/Instance/SeisSolMemoryHelper.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Hdf5.h>
+#include <IO/Writer/Instructions/Instruction.h>
+#include <IO/Writer/Writer.h>
 #include <Initializer/MemoryManager.h>
 #include <functional>
 #include <memory>
@@ -115,4 +115,4 @@ class VtkHdfWriter {
 };
 } // namespace seissol::io::instance::mesh
 
-#endif // SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_

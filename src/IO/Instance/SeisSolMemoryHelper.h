@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_H_
+#define SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_H_
 
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Datatype/Inference.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Hdf5.h>
+#include <IO/Writer/Writer.h>
 #include <Initializer/MemoryManager.h>
-#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/Tree/LTSTree.h>
 #include <type_traits>
 namespace seissol::io::instance {
 
@@ -37,4 +37,4 @@ std::shared_ptr<writer::DataSource> variableBuffer(initializer::LTSTree& tree,
 
 } // namespace seissol::io::instance
 
-#endif // SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_SEISSOLMEMORYHELPER_H_

@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "WriterModule.hpp"
+#include "WriterModule.h"
 #include "utils/logger.h"
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Module/AsyncWriter.hpp>
-#include <IO/Writer/Writer.hpp>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Module/AsyncWriter.h>
+#include <IO/Writer/Writer.h>
 #include <Modules/Modules.h>
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #include <Parallel/MPI.h>
 #include <Parallel/Pin.h>
 #include <cassert>

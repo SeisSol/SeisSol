@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Xml.hpp"
+#include "Xml.h"
 
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Instruction.hpp>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Instruction.h>
 #include <memory>
 #include <sstream>
 #include <string>

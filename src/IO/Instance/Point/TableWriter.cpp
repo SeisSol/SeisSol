@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "TableWriter.hpp"
+#include "TableWriter.h"
 
-#include <IO/Datatype/Datatype.hpp>
+#include <IO/Datatype/Datatype.h>
 #include <algorithm>
 #include <cstddef>
 #include <memory>

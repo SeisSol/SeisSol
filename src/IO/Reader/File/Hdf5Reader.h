@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_
-#define SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_
+#ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
+#define SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Datatype/Inference.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Datatype/Inference.h>
 #include <hdf5.h>
 #include <memory>
 #include <stack>
@@ -64,4 +64,4 @@ class Hdf5Reader {
 };
 } // namespace seissol::io::reader::file
 
-#endif // SEISSOL_SRC_IO_READER_FILE_HDF5READER_HPP_
+#endif // SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_

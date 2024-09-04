@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_
-#define SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_
+#ifndef SEISSOL_SRC_IO_DATATYPE_INFERENCE_H_
+#define SEISSOL_SRC_IO_DATATYPE_INFERENCE_H_
 
-#include "Datatype.hpp"
+#include "Datatype.h"
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -124,4 +124,4 @@ std::shared_ptr<Datatype> inferDatatype() {
 }
 } // namespace seissol::io::datatype
 
-#endif // SEISSOL_SRC_IO_DATATYPE_INFERENCE_HPP_
+#endif // SEISSOL_SRC_IO_DATATYPE_INFERENCE_H_

@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
+#define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Datatype/MPIType.hpp>
-#include <IO/Reader/Distribution.hpp>
-#include <IO/Reader/File/Hdf5Reader.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Writer.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
+#include <IO/Reader/Distribution.h>
+#include <IO/Reader/File/Hdf5Reader.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Writer.h>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Layer.h>
 #include <string>
 #include <unordered_map>
 
@@ -65,4 +65,4 @@ class CheckpointManager {
 
 } // namespace seissol::io::instance::checkpoint
 
-#endif // SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_

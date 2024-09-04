@@ -42,7 +42,7 @@
 #define INITIALIZER_DR_H_
 
 #include "DynamicRupture/Misc.h"
-#include "IO/Instance/Checkpoint/CheckpointManager.hpp"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"

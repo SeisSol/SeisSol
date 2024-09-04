@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Pvd.hpp"
+#include "Pvd.h"
 
-#include "Xml.hpp"
+#include "Xml.h"
 #include <memory>
 #include <vector>
 

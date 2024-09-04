@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_H_
+#define SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_H_
 
-#include "Xml.hpp"
+#include "Xml.h"
 
 namespace seissol::io::instance::metadata {
 
@@ -18,4 +18,4 @@ XmlFile makePvu(const std::vector<PvuEntry>& entries);
 
 } // namespace seissol::io::instance::metadata
 
-#endif // SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_METADATA_PVD_H_

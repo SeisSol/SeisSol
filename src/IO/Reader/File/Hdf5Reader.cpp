@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Hdf5Reader.hpp"
+#include "Hdf5Reader.h"
 
-#include <IO/Datatype/Datatype.hpp>
-#include <IO/Datatype/HDF5Type.hpp>
-#include <IO/Datatype/Inference.hpp>
-#include <IO/Datatype/MPIType.hpp>
+#include <IO/Datatype/Datatype.h>
+#include <IO/Datatype/HDF5Type.h>
+#include <IO/Datatype/Inference.h>
+#include <IO/Datatype/MPIType.h>
 #include <algorithm>
 #include <cstddef>
 #include <hdf5.h>

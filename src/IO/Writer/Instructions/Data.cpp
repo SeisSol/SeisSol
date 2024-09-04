@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Data.hpp"
-#include <IO/Datatype/Datatype.hpp>
+#include "Data.h"
+#include <IO/Datatype/Datatype.h>
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>

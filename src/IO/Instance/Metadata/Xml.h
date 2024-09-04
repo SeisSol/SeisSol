@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_
-#define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_
+#ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
+#define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Data.hpp>
-#include <IO/Writer/Instructions/Instruction.hpp>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Data.h>
+#include <IO/Writer/Instructions/Instruction.h>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -158,4 +158,4 @@ class XmlFile {
 
 } // namespace seissol::io::instance::metadata
 
-#endif // SEISSOL_SRC_IO_INSTANCE_METADATA_XML_HPP_
+#endif // SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_

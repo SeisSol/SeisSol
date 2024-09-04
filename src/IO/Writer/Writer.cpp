@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Writer.hpp"
+#include "Writer.h"
 
-#include "Instructions/Instruction.hpp"
+#include "Instructions/Instruction.h"
 #include "async/ExecInfo.h"
-#include <IO/Writer/File/BinaryWriter.hpp>
-#include <IO/Writer/File/Hdf5Writer.hpp>
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
+#include <IO/Writer/File/BinaryWriter.h>
+#include <IO/Writer/File/Hdf5Writer.h>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <mpi.h>
 #include <sstream>

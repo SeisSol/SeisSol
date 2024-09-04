@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_SRC_IO_WRITER_WRITER_HPP_
-#define SEISSOL_SRC_IO_WRITER_WRITER_HPP_
+#ifndef SEISSOL_SRC_IO_WRITER_WRITER_H_
+#define SEISSOL_SRC_IO_WRITER_WRITER_H_
 
-#include "Instructions/Instruction.hpp"
+#include "Instructions/Instruction.h"
 #include "async/ExecInfo.h"
-#include <IO/Writer/File/BinaryWriter.hpp>
-#include <IO/Writer/File/Hdf5Writer.hpp>
-#include <IO/Writer/Instructions/Binary.hpp>
-#include <IO/Writer/Instructions/Hdf5.hpp>
+#include <IO/Writer/File/BinaryWriter.h>
+#include <IO/Writer/File/Hdf5Writer.h>
+#include <IO/Writer/Instructions/Binary.h>
+#include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
@@ -58,4 +58,4 @@ struct ScheduledWriter {
 
 } // namespace seissol::io::writer
 
-#endif // SEISSOL_SRC_IO_WRITER_WRITER_HPP_
+#endif // SEISSOL_SRC_IO_WRITER_WRITER_H_
