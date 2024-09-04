@@ -1,6 +1,6 @@
 #include <CL/sycl.hpp>
-#include "Kernels/common.hpp"
-#include "Kernels/precision.hpp"
+#include "Kernels/Common.h"
+#include "Kernels/Precision.h"
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>
@@ -14,7 +14,7 @@ namespace {
   constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrder) {
     std::size_t total = 0;
     for (std::size_t j = ThisOrder; j < SourceOrder; ++j) {
-      total += seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
+      total += seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
     }
     return total;
   }
@@ -38,11 +38,11 @@ void taylorSumInner(cl::sycl::nd_item<1>& item,
                                   TargetRealT endCoeff,
                                   SourceRealT* const __restrict__ shmem,
                                   TargetRealT reg[Quantities]) {
-  constexpr std::size_t MemorySize = seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
+  constexpr std::size_t MemorySize = seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
   constexpr std::size_t SourceStride =
-      seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
+      seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
   constexpr std::size_t TargetStride =
-      seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+      seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
   constexpr std::size_t RestMemSize = SharedOffset > 0 ? 0 : RestFunctions<SourceRealT>(SourceOrder, ThisOrder) * Quantities;
   constexpr std::size_t SourceMemSize = SourceStride * Quantities;
   constexpr bool UseShared = MemorySize >= RestMemSize;
@@ -106,7 +106,7 @@ void
   static taylorSumInternal(std::size_t count, TargetRealT** targetBatch, const SourceRealT** sourceBatch, TargetRealT start, TargetRealT end, void* stream) {
     constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
     constexpr std::size_t TargetStride =
-        seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+        seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
     dim3 threads(Blocksize);
     dim3 blocks(count);
@@ -118,7 +118,7 @@ void
     using LocalMemoryType = cl::sycl::accessor<real, 1, cl::sycl::access_mode::read_write, cl::sycl::access::target::local>;
 
     queue->submit([&](cl::sycl::handler& cgh) {
-      LocalMemoryType shmem(cl::sycl::range<1>(seissol::kernels::NumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities), cgh);
+      LocalMemoryType shmem(cl::sycl::range<1>(seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities), cgh);
 
       cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
         int batchId = item.get_group().get_group_id(0);
@@ -133,7 +133,7 @@ void
           item, target, source, start, end, startCoeff, endCoeff, shmem.get_pointer(), reg);
 
         constexpr std::size_t TargetStride =
-          seissol::kernels::NumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
+          seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
         if (item.get_local_id(0) < TargetStride) {
       #pragma unroll
@@ -277,7 +277,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     });
   });
 }
-} // seissol::kernels::local_flux::aux::details
+} // namespace seissol::kernels::local_flux::aux::details
 
 
 namespace seissol::kernels::time::aux {

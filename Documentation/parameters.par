@@ -129,7 +129,8 @@ pickdt = 0.005                       ! Pickpoint Sampling
 ! (Optional) Synchronization point for receivers.
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
-ReceiverComputeRotation = 1          ! Compute Rotation of the velocity field at the receivers
+ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
+ReceiverComputeStrain = 0          ! Compute strain at the receivers
 
 ! Free surface output
 SurfaceOutput = 1

@@ -43,11 +43,15 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
+
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstance):
   m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
@@ -131,6 +135,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           memoryManager.getLts(),
           memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
+          memoryManager.getFrictionLawDevice(),
           memoryManager.getFaultOutputManager(),
           seissolInstance,
           &m_loopStatistics,
@@ -349,7 +354,7 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> sourceClusters) {
+    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters) {
   for (auto& cluster : clusters) {
     auto layerClusters = sourceClusters.find(cluster->getLayerType());
     if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
@@ -388,4 +393,24 @@ void seissol::time_stepping::TimeManager::freeDynamicResources() {
     cluster->finalize();
   }
   communicationManager.reset(nullptr);
+}
+
+void seissol::time_stepping::TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
+#ifdef ACL_DEVICE
+  Executor exec = clusters[0]->getExecutor();
+  bool sameExecutor = true;
+  for (auto& cluster : clusters) {
+    sameExecutor &= exec == cluster->getExecutor();
+  }
+  if (sameExecutor) {
+    seissolInstance.getMemoryManager().synchronizeTo(place);
+  }
+  else {
+    auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    for (auto& cluster : clusters) {
+      cluster->synchronizeTo(place, stream);
+    }
+    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  }
+#endif
 }

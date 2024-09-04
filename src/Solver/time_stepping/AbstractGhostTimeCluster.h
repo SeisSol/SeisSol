@@ -1,7 +1,7 @@
 #pragma once
 
 #include <list>
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {

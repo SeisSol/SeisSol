@@ -39,21 +39,62 @@
  */
 
 #include "LoopStatistics.h"
-#include "Unit.hpp"
+#include "Unit.h"
 
+#include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <ctime>
+#include <iterator>
+#include <mpi.h>
+#include <string>
+#include <time.h>
+#include <utils/logger.h>
+#include <vector>
 #ifdef USE_NETCDF
+#include <fstream>
 #include <netcdf.h>
+#include <ostream>
+#include <sstream>
 #ifdef USE_MPI
 #include <netcdf_par.h>
 #endif // USE_MPI
 #endif // USE_NETCDF
 
 #include "Monitoring/Stopwatch.h"
-#include "Numerical_aux/Statistics.h"
-#include <utils/env.h>
+#include "Numerical/Statistics.h"
+
+#ifdef USE_NETCDF
+namespace {
+
+static void check_err(const int stat, const int line, const char* file) {
+  if (stat != NC_NOERR) {
+    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
+  }
+}
+
+template <typename T>
+static nc_type type2nc() {
+  if constexpr (std::is_signed_v<T>) {
+    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
+                  "type2nc supports 32 or 64 bit integral types only");
+    if constexpr (sizeof(T) == 4) {
+      return NC_INT;
+    } else {
+      return NC_INT64;
+    }
+  } else {
+    if constexpr (sizeof(T) == 4) {
+      return NC_UINT;
+    } else {
+      return NC_UINT64;
+    }
+  }
+}
+
+} // namespace
+#endif
 
 namespace seissol {
 
@@ -116,28 +157,28 @@ void LoopStatistics::reset() {
 
 void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions.size();
-  constexpr int numberOfSumComponents = 6;
-  auto sums = std::vector<double>(numberOfSumComponents * nRegions);
+  constexpr int NumSumComponents = 6;
+  auto sums = std::vector<double>(NumSumComponents * nRegions);
   double totalTimePerRank = 0.0;
 
   // Helper functions to access sums
   auto getNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 0];
+    return sums[NumSumComponents * region + 0];
   };
   auto getNumItersSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 1];
+    return sums[NumSumComponents * region + 1];
   };
   auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 2];
+    return sums[NumSumComponents * region + 2];
   };
   auto getTime = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 3];
+    return sums[NumSumComponents * region + 3];
   };
   auto getTimeSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 4];
+    return sums[NumSumComponents * region + 4];
   };
   auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 5];
+    return sums[NumSumComponents * region + 5];
   };
 
   for (unsigned region = 0; region < nRegions; ++region) {
@@ -236,33 +277,6 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   }
 }
 
-#ifdef USE_NETCDF
-static void check_err(const int stat, const int line, const char* file) {
-  if (stat != NC_NOERR) {
-    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
-  }
-}
-
-template <typename T>
-static nc_type type2nc() {
-  if constexpr (std::is_signed_v<T>) {
-    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
-                  "type2nc supports 32 or 64 bit integral types only");
-    if constexpr (sizeof(T) == 4) {
-      return NC_INT;
-    } else {
-      return NC_INT64;
-    }
-  } else {
-    if constexpr (sizeof(T) == 4) {
-      return NC_UINT;
-    } else {
-      return NC_UINT64;
-    }
-  }
-}
-#endif
-
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
@@ -270,12 +284,12 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
     logInfo(rank) << "Starting to write loop statistics samples to disk.";
-    unsigned nRegions = regions.size();
+    const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
-      std::ofstream file;
+      const std::ofstream file;
       std::stringstream ss;
       ss << loopStatFile << regions[region].name << ".nc";
-      std::string fileName = ss.str();
+      const std::string fileName = ss.str();
 
       long nSamples = regions[region].times.size();
       long sampleOffset;

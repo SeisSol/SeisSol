@@ -1,9 +1,11 @@
 #include "MiniSeisSolWriter.h"
+#include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
-#include "Common/filesystem.h"
-#include <fstream>
 #include <algorithm>
-#include <unistd.h>
+#include <cstddef>
+#include <fstream>
+#include <ios>
+#include <vector>
 
 void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight) {
   auto elapsedTimeVector = seissol::MPI::mpi.collect(elapsedTime);

@@ -1,22 +1,22 @@
-#include "DynamicRupture/Output/OutputManager.hpp"
-#include "Common/filesystem.h"
+#include "DynamicRupture/Output/OutputManager.h"
+#include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
-#include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/Geometry.hpp"
-#include "DynamicRupture/Output/OutputAux.hpp"
-#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
+#include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
+#include "DynamicRupture/Output/Builders/PickPointBuilder.h"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/Geometry.h"
+#include "DynamicRupture/Output/OutputAux.h"
+#include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <algorithm>
@@ -153,6 +153,7 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+  initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
@@ -163,10 +164,13 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ppOutputBuilder->setVariableList(impl->getOutputVariables());
+    ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut);
+    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }
 
@@ -178,9 +182,9 @@ void OutputManager::initElementwiseOutput() {
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto faultTags = getFaultTags(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
-  constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
+  constexpr auto MaxNumVars = std::tuple_size<DrVarsT>::value;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
-  const auto intMask = convertMaskFromBoolToInt<maxNumVars>(outputMask);
+  const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
 
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
   const auto backendType = seissolParameters.output.xdmfWriterBackend;
@@ -274,6 +278,7 @@ void OutputManager::initFaceToLtsMap() {
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
+    globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto it = drTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
          it != drTree->endLeaf();
          ++it) {
@@ -282,6 +287,11 @@ void OutputManager::initFaceToLtsMap() {
       for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
       }
+    }
+
+    DRFaceInformation* faceInformation = drTree->var(drDescr->faceInformation);
+    for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
+      globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);

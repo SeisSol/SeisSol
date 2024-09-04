@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "PartitioningLib.h"
-#include "Common/fnv1a.h"
+#include "Common/Fnv1a.h"
+#include <PUML/Partition.h>
+#include <string_view>
 
 using PUML::PartitionerType;
 using namespace std::literals;

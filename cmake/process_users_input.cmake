@@ -86,7 +86,8 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "auto" CACHE STRING "GEMM tool(s) used for CPU code generation")
-set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
+set(GEMM_TOOLS_OPTIONS "auto" "none"
+        "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
         "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
@@ -254,12 +255,6 @@ endif()
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
-# PDE-Settings
-if (EQUATIONS STREQUAL "poroelastic")
-  set(NUMBER_OF_QUANTITIES "13")
-else()
-  MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
-endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)

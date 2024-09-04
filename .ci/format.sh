@@ -11,53 +11,93 @@ format() {
     local allowlist_dir="
         src/DynamicRupture
         src/Geometry
-        src/Initializer/Parameters
-        src/tests/Common
-        src/tests/DynamicRupture
-        src/tests/Initializer
-        src/tests/Kernel
-        src/tests/Model
-        src/tests/Reader
-        src/tests/SourceTerm
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/Tree
         src/Modules
         src/Monitoring
+        src/Numerical
+        src/Parallel
         src/Physics
-        src/SourceTerm
         src/Reader
+        src/SourceTerm
+        src/tests
         "
-    
+
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Initializer/BasicTypedefs.hpp
-        src/Initializer/InputAux.hpp
+        src/Equations/elastic/Model/Datastructures.h
+        src/Equations/elastic/Model/IntegrationData.h
+        src/Equations/viscoelastic/Model/IntegrationData.h
+        src/Equations/viscoelastic2/Model/Datastructures.h
+        src/Equations/viscoelastic2/Model/IntegrationData.h
+        src/Equations/anisotropic/Model/Datastructures.h
+        src/Equations/anisotropic/Model/IntegrationData.h
+        src/Equations/poroelastic/Model/Datastructures.h
+        src/Equations/poroelastic/Model/IntegrationData.h
+        src/Equations/Datastructures.h
+        src/Equations/Setup.h
+        src/Initializer/BasicTypedefs.h
+        src/Initializer/Boundary.h
+        src/Initializer/DynamicRupture.h
+        src/Initializer/DeviceGraph.h
+        src/Initializer/GlobalData.h
+        src/Initializer/GlobalData.cpp
+        src/Initializer/InitialFieldProjection.h
+        src/Initializer/InitialFieldProjection.cpp
+        src/Initializer/InputAux.h
+        src/Initializer/LTS.h
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
-        src/Initializer/preProcessorMacros.hpp
-        src/Initializer/time_stepping/GlobalTimestep.hpp
-        src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
-        src/Kernels/common.hpp
+        src/Initializer/PointMapper.h
+        src/Initializer/PointMapper.cpp
+        src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/GlobalTimestep.h
+        src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Kernels/Common.h
+        src/Kernels/DynamicRupture.h
+        src/Kernels/DynamicRupture.cpp
+        src/Kernels/Local.h
+        src/Kernels/Neighbor.h
+        src/Kernels/Plasticity.h
+        src/Kernels/Plasticity.cpp
         src/Kernels/PointSourceCluster.h
         src/Kernels/PointSourceClusterOnHost.h
         src/Kernels/PointSourceClusterOnHost.cpp
         src/Kernels/PointSourceClusterOnDevice.h
         src/Kernels/PointSourceClusterOnDevice.cpp
+        src/Kernels/Precision.h
+        src/Kernels/Receiver.h
+        src/Kernels/Receiver.cpp
+        src/Kernels/Time.h
+        src/Kernels/TimeCommon.h
+        src/Kernels/TimeCommon.cpp
         src/Kernels/Touch.h
         src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
-        src/Parallel/AcceleratorDevice.h
-        src/Parallel/AcceleratorDevice.cpp
-        src/Parallel/DataCollector.h
-        src/Parallel/Helper.hpp
+        src/Model/CommonDatastructures.h
+        src/Model/Plasticity.h
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
+        src/ResultWriter/AnalysisWriter.h
+        src/ResultWriter/AnalysisWriter.cpp
+        src/ResultWriter/AsyncCellIDs.h
+        src/ResultWriter/AsyncIO.h
+        src/ResultWriter/AsyncIO.cpp
+        src/ResultWriter/MiniSeisSolWriter.h
+        src/ResultWriter/MiniSeisSolWriter.cpp
+        src/ResultWriter/PostProcessor.h
+        src/ResultWriter/PostProcessor.cpp
+        src/ResultWriter/ThreadsPinningWriter.h
+        src/ResultWriter/ThreadsPinningWriter.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/main.cpp
+        src/Main.cpp
         "
+
 
     local SEISSOL_SOURCE_DIR="${2}"
     local formatter="${1}"

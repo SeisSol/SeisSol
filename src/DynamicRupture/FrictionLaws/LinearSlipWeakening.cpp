@@ -1,8 +1,8 @@
 #include "LinearSlipWeakening.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
 #include <algorithm>
 #include <cmath>
 #include <init.h>
@@ -10,8 +10,8 @@
 namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(
-    real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-    const real (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+    real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
+    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
   resampleKrnl.originalQ = slipRateMagnitude;

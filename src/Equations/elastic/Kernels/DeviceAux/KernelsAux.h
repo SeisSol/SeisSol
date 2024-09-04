@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::kernels::time::aux {
@@ -21,7 +21,7 @@ namespace seissol::kernels::local_flux::aux::details {
                           real** easiBoundaryConstantPtrs,
                           size_t numElements,
                           void* deviceStream);
-} // seissol::kernels::local_flux::aux::details
+} // namespace seissol::kernels::local_flux::aux::details
 
 
 namespace seissol::kernels::local_flux::aux {
@@ -75,7 +75,7 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
   }
 };
 
-} // seissol::kernels::local_flux::aux
+} // namespace seissol::kernels::local_flux::aux
 
 
 namespace seissol::kernels::time::aux {
