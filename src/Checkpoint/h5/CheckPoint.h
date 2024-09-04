@@ -53,7 +53,7 @@
 #ifdef USE_MPI
 #include "Checkpoint/MPIInfo.h"
 #endif // USE_MPI
-#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/PreProcessorMacros.h"
 
 namespace seissol
 {

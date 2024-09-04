@@ -39,18 +39,18 @@
  **/
 
 #include "Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
-#include <Common/Executor.hpp>
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
+#include <Common/Executor.h>
 #include <Initializer/LTS.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/common.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/Lut.h>
+#include <Kernels/Common.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
 #include <Numerical/Transformation.h>
 #include <algorithm>
 #include <cmath>
@@ -67,7 +67,7 @@
 
 #ifdef ACL_DEVICE
 #include "device.h"
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #include <unordered_map>
 #endif
 

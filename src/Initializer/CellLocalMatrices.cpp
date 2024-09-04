@@ -45,10 +45,10 @@
 
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
-#include "tree/Layer.hpp"
+#include "Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
-#include "Model/common.hpp"
+#include "Model/Common.h"
 #include "Geometry/MeshTools.h"
 #include "generated_code/tensor.h"
 #include "generated_code/kernel.h"

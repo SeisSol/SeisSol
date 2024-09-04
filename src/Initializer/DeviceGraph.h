@@ -2,8 +2,8 @@
 
 #ifdef ACL_DEVICE
 
-#include "Initializer/BasicTypedefs.hpp"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.hpp"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include <cstddef>
 
 namespace seissol::initializer {

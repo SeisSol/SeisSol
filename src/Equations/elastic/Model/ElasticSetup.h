@@ -40,8 +40,8 @@
 #ifndef ELASTIC_SETUP_H_
 #define ELASTIC_SETUP_H_
 
-#include "Model/common.hpp"
-#include "Kernels/common.hpp"
+#include "Model/Common.h"
+#include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
 #include "Numerical/Eigenvalues.h"

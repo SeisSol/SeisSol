@@ -7,7 +7,7 @@
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
 namespace seissol::dr::friction_law {
 /**

@@ -1,18 +1,18 @@
-#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
-#include "Common/constants.hpp"
+#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Kernels/precision.hpp"
-#include "Model/common.hpp"
-#include <Initializer/tree/Layer.hpp>
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Tree/Lut.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <algorithm>
 #include <array>
@@ -28,8 +28,8 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
-#include "Parallel/Helper.hpp"
-#include <Initializer/tree/Layer.hpp>
+#include "Parallel/Helper.h"
+#include <Initializer/Tree/Layer.h>
 #include <memory>
 #include <tensor.h>
 #endif

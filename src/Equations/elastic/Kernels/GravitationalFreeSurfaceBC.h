@@ -5,15 +5,15 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
 #include "Numerical/Quadrature.h"
 #include "Numerical/ODEInt.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include <tuple>
 #endif

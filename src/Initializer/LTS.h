@@ -41,16 +41,16 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/common.hpp"
-#include "Model/plasticity.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Model/Plasticity.h"
+#include "Tree/Layer.h"
 #include "generated_code/tensor.h"
-#include "tree/Layer.hpp"
 
 #ifdef ACL_DEVICE
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 #endif
 
 namespace seissol::tensor {

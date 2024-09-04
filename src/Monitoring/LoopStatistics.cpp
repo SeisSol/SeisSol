@@ -39,7 +39,7 @@
  */
 
 #include "LoopStatistics.h"
-#include "Unit.hpp"
+#include "Unit.h"
 
 #include <algorithm>
 #include <cassert>

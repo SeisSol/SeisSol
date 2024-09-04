@@ -1,6 +1,6 @@
-#include "FaultRefiners.hpp"
+#include "FaultRefiners.h"
 
-#include "DynamicRupture/Output/Geometry.hpp"
+#include "DynamicRupture/Output/Geometry.h"
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -8,7 +8,7 @@
 
 #include "utils/logger.h"
 
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output::refiner {

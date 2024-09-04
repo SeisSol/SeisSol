@@ -42,8 +42,8 @@
 
 #include "Initializer/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
-#include "Kernels/common.hpp"
-#include "Kernels/denseMatrixOps.hpp"
+#include "Kernels/Common.h"
+#include "Kernels/DenseMatrixOps.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"

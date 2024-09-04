@@ -47,7 +47,7 @@
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
 #include "Modules/Modules.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
+#include "DynamicRupture/Output/OutputManager.h"
 
 void seissol::writer::FaultWriter::setUp()
 {

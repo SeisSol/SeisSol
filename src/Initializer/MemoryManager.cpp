@@ -77,7 +77,7 @@
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "tree/Layer.hpp"
+#include "Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
@@ -85,7 +85,7 @@
 #include <type_traits>
 #include "GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/common.hpp"
+#include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
 #include "generated_code/tensor.h"

@@ -5,10 +5,10 @@
 #ifndef KERNELS_POINTSOURCECLUSTER_H_
 #define KERNELS_POINTSOURCECLUSTER_H_
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
-#include "Parallel/Runtime/Stream.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Parallel/Runtime/Stream.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <algorithm>
 #include <cmath>

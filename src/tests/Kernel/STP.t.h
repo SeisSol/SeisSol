@@ -6,14 +6,14 @@
 #include <random>
 #include <type_traits>
 
+#include "Model/Common.h"
 #include "Model/PoroelasticSetup.h"
-#include "Model/common.hpp"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 
-#include "Equations/poroelastic/Model/datastructures.hpp"
-#include "Kernels/common.hpp"
+#include "Equations/poroelastic/Model/Datastructures.h"
+#include "Kernels/Common.h"
 #include "generated_code/tensor.h"
 
 namespace seissol::unit_test {

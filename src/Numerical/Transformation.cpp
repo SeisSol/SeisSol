@@ -42,7 +42,7 @@
 #include "Transformation.h"
 #include <Eigen/Dense>
 #include <Geometry/MeshDefinition.h>
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cassert>
 #include <cmath>
 #include <utils/logger.h>

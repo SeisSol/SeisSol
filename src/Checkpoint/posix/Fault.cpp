@@ -39,7 +39,7 @@
 
 #include "Fault.h"
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 bool seissol::checkpoint::posix::Fault::init(unsigned int numSides, unsigned int numBndGP,
 		unsigned int groupSize)

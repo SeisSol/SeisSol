@@ -71,7 +71,7 @@
 #ifndef KERNELS_NEIGHBORBASE_H_
 #define KERNELS_NEIGHBORBASE_H_
 
-#include "Common/constants.hpp"
+#include "Common/Constants.h"
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include <device.h>

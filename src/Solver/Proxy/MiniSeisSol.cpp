@@ -45,7 +45,7 @@
 #include "Kernels/Time.h"
 #include "Kernels/Touch.h"
 #include "Monitoring/Stopwatch.h"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "utils/env.h"
 #include <DataTypes/EncodedConstants.hpp>

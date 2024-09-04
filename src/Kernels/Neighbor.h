@@ -72,10 +72,10 @@
 #ifndef KERNELS_NEIGHBOR_H_
 #define KERNELS_NEIGHBOR_H_
 
-#include "Initializer/typedefs.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Interface.h"
 #include "Kernels/NeighborBase.h"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 
 namespace seissol::kernels {
 

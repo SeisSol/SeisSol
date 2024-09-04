@@ -50,14 +50,14 @@
 #include <unordered_map>
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 #include "generated_code/init.h"
 
-#include "Equations/datastructures.hpp"
+#include "Equations/Datastructures.h"
 
 #ifdef USE_HDF
 #include "PUML/PUML.h"

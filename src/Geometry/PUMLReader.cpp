@@ -37,7 +37,7 @@
  */
 
 #include "Geometry/MeshDefinition.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/TypeInference.h>
@@ -61,9 +61,9 @@
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
 
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
-#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 
 #include <fstream>
 #include <hdf5.h>

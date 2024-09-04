@@ -1,8 +1,8 @@
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
-#include "Equations/datastructures.hpp"
-#include "Physics/Attenuation.hpp"
+#include "Equations/Datastructures.h"
+#include "Physics/Attenuation.h"
 
 namespace seissol::unit_test {
 TEST_CASE("Attenuation") {

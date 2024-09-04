@@ -36,7 +36,7 @@
  **/
 
 #include "FSRMReader.h"
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cstddef>
 #include <utils/logger.h>
 

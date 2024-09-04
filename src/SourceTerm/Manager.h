@@ -42,7 +42,7 @@
 #define SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/tree/Lut.hpp"
+#include "Initializer/Tree/Lut.h"
 #include "Solver/Clustering/TimeManager.h"
 #include <cstdarg>
 

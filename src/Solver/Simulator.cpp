@@ -52,8 +52,9 @@
 
 #include "Clustering/TimeManager.h"
 #include "Modules/Modules.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Unit.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
