@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -66,22 +67,19 @@
 #include <cassert>
 
 namespace seissol::kernels {
-    /** Stores X in Y with non-temporal hint.
-     * 
-     * @param numberOfReals The size of X and Y.
-     * @param X
-     * @param Y
-     */
-    inline void streamstore( unsigned numberOfReals,
-                             real const* X,
-                             real* Y )
-    {
-      assert(numberOfReals % DMO_INCREMENT == 0);
-      
-      for (unsigned i = 0; i < numberOfReals; i += DMO_INCREMENT) {
-        DMO_STREAM(&X[i], &Y[i])
-      }
-    }
+/** Stores X in Y with non-temporal hint.
+ *
+ * @param numberOfReals The size of X and Y.
+ * @param X
+ * @param Y
+ */
+inline void streamstore(std::size_t numberOfReals, const real* x, real* y) {
+  assert(numberOfReals % DMO_INCREMENT == 0);
+
+  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT) {
+    DMO_STREAM(&x[i], &y[i])
+  }
+}
 } // namespace seissol::kernels
 
 #endif
