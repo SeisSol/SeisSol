@@ -24,7 +24,7 @@ void computeAverageDisplacement(double deltaT,
   real factorial = 2.0;
   double power = deltaT * deltaT;
   
-  for (int der = 0; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     intKrnl.power(der) = power / factorial;
 
     factorial *= der + 2.0;

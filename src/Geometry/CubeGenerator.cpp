@@ -212,7 +212,6 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Setup MPI Communicator
 #ifdef USE_MPI
-  const int master = rank;
   MPI_Comm commMaster;
   MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 #endif // USE_MPI
@@ -1505,7 +1504,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   }
 
   // Copy buffers to vertices
-  for (int i = 0; i < uniqueVertices.size(); i++) {
+  for (std::size_t i = 0; i < uniqueVertices.size(); i++) {
     // VrtxCoord is defined as an int array of size 3
     memcpy(m_vertices[i].coords, &vrtxCoords[i * 3], sizeof(VrtxCoords));
   }

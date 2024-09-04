@@ -20,7 +20,6 @@ protected:
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
-  Executor executor;
 
   [[nodiscard]] double timeStepSize() const;
 
@@ -44,6 +43,7 @@ protected:
   long timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
+  Executor executor;
 
 public:
   virtual ~AbstractTimeCluster() = default;

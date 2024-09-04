@@ -10,7 +10,7 @@ namespace seissol::dr::friction_law {
 void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
   deltaT[0] = timePoints[0];
   sumDt = deltaT[0];
-  for (unsigned timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
+  for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
     sumDt += deltaT[timeIndex];
   }

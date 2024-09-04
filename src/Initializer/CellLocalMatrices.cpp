@@ -620,7 +620,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
           break;
         }
         case seissol::model::MaterialType::Anisotropic: {
-          logError() << "Dynamic Rupture does not work with anisotropy yet.";
+          logError() << "The Dynamic Rupture mechanism does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 
           break;
         }
@@ -632,6 +632,10 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
         case seissol::model::MaterialType::Viscoelastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
+          break;
+        }
+        default: {
+          logError() << "The Dynamic Rupture mechanism does not work with the given material yet.";
           break;
         }
       }
@@ -667,14 +671,14 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
         surfaceArea = plusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        plusSurfaceArea = 1.e99; plusVolume = 1.0;
+        plusSurfaceArea = 1.e99; plusVolume = 1.0; surfaceArea = 1.e99;
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
         surfaceArea = minusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        minusSurfaceArea = 1.e99; minusVolume = 1.0;
+        minusSurfaceArea = 1.e99; minusVolume = 1.0; surfaceArea = 1.e99;
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
