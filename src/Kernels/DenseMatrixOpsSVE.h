@@ -1,5 +1,5 @@
 
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 
 #ifdef __ARM_FEATURE_SVE
 #include <arm_sve.h>
