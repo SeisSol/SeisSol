@@ -8,7 +8,7 @@
 
 #include "Common/Executor.hpp"
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 
 enum class ComputeStep { Predict, Interact, Correct };
 
@@ -88,6 +88,6 @@ struct ActResult {
 
 enum class ActorPriority { Low, High };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering
 
 #endif // SEISSOL_ACTORSTATE_H

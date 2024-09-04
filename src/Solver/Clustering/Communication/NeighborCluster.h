@@ -17,7 +17,7 @@ struct HaloCommunication {
   std::vector<std::vector<RemoteCluster>> copy;
 };
 
-HaloCommunication getHaloCommunication(const MeshStructure* structure);
+HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStructure* structure);
 
 class NeighborCluster {
   public:

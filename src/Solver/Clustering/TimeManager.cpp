@@ -90,11 +90,11 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 }
 
 void TimeManager::addClusters(TimeStepping& timeStepping,
-                              MeshStructure* meshStructure,
+                              const communication::HaloCommunication& halo,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<NeighborCluster>> communicationClusters;
   // assert non-zero pointers
   assert(meshStructure != NULL);
 

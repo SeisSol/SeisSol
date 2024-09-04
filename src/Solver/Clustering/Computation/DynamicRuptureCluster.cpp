@@ -18,7 +18,7 @@
 #include <Solver/Clustering/ActorState.h>
 #include <xdmfwriter/scorep_wrapper.h>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering::computation {
 
 DynamicRuptureCluster::DynamicRuptureCluster(
     double maxTimeStepSize,
@@ -222,4 +222,4 @@ void DynamicRuptureCluster::synchronizeTo(seissol::initializer::AllocationPlace 
 #endif
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering::computation

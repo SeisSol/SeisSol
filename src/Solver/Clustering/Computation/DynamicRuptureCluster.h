@@ -13,7 +13,7 @@
 #include <Solver/Clustering/ActorState.h>
 #include <memory>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering::computation {
 class DynamicRuptureCluster : public FaceCluster {
   public:
   DynamicRuptureCluster(double maxTimeStepSize,
@@ -87,6 +87,6 @@ class DynamicRuptureCluster : public FaceCluster {
   private:
   void initFrictionSolverDevice();
 };
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering::computation
 
 #endif

@@ -8,7 +8,7 @@
 #include <queue>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 
 class AbstractTimeCluster {
   private:
@@ -111,6 +111,8 @@ class AbstractTimeCluster {
    * @return the pointer to the vector of neighbor clusters.
    */
   std::vector<NeighborCluster>* getNeighborClusters();
+
+  void setPhase(double time);
 };
 
 class CellCluster : public AbstractTimeCluster {
@@ -131,6 +133,6 @@ class FaceCluster : public AbstractTimeCluster {
   public:
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering
 
 #endif // SEISSOL_ACTOR_H

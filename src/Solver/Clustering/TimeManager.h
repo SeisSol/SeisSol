@@ -43,6 +43,7 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
+#include <Solver/Clustering/Communication/NeighborCluster.hpp>
 #include <cassert>
 #include <list>
 #include <memory>
@@ -63,7 +64,7 @@
 #include "SourceTerm/typedefs.hpp"
 #include <utils/logger.h>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 
 template <typename T>
 constexpr T ipow(T x, T y) {
@@ -127,7 +128,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(TimeStepping& timeStepping,
-                   MeshStructure* meshStructure,
+                   const communication::HaloCommunication& halo,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
 
@@ -180,6 +181,6 @@ class TimeManager {
   inline const TimeStepping* getTimeStepping() { return &timeStepping; }
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering
 
 #endif

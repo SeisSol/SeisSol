@@ -1,8 +1,8 @@
 #ifndef SEISSOL_COMMUNICATIONMANAGER_H
 #define SEISSOL_COMMUNICATIONMANAGER_H
 
+#include "NeighborCluster.hpp"
 #include "Parallel/Pin.h"
-#include "Solver/Clustering/Communication/AbstractGhostTimeCluster.h"
 #include <Parallel/HelperThread.hpp>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <atomic>
@@ -10,42 +10,42 @@
 #include <thread>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering::communication {
 class AbstractCommunicationManager {
   public:
-  using ghostClusters_t = std::vector<std::unique_ptr<AbstractTimeCluster>>;
+  using GhostClustersT = std::vector<std::unique_ptr<NeighborCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
-  virtual void reset(double newSyncTime);
+  virtual void reset();
 
   virtual ~AbstractCommunicationManager() = default;
 
-  ghostClusters_t* getGhostClusters();
+  GhostClustersT& getGhostClusters();
 
   protected:
-  explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
+  explicit AbstractCommunicationManager(GhostClustersT ghostClusters);
   bool poll();
-  ghostClusters_t ghostClusters;
+  GhostClustersT ghostClusters;
 };
 
 class SerialCommunicationManager : public AbstractCommunicationManager {
   public:
-  explicit SerialCommunicationManager(ghostClusters_t ghostClusters);
+  explicit SerialCommunicationManager(GhostClustersT ghostClusters);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
 };
 
 class ThreadedCommunicationManager : public AbstractCommunicationManager {
   public:
-  ThreadedCommunicationManager(ghostClusters_t ghostClusters, const parallel::Pinning* pinning);
+  ThreadedCommunicationManager(GhostClustersT ghostClusters, const parallel::Pinning* pinning);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
-  void reset(double newSyncTime) override;
+  void reset() override;
 
   private:
   parallel::HelperThread helper;
 };
 
-} // end namespace seissol::time_stepping
+} // namespace seissol::solver::clustering::communication
 
 #endif // SEISSOL_COMMUNICATIONMANAGER_H

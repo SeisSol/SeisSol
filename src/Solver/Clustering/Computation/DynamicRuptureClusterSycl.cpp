@@ -3,7 +3,7 @@
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 #include <Parallel/Helper.hpp>
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering::computation {
 void DynamicRuptureCluster::initFrictionSolverDevice() {
 #ifdef ACL_DEVICE
   if (concurrentClusters()) {
@@ -24,4 +24,4 @@ void DynamicRuptureCluster::initFrictionSolverDevice() {
   }
 #endif
 }
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering::computation

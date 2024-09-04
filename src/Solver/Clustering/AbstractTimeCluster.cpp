@@ -13,7 +13,7 @@
 
 #include "Parallel/MPI.h"
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 double AbstractTimeCluster::timeStepSize() const { return ct.timeStepSize(syncTime); }
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,

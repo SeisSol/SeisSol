@@ -113,9 +113,9 @@ private:
 public:
     LeafIteratorWrapper(LTSInternalNode& node, LayerMask mask) : node(node), mask(mask) {}
 
-    inline leaf_iterator begin() { return node.beginLeaf(mask); }
+    inline LeafIterator begin() { return node.beginLeaf(mask); }
 
-    inline leaf_iterator end() { return node.endLeaf(); }
+    inline LeafIterator end() { return node.endLeaf(); }
   };
 
   inline LeafIteratorWrapper leaves(LayerMask mask = LayerMask()) {
