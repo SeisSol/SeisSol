@@ -38,11 +38,11 @@
  */
 
 #include "PostProcessor.h"
-#include <Common/constants.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/common.hpp>
-#include <Kernels/precision.hpp>
+#include <Common/Constants.h>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Layer.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,

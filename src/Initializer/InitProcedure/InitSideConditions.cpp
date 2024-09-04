@@ -1,14 +1,14 @@
 #include "SeisSol.h"
 
-#include "InitSideConditions.hpp"
+#include "InitSideConditions.h"
 
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include "Parallel/MPI.h"
-#include <Equations/datastructures.hpp>
+#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/typedefs.hpp>
+#include <Initializer/Typedefs.h>
 #include <Physics/InitialField.h>
 #include <cstddef>
 #include <cstdlib>

@@ -49,9 +49,9 @@
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/time_stepping/LtsLayout.h"
-#include "Initializer/typedefs.hpp"
-#include "Monitoring/FlopCounter.hpp"
+#include "Initializer/TimeStepping/LtsLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"

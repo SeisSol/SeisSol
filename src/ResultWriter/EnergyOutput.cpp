@@ -5,19 +5,19 @@
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
-#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/LTS.h>
 #include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/preProcessorMacros.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
-#include <Model/common_datastructures.hpp>
+#include <Initializer/PreProcessorMacros.h>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Lut.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
 #include <algorithm>
 #include <array>
@@ -39,8 +39,8 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #endif
 
 namespace seissol::writer {

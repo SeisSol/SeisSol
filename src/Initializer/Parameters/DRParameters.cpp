@@ -1,6 +1,6 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cmath>
 #include <limits>
 #include <utils/logger.h>
@@ -86,7 +86,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto vStar = reader->readIfRequired<real>("pc_vstar", isBiMaterial);
   const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
 
-  const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
+  const auto faultFileName = reader->readPath("modelfilename");
 
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
@@ -99,7 +99,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = faultFileName != "";
+  const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";
 
   const double etaHack = outputReader->readWithDefault("etahack", 1.0);
 
@@ -129,7 +129,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       initialPressure,
                       vStar,
                       prakashLength,
-                      faultFileName,
+                      faultFileName.value_or(""),
                       referencePoint,
                       terminatorSlipRateThreshold,
                       etaHack};

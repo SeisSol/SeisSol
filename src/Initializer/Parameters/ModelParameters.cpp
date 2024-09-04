@@ -39,10 +39,10 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const std::string boundaryFileName = reader->readWithDefault("boundaryfileName", std::string(""));
+  const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
-      reader->readOrFail<std::string>("materialfilename", "No material file given.");
-  const bool hasBoundaryFile = boundaryFileName != "";
+      reader->readPathOrFail("materialfilename", "No material file given.");
+  const bool hasBoundaryFile = boundaryFileName.value_or("") != "";
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
   const bool useCellHomogenizedMaterial =
@@ -72,7 +72,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          freqRatio,
                          gravitationalAcceleration,
                          tv,
-                         boundaryFileName,
+                         boundaryFileName.value_or(""),
                          materialFileName,
                          itmParameters};
 }

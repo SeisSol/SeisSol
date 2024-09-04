@@ -1,9 +1,9 @@
-#include "InitMesh.hpp"
+#include "InitMesh.h"
 
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
-#include <Initializer/time_stepping/LtsWeights/LtsWeights.h>
+#include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
 #include <cstring>
 
 #include "utils/env.h"
@@ -20,10 +20,10 @@
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
 #endif // defined(USE_HDF) && defined(USE_MPI)
-#include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
+#include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/instrumentation.hpp"
 #include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
@@ -270,13 +270,26 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   watch.start();
 
   const std::string realMeshFileName = seissolParams.mesh.meshFileName;
+  bool addNC = true;
+  if (realMeshFileName.size() >= 3) {
+    const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
+    addNC = lastCharacters != ".nc";
+  }
+
   switch (meshFormat) {
   case seissol::initializer::parameters::MeshFormat::Netcdf: {
 #if USE_NETCDF
-    const auto realMeshFileNameNetcdf = seissolParams.mesh.meshFileName + ".nc";
-    logInfo(commRank)
-        << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
-        << realMeshFileNameNetcdf;
+    const auto realMeshFileNameNetcdf = [&]() {
+      if (addNC) {
+        const auto newRealMeshFileName = realMeshFileName + ".nc";
+        logInfo(commRank)
+            << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
+            << newRealMeshFileName;
+        return newRealMeshFileName;
+      } else {
+        return realMeshFileName;
+      }
+    }();
     seissolInstance.setMeshReader(
         new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileNameNetcdf.c_str()));
 #else

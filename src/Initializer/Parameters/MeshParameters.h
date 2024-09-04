@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <string>
 
-#include "Initializer/InputAux.hpp"
+#include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {

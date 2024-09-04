@@ -76,11 +76,11 @@
 #include <list>
 #endif
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/Tree/LTSTree.h"
 
 #include "Kernels/Time.h"
 #include "Kernels/Local.h"
@@ -94,8 +94,8 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
-#include <Common/Executor.hpp>
+#include "DynamicRupture/Output/OutputManager.h"
+#include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
 

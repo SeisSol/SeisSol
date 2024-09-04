@@ -1,7 +1,7 @@
 #pragma once
 
 #include <list>
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 

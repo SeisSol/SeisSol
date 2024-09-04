@@ -1,10 +1,10 @@
 #include <cmath>
 
+#include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
-#include "Equations/datastructures.hpp"
-#include "Model/common.hpp"
+#include "Model/Common.h"
 
-#include "values.h"
+#include "Values.h"
 
 namespace seissol::unit_test {
 template <typename T>

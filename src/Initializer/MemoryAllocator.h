@@ -74,8 +74,8 @@
 #ifndef MEMORYALLOCATOR_H_
 #define MEMORYALLOCATOR_H_
 
-#include "Common/constants.hpp"
-#include "Kernels/precision.hpp"
+#include "Common/Constants.h"
+#include "Kernels/Precision.h"
 #include <cassert>
 #include <cstdlib>
 #include <vector>

@@ -42,11 +42,11 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
-#include "Initializer/typedefs.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
 #include "Kernels/LocalBase.h"
-#include "Kernels/common.hpp"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 #include "generated_code/tensor.h"
 #include <cassert>
 

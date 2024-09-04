@@ -72,12 +72,12 @@
 #ifndef TIME_H_
 #define TIME_H_
 
-#include "Initializer/typedefs.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
 #include "Kernels/TimeBase.h"
-#include "Kernels/common.hpp"
 #include "generated_code/tensor.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <limits>
 #ifdef USE_STP

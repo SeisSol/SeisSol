@@ -56,7 +56,7 @@
 
 #include "async/Module.h"
 
-#include "Geometry/refinement/VariableSubSampler.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"

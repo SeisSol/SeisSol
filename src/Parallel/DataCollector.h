@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #ifdef ACL_DEVICE
 #include "device.h"

@@ -43,12 +43,12 @@
 
 #include "DynamicRupture/Misc.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.hpp"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Parallel/Helper.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Parallel/Helper.h"
+#include "Tree/Layer.h"
 #include "generated_code/tensor.h"
-#include "tree/Layer.hpp"
 
 namespace seissol::initializer {
 

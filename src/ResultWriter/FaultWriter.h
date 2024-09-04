@@ -49,7 +49,7 @@
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 
 namespace seissol {

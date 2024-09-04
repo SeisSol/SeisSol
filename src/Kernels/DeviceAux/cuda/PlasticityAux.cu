@@ -1,6 +1,6 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
-#include "Kernels/precision.hpp"
-#include "Model/plasticity.hpp"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
 #include "tensor.h"
 #include <cmath>
 #include <cstddef>

@@ -71,7 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
-#include "tree/Layer.hpp"
+#include "Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
@@ -79,14 +79,14 @@
 
 #include <utils/logger.h>
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
 
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/InputAux.hpp"
+#include "Initializer/InputAux.h"
 #include "Initializer/Boundary.h"
 #include "Initializer/ParameterDB.h"
 

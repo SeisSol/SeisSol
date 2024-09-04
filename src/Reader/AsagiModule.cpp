@@ -42,7 +42,7 @@
 #ifdef USE_ASAGI
 
 #include "AsagiModule.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 #include "utils/env.h"
 #include <string>
 

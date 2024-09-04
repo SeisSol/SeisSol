@@ -70,8 +70,8 @@
  **/
 
 #include "Parallel/MPI.h"
-#include <Common/Executor.hpp>
-#include <Initializer/tree/Layer.hpp>
+#include <Common/Executor.h>
+#include <Initializer/Tree/Layer.h>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 
@@ -85,8 +85,8 @@
 #include "Kernels/TimeCommon.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 
 #include <cassert>
 #include <cstring>

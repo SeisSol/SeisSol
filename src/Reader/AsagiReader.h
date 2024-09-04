@@ -52,7 +52,7 @@
 #include "utils/logger.h"
 
 #include "AsagiModule.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
 namespace seissol::asagi {
 enum class NumaCacheMode { Off, On, Cache };

@@ -1,4 +1,4 @@
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"

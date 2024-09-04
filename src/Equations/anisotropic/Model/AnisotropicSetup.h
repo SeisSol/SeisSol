@@ -44,8 +44,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
-#include "Model/common.hpp"
-#include "Kernels/common.hpp"
+#include "Model/Common.h"
+#include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
 
