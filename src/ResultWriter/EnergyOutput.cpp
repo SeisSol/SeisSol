@@ -250,11 +250,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-  constexpr auto QSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+    constexpr auto QSize = tensor::Q::size();
     const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     auto& table = it->getConditionalTable<inner_keys::Dr>();
     if (table.find(timeIntegrationKey) != table.end()) {
@@ -532,11 +532,7 @@ void EnergyOutput::computeVolumeEnergies() {
     if (isPlasticityEnabled) {
       // plastic moment
       real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-#ifdef USE_ANISOTROPIC
-      real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-      const real mu = material.local.mu;
-#endif
+      const real mu = material.local.getMuBar();
       totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
     }
   }
