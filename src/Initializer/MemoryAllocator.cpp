@@ -71,10 +71,13 @@
  * Aligned memory allocation.
  **/
 #include "MemoryAllocator.h"
-#include "Parallel/MPI.h"
 
+#include <cassert>
+#include <cstdlib>
 #include <cstring>
+#include <stdlib.h>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "device.h"

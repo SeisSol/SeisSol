@@ -46,7 +46,10 @@
 
 // Floating point operations performed in the matrix kernels.
 // Remark: These variables are updated by the matrix kernels (subroutine.cpp) only in debug builds.
+
+// NOLINTNEXTLINE
 extern long long libxsmm_num_total_flops;
+// NOLINTNEXTLINE
 extern long long pspamm_num_total_flops;
 
 namespace seissol::monitoring {

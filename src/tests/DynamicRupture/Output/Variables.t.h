@@ -1,11 +1,8 @@
-#ifndef SEISSOL_DRVARIABLES_T_H
-#define SEISSOL_DRVARIABLES_T_H
-
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "Initializer/MemoryAllocator.h"
 
-namespace seissol::unit_test::dr {
+namespace seissol::unit_test {
 
 TEST_CASE("DR Variables") {
   SUBCASE("GeneralVariablesCount") {
@@ -51,9 +48,9 @@ TEST_CASE("DR Variables") {
 
     misc::forEach(drVars, assignMask);
 
-    seissol::memory::ManagedAllocator allocator;
+    const seissol::memory::ManagedAllocator allocator;
     const unsigned numElements = 1024;
-    auto allocateVariables = [numElements, &allocator](auto& var, int) {
+    auto allocateVariables = [numElements](auto& var, int) {
       var.maxCacheLevel = 3;
       var.allocateData(numElements);
     };
@@ -77,6 +74,4 @@ TEST_CASE("DR Variables") {
     misc::forEach(drVars, deallocateVariables);
   }
 }
-} // namespace seissol::unit_test::dr
-
-#endif // SEISSOL_DRVARIABLES_T_H
+} // namespace seissol::unit_test

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -53,42 +54,41 @@ namespace seissol::kernels {
 
 class Local : public LocalBase {
   public:
-    void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const CompoundGlobalData& global);
+  void setHostGlobalData(const GlobalData* global);
+  void setGlobalData(const CompoundGlobalData& global);
 
-    void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                         LocalData& data,
-                         LocalTmp& tmp,
-                         const CellMaterialData* materialData,
-                         CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                         double time,
-                         double timeStepWidth);
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                       LocalData& data,
+                       LocalTmp& tmp,
+                       const CellMaterialData* materialData,
+                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                       double time,
+                       double timeStepWidth);
 
-    void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                ConditionalMaterialTable& materialTable,
-                                ConditionalIndicesTable& indicesTable,
-                                kernels::LocalData::Loader& loader,
-                                LocalTmp& tmp,
-                                double timeStepWidth,
-                                seissol::parallel::runtime::StreamRuntime& runtime);
+  void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              ConditionalIndicesTable& indicesTable,
+                              kernels::LocalData::Loader& loader,
+                              LocalTmp& tmp,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                        ConditionalIndicesTable& indicesTable,
-                                        kernels::LocalData::Loader& loader,
-                                        seissol::initializer::Layer& layer,
-                                        seissol::initializer::LTS& lts,
-                                        double time,
-                                        double timeStepWidth,
-                                        seissol::parallel::runtime::StreamRuntime& runtime);
+  void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                      ConditionalIndicesTable& indicesTable,
+                                      kernels::LocalData::Loader& loader,
+                                      seissol::initializer::Layer& layer,
+                                      seissol::initializer::LTS& lts,
+                                      double time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void flopsIntegral(FaceType const i_faceTypes[4],
-                       unsigned int &o_nonZeroFlops,
-                       unsigned int &o_hardwareFlops );
-                        
-    unsigned bytesIntegral();
+  void flopsIntegral(const FaceType faceTypes[4],
+                     unsigned int& nonZeroFlops,
+                     unsigned int& hardwareFlops);
+
+  unsigned bytesIntegral();
 };
 
 } // namespace seissol::kernels
 
 #endif
-

@@ -36,13 +36,13 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 
 #if (defined(ACPP_EXT_COARSE_GRAINED_EVENTS) || defined(SYCL_EXT_ACPP_COARSE_GRAINED_EVENTS)) &&   \
     !defined(SEISSOL_KERNELS_SYCL)
-  sycl::property_list property{sycl::property::queue::in_order(),
-                               sycl::property::queue::AdaptiveCpp_coarse_grained_events()};
+  const sycl::property_list property{sycl::property::queue::in_order(),
+                                     sycl::property::queue::AdaptiveCpp_coarse_grained_events()};
 #elif defined(HIPSYCL_EXT_COARSE_GRAINED_EVENTS) && !defined(SEISSOL_KERNELS_SYCL)
-  sycl::property_list property{sycl::property::queue::in_order(),
-                               sycl::property::queue::hipSYCL_coarse_grained_events()};
+  const sycl::property_list property{sycl::property::queue::in_order(),
+                                     sycl::property::queue::hipSYCL_coarse_grained_events()};
 #else
-  sycl::property_list property{sycl::property::queue::in_order()};
+  const sycl::property_list property{sycl::property::queue::in_order()};
 #endif
 
   syclDefaultQueue = sycl::queue(syclDevice, property);

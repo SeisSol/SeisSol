@@ -1,4 +1,6 @@
 #include "ModelParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
+#include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 

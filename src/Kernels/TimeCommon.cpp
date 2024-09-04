@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -39,121 +41,142 @@
  **/
 
 #include "TimeCommon.h"
+#include <DataTypes/ConditionalTable.hpp>
+#include <Initializer/BasicTypedefs.hpp>
+#include <Kernels/Time.h>
+#include <Kernels/precision.hpp>
+#include <Parallel/Runtime/Stream.hpp>
+#include <cassert>
 #include <stdint.h>
+#include <tensor.h>
 
-void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
-                                                    unsigned short i_ltsSetup,
-                                                    const FaceType i_faceTypes[4],
-                                                    const double i_currentTime[5],
-                                                    double i_timeStepWidth,
-                                                    real * const i_timeDofs[4],
-                                                    real o_integrationBuffer[4][tensor::I::size()],
-                                                    real * o_timeIntegrated[4] )
-{
+#ifdef ACL_DEVICE
+#include <DataTypes/ConditionalKey.hpp>
+#include <DataTypes/EncodedConstants.hpp>
+#endif
+
+#ifndef NDEBUG
+#include "Common/constants.hpp"
+#include <cstdint>
+#endif
+
+namespace seissol::kernels {
+
+void TimeCommon::computeIntegrals(Time& time,
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double currentTime[5],
+                                  double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][tensor::I::size()],
+                                  real* timeIntegrated[4]) {
   /*
    * assert valid input.
    */
   // only lower 10 bits are used for lts encoding
-  assert (i_ltsSetup < 2048 );
+  assert(ltsSetup < 2048);
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
-  for( int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
-    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % Alignment == 0 );
-    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % Alignment == 0 );
+  for (int dofneighbor = 0; dofneighbor < 4; dofneighbor++) {
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
   }
 #endif
 
   /*
    * set/compute time integrated DOFs.
    */
-  for( unsigned int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
+  for (int dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
-    if (i_faceTypes[l_dofeighbor] != FaceType::outflow &&
-	i_faceTypes[l_dofeighbor] != FaceType::dynamicRupture) {
+    if (faceTypes[dofneighbor] != FaceType::Outflow &&
+        faceTypes[dofneighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
-      if( (i_ltsSetup >> l_dofeighbor ) % 2 == 0 ) {
-        o_timeIntegrated[l_dofeighbor] = i_timeDofs[l_dofeighbor];
+      if ((ltsSetup >> dofneighbor) % 2 == 0) {
+        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
-        i_time.computeIntegral( i_currentTime[    l_dofeighbor+1],
-                                i_currentTime[    0           ],
-                                i_currentTime[    0           ] + i_timeStepWidth,
-                                i_timeDofs[       l_dofeighbor],
-                                o_integrationBuffer[ l_dofeighbor] );
+        time.computeIntegral(currentTime[dofneighbor + 1],
+                             currentTime[0],
+                             currentTime[0] + timeStepWidth,
+                             timeDofs[dofneighbor],
+                             integrationBuffer[dofneighbor]);
 
-        o_timeIntegrated[l_dofeighbor] = o_integrationBuffer[ l_dofeighbor];
+        timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
     }
   }
 }
 
-void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
-                                                    unsigned short i_ltsSetup,
-                                                    const FaceType i_faceTypes[4],
-                                                    const double i_timeStepStart,
-                                                    const double i_timeStepWidth,
-                                                    real * const i_timeDofs[4],
-                                                    real o_integrationBuffer[4][tensor::I::size()],
-                                                    real * o_timeIntegrated[4])
-{
-  double l_startTimes[5];
-  l_startTimes[0] = i_timeStepStart;
-  l_startTimes[1] = l_startTimes[2] = l_startTimes[3] = l_startTimes[4] = 0;
+void TimeCommon::computeIntegrals(Time& time,
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double timeStepStart,
+                                  const double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][tensor::I::size()],
+                                  real* timeIntegrated[4]) {
+  double startTimes[5];
+  startTimes[0] = timeStepStart;
+  startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
 
   // adjust start times for GTS on derivatives
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    if( (i_ltsSetup >> (l_face + 4) ) % 2 ) {
-      l_startTimes[l_face+1] = i_timeStepStart;
+  for (unsigned int face = 0; face < 4; face++) {
+    if ((ltsSetup >> (face + 4)) % 2) {
+      startTimes[face + 1] = timeStepStart;
     }
   }
 
   // call the more general assembly
-  computeIntegrals( i_time,
-                    i_ltsSetup,
-                    i_faceTypes,
-                    l_startTimes,
-                    i_timeStepWidth,
-                    i_timeDofs,
-                    o_integrationBuffer,
-                    o_timeIntegrated );
+  computeIntegrals(time,
+                   ltsSetup,
+                   faceTypes,
+                   startTimes,
+                   timeStepWidth,
+                   timeDofs,
+                   integrationBuffer,
+                   timeIntegrated);
 }
 
-void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
-                                                           const double i_timeStepStart,
-                                                           const double i_timeStepWidth,
-                                                           ConditionalPointersToRealsTable &table,
-                                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+void TimeCommon::computeBatchedIntegrals(Time& time,
+                                         const double timeStepStart,
+                                         const double timeStepWidth,
+                                         ConditionalPointersToRealsTable& table,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Compute time integrated dofs using neighbours derivatives using the GTS relation,
-  // i.e. the expansion point is around 'i_timeStepStart'
+  // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
-  if(table.find(key) != table.end()) {
+  if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    i_time.computeBatchedIntegral(i_timeStepStart,
-                                  i_timeStepStart,
-                                  i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-                                  runtime);
+    time.computeBatchedIntegral(
+        timeStepStart,
+        timeStepStart,
+        timeStepStart + timeStepWidth,
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        runtime);
   }
 
   // Compute time integrated dofs using neighbours derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
-  if(table.find(key) != table.end()) {
+  if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    i_time.computeBatchedIntegral(0.0,
-                                  i_timeStepStart,
-                                  i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-                                  runtime);
+    time.computeBatchedIntegral(
+        0.0,
+        timeStepStart,
+        timeStepStart + timeStepWidth,
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        runtime);
   }
 #else
   assert(false && "no implementation provided");
 #endif
 }
+
+} // namespace seissol::kernels

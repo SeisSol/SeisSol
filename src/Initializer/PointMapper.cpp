@@ -32,8 +32,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015-2019, SeisSol Group
@@ -69,49 +71,37 @@
  **/
 
 #include "PointMapper.h"
-#include <cstring>
-#include "Initializer/MemoryAllocator.h"
-#include <utils/logger.h>
 #include "Parallel/MPI.h"
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
+#include <Geometry/MeshTools.h>
+#include <array>
+#include <cstring>
+#include <mpi.h>
+#include <utils/logger.h>
+#include <vector>
 
-void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
-                                        seissol::geometry::MeshReader const& mesh,
-                                        unsigned numPoints,
-                                        short* contained,
-                                        unsigned* meshIds) {
-  findMeshIds(points,
-              mesh.getVertices(),
-              mesh.getElements(),
-              numPoints,
-              contained,
-              meshIds);
+namespace seissol::initializer {
+
+void findMeshIds(const Eigen::Vector3d* points,
+                 const seissol::geometry::MeshReader& mesh,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshIds) {
+  findMeshIds(points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds);
 }
 
-void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
-                                        std::vector<Vertex> const& vertices,
-                                        std::vector<Element> const& elements,
-                                        unsigned numPoints,
-                                        short* contained,
-                                        unsigned* meshIds) {
+void findMeshIds(const Eigen::Vector3d* points,
+                 const std::vector<Vertex>& vertices,
+                 const std::vector<Element>& elements,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshIds) {
 
   memset(contained, 0, numPoints * sizeof(short));
 
-  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), Alignment));
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (int face = 0; face < 4; ++face) {
-      VrtxCoords n, p;
-      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
-      MeshTools::normal(elements[elem], face, vertices, n);
-
-      for (unsigned i = 0; i < 3; ++i) {
-        planeEquations[elem][i][face] = n[i];
-      }
-      planeEquations[elem][3][face] = - MeshTools::dot(n, p);
-    }
-  }
-
-  double (*points1)[4] = new double[numPoints][4];
-  for (unsigned point = 0; point < numPoints; ++point) {
+  auto points1 = std::vector<std::array<double, 4>>(numPoints);
+  for (std::size_t point = 0; point < numPoints; ++point) {
     points1[point][0] = points[point](0);
     points1[point][1] = points[point](1);
     points1[point][2] = points[point](2);
@@ -122,37 +112,32 @@ void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-#if 0 //defined(__AVX__)
-    __m256d zero = _mm256_setzero_pd();
-      __m256d planeDims[4];
-      for (unsigned i = 0; i < 4; ++i) {
-        planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
+  for (std::size_t elem = 0; elem < elements.size(); ++elem) {
+    auto planeEquations = std::array<std::array<double, 4>, 4>();
+    for (int face = 0; face < 4; ++face) {
+      VrtxCoords n, p;
+      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
+      MeshTools::normal(elements[elem], face, vertices, n);
+
+      for (int i = 0; i < 3; ++i) {
+        planeEquations[i][face] = n[i];
       }
+      planeEquations[3][face] = -MeshTools::dot(n, p);
+    }
+    for (std::size_t point = 0; point < numPoints; ++point) {
+      // NOLINTNEXTLINE
+      int notInside = 0;
+#ifdef _OPENMP
+#pragma omp simd reduction(+ : notInside)
 #endif
-    for (unsigned point = 0; point < numPoints; ++point) {
-      int l_notInside = 0;
-#if 0 //defined(__AVX__)
-      // Not working because <0 => 0 should actually be  <=0 => 0
-      /*__m256d result = _mm256_setzero_pd();
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&points1[point][dim])) );
-      }
-      // >0 => (2^64)-1 ; <0 = 0
-      __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
-      l_notInside = _mm256_movemask_pd(inside4);*/
-#else
-      double result[4] = { 0.0, 0.0, 0.0, 0.0 };
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        for (unsigned face = 0; face < 4; ++face) {
-          result[face] += planeEquations[elem][dim][face] * points1[point][dim];
-        }
-      }
       for (unsigned face = 0; face < 4; ++face) {
-        l_notInside += (result[face] > 0.0) ? 1 : 0;
+        double resultFace = 0;
+        for (unsigned dim = 0; dim < 4; ++dim) {
+          resultFace += planeEquations[dim][face] * points1[point][dim];
+        }
+        notInside += (resultFace > 0.0) ? 1 : 0;
       }
-#endif
-      if (l_notInside == 0) {
+      if (notInside == 0) {
 #ifdef _OPENMP
 #pragma omp critical
         {
@@ -162,12 +147,13 @@ void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
            * it to the one with the higher meshId.
            * @todo Check if this is a problem with the numerical scheme. */
           /*if (contained[point] != 0) {
-             logError() << "point with id " << point << " was already found in a different element!";
+             logError() << "point with id " << point << " was already found in a different
+          element!";
           }*/
-          auto localId = static_cast<unsigned>(elements[elem].localId);
+          const auto localId = static_cast<unsigned>(elements[elem].localId);
           if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
-            meshIds[point] = elements[elem].localId;
+            meshIds[point] = localId;
           }
 #ifdef _OPENMP
         }
@@ -175,22 +161,24 @@ void seissol::initializer::findMeshIds(Eigen::Vector3d const* points,
       }
     }
   }
-
-  seissol::memory::free(planeEquations);
-  delete[] points1;
 }
 
 #ifdef USE_MPI
-void seissol::initializer::cleanDoubles(short* contained, unsigned numPoints)
-{
-  int myrank = seissol::MPI::mpi.rank();
-  int size = seissol::MPI::mpi.size();
+void cleanDoubles(short* contained, std::size_t numPoints) {
+  const auto myrank = seissol::MPI::mpi.rank();
+  const auto size = seissol::MPI::mpi.size();
 
-  short* globalContained = new short[size * numPoints];
-  MPI_Allgather(contained, numPoints, MPI_SHORT, globalContained, numPoints, MPI_SHORT, seissol::MPI::mpi.comm());
+  auto globalContained = std::vector<short>(size * numPoints);
+  MPI_Allgather(contained,
+                numPoints,
+                MPI_SHORT,
+                globalContained.data(),
+                numPoints,
+                MPI_SHORT,
+                seissol::MPI::mpi.comm());
 
-  unsigned cleaned = 0;
-  for (unsigned point = 0; point < numPoints; ++point) {
+  std::size_t cleaned = 0;
+  for (std::size_t point = 0; point < numPoints; ++point) {
     if (contained[point] == 1) {
       for (int rank = 0; rank < myrank; ++rank) {
         if (globalContained[rank * numPoints + point] == 1) {
@@ -203,9 +191,10 @@ void seissol::initializer::cleanDoubles(short* contained, unsigned numPoints)
   }
 
   if (cleaned > 0) {
-    logInfo(myrank) << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
+    logInfo(myrank) << "Cleaned " << cleaned << " double occurring points on rank " << myrank
+                    << ".";
   }
-
-  delete[] globalContained;
 }
 #endif
+
+} // namespace seissol::initializer

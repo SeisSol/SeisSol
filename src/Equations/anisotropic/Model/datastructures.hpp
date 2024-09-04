@@ -47,17 +47,19 @@
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <array>
 #include <cstddef>
+#include <string>
 
 namespace seissol::model {
 struct AnisotropicMaterial : Material {
-  static constexpr std::size_t NumberOfQuantities = 9;
+  static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
-  static constexpr MaterialType Type = MaterialType::anisotropic;
+  static constexpr MaterialType Type = MaterialType::Anisotropic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "anisotropic";
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   double c11;
@@ -84,10 +86,7 @@ struct AnisotropicMaterial : Material {
 
   double getLambdaBar() const override { return (c11 + c22 + c33) / 3.0 - 2.0 * getMuBar(); }
 
-  double getMuBar() const override {
-    return (c44 + c55 + c66) / 3.0;
-    ;
-  }
+  double getMuBar() const override { return (c44 + c55 + c66) / 3.0; }
 
   AnisotropicMaterial() = default;
 
@@ -143,7 +142,7 @@ struct AnisotropicMaterial : Material {
     this->c66 = materialValues[21];
   }
 
-  virtual ~AnisotropicMaterial() = default;
+  ~AnisotropicMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const final {
     auto stiffnessTensorView =
@@ -252,12 +251,12 @@ struct AnisotropicMaterial : Material {
 
     for (unsigned j = 0; j < 200; ++j) {
       double n[3] = {samplingDirections(j, 0), samplingDirections(j, 1), samplingDirections(j, 2)};
-      double M[9];
+      double m[9];
       computeChristoffel.direction = n;
-      computeChristoffel.christoffel = M;
+      computeChristoffel.christoffel = m;
       computeChristoffel.execute();
 
-      saes.compute(Eigen::Matrix<double, 3, 3>(M).cast<double>());
+      saes.compute(Eigen::Matrix<double, 3, 3>(m).cast<double>());
       auto eigenvalues = saes.eigenvalues();
       for (unsigned i = 0; i < 3; ++i) {
         maxEv = std::max(eigenvalues(i), maxEv);
@@ -279,7 +278,7 @@ struct AnisotropicMaterial : Material {
     return std::sqrt(muBar / rho);
   }
 
-  MaterialType getMaterialType() const override { return MaterialType::anisotropic; }
+  MaterialType getMaterialType() const override { return MaterialType::Anisotropic; }
 };
 } // namespace seissol::model
 

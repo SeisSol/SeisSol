@@ -1,4 +1,5 @@
 #include "Initializer/Parameters/LtsParameters.h"
+#include "tests/TestHelper.h"
 #include <memory>
 #include <numeric>
 
@@ -15,10 +16,10 @@ TEST_CASE("LTS Weights") {
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
-  LtsWeightsConfig config{
+  const LtsWeightsConfig config{
       seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
 
-  seissol::initializer::parameters::LtsParameters ltsParameters(
+  const seissol::initializer::parameters::LtsParameters ltsParameters(
       2,
       1.0,
       0.01,
@@ -33,12 +34,13 @@ TEST_CASE("LTS Weights") {
   seissol::SeisSol seissolInstance(seissolParameters);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5",
-                                           "Default",
-                                           5000.0,
-                                           "",
-                                           seissol::initializer::parameters::BoundaryFormat::I32,
-                                           ltsWeights.get());
+  const seissol::geometry::PUMLReader pumlReader(
+      "Testing/mesh.h5",
+      "Default",
+      5000.0,
+      "",
+      seissol::initializer::parameters::BoundaryFormat::I32,
+      ltsWeights.get());
   std::cout.clear();
 
   std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
@@ -54,15 +56,15 @@ TEST_CASE("Cost function for LTS") {
   using namespace initializer::time_stepping;
 
   SUBCASE("No clusters") {
-    std::vector<int> clusterIds = {};
-    std::vector<int> cellCosts = {};
+    const std::vector<int> clusterIds = {};
+    const std::vector<int> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, 2, 1.0, 1.0);
     const auto should = 0.0;
     REQUIRE(AbsApprox(is).epsilon(eps) == should);
   }
 
   SUBCASE("One cluster") {
-    std::vector<int> clusterIds = {0, 0, 0, 0, 0};
+    const std::vector<int> clusterIds = {0, 0, 0, 0, 0};
     std::vector<int> cellCosts = {1, 2, 3, 4, 5};
     for (int i = 1; i <= 10; ++i) {
       const auto dt = 1.0 / i;
@@ -81,8 +83,8 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Two clusters") {
-    std::vector<int> clusterIds = {1, 0, 1, 1};
-    std::vector<int> cellCosts = {2, 1, 3, 1};
+    const std::vector<int> clusterIds = {1, 0, 1, 1};
+    const std::vector<int> cellCosts = {2, 1, 3, 1};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     for (unsigned int rate = 1; rate < 4; ++rate) {
@@ -107,8 +109,8 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Three clusters") {
-    std::vector<int> clusterIds = {2, 0, 1, 1, 1};
-    std::vector<int> cellCosts = {2, 1, 3, 1, 2};
+    const std::vector<int> clusterIds = {2, 0, 1, 1, 1};
+    const std::vector<int> cellCosts = {2, 1, 3, 1, 2};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     const auto cellCostsCluster2 = 2;

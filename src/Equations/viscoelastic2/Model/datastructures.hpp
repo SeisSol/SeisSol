@@ -47,31 +47,33 @@
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Initializer/preProcessorMacros.hpp"
 #include "Model/common_datastructures.hpp"
-#include "cstddef"
 #include "generated_code/tensor.h"
+#include <array>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
-  static constexpr std::size_t NumberOfElasticQuantities = 9;
-  static constexpr std::size_t NumberOfQuantities =
-      NumberOfElasticQuantities + MechanismsP * NumberPerMechanism;
+  static constexpr std::size_t NumElasticQuantities = 9;
+  static constexpr std::size_t NumQuantities =
+      NumElasticQuantities + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechanisms = MechanismsP;
-  static constexpr MaterialType Type = MaterialType::viscoelastic;
+  static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumElasticQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   //! Relaxation frequencies
-  double omega[ZeroLengthArrayHandler(Mechanisms)];
+  double omega[zeroLengthArrayHandler(Mechanisms)];
   /** Entries of the source matrix (E)
    * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
    * theta[1] = -lambda * Y_lambda
    * theta[2] = -2.0 * mu * Y_mu
    **/
-  double theta[ZeroLengthArrayHandler(Mechanisms)][3];
+  double theta[zeroLengthArrayHandler(Mechanisms)][3];
   double Qp;
   double Qs;
 

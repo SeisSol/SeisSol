@@ -27,7 +27,7 @@ bool useCommThread(const T& mpiBasic) {
   return useThread && !mpiBasic.isSingleProcess();
 }
 
-inline bool usePersistentMpi() { return utils::Env::get<bool>("SEISSOL_MPI_PERSISTENT", false); }
+inline bool usePersistentMpi() { return utils::Env::get<bool>("SEISSOL_MPI_PERSISTENT", true); }
 
 template <typename T>
 void printPersistentMpiInfo(const T& mpiBasic) {

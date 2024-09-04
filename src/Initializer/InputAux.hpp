@@ -4,6 +4,8 @@
 #include <fstream>
 #include <iterator>
 #include <list>
+#include <sstream>
+#include <vector>
 
 namespace seissol::initializer {
 /**
@@ -55,17 +57,17 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
  * \throws runtime_error if the input string contains parameters, which can not be converted to T.
  * Or if the length is not equal to n (unless ignored).
  * */
-template <typename T, size_t n>
-std::array<T, n> convertStringToArray(const std::string& inputString,
+template <typename T, size_t N>
+std::array<T, N> convertStringToArray(const std::string& inputString,
                                       bool exactLength = true,
                                       bool skipEmpty = true,
                                       char delimiter = ' ') {
-  auto result = std::array<T, n>();
+  auto result = std::array<T, N>();
   if (inputString.empty()) {
-    if (exactLength && n > 0) {
+    if (exactLength && N > 0) {
       throw std::runtime_error(
           std::string("Insufficient number of elements in array. Given: 0. Required: ") +
-          std::to_string(n) + std::string("."));
+          std::to_string(N) + std::string("."));
     } else {
       return result;
     }
@@ -97,7 +99,7 @@ std::array<T, n> convertStringToArray(const std::string& inputString,
       if (s == State::Word || !skipEmpty) {
         result.at(wordCount) = convert(begin, i);
         ++wordCount;
-        if (wordCount >= n) {
+        if (wordCount >= N) {
           break;
         }
       }
@@ -112,15 +114,15 @@ std::array<T, n> convertStringToArray(const std::string& inputString,
 
   // handle rest. Note that if a line ends with a delimiter, we consider the last element to be an
   // empty one again.
-  if ((s == State::Word || !skipEmpty) && wordCount < n) {
+  if ((s == State::Word || !skipEmpty) && wordCount < N) {
     result.at(wordCount) = convert(begin, inputString.size());
     ++wordCount;
   }
 
-  if (wordCount != n && exactLength) {
+  if (wordCount != N && exactLength) {
     throw std::runtime_error(std::string("Insufficient number of elements in array. Given: ") +
                              std::to_string(wordCount) + std::string(". Required: ") +
-                             std::to_string(n));
+                             std::to_string(N));
   }
 
   return result;
@@ -146,9 +148,9 @@ class FileProcessor {
   }
 
   static void removeEmptyLines(StringsType& content) {
-    const std::string WHITESPACE = " \n\r\t\f\v";
-    auto isEmptyString = [&WHITESPACE](const std::string& string) -> bool {
-      size_t start = string.find_first_not_of(WHITESPACE);
+    const std::string whitespace = " \n\r\t\f\v";
+    auto isEmptyString = [&whitespace](const std::string& string) -> bool {
+      size_t start = string.find_first_not_of(whitespace);
       return start == std::string::npos;
     };
 

@@ -27,8 +27,8 @@ class FaultRefiner {
   protected:
   ReceiverPoints points{};
 
-  static constexpr size_t global = 0;
-  static constexpr size_t reference = 1;
+  static constexpr size_t Global = 0;
+  static constexpr size_t Reference = 1;
 
   inline void
       repeatRefinement(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3);

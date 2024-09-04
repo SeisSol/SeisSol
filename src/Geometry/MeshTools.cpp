@@ -38,8 +38,11 @@
 
 #include "MeshTools.h"
 
+#include <Geometry/MeshDefinition.h>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 namespace seissol {
 
@@ -139,9 +142,9 @@ double MeshTools::surface(VrtxCoords faceNormal) {
 }
 
 double MeshTools::surface(const Element& e, int face, const std::vector<Vertex>& vertices) {
-  VrtxCoords N;
-  normal(e, face, vertices, N);
-  return surface(N);
+  VrtxCoords n;
+  normal(e, face, vertices, n);
+  return surface(n);
 }
 
 double MeshTools::volume(const Element& e, const std::vector<Vertex>& vertices) {

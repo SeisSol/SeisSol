@@ -47,7 +47,7 @@
 #include <Eigen/Dense>
 
 #include "Geometry/MeshReader.h"
-#include "Numerical_aux/BasisFunction.h"
+#include "Numerical/BasisFunction.h"
 #include "RefinerUtils.h"
 
 namespace seissol {

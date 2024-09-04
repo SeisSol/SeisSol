@@ -77,15 +77,15 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) {
     [[maybe_unused]] const real tmp =
         0.5 / this->drParameters->rsSr0 *

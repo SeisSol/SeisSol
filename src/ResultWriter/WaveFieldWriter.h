@@ -70,7 +70,7 @@ class SeisSol;
 namespace refinement {
 template <typename T>
 class MeshRefiner;
-}
+} // namespace refinement
 
 namespace writer {
 
@@ -154,7 +154,7 @@ class WaveFieldWriter
   const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
-                                    const std::vector<unsigned>& LtsClusteringData,
+                                    const std::vector<unsigned>& ltsClusteringData,
                                     std::map<int, int>& newToOldCellMap);
 
   public:
@@ -181,7 +181,7 @@ class WaveFieldWriter
   /**
    * Called by ASYNC on all ranks
    */
-  void setUp();
+  void setUp() override;
 
   void setWaveFieldInterval(double interval) { setSyncInterval(interval); }
 
@@ -195,7 +195,7 @@ class WaveFieldWriter
             int order,
             int numAlignedDOF,
             const seissol::geometry::MeshReader& meshReader,
-            const std::vector<unsigned>& LtsClusteringData,
+            const std::vector<unsigned>& ltsClusteringData,
             const real* dofs,
             const real* pstrain,
             const real* integrals,
@@ -235,14 +235,14 @@ class WaveFieldWriter
     }
   }
 
-  void tearDown() { m_executor.finalize(); }
+  void tearDown() override { m_executor.finalize(); }
 
   //
   // Hooks
   //
-  void simulationStart();
+  void simulationStart() override;
 
-  void syncPoint(double currentTime);
+  void syncPoint(double currentTime) override;
 };
 
 } // namespace writer

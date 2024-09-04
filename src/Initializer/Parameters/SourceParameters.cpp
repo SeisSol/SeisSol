@@ -1,4 +1,5 @@
 #include "SourceParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
 
 namespace seissol::initializer::parameters {
 

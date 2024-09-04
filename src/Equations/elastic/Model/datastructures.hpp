@@ -46,17 +46,20 @@
 #include "Model/common_datastructures.hpp"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <string>
 
 namespace seissol::model {
 struct ElasticMaterial : Material {
-  static constexpr std::size_t NumberOfQuantities = 9;
+  static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
-  static constexpr MaterialType Type = MaterialType::elastic;
+  static constexpr MaterialType Type = MaterialType::Elastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "elastic";
-  static inline const std::array<std::string, NumberOfQuantities> Quantities = {
+  static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
 
   double lambda;
@@ -75,7 +78,7 @@ struct ElasticMaterial : Material {
     this->lambda = materialValues[2];
   }
 
-  virtual ~ElasticMaterial() = default;
+  ~ElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 
