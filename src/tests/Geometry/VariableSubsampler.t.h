@@ -4,10 +4,10 @@
 
 #include <Eigen/Dense>
 
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Geometry/refinement/RefinerUtils.h"
-#include "Geometry/refinement/VariableSubSampler.h"
-#include "Kernels/precision.hpp"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
+#include "Kernels/Precision.h"
 #include "MockReader.h"
 
 namespace seissol::unit_test {

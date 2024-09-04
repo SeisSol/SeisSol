@@ -8,9 +8,9 @@
 #include "generated_code/kernel.h"
 
 #include <Kernels/PointSourceCluster.h>
-#include <Kernels/precision.hpp>
-#include <Parallel/Runtime/Stream.hpp>
-#include <SourceTerm/typedefs.hpp>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <SourceTerm/Typedefs.h>
 #include <memory>
 #include <tensor.h>
 

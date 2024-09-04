@@ -6,8 +6,8 @@
 #include <Eigen/Dense>
 #include <yateto.h>
 
-#include "Model/common.hpp"
-#include "Kernels/common.hpp"
+#include "Model/Common.h"
+#include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
 #include "Numerical/Eigenvalues.h"
 #include "generated_code/init.h"
@@ -253,7 +253,7 @@ namespace seissol {
       setBlocks(QgodLocal, S, tractionIndices, velocityIndices);
     }
 
-    // zeroThreshold has default parameter 1e-7, see src/Model/common.hpp
+    // zeroThreshold has default parameter 1e-7, see src/Model/Common.hpp
     template<>
     inline seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> getEigenDecomposition (PoroElasticMaterial const& material, double zeroThreshold) {
       std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities> AT;

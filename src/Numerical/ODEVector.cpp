@@ -1,4 +1,4 @@
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>

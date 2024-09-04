@@ -41,11 +41,11 @@
 
 #include "DynamicRupture.h"
 
-#include <Common/constants.hpp>
-#include <DataTypes/ConditionalTable.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
@@ -55,8 +55,8 @@
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #endif
 #include <yateto.h>
 

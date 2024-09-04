@@ -44,10 +44,10 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Model/plasticity.hpp"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
 #include "generated_code/tensor.h"
 #include <limits>
 

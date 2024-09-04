@@ -45,7 +45,7 @@
 
 #include <Eigen/Dense>
 #include "Geometry/MeshReader.h"
-#include "Initializer/tree/Lut.hpp"
+#include "Initializer/Tree/Lut.h"
 #include "Initializer/LTS.h"
 #include "Kernels/Receiver.h"
 #include "Modules/Module.h"

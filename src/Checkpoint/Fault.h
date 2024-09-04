@@ -47,7 +47,7 @@
 #include <string>
 
 #include "CheckPoint.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol
 {

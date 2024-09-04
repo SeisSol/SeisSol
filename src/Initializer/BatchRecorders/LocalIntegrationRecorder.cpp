@@ -1,10 +1,10 @@
-#include "Kernels/Interface.hpp"
+#include "Kernels/Interface.h"
 #include "Recorders.h"
-#include <DataTypes/ConditionalKey.hpp>
-#include <Initializer/BasicTypedefs.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/LTS.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Kernels/Precision.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -13,9 +13,9 @@
 #include <vector>
 #include <yateto.h>
 
-#include "DataTypes/Condition.hpp"
-#include "DataTypes/ConditionalTable.hpp"
-#include "DataTypes/EncodedConstants.hpp"
+#include "DataTypes/Condition.h"
+#include "DataTypes/ConditionalTable.h"
+#include "DataTypes/EncodedConstants.h"
 
 using namespace device;
 using namespace seissol::initializer;

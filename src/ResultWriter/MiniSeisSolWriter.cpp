@@ -1,5 +1,5 @@
 #include "MiniSeisSolWriter.h"
-#include "Common/filesystem.h"
+#include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
 #include <algorithm>
 #include <cstddef>

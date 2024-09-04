@@ -1,10 +1,10 @@
-#include "Kernels/Interface.hpp"
+#include "Kernels/Interface.h"
 #include "Recorders.h"
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #include <Initializer/LTS.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Kernels/Precision.h>
 #include <cstddef>
 #include <tensor.h>
 #include <vector>

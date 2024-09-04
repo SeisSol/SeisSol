@@ -57,7 +57,7 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Wavefield.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
 #endif // USE_HDF
 

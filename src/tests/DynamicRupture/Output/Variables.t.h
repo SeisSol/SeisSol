@@ -1,5 +1,5 @@
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/DataTypes.hpp"
+#include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/MemoryAllocator.h"
 
 namespace seissol::unit_test {

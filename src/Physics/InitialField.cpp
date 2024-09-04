@@ -1,7 +1,7 @@
-#include <Equations/datastructures.hpp>
+#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
-#include <Initializer/typedefs.hpp>
-#include <Model/common.hpp>
+#include <Initializer/Typedefs.h>
+#include <Model/Common.h>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <math.h>
 #include <tensor.h>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
 #include <stdexcept>

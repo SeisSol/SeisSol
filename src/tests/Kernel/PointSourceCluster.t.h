@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #include "doctest.h"
 

@@ -46,8 +46,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
 #include "Initializer/MemoryManager.h"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 #include "Physics/InitialField.h"
 
 namespace seissol::initializer {

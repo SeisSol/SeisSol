@@ -43,9 +43,9 @@
 
 #include "Simulator.h"
 #include "Modules/Modules.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/Unit.hpp"
+#include "Monitoring/Unit.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
