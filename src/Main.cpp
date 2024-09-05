@@ -67,7 +67,7 @@
 #endif
 
 #ifdef FP_CHECK
-  #include <cfenv>
+#include <cfenv>
 #endif
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
