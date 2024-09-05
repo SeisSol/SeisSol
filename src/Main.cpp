@@ -41,10 +41,10 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Modules/Modules.h"
-#include <cfenv>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
+#include "fenv.h"
 #include <fty/fty.hpp>
 #include <memory>
 #include <ostream>
