@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
   const int rank = seissol::MPI::mpi.rank();
 
   if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
-    logInfo() << "Enabling floating point exception handlers.";
+    logInfo(rank) << "Enabling floating point exception handlers.";
     feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   }
 
