@@ -126,7 +126,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
-  assert(mask.size() == get_nprocs_conf());
+  assert(static_cast<int>(mask.size()) == get_nprocs_conf());
   for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
     if (mask[cpu]) {
       CPU_SET(cpu, &onlineMask.set);

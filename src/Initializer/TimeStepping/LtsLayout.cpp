@@ -599,9 +599,6 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
   unsigned int l_maximumDifference      = 0;
   unsigned int l_dynamicRupture         = 0;
   unsigned int l_singleBuffer           = 0;
-  unsigned int l_totalMaximumDifference = 0;
-  unsigned int l_totalDynamicRupture    = 0;
-  unsigned int l_totalSingleBuffer      = 0;
 
   int l_globalContinue = 1;
 
@@ -624,10 +621,6 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
     // TODO: missing implementation (works only for max. difference 0 or 1)
     l_singleBuffer = enforceSingleBuffer();
 
-    l_totalMaximumDifference += l_maximumDifference;
-    l_totalDynamicRupture    += l_dynamicRupture;
-    l_totalSingleBuffer      += l_singleBuffer;
-
     // check if this rank requires another iteration
     int l_localContinue = l_maximumDifference + l_dynamicRupture + l_singleBuffer;
 
@@ -638,8 +631,6 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
     l_globalContinue = l_localContinue;
 #endif
   }
-
-  //logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions (max. diff.) for" << m_cells.size() << "cells," << l_totalDynamicRupture << "reductions (dyn. rup.) for" << m_fault.size() << "faces.";
   
   int* localClusterHistogram = new int[m_numberOfGlobalClusters];
   for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {

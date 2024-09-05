@@ -174,7 +174,7 @@ seissol::initializer::ElementAverageGenerator::ElementAverageGenerator(
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
-  for (int i = 0; i < NumQuadpoints; ++i) {
+  for (std::size_t i = 0; i < NumQuadpoints; ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
               std::begin(m_quadraturePoints[i]));

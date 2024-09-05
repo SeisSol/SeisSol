@@ -208,7 +208,7 @@ class MemkindArray {
     copyFrom(source);
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
-  MemkindArray(Memkind memkind) : memkind(memkind), dataPtr(nullptr), capacity(0) {}
+  MemkindArray(Memkind memkind) : memkind(memkind) {}
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);
@@ -235,7 +235,7 @@ class MemkindArray {
 
   private:
   T* dataPtr{nullptr};
-  std::size_t capacity;
+  std::size_t capacity{0};
   enum Memkind memkind;
 };
 

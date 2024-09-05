@@ -51,7 +51,6 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
            "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
-  const auto backgroundType = reader->readWithDefault("backgroundtype", 0);
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
@@ -103,7 +102,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const double etaHack = outputReader->readWithDefault("etahack", 1.0);
 
-  reader->warnDeprecated({"rf_output_on"});
+  reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,

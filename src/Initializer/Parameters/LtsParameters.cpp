@@ -168,8 +168,6 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
     maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
   }
 
-  auto abortReader = baseReader->readSubNode("abortcriteria");
-
   auto* timeReader = baseReader->readSubNode("abortcriteria");
   const double endTime = timeReader->readWithDefault("endtime", 15.0);
 
