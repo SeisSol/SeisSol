@@ -1,10 +1,11 @@
+#include "Equations/elastic/Model/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include <cstdio>
+#include <cuda.h>
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>
-#include <cuda.h>
-#include <cstdio>
 
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {
@@ -155,11 +156,12 @@ void
 namespace seissol::kernels::time::aux {
 void
     taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream) {
+      // TODO: now fixed to elastic
       if (integral) {
-        taylorSumInternal<true, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, real, real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>(count, target, source, start, end, stream);
+        taylorSumInternal<true, seissol::model::ElasticMaterial::NumQuantities, seissol::model::ElasticMaterial::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
       }
       else {
-        taylorSumInternal<false, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, real, real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>(count, target, source, start, end, stream);
+        taylorSumInternal<false, seissol::model::ElasticMaterial::NumQuantities, seissol::model::ElasticMaterial::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
       }
     }
 } // namespace seissol::kernels::time::aux

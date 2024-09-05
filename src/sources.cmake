@@ -270,6 +270,7 @@ if (WITH_GPU)
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
                              ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
                              ${CMAKE_BINARY_DIR}/src/generated_code
+                             ${CMAKE_BINARY_DIR}/src
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
   # include cmake files will define SeisSol-device-lib target
