@@ -240,7 +240,7 @@ double ReceiverCluster::calcReceivers(
             if (!std::isfinite(multisimWrap(qAtPoint, sim, quantity))) {
               logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
                          << receiver.position[1] << "," << receiver.position[2] << " in simulation"
-                         << sim << "."
+                         << sim << "at time " << time << "."
                          << "Aborting.";
             }
             receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));

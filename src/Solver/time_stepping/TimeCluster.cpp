@@ -267,8 +267,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
     drEnergyOutput[i] = layerData[i]->var(m_dynRup[i]->drEnergyOutput);
     timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus);
     timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);
-    qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus);
-    qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus);
+    qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus); // Is this interleafed or is this normal?
+    qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus); // Is this interleafed or is this normal?
     frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel.timePoints);
   }
 

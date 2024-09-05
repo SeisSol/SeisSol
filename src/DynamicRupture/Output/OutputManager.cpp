@@ -376,8 +376,7 @@ void OutputManager::flushPickpointDataToFile() {
                                 globalIndex,
                                 numFused,
                                 "faultreceiver",
-                                "dat"); // add the simulation number in suffix, something like
-                                        // faultreceiver_0001 or something.
+                                "dat");
 
     std::ofstream file(fileName, std::ios_base::app);
     if (file.is_open()) {

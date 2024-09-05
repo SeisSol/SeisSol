@@ -179,21 +179,24 @@ std::array<real, multipleSimulations::numberOfSimulations>
   alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real QPlus[tensor::Q::size()];
-  alignas(Alignment) real QMinus[tensor::Q::size()];
+  // alignas(Alignment) real QPlus[tensor::Q::size()];
+  // alignas(Alignment) real QMinus[tensor::Q::size()];
+
+  alignas(Alignment) real QPlus[tensor::singleSimQ::size()];
+  alignas(Alignment) real QMinus[tensor::singleSimQ::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
   std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  krnl.Q = QPlus;
+  krnl.singleSimQ = QPlus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  krnl.Q = QMinus;
+  krnl.singleSimQ = QMinus;
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);

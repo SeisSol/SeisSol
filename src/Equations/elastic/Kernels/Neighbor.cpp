@@ -174,13 +174,14 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
           //      drKrnl.Q = data.dofs(); //(TO DISCUSS) This needs to be modifed to get just the
           //      current simulation's dofs. What is the shape and type of dofs?
           drKrnl._prefetch.I = faceNeighbors_prefetch[lFace];
-          drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation);
+          drKrnl.execute(cellDrMapping[lFace].side, cellDrMapping[lFace].faceRelation); //(DEBUG notes): the nodalFlux kernel does correct things when the input is correctly given.
+          //(DEBUG notes: now need to verify if the right thing is going into the kernel or not)
         }
         kernel::dofsModifiedReversed dofModifiedReversedKrnl;
         dofModifiedReversedKrnl.Q = data.dofs();
         dofModifiedReversedKrnl.Q_ijs = dummydofs;
         dofModifiedReversedKrnl.execute();
-        break;
+        break; // The entire dynamic rupture structure seems to work the way it is supposed if the interleaving is done the way we assume
     }
     default:
       // No contribution for all other cases.

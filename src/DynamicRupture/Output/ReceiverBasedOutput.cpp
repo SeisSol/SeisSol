@@ -467,10 +467,11 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto chiTau2dPoints =
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-    // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
+    /// TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
     auto getWeights = [&weights](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
-      return weights(index, 0);
+      // return weights(index, 0);
+      return weights(0, index);
 #else
       return weights(index);
 #endif
@@ -478,10 +479,10 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
-      const real chi = chiTau2dPoints(jBndGP, 0);
-      const real tau = chiTau2dPoints(jBndGP, 1);
+      const real chi = chiTau2dPoints(0, jBndGP);
+      const real tau = chiTau2dPoints(1, jBndGP);
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
-
+      
       for (size_t d = 0; d < numDegFr2d; ++d) {
         projectedRT[d] += getWeights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
@@ -493,8 +494,10 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
       projectedRT[d] *= m2inv(d, d);
     }
 
-    const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
-    const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
+    // const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
+    const real chi = chiTau2dPoints(0, local.nearestInternalGpIndex);
+    // const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
+    const real tau = chiTau2dPoints(1, local.nearestInternalGpIndex);
 
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
 

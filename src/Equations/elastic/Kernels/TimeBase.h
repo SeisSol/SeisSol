@@ -105,6 +105,7 @@ class TimeBase {
    * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
    */
   unsigned int m_derivativesOffsets[ConvergenceOrder];
+  unsigned int m_derivativesOffsets_DR[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;

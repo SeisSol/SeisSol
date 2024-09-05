@@ -41,6 +41,8 @@
 import numpy as np
 from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto.ast.node import Add
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from copy import deepcopy
@@ -62,7 +64,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
   
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
-  QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  # QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  # TODO: (VK) Make this work with the original tensors
+  QInterpolated = Tensor('QInterpolated', gShape, alignStride=True)
 
   stressRotationMatrix = Tensor("stressRotationMatrix", (6, 6))
   initialStress = Tensor("initialStress", (6, ))
@@ -96,9 +100,39 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   #               QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
 
   generator.add('evaluateFaceAlignedDOFSAtPoint', QAtPoint['q'] <= aderdg.Tinv['qp']*QuantitiesSingleSim['lp']*basisFunctionsAtPoint['l'])
+  
+  dQ0_DR = Tensor('dQ_DR(0)', qShape, alignStride=True)
+  I_DR = Tensor('I_DR', qShape, alignStride=True)
+  powers_DR = [Scalar(f'power_DR({i})') for i in range(aderdg.order)]
+  power_DR = powers_DR[0]
+  derivatives_DR = [dQ0_DR]
+  derivativeExpr_DR = [I_DR['kp'] <= power_DR * dQ0_DR['kp']]
+  derivativeTaylorExpansion_DR = power_DR*dQ0_DR['kp']
 
+  dQs_DR = [dQ0_DR]
+
+  for i in range(1, aderdg.order):
+    power_DR = powers_DR[i]
+    derivativeSum_DR = Add()
+    for j in range(3):
+      derivativeSum_DR += aderdg.db.kDivMT[j][aderdg.t('kl')] * derivatives_DR[-1]['lq'] * aderdg.starMatrix(j)['qp']
+
+    derivativeSum_DR = DeduceIndices(QuantitiesSingleSim['kp'].indices).visit(derivativeSum_DR)
+    derivativeSum_DR = EquivalentSparsityPattern().visit(derivativeSum_DR)
+    dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=True)
+    dQs_DR.append(dQ_DR)
+    derivativeTaylorExpansion_DR += power_DR * dQ_DR['kp']
+
+    derivatives_DR.append(dQ_DR)
+  
+  derivativeTaylorExpansion_DR = I_DR['kp'] <= derivativeTaylorExpansion_DR
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.add(f'{name_prefix}derivativeTaylorExpansion_DR', derivativeTaylorExpansion_DR, target=target)
+  
+  # TODO : (VK) Make this work with the original tensors 
   def interpolateQGenerator(i,h):
-    return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
+    return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * QuantitiesSingleSim['lq'] * TinvT['qp']
 
   interpolateQPrefetch = lambda i,h: QInterpolated
   for target in targets:
@@ -126,11 +160,16 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # Energy output
   # Minus and plus refer to the original implementation of Christian Pelties,
   # where the normal points from the plus side to the minus side
-  QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipInterpolated = OptionalDimTensor('slipInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
-  tractionInterpolated = OptionalDimTensor('tractionInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
-  staticFrictionalWork = OptionalDimTensor('staticFrictionalWork', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
+  # QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  QInterpolatedPlus = Tensor('QInterpolatedPlus', gShape, alignStride=True)
+  # QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  QInterpolatedMinus = Tensor('QInterpolatedMinus', gShape, alignStride=True)
+  # slipInterpolated = OptionalDimTensor('slipInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints, 3), alignStride=True)
+  # tractionInterpolated = OptionalDimTensor('tractionInterpolated', 's', aderdg.multipleSimulations, 0, (numberOfPoints,3), alignStride=True)
+  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints, 3), alignStride=True)
+  # staticFrictionalWork = OptionalDimTensor('staticFrictionalWork', 's', aderdg.multipleSimulations, 0, (1,), alignStride=True)
+  staticFrictionalWork = Tensor('staticFrictionalWork', (1,), alignStride=True)
   minusSurfaceArea = Scalar('minusSurfaceArea')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints, 1), alignStride=True)
 
@@ -141,8 +180,10 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   generator.add('accumulateStaticFrictionalWork', accumulateStaticFrictionalWork)
 
   ## Dynamic Rupture Precompute
-  qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  qMinus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  # qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  qPlus = Tensor('Qplus', gShape, alignStride=True)
+  # qMinus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  qMinus = Tensor('Qminus', gShape, alignStride=True)
 
   extractVelocitiesSPP = aderdg.extractVelocities()
   extractVelocities = Tensor('extractVelocities', extractVelocitiesSPP.shape, spp=extractVelocitiesSPP)
@@ -153,8 +194,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   eta = Tensor('eta', (N,N))
   zPlus = Tensor('Zplus', (N,N))
   zMinus = Tensor('Zminus', (N,N))
-  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints, N), alignStride=True)
-
+  # theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints, N), alignStride=True)
+  theta = Tensor('theta', (numberOfPoints, N), alignStride=True)
   velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
   tractionsPlus = extractTractions['mn'] * qPlus['in']
   tractionsMinus = extractTractions['mn'] * qMinus['in']
@@ -165,7 +206,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   mapToVelocities = Tensor('mapToVelocities', mapToVelocitiesSPP.shape, spp=mapToVelocitiesSPP)
   mapToTractionsSPP = aderdg.mapToTractions()
   mapToTractions = Tensor('mapToTractions', mapToTractionsSPP.shape, spp=mapToTractionsSPP)
-  imposedState = OptionalDimTensor('imposedState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  # imposedState = OptionalDimTensor('imposedState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  imposedState = Tensor('imposedState', gShape, alignStride=True)
   weight = Scalar('weight')
   computeImposedStateM = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qMinus['im'] - zMinus['lm'] * theta['im'] + zMinus['lm'] * tractionsMinus) + weight * mapToTractions['kl'] * theta['il']
   computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']

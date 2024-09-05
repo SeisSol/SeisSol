@@ -138,12 +138,17 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   static_assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
+// DEBUG: check this if this give the same output as master
+
 // #ifdef MULTIPLE_SIMULATIONS
 //   logError() << "Dynamic Rupture does not work with multiple simulations"; // (TO DISCUSS: what changes are required for the kernel)
 // #endif
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] ;
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  // alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()]; //(DEBUG: Need to change size of this)
+  // alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()]; // Same
+
+  alignas(ALIGNMENT) real degreesOfFreedomPlus[tensor::singleSimQ::size()];
+  alignas(ALIGNMENT) real degreesOfFreedomMinus[tensor::singleSimQ::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
@@ -151,21 +156,26 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluateAtTime(timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
 #else
-    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+    /// \todo (VK): revert this to the original one once the other yateto and other things are fixed
+    // m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
+    // m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+
 #endif
 
     real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
     krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0]; // Only Q interpolate changes
-    krnl.Q = degreesOfFreedomPlus;
+    krnl.singleSimQ = degreesOfFreedomPlus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
     
     krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0]; // Only Q interpolate changes
-    krnl.Q = degreesOfFreedomMinus;
+    krnl.singleSimQ = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);

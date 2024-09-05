@@ -100,7 +100,7 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 #ifdef MULTIPLE_SIMULATIONS
-  const size_t index = 1;
+  const size_t index = 0;
 #else
   const size_t index = 0;
 #endif

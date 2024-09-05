@@ -62,10 +62,10 @@ inline auto allocationModeDR() {
 struct DynamicRupture {
   public:
   virtual ~DynamicRupture() = default;
-  Variable<real*> timeDerivativePlus;
-  Variable<real*> timeDerivativeMinus;
-  Variable<real*> timeDerivativePlusDevice;
-  Variable<real*> timeDerivativeMinusDevice;
+  Variable<real*> timeDerivativePlus; /// \todo (VK) dont know the size of this, change to an array later
+  Variable<real*> timeDerivativeMinus; /// \todo (VK) dont know the size of this, change to an array later
+  Variable<real*> timeDerivativePlusDevice; /// \todo (VK) dont know the size of this, change to an array later
+  Variable<real*> timeDerivativeMinusDevice; /// \todo (VK) dont know the size of this, change to an array later
   Variable<real[tensor::QInterpolated::size()]> imposedStatePlus;
   Variable<real[tensor::QInterpolated::size()]> imposedStateMinus;
   Variable<DRGodunovData> godunovData;

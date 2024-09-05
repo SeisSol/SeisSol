@@ -72,6 +72,7 @@
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
+#include <equation-elastic-3-double/tensor.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -99,20 +100,22 @@ namespace seissol::kernels {
 
 TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
+  m_derivativesOffsets_DR[0] = 0;
   for (int order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
+      m_derivativesOffsets_DR[order] = tensor::dQ_DR::size(order-1) + m_derivativesOffsets_DR[order - 1];
     }
   }
 }
 
-void TimeBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+void TimeBase::checkGlobalData(const GlobalData* global, size_t alignment) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % alignment == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % alignment == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % alignment == 0 );
 }
 
-void Time::setHostGlobalData(GlobalData const* global) {
+void Time::setHostGlobalData(const GlobalData* global) {
 #ifdef USE_STP
   //Note: We could use the space time predictor for elasticity.
   //This is not tested and experimental
@@ -435,10 +438,10 @@ void Time::computeBatchedIntegral(double i_expansionPoint,
 #endif
 }
 
-void Time::computeTaylorExpansion( real         time,
-                                                     real         expansionPoint,
-                                                     real const*  timeDerivatives,
-                                                     real         timeEvaluated[tensor::Q::size()] ) {
+void Time::computeTaylorExpansion(real time,
+                                  real expansionPoint,
+                                  const real* timeDerivatives,
+                                  real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */
@@ -466,6 +469,35 @@ void Time::computeTaylorExpansion( real         time,
 
   intKrnl.execute();
 }
+
+#ifdef MULTIPLE_SIMULATIONS
+void Time::computeTaylorExpansionDR(real time,
+                              real expansionPoint,
+                              const real* timeDerivatives,
+                              real timeEvaluated[tensor::QInterpolated::size()]) {
+
+  /// \todo (VK): activate this once the tensor implementation and yateto padding are sorted
+  // assert(((uintptr_t) timeDerivatives) % Alignment == 0);
+  // assert(((unintptr_t) timeEvaluated) % Alignment == 0);
+
+  // asert that this is a forward evaluation in time
+  assert( time >= expansionPoint);
+
+  real deltaT = time - expansionPoint;
+
+  seissol::dynamicRupture::kernel::derivativeTaylorExpansion_DR intKrnl;
+
+  intKrnl.I_DR = timeEvaluated;
+  for (unsigned i=0; i < yateto::numFamilyMembers<tensor::dQ_DR>(); ++ i){
+    intKrnl.dQ_DR(i) = timeDerivatives + m_derivativesOffsets_DR[i];
+  }
+  intKrnl.power_DR(0) = 1.0;
+  for (int derivative=1; derivative < ConvergenceOrder; ++derivative){
+    intKrnl.power_DR(derivative) = intKrnl.power_DR(derivative-1)*deltaT/real(derivative); 
+  }
+  intKrnl.execute();
+  }
+#endif
 
 void Time::computeBatchedTaylorExpansion(real time,
                                                            real expansionPoint,
@@ -510,6 +542,10 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
 
 unsigned int* Time::getDerivativesOffsets() {
   return m_derivativesOffsets;
+}
+
+unsigned int* Time::getDerivativesOffsetsDR(){
+  return m_derivativesOffsets_DR;
 }
 
 } // namespace seissol::kernels
