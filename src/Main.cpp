@@ -41,10 +41,10 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Modules/Modules.h"
+#include "fenv.h"
 #include <cstdlib>
 #include <ctime>
 #include <exception>
-#include "fenv.h"
 #include <fty/fty.hpp>
 #include <memory>
 #include <ostream>
@@ -66,6 +66,16 @@
 
 #ifdef ACL_DEVICE
 #include "device.h"
+#endif
+
+// Check if on a GNU system (Linux) or other platform
+#if defined(__GNUC__) || defined(__linux__)
+#define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                                     \
+  logInfo(rank) << "Enabling floating point exception handlers.";
+#else
+#define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
+  logInfo(rank) << "Floating-point exceptions not supported on this platform.";
 #endif
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -103,8 +113,7 @@ int main(int argc, char* argv[]) {
   const int rank = seissol::MPI::mpi.rank();
 
   if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
-    logInfo(rank) << "Enabling floating point exception handlers.";
-    feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+    ENABLE_FLOAT_EXCEPTIONS(rank);
   }
 
   LIKWID_MARKER_INIT;
