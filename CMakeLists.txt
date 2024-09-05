@@ -50,7 +50,7 @@ endif()
 #                     MEMORY_LAYOUT,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
-#                     DR_QUAD_RULE, FLOATING_POINT_EXCEPTION
+#                     DR_QUAD_RULE
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)

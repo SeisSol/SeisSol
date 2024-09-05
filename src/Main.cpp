@@ -66,9 +66,7 @@
 #include "device.h"
 #endif
 
-#ifdef FP_CHECK
 #include <cfenv>
-#endif
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
@@ -103,10 +101,12 @@ int main(int argc, char* argv[]) {
 
   seissol::MPI::mpi.init(argc, argv);
   const int rank = seissol::MPI::mpi.rank();
-#ifdef FP_CHECK
-  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-#endif
 
+  if(utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)){
+    logInfo() << "REACHED HERE";
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+  }
+  
   LIKWID_MARKER_INIT;
 #pragma omp parallel
   {
