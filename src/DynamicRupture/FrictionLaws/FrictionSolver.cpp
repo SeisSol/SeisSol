@@ -4,6 +4,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include <cstddef>
 
 namespace seissol::dr::friction_law {
 

@@ -2,6 +2,7 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
+#include <cstddef>
 #include <limits>
 
 namespace seissol::initializer::parameters {
