@@ -102,11 +102,11 @@ int main(int argc, char* argv[]) {
   seissol::MPI::mpi.init(argc, argv);
   const int rank = seissol::MPI::mpi.rank();
 
-  if(utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)){
+  if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
     logInfo() << "REACHED HERE";
-  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+    feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
   }
-  
+
   LIKWID_MARKER_INIT;
 #pragma omp parallel
   {
