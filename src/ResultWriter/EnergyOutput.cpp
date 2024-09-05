@@ -355,20 +355,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 }
 
 void EnergyOutput::computeVolumeEnergies() {
-  auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
-  auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
-  auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
-  auto& totalMomentumX = energiesStorage.totalMomentumX();
-  auto& totalMomentumY = energiesStorage.totalMomentumY();
-  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
-  auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
-  auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
-  auto& totalPlasticMoment = energiesStorage.plasticMoment();
+  // TODO: abstract energy calculation, and implement it for anisotropic and poroelastic
+  [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
+  [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
+  [[maybe_unused]] auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  [[maybe_unused]] auto& totalMomentumX = energiesStorage.totalMomentumX();
+  [[maybe_unused]] auto& totalMomentumY = energiesStorage.totalMomentumY();
+  [[maybe_unused]] auto& totalMomentumZ = energiesStorage.totalMomentumZ();
+  [[maybe_unused]] auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
+  [[maybe_unused]] auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
+  [[maybe_unused]] auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
   const std::vector<Element>& elements = meshReader->getElements();
   const std::vector<Vertex>& vertices = meshReader->getVertices();
 
-  const auto g = seissolInstance.getGravitationSetup().acceleration;
+  [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
