@@ -105,6 +105,7 @@ int main(int argc, char* argv[]) {
   if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
     // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
+#include <fenv.h>
 #define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
   feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                                     \
   logInfo(rank) << "Enabling floating point exception handlers.";
