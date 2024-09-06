@@ -58,7 +58,6 @@
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
-#include <cfenv>
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -69,6 +68,7 @@
 #endif
 
 #if defined(__GNUC__) || defined(__linux__)
+#include <cfenv>
 #include <fenv.h>
 #endif
 
@@ -113,11 +113,8 @@ int main(int argc, char* argv[]) {
   feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                                     \
   logInfo(rank) << "Enabling floating point exception handlers.";
 #else
-#define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
-  logInfo(rank) << "Floating-point exceptions not supported on this platform.";
+    logInfo(rank) << "Floating-point exceptions not supported on this platform.";
 #endif
-
-    ENABLE_FLOAT_EXCEPTIONS(rank);
   }
 
   LIKWID_MARKER_INIT;
