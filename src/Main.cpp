@@ -72,7 +72,6 @@
 #include <fenv.h>
 #endif
 
-
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
