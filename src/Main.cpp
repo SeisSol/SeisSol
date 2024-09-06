@@ -67,6 +67,7 @@
 #ifdef ACL_DEVICE
 #include "device.h"
 #endif
+
 #if defined(__GNUC__) || defined(__linux__)
 #include <fenv.h>
 #endif
