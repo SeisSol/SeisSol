@@ -58,6 +58,7 @@
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
+#include<cfenv>
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -105,7 +106,7 @@ int main(int argc, char* argv[]) {
     // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
 #define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
-  #include<cfenv> feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                     \
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                     \
   logInfo(rank) << "Enabling floating point exception handlers.";
 #else
 #define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
