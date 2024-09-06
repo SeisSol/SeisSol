@@ -1,10 +1,15 @@
-#include "InitIO.hpp"
-#include "Common/filesystem.h"
+#include "InitIO.h"
+#include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
-#include "Init.hpp"
-#include "Initializer/BasicTypedefs.hpp"
 #include "SeisSol.h"
+#include <Common/Constants.h>
+#include <Geometry/MeshDefinition.h>
+#include <Initializer/DynamicRupture.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <cstring>
+#include <tensor.h>
+#include <utils/logger.h>
 #include <vector>
 
 #include "Parallel/MPI.h"
@@ -12,7 +17,6 @@
 namespace {
 
 static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   auto* lts = memoryManager.getLts();
@@ -43,10 +47,10 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
   }
 
-  size_t numSides = seissolInstance.meshReader().getFault().size();
-  unsigned int numBndGP = seissol::dr::misc::numberOfBoundaryGaussPoints;
+  const size_t numSides = seissolInstance.meshReader().getFault().size();
+  const unsigned int numBndGP = seissol::dr::misc::NumBoundaryGaussPoints;
 
-  bool hasCheckpoint = seissolInstance.checkPointManager().init(
+  const bool hasCheckpoint = seissolInstance.checkPointManager().init(
       reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
       ltsTree->getNumberOfCells(lts->dofs.mask) * tensor::Q::size(),
       reinterpret_cast<real*>(dynRupTree->var(dynRup->mu)),
@@ -77,11 +81,11 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto numberOfQuantities =
+  constexpr auto NumQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
-  // numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it
-  // nonetheless.
+  // numberOfQuantities. But the compile-time parameter
+  // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
   if (seissolParams.output.waveFieldParameters.enabled) {
     // record the clustering info i.e., distribution of elements within an LTS tree
@@ -93,9 +97,9 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
-        numberOfQuantities,
-        CONVERGENCE_ORDER,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        NumQuantities,
+        ConvergenceOrder,
+        NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),

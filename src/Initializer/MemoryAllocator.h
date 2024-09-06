@@ -74,7 +74,8 @@
 #ifndef MEMORYALLOCATOR_H_
 #define MEMORYALLOCATOR_H_
 
-#include "Kernels/precision.hpp"
+#include "Common/Constants.h"
+#include "Kernels/Precision.h"
 #include <cassert>
 #include <cstdlib>
 #include <vector>
@@ -108,7 +109,7 @@ class AlignedArray {
   constexpr std::size_t size() const noexcept { return N; }
 
   private:
-  alignas(ALIGNMENT) T data_[N];
+  alignas(Alignment) T data_[N];
 };
 
 // TODO(David): make enum class
@@ -207,11 +208,11 @@ class MemkindArray {
     copyFrom(source);
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
-  MemkindArray(Memkind memkind) : memkind(memkind), dataPtr(nullptr), capacity(0) {}
+  MemkindArray(Memkind memkind) : memkind(memkind) {}
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);
-    dataPtr = allocTyped<T>(capacity, ALIGNMENT, memkind);
+    dataPtr = allocTyped<T>(capacity, Alignment, memkind);
   }
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
@@ -234,7 +235,7 @@ class MemkindArray {
 
   private:
   T* dataPtr{nullptr};
-  std::size_t capacity;
+  std::size_t capacity{0};
   enum Memkind memkind;
 };
 

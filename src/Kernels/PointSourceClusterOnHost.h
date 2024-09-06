@@ -7,7 +7,7 @@
 
 #include "PointSourceCluster.h"
 
-#include "SourceTerm/typedefs.hpp"
+#include "SourceTerm/Typedefs.h"
 
 namespace seissol::kernels {
 class PointSourceClusterOnHost : public PointSourceCluster {

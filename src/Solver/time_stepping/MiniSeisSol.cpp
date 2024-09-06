@@ -44,7 +44,7 @@
 #include "Kernels/Time.h"
 #include "Kernels/Touch.h"
 #include "Monitoring/Stopwatch.h"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "utils/env.h"
 
@@ -194,11 +194,11 @@ void seissol::fakeData(initializer::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
-      case FaceType::freeSurface:
+      case FaceType::FreeSurface:
           faceNeighbors[cell][f] = buffers[cell];
           break;
-      case FaceType::periodic:
-      case FaceType::regular:
+      case FaceType::Periodic:
+      case FaceType::Regular:
           faceNeighbors[cell][f] = buffers[ cellInformation[cell].faceNeighborIds[f] ];
           break;
         default:

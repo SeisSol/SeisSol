@@ -16,7 +16,7 @@ Kernels       Common kernel code.
 Model         Common model code.
 Modules       Modules system implementation which allows adding code at pre-defined hooks.
 Monitoring    Contains code for HPC statistics collected during a run.
-Numerical_aux Helper code for numerics, e.g. quadrature rules.
+Numerical     Helper code for numerics, e.g. quadrature rules.
 Parallel      MPI communicator related code.
 Physics       Contains friction laws.
 Reader        Code for reading parameter files.
@@ -44,9 +44,7 @@ preprocessing/
 Folder        Description
 ============= =============
 meshing       Cube generator; gmsh converter; various scripts.
-partitioning  *deprecated*
 science       ASAGI converter; standard rupture format converter; various scripts.
-workflow      *deprecated*
 ============= =============
 
 postprocessing/
@@ -55,7 +53,6 @@ postprocessing/
 ============= =============
 Folder        Description
 ============= =============
-performance   *deprecated*
 science       Various scripts processing simulation output.
 validation    Cube mesh validation.
 visualisation Receiver viewer; scripts.

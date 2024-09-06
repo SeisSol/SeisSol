@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #include "doctest.h"
 
@@ -11,13 +11,13 @@
 
 namespace seissol::unit_test {
 TEST_CASE("computeSampleTimeIntegral") {
-  constexpr double pi = 3.14159265358979323846264338327950;
+  constexpr double Pi = 3.14159265358979323846264338327950;
 
   std::size_t sampleSize = 1000;
   double samplingInterval = 1.0 / (sampleSize - 1);
   auto sr = std::vector<real>(sampleSize);
   for (std::size_t i = 0; i < sampleSize; ++i) {
-    sr[i] = std::sin(pi * i * samplingInterval);
+    sr[i] = std::sin(Pi * i * samplingInterval);
   }
 
   const auto computeIntegral = [&](double from, double to, double onsetTime) {
@@ -26,7 +26,7 @@ TEST_CASE("computeSampleTimeIntegral") {
   };
 
   const auto ref = [&](double from, double to) {
-    return (-std::cos(pi * to) + std::cos(pi * from)) / pi;
+    return (-std::cos(Pi * to) + std::cos(Pi * from)) / Pi;
   };
 
   // Basic case

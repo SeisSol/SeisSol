@@ -3,10 +3,10 @@
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/tree/LTSInternalNode.hpp"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/LTSInternalNode.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
 #include <cmath>
 #include <cstdlib>
 #include <string>
@@ -20,20 +20,19 @@ void RateAndStateInitializer::initializeFault(
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
 
-  for (seissol::initializer::LTSTree::leaf_iterator it =
-           dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
+  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
 
-    bool(*dynStressTimePending)[misc::numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
-    real(*slipRate1)[misc::numPaddedPoints] = it->var(concreteLts->slipRate1);
-    real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
-    real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
+    bool(*dynStressTimePending)[misc::NumPaddedPoints] = it->var(concreteLts->dynStressTimePending);
+    real(*slipRate1)[misc::NumPaddedPoints] = it->var(concreteLts->slipRate1);
+    real(*slipRate2)[misc::NumPaddedPoints] = it->var(concreteLts->slipRate2);
+    real(*mu)[misc::NumPaddedPoints] = it->var(concreteLts->mu);
 
-    real(*stateVariable)[misc::numPaddedPoints] = it->var(concreteLts->stateVariable);
-    real(*rsSl0)[misc::numPaddedPoints] = it->var(concreteLts->rsSl0);
-    real(*rsA)[misc::numPaddedPoints] = it->var(concreteLts->rsA);
-    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
+    real(*stateVariable)[misc::NumPaddedPoints] = it->var(concreteLts->stateVariable);
+    real(*rsSl0)[misc::NumPaddedPoints] = it->var(concreteLts->rsSl0);
+    real(*rsA)[misc::NumPaddedPoints] = it->var(concreteLts->rsA);
+    real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
         it->var(concreteLts->initialStressInFaultCS);
 
     const real initialSlipRate =
@@ -41,7 +40,7 @@ void RateAndStateInitializer::initializeFault(
 
     using namespace dr::misc::quantity_indices;
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
@@ -94,10 +93,10 @@ RateAndStateInitializer::StateAndFriction
 void RateAndStateInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
-    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+    seissol::initializer::LTSInternalNode::LeafIterator& it) {
   auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
-  real(*rsSl0)[misc::numPaddedPoints] = it->var(concreteLts->rsSl0);
-  real(*rsA)[misc::numPaddedPoints] = it->var(concreteLts->rsA);
+  real(*rsSl0)[misc::NumPaddedPoints] = it->var(concreteLts->rsSl0);
+  real(*rsA)[misc::NumPaddedPoints] = it->var(concreteLts->rsA);
   parameterToStorageMap.insert({"rs_sl0", (real*)rsSl0});
   parameterToStorageMap.insert({"rs_a", (real*)rsA});
 }
@@ -130,11 +129,11 @@ RateAndStateInitializer::StateAndFriction
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
-    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+    seissol::initializer::LTSInternalNode::LeafIterator& it) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
   auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(dynRup);
-  real(*rsSrW)[misc::numPaddedPoints] = it->var(concreteLts->rsSrW);
+  real(*rsSrW)[misc::NumPaddedPoints] = it->var(concreteLts->rsSrW);
   parameterToStorageMap.insert({"rs_srW", (real*)rsSrW});
 }
 
@@ -146,24 +145,23 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
   auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
 
-  for (seissol::initializer::LTSTree::leaf_iterator it =
-           dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
+  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*temperature)[misc::numPaddedPoints] = it->var(concreteLts->temperature);
-    real(*pressure)[misc::numPaddedPoints] = it->var(concreteLts->pressure);
-    real(*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints] = it->var(concreteLts->theta);
-    real(*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints] = it->var(concreteLts->sigma);
-    real(*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =
+    real(*temperature)[misc::NumPaddedPoints] = it->var(concreteLts->temperature);
+    real(*pressure)[misc::NumPaddedPoints] = it->var(concreteLts->pressure);
+    real(*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints] = it->var(concreteLts->theta);
+    real(*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints] = it->var(concreteLts->sigma);
+    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
         it->var(concreteLts->thetaTmpBuffer);
-    real(*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =
+    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
         it->var(concreteLts->sigmaTmpBuffer);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
-        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
+        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
           theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
           sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
@@ -178,14 +176,14 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
 void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
-    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+    seissol::initializer::LTSInternalNode::LeafIterator& it) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
 
   auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
 
-  real(*halfWidthShearZone)[misc::numPaddedPoints] = it->var(concreteLts->halfWidthShearZone);
-  real(*hydraulicDiffusivity)[misc::numPaddedPoints] = it->var(concreteLts->hydraulicDiffusivity);
+  real(*halfWidthShearZone)[misc::NumPaddedPoints] = it->var(concreteLts->halfWidthShearZone);
+  real(*hydraulicDiffusivity)[misc::NumPaddedPoints] = it->var(concreteLts->hydraulicDiffusivity);
   parameterToStorageMap.insert({"tp_halfWidthShearZone", (real*)halfWidthShearZone});
   parameterToStorageMap.insert({"tp_hydraulicDiffusivity", (real*)hydraulicDiffusivity});
 }

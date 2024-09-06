@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -79,7 +79,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/DynamicRupture.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "utils/logger.h"
 #include <cassert>
 
@@ -99,37 +99,37 @@ using namespace proxy::device;
 using namespace proxy::cpu;
 #endif
 
-void testKernel(unsigned kernel, unsigned timesteps) {
+void testKernel(Kernel kernel, unsigned timesteps) {
   unsigned t = 0;
   switch (kernel) {
-    case all:
+    case Kernel::All:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
         computeNeighboringIntegration();
       }
       break;
-    case local:
+    case Kernel::Local:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
       }
       break;
-    case neigh:
-    case neigh_dr:
+    case Kernel::Neighbor:
+    case Kernel::NeighborDR:
       for (; t < timesteps; ++t) {
         computeNeighboringIntegration();
       }
       break;
-    case ader:
+    case Kernel::Ader:
       for (; t < timesteps; ++t) {
         computeAderIntegration();
       }
       break;
-    case localwoader:
+    case Kernel::LocalWOAder:
       for (; t < timesteps; ++t) {
         computeLocalWithoutAderIntegration();
       }
       break;    
-    case godunov_dr:
+    case Kernel::GodunovDR:
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();
       }
@@ -146,7 +146,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   registerMarkers();
 
   bool enableDynamicRupture = false;
-  if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
+  if (config.kernel == Kernel::NeighborDR || config.kernel == Kernel::GodunovDR) {
     enableDynamicRupture = true;
   }
 
@@ -216,28 +216,28 @@ ProxyOutput runProxy(ProxyConfig config) {
   seissol_flops (*flop_fun)(unsigned) = nullptr;
   double (*bytes_fun)(unsigned) = nullptr;
   switch (config.kernel) {
-    case all:
+    case Kernel::All:
       flop_fun = &flops_all_actual;
       bytes_fun = &bytes_all;
       break;
-    case local:
+    case Kernel::Local:
       flop_fun = &flops_local_actual;
       bytes_fun = &bytes_local;
       break;
-    case neigh:
-    case neigh_dr:
+    case Kernel::Neighbor:
+    case Kernel::NeighborDR:
       flop_fun = &flops_neigh_actual;
       bytes_fun = &bytes_neigh;
       break;
-    case ader:
+    case Kernel::Ader:
       flop_fun = &flops_ader_actual;
       bytes_fun = &noestimate;
       break;
-    case localwoader:
+    case Kernel::LocalWOAder:
       flop_fun = &flops_localWithoutAder_actual;
       bytes_fun = &noestimate;
       break;
-    case godunov_dr:
+    case Kernel::GodunovDR:
       flop_fun = &flops_drgod_actual;
       bytes_fun = &noestimate;
       break;

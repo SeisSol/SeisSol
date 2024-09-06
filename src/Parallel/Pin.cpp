@@ -44,12 +44,18 @@
 
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <Common/IntegerMaskParser.h>
+#include <async/as/Pin.h>
 #include <cassert>
 #include <cstdlib>
+#include <deque>
 #include <fstream>
+#include <mpi.h>
 #include <sched.h>
 #include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -107,7 +113,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
   std::deque<bool> mask;
 
   const std::string onlineFilePath = "/sys/devices/system/cpu/online";
-  std::ifstream file(onlineFilePath);
+  const std::ifstream file(onlineFilePath);
 
   if (file.good()) {
     std::stringstream buffer;
@@ -120,7 +126,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
-  assert(mask.size() == get_nprocs_conf());
+  assert(static_cast<int>(mask.size()) == get_nprocs_conf());
   for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
     if (mask[cpu]) {
       CPU_SET(cpu, &onlineMask.set);

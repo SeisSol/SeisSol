@@ -71,6 +71,7 @@
 #ifndef KERNELS_TIMEBASE_H_
 #define KERNELS_TIMEBASE_H_
 
+#include "Common/Constants.h"
 #include "generated_code/kernel.h"
 
 #ifdef ACL_DEVICE
@@ -78,13 +79,12 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace kernels {
-    class TimeBase;
-  }
-}
-struct GlobalData;
+  struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::TimeBase {
+namespace seissol::kernels {
+
+class TimeBase {
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment);
 #ifdef USE_STP
@@ -104,7 +104,7 @@ class seissol::kernels::TimeBase {
    *   ...
    * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
    */
-  unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+  unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;
@@ -119,6 +119,8 @@ public:
     TimeBase();
 
 };
+
+} // namespace seissol::kernels
 
 #endif
 

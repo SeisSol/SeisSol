@@ -76,20 +76,17 @@
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "tree/Layer.hpp"
+#include "Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
-#include "MemoryManager.h"
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include <yateto.h>
 #include "GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "InternalState.h"
-#include "Kernels/common.hpp"
+#include "Kernels/Common.h"
 #include "Kernels/Touch.h"
-#include "SeisSol.h"
+
 #include "generated_code/tensor.h"
 
 #ifdef ACL_DEVICE
@@ -360,9 +357,9 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation[cell].faceTypes[face] == FaceType::regular ||
-	  cellInformation[cell].faceTypes[face] == FaceType::periodic ||
-	  cellInformation[cell].faceTypes[face] == FaceType::dynamicRupture) {
+      if (cellInformation[cell].faceTypes[face] == FaceType::Regular ||
+	  cellInformation[cell].faceTypes[face] == FaceType::Periodic ||
+	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
@@ -380,10 +377,10 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
         assert(faceNeighbors[cell][face] != nullptr);
       }
       // boundaries using local cells
-      else if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
-	       cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-	       cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+      else if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface ||
+	       cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity ||
+	       cellInformation[cell].faceTypes[face] == FaceType::Dirichlet ||
+	       cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
 #ifdef ACL_DEVICE
@@ -399,7 +396,7 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
         assert(faceNeighbors[cell][face] != nullptr);
       }
       // absorbing
-      else if( cellInformation[cell].faceTypes[face] == FaceType::outflow ) {
+      else if( cellInformation[cell].faceTypes[face] == FaceType::Outflow ) {
         // NULL pointer; absorbing: data is not used
         faceNeighbors[cell][face] = nullptr;
 #ifdef ACL_DEVICE
@@ -652,7 +649,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
           // Thanks to this hack, the array contains a constant plus the offset of the current
           // cell.
           displacements[cell][face] =
-              static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
+              reinterpret_cast<real*>(1 + numberOfFaces * tensor::faceDisplacement::size());
           ++numberOfFaces;
         } else {
           displacements[cell][face] = nullptr;
@@ -695,8 +692,8 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] != FaceType::outflow &&
-                cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
+            if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
+                cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
 
               bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
               if (isNeighbProvidesDerivatives) {
@@ -707,11 +704,11 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
           }
         }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
           ++nodalDisplacementsCounter;
         }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
           ++analyticCounter;
         }
       }
@@ -760,7 +757,7 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
           // We then have the pointer offset that needs to be added to the bucket.
           // The final value of this pointer then points to a valid memory address
           // somewhere in the bucket.
-          auto offset = ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          auto offset = (reinterpret_cast<std::intptr_t>(displacements[cell][face]) - 1);
           displacements[cell][face] = bucket + offset;
           displacementsDevice[cell][face] = bucketDevice + offset;
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
@@ -884,13 +881,13 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
+  for (auto it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
     recorder.record(m_lts, *it);
   }
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (LTSTree::leaf_iterator it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
+  for (auto it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
     drRecorder.record(*m_dynRup, *it);
   }
 }
@@ -930,15 +927,15 @@ bool seissol::initializer::requiresDisplacement(CellLocalInformation cellLocalIn
                                                  CellMaterialData &material,
                                                  unsigned int face) {
   const auto faceType = cellLocalInformation.faceTypes[face];
-  return faceType == FaceType::freeSurface
-  || faceType == FaceType::freeSurfaceGravity
+  return faceType == FaceType::FreeSurface
+  || faceType == FaceType::FreeSurfaceGravity
   || isAtElasticAcousticInterface(material, face);
 }
 
 bool seissol::initializer::requiresNodalFlux(FaceType f) {
-  return (f == FaceType::freeSurfaceGravity
-          || f == FaceType::dirichlet
-          || f == FaceType::analytical);
+  return (f == FaceType::FreeSurfaceGravity
+          || f == FaceType::Dirichlet
+          || f == FaceType::Analytical);
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {

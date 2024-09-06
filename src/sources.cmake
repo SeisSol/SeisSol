@@ -55,13 +55,14 @@ src/Monitoring/Stopwatch.cpp
 src/Monitoring/Unit.cpp
 
 src/Kernels/Receiver.cpp
-src/Model/common.cpp
-src/Numerical_aux/Functions.cpp
-src/Numerical_aux/Statistics.cpp
+src/Model/Common.cpp
+src/Numerical/Functions.cpp
+src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/AsyncIO.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
@@ -105,7 +106,7 @@ src/DynamicRupture/Output/OutputAux.cpp
 src/DynamicRupture/Output/OutputManager.cpp
 src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 
-src/Equations/poroelastic/Model/datastructures.cpp
+src/Equations/poroelastic/Model/Datastructures.cpp
 
 src/Geometry/MeshReader.cpp
 src/Geometry/MeshTools.cpp
@@ -133,16 +134,15 @@ src/Initializer/Parameters/ParameterReader.cpp
 src/Initializer/Parameters/SeisSolParameters.cpp
 src/Initializer/Parameters/SourceParameters.cpp
 
-src/Initializer/time_stepping/GlobalTimestep.cpp
-src/Initializer/time_stepping/LtsLayout.cpp
+src/Initializer/TimeStepping/GlobalTimestep.cpp
+src/Initializer/TimeStepping/LtsLayout.cpp
 
-src/Initializer/tree/Lut.cpp
+src/Initializer/Tree/Lut.cpp
 
-src/Numerical_aux/ODEInt.cpp
-src/Numerical_aux/ODEVector.cpp
-src/Numerical_aux/Transformation.cpp
+src/Numerical/ODEInt.cpp
+src/Numerical/ODEVector.cpp
+src/Numerical/Transformation.cpp
 
-src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
 
 src/SeisSol.cpp
@@ -189,8 +189,8 @@ if (HDF5 AND MPI)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/LtsWeights.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/WeightsModels.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/WeightsModels.cpp
     )
 endif()
 

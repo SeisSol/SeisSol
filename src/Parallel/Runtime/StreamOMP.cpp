@@ -1,6 +1,4 @@
-#include "Stream.hpp"
 
-#include <omp.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"

@@ -1,5 +1,5 @@
 #include <CL/sycl.hpp>
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>
@@ -123,7 +123,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     });
   });
 }
-} // seissol::kernels::local_flux::aux::details
+} // namespace seissol::kernels::local_flux::aux::details
 
 
 namespace seissol::kernels::time::aux {

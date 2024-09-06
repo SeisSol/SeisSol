@@ -44,20 +44,20 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
 #include "Initializer/PointMapper.h"
-#include "Initializer/tree/Lut.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Tree/Lut.h"
+#include "Kernels/Interface.h"
 #include "Kernels/Time.h"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "generated_code/init.h"
-#include <Common/Executor.hpp>
+#include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <optional>
 #include <vector>
 
-struct GlobalData;
 namespace seissol {
+struct GlobalData;
 class SeisSol;
 
 namespace kernels {

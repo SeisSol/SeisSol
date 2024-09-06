@@ -56,14 +56,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/Tree/LTSTree.h"
 #include "Initializer/LTS.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/GlobalData.h"
 #include "Solver/time_stepping/MiniSeisSol.cpp"
 #include <yateto.h>
 #include <unordered_set>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -112,6 +112,9 @@ void initGlobalData() {
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
   m_dynRupKernel.setGlobalData(globalData);
+
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  m_dynRupKernel.setTimeStepWidth(timeStepWidth);
 }
 
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
@@ -146,7 +149,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
     
-    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, seissol::memory::Standard);
+    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::Standard);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -157,7 +160,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
     }
 
 #ifdef ACL_DEVICE
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, seissol::memory::DeviceGlobalMemory);
+    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::DeviceGlobalMemory);
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(m_fakeDerivatives, m_fakeDerivativesHost, i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
 #else
@@ -166,7 +169,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   }
 
   /* cell information and integration data*/
-  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
+  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDynamicRupture) {
     // From lts tree

@@ -7,7 +7,7 @@
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -26,7 +26,7 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER],
+                const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -37,7 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(ALIGNMENT) FaultStresses faultStresses{};
+      alignas(Alignment) FaultStresses faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
@@ -53,8 +53,8 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePreHook");
       // define some temporary variables
-      std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-      std::array<real, misc::numPaddedPoints> strengthBuffer{0};
+      std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
+      std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
@@ -67,7 +67,7 @@ class BaseFrictionLaw : public FrictionSolver {
       TractionResults tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+      for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     initialPressure[ltsFace],

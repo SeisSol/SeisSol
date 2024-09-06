@@ -5,15 +5,15 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
-#include "Numerical_aux/Quadrature.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include "Numerical/Quadrature.h"
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include "yateto.h"
 #include "device.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #endif
 
@@ -21,7 +21,7 @@ namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation  
 template<typename MappingKrnl>
 void addRotationToProjectKernel(MappingKrnl& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+				const seissol::CellBoundaryMapping& boundaryMapping) {
   // do nothing
 }
 
@@ -31,7 +31,7 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
-				const CellBoundaryMapping& boundaryMapping) {
+				const seissol::CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.TinvData != nullptr);
   projectKernel.Tinv = boundaryMapping.TinvData;
 }
@@ -46,7 +46,7 @@ class DirichletBoundary {
  public:
 
   DirichletBoundary() {
-    quadrature::GaussLegendre(quadPoints, quadWeights, CONVERGENCE_ORDER);
+    quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder);
   }
 
   template<typename Func, typename MappingKrnl>
@@ -155,14 +155,14 @@ class DirichletBoundary {
     assert(boundaryMapping.nodes != nullptr);
   
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[CONVERGENCE_ORDER];
-    double timeWeights[CONVERGENCE_ORDER];
-    for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+    double timePoints[ConvergenceOrder];
+    double timeWeights[ConvergenceOrder];
+    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth)/2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
   
-    alignas(ALIGNMENT) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
     auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
   
     boundaryDofs.setZero();
@@ -173,7 +173,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
   
-    for (int i = 0; i < CONVERGENCE_ORDER; ++i) {
+    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],
@@ -186,14 +186,14 @@ class DirichletBoundary {
   }
 
  private:
-  double quadPoints[CONVERGENCE_ORDER];
-  double quadWeights[CONVERGENCE_ORDER];
+  double quadPoints[ConvergenceOrder];
+  double quadWeights[ConvergenceOrder];
 };
 
 
 void computeAverageDisplacement(double deltaT,
 				const real* timeDerivatives,
-				const unsigned int derivativesOffsets[CONVERGENCE_ORDER],
+				const unsigned int derivativesOffsets[ConvergenceOrder],
 				real timeIntegrated[tensor::I::size()]);
 
 } // namespace kernels

@@ -1,24 +1,35 @@
 #include "SeisSol.h"
 
-#include "Init.hpp"
-#include "InitSideConditions.hpp"
+#include "InitSideConditions.h"
 
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include "Parallel/MPI.h"
+#include <Equations/Datastructures.h>
+#include <Initializer/Parameters/InitializationParameters.h>
+#include <Initializer/Typedefs.h>
+#include <Physics/InitialField.h>
+#include <cstddef>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 namespace {
 
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 
   TravellingWaveParameters travellingWaveParameters;
   travellingWaveParameters.origin = initConditionParams.origin;
   travellingWaveParameters.kVec = initConditionParams.kVec;
-  constexpr double eps = 1e-15;
-  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    if (std::abs(initConditionParams.ampField[i]) > eps) {
+  constexpr double Eps = 1e-15;
+  for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    if (std::abs(initConditionParams.ampField[i]) > Eps) {
       travellingWaveParameters.varField.push_back(i);
       travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);
     }
@@ -39,6 +50,7 @@ static AcousticTravellingWaveParametersITM
 
   return acousticTravellingWaveParametersITM;
 }
+#endif
 
 static std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {

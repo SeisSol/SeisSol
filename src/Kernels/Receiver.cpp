@@ -39,19 +39,36 @@
  **/
 
 #include "Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Parallel/DataCollector.h"
+#include "Monitoring/FlopCounter.h"
+#include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
-#include <Common/Executor.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/common.hpp>
+#include <Common/Constants.h>
+#include <Common/Executor.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/Lut.h>
+#include <Kernels/Common.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
+#include <Numerical/Transformation.h>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <init.h>
+#include <memory>
 #include <omp.h>
-#include <unordered_map>
+#include <string>
+#include <tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
+#include <Parallel/Helper.h>
+#include <unordered_map>
 #endif
 
 namespace {
@@ -86,9 +103,9 @@ Receiver::Receiver(unsigned pointId,
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
       elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
-      CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
-      CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
 
@@ -125,7 +142,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   }
 
   // (time + number of quantities) * number of samples until sync point
-  size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
+  const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back(
       pointId,
       point,
@@ -142,8 +159,6 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 double ReceiverCluster::calcReceivers(
     double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
 
-  std::size_t ncols = this->ncols();
-
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;
@@ -158,17 +173,17 @@ double ReceiverCluster::calcReceivers(
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
-    auto threshold = std::max(1000, omp_get_num_threads() * 100);
-    auto recvCount = m_receivers.size();
+    const std::size_t threshold = std::max(1000, omp_get_num_threads() * 100);
+    const std::size_t recvCount = m_receivers.size();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
-      alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-      alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
-      alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+      alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
       krnl.spaceTimePredictor = stp;
@@ -176,7 +191,7 @@ double ReceiverCluster::calcReceivers(
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.spaceTimePredictor = stp;
 #else
-      alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
@@ -221,9 +236,9 @@ double ReceiverCluster::calcReceivers(
       while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
         // eval time basis
-        double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(
-            CONVERGENCE_ORDER, tau);
+        const double tau = (time - expansionPoint) / timeStepWidth;
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
+                                                                                   tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
 #else

@@ -32,7 +32,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -71,38 +72,37 @@
 #ifndef KERNELS_NEIGHBOR_H_
 #define KERNELS_NEIGHBOR_H_
 
-#include "Initializer/typedefs.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Interface.h"
 #include "Kernels/NeighborBase.h"
-#include "Parallel/Runtime/Stream.hpp"
+#include "Parallel/Runtime/Stream.h"
 
-namespace seissol {
-  namespace kernels {
-    class Neighbor;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Neighbor : public NeighborBase {
+class Neighbor : public NeighborBase {
   public:
-    void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const CompoundGlobalData& global);
+  void setHostGlobalData(const GlobalData* global);
+  void setGlobalData(const CompoundGlobalData& global);
 
-    void computeNeighborsIntegral(NeighborData& data,
-                                  CellDRMapping const (&cellDrMapping)[4],
-                                  real* i_timeIntegrated[4],
-                                  real* faceNeighbors_prefetch[4]);
+  void computeNeighborsIntegral(NeighborData& data,
+                                const CellDRMapping (&cellDrMapping)[4],
+                                real* timeIntegrated[4],
+                                real* faceNeighborsPrefetch[4]);
 
-    void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table, seissol::parallel::runtime::StreamRuntime& runtime);
+  void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
-    void flopsNeighborsIntegral(const FaceType i_faceTypes[4],
-                                const int i_neighboringIndices[4][2],
-                                CellDRMapping const (&cellDrMapping)[4],
-                                unsigned int &o_nonZeroFlops,
-                                unsigned int &o_hardwareFlops,
-                                long long& o_drNonZeroFlops,
-                                long long& o_drHardwareFlops );
-                                 
-    unsigned bytesNeighborsIntegral();
+  void flopsNeighborsIntegral(const FaceType faceTypes[4],
+                              const int neighboringIndices[4][2],
+                              const CellDRMapping (&cellDrMapping)[4],
+                              unsigned int& nonZeroFlops,
+                              unsigned int& hardwareFlops,
+                              long long& drNonZeroFlops,
+                              long long& drHardwareFlops);
+
+  unsigned bytesNeighborsIntegral();
 };
+
+} // namespace seissol::kernels
 
 #endif

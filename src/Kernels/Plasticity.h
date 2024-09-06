@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Stephanie Wollherr (wollherr AT geophysik.uni-muenchen.de, https://www.geophysik.uni-muenchen.de/Members/wollherr)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Stephanie Wollherr (wollherr AT geophysik.uni-muenchen.de,
+ *https://www.geophysik.uni-muenchen.de/Members/wollherr)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -42,43 +44,42 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Model/Plasticity.h"
+#include "Parallel/Runtime/Stream.h"
 #include "generated_code/tensor.h"
-#include "Parallel/Runtime/Stream.hpp"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
 #include <limits>
 
-namespace seissol {
-  namespace kernels {
-    class Plasticity;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::Plasticity {
-public:
+class Plasticity {
+  public:
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
-                                     double                      timeStepWidth,
-                                     double                      T_v,
-                                     GlobalData const*           global,
-                                     PlasticityData const*       plasticityData,
-                                     real                        degreesOfFreedom[tensor::Q::size()],
-                                     real*                       pstrain);
+  static unsigned computePlasticity(double oneMinusIntegratingFactor,
+                                    double timeStepWidth,
+                                    double tV,
+                                    const GlobalData* global,
+                                    const seissol::model::PlasticityData* plasticityData,
+                                    real degreesOfFreedom[tensor::Q::size()],
+                                    real* pstrain);
 
-  static unsigned computePlasticityBatched(double relaxTime,
-                                           double timeStepWidth,
-                                           double T_v,
-                                           GlobalData const *global,
-                                           initializer::recording::ConditionalPointersToRealsTable &table,
-                                           PlasticityData *plasticity,
-                                           seissol::parallel::runtime::StreamRuntime& runtime);
+  static unsigned
+      computePlasticityBatched(double relaxTime,
+                               double timeStepWidth,
+                               double tV,
+                               const GlobalData* global,
+                               initializer::recording::ConditionalPointersToRealsTable& table,
+                               seissol::model::PlasticityData* plasticity,
+                               seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
-                                long long&  o_hardwareFlopsCheck,
-                                long long&  o_nonZeroFlopsYield,
-                                long long&  o_hardwareFlopsYield );
+  static void flopsPlasticity(long long& nonZeroFlopsCheck,
+                              long long& hardwareFlopsCheck,
+                              long long& nonZeroFlopsYield,
+                              long long& hardwareFlopsYield);
 };
 
-#endif
+} // namespace seissol::kernels
 
+#endif

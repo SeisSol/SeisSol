@@ -37,8 +37,16 @@
  */
 
 #include "Geometry/MeshDefinition.h"
+#include <Common/Constants.h>
+#include <Geometry/MeshReader.h>
+#include <Initializer/Parameters/MeshParameters.h>
+#include <PUML/TypeInference.h>
+#include <PUML/Upward.h>
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <mpi.h>
 #include <numeric>
 #include <string>
@@ -53,30 +61,35 @@
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
 
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
-#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 
 #include <fstream>
 #include <hdf5.h>
 #include <sstream>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <utils/logger.h>
+#include <vector>
 
 namespace {
 /*
  * Possible types of boundary conditions for SeisSol.
  */
-enum class BCType { internal, external, unknown };
+enum class BCType { Internal, External, Unknown };
 
 /**
  * Decodes the boundary condition tag into a BCType.
  */
 constexpr BCType bcToType(int id) {
   if (id == 0 || id == 3 || id > 64) {
-    return BCType::internal;
+    return BCType::Internal;
   } else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 6 || id == 7) {
-    return BCType::external;
+    return BCType::External;
   } else {
-    return BCType::unknown;
+    return BCType::Unknown;
   }
 }
 
@@ -121,13 +134,16 @@ inline std::string bcToString(int id) {
  * @param sideBC: boundary condition tag at the side to check
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
-inline bool checkMeshCorrectnessLocally(
-    PUML::TETPUML::face_t face, int* cellNeighbors, int side, int sideBC, uint64_t cellIdAsInFile) {
+inline bool checkMeshCorrectnessLocally(PUML::TETPUML::face_t face,
+                                        const int* cellNeighbors,
+                                        int side,
+                                        int sideBC,
+                                        uint64_t cellIdAsInFile) {
   // all of these will only issue warnings here -- the "logError()" is supposed to come later, after
   // all warning have been logged
 
   // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
-  if (bcToType(sideBC) == BCType::internal) {
+  if (bcToType(sideBC) == BCType::Internal) {
     if (cellNeighbors[side] < 0 && !face.isShared()) {
       logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
                    << bcToString(sideBC)
@@ -136,7 +152,7 @@ inline bool checkMeshCorrectnessLocally(
     }
   }
   // external boundaries must not have neighboring elements:
-  else if (bcToType(sideBC) == BCType::external) {
+  else if (bcToType(sideBC) == BCType::External) {
     if (cellNeighbors[side] >= 0 || face.isShared()) {
       logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
                    << bcToString(sideBC) << "boundary condition, but a neighboring element exists";
@@ -197,7 +213,7 @@ seissol::geometry::PUMLReader::PUMLReader(
 void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  std::string file(meshFile);
+  const std::string file(meshFile);
 
   puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
   puml.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
@@ -209,7 +225,6 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
   }
-  const auto numTotalCells = puml.numTotalCells();
 
   // TODO(David): change to uint64_t/size_t once we have an MPI module for that ready
   const size_t localCells = puml.numOriginalCells();
@@ -241,13 +256,13 @@ int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
    Gather number of cells in each nodes. This is necessary to be able to write the data in the
    correct location
   */
-  int* num_cells = new int[nrank];
+  int* numCells = new int[nrank];
   int* offsets = new int[nrank];
-  MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
+  MPI_Allgather(&nPartitionCells, 1, MPI_INT, numCells, 1, MPI_INT, MPI::mpi.comm());
 
   offsets[0] = 0;
   for (int rk = 1; rk < nrank; ++rk) {
-    offsets[rk] = offsets[rk - 1] + num_cells[rk - 1];
+    offsets[rk] = offsets[rk - 1] + numCells[rk - 1];
   }
   const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
 
@@ -255,37 +270,37 @@ int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
    Open file and dataset
   */
   MPI_Info info = MPI_INFO_NULL;
-  hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
+  hid_t plistId = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info);
 
   std::ostringstream os;
-  os << checkPointFile << "_partitions_o" << CONVERGENCE_ORDER << "_n" << nrank << ".h5";
-  std::string fname = os.str();
+  os << checkPointFile << "_partitions_o" << ConvergenceOrder << "_n" << nrank << ".h5";
+  const std::string fname = os.str();
 
-  std::ifstream ifile(fname.c_str());
+  const std::ifstream ifile(fname.c_str());
   if (!ifile) {
     logInfo(rank) << fname.c_str() << "does not exist";
     return -1;
   }
 
-  hid_t file = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
-  H5Pclose(plist_id);
+  const hid_t file = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plistId);
+  H5Pclose(plistId);
 
-  hid_t dataset = H5Dopen2(file, "/partition", H5P_DEFAULT);
+  const hid_t dataset = H5Dopen2(file, "/partition", H5P_DEFAULT);
   /*
    Create memspace (portion of filespace) and read collectively the data
   */
-  hid_t memspace = H5Screate_simple(1, dimMem, NULL);
-  hid_t filespace = H5Dget_space(dataset);
+  const hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+  const hid_t filespace = H5Dget_space(dataset);
 
   hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
   hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
   H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
 
-  plist_id = H5Pcreate(H5P_DATASET_XFER);
-  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+  plistId = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(plistId, H5FD_MPIO_COLLECTIVE);
 
-  int status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, plist_id, partition);
+  const int status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, plistId, partition);
 
   if (status < 0)
     logError() << "An error occured when reading the partitionning with HDF5";
@@ -313,15 +328,15 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
    Gather number of cells in each nodes. This is necessary to be able to write the data in the
    correct location
   */
-  int* num_cells = new int[nrank];
+  int* numCells = new int[nrank];
   int* offsets = new int[nrank];
-  MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
+  MPI_Allgather(&nPartitionCells, 1, MPI_INT, numCells, 1, MPI_INT, MPI::mpi.comm());
 
   offsets[0] = 0;
   for (int rk = 1; rk < nrank; ++rk) {
-    offsets[rk] = offsets[rk - 1] + num_cells[rk - 1];
+    offsets[rk] = offsets[rk - 1] + numCells[rk - 1];
   }
-  int nCells = offsets[nrank - 1] + num_cells[nrank - 1];
+  const int nCells = offsets[nrank - 1] + numCells[nrank - 1];
 
   const hsize_t dim[] = {static_cast<hsize_t>(nCells)};
   const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
@@ -330,35 +345,35 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
    Create file and file space
   */
   MPI_Info info = MPI_INFO_NULL;
-  hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
+  hid_t plistId = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(plistId, seissol::MPI::mpi.comm(), info);
 
   std::ostringstream os;
-  os << checkPointFile << "_partitions_o" << CONVERGENCE_ORDER << "_n" << nrank << ".h5";
-  std::string fname = os.str();
+  os << checkPointFile << "_partitions_o" << ConvergenceOrder << "_n" << nrank << ".h5";
+  const std::string fname = os.str();
 
-  hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
-  H5Pclose(plist_id);
+  const hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plistId);
+  H5Pclose(plistId);
 
   hid_t filespace = H5Screate_simple(1, dim, NULL);
-  hid_t dataset = H5Dcreate(
+  const hid_t dataset = H5Dcreate(
       file, "/partition", H5T_NATIVE_INT, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   H5Sclose(filespace);
 
   /*
    Create memspace (portion of filespace) and write collectively the data
   */
-  hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+  const hid_t memspace = H5Screate_simple(1, dimMem, NULL);
   filespace = H5Dget_space(dataset);
 
   hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
   hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
   H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
 
-  plist_id = H5Pcreate(H5P_DATASET_XFER);
-  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+  plistId = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(plistId, H5FD_MPIO_COLLECTIVE);
 
-  int status = H5Dwrite(dataset, H5T_NATIVE_INT, memspace, filespace, plist_id, partition);
+  const int status = H5Dwrite(dataset, H5T_NATIVE_INT, memspace, filespace, plistId, partition);
 
   if (status < 0)
     logError() << "An error occured when writing the partitionning with HDF5";
@@ -417,7 +432,7 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
   auto newPartition = std::vector<int>();
   if (readPartitionFromFile) {
     newPartition.resize(puml.numOriginalCells());
-    int status = readPartition(puml, newPartition.data(), checkPointFile);
+    const int status = readPartition(puml, newPartition.data(), checkPointFile);
     if (status < 0) {
       newPartition = doPartition();
       writePartition(puml, newPartition.data(), checkPointFile);
@@ -511,7 +526,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
         m_elements[i].neighborRanks[PumlFaceToSeisSol[j]] = rank;
       }
 
-      int faultTag = bcCurrentFace;
+      const int faultTag = bcCurrentFace;
       if (bcCurrentFace > 64) {
         bcCurrentFace = 3;
       }
@@ -576,7 +591,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
       // The side of boundary
       int cellIds[2];
       PUML::Upward::cells(puml, faces[it->second[i]], cellIds);
-      int side = PUML::Downward::faceSide(puml, cells[cellIds[0]], it->second[i]);
+      const int side = PUML::Downward::faceSide(puml, cells[cellIds[0]], it->second[i]);
       assert(side >= 0 && side < 4);
       copySide[k][i] = side;
 
@@ -621,8 +636,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[it->second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      int side = copySide[k][i];
-      int gSide = ghostSide[k][i];
+      const int side = copySide[k][i];
+      const int gSide = ghostSide[k][i];
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
@@ -654,7 +669,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   for (std::size_t i = 0; i < vertices.size(); i++) {
     memcpy(m_vertices[i].coords, vertices[i].coordinate(), 3 * sizeof(double));
 
-    std::vector<int> elementsInt;
+    const std::vector<int> elementsInt;
 
     PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
   }
@@ -663,7 +678,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
                                                   int rank,
                                                   const std::vector<unsigned int>& faces) {
-  std::size_t id = m_MPINeighbors.size();
+  const std::size_t id = m_MPINeighbors.size();
   MPINeighbor& neighbor = m_MPINeighbors[rank];
 
   neighbor.localID = id;

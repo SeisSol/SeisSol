@@ -1,9 +1,9 @@
 #include "SourceTimeFunction.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
-#include "Numerical_aux/GaussianNucleationFunction.h"
-#include "Numerical_aux/RegularizedYoffe.h"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
+#include "Numerical/GaussianNucleationFunction.h"
+#include "Numerical/RegularizedYoffe.h"
 #include <cstddef>
 
 namespace seissol::dr::friction_law {

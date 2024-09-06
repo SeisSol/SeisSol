@@ -54,7 +54,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("ader");
+  #endif
     kernels::LocalTmp tmp(9.81);
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -83,7 +85,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("localwoader");
+  #endif
     kernels::LocalTmp tmp(9.81);
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -115,7 +119,9 @@ namespace proxy::cpu {
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
+  #endif
     kernels::LocalTmp tmp(9.81);
+  #ifdef _OPENMP
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -169,20 +175,20 @@ namespace proxy::cpu {
   #ifdef _OPENMP
                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
   #else
-                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData.integrationBufferLTS),
+                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalDataOnHost.integrationBufferLTS),
   #endif
                                                       l_timeIntegrated );
 
-      l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
+      l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::DynamicRupture)
           ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-      l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
+      l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::DynamicRupture)
           ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-      l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
+      l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::DynamicRupture)
           ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
 
       // fourth face's prefetches
       if (l_cell < (nrOfCells-1) ) {
-        l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::DynamicRupture) ?
             faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
       } else {
         l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
@@ -208,8 +214,8 @@ namespace proxy::cpu {
     DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
-    alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-    alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
+    alignas(Alignment) real QInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
 
   #ifdef _OPENMP
     #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
