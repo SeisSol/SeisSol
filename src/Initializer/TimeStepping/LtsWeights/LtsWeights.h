@@ -123,7 +123,6 @@ protected:
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
   std::string m_velocityModel{};
   unsigned m_rate{};
   std::vector<int> m_vertexWeights{};
@@ -137,6 +136,7 @@ protected:
   std::vector<int> m_clusterIds{};
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds)> clusteringCache; // Maps wiggle factor to clustering
+  seissol::initializer::parameters::BoundaryFormat boundaryFormat;
   struct ComputeWiggleFactorResult {
     int maxClusterId;
     double wiggleFactor;

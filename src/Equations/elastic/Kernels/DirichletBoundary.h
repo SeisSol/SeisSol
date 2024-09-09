@@ -173,7 +173,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
   
-    for (int i = 0; i < ConvergenceOrder; ++i) {
+    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],

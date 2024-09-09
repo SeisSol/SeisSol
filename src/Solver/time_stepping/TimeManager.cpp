@@ -191,9 +191,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
         return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
-        assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+        assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(
-            otherGlobalClusterId <
+            static_cast<int>(otherGlobalClusterId) <
             std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
         const long otherTimeStepRate =

@@ -214,7 +214,7 @@ void AbstractTimeCluster::reset() {
 
   // There can be pending messages from before the sync point
   processMessages();
-  for (auto& neighbor : neighbors) {
+  for ([[maybe_unused]] const auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
   ct.stepsSinceLastSync = 0;

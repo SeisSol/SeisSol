@@ -48,6 +48,8 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utils/args.h>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
 #include <xdmfwriter/scorep_wrapper.h>
@@ -56,7 +58,6 @@
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
-#include "utils/args.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -64,6 +65,11 @@
 
 #ifdef ACL_DEVICE
 #include "device.h"
+#endif
+
+#if defined(__GNUC__) || defined(__linux__)
+#include <cfenv>
+#include <fenv.h>
 #endif
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -99,6 +105,17 @@ int main(int argc, char* argv[]) {
 
   seissol::MPI::mpi.init(argc, argv);
   const int rank = seissol::MPI::mpi.rank();
+
+  if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
+    // Check if on a GNU system (Linux) or other platform
+#if defined(__GNUC__) || defined(__linux__)
+#define ENABLE_FLOAT_EXCEPTIONS(rank)                                                              \
+  feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);                                                     \
+  logInfo(rank) << "Enabling floating point exception handlers.";
+#else
+    logInfo(rank) << "Floating-point exceptions not supported on this platform.";
+#endif
+  }
 
   LIKWID_MARKER_INIT;
 #pragma omp parallel
