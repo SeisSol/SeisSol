@@ -258,7 +258,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedPlus;
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;
 
-    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (have only one kernel, do only once)
+  m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (have only one kernel, do only once)
 
   for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     
@@ -292,7 +292,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
           qInterpolatedPlus[i][face], // DR part
           qInterpolatedMinus[i][face],
           timeDerivativePlus[i][prefetchFace],
-          timeDerivativeMinus[i][prefetchFace]); // Need to work on this now. This might give quite some compilation errors
+          timeDerivativeMinus[i][prefetchFace]);
     }
   }
   SCOREP_USER_REGION_END(myRegionHandle)

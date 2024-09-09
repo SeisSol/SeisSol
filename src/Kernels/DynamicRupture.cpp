@@ -138,6 +138,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   static_assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
+    logInfo() << "Reached here for face";
+
 // DEBUG: check this if this give the same output as master
 
 // #ifdef MULTIPLE_SIMULATIONS
@@ -147,8 +149,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   // alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()]; //(DEBUG: Need to change size of this)
   // alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()]; // Same
 
-  alignas(ALIGNMENT) real degreesOfFreedomPlus[tensor::singleSimQ::size()];
-  alignas(ALIGNMENT) real degreesOfFreedomMinus[tensor::singleSimQ::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()]; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
@@ -179,6 +181,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
+
   }
 }
 
