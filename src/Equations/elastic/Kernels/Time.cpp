@@ -474,7 +474,7 @@ void Time::computeTaylorExpansion(real time,
 void Time::computeTaylorExpansionDR(real time,
                               real expansionPoint,
                               const real* timeDerivatives,
-                              real timeEvaluated[tensor::QInterpolated::size()]) {
+                              real timeEvaluated[tensor::singleSimQ::size()]) {
 
   /// \todo (VK): activate this once the tensor implementation and yateto padding are sorted
   // assert(((uintptr_t) timeDerivatives) % Alignment == 0);

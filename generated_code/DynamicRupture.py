@@ -101,8 +101,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   generator.add('evaluateFaceAlignedDOFSAtPoint', QAtPoint['q'] <= aderdg.Tinv['qp']*QuantitiesSingleSim['lp']*basisFunctionsAtPoint['l'])
   
-  dQ0_DR = Tensor('dQ_DR(0)', qShape, alignStride=True)
-  I_DR = Tensor('I_DR', qShape, alignStride=True)
+  dQ0_DR = Tensor('dQ_DR(0)', qShape, alignStride=False)
+  I_DR = Tensor('I_DR', qShape, alignStride=False)
   powers_DR = [Scalar(f'power_DR({i})') for i in range(aderdg.order)]
   power_DR = powers_DR[0]
   derivatives_DR = [dQ0_DR]
@@ -119,7 +119,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
     derivativeSum_DR = DeduceIndices(QuantitiesSingleSim['kp'].indices).visit(derivativeSum_DR)
     derivativeSum_DR = EquivalentSparsityPattern().visit(derivativeSum_DR)
-    dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=True)
+    dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=False)
     dQs_DR.append(dQ_DR)
     derivativeTaylorExpansion_DR += power_DR * dQ_DR['kp']
 

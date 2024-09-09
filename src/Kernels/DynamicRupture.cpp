@@ -138,8 +138,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   static_assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-    logInfo() << "Reached here for face";
-
 // DEBUG: check this if this give the same output as master
 
 // #ifdef MULTIPLE_SIMULATIONS

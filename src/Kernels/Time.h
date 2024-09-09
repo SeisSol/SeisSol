@@ -145,7 +145,7 @@ class Time : public TimeBase {
     void computeTaylorExpansionDR(real time,
                                   real expansionPoint,
                                   const real* timeDerivatives,
-                                  real timeEvaluated[tensor::QInterpolated::size()]);
+                                  real timeEvaluated[tensor::singleSimQ::size()]);
     unsigned int* getDerivativesOffsetsDR();
 
 #endif
