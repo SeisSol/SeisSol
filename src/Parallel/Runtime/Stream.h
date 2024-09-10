@@ -2,6 +2,7 @@
 #define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
 
 #include <Initializer/Tree/Layer.h>
+#include <Parallel/Host/CpuExecutor.h>
 #include <functional>
 #include <mutex>
 #include <omp.h>
@@ -17,6 +18,8 @@ namespace seissol::parallel::runtime {
 enum class Runtime { Native, Sycl, OpenMP };
 
 class StreamRuntime {
+  private:
+  std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
 #ifdef ACL_DEVICE
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
@@ -25,7 +28,7 @@ class StreamRuntime {
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime() : disposed(false) {
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu) : cpu(cpu), disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
@@ -77,13 +80,8 @@ class StreamRuntime {
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     if (elemCount > 0) {
-      enqueueHost([=]() {
-        std::lock_guard guard(mutexCPU);
-#pragma omp parallel for schedule(static)
-        for (std::size_t i = 0; i < elemCount; ++i) {
-          std::invoke(handler, i);
-        }
-      });
+      auto cpu = this->cpu;
+      enqueueHost([cpu, elemCount, handler]() { cpu->add(0, elemCount, handler, {})->wait(); });
     }
   }
 
@@ -109,11 +107,8 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
-  void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
-                F&& handler) {
-    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
-
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
+                       F&& handler) {
     if (!computeGraphHandle) {
       device().api->streamBeginCapture(allStreams);
 
@@ -122,12 +117,20 @@ class StreamRuntime {
       device().api->streamEndCapture();
 
       computeGraphHandle = device().api->getLastGraphHandle();
-      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
     }
 
     if (computeGraphHandle.isInitialized()) {
       device().api->launchGraph(computeGraphHandle, streamPtr);
     }
+  }
+
+  template <typename F>
+  void runGraph(seissol::initializer::GraphKey computeGraphKey,
+                seissol::initializer::Layer& layer,
+                F&& handler) {
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
   }
 
   template <typename F>

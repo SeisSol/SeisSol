@@ -4,12 +4,12 @@
 #include "Kernels/DynamicRupture.h"
 #include "Solver/Clustering/AbstractTimeCluster.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
-#include <DynamicRupture/Output/OutputManager.hpp>
+#include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
+#include <Initializer/Tree/Layer.h>
 #include <Monitoring/ActorStateStatistics.h>
-#include <Parallel/Helper.hpp>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Helper.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/Clustering/ActorState.h>
 #include <memory>
 

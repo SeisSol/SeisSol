@@ -19,7 +19,7 @@
 #include "Kernels/Precision.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstddef>
 #include <ctime>

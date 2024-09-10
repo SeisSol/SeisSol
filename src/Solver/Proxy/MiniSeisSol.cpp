@@ -48,16 +48,16 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "utils/env.h"
-#include <DataTypes/EncodedConstants.hpp>
-#include <Initializer/BasicTypedefs.hpp>
+#include <DataTypes/EncodedConstants.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/LTS.h>
 #include <Initializer/MemoryManager.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/tree/TimeCluster.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/TimeCluster.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
 #include <stdexcept>
 #include <stdlib.h>
 #include <tensor.h>
@@ -76,30 +76,30 @@ struct Config {
 
 Config getConfig() {
   const auto rank = seissol::MPI::mpi.rank();
-  constexpr int numRepeats{10};
-  constexpr int numElements{50000};
+  constexpr int NumRepeats{10};
+  constexpr int NumElements{50000};
 
   Config config{};
   const utils::Env env{};
 
   try {
-    config.numRepeats = env.get("SEISSOL_MINI_NUM_REPEATS", numRepeats);
+    config.numRepeats = env.get("SEISSOL_MINI_NUM_REPEATS", NumRepeats);
     if (config.numRepeats < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
   } catch (std::runtime_error& err) {
     logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
-    config.numRepeats = numRepeats;
+    config.numRepeats = NumRepeats;
   }
 
   try {
-    config.numElements = env.get("SEISSOL_MINI_NUM_ELEMENTS", numElements);
+    config.numElements = env.get("SEISSOL_MINI_NUM_ELEMENTS", NumElements);
     if (config.numElements < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
   } catch (std::runtime_error& err) {
     logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
-    config.numElements = numElements;
+    config.numElements = NumElements;
   }
   return config;
 }

@@ -73,22 +73,22 @@
 
 #include "Parallel/MPI.h"
 #include <AbstractAPI.h>
-#include <Common/Executor.hpp>
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
-#include <Initializer/BasicTypedefs.hpp>
+#include <Common/Executor.h>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/LTS.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/typedefs.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/GravitationalFreeSurfaceBC.h>
-#include <Kernels/Interface.hpp>
+#include <Kernels/Interface.h>
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
-#include <Kernels/common.hpp>
-#include <Kernels/precision.hpp>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Monitoring/LoopStatistics.h>
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <chrono>
@@ -105,8 +105,8 @@
 
 #include "Kernels/Receiver.h"
 #include "Kernels/TimeCommon.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
 #include "TimeCluster.h"
 
@@ -115,7 +115,7 @@
 
 #include "generated_code/kernel.h"
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering::computation {
 
 TimeCluster::TimeCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
@@ -131,7 +131,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          seissol::SeisSol& seissolInstance,
                          LoopStatistics* loopStatistics,
                          ActorStateStatistics* actorStateStatistics)
-    : time_stepping::CellCluster(
+    : CellCluster(
           maxTimeStepSize,
           timeStepRate,
 #ifdef ACL_DEVICE

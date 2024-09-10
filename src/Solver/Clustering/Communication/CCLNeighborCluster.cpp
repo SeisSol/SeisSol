@@ -1,6 +1,4 @@
-#pragma once
-
-#include "CCLNeighborCluster.hpp"
+#include "CCLNeighborCluster.h"
 
 #ifdef USE_CCL
 #ifdef CCL_NCCL

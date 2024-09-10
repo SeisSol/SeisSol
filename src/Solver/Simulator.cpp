@@ -41,8 +41,8 @@
  * Entry point of the simulation.
  **/
 
-#include <Initializer/tree/Layer.hpp>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>

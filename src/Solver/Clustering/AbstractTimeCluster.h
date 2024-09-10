@@ -2,7 +2,7 @@
 #define SEISSOL_ACTOR_H
 
 #include "ActorState.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <chrono>
 #include <memory>
 #include <queue>

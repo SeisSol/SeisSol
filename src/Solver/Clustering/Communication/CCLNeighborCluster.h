@@ -1,7 +1,7 @@
 #pragma once
 
-#include "NeighborCluster.hpp"
-#include <Parallel/Runtime/Stream.hpp>
+#include "NeighborCluster.h"
+#include <Parallel/Runtime/Stream.h>
 #include <atomic>
 #include <mpi.h>
 #include <vector>

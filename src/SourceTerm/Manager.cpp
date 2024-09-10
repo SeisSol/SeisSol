@@ -97,7 +97,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
-#include <Solver/time_stepping/TimeManager.h>
+#include <Solver/Clustering/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>

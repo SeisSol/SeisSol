@@ -1,4 +1,4 @@
-#include "HelperThread.hpp"
+#include "HelperThread.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

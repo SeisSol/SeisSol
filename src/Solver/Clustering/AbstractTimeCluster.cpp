@@ -2,8 +2,8 @@
 
 #include "ActorState.h"
 #include "utils/logger.h"
-#include <Common/Executor.hpp>
-#include <Parallel/Helper.hpp>
+#include <Common/Executor.h>
+#include <Parallel/Helper.h>
 #include <algorithm>
 #include <cassert>
 #include <chrono>

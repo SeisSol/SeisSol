@@ -72,19 +72,18 @@
 #ifndef TIMECLUSTER_H_
 #define TIMECLUSTER_H_
 
+#include <SeisSol.h>
 #ifdef USE_MPI
 #include <list>
 #include <mpi.h>
 #endif
 
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
@@ -95,7 +94,7 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include <Common/Executor.hpp>
+#include <Common/Executor.h>
 
 #include "Solver/Clustering/AbstractTimeCluster.h"
 
@@ -109,12 +108,16 @@ namespace kernels {
 class ReceiverCluster;
 } // namespace kernels
 
-namespace time_stepping {
+namespace solver::clustering::computation {
 
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
  **/
 class TimeCluster : public CellCluster {
+
+  protected:
+  void runCompute(ComputeStep step) override;
+
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
@@ -125,9 +128,6 @@ class TimeCluster : public CellCluster {
   void predict();
   void correct();
   bool usePlasticity;
-
-  void runCompute(ComputeStep step) override;
-
   //! number of time steps
   unsigned long numberOfTimeSteps;
 
@@ -170,11 +170,11 @@ class TimeCluster : public CellCluster {
     DRFrictionLawCopy,
     PlasticityCheck,
     PlasticityYield,
-    NUCOMPUTE_PARTS
+    NumComputeParts
   };
 
-  long long flops_nonZero[static_cast<int>(ComputePart::NUCOMPUTE_PARTS)];
-  long long flops_hardware[static_cast<int>(ComputePart::NUCOMPUTE_PARTS)];
+  long long flops_nonZero[static_cast<int>(ComputePart::NumComputeParts)];
+  long long flops_hardware[static_cast<int>(ComputePart::NumComputeParts)];
 
   //! Tv parameter for plasticity
   double tv;
@@ -240,7 +240,7 @@ class TimeCluster : public CellCluster {
 
   void computeLocalIntegrationFlops();
 
-  template <bool usePlasticity>
+  template <bool UsePlasticity>
   std::pair<long, long> computeNeighboringIntegrationImplementation(double subTimeStart);
 
   void computeLocalIntegrationFlops(unsigned numberOfCells,

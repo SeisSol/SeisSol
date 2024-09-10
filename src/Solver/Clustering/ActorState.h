@@ -6,7 +6,7 @@
 #include <queue>
 #include <unordered_map>
 
-#include "Common/Executor.hpp"
+#include "Common/Executor.h"
 
 namespace seissol::solver::clustering {
 

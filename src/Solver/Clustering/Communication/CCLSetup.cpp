@@ -1,3 +1,4 @@
+#include "CCLSetup.h"
 #include "Parallel/MPI.h"
 
 #ifdef USE_CCL

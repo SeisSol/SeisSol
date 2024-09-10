@@ -1,4 +1,6 @@
-#include <Common/Executor.hpp>
+#include "ActorState.h"
+
+#include <Common/Executor.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -6,9 +8,7 @@
 #include <mutex>
 #include <string>
 
-#include "ActorState.h"
-
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 
 inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
   stream << "Message, t = " << message.time;
