@@ -47,6 +47,10 @@ Strain Output
 -------------
 Furthermore, you can also output the strain by setting :code:`ReceiverComputeStrain=1`.
 
+Acceleration Output
+-------------
+Furthermore, you can also output the acceleration values by setting :code:`ReceiverAcceleration=1`.
+
 Placing free-surface receivers
 ------------------------------
 
