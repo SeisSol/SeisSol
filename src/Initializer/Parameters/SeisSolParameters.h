@@ -17,7 +17,7 @@ namespace seissol::initializer::parameters {
 
 struct SeisSolParameters {
   CubeGeneratorParameters cubeGenerator;
-  std::vector<DRParameters> drParameters;
+  std::array<std::shared_ptr<DRParameters>, MULTIPLE_SIMULATIONS> drParameters;
   // DRParameters drParameters;
   InitializationParameters initialization;
   MeshParameters mesh;

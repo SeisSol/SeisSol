@@ -9,9 +9,11 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  std::vector<DRParameters> drParameters;
+  // std::vector<DRParameters> drParameters;
+  std::array<std::shared_ptr<DRParameters>, MULTIPLE_SIMULATIONS> drParameters;
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    drParameters.push_back(readDRParameters(parameterReader, i));
+    // drParameters.push_back(readDRParameters(parameterReader, i));
+    drParameters[i] = std::make_shared<DRParameters>(readDRParameters(parameterReader, i));
   }
   //   const DRParameters drParameters = readDRParameters(parameterReader);
   const InitializationParameters initializationParameters =

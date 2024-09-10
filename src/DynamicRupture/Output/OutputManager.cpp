@@ -132,12 +132,12 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   impl->setMeshReader(&userMesher);
 
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const bool bothEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool bothEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool pointEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                                 seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool elementwiseEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   const int rank = seissol::MPI::mpi.rank();
@@ -171,12 +171,12 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
-  const bool bothEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool bothEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool pointEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                                 seissol::initializer::parameters::OutputType::AtPickpoint ||
                             bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters[numFused].outputPointType ==
+  const bool elementwiseEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
@@ -334,7 +334,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
     if (this->isAtPickpoint(time, dt)) {
       const auto& outputData = ppOutputData;
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
-                            seissolParameters.drParameters[numFused].slipRateOutputType,
+                            seissolParameters.drParameters[numFused]->slipRateOutputType,
                             ppOutputData,
                             numFused,
                             time);
@@ -393,7 +393,7 @@ void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
-                          seissolParameters.drParameters[numFused].slipRateOutputType,
+                          seissolParameters.drParameters[numFused]->slipRateOutputType,
                           ewOutputData,
                           numFused);
   }

@@ -970,8 +970,9 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   logInfo(rank) << "Initialize Friction Model";
 
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(
-        m_seissolParams->drParameters[i]);
+    // auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(
+    //     m_seissolParams->drParameters[i]);
+    auto drParameters = m_seissolParams->drParameters[i];
     const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance, i);
     auto product = factory->produce();
     m_dynRup[i] = std::move(product.ltsTree);
@@ -983,7 +984,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
+    if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
       m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
       m_faultOutputManager[i]->setLtsData(
           &m_ltsTree, &m_lts, &m_ltsLut, m_dynRupTree[i], m_dynRup[i].get());
@@ -997,7 +998,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
 void seissol::initializer::MemoryManager::initFrictionData() {
   for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
 
-  if (m_seissolParams->drParameters[i].isDynamicRuptureEnabled) {
+  if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
 
     m_DRInitializer[i]->initializeFault(m_dynRup[i].get(), m_dynRupTree[i]);
 

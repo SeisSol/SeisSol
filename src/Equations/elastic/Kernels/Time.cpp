@@ -72,7 +72,7 @@
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
-#include <equation-elastic-3-double/tensor.h>
+#include <tensor.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"

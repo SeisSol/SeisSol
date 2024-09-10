@@ -198,7 +198,7 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping);
 
-  if (seissolParams.drParameters[0].etaHack !=
+  if (seissolParams.drParameters[0]->etaHack !=
       1.0) { // (TO DISCUSS: I guess this should be fine. Can etaHack be different for different
              // simulations?)
     logWarning(seissol::MPI::mpi.rank())
@@ -214,7 +214,7 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                          memoryManager.getDynamicRupture(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalDataOnHost(),
-                                                         seissolParams.drParameters[0].etaHack);
+                                                         seissolParams.drParameters[0]->etaHack);
 
   memoryManager.initFrictionData();
 

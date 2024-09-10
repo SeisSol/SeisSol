@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "Parameters/DRParameters.h"
 #include "tree/Layer.hpp"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
@@ -373,8 +374,12 @@ class MemoryManager {
     inline std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS> getFaultOutputManager() {
         return m_faultOutputManager;
     }
-    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
-        return m_seissolParams->drParameters.data();
+    // inline seissol::initializer::parameters::DRParameters* getDRParameters() {
+    //     return m_seissolParams->drParameters.data();
+    // }
+
+    inline std::array<std::shared_ptr<seissol::initializer::parameters::DRParameters>, MULTIPLE_SIMULATIONS> getDRParameters(){
+      return m_seissolParams->drParameters;
     }
 
     inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
