@@ -15,18 +15,6 @@ add_library(SeisSol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
 src/Initializer/GlobalData.cpp
-src/Solver/Clustering/Communication/AbstractGhostTimeCluster.cpp
-src/Solver/Clustering/AbstractTimeCluster.cpp
-src/Solver/Clustering/ActorState.cpp
-src/Solver/Clustering/Communication/CommunicationManager.cpp
-src/Solver/Clustering/Communication/DirectGhostTimeCluster.cpp
-src/Solver/Clustering/Communication/GhostTimeClusterWithCopy.cpp
-src/Solver/Clustering/Communication/CCLCluster.cpp
-src/Solver/Clustering/Communication/CCLSetup.cpp
-src/Solver/Proxy/MiniSeisSol.cpp
-src/Solver/Clustering/Computation/TimeCluster.cpp
-src/Solver/Clustering/TimeManager.cpp
-src/Solver/Clustering/Computation/DynamicRuptureCluster.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -151,8 +139,6 @@ src/Numerical/Transformation.cpp
 src/Physics/InitialField.cpp
 
 src/SeisSol.cpp
-
-src/Solver/FreeSurfaceIntegrator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
@@ -294,3 +280,6 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+
+add_subdirectory(src/Solver)
+target_link_libraries(SeisSol-common-lib PUBLIC seissol-solver)
