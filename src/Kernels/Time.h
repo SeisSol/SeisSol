@@ -141,6 +141,11 @@ class Time : public TimeBase {
                               const real* timeDerivatives,
                               real timeEvaluated[tensor::Q::size()]);
 
+  void computeDerivativeTaylorExpansion(real time,
+                                        real expansionPoint,
+                                        const real* timeDerivatives,
+                                        real timeEvaluatedDerivatives[tensor::Q::size()]);
+
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
                                      real** timeDerivatives,

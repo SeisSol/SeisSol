@@ -82,7 +82,8 @@ struct DerivedReceiverQuantity {
   virtual void compute(size_t sim,
                        std::vector<real>&,
                        seissol::init::QAtPoint::view::type&,
-                       seissol::init::QDerivativeAtPoint::view::type&) = 0;
+                       seissol::init::QDerivativeAtPoint::view::type&,
+                       seissol::init::QAtPoint::view::type&) = 0;
 };
 
 struct ReceiverRotation : public DerivedReceiverQuantity {
@@ -90,7 +91,8 @@ struct ReceiverRotation : public DerivedReceiverQuantity {
   void compute(size_t sim,
                std::vector<real>&,
                seissol::init::QAtPoint::view::type&,
-               seissol::init::QDerivativeAtPoint::view::type&) override;
+               seissol::init::QDerivativeAtPoint::view::type&,
+               seissol::init::QAtPoint::view::type&) override;
 };
 
 struct ReceiverStrain : public DerivedReceiverQuantity {
@@ -98,7 +100,17 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
   void compute(size_t sim,
                std::vector<real>&,
                seissol::init::QAtPoint::view::type&,
-               seissol::init::QDerivativeAtPoint::view::type&) override;
+               seissol::init::QDerivativeAtPoint::view::type&,
+               seissol::init::QAtPoint::view::type&) override;
+};
+
+struct ReceiverAcceleration : public DerivedReceiverQuantity {
+  std::vector<std::string> quantities() const override;
+  void compute(size_t sim,
+               std::vector<real>&,
+               seissol::init::QAtPoint::view::type&,
+               seissol::init::QDerivativeAtPoint::view::type&,
+               seissol::init::QAtPoint::view::type&) override;
 };
 
 class ReceiverCluster {

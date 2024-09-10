@@ -180,7 +180,9 @@ double ReceiverCluster::calcReceivers(
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()];
+      alignas(Alignment) real timeEvaluatedTimeDerivatives[tensor::Q::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+      alignas(Alignment) real timeEvaluatedTimeDerivativesAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 #ifdef USE_STP
       alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
@@ -197,6 +199,9 @@ double ReceiverCluster::calcReceivers(
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
       krnl.Q = timeEvaluated;
+      kernel::evaluateDOFSAtPoint krnlTimeDerivatives;
+      krnlTimeDerivatives.QAtPoint = timeEvaluatedTimeDerivativesAtPoint;
+      krnlTimeDerivatives.Q = timeEvaluatedTimeDerivatives;
       kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.Q = timeEvaluated;
@@ -205,9 +210,11 @@ double ReceiverCluster::calcReceivers(
       auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
           init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+      auto qTimeDerivativeAtPoint = init::QAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
       auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+      krnlTimeDerivatives.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint =
           receiver.basisFunctionDerivatives.m_data.data();
 
@@ -244,10 +251,13 @@ double ReceiverCluster::calcReceivers(
 #else
         m_timeKernel.computeTaylorExpansion(
             receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+        m_timeKernel.computeDerivativeTaylorExpansion(
+            receiverTime, expansionPoint, timeDerivatives, timeEvaluatedTimeDerivatives);
 #endif
 
         krnl.execute();
         derivativeKrnl.execute();
+        krnlTimeDerivatives.execute();
 
         // note: necessary receiver space is reserved in advance
         receiver.output.push_back(receiverTime);
@@ -262,7 +272,8 @@ double ReceiverCluster::calcReceivers(
             receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));
           }
           for (const auto& derived : derivedQuantities) {
-            derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+            derived->compute(
+                sim, receiver.output, qAtPoint, qDerivativeAtPoint, qTimeDerivativeAtPoint);
           }
         }
 
@@ -312,7 +323,8 @@ std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", 
 void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
                                seissol::init::QAtPoint::view::type& qAtPoint,
-                               seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+                               seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
+                               seissol::init::QAtPoint::view::type& qTimeDerivativeAtPoint) {
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
                    multisimWrap(qDerivativeAtPoint, sim, 7, 2));
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
@@ -327,7 +339,8 @@ std::vector<std::string> ReceiverStrain::quantities() const {
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
                              seissol::init::QAtPoint::view::type& qAtPoint,
-                             seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+                             seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
+                             seissol::init::QAtPoint::view::type& qTimeDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 0));
@@ -344,4 +357,15 @@ void ReceiverStrain::compute(size_t sim,
   output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 2));
 }
 
+std::vector<std::string> ReceiverAcceleration::quantities() const { return {"a1", "a2", "a3"}; }
+void ReceiverAcceleration::compute(
+    size_t sim,
+    std::vector<real>& output,
+    seissol::init::QAtPoint::view::type& qAtPoint,
+    seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
+    seissol::init::QAtPoint::view::type& qTimeDerivativeAtPoint) {
+  output.push_back(multisimWrap(qTimeDerivativeAtPoint, sim, 6));
+  output.push_back(multisimWrap(qTimeDerivativeAtPoint, sim, 7));
+  output.push_back(multisimWrap(qTimeDerivativeAtPoint, sim, 8));
+}
 } // namespace seissol::kernels

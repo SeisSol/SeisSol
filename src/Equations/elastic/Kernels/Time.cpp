@@ -467,6 +467,39 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.execute();
 }
 
+void Time::computeDerivativeTaylorExpansion(     real time,
+                                                     real         expansionPoint,
+                                                     real const*  timeDerivatives,
+                                                     real         timeEvaluatedDerivatives[tensor::Q::size()] ) {
+  /*
+   * assert alignments.
+   */
+  assert( (reinterpret_cast<uintptr_t>(timeDerivatives))  % Alignment == 0 );
+  assert( (reinterpret_cast<uintptr_t>(timeEvaluatedDerivatives))    % Alignment == 0 );
+
+  // assert that this is a forward evaluation in time
+  assert( time >= expansionPoint );
+
+  real deltaT = time - expansionPoint;
+
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = timeEvaluatedDerivatives;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+  }
+  intKrnl.power(0) = 0.0;
+  intKrnl.power(1) = 1.0;
+ 
+  // iterate over time derivatives
+  for(std::size_t derivative = 2; derivative < ConvergenceOrder; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative - 1.0);
+  }
+
+  intKrnl.execute();
+}
+
 void Time::computeBatchedTaylorExpansion(real time,
                                                            real expansionPoint,
                                                            real** timeDerivatives,

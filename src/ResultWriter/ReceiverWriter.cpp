@@ -44,6 +44,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <memory>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -182,6 +183,9 @@ void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, con
   }
   if (parameters.computeStrain) {
     derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
+  }
+  if (parameters.computeAcceleration){
+    derivedQuantities.push_back(std::make_shared<kernels::ReceiverAcceleration>());
   }
 
   setSyncInterval(std::min(endTime, parameters.interval));

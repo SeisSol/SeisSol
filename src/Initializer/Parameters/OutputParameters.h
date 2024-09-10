@@ -63,6 +63,7 @@ struct ReceiverOutputParameters {
   bool enabled;
   bool computeRotation;
   bool computeStrain;
+  bool computeAcceleration;
   double interval;
   double samplingInterval;
   std::string fileName;
