@@ -286,4 +286,4 @@ CellCluster::~CellCluster() = default;
 
 FaceCluster::~FaceCluster() = default;
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering

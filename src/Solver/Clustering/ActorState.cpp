@@ -81,4 +81,4 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize,
   executor = neighborExecutor;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering

@@ -43,24 +43,25 @@
 
 #include "Parallel/MPI.h"
 
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "Solver/Clustering/Communication/CommunicationManager.h"
 #include "TimeManager.h"
 #include <AbstractAPI.h>
-#include <Common/Executor.hpp>
-#include <DynamicRupture/Output/OutputManager.hpp>
+#include <Common/Executor.h>
+#include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/MemoryManager.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/typedefs.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/AbstractGhostTimeCluster.h>
+#include <Solver/Clustering/Communication/CommunicationFactory.h>
 #include <Solver/Clustering/Communication/GhostTimeClusterFactory.h>
-#include <Solver/Clustering/Computation/DynamicRuptureCluster.hpp>
+#include <Solver/Clustering/Computation/DynamicRuptureCluster.h>
 #include <Solver/Clustering/Computation/TimeCluster.h>
 #include <algorithm>
 #include <cassert>
@@ -75,7 +76,7 @@
 #include <device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver::clustering {
 
 TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
     : logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
@@ -127,22 +128,22 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
       const auto profilingId = globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
       auto* dynRupData = &dynRupTree.child(type);
-      clusters.push_back(
-          std::make_unique<TimeCluster>(localClusterId,
-                                        globalClusterId,
-                                        profilingId,
-                                        usePlasticity,
-                                        type,
-                                        timeStepSize,
-                                        timeStepRate,
-                                        printProgress,
-                                        globalData,
-                                        layerData,
-                                        memoryManager.getLts(),
-                                        seissolInstance,
-                                        &loopStatistics,
-                                        &actorStateStatisticsManager.addCluster(profilingId)));
-      clustersDR.push_back(std::make_unique<DynamicRuptureCluster>(
+      clusters.push_back(std::make_unique<computation::TimeCluster>(
+          localClusterId,
+          globalClusterId,
+          profilingId,
+          usePlasticity,
+          type,
+          timeStepSize,
+          timeStepRate,
+          printProgress,
+          globalData,
+          layerData,
+          memoryManager.getLts(),
+          seissolInstance,
+          &loopStatistics,
+          &actorStateStatisticsManager.addCluster(profilingId)));
+      clustersDR.push_back(std::make_unique<computation::DynamicRuptureCluster>(
           timeStepSize,
           timeStepRate,
           profilingId,
@@ -165,13 +166,14 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     auto& copy = clusters[clusters.size() - 2];
     auto& interiorDR = clustersDR[clustersDR.size() - 1];
     auto& copyDR = clustersDR[clustersDR.size() - 2];
+    auto& ghost = clusters[clusters.size() - 3];
 
     // Mark copy layers as higher priority layers.
     interior->setPriority(ActorPriority::Low);
     copy->setPriority(ActorPriority::High);
 
     interiorDR->setPriority(ActorPriority::Low);
-    copyDR->setPriority(ActorPriority::Low);
+    copyDR->setPriority(ActorPriority::High);
 
     // Copy/interior with same timestep are neighbors
     interior->connect(*copy);
@@ -181,6 +183,9 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     copy->connect(*interiorDR);
     copy->connect(*copyDR);
 
+    copy->connect(*ghost);
+    ghost->connect(*copyDR);
+
     // Connect new copy/interior to previous two copy/interior
     // Then all clusters that are neighboring are connected.
     // Note: Only clusters with a distance of 1 time step factor
@@ -188,8 +193,8 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     if (localClusterId > 0) {
       assert(clusters.size() >= 4);
       for (int i = 0; i < 2; ++i) {
-        copy->connect(*clusters[clusters.size() - 2 - i - 1]);
-        interior->connect(*clusters[clusters.size() - 2 - i - 1]);
+        copy->connect(*clusters[clusters.size() - 3 - i - 1]);
+        interior->connect(*clusters[clusters.size() - 3 - i - 1]);
       }
     }
 
@@ -202,8 +207,9 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi();
-    GhostTimeClusterFactory::prepare(preferredDataTransferMode,
-                                     timeStepping.numberOfGlobalClusters);
+    auto factory = communication::CommunicationClusterFactory(
+        communication::CommunicationMode::DirectMPI, halo.copy.size());
+    factory.prepare();
 
     for (unsigned int otherGlobalClusterId = 0;
          otherGlobalClusterId < timeStepping.numberOfGlobalClusters;
@@ -222,13 +228,13 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
         const long otherTimeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
                                             static_cast<long>(otherGlobalClusterId));
 
-        auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
-                                                         otherTimeStepRate,
-                                                         globalClusterId,
-                                                         otherGlobalClusterId,
-                                                         meshStructure,
-                                                         preferredDataTransferMode,
-                                                         persistent);
+        auto ghostCluster = factory.get(otherTimeStepSize,
+                                        otherTimeStepRate,
+                                        globalClusterId,
+                                        otherGlobalClusterId,
+                                        meshStructure,
+                                        preferredDataTransferMode,
+                                        persistent);
         ghostClusters.push_back(std::move(ghostCluster));
 
         // Connect with previous copy layer.
@@ -265,10 +271,11 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
   if (seissol::useCommThread(MPI::mpi)) {
-    communicationManager = std::make_unique<ThreadedCommunicationManager>(
+    communicationManager = std::make_unique<communication::ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance.getPinning());
   } else {
-    communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
+    communicationManager =
+        std::make_unique<communication::SerialCommunicationManager>(std::move(ghostClusters));
   }
 
   auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
@@ -356,7 +363,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     }
   };
 
-  std::invoke(phaseExecute);
+  cpuExecutor->start([&]() { phaseExecute(); }, pinning);
 
 #ifdef ACL_DEVICE
   device.api->syncDevice();
@@ -442,4 +449,4 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #endif
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering

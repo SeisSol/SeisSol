@@ -12,7 +12,7 @@ class FromDeviceEvent : public Task {
   public:
   FromDeviceEvent(void* event) : event(event) {}
   void init() {}
-  void record() { }
+  void record() {}
   bool poll() { return true; }
 };
 #endif
@@ -36,14 +36,16 @@ struct SimpleTask {
 };
 
 void ThreadStackExecutor::start(const std::function<void(CpuExecutor&)>& continuation,
-                             const Pinning* pinning) {
+                                const Pinning* pinning) {
   running.store(true);
   completed.store(false);
-  auto thread = HelperThread([this, continuation] {
-    std::invoke(continuation, *this);
-    complete();
-    return true;
-  }, pinning);
+  auto thread = HelperThread(
+      [this, continuation] {
+        std::invoke(continuation, *this);
+        complete();
+        return true;
+      },
+      pinning);
   thread.start();
   run();
 }
@@ -54,9 +56,9 @@ void ThreadStackExecutor::task(int priority, SimpleTask&& task) {
 }
 
 std::shared_ptr<Task> ThreadStackExecutor::add(int priority,
-                                  std::size_t size,
-                                  const std::function<void(std::size_t)>& function,
-                                  const std::vector<std::shared_ptr<Task>>& pollList) {
+                                               std::size_t size,
+                                               const std::function<void(std::size_t)>& function,
+                                               const std::vector<std::shared_ptr<Task>>& pollList) {
   auto returnEvent = std::make_shared<SimpleEvent>();
   returnEvent->init();
   task(priority,

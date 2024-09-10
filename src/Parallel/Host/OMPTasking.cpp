@@ -17,7 +17,7 @@ class OMPTask : public Task {
 };
 
 void OMPTaskingExecutor::start(const std::function<void(CpuExecutor&)>& continuation,
-                       const Pinning* pinning) {
+                               const Pinning* pinning) {
 #pragma omp parallel
   {
 #ifdef ACL_DEVICE
@@ -30,9 +30,9 @@ void OMPTaskingExecutor::start(const std::function<void(CpuExecutor&)>& continua
 #pragma omp taskwait
 }
 std::shared_ptr<Task> OMPTaskingExecutor::add(int priority,
-                                      std::size_t size,
-                                      const std::function<void(std::size_t)>& function,
-                                      const std::vector<std::shared_ptr<Task>>& pollList) {
+                                              std::size_t size,
+                                              const std::function<void(std::size_t)>& function,
+                                              const std::vector<std::shared_ptr<Task>>& pollList) {
   omp_depend_t depobj;
 #pragma omp taskloop priority(priority)
   for (std::size_t i = 0; i < size; ++i) {

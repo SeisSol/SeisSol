@@ -5,7 +5,8 @@
 #include <memory>
 namespace seissol::parallel::host {
 
-void SyncExecutor::start(const std::function<void(CpuExecutor&)>& continuation, const Pinning* pinning) {
+void SyncExecutor::start(const std::function<void(CpuExecutor&)>& continuation,
+                         const Pinning* pinning) {
   std::invoke(continuation, *this);
 }
 void SyncExecutor::wait() {}

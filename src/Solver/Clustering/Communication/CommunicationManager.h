@@ -1,9 +1,9 @@
 #ifndef SEISSOL_COMMUNICATIONMANAGER_H
 #define SEISSOL_COMMUNICATIONMANAGER_H
 
-#include "NeighborCluster.hpp"
+#include "NeighborCluster.h"
 #include "Parallel/Pin.h"
-#include <Parallel/HelperThread.hpp>
+#include <Parallel/HelperThread.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <atomic>
 #include <memory>

@@ -1,4 +1,4 @@
-#include "DirectMPINeighborCluster.hpp"
+#include "DirectMPINeighborCluster.h"
 #include <mpi.h>
 
 #ifdef ACL_DEVICE
@@ -10,8 +10,8 @@ namespace seissol::solver::clustering::communication {
 bool DirectMPISendNeighborCluster::poll() {
   std::lock_guard guard(requestMutex);
   int result;
-  MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
-  return result != 0;
+  MPI_Testsome(requests.size(), requests.data(), &result, status.data(), MPI_STATUSES_IGNORE);
+  return result == requests.size();
 }
 
 void DirectMPISendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
@@ -28,6 +28,7 @@ void DirectMPISendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtim
 DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
     const std::vector<RemoteCluster>& remote) {
   requests.resize(remote.size());
+  status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
     MPI_Send_init(remote[i].data,
                   remote[i].size,
@@ -48,8 +49,8 @@ DirectMPISendNeighborCluster::~DirectMPISendNeighborCluster() {
 bool DirectMPIRecvNeighborCluster::poll() {
   std::lock_guard guard(requestMutex);
   int result;
-  MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
-  return result != 0;
+  MPI_Testsome(requests.size(), requests.data(), &result, status.data(), MPI_STATUSES_IGNORE);
+  return result == requests.size();
 }
 
 void DirectMPIRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
@@ -66,6 +67,7 @@ void DirectMPIRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtim
 DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
     const std::vector<RemoteCluster>& remote) {
   requests.resize(remote.size());
+  status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
     MPI_Send_init(remote[i].data,
                   remote[i].size,

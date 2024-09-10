@@ -12,14 +12,14 @@ class ActorStateStatistics {
   public:
   ActorStateStatistics(unsigned globalClusterId, LoopStatistics& loopStatistics);
 
-  void enter(time_stepping::ComputeStep actorState);
+  void enter(seissol::solver::clustering::ComputeStep actorState);
   void exit();
 
   private:
   struct Sample {
-    explicit Sample(seissol::time_stepping::ComputeStep state);
+    explicit Sample(seissol::solver::clustering::ComputeStep state);
     void finish();
-    seissol::time_stepping::ComputeStep state;
+    seissol::solver::clustering::ComputeStep state;
     timespec begin;
     std::optional<timespec> end;
     int numEnteredRegion;

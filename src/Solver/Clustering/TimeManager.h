@@ -43,7 +43,9 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
-#include <Solver/Clustering/Communication/NeighborCluster.hpp>
+#include <Parallel/Host/CpuExecutor.h>
+#include <Solver/Clustering/AbstractTimeCluster.h>
+#include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <cassert>
 #include <list>
 #include <memory>
@@ -51,17 +53,17 @@
 #include <vector>
 
 #include "Initializer/MemoryManager.h"
-#include "Initializer/time_stepping/LtsLayout.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/TimeStepping/LtsLayout.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/Clustering/Communication/CommunicationManager.h"
 #include "Solver/Clustering/Communication/GhostTimeClusterFactory.h"
-#include "Solver/Clustering/Computation/DynamicRuptureCluster.hpp"
+#include "Solver/Clustering/Computation/DynamicRuptureCluster.h"
 #include "Solver/Clustering/Computation/TimeCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "SourceTerm/typedefs.hpp"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
 namespace seissol::solver::clustering {
@@ -94,17 +96,23 @@ class TimeManager {
   //! time stepping
   TimeStepping timeStepping;
 
-  //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters;
-  std::vector<TimeCluster*> highPrioClusters;
-  std::vector<TimeCluster*> lowPrioClusters;
+  std::shared_ptr<parallel::host::CpuExecutor> cpuExecutor;
 
-  std::vector<std::unique_ptr<DynamicRuptureCluster>> clustersDR;
-  std::vector<DynamicRuptureCluster*> highPrioClustersDR;
-  std::vector<DynamicRuptureCluster*> lowPrioClustersDR;
+  //! all local (copy & interior) LTS clusters, which are under control of this time manager
+  // std::vector<std::unique_ptr<AbstractTimeCluster>> clusters;
+  // std::vector<std::weak_ptr<AbstractTimeCluster>> highPrioClusters;
+  // std::vector<std::weak_ptr<AbstractTimeCluster>> lowPrioClusters;
+
+  std::vector<std::unique_ptr<computation::TimeCluster>> clusters;
+  std::vector<computation::TimeCluster*> highPrioClusters;
+  std::vector<computation::TimeCluster*> lowPrioClusters;
+
+  std::vector<std::unique_ptr<computation::DynamicRuptureCluster>> clustersDR;
+  std::vector<computation::DynamicRuptureCluster*> highPrioClustersDR;
+  std::vector<computation::DynamicRuptureCluster*> lowPrioClustersDR;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
-  std::unique_ptr<AbstractCommunicationManager> communicationManager;
+  std::unique_ptr<communication::AbstractCommunicationManager> communicationManager;
 
   //! Stopwatch
   LoopStatistics loopStatistics;

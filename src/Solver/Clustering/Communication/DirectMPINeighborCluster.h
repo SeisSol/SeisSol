@@ -1,7 +1,7 @@
 #pragma once
 
-#include "NeighborCluster.hpp"
-#include <Parallel/Runtime/Stream.hpp>
+#include "NeighborCluster.h"
+#include <Parallel/Runtime/Stream.h>
 #include <atomic>
 #include <mpi.h>
 #include <vector>
@@ -19,6 +19,7 @@ class DirectMPISendNeighborCluster : public SendNeighborCluster {
 
   private:
   std::vector<MPI_Request> requests;
+  std::vector<int> status;
   std::mutex requestMutex;
 };
 
@@ -33,6 +34,7 @@ class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
 
   private:
   std::vector<MPI_Request> requests;
+  std::vector<int> status;
   std::mutex requestMutex;
 };
 

@@ -154,15 +154,6 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
                                            velocityScalingFactor);
       }
     }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor);
-      }
-    }
   }
 
   if (reflectionType ==
@@ -176,27 +167,12 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
                                            velocityScalingFactor);
       }
     }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
-      cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
-                                           velocityScalingFactor);
-      }
-    }
   }
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
-  timeClusters = clusters;
-}
-
-void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::AbstractTimeCluster>>* clusters) {
-  ghostTimeClusters = clusters;
+    std::vector<std::unique_ptr<seissol::solver::clustering::AbstractTimeCluster>>* timeClusters) {
+  this->timeClusters = timeClusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,

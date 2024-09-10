@@ -80,11 +80,11 @@
 #include <Initializer/LTS.h>
 #include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
 #include <Kernels/GravitationalFreeSurfaceBC.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
-#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Monitoring/LoopStatistics.h>
@@ -121,7 +121,6 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
                          unsigned int profilingId,
                          bool usePlasticity,
-                         LayerType layerType,
                          double maxTimeStepSize,
                          long timeStepRate,
                          bool printProgress,
@@ -131,15 +130,15 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          seissol::SeisSol& seissolInstance,
                          LoopStatistics* loopStatistics,
                          ActorStateStatistics* actorStateStatistics)
-    : CellCluster(
-          maxTimeStepSize,
-          timeStepRate,
+    : CellCluster(maxTimeStepSize,
+                  timeStepRate,
 #ifdef ACL_DEVICE
-          clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device : Executor::Host
+                  clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
+                                                                        : Executor::Host
 #else
-          Executor::Host
+                  Executor::Host
 #endif
-          ),
+                  ),
       // cluster ids
       usePlasticity(usePlasticity), seissolInstance(seissolInstance),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
@@ -148,8 +147,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       lts(lts), sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      receiverCluster(nullptr), layerType(layerType), printProgress(printProgress),
-      clusterId(clusterId), globalClusterId(globalClusterId), profilingId(profilingId) {
+      receiverCluster(nullptr), printProgress(printProgress), clusterId(clusterId),
+      globalClusterId(globalClusterId), profilingId(profilingId) {
   // assert all pointers are valid
   assert(layer != nullptr);
   assert(globalDataOnHost != nullptr);
@@ -786,4 +785,4 @@ void TimeCluster::runCompute(ComputeStep step) {
   }
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver::clustering::computation

@@ -5,8 +5,7 @@
 #include <memory>
 namespace seissol::parallel::host {
 
-class Task {
-};
+class Task {};
 
 class CpuExecutor {
   public:

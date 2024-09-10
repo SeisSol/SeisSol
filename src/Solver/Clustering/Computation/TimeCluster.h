@@ -72,6 +72,7 @@
 #ifndef TIMECLUSTER_H_
 #define TIMECLUSTER_H_
 
+#include <Initializer/Tree/Layer.h>
 #include <SeisSol.h>
 #ifdef USE_MPI
 #include <list>
@@ -286,7 +287,6 @@ class TimeCluster : public CellCluster {
               unsigned int globalClusterId,
               unsigned int profilingId,
               bool usePlasticity,
-              LayerType layerType,
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
@@ -327,7 +327,7 @@ class TimeCluster : public CellCluster {
 
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  [[nodiscard]] LayerType getLayerType() const;
+  LayerType getLayerType() const override { return Interior; }
   void setReceiverTime(double receiverTime);
 
   std::vector<NeighborCluster>* getNeighborClusters();
@@ -337,7 +337,7 @@ class TimeCluster : public CellCluster {
   std::string description() const override { return "cell-cluster"; }
 };
 
-} // namespace time_stepping
+} // namespace solver::clustering::computation
 } // namespace seissol
 
 #endif

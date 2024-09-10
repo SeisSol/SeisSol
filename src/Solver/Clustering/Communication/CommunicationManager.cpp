@@ -14,11 +14,9 @@ namespace seissol::solver::clustering::communication {
 AbstractCommunicationManager::AbstractCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters)
     : ghostClusters(std::move(ghostClusters)) {}
-void AbstractCommunicationManager::reset() {
-}
+void AbstractCommunicationManager::reset() {}
 
-AbstractCommunicationManager::GhostClustersT&
-    AbstractCommunicationManager::getGhostClusters() {
+AbstractCommunicationManager::GhostClustersT& AbstractCommunicationManager::getGhostClusters() {
   return ghostClusters;
 }
 

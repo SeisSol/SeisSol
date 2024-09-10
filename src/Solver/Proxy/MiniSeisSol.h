@@ -56,14 +56,14 @@ void localIntegrationOnDevice(CompoundGlobalData& globalData,
                               seissol::SeisSol& seissolInstance,
                               seissol::parallel::runtime::StreamRuntime& runtime);
 
-  void fakeData(initializer::LTS& lts,
-                initializer::Layer& layer,
-                FaceType faceTp = FaceType::Regular);
-  
-  double miniSeisSol(initializer::MemoryManager& memoryManager,
-                     bool usePlasticity,
-                     seissol::SeisSol& seissolInstance);
-  constexpr real miniSeisSolTimeStep = 1.0;
-} //namespace seissol
+void fakeData(initializer::LTS& lts,
+              initializer::Layer& layer,
+              FaceType faceTp = FaceType::Regular);
+
+double miniSeisSol(initializer::MemoryManager& memoryManager,
+                   bool usePlasticity,
+                   seissol::SeisSol& seissolInstance);
+constexpr real miniSeisSolTimeStep = 1.0;
+} // namespace seissol
 
 #endif // MINISEISSOL_H_

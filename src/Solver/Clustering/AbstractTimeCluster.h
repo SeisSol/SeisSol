@@ -2,6 +2,7 @@
 #define SEISSOL_ACTOR_H
 
 #include "ActorState.h"
+#include <Initializer/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <chrono>
 #include <memory>
@@ -113,6 +114,9 @@ class AbstractTimeCluster {
   std::vector<NeighborCluster>* getNeighborClusters();
 
   void setPhase(double time);
+
+  // (dummy)
+  virtual LayerType getLayerType() const { return Interior; }
 };
 
 class CellCluster : public AbstractTimeCluster {
