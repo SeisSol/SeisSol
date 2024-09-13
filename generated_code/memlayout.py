@@ -97,7 +97,7 @@ def findCandidates(search_path):
 
 def guessMemoryLayout(env):    
   script_dir = os.path.dirname(os.path.abspath(__file__))
-  path = os.path.join(script_dir, '..', 'auto_tuning', 'config')
+  path = os.path.join(script_dir, '..', 'auto-tuning', 'config')
 
   if 'gpu' in env['targets']:
     print('INFO: Found gpu as a target. Memory layout will fall back to all dense')
