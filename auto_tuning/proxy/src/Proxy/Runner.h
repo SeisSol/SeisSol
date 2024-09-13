@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "Common.hpp"
+#include "Common.h"
 namespace seissol::proxy {
 
 auto runProxy(ProxyConfig config) -> ProxyOutput;

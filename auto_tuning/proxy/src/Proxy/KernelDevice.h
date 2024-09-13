@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "KernelHost.hpp"
+#include "KernelHost.h"
 
 namespace seissol::proxy {
 

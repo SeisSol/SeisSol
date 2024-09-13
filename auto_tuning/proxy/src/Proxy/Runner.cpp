@@ -60,8 +60,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "KernelDevice.hpp"
-#include "KernelHost.hpp"
+#include "KernelDevice.h"
+#include "KernelHost.h"
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
@@ -73,7 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <hbwmalloc.h>
 #endif
 
-#include "Common.hpp"
+#include "Common.h"
 #include "LikwidWrapper.h"
 #include <utils/args.h>
 
@@ -85,10 +85,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cassert>
 
 // seissol_kernel includes
-#include "Allocator.hpp"
-#include "Tools.hpp"
+#include "Allocator.h"
+#include "Tools.h"
 #ifdef ACL_DEVICE
-#include "DeviceIntegrator.hpp"
+#include "DeviceIntegrator.h"
 #endif
 
 namespace {

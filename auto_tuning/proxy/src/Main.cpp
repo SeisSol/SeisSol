@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Proxy/Common.hpp"
+#include "Proxy/Common.h"
 #include <iostream>
 #include <sstream>
 #include <utils/args.h>

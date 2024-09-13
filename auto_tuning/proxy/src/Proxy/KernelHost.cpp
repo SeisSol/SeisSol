@@ -29,9 +29,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "KernelHost.hpp"
-#include "Constants.hpp"
-#include "Kernel.hpp"
+#include "KernelHost.h"
+#include "Constants.h"
+#include "Kernel.h"
 
 #include <Initializer/Tree/Layer.h>
 #include <Kernels/Precision.h>

@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Tools.hpp"
+#include "Tools.h"
 #include <ctime>
 
 auto derive_cycles_from_time(double time) -> double {

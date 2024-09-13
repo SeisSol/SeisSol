@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Common.hpp"
+#include "Common.h"
 #include <iostream>
 #include <ostream>
 

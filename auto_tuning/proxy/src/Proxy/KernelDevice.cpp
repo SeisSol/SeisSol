@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "KernelDevice.hpp"
-#include "Constants.hpp"
+#include "KernelDevice.h"
+#include "Constants.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

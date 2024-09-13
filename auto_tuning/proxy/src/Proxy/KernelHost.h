@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "Common.hpp"
-#include "Kernel.hpp"
+#include "Common.h"
+#include "Kernel.h"
 namespace seissol::proxy {
 
 class ProxyKernelHostAder : public ProxyKernel {

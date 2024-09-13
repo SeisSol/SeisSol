@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Allocator.hpp"
+#include "Allocator.h"
 #include <Solver/time_stepping/MiniSeisSol.h>
 
 namespace seissol::proxy {
