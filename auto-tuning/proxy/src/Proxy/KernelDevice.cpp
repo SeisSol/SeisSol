@@ -10,6 +10,7 @@
 #include <memory>
 
 #ifdef ACL_DEVICE
+#include "Constants.h"
 #include <Kernels/TimeCommon.h>
 #include <device.h>
 #endif
@@ -129,6 +130,8 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
 void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {}
 #endif
+
+auto ProxyKernelDeviceNeighborDR::needsDR() const -> bool { return true; }
 
 std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel) {
   switch (kernel) {

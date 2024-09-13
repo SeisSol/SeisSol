@@ -88,7 +88,8 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   const bool enableDynamicRupture = kernel->needsDR();
 
 #ifdef ACL_DEVICE
-  deviceType& device = deviceType::getInstance();
+  using DeviceType = ::device::DeviceInstance;
+  auto& device = DeviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
   device.api->allocateStackMem();
