@@ -13,7 +13,7 @@ if (PROXY_PYBINDING)
 
     pybind11_add_module(seissol_proxy_bindings Bindings.cpp)
     target_link_libraries(seissol_proxy_bindings PUBLIC seissol-proxy-lib)
-    file(COPY proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+    file(COPY proxy-runners DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
 if (WITH_GPU)

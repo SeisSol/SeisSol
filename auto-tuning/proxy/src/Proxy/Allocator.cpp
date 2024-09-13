@@ -139,16 +139,22 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     // From lts tree
-    CellDRMapping(*drMapping)[4] = ltsTree.var(lts.drMapping);
+    CellDRMapping(*drMapping)[4] =
+        isDeviceOn() ? ltsTree.var(lts.drMappingDevice) : ltsTree.var(lts.drMapping);
+
+    constexpr initializer::AllocationPlace Place =
+        isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
     // From dynamic rupture tree
     seissol::initializer::Layer& interior = dynRupTree.child(0).child<Interior>();
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
-        interior.var(dynRup.imposedStatePlus);
+        interior.var(dynRup.imposedStatePlus, Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
-        interior.var(dynRup.fluxSolverPlus);
-    real** timeDerivativePlus = interior.var(dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = interior.var(dynRup.timeDerivativeMinus);
+        interior.var(dynRup.fluxSolverPlus, Place);
+    real** timeDerivativePlus = isDeviceOn() ? interior.var(dynRup.timeDerivativePlusDevice)
+                                             : interior.var(dynRup.timeDerivativePlus);
+    real** timeDerivativeMinus = isDeviceOn() ? interior.var(dynRup.timeDerivativeMinusDevice)
+                                              : interior.var(dynRup.timeDerivativeMinus);
     DRFaceInformation* faceInformation = interior.var(dynRup.faceInformation);
 
     /* init drMapping */
@@ -201,6 +207,9 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
   recorder.record(lts, layer);
   if (enableDR) {
+    dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                             device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree, dynRup);
     dynRupTree.allocateScratchPads();
 
