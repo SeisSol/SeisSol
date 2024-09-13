@@ -160,8 +160,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.timeKernel.computeAder(
-          Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.timeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
 #ifdef _OPENMP

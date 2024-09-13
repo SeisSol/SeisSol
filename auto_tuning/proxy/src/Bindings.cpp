@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Proxy/Common.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

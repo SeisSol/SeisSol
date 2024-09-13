@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightInfo: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #ifndef LIKWID_WRAPPER_20210526_H
 #define LIKWID_WRAPPER_20210526_H
 

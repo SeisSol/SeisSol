@@ -60,56 +60,50 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#pragma once
+#include "Tools.hpp"
+#include <ctime>
 
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/GlobalData.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include <Kernels/DynamicRupture.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
-#include <Parallel/Runtime/Stream.h>
-#include <unordered_set>
-#include <yateto.h>
+auto derive_cycles_from_time(double time) -> double {
+  // first try to read proxy env variable with freq
+  /*char* p_freq;
+  double d_freq;
+  double cycles = 1.0;
+  p_freq = getenv ("SEISSOL_PROXY_FREQUENCY");
+  if (p_freq !=NULL ) {
+    d_freq = atof(p_freq);
+    printf("detected frequency (SEISSOL_PROXY_FREQUENCY): %f\n", d_freq);
+    cycles = time * d_freq * 1.0e6;
+  } else {
+    FILE* fp;
+    fp = popen("lscpu | grep MHz | awk '{print $3}'", "r");
+    if(fp > 0) {
+      char tmp_buffer[20];
+      fread(tmp_buffer, 20, 1, fp);
+      d_freq = atof(tmp_buffer);
+      printf("detected frequency (lscpu): %f\n", d_freq);
+      cycles = time * d_freq * 1.0e6;
+      pclose(fp);
+    } else {
+      cycles = 1.0;
+      printf("detected frequency (lscpu) FAILED!\n");
+    }
+  }
+  return cycles;*/
+  return 0;
+}
 
-#ifdef ACL_DEVICE
-#include "Initializer/BatchRecorders/Recorders.h"
-#include <device.h>
-#include <unordered_set>
-#endif
+void print_hostname() {
+  /*FILE* fp = popen("hostname", "r");
+  if (fp > 0) {
+    char buffer[256];
+    fgets(buffer, 256, fp);
+    strtok(buffer, "\n");
+    printf("Running on %s.\n", buffer);
+  }*/
+}
 
-namespace seissol::proxy {
-
-struct ProxyData {
-  std::size_t cellCount;
-
-  seissol::initializer::LTSTree ltsTree;
-  seissol::initializer::LTS lts;
-  seissol::initializer::LTSTree dynRupTree;
-  seissol::initializer::DynamicRupture dynRup;
-
-  GlobalData globalDataOnHost;
-  GlobalData globalDataOnDevice;
-
-  real* fakeDerivatives = nullptr;
-  real* fakeDerivativesHost = nullptr;
-
-  kernels::Time timeKernel;
-  kernels::Local localKernel;
-  kernels::Neighbor neighborKernel;
-  kernels::DynamicRupture dynRupKernel;
-
-  seissol::memory::ManagedAllocator allocator;
-
-  ProxyData(std::size_t cellCount, bool enableDR);
-
-  // TODO: check copyability (probably not)
-
-  private:
-  void initGlobalData();
-  void initDataStructures(bool enableDR);
-  void initDataStructuresOnDevice(bool enableDR);
-};
-
-} // namespace seissol::proxy
+auto sec(struct timeval start, struct timeval end) -> double {
+  return ((double)(((end.tv_sec * 1000000 + end.tv_usec) -
+                    (start.tv_sec * 1000000 + start.tv_usec)))) /
+         1.0e6;
+}

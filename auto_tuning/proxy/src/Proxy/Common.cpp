@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightInfo: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Common.hpp"
 #include <iostream>
 #include <ostream>

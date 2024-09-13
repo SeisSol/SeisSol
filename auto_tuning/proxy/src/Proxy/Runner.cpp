@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 /*
 Copyright (c) 2015, Intel Corporation
 
@@ -56,7 +60,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include "KernelDevice.hpp"
 #include "KernelHost.hpp"
+#include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
 #ifdef _OPENMP
@@ -75,13 +81,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __USE_RDTSC
 #endif
 
-#include "Kernels/DynamicRupture.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
-#include "Kernels/Time.h"
-#include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
-#include "utils/logger.h"
 #include <cassert>
 
 // seissol_kernel includes
@@ -111,7 +111,13 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 
   registerMarkers();
 
-  auto kernel = getProxyKernelHost(config.kernel);
+  auto kernel = [&]() {
+    if constexpr (isDeviceOn()) {
+      return getProxyKernelDevice(config.kernel);
+    } else {
+      return getProxyKernelHost(config.kernel);
+    }
+  }();
 
   bool enableDynamicRupture = kernel->needsDR();
 
