@@ -31,7 +31,7 @@ double bytes_local(unsigned int i_timesteps) {
   double bytes = static_cast<double>(m_timeKernel.bytesAder() + m_localKernel.bytesIntegral());
   double elems = static_cast<double>(nrOfCells);
   double timesteps = static_cast<double>(i_timesteps);
-  
+
   return elems * timesteps * bytes;
 }
 
@@ -41,7 +41,7 @@ double bytes_neigh(unsigned int i_timesteps) {
   double bytes = static_cast<double>(m_neighborKernel.bytesNeighborsIntegral());
   double elems = static_cast<double>(nrOfCells);
   double timesteps = static_cast<double>(i_timesteps);
-  
+
   return elems * timesteps * bytes;
 }
 
@@ -49,7 +49,4 @@ double bytes_all(unsigned int i_timesteps) {
   return bytes_local(i_timesteps) + bytes_neigh(i_timesteps);
 }
 
-double noestimate(unsigned) {
-  return 0.0;
-}
-
+double noestimate(unsigned) { return 0.0; }

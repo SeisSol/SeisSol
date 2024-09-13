@@ -3,10 +3,11 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-
 PYBIND11_MODULE(seissol_proxy_bindings, module) {
+  using namespace seissol::proxy;
   py::enum_<Kernel>(module, "Kernel")
       .value("all", Kernel::All)
+      .value("all_dr", Kernel::AllDR)
       .value("local", Kernel::Local)
       .value("neigh", Kernel::Neighbor)
       .value("ader", Kernel::Ader)
@@ -28,7 +29,8 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .def_readwrite("cycles", &ProxyOutput::cycles)
       .def_readwrite("libxsmm_num_total_gflop", &ProxyOutput::libxsmmNumTotalGFlop)
       .def_readwrite("pspamm_num_total_gflop", &ProxyOutput::pspammNumTotalGFlop)
-      .def_readwrite("libxsmm_and_pspamm_num_total_gflop", &ProxyOutput::libxsmmAndpspammNumTotalGFlop)
+      .def_readwrite("libxsmm_and_pspamm_num_total_gflop",
+                     &ProxyOutput::libxsmmAndpspammNumTotalGFlop)
       .def_readwrite("actual_non_zero_gflop", &ProxyOutput::actualNonZeroGFlop)
       .def_readwrite("actual_hardware_gflop", &ProxyOutput::actualHardwareGFlop)
       .def_readwrite("gib", &ProxyOutput::gib)

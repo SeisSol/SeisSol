@@ -515,7 +515,7 @@ if (WITH_GPU)
   install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
+  target_sources(SeisSol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 # C++ compiler settings
@@ -572,8 +572,8 @@ endif()
 
 # build SeisSol-proxy
   # SeisSol proxy-core
-  add_library(SeisSol-proxy-core auto_tuning/proxy/src/Proxy/Runner.cpp)
-  target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+  add_subdirectory(auto_tuning/proxy/src)
+  target_link_libraries(seissol-proxy-lib PUBLIC SeisSol-lib)
 
   if (PROXY_PYBINDING)
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -583,17 +583,17 @@ endif()
     endif()
 
     pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/Bindings.cpp)
-    target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
+    target_link_libraries(seissol_proxy_bindings PUBLIC seissol-proxy-lib)
     file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   endif()
 
   if (WITH_GPU)
-    target_link_libraries(SeisSol-proxy-core PUBLIC general-sycl-offloading)
+    target_link_libraries(seissol-proxy-lib PUBLIC general-sycl-offloading)
   endif()
 
   # C/C++ proxy interface
   add_executable(SeisSol-proxy auto_tuning/proxy/src/Main.cpp)
-  target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
+  target_link_libraries(SeisSol-proxy PUBLIC seissol-proxy-lib)
   set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
   install(TARGETS SeisSol-proxy RUNTIME)
 # end build SeisSol-proxy
@@ -601,9 +601,9 @@ endif()
 if (LIKWID)
   find_package(likwid REQUIRED)
   if (BUILD_PROXY)
-    target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-    target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
+    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
+    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
+    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
   endif()
   target_compile_definitions(SeisSol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(SeisSol-lib PUBLIC ${LIKWID_INCLUDE_DIR})

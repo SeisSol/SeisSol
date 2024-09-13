@@ -14,4 +14,14 @@
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
+inline void registerMarkers() {
+#pragma omp parallel
+  {
+    LIKWID_MARKER_REGISTER("ader");
+    LIKWID_MARKER_REGISTER("localwoader");
+    LIKWID_MARKER_REGISTER("local");
+    LIKWID_MARKER_REGISTER("neighboring");
+  }
+}
+
 #endif // LIKWID_WRAPPER_20210526_H

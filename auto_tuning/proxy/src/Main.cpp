@@ -2,16 +2,18 @@
 #include <iostream>
 #include <utils/args.h>
 
+using namespace seissol::proxy;
 
-int main(int argc, char* argv[]) {
+auto main(int argc, char* argv[]) -> int {
   std::stringstream kernelHelp;
   auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernel: ";
-  for (const auto& kernel: allowedKernels) {
+  for (const auto& kernel : allowedKernels) {
     kernelHelp << ", " << kernel;
   }
 
-  utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol earthquake simulation software.");
+  utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
+                   "earthquake simulation software.");
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
@@ -27,13 +29,12 @@ int main(int argc, char* argv[]) {
 
   try {
     config.kernel = Aux::str2kernel(kernelStr);
-  }
-  catch (std::runtime_error& error) {
+  } catch (std::runtime_error& error) {
     std::cerr << error.what() << std::endl;
     return -1;
   }
 
   auto output = runProxy(config);
-  Aux::displayOutput(output, kernelStr);
+  Aux::writeOutput(std::cout, output, kernelStr, OutputFormat::Plain);
   return 0;
 }

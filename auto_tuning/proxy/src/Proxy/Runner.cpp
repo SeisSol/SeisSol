@@ -28,17 +28,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*
  * Copyright (c) 2013-2014, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -55,7 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  **/
- 
+
+#include "KernelHost.hpp"
 #include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
 #ifdef _OPENMP
@@ -66,211 +67,135 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <hbwmalloc.h>
 #endif
 
-#include "likwid_wrapper.h"
-#include <utils/args.h>
 #include "Common.hpp"
+#include "LikwidWrapper.h"
+#include <utils/args.h>
 
 #ifdef __MIC__
 #define __USE_RDTSC
 #endif
 
-#include "Kernels/TimeCommon.h"
-#include "Kernels/Time.h"
+#include "Kernels/DynamicRupture.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
-#include "Kernels/DynamicRupture.h"
+#include "Kernels/Time.h"
+#include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
 #include "utils/logger.h"
 #include <cassert>
 
 // seissol_kernel includes
-#include "Tools.hpp"
 #include "Allocator.hpp"
-#include "FlopCounter.hpp"
-#include "BandwidthEstimator.hpp"
-#include "Integrator.hpp"
+#include "Tools.hpp"
 #ifdef ACL_DEVICE
 #include "DeviceIntegrator.hpp"
 #endif
 
-#ifdef ACL_DEVICE
-using namespace proxy::device;
-#else
-using namespace proxy::cpu;
-#endif
-
-void testKernel(Kernel kernel, unsigned timesteps) {
-  unsigned t = 0;
-  switch (kernel) {
-    case Kernel::All:
-      for (; t < timesteps; ++t) {
-        computeLocalIntegration();
-        computeNeighboringIntegration();
-      }
-      break;
-    case Kernel::Local:
-      for (; t < timesteps; ++t) {
-        computeLocalIntegration();
-      }
-      break;
-    case Kernel::Neighbor:
-    case Kernel::NeighborDR:
-      for (; t < timesteps; ++t) {
-        computeNeighboringIntegration();
-      }
-      break;
-    case Kernel::Ader:
-      for (; t < timesteps; ++t) {
-        computeAderIntegration();
-      }
-      break;
-    case Kernel::LocalWOAder:
-      for (; t < timesteps; ++t) {
-        computeLocalWithoutAderIntegration();
-      }
-      break;    
-    case Kernel::GodunovDR:
-      for (; t < timesteps; ++t) {
-        computeDynRupGodunovState();
-      }
-      break;
-    default:
-      break;
+namespace {
+using namespace seissol::proxy;
+static void testKernel(std::shared_ptr<ProxyData>& data,
+                       std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
+                       std::shared_ptr<ProxyKernel>& kernel,
+                       std::size_t timesteps) {
+  for (std::size_t i = 0; i < timesteps; ++i) {
+    kernel->run(*data, *runtime);
   }
 }
 
+} // namespace
 
-ProxyOutput runProxy(ProxyConfig config) {
+namespace seissol::proxy {
+
+auto runProxy(ProxyConfig config) -> ProxyOutput {
   LIKWID_MARKER_INIT;
 
   registerMarkers();
 
-  bool enableDynamicRupture = false;
-  if (config.kernel == Kernel::NeighborDR || config.kernel == Kernel::GodunovDR) {
-    enableDynamicRupture = true;
-  }
+  auto kernel = getProxyKernelHost(config.kernel);
+
+  bool enableDynamicRupture = kernel->needsDR();
 
 #ifdef ACL_DEVICE
-  deviceType &device = deviceType::getInstance();
+  deviceType& device = deviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
   device.api->allocateStackMem();
 #endif
-
-  m_ltsTree = new seissol::initializer::LTSTree;
-  m_dynRupTree = new seissol::initializer::LTSTree;
-  m_allocator = new seissol::memory::ManagedAllocator;
-
   print_hostname();
 
-  if (config.verbose)
+  if (config.verbose) {
     printf("Allocating fake data...\n");
+  }
 
-  initGlobalData();
-  config.cells = initDataStructures(config.cells, enableDynamicRupture);
-#ifdef ACL_DEVICE
-  initDataStructuresOnDevice(enableDynamicRupture);
-#endif // ACL_DEVICE
+  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
 
-  runtime = new seissol::parallel::runtime::StreamRuntime();
+  auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
   if (config.verbose) {
     printf("...done\n\n");
   }
 
-  struct timeval start_time, end_time;
+  struct timeval startTime, endTime;
 #ifdef __USE_RDTSC
-  size_t cycles_start, cycles_end;
+  size_t cyclesStart, cyclesEnd;
 #endif
   double total = 0.0;
-  double total_cycles = 0.0;
+  double totalCycles = 0.0;
 
   // init OpenMP and LLC
-  testKernel(config.kernel, 1);
+  testKernel(data, runtime, kernel, 1);
 
   runtime->wait();
 
   seissol::monitoring::FlopCounter flopCounter;
 
-  gettimeofday(&start_time, NULL);
+  gettimeofday(&startTime, NULL);
 #ifdef __USE_RDTSC
-  cycles_start = __rdtsc();
+  cyclesStart = __rdtsc();
 #endif
 
-  testKernel(config.kernel, config.timesteps);
+  testKernel(data, runtime, kernel, config.timesteps);
 
   runtime->wait();
 
-#ifdef __USE_RDTSC  
-  cycles_end = __rdtsc();
-#endif
-  gettimeofday(&end_time, NULL);
-  total = sec(start_time, end_time);
 #ifdef __USE_RDTSC
-  printf("Cycles via __rdtsc()!\n");
-  total_cycles = (double)(cycles_end-cycles_start);
+  cyclesEnd = __rdtsc();
+#endif
+  gettimeofday(&endTime, NULL);
+  total = sec(startTime, endTime);
+#ifdef __USE_RDTSC
+  printf("Cycles via __rdtsc()\n");
+  totalCycles = (double)(cyclesEnd - cyclesStart);
 #else
-  total_cycles = derive_cycles_from_time(total);
+  totalCycles = derive_cycles_from_time(total);
 #endif
 
-  seissol_flops (*flop_fun)(unsigned) = nullptr;
-  double (*bytes_fun)(unsigned) = nullptr;
-  switch (config.kernel) {
-    case Kernel::All:
-      flop_fun = &flops_all_actual;
-      bytes_fun = &bytes_all;
-      break;
-    case Kernel::Local:
-      flop_fun = &flops_local_actual;
-      bytes_fun = &bytes_local;
-      break;
-    case Kernel::Neighbor:
-    case Kernel::NeighborDR:
-      flop_fun = &flops_neigh_actual;
-      bytes_fun = &bytes_neigh;
-      break;
-    case Kernel::Ader:
-      flop_fun = &flops_ader_actual;
-      bytes_fun = &noestimate;
-      break;
-    case Kernel::LocalWOAder:
-      flop_fun = &flops_localWithoutAder_actual;
-      bytes_fun = &noestimate;
-      break;
-    case Kernel::GodunovDR:
-      flop_fun = &flops_drgod_actual;
-      bytes_fun = &noestimate;
-      break;
-  }
- 
+  const auto performanceEstimate = kernel->performanceEstimate(*data);
 
-  assert(flop_fun != nullptr);
-  assert(bytes_fun != nullptr);
-
-  seissol_flops actual_flops = (*flop_fun)(config.timesteps);
-  double bytes_estimate = (*bytes_fun)(config.timesteps);
+  const double hardwareFlops = config.timesteps * performanceEstimate.hardwareFlop;
+  const double nonzeroFlops = config.timesteps * performanceEstimate.nonzeroFlop;
+  const double bytesEstimate = config.timesteps * performanceEstimate.bytes;
 
   ProxyOutput output{};
   output.time = total;
-  output.cycles = total_cycles;
+  output.cycles = totalCycles;
   output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
   output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
-  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9;
-  output.actualNonZeroGFlop = static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9;
-  output.actualHardwareGFlop = static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9;
-  output.gib = bytes_estimate/(1024.0*1024.0*1024.0);
-  output.nonZeroFlopPerCycle = static_cast<double>(actual_flops.d_nonZeroFlops)/total_cycles;
-  output.hardwareFlopPerCycle = static_cast<double>(actual_flops.d_hardwareFlops)/total_cycles;
-  output.bytesPerCycle = bytes_estimate/total_cycles;
-  output.nonZeroGFlops = (static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9)/total;
-  output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
-  output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
+  output.libxsmmAndpspammNumTotalGFlop =
+      static_cast<double>(libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9;
+  output.actualNonZeroGFlop = static_cast<double>(nonzeroFlops) * 1.e-9;
+  output.actualHardwareGFlop = static_cast<double>(hardwareFlops) * 1.e-9;
+  output.gib = bytesEstimate / (1024.0 * 1024.0 * 1024.0);
+  output.nonZeroFlopPerCycle = static_cast<double>(nonzeroFlops) / totalCycles;
+  output.hardwareFlopPerCycle = static_cast<double>(hardwareFlops) / totalCycles;
+  output.bytesPerCycle = bytesEstimate / totalCycles;
+  output.nonZeroGFlops = (static_cast<double>(nonzeroFlops) * 1.e-9) / total;
+  output.hardwareGFlops = (static_cast<double>(hardwareFlops) * 1.e-9) / total;
+  output.gibPerSecond = (bytesEstimate / (1024.0 * 1024.0 * 1024.0)) / total;
 
-  delete m_ltsTree;
-  delete m_dynRupTree;
-  delete m_allocator;
+  runtime.reset();
 
-  delete runtime;
+  data.reset();
 
 #ifdef ACL_DEVICE
   device.finalize();
@@ -280,3 +205,4 @@ ProxyOutput runProxy(ProxyConfig config) {
   return output;
 }
 
+} // namespace seissol::proxy

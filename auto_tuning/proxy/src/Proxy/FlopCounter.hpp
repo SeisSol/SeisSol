@@ -35,19 +35,19 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
 
-  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-  unsigned              nrOfCells       = layer.getNumberOfCells();
+  auto& layer = m_ltsTree->child(0).child<Interior>();
+  unsigned nrOfCells = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
-    m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);    
-    ret.d_nonZeroFlops  += l_nonZeroFlops;
+    m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);
+    ret.d_nonZeroFlops += l_nonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops;
   }
 
   ret.d_nonZeroFlops *= i_timesteps;
   ret.d_hardwareFlops *= i_timesteps;
-  
+
   return ret;
 }
 
@@ -55,14 +55,14 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
-  
+
   // iterate over cells
   unsigned nrOfCells = m_ltsTree->child(0).child<Interior>().getNumberOfCells();
-  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+  for (unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops
-    m_timeKernel.flopsAder( l_nonZeroFlops, l_hardwareFlops );
-    ret.d_nonZeroFlops  += l_nonZeroFlops;
+    m_timeKernel.flopsAder(l_nonZeroFlops, l_hardwareFlops);
+    ret.d_nonZeroFlops += l_nonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops;
   }
 
@@ -76,18 +76,24 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
-  
+
   // iterate over cells
-  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-  unsigned              nrOfCells       = layer.getNumberOfCells();
+  auto& layer = m_ltsTree->child(0).child<Interior>();
+  unsigned nrOfCells = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-  CellDRMapping        (*drMapping)[4]  = layer.var(m_lts.drMapping);
-  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+  CellDRMapping(*drMapping)[4] = layer.var(m_lts.drMapping);
+  for (unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     long long l_drNonZeroFlops, l_drHardwareFlops;
     // get flops
-    m_neighborKernel.flopsNeighborsIntegral( cellInformation[l_cell].faceTypes, cellInformation[l_cell].faceRelations, drMapping[l_cell], l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
-    ret.d_nonZeroFlops  += l_nonZeroFlops + l_drNonZeroFlops;
+    m_neighborKernel.flopsNeighborsIntegral(cellInformation[l_cell].faceTypes,
+                                            cellInformation[l_cell].faceRelations,
+                                            drMapping[l_cell],
+                                            l_nonZeroFlops,
+                                            l_hardwareFlops,
+                                            l_drNonZeroFlops,
+                                            l_drHardwareFlops);
+    ret.d_nonZeroFlops += l_nonZeroFlops + l_drNonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops + l_drHardwareFlops;
   }
 
@@ -101,14 +107,14 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
-  
+
   // iterate over cells
   seissol::initializer::Layer& interior = m_dynRupTree->child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
   for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
     long long l_drNonZeroFlops, l_drHardwareFlops;
     m_dynRupKernel.flopsGodunovState(faceInformation[face], l_drNonZeroFlops, l_drHardwareFlops);
-    ret.d_nonZeroFlops  += l_drNonZeroFlops;
+    ret.d_nonZeroFlops += l_drNonZeroFlops;
     ret.d_hardwareFlops += l_drHardwareFlops;
   }
 
@@ -121,7 +127,7 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
 seissol_flops flops_local_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   seissol_flops tmp;
-  
+
   tmp = flops_ader_actual(i_timesteps);
   ret.d_nonZeroFlops = tmp.d_nonZeroFlops;
   ret.d_hardwareFlops = tmp.d_hardwareFlops;
@@ -136,7 +142,7 @@ seissol_flops flops_local_actual(unsigned int i_timesteps) {
 seissol_flops flops_all_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   seissol_flops tmp;
-  
+
   tmp = flops_local_actual(i_timesteps);
   ret.d_nonZeroFlops = tmp.d_nonZeroFlops;
   ret.d_hardwareFlops = tmp.d_hardwareFlops;
@@ -147,5 +153,3 @@ seissol_flops flops_all_actual(unsigned int i_timesteps) {
 
   return ret;
 }
-
-

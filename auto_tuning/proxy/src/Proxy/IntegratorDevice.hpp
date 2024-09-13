@@ -36,99 +36,97 @@ namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
 namespace proxy::device {
-  using deviceType = ::device::DeviceInstance;
-  void computeAderIntegration() {
-    auto& layer = m_ltsTree->child(0).child<Interior>();
+using deviceType = ::device::DeviceInstance;
+void computeAderIntegration() {
+  auto& layer = ltsTree->child(0).child<Interior>();
 
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
-    kernels::LocalTmp tmp(9.81);
+  kernels::LocalData::Loader loader;
+  loader.load(lts, layer);
+  kernels::LocalTmp tmp(9.81);
 
-    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
-    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
 
-    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
-    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
 
-    runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
-      m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
-    });
-  }
+  runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
+    timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
+  });
+}
 
-  void computeLocalWithoutAderIntegration() {
-    auto& layer = m_ltsTree->child(0).child<Interior>();
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
-    kernels::LocalTmp tmp(9.81);
+void computeLocalWithoutAderIntegration() {
+  auto& layer = ltsTree->child(0).child<Interior>();
+  kernels::LocalData::Loader loader;
+  loader.load(lts, layer);
+  kernels::LocalTmp tmp(9.81);
 
-    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
-    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
-    auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    const double timeStepWidth = 0.0;
-    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
+  const double timeStepWidth = 0.0;
+  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
 
-    runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
-      m_localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, timeStepWidth, runtime);
-    });
-  }
+  runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
+    localKernel.computeBatchedIntegral(
+        dataTable, materialTable, indicesTable, loader, tmp, timeStepWidth, runtime);
+  });
+}
 
-  void computeLocalIntegration() {
-    auto& layer = m_ltsTree->child(0).child<Interior>();
+void computeLocalIntegration() {
+  auto& layer = ltsTree->child(0).child<Interior>();
 
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
-    kernels::LocalTmp tmp(9.81);
+  kernels::LocalData::Loader loader;
+  loader.load(lts, layer);
+  kernels::LocalTmp tmp(9.81);
 
-    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
-    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
-    auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
-    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
-    auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
-    runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
-      m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
-      m_localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
-    });
-  }
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
+  runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
+    timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false, runtime);
+    localKernel.computeBatchedIntegral(
+        dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
+  });
+}
 
-  void computeNeighboringIntegration() {
-    auto& layer = m_ltsTree->child(0).child<Interior>();
+void computeNeighboringIntegration() {
+  auto& layer = ltsTree->child(0).child<Interior>();
 
-    kernels::NeighborData::Loader loader;
-    loader.load(m_lts, layer);
+  kernels::NeighborData::Loader loader;
+  loader.load(lts, layer);
 
-    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
-    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
-    seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
-                                                          0.0,
-                                                          timeStepWidth,
-                                                          dataTable,
-                                                          *runtime);
+  seissol::kernels::TimeCommon::computeBatchedIntegrals(
+      timeKernel, 0.0, timeStepWidth, dataTable, *runtime);
 
-    ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-    auto computeGraphKey = initializer::GraphKey(graphType);
-    runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
-      m_neighborKernel.computeBatchedNeighborsIntegral(dataTable, runtime);
-    });
-  }
+  ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
+  auto computeGraphKey = initializer::GraphKey(graphType);
+  runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
+    neighborKernel.computeBatchedNeighborsIntegral(dataTable, runtime);
+  });
+}
 
-  void computeDynRupGodunovState() {
-    auto& layer = m_dynRupTree->child(0).child<Interior>();
+void computeDynRupGodunovState() {
+  auto& layer = dynRupTree->child(0).child<Interior>();
 
-    auto &dataTable = layer.getConditionalTable<inner_keys::Dr>();
+  auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 
-    ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
-    runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
-      m_dynRupKernel.batchedSpaceTimeInterpolation(dataTable, runtime);
-    });
-  }
+  ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
+  auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
+  runtime->runGraph(computeGraphKey, layer, [&](auto& runtime) {
+    dynRupKernel.batchedSpaceTimeInterpolation(dataTable, runtime);
+  });
+}
 } // namespace proxy::device
 
-
-#endif //SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
+#endif // SEISSOL_PROXY_SEISSOL_DEVICE_INTEGRATORS_HPP
