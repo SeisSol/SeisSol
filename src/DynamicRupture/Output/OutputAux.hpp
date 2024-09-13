@@ -27,7 +27,12 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
 struct TriangleQuadratureData {
-  static constexpr size_t size{tensor::quadweights::Shape[0]};
+  #ifdef MULTIPLE_SIMULAITONS
+  static constexpr size_t index=1;
+  #else
+  static constexpr size_t index=0;
+  #endif
+  static constexpr size_t size{tensor::quadweights::Size};
   std::array<double, 2 * size> points{};
   std::array<double, size> weights{};
 };

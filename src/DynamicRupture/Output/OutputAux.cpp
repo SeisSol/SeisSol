@@ -94,7 +94,7 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
   auto getWeights = [&weightsView](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
-    return weightsView(index, 0);
+    return weightsView(0, index);
 #else
     return weightsView(index);
 #endif
@@ -102,8 +102,8 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
   for (size_t i = 0; i < data.size; ++i) {
-    reshapedPoints[i][0] = pointsView(i, 0);
-    reshapedPoints[i][1] = pointsView(i, 1);
+    reshapedPoints[i][0] = pointsView(0, i);
+    reshapedPoints[i][1] = pointsView(1, i);
     data.weights[i] = getWeights(i);
   }
 
