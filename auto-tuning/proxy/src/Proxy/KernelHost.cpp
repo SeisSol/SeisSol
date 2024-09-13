@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -44,9 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
 #include <Parallel/Runtime/Stream.h>
-#include <equation-elastic-6-double/tensor.h>
 #include <memory>
 #include <omp.h>
+#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,

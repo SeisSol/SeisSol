@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -41,8 +41,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Kernels/Precision.h>
 #include <Solver/time_stepping/MiniSeisSol.h>
 #include <cstddef>
-#include <equation-elastic-6-double/tensor.h>
-#include <stdlib.h>
+#include <cstdlib>
+#include <tensor.h>
 
 namespace seissol::proxy {
 

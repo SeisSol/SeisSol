@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightInfo: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -10,6 +10,7 @@
 #include <memory>
 
 #ifdef ACL_DEVICE
+#include <Kernels/TimeCommon.h>
 #include <device.h>
 #endif
 
@@ -69,7 +70,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  const double timeStepWidth = static_cast<double>(Timestep);
   ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
@@ -87,11 +88,11 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
   kernels::NeighborData::Loader loader;
   loader.load(data.lts, layer);
 
-  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  const double timeStepWidth = static_cast<double>(Timestep);
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
   seissol::kernels::TimeCommon::computeBatchedIntegrals(
-      timeKernel, 0.0, timeStepWidth, dataTable, runtime);
+      data.timeKernel, 0.0, timeStepWidth, dataTable, runtime);
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -69,5 +69,7 @@ auto main(int argc, char* argv[]) -> int {
 
   auto output = runProxy(config);
   Aux::writeOutput(std::cout, output, kernelStr, OutputFormat::Plain);
+  std::cout.flush();
+
   return 0;
 }

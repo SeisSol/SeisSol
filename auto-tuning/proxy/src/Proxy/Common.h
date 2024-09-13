@@ -1,13 +1,11 @@
-// SPDX-FileCopyrightInfo: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef SEISSOL_PROXY_PROXY_COMMON_DATATYPES_HPP
 #define SEISSOL_PROXY_PROXY_COMMON_DATATYPES_HPP
 
-#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace seissol::proxy {

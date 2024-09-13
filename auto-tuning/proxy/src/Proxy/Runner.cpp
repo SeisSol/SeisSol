@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightInfo: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -35,11 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cstddef>
-#include <cstdio>
+#include <iostream>
 #include <memory>
 #include <sys/time.h>
-#ifdef _OPENMP
-#endif
 
 #ifdef USE_MEMKIND
 #include <hbwmalloc.h>
@@ -58,9 +56,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // seissol_kernel includes
 #include "Allocator.h"
 #include "Tools.h"
-#ifdef ACL_DEVICE
-#include "DeviceIntegrator.h"
-#endif
 
 namespace {
 using namespace seissol::proxy;
@@ -101,7 +96,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   print_hostname();
 
   if (config.verbose) {
-    printf("Allocating fake data...\n");
+    std::cout << "Allocating fake data..." << std::endl;
   }
 
   auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
@@ -109,7 +104,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
   if (config.verbose) {
-    printf("...done\n\n");
+    std::cout << "...done\n" << std::endl;
   }
 
   struct timeval startTime, endTime;
@@ -141,7 +136,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   gettimeofday(&endTime, NULL);
   total = sec(startTime, endTime);
 #ifdef __USE_RDTSC
-  printf("Cycles via __rdtsc()\n");
+  std::cout << "Cycles via __rdtsc()" << std::endl;
   totalCycles = (double)(cyclesEnd - cyclesStart);
 #else
   totalCycles = derive_cycles_from_time(total);
