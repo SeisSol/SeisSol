@@ -11,3 +11,5 @@ add_library(seissol-proxy-lib
     Runner.cpp
     Tools.cpp
 )
+
+target_link_libraries(seissol-proxy-lib PUBLIC SeisSol-lib)

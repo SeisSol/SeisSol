@@ -558,6 +558,9 @@ if (HAS_REDZONE)
   )
 endif()
 
+# put every executable in the root build directory at the end
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # build SeisSol-bin
   add_executable(SeisSol-bin src/Main.cpp)
   set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
@@ -571,31 +574,7 @@ endif()
 # end build SeisSol-bin
 
 # build SeisSol-proxy
-  # SeisSol proxy-core
   add_subdirectory(auto-tuning/proxy/src)
-  target_link_libraries(seissol-proxy-lib PUBLIC SeisSol-lib)
-
-  if (PROXY_PYBINDING)
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-      find_package(pybind11 2.6.2 REQUIRED)
-    else()
-      find_package(pybind11 2.3.0 REQUIRED)
-    endif()
-
-    pybind11_add_module(seissol_proxy_bindings auto-tuning/proxy/src/Bindings.cpp)
-    target_link_libraries(seissol_proxy_bindings PUBLIC seissol-proxy-lib)
-    file(COPY auto-tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-  endif()
-
-  if (WITH_GPU)
-    target_link_libraries(seissol-proxy-lib PUBLIC general-sycl-offloading)
-  endif()
-
-  # C/C++ proxy interface
-  add_executable(SeisSol-proxy auto-tuning/proxy/src/Main.cpp)
-  target_link_libraries(SeisSol-proxy PUBLIC seissol-proxy-lib)
-  set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-  install(TARGETS SeisSol-proxy RUNTIME)
 # end build SeisSol-proxy
 
 if (LIKWID)
