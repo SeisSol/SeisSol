@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Proxy/Common.h"
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <utils/args.h>
 
 using namespace seissol::proxy;

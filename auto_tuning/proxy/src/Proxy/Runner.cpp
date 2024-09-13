@@ -60,13 +60,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
+#include "Kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
+#include <cstddef>
+#include <cstdio>
+#include <memory>
 #include <sys/time.h>
 #ifdef _OPENMP
-#include <omp.h>
 #endif
 
 #ifdef USE_MEMKIND
@@ -75,7 +78,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Common.h"
 #include "LikwidWrapper.h"
-#include <utils/args.h>
 
 #ifdef __MIC__
 #define __USE_RDTSC
@@ -119,7 +121,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
     }
   }();
 
-  bool enableDynamicRupture = kernel->needsDR();
+  const bool enableDynamicRupture = kernel->needsDR();
 
 #ifdef ACL_DEVICE
   deviceType& device = deviceType::getInstance();
@@ -153,7 +155,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 
   runtime->wait();
 
-  seissol::monitoring::FlopCounter flopCounter;
+  const seissol::monitoring::FlopCounter flopCounter;
 
   gettimeofday(&startTime, NULL);
 #ifdef __USE_RDTSC

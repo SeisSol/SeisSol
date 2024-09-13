@@ -14,10 +14,7 @@ struct PerformanceEstimate {
   std::size_t nonzeroFlop{0};
   std::size_t bytes{0};
 
-  auto operator+(const PerformanceEstimate& other) -> PerformanceEstimate {
-    return PerformanceEstimate{
-        hardwareFlop + other.hardwareFlop, nonzeroFlop + other.nonzeroFlop, bytes + other.bytes};
-  }
+  auto operator+(const PerformanceEstimate& other) -> PerformanceEstimate;
 };
 
 class ProxyKernel {
@@ -25,6 +22,7 @@ class ProxyKernel {
   virtual void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const = 0;
   virtual auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate = 0;
   virtual auto needsDR() const -> bool = 0;
+  virtual ~ProxyKernel() = default;
 };
 
 template <typename... Kernels>

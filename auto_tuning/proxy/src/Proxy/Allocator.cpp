@@ -61,7 +61,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
 #include "Allocator.h"
+#include <Common/Constants.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/GlobalData.h>
+#include <Initializer/MemoryAllocator.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/TimeCluster.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <Solver/time_stepping/MiniSeisSol.h>
+#include <cstddef>
+#include <equation-elastic-6-double/tensor.h>
+#include <stdlib.h>
 
 namespace seissol::proxy {
 
@@ -174,9 +186,9 @@ void ProxyData::initDataStructures(bool enableDR) {
     for (unsigned cell = 0; cell < cellCount; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        unsigned side = (unsigned int)lrand48() % 4;
-        unsigned orientation = (unsigned int)lrand48() % 3;
-        unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
+        const unsigned side = (unsigned int)lrand48() % 4;
+        const unsigned orientation = (unsigned int)lrand48() % 3;
+        const unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
         drm.side = side;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
@@ -186,8 +198,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     /* init dr godunov state */
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
-      unsigned plusCell = (unsigned int)lrand48() % cellCount;
-      unsigned minusCell = (unsigned int)lrand48() % cellCount;
+      const unsigned plusCell = (unsigned int)lrand48() % cellCount;
+      const unsigned minusCell = (unsigned int)lrand48() % cellCount;
       timeDerivativePlus[face] =
           &fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
       timeDerivativeMinus[face] =
