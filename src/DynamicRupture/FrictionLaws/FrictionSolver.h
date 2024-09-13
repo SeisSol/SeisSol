@@ -19,8 +19,15 @@ class FrictionSolver {
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
-    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
-              &init::quadweights::Values[init::quadweights::Stop[0]],
+
+#ifdef MULTIPLE_SIMULATIONS
+    constexpr std::size_t index = 1;
+#else
+    constexpr std::size_t index = 0;
+#endif
+
+    std::copy(&init::quadweights::Values[init::quadweights::Start[index]],
+              &init::quadweights::Values[init::quadweights::Stop[index]],
               &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
