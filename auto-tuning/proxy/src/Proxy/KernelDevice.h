@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#pragma once
+#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_
+#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_
 
 #include "KernelHost.h"
 
@@ -45,3 +46,5 @@ using ProxyKernelDeviceAllDR =
 std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel);
 
 } // namespace seissol::proxy
+
+#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_

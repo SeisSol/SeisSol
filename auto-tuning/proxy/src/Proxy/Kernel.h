@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#pragma once
+#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
+#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
 
 #include "Allocator.h"
 #include <Parallel/Runtime/Stream.h>
@@ -43,3 +44,5 @@ class CompoundKernel : public ProxyKernel {
 };
 
 } // namespace seissol::proxy
+
+#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_

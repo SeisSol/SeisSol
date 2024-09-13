@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef SEISSOL_PROXY_PROXY_COMMON_DATATYPES_HPP
-#define SEISSOL_PROXY_PROXY_COMMON_DATATYPES_HPP
+#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_COMMON_H_
+#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_COMMON_H_
 
 #include <string>
 #include <vector>
@@ -57,4 +57,4 @@ struct Aux {
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_PROXY_PROXY_COMMON_DATATYPES_HPP
+#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_COMMON_H_

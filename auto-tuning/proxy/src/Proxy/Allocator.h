@@ -29,7 +29,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
+#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
 
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/GlobalData.h"
@@ -82,3 +83,5 @@ struct ProxyData {
 };
 
 } // namespace seissol::proxy
+
+#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_

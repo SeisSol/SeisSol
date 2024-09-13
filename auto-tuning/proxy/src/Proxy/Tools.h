@@ -29,7 +29,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_TOOLS_H_
+#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_TOOLS_H_
+
 #include <ctime>
 
 auto derive_cycles_from_time(double time) -> double;
@@ -37,3 +39,5 @@ auto derive_cycles_from_time(double time) -> double;
 void print_hostname();
 
 auto sec(struct timeval start, struct timeval end) -> double;
+
+#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_TOOLS_H_
