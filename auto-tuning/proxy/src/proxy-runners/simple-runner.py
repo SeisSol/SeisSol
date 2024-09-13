@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightInfo: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 import os, sys, inspect
 currentdir = os.path.dirname(os.path.abspath(__file__))
 parentdir = os.path.dirname(currentdir)
