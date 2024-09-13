@@ -20,6 +20,7 @@
 
 namespace {
 
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 
@@ -49,6 +50,7 @@ static AcousticTravellingWaveParametersITM
 
   return acousticTravellingWaveParametersITM;
 }
+#endif
 
 static std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {

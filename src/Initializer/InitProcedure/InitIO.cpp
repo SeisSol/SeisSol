@@ -17,7 +17,6 @@
 namespace {
 
 static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   auto* lts = memoryManager.getLts();

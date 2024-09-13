@@ -67,7 +67,6 @@ set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
-
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)

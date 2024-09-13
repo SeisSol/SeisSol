@@ -225,7 +225,6 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
   }
-  const auto numTotalCells = puml.numTotalCells();
 
   // TODO(David): change to uint64_t/size_t once we have an MPI module for that ready
   const size_t localCells = puml.numOriginalCells();

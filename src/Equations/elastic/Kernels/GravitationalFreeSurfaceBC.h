@@ -119,7 +119,7 @@ public:
     const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
     // Note: Probably need to increase ConvergenceOrderby 1 here!
-    for (int order = 1; order < ConvergenceOrder+1; ++order) {
+    for (std::size_t order = 1; order < ConvergenceOrder+1; ++order) {
       dofsFaceNodal.setZero();
 
       projectKernel.execute(order - 1, faceIdx);
@@ -259,7 +259,7 @@ public:
       const double g = gravitationalAcceleration;
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (int order = 1; order < ConvergenceOrder+1; ++order) {
+      for (std::size_t order = 1; order < ConvergenceOrder+1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);
