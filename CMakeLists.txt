@@ -14,7 +14,7 @@ project(SeisSol LANGUAGES C CXX)
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
                       "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
-                      "${CMAKE_ROOT}/Modules")
+                      ${CMAKE_MODULE_PATH})
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
@@ -26,14 +26,14 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   set(GNU_REQUIRED_VERSION "9.0")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
-    message(WARNING "GNU versions below ${GNU_REQUIRED_VERSION} are not supported")
+    message(WARNING "gcc versions below ${GNU_REQUIRED_VERSION} are not supported")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
   set(INTEL_REQUIRED_VERSION "2021")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS INTEL_REQUIRED_VERSION)
-    message(WARNING "INTEL versions below ${INTEL_REQUIRED_VERSION} are not supported")
+    message(WARNING "icc versions below ${INTEL_REQUIRED_VERSION} are not supported")
   endif()
 endif()
 
