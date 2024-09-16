@@ -24,6 +24,7 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
           {"ocean_1", InitializationType::Ocean1},
           {"ocean_2", InitializationType::Ocean2},
           {"pressureinjection", InitializationType::PressureInjection},
+          {"easi", InitializationType::Easi},
       });
   const auto originString = reader->readWithDefault("origin", std::string("0.0 0.0 0.0"));
   const auto originRaw = seissol::initializer::convertStringToArray<double, 3>(originString);
@@ -46,6 +47,8 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto width = reader->readWithDefault("width", std::numeric_limits<double>::infinity());
   const auto k = reader->readWithDefault("k", 0.0);
 
-  return InitializationParameters{type, origin, kVec, ampField, magnitude, width, k};
+  const auto filename = reader->readPath("filename").value_or("");
+
+  return InitializationParameters{type, origin, kVec, ampField, magnitude, width, k, filename};
 }
 } // namespace seissol::initializer::parameters
