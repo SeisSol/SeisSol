@@ -334,9 +334,10 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
 
   totalNumberOfFreeSurfaces = 0;
   unsigned baseLtsId = 0;
-  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-        ++layer, ++surfaceLayer) {
+  for (auto layer = ltsTree->beginLeaf(ghostMask),
+            surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+       layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
+       ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     CellMaterialData* cellMaterialData = layer->var(lts->material);
 
@@ -347,9 +348,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface
-          || cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity
-          || initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface ||
+              cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity ||
+              initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
             ++numberOfFreeSurfaces;
           }
         }
@@ -375,9 +376,10 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
   /// @ yateto_todo
   baseLtsId = 0;
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
-  for (auto layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-        ++layer, ++surfaceLayer) {
+  for (auto layer = ltsTree->beginLeaf(ghostMask),
+            surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+       layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
+       ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     real(*dofs)[tensor::Q::size()] = layer->var(lts->dofs);
     real*(*faceDisplacements)[4] = layer->var(lts->faceDisplacements);

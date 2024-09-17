@@ -28,7 +28,8 @@ class StreamRuntime {
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu) : cpu(cpu), disposed(false) {
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu)
+      : cpu(cpu), disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
@@ -107,8 +108,7 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
-  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
-                       F&& handler) {
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
     if (!computeGraphHandle) {
       device().api->streamBeginCapture(allStreams);
 

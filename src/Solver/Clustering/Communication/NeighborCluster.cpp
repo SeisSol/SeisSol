@@ -12,18 +12,18 @@ HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStruc
     const auto& clusterStructure = structure[i];
     for (std::size_t j = 0; j < clusterStructure.numberOfRegions; ++j) {
       const std::size_t clusterIndex = clusterStructure.neighboringClusters[j][0];
-      communication.copy.at(clusterIndex).emplace_back(
-          RemoteCluster{clusterStructure.copyRegions[j],
-                        clusterStructure.copyRegionSizes[j],
-                        MPI_C_REAL,
-                        clusterStructure.neighboringClusters[j][0],
-                        DataTagOffset + clusterStructure.sendIdentifiers[j]});
-      communication.ghost.at(clusterIndex).emplace_back(
-          RemoteCluster{clusterStructure.ghostRegions[j],
-                        clusterStructure.ghostRegionSizes[j],
-                        MPI_C_REAL,
-                        clusterStructure.neighboringClusters[j][0],
-                        DataTagOffset + clusterStructure.receiveIdentifiers[j]});
+      communication.copy.at(clusterIndex)
+          .emplace_back(RemoteCluster{clusterStructure.copyRegions[j],
+                                      clusterStructure.copyRegionSizes[j],
+                                      MPI_C_REAL,
+                                      clusterStructure.neighboringClusters[j][0],
+                                      DataTagOffset + clusterStructure.sendIdentifiers[j]});
+      communication.ghost.at(clusterIndex)
+          .emplace_back(RemoteCluster{clusterStructure.ghostRegions[j],
+                                      clusterStructure.ghostRegionSizes[j],
+                                      MPI_C_REAL,
+                                      clusterStructure.neighboringClusters[j][0],
+                                      DataTagOffset + clusterStructure.receiveIdentifiers[j]});
     }
   }
   return communication;

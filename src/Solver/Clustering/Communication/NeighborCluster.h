@@ -34,6 +34,7 @@ class NeighborCluster {
 
   void startFrom(parallel::runtime::StreamRuntime& runtime);
   void stopTo(parallel::runtime::StreamRuntime& runtime);
+
   private:
   parallel::runtime::StreamRuntime myRuntime;
 };

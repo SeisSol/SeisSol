@@ -662,12 +662,11 @@ unsigned int TimeCluster::getClusterId() const { return clusterId; }
 
 unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
-LayerType TimeCluster::getLayerType() const { return layerType; }
 void TimeCluster::setReceiverTime(double receiverTime) { this->receiverTime = receiverTime; }
 
 void TimeCluster::finalize() { streamRuntime.dispose(); }
 
-template <bool usePlasticity>
+template <bool UsePlasticity>
 std::pair<long, long>
     TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
   if (layer->getNumberOfCells() == 0)
@@ -738,7 +737,7 @@ std::pair<long, long>
     self.neighborKernel.computeNeighborsIntegral(
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
-    if constexpr (usePlasticity) {
+    if constexpr (UsePlasticity) {
       seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                       timeStep,
                                                       tv,
