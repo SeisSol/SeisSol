@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Solver/Clustering/AbstractTimeCluster.h"
 
 #include "ActorState.h"

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #ifndef SEISSOL_ACTOR_H
 #define SEISSOL_ACTOR_H
 

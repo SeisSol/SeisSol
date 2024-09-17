@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 /******************************************************************************
 ** Copyright (c) 2015, Intel Corporation                                     **
 ** All rights reserved.                                                      **

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "HaloHelper.h"
 
 #include <Initializer/Tree/LTSTree.h>
@@ -13,6 +17,7 @@ void haloCommunication(const HaloCommunication& comm,
   int datatypesize = 0;
   MPI_Type_size(datatype, &datatypesize);
   const std::size_t elemsize = datatypesize;
+
   std::vector<MPI_Request> requests;
   for (auto& layer : tree.leaves(Interior)) {
     int cluster = layer.getClusterId();

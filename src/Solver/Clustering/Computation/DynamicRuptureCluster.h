@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #ifndef FACECLUSTER_H_
 #define FACECLUSTER_H_
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 /**
  * @file
  * This file is part of SeisSol.
@@ -55,6 +59,7 @@
 #include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
+#include <Parallel/Host/SyncExecutor.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
@@ -88,7 +93,61 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 
   loopStatistics.enableSampleOutput(
       seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
+  
+  cpuExecutor = std::make_shared<parallel::host::SyncExecutor>();
 }
+
+void TimeManager::addClusters2(TODOCLUSTERING,
+                              initializer::MemoryManager& memoryManager,
+                              bool usePlasticity) {
+  const auto globalData = memoryManager.getGlobalData();
+  for (auto& layer : memoryManager.getLtsTree()->leaves()) {
+    const auto localClusterId = layer.getClusterId();
+    const auto globalClusterId = layer.getClusterId();
+    const auto timeStepRate = timeStepping.globalCflTimeStepWidths[0] * TODO;
+    const auto timeStepSize = timeStepping.globalCflTimeStepWidths[0] * timeStepRate;
+    if (layer.getLayerType() == Interior) {
+      const bool printProgress = (localClusterId == timeStepping.numberOfLocalClusters - 1);
+      // add interior cluster
+      clusters.push_back(std::make_unique<computation::TimeCluster>(
+          localClusterId,
+          globalClusterId,
+          0,
+          usePlasticity,
+          timeStepSize,
+          timeStepRate,
+          printProgress,
+          globalData,
+          layer,
+          memoryManager.getLts(),
+          seissolInstance,
+          &loopStatistics,
+          &actorStateStatisticsManager.addCluster(profilingId)));
+    }
+    if (layer.getLayerType() == Copy) {
+
+    }
+    if (layer.getLayerType() == Ghost) {
+
+    }
+  }
+  for (auto& layer : memoryManager.getDynamicRuptureTree()->leaves(Ghost)) {
+    const auto localClusterId = layer.getClusterId();
+    const auto globalClusterId = layer.getClusterId();
+    const auto timestep = timeStepping.globalCflTimeStepWidths[0] * TODO;
+    if (layer.getLayerType() == Interior) {
+      // add interior cluster
+    }
+  }
+
+  if (seissol::useCommThread(MPI::mpi)) {
+    communicationManager = std::make_unique<communication::ThreadedCommunicationManager>(
+        std::move(ghostClusters), &seissolInstance.getPinning());
+  } else {
+    communicationManager =
+        std::make_unique<communication::SerialCommunicationManager>(std::move(ghostClusters));
+  }
+                              }
 
 void TimeManager::addClusters(TimeStepping& timeStepping,
                               const communication::HaloCommunication& halo,
