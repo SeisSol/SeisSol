@@ -12,7 +12,6 @@ void StreamRuntime::syncToSycl(void* queuePtr) {
   device().api->syncStreamWithEvent(queuePtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto* localForkEventSycl{event};
   device().api->recordEventOnStream(event, streamPtr);
   syclNativeOperation(
       *queue, true, [=](void* stream) { device().api->syncStreamWithEvent(stream, event); });

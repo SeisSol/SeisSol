@@ -81,6 +81,26 @@ class StreamRuntime {
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
+#ifdef SEISSOL_KERNELS_HIP
+    if (captureState) {
+      const std::size_t base = captureStreams.size();
+      for (size_t i = 0; i < std::min(count, RingbufferSize); ++i) {
+        captureStreams.emplace_back(device().api->createGenericStream());
+        void* event = getEvent();
+        device().api->recordEventOnStream(event, streamPtr);
+        device().api->syncStreamWithEvent(captureStreams[i + base], event);
+      }
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, captureStreams[base + (i % RingbufferSize)], i);
+      }
+      for (size_t i = 0; i < std::min(count, RingbufferSize); ++i) {
+        void* event = getEvent();
+        device().api->recordEventOnStream(event, captureStreams[i + base]);
+        device().api->syncStreamWithEvent(streamPtr, event);
+      }
+      return;
+    }
+#endif
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
       void* event = getEvent();
       device().api->recordEventOnStream(event, streamPtr);
@@ -107,11 +127,19 @@ class StreamRuntime {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
+      // TODO: remove captureState once ROCm is stable enough
       device().api->streamBeginCapture(allStreams);
+      captureState = true;
 
       std::invoke(std::forward<F>(handler), *this);
 
+      captureState = false;
       device().api->streamEndCapture();
+
+      for (auto* stream : captureStreams) {
+        device().api->destroyGenericStream(stream);
+      }
+      captureStreams.resize(0);
 
       computeGraphHandle = device().api->getLastGraphHandle();
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
@@ -145,6 +173,8 @@ class StreamRuntime {
   std::vector<void*> allStreams;
   std::vector<void*> events;
   std::size_t eventPos{0};
+  bool captureState{false};
+  std::vector<void*> captureStreams;
 #else
   public:
   void wait() {}
