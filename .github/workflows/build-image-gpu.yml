@@ -1,7 +1,8 @@
-name: build-docker
+name: build-docker-gpu
 
 on:
-  - workflow_dispatch
+  # - workflow_dispatch
+  - push
 
 jobs:
   build:
@@ -23,14 +24,14 @@ jobs:
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: seissol/gha-cpu
-        tags: type=sha
+        images: seissol/gha-gpu-nv
+        # tags: type=sha
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
         context: .
-        file: .ci/gha-cpu/Dockerfile
+        file: .ci/gha-gpu-nv/Dockerfile
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
