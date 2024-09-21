@@ -1,0 +1,11 @@
+url_path,views_total,views_unique
+/SeisSol/SeisSol,137,81
+/SeisSol/SeisSol/tree/master/postprocessing/science,49,8
+/SeisSol/SeisSol/tree/master/postprocessing,48,8
+/SeisSol/SeisSol/commits/master,36,3
+/SeisSol/SeisSol/tree/master/src,27,7
+/SeisSol/SeisSol/pulls,25,6
+/SeisSol/SeisSol/issues,20,5
+/SeisSol/SeisSol/blob/master/postprocessing/science/spectral_corner_frequency_from_surface_xdmf.py,19,4
+/SeisSol/SeisSol/blob/master/postprocessing/science/GroundMotionParametersMaps/ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py,16,4
+/SeisSol/SeisSol/tree/master/Documentation,15,5
