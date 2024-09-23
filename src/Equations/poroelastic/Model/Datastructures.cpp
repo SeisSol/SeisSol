@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Datastructures.h"
 
 //Also if we don't use poroelastic materials, the material has to be properly defined
@@ -23,3 +27,4 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   return std::sqrt(lambda + 2*mu) / rho;
 }
 #endif
+

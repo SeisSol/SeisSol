@@ -1,5 +1,9 @@
-#ifndef SEISSOL_POINTERSTABLE_HPP
-#define SEISSOL_POINTERSTABLE_HPP
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
 
 #ifdef ACL_DEVICE
 
@@ -109,4 +113,4 @@ struct IndicesTable {};
 } // namespace seissol::initializer::recording
 #endif // ACL_DEVICE
 
-#endif // SEISSOL_POINTERSTABLE_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_

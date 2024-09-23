@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_NUMERICAL_ODEINT_T_H_
+#define SEISSOL_SRC_TESTS_NUMERICAL_ODEINT_T_H_
+
 #include <Eigen/Dense>
 
 #include "Numerical/ODEInt.h"
@@ -117,3 +124,5 @@ TEST_CASE("Test ODE Solver") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_NUMERICAL_ODEINT_T_H_

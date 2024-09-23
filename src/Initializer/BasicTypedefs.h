@@ -1,5 +1,9 @@
-#ifndef SEISSOL_BASICTYPEDEFS_HPP
-#define SEISSOL_BASICTYPEDEFS_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
+#define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 
 constexpr int DataTagOffset = 2;
 
@@ -64,4 +68,4 @@ enum class ComputeGraphType {
   Count
 };
 
-#endif // SEISSOL_BASICTYPEDEFS_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_

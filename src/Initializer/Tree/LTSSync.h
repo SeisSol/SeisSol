@@ -1,5 +1,9 @@
-#ifndef INITIALIZER_TREE_LTSSYNC
-#define INITIALIZER_TREE_LTSSYNC
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_
+#define SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_
 
 #include <cstddef>
 #include <cstring>
@@ -77,4 +81,4 @@ void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handl
 } // namespace initializer
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_

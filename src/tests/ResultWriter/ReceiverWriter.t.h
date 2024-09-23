@@ -1,4 +1,12 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_RESULTWRITER_RECEIVERWRITER_T_H_
+#define SEISSOL_SRC_TESTS_RESULTWRITER_RECEIVERWRITER_T_H_
+
 #include "ResultWriter/ReceiverWriter.h"
+
 namespace seissol::unit_test {
 
 TEST_CASE("Parses line correctly") {
@@ -38,3 +46,5 @@ TEST_CASE("Parses receiver file correctly") {
   }
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_RESULTWRITER_RECEIVERWRITER_T_H_

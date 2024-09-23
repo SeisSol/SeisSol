@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_MODEL_ATTENUATION_T_H_
+#define SEISSOL_SRC_TESTS_MODEL_ATTENUATION_T_H_
+
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
@@ -49,3 +56,5 @@ TEST_CASE("Attenuation") {
   }
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_MODEL_ATTENUATION_T_H_

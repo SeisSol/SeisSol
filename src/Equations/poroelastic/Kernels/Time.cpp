@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
 
@@ -264,3 +268,4 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
 }
 
 } // namespace seissol::kernels
+

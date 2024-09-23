@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
@@ -32,3 +36,4 @@ if (EXTRA_CXX_FLAGS)
             --compiler-options ${EXTRA_CXX_FLAGS}
             >)
 endif()
+

@@ -1,5 +1,10 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
 // Copyright (C) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_KERNEL_POINTSOURCECLUSTER_T_H_
+#define SEISSOL_SRC_TESTS_KERNEL_POINTSOURCECLUSTER_T_H_
 
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Precision.h"
@@ -45,3 +50,5 @@ TEST_CASE("computeSampleTimeIntegral") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_KERNEL_POINTSOURCECLUSTER_T_H_

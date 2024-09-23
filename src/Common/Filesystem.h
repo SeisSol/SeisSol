@@ -1,5 +1,9 @@
-#ifndef SEISSOL_FILESYSTEM_H
-#define SEISSOL_FILESYSTEM_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_COMMON_FILESYSTEM_H_
+#define SEISSOL_SRC_COMMON_FILESYSTEM_H_
 
 #include <string>
 #include <optional>
@@ -56,5 +60,6 @@ inline void generateBackupFileIfNecessary(std::string fileName,
 }
 } // namespace seissol
 
-#endif // SEISSOL_FILESYSTEM_H
+
+#endif // SEISSOL_SRC_COMMON_FILESYSTEM_H_
 

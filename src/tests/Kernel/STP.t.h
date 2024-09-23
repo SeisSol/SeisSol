@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_KERNEL_STP_T_H_
+#define SEISSOL_SRC_TESTS_KERNEL_STP_T_H_
+
 #include <iomanip>
 #include <iostream>
 
@@ -269,3 +276,5 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_KERNEL_STP_T_H_

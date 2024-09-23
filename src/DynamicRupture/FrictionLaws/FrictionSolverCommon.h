@@ -1,5 +1,9 @@
-#ifndef SEISSOL_FRICTIONSOLVER_COMMON_H
-#define SEISSOL_FRICTIONSOLVER_COMMON_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
 #include <limits>
 #include <type_traits>
@@ -551,4 +555,4 @@ inline void computeFrictionEnergy(
 
 } // namespace seissol::dr::friction_law::common
 
-#endif // SEISSOL_FRICTIONSOLVER_COMMON_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_

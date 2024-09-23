@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_PARALLEL_PINTEST_T_H_
+#define SEISSOL_SRC_TESTS_PARALLEL_PINTEST_T_H_
+
 #include "Parallel/Pin.h"
 
 namespace seissol::unit_test {
@@ -41,3 +48,5 @@ TEST_CASE("Online Mask Parsing") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_PARALLEL_PINTEST_T_H_

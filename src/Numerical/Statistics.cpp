@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 /**
  * @author Lukas Krenz (lukas.krenz AT tum.de)
  * @author Carsten Uphoff (c.uphoff AT tum.de)

@@ -1,7 +1,13 @@
-#include <Eigen/Dense>
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_INITIALIZER_POINTMAPPER_T_H_
+#define SEISSOL_SRC_TESTS_INITIALIZER_POINTMAPPER_T_H_
 
 #include "Initializer/PointMapper.h"
 #include "tests/Geometry/MockReader.h"
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 
@@ -42,3 +48,5 @@ TEST_CASE("Point mapper") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_INITIALIZER_POINTMAPPER_T_H_

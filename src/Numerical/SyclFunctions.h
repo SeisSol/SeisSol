@@ -1,5 +1,9 @@
-#ifndef SEISSOL_SYCL_FUNCTIONS_H
-#define SEISSOL_SYCL_FUNCTIONS_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_NUMERICAL_SYCLFUNCTIONS_H_
+#define SEISSOL_SRC_NUMERICAL_SYCLFUNCTIONS_H_
 
 #include <CL/sycl.hpp>
 #include <array>
@@ -34,4 +38,4 @@ struct SyclStdFunctions {
 };
 } // namespace seissol::functions
 
-#endif // SEISSOL_SYCL_FUNCTIONS_H
+#endif // SEISSOL_SRC_NUMERICAL_SYCLFUNCTIONS_H_

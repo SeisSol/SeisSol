@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"

@@ -1,5 +1,9 @@
-#ifndef MODEL_POROELASTICSETUP_H_
-#define MODEL_POROELASTICSETUP_H_
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
+#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
 
 #include <cassert>
 
@@ -424,4 +428,6 @@ namespace seissol {
     }
   }
 }
-#endif
+
+#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_POROELASTICSETUP_H_
+

@@ -1,5 +1,9 @@
-#ifndef MODEL_POROELASTIC_INTEGRATIONDATA_H_
-#define MODEL_POROELASTIC_INTEGRATIONDATA_H_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_INTEGRATIONDATA_H_
+#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_INTEGRATIONDATA_H_
 
 #include "Common/Constants.h"
 #include "Datastructures.h"
@@ -18,4 +22,4 @@ struct PoroelasticNeighborData {};
 
 } // namespace seissol::model
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_INTEGRATIONDATA_H_

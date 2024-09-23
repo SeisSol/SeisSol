@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_DYNAMICRUPTURE_OUTPUT_GEOMETRY_T_H_
+#define SEISSOL_SRC_TESTS_DYNAMICRUPTURE_OUTPUT_GEOMETRY_T_H_
+
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
@@ -287,3 +294,5 @@ TEST_CASE("DR Geometry") {
   }
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_DYNAMICRUPTURE_OUTPUT_GEOMETRY_T_H_

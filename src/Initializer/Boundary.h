@@ -1,5 +1,9 @@
-#ifndef INITIALIZER_BOUNDARY_H_
-#define INITIALIZER_BOUNDARY_H_
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_BOUNDARY_H_
+#define SEISSOL_SRC_INITIALIZER_BOUNDARY_H_
 
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
@@ -27,4 +31,4 @@ struct Boundary {
 
 } // namespace seissol::initializer
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_BOUNDARY_H_

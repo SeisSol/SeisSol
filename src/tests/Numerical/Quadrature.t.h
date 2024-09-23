@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_NUMERICAL_QUADRATURE_T_H_
+#define SEISSOL_SRC_TESTS_NUMERICAL_QUADRATURE_T_H_
+
 #include "Numerical/Quadrature.h"
 
 namespace seissol::unit_test {
@@ -42,3 +49,5 @@ TEST_CASE("test triangle quadrature") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_NUMERICAL_QUADRATURE_T_H_

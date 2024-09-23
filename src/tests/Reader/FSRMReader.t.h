@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_READER_FSRMREADER_T_H_
+#define SEISSOL_SRC_TESTS_READER_FSRMREADER_T_H_
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
@@ -122,3 +128,5 @@ TEST_CASE("FSRM Reader File Not Found") {
   REQUIRE_THROWS(fsrm.read(std::string("Testing/unknown-file.dat")));
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_READER_FSRMREADER_T_H_

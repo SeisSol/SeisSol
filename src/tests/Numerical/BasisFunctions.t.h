@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_NUMERICAL_BASISFUNCTIONS_T_H_
+#define SEISSOL_SRC_TESTS_NUMERICAL_BASISFUNCTIONS_T_H_
+
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "doctest.h"
@@ -255,3 +262,5 @@ TEST_CASE("Sampled Derivatives Functions") {
   }
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_NUMERICAL_BASISFUNCTIONS_T_H_

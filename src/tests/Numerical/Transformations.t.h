@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_NUMERICAL_TRANSFORMATIONS_T_H_
+#define SEISSOL_SRC_TESTS_NUMERICAL_TRANSFORMATIONS_T_H_
+
 #include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 
@@ -31,3 +38,5 @@ TEST_CASE("Test tetrahedron global to reference") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_NUMERICAL_TRANSFORMATIONS_T_H_

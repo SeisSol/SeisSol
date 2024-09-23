@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Source code
 add_library(SeisSol-kernel-lib
 
@@ -288,3 +292,4 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+

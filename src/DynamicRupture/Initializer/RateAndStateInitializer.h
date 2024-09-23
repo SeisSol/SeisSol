@@ -1,5 +1,9 @@
-#ifndef SEISSOL_RATEANDSTATEINITIALIZER_H
-#define SEISSOL_RATEANDSTATEINITIALIZER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -128,4 +132,5 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
 };
 
 } // namespace seissol::dr::initializer
-#endif // SEISSOL_RATEANDSTATEINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_

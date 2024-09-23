@@ -1,5 +1,9 @@
-#ifndef SEISSOL_MODEL_PLASTICITY_HPP_
-#define SEISSOL_MODEL_PLASTICITY_HPP_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_MODEL_PLASTICITY_H_
+#define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
 #include "Model/CommonDatastructures.h"
 #include <Kernels/Precision.h>
@@ -40,4 +44,4 @@ struct PlasticityData {
 
 } // namespace seissol::model
 
-#endif // SEISSOL_MODEL_PLASTICITY_HPP_
+#endif // SEISSOL_SRC_MODEL_PLASTICITY_H_

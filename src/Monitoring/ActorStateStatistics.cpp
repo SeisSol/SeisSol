@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
 #include <Solver/time_stepping/ActorState.h>

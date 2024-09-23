@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"

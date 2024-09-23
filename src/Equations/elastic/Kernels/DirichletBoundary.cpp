@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "Kernels/DirichletBoundary.h"

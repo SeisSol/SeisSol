@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_PHYSICS_ATTENUATION_H_
+#define SEISSOL_SRC_PHYSICS_ATTENUATION_H_
 
 #include "Equations/Datastructures.h"
 #include <cmath>
@@ -93,3 +99,5 @@ void fitAttenuation(seissol::model::ViscoElasticMaterialParametrized<Mechanisms>
 }
 
 } // namespace seissol::physics
+
+#endif // SEISSOL_SRC_PHYSICS_ATTENUATION_H_

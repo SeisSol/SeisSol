@@ -1,5 +1,9 @@
-#ifndef SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
-#define SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
+#define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
@@ -70,4 +74,4 @@ void initializeTimeMirrorManagers(
 } // namespace ITM
 } // namespace seissol
 
-#endif // SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+#endif // SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_

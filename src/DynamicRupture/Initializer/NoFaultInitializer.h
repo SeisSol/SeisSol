@@ -1,5 +1,9 @@
-#ifndef SEISSOL_NOFAULTINITIALIZER_H
-#define SEISSOL_NOFAULTINITIALIZER_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_NOFAULTINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_NOFAULTINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -16,4 +20,4 @@ class NoFaultInitializer : public BaseDRInitializer {
 };
 } // namespace seissol::dr::initializer
 
-#endif // SEISSOL_NOFAULTINITIALIZER_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_NOFAULTINITIALIZER_H_

@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
 
 #include "Kernels/Precision.h"
 #include "generated_code/init.h"
@@ -106,3 +111,6 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    size_t numElements,
                                    void* deviceStream);
 } // namespace seissol::kernels::time::aux
+
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
+

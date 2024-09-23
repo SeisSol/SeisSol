@@ -1,9 +1,10 @@
-// Copyright (c) 2015-2020 SeisSol Group
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
 // Copyright (C) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef KERNELS_POINTSOURCECLUSTER_H_
-#define KERNELS_POINTSOURCECLUSTER_H_
+#ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
+#define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
 #include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
@@ -100,4 +101,4 @@ inline real computeSampleTimeIntegral(double from,
 
 } // namespace seissol::kernels
 
-#endif // KERNELS_POINTSOURCECLUSTER_H_
+#endif // SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_

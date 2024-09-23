@@ -1,5 +1,9 @@
-#ifndef SEISSOL_COMMUNICATIONMANAGER_H
-#define SEISSOL_COMMUNICATIONMANAGER_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
 
 #include <atomic>
 #include <memory>
@@ -54,4 +58,6 @@ private:
 
 } // end namespace seissol::time_stepping
 
-#endif //SEISSOL_COMMUNICATIONMANAGER_H
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+

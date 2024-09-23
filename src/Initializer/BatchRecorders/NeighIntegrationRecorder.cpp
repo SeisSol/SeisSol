@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Kernels/Interface.h"
 #include "Recorders.h"
 #include "utils/logger.h"

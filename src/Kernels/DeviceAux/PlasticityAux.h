@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DEVICEAUX_PLASTICITY_H
-#define SEISSOL_DEVICEAUX_PLASTICITY_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
+#define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
@@ -66,4 +70,6 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
 } // namespace kernels
 } // namespace seissol
 
-#endif // SEISSOL_DEVICEAUX_PLASTICITY_H
+
+#endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
+

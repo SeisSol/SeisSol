@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 /**
  * @file
  * This file is part of SeisSol.
@@ -40,8 +44,8 @@
  * Point source computation.
  **/
 
-#ifndef SOURCETERM_TYPEDEFS_HPP_
-#define SOURCETERM_TYPEDEFS_HPP_
+#ifndef SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
+#define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
 #include "Common/Constants.h"
 #include "Initializer/MemoryAllocator.h"
@@ -156,4 +160,4 @@ struct ClusterMapping {
 };
 } // namespace seissol::sourceterm
 
-#endif
+#endif // SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_

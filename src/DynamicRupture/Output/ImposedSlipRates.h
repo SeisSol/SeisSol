@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
-#define SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_IMPOSEDSLIPRATES_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_IMPOSEDSLIPRATES_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
@@ -20,4 +24,4 @@ class ImposedSlipRates : public ReceiverOutput {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_IMPOSEDSLIPRATES_H_

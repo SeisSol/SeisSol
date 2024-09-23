@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_COMMON_INTEGERMASKPARSER_T_H_
+#define SEISSOL_SRC_TESTS_COMMON_INTEGERMASKPARSER_T_H_
+
 #include "Common/IntegerMaskParser.h"
 
 namespace seissol::unit_test {
@@ -58,3 +65,5 @@ TEST_CASE("Integer Mask Parser") {
   }
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_COMMON_INTEGERMASKPARSER_T_H_

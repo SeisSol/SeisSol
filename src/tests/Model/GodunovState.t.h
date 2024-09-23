@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_MODEL_GODUNOVSTATE_T_H_
+#define SEISSOL_SRC_TESTS_MODEL_GODUNOVSTATE_T_H_
+
 #include <cmath>
 
 #include "Equations/Datastructures.h"
@@ -81,3 +88,5 @@ TEST_CASE("Godunov state is correct") {
   test_matrix(qgodNeighbor, SolutionHeterogeneousNeighbor, Epsilon);
 }
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_MODEL_GODUNOVSTATE_T_H_

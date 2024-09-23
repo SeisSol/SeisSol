@@ -1,5 +1,9 @@
-#ifndef UNIT_TEST_GODUNOVSTATE_VALUES
-#define UNIT_TEST_GODUNOVSTATE_VALUES
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_MODEL_VALUES_H_
+#define SEISSOL_SRC_TESTS_MODEL_VALUES_H_
 
 #include "Kernels/Precision.h"
 #include <array>
@@ -1217,4 +1221,4 @@ const std::array<std::array<real, 13>, 13> SolutionHeterogeneousNeighbor = {
 #endif
 } // namespace seissol::unit_test
 
-#endif
+#endif // SEISSOL_SRC_TESTS_MODEL_VALUES_H_

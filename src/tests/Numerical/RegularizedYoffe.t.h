@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_NUMERICAL_REGULARIZEDYOFFE_T_H_
+#define SEISSOL_SRC_TESTS_NUMERICAL_REGULARIZEDYOFFE_T_H_
+
 #include "Numerical/RegularizedYoffe.h"
 #include "doctest.h"
 #include <cassert>
@@ -74,3 +81,5 @@ TEST_CASE("Regularized Yoffe Function") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_NUMERICAL_REGULARIZEDYOFFE_T_H_

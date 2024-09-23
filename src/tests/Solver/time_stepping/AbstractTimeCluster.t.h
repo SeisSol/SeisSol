@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_T_H_
+#define SEISSOL_SRC_TESTS_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_T_H_
+
 #include "Solver/time_stepping/AbstractTimeCluster.h"
 #include "tests/TestHelper.h"
 #include <iostream>
@@ -172,3 +179,5 @@ TEST_CASE("LTS Timesteping works") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_T_H_

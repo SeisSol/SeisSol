@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "OutputAux.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"

@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_GEOMETRY_VARIABLESUBSAMPLER_T_H_
+#define SEISSOL_SRC_TESTS_GEOMETRY_VARIABLESUBSAMPLER_T_H_
+
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -54,3 +61,5 @@ TEST_CASE("Variable Subsampler") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_GEOMETRY_VARIABLESUBSAMPLER_T_H_

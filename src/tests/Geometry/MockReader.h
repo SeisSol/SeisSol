@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
+#define SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
 
 #include <Eigen/Dense>
 #include <array>
@@ -23,3 +28,5 @@ class MockReader : public seissol::geometry::MeshReader {
   }
 };
 } // namespace seissol
+
+#endif // SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_

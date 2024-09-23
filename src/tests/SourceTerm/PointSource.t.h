@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_SOURCETERM_POINTSOURCE_T_H_
+#define SEISSOL_SRC_TESTS_SOURCETERM_POINTSOURCE_T_H_
+
 #include "SourceTerm/PointSource.h"
 #include "tests/TestHelper.h"
 
@@ -78,3 +85,5 @@ TEST_CASE("Transform moment tensor") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_SOURCETERM_POINTSOURCE_T_H_

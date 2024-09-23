@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_T_H_
+#define SEISSOL_SRC_TESTS_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_T_H_
+
 #include <numeric>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
@@ -161,3 +168,5 @@ TEST_CASE("Friction Solver Common") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_T_H_

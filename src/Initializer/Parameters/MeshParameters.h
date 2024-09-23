@@ -1,5 +1,9 @@
-#ifndef SEISSOL_MESH_PARAMETERS_H
-#define SEISSOL_MESH_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_
 
 #include <Eigen/Dense>
 #include <string>
@@ -26,4 +30,4 @@ struct MeshParameters {
 MeshParameters readMeshParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_MESHPARAMETERS_H_

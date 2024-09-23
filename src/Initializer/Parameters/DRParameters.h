@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
 #include <string>
 
@@ -76,4 +80,5 @@ struct DRParameters {
 DRParameters readDRParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializer::parameters
-#endif // SEISSOL_PARAMETERS_H
+
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_

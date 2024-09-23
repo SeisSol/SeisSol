@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_INITIALIZER_TIME_STEPPING_LTSWEIGHTS_T_H_
+#define SEISSOL_SRC_TESTS_INITIALIZER_TIME_STEPPING_LTSWEIGHTS_T_H_
+
 #include "Initializer/Parameters/LtsParameters.h"
 #include "tests/TestHelper.h"
 #include <memory>
@@ -215,3 +222,5 @@ TEST_CASE("Auto merging of clusters") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_INITIALIZER_TIME_STEPPING_LTSWEIGHTS_T_H_

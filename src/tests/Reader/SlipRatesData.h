@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_READER_SLIPRATESDATA_H_
+#define SEISSOL_SRC_TESTS_READER_SLIPRATESDATA_H_
+
 #include <array>
 
 namespace seissol::unit_test {
@@ -93,3 +100,5 @@ const std::array<std::array<double, 80>, 3> SlipRates = {
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}};
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_SRC_TESTS_READER_SLIPRATESDATA_H_

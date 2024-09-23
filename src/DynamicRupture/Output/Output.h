@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_HPP
-#define SEISSOL_DR_OUTPUT_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUT_H_
 
 // IWYU pragma: begin_exports
 
@@ -13,4 +17,4 @@
 
 // IWYU pragma: end_exports
 
-#endif // SEISSOL_DR_OUTPUT_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUT_H_
