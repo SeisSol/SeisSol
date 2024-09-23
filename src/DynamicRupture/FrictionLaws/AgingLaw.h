@@ -1,5 +1,9 @@
-#ifndef SEISSOL_AGINGLAW_H
-#define SEISSOL_AGINGLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_
 
 #include "SlowVelocityWeakeningLaw.h"
 
@@ -41,4 +45,5 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_AGINGLAW_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_

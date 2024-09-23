@@ -1,4 +1,9 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "ResultWriter/ReceiverWriter.h"
+
 namespace seissol::unit_test {
 
 TEST_CASE("Parses line correctly") {

@@ -1,5 +1,9 @@
-#ifndef DR_TYPEDEFS
-#define DR_TYPEDEFS
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
@@ -48,4 +52,4 @@ struct TractionResults {
 
 } // namespace seissol::dr
 
-#endif
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_

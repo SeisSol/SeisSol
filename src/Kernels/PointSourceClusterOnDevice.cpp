@@ -1,5 +1,6 @@
-// Copyright (c) 2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
 // Copyright (c) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "PointSourceClusterOnDevice.h"

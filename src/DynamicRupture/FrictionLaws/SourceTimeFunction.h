@@ -1,5 +1,9 @@
-#ifndef SEISSOL_SOURCETIMEFUNCTION_H
-#define SEISSOL_SOURCETIMEFUNCTION_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -38,4 +42,5 @@ class GaussianSTF {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_SOURCETIMEFUNCTION_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_

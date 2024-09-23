@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
-#define SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
@@ -245,4 +249,5 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_

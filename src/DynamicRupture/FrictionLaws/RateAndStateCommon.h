@@ -1,5 +1,9 @@
-#ifndef SEISSOL_RATEANDSTATE_COMMON_H
-#define SEISSOL_RATEANDSTATE_COMMON_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
 #include <type_traits>
 
@@ -32,4 +36,4 @@ struct Settings {
 };
 } // namespace seissol::dr::friction_law::rs
 
-#endif // SEISSOL_RATEANDSTATE_COMMON_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_

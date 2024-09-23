@@ -1,13 +1,9 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * The files which include this header should be added to
- * `general-sycl-offloading` CMake target
- */
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef ACCELERATOR_DEVICE_H
-#define ACCELERATOR_DEVICE_H
+#ifndef SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
+#define SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
 
 #include <CL/sycl.hpp>
 #include <device.h>
@@ -49,4 +45,4 @@ class AcceleratorDevice {
 };
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
 
   set(DEVICE_SRC ${DEVICE_SRC}
@@ -47,3 +51,4 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   find_package(DpcppFlags REQUIRED)
   target_link_libraries(SeisSol-device-lib PRIVATE dpcpp::device_flags)
 endif()
+

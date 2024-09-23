@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include <CL/sycl.hpp>
 #include "Kernels/Precision.h"
 #include <init.h>
@@ -270,3 +274,4 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
   });
 }
 } // namespace seissol::kernels::time::aux
+

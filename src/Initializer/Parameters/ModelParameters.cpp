@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "ModelParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <utils/logger.h>

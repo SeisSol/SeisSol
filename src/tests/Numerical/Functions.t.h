@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Numerical/Functions.h"
 #include "doctest.h"
 #include "tests/TestHelper.h"

@@ -1,8 +1,11 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
 // Copyright (C) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef FNV1A_H
-#define FNV1A_H
+
+#ifndef SEISSOL_SRC_COMMON_FNV1A_H_
+#define SEISSOL_SRC_COMMON_FNV1A_H_
 
 #include <cstdint>
 #include <string_view>
@@ -26,4 +29,6 @@ constexpr std::uint64_t operator""_fnv1a(char const* str, std::size_t n) {
 
 } // namespace seissol
 
-#endif // FNV1A_H
+
+#endif // SEISSOL_SRC_COMMON_FNV1A_H_
+

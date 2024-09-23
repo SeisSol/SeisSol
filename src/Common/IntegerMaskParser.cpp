@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Common/IntegerMaskParser.h"
 #include <regex>
 
@@ -72,3 +76,4 @@ IntegerMaskParser::OptionalIntVectorType IntegerMaskParser::parseIntList(const s
   return result;
 }
 } // namespace seissol
+

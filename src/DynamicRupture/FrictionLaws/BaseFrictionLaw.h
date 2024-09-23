@@ -1,5 +1,9 @@
-#ifndef SEISSOL_BASEFRICTIONLAW_H
-#define SEISSOL_BASEFRICTIONLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
 
 #include <yaml-cpp/yaml.h>
 
@@ -141,4 +145,4 @@ class BaseFrictionLaw : public FrictionSolver {
 };
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_BASEFRICTIONLAW_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_

@@ -1,7 +1,10 @@
-#include <Eigen/Dense>
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "Initializer/PointMapper.h"
 #include "tests/Geometry/MockReader.h"
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 

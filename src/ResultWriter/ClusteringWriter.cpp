@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
@@ -79,3 +83,4 @@ void ClusteringWriter::write() const {
 }
 
 } // namespace seissol::writer
+

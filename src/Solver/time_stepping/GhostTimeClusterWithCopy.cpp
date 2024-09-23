@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Initializer/Typedefs.h"
 #ifdef ACL_DEVICE
 
@@ -221,3 +225,4 @@ void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(int region) {
 template class GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
 } // namespace seissol::time_stepping
 #endif // ACL_DEVICE
+

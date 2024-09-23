@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Solver/time_stepping/AbstractTimeCluster.h"
 #include "tests/TestHelper.h"
 #include <iostream>

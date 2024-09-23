@@ -1,9 +1,10 @@
-// Copyright (c) 2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
 // Copyright (c) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef KERNELS_POINTSOURCECLUSTERONDEVICE_H_
-#define KERNELS_POINTSOURCECLUSTERONDEVICE_H_
+#ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONDEVICE_H_
+#define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"
@@ -41,4 +42,4 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
 };
 } // namespace seissol::kernels
 
-#endif // KERNELS_POINTSOURCECLUSTERONDEVICE_H_
+#endif // SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONDEVICE_H_

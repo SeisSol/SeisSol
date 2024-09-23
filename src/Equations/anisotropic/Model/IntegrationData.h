@@ -1,5 +1,9 @@
-#ifndef MODEL_ANISOTROPIC_INTEGRATIONDATA_H_
-#define MODEL_ANISOTROPIC_INTEGRATIONDATA_H_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
+#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
 
 namespace seissol::model {
 
@@ -7,4 +11,4 @@ struct AnisotropicLocalData {};
 struct AnisotropicNeighborData {};
 } // namespace seissol::model
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_

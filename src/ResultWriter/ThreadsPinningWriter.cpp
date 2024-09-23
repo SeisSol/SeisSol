@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"

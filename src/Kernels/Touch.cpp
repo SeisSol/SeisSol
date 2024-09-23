@@ -1,5 +1,6 @@
-// Copyright (C) 2013-2023 SeisSol group
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 // Copyright (C) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "Touch.h"

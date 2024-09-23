@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_AUX_HPP
-#define SEISSOL_DR_OUTPUT_AUX_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
 #include "DataTypes.h"
 #include "Geometry/MeshReader.h"
@@ -71,4 +75,4 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 }
 } // namespace seissol::dr
 
-#endif // SEISSOL_DR_OUTPUT_AUX_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

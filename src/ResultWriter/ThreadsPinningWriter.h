@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
 
 #include "Parallel/Pin.h"
 #include <string>
@@ -14,3 +19,5 @@ class ThreadsPinningWriter {
   std::string outputDirectory;
 };
 } // namespace seissol::writer
+
+#endif // SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_

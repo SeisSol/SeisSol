@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
-#define SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_PARAMETERSINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_PARAMETERSINITIALIZER_H_
 
 #include "DataTypes.h"
 #include "FaultRefiner/FaultRefiners.h"
@@ -8,4 +12,5 @@
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::dr::output {} // namespace seissol::dr::output
-#endif                           // SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_PARAMETERSINITIALIZER_H_

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "PUML/PUML.h"
 #include "PUML/Downward.h"
 #include "PUML/Upward.h"
@@ -83,3 +87,4 @@ void EncodedBalancedWeights::setAllowedImbalances() {
   }
 }
 }
+

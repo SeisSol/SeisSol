@@ -1,5 +1,9 @@
-#ifndef SEISSOL_DR_MISC_H
-#define SEISSOL_DR_MISC_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
@@ -139,4 +143,4 @@ enum QuantityIndices : size_t {
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
 
-#endif // SEISSOL_DR_MISC_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

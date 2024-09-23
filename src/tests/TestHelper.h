@@ -1,5 +1,9 @@
-#ifndef SEISSOL_TESTHELPER_H
-#define SEISSOL_TESTHELPER_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_TESTS_TESTHELPER_H_
+#define SEISSOL_SRC_TESTS_TESTHELPER_H_
 
 #include <cmath>
 #include <limits>
@@ -109,4 +113,4 @@ ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
 }
 } // namespace std
 
-#endif // SEISSOL_TESTHELPER_H
+#endif // SEISSOL_SRC_TESTS_TESTHELPER_H_

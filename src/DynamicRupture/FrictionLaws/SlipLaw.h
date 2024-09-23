@@ -1,5 +1,9 @@
-#ifndef SEISSOL_SLIPLAW_H
-#define SEISSOL_SLIPLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_
 
 #include "SlowVelocityWeakeningLaw.h"
 
@@ -36,4 +40,5 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_SLIPLAW_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLIPLAW_H_

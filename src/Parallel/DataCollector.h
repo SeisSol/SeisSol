@@ -1,5 +1,9 @@
-#ifndef SEISSOL_PARALLEL_DATACOLLECTOR_H
-#define SEISSOL_PARALLEL_DATACOLLECTOR_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
+#define SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_
 
 #include <cstddef>
 #include <vector>
@@ -98,4 +102,4 @@ class DataCollector {
 
 } // namespace seissol::parallel
 
-#endif // SEISSOL_PARALLEL_DATACOLLECTOR_H
+#endif // SEISSOL_SRC_PARALLEL_DATACOLLECTOR_H_

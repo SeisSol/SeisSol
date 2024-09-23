@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Kernels/DeviceAux/PlasticityAux.h"
 #include <CL/sycl.hpp>
 #include <cmath>
@@ -238,3 +242,4 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
 }
 
 } // namespace seissol::kernels::device::aux::plasticity
+

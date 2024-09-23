@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 fout=open('fsrm_source1.dat', 'w')
 
 # Note that we use a moment tensor definition that differs with the standards in Seismology (e.g. Komatitsch and Tromp, 1999).

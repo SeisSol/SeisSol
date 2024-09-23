@@ -1,5 +1,9 @@
-#ifndef SEISSOL_LTSWEIGHTSFACTORY_H
-#define SEISSOL_LTSWEIGHTSFACTORY_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
 
 #include <memory>
 #include <sstream>
@@ -46,4 +50,6 @@ inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(parameters::LtsWe
 
 }
 
-#endif //SEISSOL_LTSWEIGHTSFACTORY_H
+
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_WEIGHTSFACTORY_H_
+

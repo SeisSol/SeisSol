@@ -1,5 +1,9 @@
-#ifndef SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
-#define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
+#define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
 #include <Initializer/Tree/Layer.h>
 #include <functional>
@@ -164,4 +168,4 @@ class StreamRuntime {
 
 } // namespace seissol::parallel::runtime
 
-#endif
+#endif // SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_

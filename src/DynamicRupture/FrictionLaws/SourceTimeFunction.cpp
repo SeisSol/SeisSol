@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "SourceTimeFunction.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Tree/Layer.h"

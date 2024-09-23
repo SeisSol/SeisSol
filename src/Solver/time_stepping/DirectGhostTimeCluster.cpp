@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "Parallel/MPI.h"
 #include "Solver/time_stepping/DirectGhostTimeCluster.h"
 
@@ -98,3 +102,4 @@ DirectGhostTimeCluster::DirectGhostTimeCluster(double maxTimeStepSize,
     }
   }
 } // namespace seissol::time_stepping
+

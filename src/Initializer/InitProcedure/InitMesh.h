@@ -1,5 +1,9 @@
-#ifndef INITPROC_MESH_H
-#define INITPROC_MESH_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INITMESH_H_
+#define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INITMESH_H_
 
 namespace seissol {
 class SeisSol;
@@ -9,4 +13,4 @@ namespace seissol::initializer::initprocedure {
 void initMesh(seissol::SeisSol& seissolInstance);
 } // namespace seissol::initializer::initprocedure
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INITMESH_H_

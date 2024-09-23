@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 # ensure that we have an set HIP_PATH
 if(NOT DEFINED HIP_PATH)
@@ -66,3 +70,4 @@ if (IS_NVCC_PLATFORM)
 else()
     target_link_libraries(SeisSol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
+

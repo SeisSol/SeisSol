@@ -1,5 +1,9 @@
-#ifndef EQUATIONS_DATASTRUCTURES_H_
-#define EQUATIONS_DATASTRUCTURES_H_
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
+#define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
 // Gather all datastructure Headers here
 #include "Equations/anisotropic/Model/Datastructures.h"   // IWYU pragma: keep
@@ -33,4 +37,4 @@ using MaterialT = PoroElasticMaterial;
 #endif
 } // namespace seissol::model
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_

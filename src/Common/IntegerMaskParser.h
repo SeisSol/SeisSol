@@ -1,4 +1,9 @@
-#pragma once
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_COMMON_INTEGERMASKPARSER_H_
+#define SEISSOL_SRC_COMMON_INTEGERMASKPARSER_H_
 
 #include <string>
 #include <optional>
@@ -17,3 +22,6 @@ class IntegerMaskParser {
   static OptionalIntVectorType parseIntList(const std::string& str);
 };
 } // namespace seissol
+
+#endif // SEISSOL_SRC_COMMON_INTEGERMASKPARSER_H_
+
