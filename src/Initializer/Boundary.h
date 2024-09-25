@@ -1,10 +1,10 @@
 #ifndef INITIALIZER_BOUNDARY_H_
 #define INITIALIZER_BOUNDARY_H_
 
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Parallel/Helper.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Parallel/Helper.h"
 
 namespace seissol::initializer {
 

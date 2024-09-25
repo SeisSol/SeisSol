@@ -41,8 +41,8 @@
 #include "GlobalData.h"
 #include "generated_code/init.h"
 #include <Initializer/MemoryAllocator.h>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
 #include <cassert>
 #include <cstddef>
 #include <tensor.h>

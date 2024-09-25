@@ -24,18 +24,27 @@ inline void sanitize(std::string& input) {
 // been visited), and output all non-understood values at the end and not between sections
 class ParameterReader {
   public:
-  ParameterReader(const YAML::Node& node, bool empty) : node(node), empty(empty) {}
+  ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty);
+
+  template <typename T>
+  std::optional<T> read(const std::string& field) {
+    if (hasField(field)) {
+      return readUnsafe<T>(field);
+    } else {
+      return std::optional<T>();
+    }
+  }
 
   template <typename T>
   T readWithDefault(const std::string& field, const T& defaultValue) {
-    T value = defaultValue;
-    if (hasField(field)) {
-      value = readUnsafe<T>(field);
+    const auto value = read<T>(field);
+    if (value.has_value()) {
+      return value.value();
     } else {
       logDebug(seissol::MPI::mpi.rank())
           << "The field" << field << "was not specified, using fallback.";
+      return defaultValue;
     }
-    return value;
   }
 
   // TODO(David): long-term (if we don't switch to another format first), merge readWithDefaultEnum
@@ -81,10 +90,14 @@ class ParameterReader {
     if (hasField(field)) {
       return readUnsafe<T>(field);
     } else {
-      logError() << "The field" << field << "was not found, but it is required.";
+      logError() << "The field" << field
+                 << "was not found, but it is required (details: " << failMessage.c_str() << ")";
       return T(); // unreachable. TODO(David): use compiler hint instead
     }
   }
+
+  std::optional<std::string> readPath(const std::string& field);
+  std::string readPathOrFail(const std::string& field, const std::string& failMessage);
 
   void warnDeprecatedSingle(const std::string& field);
   void warnDeprecated(const std::vector<std::string>& fields);
@@ -112,6 +125,7 @@ class ParameterReader {
   }
 
   YAML::Node node; // apparently the YAML nodes use a reference semantic. Hence, we do it like this.
+  std::string rootPath;
   bool empty;
   std::unordered_set<std::string> visited;
   std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders;

@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -79,7 +79,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/DynamicRupture.h"
-#include "Monitoring/FlopCounter.hpp"
+#include "Monitoring/FlopCounter.h"
 #include "utils/logger.h"
 #include <cassert>
 

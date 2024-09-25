@@ -1,12 +1,12 @@
-#include "InitIO.hpp"
-#include "Common/filesystem.h"
+#include "InitIO.h"
+#include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "SeisSol.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/DynamicRupture.h>
-#include <Kernels/common.hpp>
-#include <Kernels/precision.hpp>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <cstring>
 #include <tensor.h>
 #include <utils/logger.h>
@@ -17,7 +17,6 @@
 namespace {
 
 static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   auto* lts = memoryManager.getLts();

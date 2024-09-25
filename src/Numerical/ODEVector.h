@@ -1,7 +1,7 @@
 #ifndef SEISSOL_ODEVECTOR_H
 #define SEISSOL_ODEVECTOR_H
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::ode {
 

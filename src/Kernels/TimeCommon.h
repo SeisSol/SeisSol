@@ -44,7 +44,7 @@
 #ifndef KERNELS_TIMECOMMON_H_
 #define KERNELS_TIMECOMMON_H_
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Time.h"
 #include "generated_code/tensor.h"
 

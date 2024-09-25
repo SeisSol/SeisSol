@@ -1,5 +1,5 @@
 #include "MeshParameters.h"
-#include <Initializer/InputAux.hpp>
+#include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
 
 namespace seissol::initializer::parameters {
@@ -13,8 +13,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                                                     {{"netcdf", MeshFormat::Netcdf},
                                                      {"puml", MeshFormat::PUML},
                                                      {"cubegenerator", MeshFormat::CubeGenerator}});
-  const std::string meshFileName =
-      reader->readOrFail<std::string>("meshfile", "No mesh file given.");
+  const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
   const BoundaryFormat pumlBoundaryFormat =

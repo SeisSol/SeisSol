@@ -1,6 +1,6 @@
 #include "OutputParameters.h"
-#include <Equations/datastructures.hpp>
-#include <Initializer/InputAux.hpp>
+#include <Equations/Datastructures.h>
+#include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <algorithm>
 #include <array>

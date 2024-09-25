@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::kernels::local_flux::aux::details {

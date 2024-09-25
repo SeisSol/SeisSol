@@ -4,7 +4,7 @@
 #include "SourceTerm/NRF.h"
 #include "SourceTerm/NRFReader.h"
 
-#include "slipRatesData.h"
+#include "SlipRatesData.h"
 
 namespace seissol::unit_test {
 TEST_CASE("NRF Reader") {

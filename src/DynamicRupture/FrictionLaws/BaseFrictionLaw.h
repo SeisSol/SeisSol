@@ -7,7 +7,7 @@
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -67,7 +67,7 @@ class BaseFrictionLaw : public FrictionSolver {
       TractionResults tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
-      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+      for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
                                     initialPressure[ltsFace],

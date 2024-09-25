@@ -82,24 +82,24 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/LTS.h>
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/Parameters/SourceParameters.h>
 #include <Initializer/PointMapper.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/tree/Lut.hpp>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/Lut.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/PointSourceClusterOnHost.h>
-#include <Kernels/precision.hpp>
-#include <Model/common_datastructures.hpp>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
-#include <SourceTerm/typedefs.hpp>
+#include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -112,7 +112,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include <Model/datastructures.hpp> // IWYU pragma: keep
+#include <Model/Datastructures.h> // IWYU pragma: keep
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
@@ -121,7 +121,7 @@
 
 #ifdef ACL_DEVICE
 #include "Kernels/PointSourceClusterOnDevice.h"
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #endif
 
 namespace seissol::sourceterm {

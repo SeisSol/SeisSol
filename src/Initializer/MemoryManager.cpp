@@ -76,7 +76,7 @@
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "tree/Layer.hpp"
+#include "Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
@@ -84,7 +84,7 @@
 #include <type_traits>
 #include "GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/common.hpp"
+#include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
 #include "generated_code/tensor.h"
@@ -649,7 +649,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
           // Thanks to this hack, the array contains a constant plus the offset of the current
           // cell.
           displacements[cell][face] =
-              static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
+              reinterpret_cast<real*>(1 + numberOfFaces * tensor::faceDisplacement::size());
           ++numberOfFaces;
         } else {
           displacements[cell][face] = nullptr;
@@ -757,7 +757,7 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
           // We then have the pointer offset that needs to be added to the bucket.
           // The final value of this pointer then points to a valid memory address
           // somewhere in the bucket.
-          auto offset = ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          auto offset = (reinterpret_cast<std::intptr_t>(displacements[cell][face]) - 1);
           displacements[cell][face] = bucket + offset;
           displacementsDevice[cell][face] = bucketDevice + offset;
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {

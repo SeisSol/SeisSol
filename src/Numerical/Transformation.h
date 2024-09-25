@@ -42,7 +42,7 @@
 #define TRANSFORMATION_H_
 
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include <Eigen/Dense>
 #include <yateto.h>
 

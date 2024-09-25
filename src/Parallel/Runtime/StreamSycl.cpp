@@ -1,7 +1,7 @@
-#include "Stream.hpp"
+#include "Stream.h"
 
 #include "Parallel/AcceleratorDevice.h"
-#include "Parallel/SyclInterop.hpp"
+#include "Parallel/SyclInterop.h"
 
 namespace seissol::parallel::runtime {
 

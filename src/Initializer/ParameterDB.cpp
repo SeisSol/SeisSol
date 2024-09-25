@@ -41,16 +41,16 @@
  *
  **/
 
-#include <Common/constants.hpp>
-#include <Equations/anisotropic/Model/datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
-#include <Equations/poroelastic/Model/datastructures.hpp>
-#include <Equations/viscoelastic2/Model/datastructures.hpp>
+#include <Common/Constants.h>
+#include <Equations/anisotropic/Model/Datastructures.h>
+#include <Equations/elastic/Model/Datastructures.h>
+#include <Equations/poroelastic/Model/Datastructures.h>
+#include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
-#include <Kernels/precision.hpp>
-#include <Model/common_datastructures.hpp>
-#include <Model/datastructures.hpp>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
+#include <Model/Datastructures.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -174,7 +174,7 @@ seissol::initializer::ElementAverageGenerator::ElementAverageGenerator(
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
-  for (int i = 0; i < NumQuadpoints; ++i) {
+  for (std::size_t i = 0; i < NumQuadpoints; ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
               std::begin(m_quadraturePoints[i]));

@@ -1,4 +1,4 @@
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>

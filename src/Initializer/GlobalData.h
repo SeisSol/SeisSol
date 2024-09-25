@@ -42,7 +42,7 @@
 #define GLOBALDATA_H_
 
 #include "MemoryAllocator.h"
-#include "typedefs.hpp"
+#include "Typedefs.h"
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

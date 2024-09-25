@@ -5,7 +5,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Output/Output.hpp"
+#include "Output/Output.h"
 #include <memory>
 #include <utils/logger.h>
 

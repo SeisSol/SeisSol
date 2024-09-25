@@ -6,7 +6,7 @@
 #include <queue>
 #include <variant>
 
-#include <Common/Executor.hpp>
+#include <Common/Executor.h>
 
 namespace seissol::time_stepping {
 

@@ -4,10 +4,10 @@
 
 #include <Eigen/Dense>
 
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Geometry/refinement/RefinerUtils.h"
-#include "Geometry/refinement/VariableSubSampler.h"
-#include "Kernels/precision.hpp"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
+#include "Kernels/Precision.h"
 #include "MockReader.h"
 
 namespace seissol::unit_test {
@@ -37,7 +37,7 @@ TEST_CASE("Variable Subsampler") {
     // For order 3 there are 108 DOFs (taking alignment into account)
     std::array<real, 108> dofs;
     for (int i = 0; i < 108; i++) {
-      dofs[i] = (real)std::rand() / RAND_MAX;
+      dofs[i] = static_cast<real>(std::rand()) / static_cast<real>(RAND_MAX);
     }
     unsigned int cellMap[1] = {0};
     // A triangle is divided into four subtriangles there are 9 quantities.

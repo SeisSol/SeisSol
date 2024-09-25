@@ -43,10 +43,10 @@
  **/
 
 #include "PointSource.h"
-#include <Equations/datastructures.hpp>
+#include <Equations/Datastructures.h>
 #include <Initializer/MemoryAllocator.h>
-#include <Kernels/precision.hpp>
-#include <SourceTerm/typedefs.hpp>
+#include <Kernels/Precision.h>
+#include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <cmath>
 

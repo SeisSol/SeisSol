@@ -49,7 +49,7 @@
 
 #include "Checkpoint/CheckPoint.h"
 #include "Checkpoint/MPIInfo.h"
-#include "Initializer/preProcessorMacros.hpp"
+#include "Initializer/PreProcessorMacros.h"
 //#include "SeisSol.h"
 
 namespace seissol

@@ -6,7 +6,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::dr::friction_law {
 

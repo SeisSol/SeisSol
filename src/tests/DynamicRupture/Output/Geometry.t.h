@@ -1,5 +1,5 @@
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"

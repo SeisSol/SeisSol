@@ -1,5 +1,5 @@
 #include "ODEInt.h"
-#include <Kernels/precision.hpp>
+#include <Kernels/Precision.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>

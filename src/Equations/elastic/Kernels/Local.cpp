@@ -56,7 +56,7 @@
 #include "DirichletBoundary.h"
 #pragma GCC diagnostic pop
 
-#include "Kernels/common.hpp"
+#include "Kernels/Common.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)

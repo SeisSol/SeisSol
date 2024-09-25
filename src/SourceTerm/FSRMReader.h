@@ -46,7 +46,7 @@
 #include <string>
 #include <vector>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::sourceterm {
 

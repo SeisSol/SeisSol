@@ -40,10 +40,10 @@
 #ifndef POST_PROCESSOR_H
 #define POST_PROCESSOR_H
 
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
 #include <array>
 #include <vector>
 

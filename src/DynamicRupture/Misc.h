@@ -2,7 +2,7 @@
 #define SEISSOL_DR_MISC_H
 
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #include "generated_code/init.h"
 #include <cmath>

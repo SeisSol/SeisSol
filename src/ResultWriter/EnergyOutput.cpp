@@ -5,19 +5,19 @@
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
-#include <Initializer/BasicTypedefs.hpp>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/LTS.h>
 #include <Initializer/Parameters/OutputParameters.h>
-#include <Initializer/preProcessorMacros.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
-#include <Model/common_datastructures.hpp>
+#include <Initializer/PreProcessorMacros.h>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Tree/Lut.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
 #include <algorithm>
 #include <array>
@@ -37,8 +37,8 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 #endif
 
 namespace seissol::writer {
@@ -250,11 +250,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-  constexpr auto QSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+    constexpr auto QSize = tensor::Q::size();
     const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     auto& table = it->getConditionalTable<inner_keys::Dr>();
     if (table.find(timeIntegrationKey) != table.end()) {
@@ -355,20 +355,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 }
 
 void EnergyOutput::computeVolumeEnergies() {
-  auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
-  auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
-  auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
-  auto& totalMomentumX = energiesStorage.totalMomentumX();
-  auto& totalMomentumY = energiesStorage.totalMomentumY();
-  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
-  auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
-  auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
-  auto& totalPlasticMoment = energiesStorage.plasticMoment();
+  // TODO: abstract energy calculation, and implement it for anisotropic and poroelastic
+  [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
+  [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
+  [[maybe_unused]] auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  [[maybe_unused]] auto& totalMomentumX = energiesStorage.totalMomentumX();
+  [[maybe_unused]] auto& totalMomentumY = energiesStorage.totalMomentumY();
+  [[maybe_unused]] auto& totalMomentumZ = energiesStorage.totalMomentumZ();
+  [[maybe_unused]] auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
+  [[maybe_unused]] auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
+  [[maybe_unused]] auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
   const std::vector<Element>& elements = meshReader->getElements();
   const std::vector<Vertex>& vertices = meshReader->getVertices();
 
-  const auto g = seissolInstance.getGravitationSetup().acceleration;
+  [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
@@ -532,11 +533,7 @@ void EnergyOutput::computeVolumeEnergies() {
     if (isPlasticityEnabled) {
       // plastic moment
       real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-#ifdef USE_ANISOTROPIC
-      real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-      const real mu = material.local.mu;
-#endif
+      const real mu = material.local.getMuBar();
       totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
     }
   }

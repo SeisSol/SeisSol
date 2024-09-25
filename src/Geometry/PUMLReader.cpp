@@ -37,7 +37,7 @@
  */
 
 #include "Geometry/MeshDefinition.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/TypeInference.h>
@@ -61,9 +61,9 @@
 #include "PUML/PartitionGraph.h"
 #include "PUML/PartitionTarget.h"
 
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 
-#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
+#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 
 #include <fstream>
 #include <hdf5.h>
@@ -225,7 +225,6 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
   }
-  const auto numTotalCells = puml.numTotalCells();
 
   // TODO(David): change to uint64_t/size_t once we have an MPI module for that ready
   const size_t localCells = puml.numOriginalCells();

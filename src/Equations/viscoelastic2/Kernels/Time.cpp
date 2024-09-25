@@ -51,7 +51,7 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
-#include "Kernels/denseMatrixOps.hpp"
+#include "Kernels/DenseMatrixOps.h"
 #include "generated_code/init.h"
 
 namespace seissol::kernels {
@@ -127,7 +127,7 @@ void Time::computeAder(double timeStepWidth,
   // powers in the taylor-series expansion
   krnl.power(0) = timeStepWidth;
   
-  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
     // update scalar for this derivative
     krnl.power(der) = krnl.power(der-1) * timeStepWidth / real(der+1);
   }
@@ -192,7 +192,7 @@ void Time::computeIntegral( double                                      expansio
   }
 
   // iterate over time derivatives
-  for(int der = 0; der < ConvergenceOrder; ++der ) {
+  for(std::size_t der = 0; der < ConvergenceOrder; ++der ) {
     firstTerm  *= deltaTUpper;
     secondTerm *= deltaTLower;
     factorial  *= static_cast<real>(der+1);
@@ -231,7 +231,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.power(0) = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+  for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
 

@@ -5,15 +5,15 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
 #include "Numerical/Quadrature.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include "yateto.h"
 #include "device.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #endif
 
@@ -173,7 +173,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
   
-    for (int i = 0; i < ConvergenceOrder; ++i) {
+    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],

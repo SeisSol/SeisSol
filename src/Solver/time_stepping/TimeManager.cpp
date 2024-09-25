@@ -43,11 +43,11 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -191,9 +191,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
-        assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+        assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(
-            otherGlobalClusterId <
+            static_cast<int>(otherGlobalClusterId) <
             std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
         const long otherTimeStepRate =

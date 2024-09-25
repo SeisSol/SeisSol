@@ -96,7 +96,6 @@ void AbstractGhostTimeCluster::reset() {
 }
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
   logError()
       << "Ghost: No update since " << timeSinceLastUpdate.count()
       << "[s] for global cluster " << globalClusterId

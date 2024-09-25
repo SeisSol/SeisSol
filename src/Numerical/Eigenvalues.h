@@ -8,7 +8,7 @@
 #include <utils/logger.h>
 #include <yateto.h>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::eigenvalues {
 

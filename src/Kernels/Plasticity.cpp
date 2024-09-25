@@ -45,12 +45,12 @@
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include <Common/constants.hpp>
-#include <DataTypes/ConditionalTable.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/precision.hpp>
-#include <Model/plasticity.hpp>
-#include <Parallel/Runtime/Stream.hpp>
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Model/Plasticity.h>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -60,8 +60,8 @@
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
 #include "device.h"
-#include <DataTypes/ConditionalKey.hpp>
-#include <DataTypes/EncodedConstants.hpp>
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
 using namespace device;
 #endif
 
