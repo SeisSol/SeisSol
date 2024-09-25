@@ -50,11 +50,11 @@
 
 namespace {
 
-template <size_t N>
+template <size_t N, typename T>
 static void readArrayOrZero(std::ifstream& filestream,
                             std::string& header,
                             const std::string& keyword,
-                            real* data) {
+                            T* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];

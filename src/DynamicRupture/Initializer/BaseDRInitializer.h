@@ -156,7 +156,7 @@ class BaseDRInitializer {
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
-   * @param stressInFaultCS pointer to array of size [numCells][numPaddedPoints][6], stores rotated
+   * @param stressInFaultCS pointer to array of size [numCells][NumPaddedPoints][6], stores rotated
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */

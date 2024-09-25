@@ -24,7 +24,7 @@ class AdjointRSFInitializer : public BaseDRInitializer {
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -74,7 +74,7 @@ class AdjointRSFFastVelInitializer : public AdjointRSFInitializer {
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::leaf_iterator& it) override;
+                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]

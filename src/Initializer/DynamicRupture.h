@@ -273,9 +273,9 @@ struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
 };
 
 struct LTSAdjointRSF : public DynamicRupture {
-  Variable<real[dr::misc::numPaddedPoints]> rsA;
-  Variable<real[dr::misc::numPaddedPoints]> rsSl0;
-  Variable<real[dr::misc::numPaddedPoints]> stateVariable;
+  Variable<real[dr::misc::NumPaddedPoints]> rsA;
+  Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
+  Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
 
   virtual void addTo(LTSTree& tree) {
     DynamicRupture::addTo(tree);
@@ -287,7 +287,7 @@ struct LTSAdjointRSF : public DynamicRupture {
 };
 
 struct LTSAdjointRSFFastVelWeakening : public LTSAdjointRSF {
-  Variable<real[dr::misc::numPaddedPoints]> rsSrW;
+  Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
 
   virtual void addTo(LTSTree& tree) {
     LTSAdjointRSF::addTo(tree);
