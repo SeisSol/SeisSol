@@ -87,13 +87,13 @@ public:
     // NOLINTNEXTLINE
     using value_type = Node;
     // NOLINTNEXTLINE
-    using difference_type = size_t;
+    using difference_type = ssize_t;
     // NOLINTNEXTLINE
     using pointer = Node*;
     // NOLINTNEXTLINE
     using reference = Node&;
 
-    Iterator() : m_node(NULL) {}
+    Iterator() : m_node(nullptr) {}
     Iterator(Node* node) : m_node(node) {}
 
     inline Iterator& operator++() {
@@ -113,6 +113,39 @@ protected:
     value_type* m_node;
   };
 
+  class ConstIterator {
+public:
+    // NOLINTNEXTLINE
+    using iterator_category = std::input_iterator_tag;
+    // NOLINTNEXTLINE
+    using value_type = const Node;
+    // NOLINTNEXTLINE
+    using difference_type = ssize_t;
+    // NOLINTNEXTLINE
+    using pointer = const Node*;
+    // NOLINTNEXTLINE
+    using reference = const Node&;
+
+    ConstIterator() : m_node(nullptr) {}
+    ConstIterator(const Node* node) : m_node(node) {}
+
+    inline ConstIterator& operator++() {
+      m_node = m_node->m_next;
+      return *this;
+    }
+
+    inline reference operator*() { return *m_node; }
+
+    inline pointer operator->() { return m_node; }
+
+    inline bool operator==(const ConstIterator& other) const { return other.m_node == m_node; }
+
+    inline bool operator!=(const ConstIterator& other) const { return other.m_node != m_node; }
+
+protected:
+    const value_type* m_node;
+  };
+
   inline Iterator begin() {
     Node* start = this;
     while (!start->isLeaf()) {
@@ -126,6 +159,21 @@ protected:
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
     return Iterator(this->m_next);
+  }
+
+  inline ConstIterator begin() const {
+    const Node* start = this;
+    while (!start->isLeaf()) {
+      start = start->m_children[0].get();
+    }
+    assert(start == this || start->m_next != NULL);
+    return ConstIterator(start);
+  }
+
+  inline ConstIterator end() const {
+    // The current node is the last one in a post-order traversal.
+    // Hence, end() points to the node after the last one.
+    return ConstIterator(this->m_next);
   }
 };
 

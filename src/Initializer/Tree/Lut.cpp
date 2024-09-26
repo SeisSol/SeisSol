@@ -73,15 +73,15 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
   // ltsToMesh
   unsigned globalLtsId = 0;
   unsigned offset = 0;
-  for (auto it = ltsTree->beginLeaf(); it != ltsTree->endLeaf(); ++it) {
-    if (!it->isMasked(mask)) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+  for (const auto& layer : ltsTree->leaves()) {
+    if (!layer.isMasked(mask)) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         const unsigned meshId = globalLtsToMesh[globalLtsId + cell];
         ltsToMesh[offset + cell] = meshId;
       }
-      offset += it->getNumberOfCells();
+      offset += layer.getNumberOfCells();
     }
-    globalLtsId += it->getNumberOfCells();
+    globalLtsId += layer.getNumberOfCells();
   }
 
   // meshToLts

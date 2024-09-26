@@ -93,10 +93,10 @@ class LTSTree : public LTSInternalNode {
 
   void fixate() {
     setPostOrderPointers();
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
+    for (auto& leaf : leaves()) {
+      leaf.allocatePointerArrays(varInfo.size(), bucketInfo.size());
 #ifdef ACL_DEVICE
-      it->allocateScratchpadArrays(scratchpadMemInfo.size());
+      leaf.allocateScratchpadArrays(scratchpadMemInfo.size());
 #endif
     }
   }
@@ -170,8 +170,8 @@ class LTSTree : public LTSInternalNode {
     m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
@@ -181,9 +181,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
   }
 
@@ -191,8 +191,8 @@ class LTSTree : public LTSInternalNode {
     m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addBucketSizes(bucketSizes);
     }
 
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
@@ -203,9 +203,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForBuckets(m_buckets, bucketSizes);
+      leaf.addBucketSizes(bucketSizes);
     }
   }
 
@@ -220,8 +220,8 @@ class LTSTree : public LTSInternalNode {
     scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->findMaxScratchpadSizes(scratchpadMemSizes);
+    for (auto& leaf : leaves()) {
+      leaf.findMaxScratchpadSizes(scratchpadMemSizes);
     }
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
@@ -233,26 +233,26 @@ class LTSTree : public LTSInternalNode {
                                       scratchpadMemInfo[id].allocMode);
     }
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
 
   void touchVariables() {
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->touchVariables(varInfo);
+    for (auto& leaf : leaves()) {
+      leaf.touchVariables(varInfo);
     }
   }
 
-  const std::vector<size_t>& getVariableSizes() { return variableSizes; }
+  const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
 
-  const std::vector<size_t>& getBucketSizes() { return bucketSizes; }
+  const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
 
-  size_t getMaxClusterSize(LayerMask mask) {
+  size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
-    for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
-      const size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+    for (const auto& leaf : leaves(mask)) {
+      const size_t currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

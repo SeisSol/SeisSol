@@ -52,6 +52,18 @@ class LTSInternalNode : public Node {
   class LeafIterator : public Iterator {
     friend class LTSInternalNode;
 
+public:
+    // NOLINTNEXTLINE
+    using iterator_category = std::input_iterator_tag;
+    // NOLINTNEXTLINE
+    using value_type = Layer;
+    // NOLINTNEXTLINE
+    using difference_type = ssize_t;
+    // NOLINTNEXTLINE
+    using pointer = Layer*;
+    // NOLINTNEXTLINE
+    using reference = Layer&;
+
 private:
     Iterator m_end;
     LayerMask m_layerMask;
@@ -85,6 +97,54 @@ public:
     inline Layer* operator->() { return static_cast<Layer*>(m_node); }
   };
 
+  class ConstLeafIterator : public ConstIterator {
+    friend class LTSInternalNode;
+
+public:
+    // NOLINTNEXTLINE
+    using iterator_category = std::input_iterator_tag;
+    // NOLINTNEXTLINE
+    using value_type = const Layer;
+    // NOLINTNEXTLINE
+    using difference_type = ssize_t;
+    // NOLINTNEXTLINE
+    using pointer = const Layer*;
+    // NOLINTNEXTLINE
+    using reference = const Layer&;
+
+private:
+    ConstIterator m_end;
+    LayerMask m_layerMask;
+
+    inline void nextLeaf() {
+      do {
+        ConstIterator::operator++();
+      } while (*this != m_end && !m_node->isLeaf());
+    }
+
+    // m_node must point to a leaf or NULL
+    inline void skipMaskedLayer() {
+      while (*this != m_end && operator*().isMasked(m_layerMask)) {
+        nextLeaf();
+      }
+    }
+
+public:
+    ConstLeafIterator(const ConstIterator& end) : ConstIterator(end) {}
+    ConstLeafIterator(const ConstIterator& begin, const ConstIterator& end, LayerMask layerMask)
+        : ConstIterator(begin), m_end(end), m_layerMask(layerMask) {}
+
+    inline ConstLeafIterator& operator++() {
+      nextLeaf();
+      skipMaskedLayer();
+      return *this;
+    }
+
+    inline const Layer& operator*() const { return *static_cast<const Layer*>(m_node); }
+
+    inline const Layer* operator->() const { return static_cast<const Layer*>(m_node); }
+  };
+
   inline LeafIterator beginLeaf(LayerMask layerMask = LayerMask()) {
     LeafIterator it = LeafIterator(begin(), end(), layerMask);
     it.skipMaskedLayer();
@@ -93,10 +153,18 @@ public:
 
   inline LeafIterator endLeaf() { return LeafIterator(end()); }
 
-  unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) {
+  inline ConstLeafIterator beginLeaf(LayerMask layerMask = LayerMask()) const {
+    ConstLeafIterator it = ConstLeafIterator(begin(), end(), layerMask);
+    it.skipMaskedLayer();
+    return it;
+  }
+
+  inline ConstLeafIterator endLeaf() const { return ConstLeafIterator(end()); }
+
+  unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) const {
     unsigned numCells = 0;
-    for (auto it = beginLeaf(layerMask); it != endLeaf(); ++it) {
-      numCells += it->getNumberOfCells();
+    for (const auto& leaf : leaves(layerMask)) {
+      numCells += leaf.getNumberOfCells();
     }
     return numCells;
   }
@@ -114,13 +182,38 @@ public:
     inline LeafIterator end() { return node.endLeaf(); }
   };
 
+  class LeafIteratorWrapperConst {
+private:
+    const LTSInternalNode& node;
+    LayerMask mask;
+
+public:
+    LeafIteratorWrapperConst(const LTSInternalNode& node, LayerMask mask)
+        : node(node), mask(mask) {}
+
+    inline ConstLeafIterator begin() const { return node.beginLeaf(mask); }
+
+    inline ConstLeafIterator end() const { return node.endLeaf(); }
+  };
+
   inline LeafIteratorWrapper leaves(LayerMask mask = LayerMask()) {
     return LeafIteratorWrapper(*this, mask);
+  }
+
+  inline LeafIteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
+    return LeafIteratorWrapperConst(*this, mask);
   }
 
   template <typename F>
   inline void iterateLeaves(F&& leafFunction, LayerMask mask = LayerMask()) {
     for (auto& leaf : leaves(mask)) {
+      leafFunction(leaf);
+    }
+  }
+
+  template <typename F>
+  inline void iterateLeaves(F&& leafFunction, LayerMask mask = LayerMask()) const {
+    for (const auto& leaf : leaves(mask)) {
       leafFunction(leaf);
     }
   }
