@@ -16,7 +16,7 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
   if (fileName.has_value()) {
     const auto lastPath = filesystem::path(rootPath);
-    const auto nextPath = filesystem::path(fileName.value());
+    auto nextPath = filesystem::path(fileName.value());
     const auto loadFileName = [&]() {
       if (nextPath.is_relative()) {
         // remove file
