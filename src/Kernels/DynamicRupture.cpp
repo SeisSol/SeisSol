@@ -162,7 +162,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
     m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
-
+    // This function does correct things if correct things go inside it
 #endif
 
     real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
@@ -173,13 +173,12 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
-    
+    // this kernel does exactly the same as master if the inputs are correctly given(i.e., with the padding removed)
     krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0]; // Only Q interpolate changes
     krnl.singleSimQ = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
-
   }
 }
 

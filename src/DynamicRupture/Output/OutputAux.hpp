@@ -27,7 +27,7 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
 struct TriangleQuadratureData {
-  #ifdef MULTIPLE_SIMULAITONS
+  #ifdef MULTIPLE_SIMULATIONS
   static constexpr size_t index=1;
   #else
   static constexpr size_t index=0;
