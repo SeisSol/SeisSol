@@ -36,7 +36,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
                                         seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::numberOfBoundaryGaussPoints << " points.";
+                << misc::numberOfBoundaryGaussPoints << " points for simulation.";;
   seissol::initializer::FaultParameterDB faultParameterDB;
   for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
        it != dynRupTree->endLeaf();

@@ -39,16 +39,7 @@ static constexpr size_t numberOfTPGridPoints = 60;
 static constexpr real tpLogDz = 0.3;
 static constexpr real tpMaxWaveNumber = 10.0;
 
-/**
- * Number of gauss points on an element surface. QInterpolated's shape is transposed for multiple
- * simulations
- */
-
-#ifdef MULTIPLE_SIMULATIONS
-static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[1];
-#else
 static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
-#endif
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

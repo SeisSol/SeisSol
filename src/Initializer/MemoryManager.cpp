@@ -1015,7 +1015,7 @@ void seissol::initializer::MemoryManager::initFrictionData() {
     }
 #endif // ACL_DEVICE
   }
-  }
+}
 }
 
 void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::AllocationPlace place) {

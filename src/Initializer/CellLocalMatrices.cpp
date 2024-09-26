@@ -400,10 +400,10 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
     unsigned* ltsFaceToMeshFace,
     const GlobalData& global,
     double etaHack) {
-  real TData[tensor::T::size()];
-  real TinvData[tensor::Tinv::size()];
-  real APlusData[tensor::star::size(0)];
-  real AMinusData[tensor::star::size(0)];
+  real TData[tensor::T::size()] = {0.0};
+  real TinvData[tensor::Tinv::size()] = {0.0};
+  real APlusData[tensor::star::size(0)] = {0.0};
+  real AMinusData[tensor::star::size(0)] = {0.0};
 
   const std::vector<Fault>& fault = i_meshReader.getFault();
   const std::vector<Element>& elements = i_meshReader.getElements();
@@ -419,8 +419,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
   for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
     for (LTSTree::leaf_iterator it = dynRupTree[i]->beginLeaf(LayerMask(Ghost));
-         it != dynRupTree[i]->endLeaf();
-         ++it) {
+         it != dynRupTree[i]->endLeaf(); ++it) {
       real** timeDerivativePlus = it->var(dynRup[i]->timeDerivativePlus);
       real** timeDerivativeMinus = it->var(dynRup[i]->timeDerivativeMinus);
       real** timeDerivativePlusDevice = it->var(dynRup[i]->timeDerivativePlusDevice);
@@ -736,7 +735,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       krnl.star(0) = APlusData;
       krnl.execute();
 
-      krnl.fluxSolver = fluxSolverMinusHost[ltsFace];
+      krnl.fluxSolver = fluxSolverMinusHost[ltsFace]; //(TO DISUCSS: Ideally, this should be right if the above is right, right?)
       krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.star(0) = AMinusData;
       krnl.execute();

@@ -206,15 +206,18 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
            "friction law. The results may not conform to the existing benchmarks.";
   }
 
-  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsTree(),
-                                                         memoryManager.getLts(),
-                                                         memoryManager.getLtsLut(),
-                                                         memoryManager.getDynamicRuptureTree(),
-                                                         memoryManager.getDynamicRupture(),
-                                                         ltsInfo.ltsMeshToFace,
-                                                         *memoryManager.getGlobalDataOnHost(),
-                                                         seissolParams.drParameters[0]->etaHack);
+  seissol::initializer::initializeDynamicRuptureMatrices(
+      meshReader,
+      memoryManager.getLtsTree(),
+      memoryManager.getLts(),
+      memoryManager.getLtsLut(),
+      memoryManager.getDynamicRuptureTree(),
+      memoryManager.getDynamicRupture(),
+      ltsInfo.ltsMeshToFace,
+      *memoryManager.getGlobalDataOnHost(),
+      seissolParams.drParameters[0]
+          ->etaHack); // Checked for 2 cells in the first simulation, 3rd cell in the second
+                      // simulation does exactly the same as master
 
   memoryManager.initFrictionData();
 

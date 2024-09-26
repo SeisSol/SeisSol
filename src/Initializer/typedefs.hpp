@@ -434,7 +434,7 @@ struct CellDRMapping {
   unsigned faceRelation;
 //  real* godunov; // extend for multiple simulations -> array of pointers
 //  real* fluxSolver; // extend for multiple simulations -> array of pointers
-  std::array<real*, MULTIPLE_SIMULATIONS> godunov;
+  std::array<real*, MULTIPLE_SIMULATIONS> godunov; //(TO DISCUSS) What is this godunov and what is the godunov data in Dynamic Rupture?
   std::array<real*, MULTIPLE_SIMULATIONS> fluxSolver;
 };
 
