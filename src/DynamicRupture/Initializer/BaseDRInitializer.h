@@ -94,7 +94,7 @@ class BaseDRInitializer {
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               const seissol::initializer::DynamicRupture* const dynRup,
-                              seissol::initializer::LTSInternalNode::LeafIterator& it);
+                              seissol::initializer::Layer& layer);
 
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
@@ -104,7 +104,7 @@ class BaseDRInitializer {
    */
   std::vector<unsigned>
       getFaceIDsInIterator(const seissol::initializer::DynamicRupture* const dynRup,
-                           seissol::initializer::LTSInternalNode::LeafIterator& it);
+                           seissol::initializer::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -122,7 +122,7 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    */
   void initializeOtherVariables(const seissol::initializer::DynamicRupture* const dynRup,
-                                seissol::initializer::LTSInternalNode::LeafIterator& it);
+                                seissol::initializer::Layer& layer);
 
   /**
    * Reads the parameters from the easi file
@@ -149,7 +149,7 @@ class BaseDRInitializer {
    * cartesian coordinates
    */
   void rotateTractionToCartesianStress(const seissol::initializer::DynamicRupture* const dynRup,
-                                       seissol::initializer::LTSTree::LeafIterator& it,
+                                       seissol::initializer::Layer& layer,
                                        StressTensor& stress);
 
   /**
@@ -161,7 +161,7 @@ class BaseDRInitializer {
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
   void rotateStressToFaultCS(const seissol::initializer::DynamicRupture* const dynRup,
-                             seissol::initializer::LTSTree::LeafIterator& it,
+                             seissol::initializer::Layer& layer,
                              real (*stressInFaultCS)[misc::NumPaddedPoints][6],
                              const StressTensor& stress);
 

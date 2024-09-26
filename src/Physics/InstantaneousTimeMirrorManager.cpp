@@ -70,12 +70,11 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 #else
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
-  for (auto it = ltsTree->beginLeaf(initializer::LayerMask(Ghost)); it != ltsTree->endLeaf();
-       ++it) {
-    CellMaterialData* materials = it->var(lts->material);
+  for (auto& layer : ltsTree->leaves(Ghost)) {
+    CellMaterialData* materials = layer.var(lts->material);
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves
         material.local.mu *= velocityScalingFactor * velocityScalingFactor;
@@ -88,7 +87,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
@@ -103,7 +102,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
@@ -114,7 +113,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
         material.local.lambda =

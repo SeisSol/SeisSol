@@ -134,18 +134,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   unsigned* ltsToMesh =
       memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
 
-  for (auto it = memoryManager.getLtsTree()->beginLeaf(seissol::initializer::LayerMask(Ghost));
-       it != memoryManager.getLtsTree()->endLeaf();
-       ++it) {
-    auto* cellInformation = it->var(memoryManager.getLts()->cellInformation);
-    auto* materialArray = it->var(memoryManager.getLts()->material);
+  for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
+    auto* cellInformation = layer.var(memoryManager.getLts()->cellInformation);
+    auto* materialArray = layer.var(memoryManager.getLts()->material);
     auto* plasticityArray =
-        seissolParams.model.plasticity ? it->var(memoryManager.getLts()->plasticity) : nullptr;
+        seissolParams.model.plasticity ? layer.var(memoryManager.getLts()->plasticity) : nullptr;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < it->getNumberOfCells(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       // set the materials for the cell volume and its faces
       auto meshId = ltsToMesh[cell];
       auto& material = materialArray[cell];
@@ -182,7 +180,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
     }
-    ltsToMesh += it->getNumberOfCells();
+    ltsToMesh += layer.getNumberOfCells();
   }
 }
 

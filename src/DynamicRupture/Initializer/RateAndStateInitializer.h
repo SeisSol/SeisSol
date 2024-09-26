@@ -24,7 +24,7 @@ class RateAndStateInitializer : public BaseDRInitializer {
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               seissol::initializer::Layer& layer) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -74,7 +74,7 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               seissol::initializer::Layer& layer) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
@@ -124,7 +124,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               seissol::initializer::Layer& layer) override;
 };
 
 } // namespace seissol::dr::initializer

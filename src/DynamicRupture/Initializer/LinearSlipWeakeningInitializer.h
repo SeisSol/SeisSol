@@ -23,7 +23,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               seissol::initializer::Layer& layer) override;
 };
 
 /**

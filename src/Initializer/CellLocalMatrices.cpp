@@ -97,11 +97,11 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
-  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    CellMaterialData*           material                = it->var(i_lts->material);
-    LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
-    NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
-    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
+  for (auto& layer : io_ltsTree->leaves(Ghost)) {
+    CellMaterialData*           material                = layer.var(i_lts->material);
+    LocalIntegrationData*       localIntegration        = layer.var(i_lts->localIntegration);
+    NeighboringIntegrationData* neighboringIntegration  = layer.var(i_lts->neighboringIntegration);
+    CellLocalInformation*       cellInformation         = layer.var(i_lts->cellInformation);
 
 #ifdef _OPENMP
   #pragma omp parallel
@@ -130,7 +130,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
 #ifdef _OPENMP
     #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       unsigned clusterId = cellInformation[cell].clusterId;
       auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
       unsigned meshId = ltsToMesh[cell];
@@ -231,7 +231,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
 #ifdef _OPENMP
     }
 #endif
-    ltsToMesh += it->getNumberOfCells();
+    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -263,14 +263,14 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
-  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    auto* cellInformation = it->var(i_lts->cellInformation);
-    auto* boundary = it->var(i_lts->boundaryMapping);
+  for (auto& layer : io_ltsTree->leaves(Ghost)) {
+    auto* cellInformation = layer.var(i_lts->cellInformation);
+    auto* boundary = layer.var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       const auto& element = elements[ltsToMesh[cell]];
       double const* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
@@ -347,7 +347,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
       }
     }
-    ltsToMesh += it->getNumberOfCells();
+    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -415,31 +415,31 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
-  for (auto it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-    real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real**                                timeDerivativePlusDevice                                        = it->var(dynRup->timeDerivativePlusDevice);
-    real**                                timeDerivativeMinusDevice                                       = it->var(dynRup->timeDerivativeMinusDevice);
-    DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Host);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Host);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Host);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Host);
-    real                                (*imposedStatePlusDevice)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Device);
-    real                                (*imposedStateMinusDevice)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Device);
-    real                                (*fluxSolverPlusDevice)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Device);
-    real                                (*fluxSolverMinusDevice)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Device);
-    DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
-    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = it->var(dynRup->impedanceMatrices);
+  for (auto& layer : dynRupTree->leaves(Ghost)) {
+    real**                                timeDerivativePlus                                        = layer.var(dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                       = layer.var(dynRup->timeDerivativeMinus);
+    real**                                timeDerivativePlusDevice                                        = layer.var(dynRup->timeDerivativePlusDevice);
+    real**                                timeDerivativeMinusDevice                                       = layer.var(dynRup->timeDerivativeMinusDevice);
+    DRGodunovData*                        godunovData                                               = layer.var(dynRup->godunovData);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = layer.var(dynRup->imposedStatePlus, AllocationPlace::Host);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = layer.var(dynRup->imposedStateMinus, AllocationPlace::Host);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Host);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Host);
+    real                                (*imposedStatePlusDevice)[tensor::QInterpolated::size()]          = layer.var(dynRup->imposedStatePlus, AllocationPlace::Device);
+    real                                (*imposedStateMinusDevice)[tensor::QInterpolated::size()]         = layer.var(dynRup->imposedStateMinus, AllocationPlace::Device);
+    real                                (*fluxSolverPlusDevice)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Device);
+    real                                (*fluxSolverMinusDevice)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Device);
+    DRFaceInformation*                    faceInformation                                           = layer.var(dynRup->faceInformation);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = layer.var(dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = layer.var(dynRup->waveSpeedsMinus);
+    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = layer.var(dynRup->impAndEta);
+    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = layer.var(dynRup->impedanceMatrices);
 
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
@@ -685,8 +685,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;
 
-      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus);
+      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus);
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
@@ -699,7 +699,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       krnl.execute();
     }
 
-    layerLtsFaceToMeshFace += it->getNumberOfCells();
+    layerLtsFaceToMeshFace += layer.getNumberOfCells();
   }
 }
 
