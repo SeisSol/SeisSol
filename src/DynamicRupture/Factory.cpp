@@ -18,7 +18,7 @@ namespace friction_law_gpu = seissol::dr::friction_law;
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance) {
   switch (drParameters->frictionLawType) {
   case seissol::initializer::parameters::FrictionLawType::NoFault:

@@ -61,9 +61,9 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
 }
 
 namespace seissol::dr::output {
-std::string buildFileName(std::string namePrefix,
-                          std::string nameSuffix,
-                          std::string fileExtension = std::string()) {
+std::string buildFileName(const std::string& namePrefix,
+                          const std::string& nameSuffix,
+                          const std::string& fileExtension = std::string()) {
   std::stringstream fileName;
   fileName << namePrefix << '-' << nameSuffix;
   if (fileExtension.empty()) {
@@ -74,9 +74,9 @@ std::string buildFileName(std::string namePrefix,
   }
 }
 
-std::string buildMPIFileName(std::string namePrefix,
-                             std::string nameSuffix,
-                             std::string fileExtension = std::string()) {
+std::string buildMPIFileName(const std::string& namePrefix,
+                             const std::string& nameSuffix,
+                             const std::string& fileExtension = std::string()) {
 #ifdef PARALLEL
   std::stringstream suffix;
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
@@ -86,10 +86,10 @@ std::string buildMPIFileName(std::string namePrefix,
 #endif
 }
 
-std::string buildIndexedMPIFileName(std::string namePrefix,
+std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     int index,
-                                    std::string nameSuffix,
-                                    std::string fileExtension = std::string()) {
+                                    const std::string& nameSuffix,
+                                    const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
 #ifdef PARALLEL
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'

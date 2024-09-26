@@ -14,7 +14,9 @@ Checks: |
   -misc-no-recursion,
   modernize-use-override,
   modernize-use-equals-default,
-  performance-move-const-arg,
+  performance-*,
+  -performance-enum-size,
+  -performance-avoid-endl,
   readability-non-const-parameter,
   readability-const-return-type,
   readability-identifier-naming

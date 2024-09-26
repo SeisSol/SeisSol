@@ -312,8 +312,8 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
   return layeredClusterMapping;
 }
 
-auto makePointSourceCluster(ClusterMapping mapping,
-                            PointSources sources,
+auto makePointSourceCluster(const ClusterMapping& mapping,
+                            const PointSources& sources,
                             const unsigned* meshIds,
                             seissol::initializer::LTSTree* ltsTree,
                             seissol::initializer::LTS* lts,
@@ -454,7 +454,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       }
 
       sourceCluster[cluster] = makePointSourceCluster(
-          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 
@@ -564,7 +564,7 @@ auto loadSourcesFromNRF(const char* fileName,
             memkind);
       }
       sourceCluster[cluster] = makePointSourceCluster(
-          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 

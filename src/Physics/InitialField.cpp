@@ -32,14 +32,14 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          std::vector<int> varField,
                                          std::vector<std::complex<double>> ampField)
     : m_varField(std::move(varField)), m_ampField(std::move(ampField)), m_phase(phase),
-      m_kVec(kVec) {
+      m_kVec(std::move(kVec)) {
   init(materialData);
 }
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
                                          Eigen::Vector3d kVec)
-    : m_phase(phase), m_kVec(kVec) {
+    : m_phase(phase), m_kVec(std::move(kVec)) {
 
 #ifndef USE_POROELASTIC
   bool isAcoustic = false;
@@ -288,7 +288,7 @@ void seissol::physics::TravellingWave::evaluate(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters initializationParameters)
+    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
     : m_parameters(initializationParameters) {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];

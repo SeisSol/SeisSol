@@ -64,7 +64,7 @@ long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {
 
-void FlopCounter::init(std::string outputFileNamePrefix) {
+void FlopCounter::init(const std::string& outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
   const int rank = seissol::MPI::mpi.rank();
   const size_t worldSize = static_cast<size_t>(seissol::MPI::mpi.size());

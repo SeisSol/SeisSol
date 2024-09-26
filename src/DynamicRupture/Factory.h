@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <tuple>
+#include <utility>
 
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
@@ -35,7 +36,7 @@ class AbstractFactory {
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
                   seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance) {};
+      : drParameters(std::move(drParameters)), seissolInstance(seissolInstance) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
@@ -94,9 +95,9 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
-std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
-               seissol::SeisSol& seissolInstance);
+std::unique_ptr<seissol::dr::factory::AbstractFactory> getFactory(
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& dynRupParameter,
+    seissol::SeisSol& seissolInstance);
 
 } // namespace dr::factory
 } // namespace seissol

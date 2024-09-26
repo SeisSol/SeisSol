@@ -134,7 +134,7 @@ inline std::string bcToString(int id) {
  * @param sideBC: boundary condition tag at the side to check
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
-inline bool checkMeshCorrectnessLocally(PUML::TETPUML::face_t face,
+inline bool checkMeshCorrectnessLocally(const PUML::TETPUML::face_t& face,
                                         const int* cellNeighbors,
                                         int side,
                                         int sideBC,

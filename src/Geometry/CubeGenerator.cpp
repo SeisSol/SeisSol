@@ -152,7 +152,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
                                                       2 * numCubesPerPart[0] * numCubesPerPart[1]};
 
   // output file name
-  const std::string fileName = meshFile;
+  const std::string& fileName = meshFile;
 
   logInfo(rank) << "Start generating a mesh using the CubeGenerator";
   seissol::geometry::CubeGenerator::cubeGenerator(numCubes,

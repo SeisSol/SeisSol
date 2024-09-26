@@ -559,10 +559,11 @@ std::set<std::string>
 seissol::initializer::EasiBoundary::EasiBoundary(const std::string& fileName)
     : model(loadEasiModel(fileName)) {}
 
-seissol::initializer::EasiBoundary::EasiBoundary(EasiBoundary&& other) : model(other.model) {}
+seissol::initializer::EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept
+    : model(other.model) {}
 
 seissol::initializer::EasiBoundary&
-    seissol::initializer::EasiBoundary::operator=(EasiBoundary&& other) {
+    seissol::initializer::EasiBoundary::operator=(EasiBoundary&& other) noexcept {
   std::swap(model, other.model);
   return *this;
 }

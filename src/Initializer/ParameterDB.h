@@ -211,8 +211,8 @@ class seissol::initializer::EasiBoundary {
   EasiBoundary() : model(nullptr) {};
   EasiBoundary(const EasiBoundary&) = delete;
   EasiBoundary& operator=(const EasiBoundary&) = delete;
-  EasiBoundary(EasiBoundary&& other);
-  EasiBoundary& operator=(EasiBoundary&& other);
+  EasiBoundary(EasiBoundary&& other) noexcept;
+  EasiBoundary& operator=(EasiBoundary&& other) noexcept;
 
   ~EasiBoundary();
 
