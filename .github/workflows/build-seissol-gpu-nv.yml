@@ -1,4 +1,4 @@
-name: build-seissol
+name: build-seissol-gpu-nv
 on:
   - push
 
@@ -6,7 +6,7 @@ jobs:
   seissol:
     name: seissol
     runs-on: ubuntu-24.04
-    container: seissol/gha-cpu:sha-44e8ec6
+    container: seissol/gha-gpu-nv:davschneller-gpu-image
     strategy:
       fail-fast: false
       matrix:
@@ -19,12 +19,14 @@ jobs:
           - Debug
         equation:
           - elastic
-          - poroelastic
-          - viscoelastic2
           - anisotropic
         precision:
           - single
           - double
+        gpu:
+          - arch: sm_60
+            backend: cuda
+            syclcc: acpp
         compiler:
           - cc: gcc-13
             cxx: g++-13
@@ -59,7 +61,7 @@ jobs:
           export CXX=${{matrix.compiler.cxx}}
           export FC=${{matrix.compiler.fc}}
 
-          cmake .. -GNinja -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          cmake .. -GNinja -DTESTING=ON -DDEVICE_BACKEND=${{matrix.gpu.backend}} -DDEVICE_ARCH=${{matrix.gpu.arch}} -DSYCL_CC=${{matrix.gpu.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja
 
       - name: test-seissol
