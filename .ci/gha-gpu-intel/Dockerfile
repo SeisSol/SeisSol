@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # ## boilerplate
 
 FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04

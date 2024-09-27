@@ -1,12 +1,24 @@
-name: build-docker-gpu-intel
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: build-container
 
 on:
-  # - workflow_dispatch
+  #- workflow_dispatch
   - push
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - gha-cpu
+          - gha-gpu-nv
+          - gha-gpu-amd
+          - gha-gpu-intel
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -24,14 +36,14 @@ jobs:
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: seissol/gha-gpu-intel
+        images: seissol/${{matrix.image}}
         # tags: type=sha
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
         context: .
-        file: .ci/gha-gpu-intel/Dockerfile
+        file: .ci/${{matrix.image}}/Dockerfile
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}

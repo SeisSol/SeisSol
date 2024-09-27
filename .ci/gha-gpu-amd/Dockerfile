@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # ## boilerplate
 
 FROM rocm/dev-ubuntu-24.04:6.2

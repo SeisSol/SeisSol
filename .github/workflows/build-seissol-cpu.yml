@@ -1,4 +1,8 @@
-name: build-seissol
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: build-seissol-cpu
 on:
   - push
 
@@ -6,7 +10,7 @@ jobs:
   seissol:
     name: seissol
     runs-on: ubuntu-24.04
-    container: seissol/gha-cpu:sha-44e8ec6
+    container: ${{ matrix.setup.container }}
     strategy:
       fail-fast: false
       matrix:
@@ -25,13 +29,19 @@ jobs:
         precision:
           - single
           - double
-        compiler:
+        setup:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
+            container: seissol/gha-cpu:sha-44e8ec6
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
+            container: seissol/gha-cpu:sha-44e8ec6
+          - cc: icx
+            cxx: icpx
+            fc: gfortran-13 # TODO?
+            container: seissol/gha-gpu-intel:davschneller-gpu-image
     steps:
       - name: checkout-seissol
         uses: actions/checkout@v4
@@ -55,9 +65,9 @@ jobs:
           export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
           export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
 
-          export CC=${{matrix.compiler.cc}}
-          export CXX=${{matrix.compiler.cxx}}
-          export FC=${{matrix.compiler.fc}}
+          export CC=${{matrix.setup.cc}}
+          export CXX=${{matrix.setup.cxx}}
+          export FC=${{matrix.setup.fc}}
 
           cmake .. -GNinja -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja

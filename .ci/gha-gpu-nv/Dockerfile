@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # ## boilerplate
 
 FROM nvidia/cuda:12.6.1-devel-ubuntu24.04
