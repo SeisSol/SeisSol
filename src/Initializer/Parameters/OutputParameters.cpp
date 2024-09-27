@@ -222,7 +222,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
           {"hdf5", xdmfwriter::BackendType::H5},
 #endif
       });
-  const std::string prefix =
+  const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);

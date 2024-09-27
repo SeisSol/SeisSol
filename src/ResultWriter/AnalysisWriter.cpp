@@ -34,8 +34,7 @@
 
 namespace seissol::writer {
 
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName)
-    : out(), isEnabled(false), fileName(std::move(fileName)) {}
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : out(), fileName(std::move(fileName)) {}
 
 void CsvAnalysisWriter::writeHeader() {
   if (isEnabled) {

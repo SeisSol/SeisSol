@@ -277,8 +277,7 @@ easi::Query seissol::initializer::FaultGPGenerator::generate() const {
   return query;
 }
 
-namespace seissol {
-namespace initializer {
+namespace seissol::initializer {
 using namespace seissol::model;
 
 template <>
@@ -367,7 +366,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   model->evaluate(query, adapter);
 
   // Only use homogenization when ElementAverageGenerator has been supplied
-  if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(queryGen)) {
+  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(queryGen)) {
     const unsigned numElems = numPoints / NumQuadpoints;
     const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
 
@@ -542,13 +541,12 @@ void FaultParameterDB::evaluateModel(const std::string& fileName,
   delete model;
 }
 
-} // namespace initializer
-} // namespace seissol
+} // namespace seissol::initializer
 
 std::set<std::string>
     seissol::initializer::FaultParameterDB::faultProvides(const std::string& fileName) {
   if (fileName.length() == 0) {
-    return std::set<std::string>();
+    return {};
   }
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();

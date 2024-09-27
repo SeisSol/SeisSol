@@ -31,7 +31,7 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
     if (std::abs(initConditionParams.ampField[i]) > Eps) {
       travellingWaveParameters.varField.push_back(i);
-      travellingWaveParameters.ampField.push_back(initConditionParams.ampField[i]);
+      travellingWaveParameters.ampField.emplace_back(initConditionParams.ampField[i]);
     }
   }
   return travellingWaveParameters;

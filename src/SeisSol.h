@@ -169,7 +169,7 @@ class SeisSol {
    */
   void freeMeshReader() {
     delete m_meshReader;
-    m_meshReader = 0L;
+    m_meshReader = nullptr;
   }
 
   /**
@@ -224,7 +224,7 @@ class SeisSol {
   io::AsyncIO m_asyncIO;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* m_meshReader;
+  seissol::geometry::MeshReader* m_meshReader{nullptr};
 
   //! Lts Layout
   initializer::time_stepping::LtsLayout m_ltsLayout;
@@ -281,7 +281,7 @@ class SeisSol {
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
+      : pinning(), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),

@@ -43,22 +43,20 @@
 #include <Initializer/Tree/Layer.h>
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <vector>
 
-seissol::initializer::Lut::LutsForMask::LutsForMask()
-    : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0) {
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    meshToLts[dup] = NULL;
+seissol::initializer::Lut::LutsForMask::LutsForMask() {
+  for (auto& meshToLt : meshToLts) {
+    meshToLt = nullptr;
   }
 }
 seissol::initializer::Lut::LutsForMask::~LutsForMask() {
   delete[] duplicatedMeshIds;
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    delete[] meshToLts[dup];
+  for (auto& meshToLt : meshToLts) {
+    delete[] meshToLt;
   }
   delete[] ltsToMesh;
 }
@@ -85,13 +83,12 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
   }
 
   // meshToLts
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    meshToLts[dup] = new unsigned[numberOfMeshIds];
-    std::fill(
-        meshToLts[dup], meshToLts[dup] + numberOfMeshIds, std::numeric_limits<unsigned>::max());
+  for (auto& meshToLt : meshToLts) {
+    meshToLt = new unsigned[numberOfMeshIds];
+    std::fill(meshToLt, meshToLt + numberOfMeshIds, std::numeric_limits<unsigned>::max());
   }
 
-  unsigned* numDuplicates = new unsigned[numberOfMeshIds];
+  auto* numDuplicates = new unsigned[numberOfMeshIds];
   memset(numDuplicates, 0, numberOfMeshIds * sizeof(unsigned));
 
   for (unsigned ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
@@ -121,7 +118,7 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
   delete[] numDuplicates;
 }
 
-seissol::initializer::Lut::Lut() : m_ltsTree(NULL), m_meshToClusters(NULL) {}
+seissol::initializer::Lut::Lut() = default;
 
 seissol::initializer::Lut::~Lut() { delete[] m_meshToClusters; }
 
@@ -135,7 +132,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
   for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
     const LayerMask mask = m_ltsTree->info(var).mask;
     LutsForMask& maskedLut = maskedLuts[mask.to_ulong()];
-    if (maskedLut.ltsToMesh == NULL) {
+    if (maskedLut.ltsToMesh == nullptr) {
       maskedLut.createLut(mask, m_ltsTree, ltsToMesh, numberOfMeshIds);
     }
   }

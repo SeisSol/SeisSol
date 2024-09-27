@@ -46,8 +46,7 @@
 #include <Eigen/Dense>
 #include <yateto.h>
 
-namespace seissol {
-namespace transformations {
+namespace seissol::transformations {
 /**
  * Calculates the global coordinates from
  * reference tetrahedron coordinates.
@@ -180,7 +179,6 @@ void chiTau2XiEtaZeta(unsigned face,
                       double xiEtaZeta[3],
                       int sideOrientation = -1);
 void XiEtaZeta2chiTau(unsigned face, const double xiEtaZeta[3], double chiTau[2]);
-} // namespace transformations
-} // namespace seissol
+} // namespace seissol::transformations
 
 #endif

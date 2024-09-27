@@ -290,12 +290,12 @@ int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
   /*
    Create memspace (portion of filespace) and read collectively the data
   */
-  const hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+  const hid_t memspace = H5Screate_simple(1, dimMem, nullptr);
   const hid_t filespace = H5Dget_space(dataset);
 
   hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
   hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
-  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
+  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
 
   plistId = H5Pcreate(H5P_DATASET_XFER);
   H5Pset_dxpl_mpio(plistId, H5FD_MPIO_COLLECTIVE);
@@ -355,7 +355,7 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
   const hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plistId);
   H5Pclose(plistId);
 
-  hid_t filespace = H5Screate_simple(1, dim, NULL);
+  hid_t filespace = H5Screate_simple(1, dim, nullptr);
   const hid_t dataset = H5Dcreate(
       file, "/partition", H5T_NATIVE_INT, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   H5Sclose(filespace);
@@ -363,12 +363,12 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
   /*
    Create memspace (portion of filespace) and write collectively the data
   */
-  const hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+  const hid_t memspace = H5Screate_simple(1, dimMem, nullptr);
   filespace = H5Dget_space(dataset);
 
   hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
   hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
-  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
+  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
 
   plistId = H5Pcreate(H5P_DATASET_XFER);
   H5Pset_dxpl_mpio(plistId, H5FD_MPIO_COLLECTIVE);
@@ -461,7 +461,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   const int* group = reinterpret_cast<const int*>(puml.cellData(0));
   const void* boundaryCond = puml.cellData(1);
-  const size_t* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
+  const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -545,19 +545,17 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   // Exchange ghost layer information and generate neighbor list
   char** copySide = new char*[neighborInfo.size()];
   char** ghostSide = new char*[neighborInfo.size()];
-  unsigned long** copyFirstVertex = new unsigned long*[neighborInfo.size()];
-  unsigned long** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** copyFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
 
-  MPI_Request* requests = new MPI_Request[neighborInfo.size() * 4];
+  auto* requests = new MPI_Request[neighborInfo.size() * 4];
 
   std::unordered_set<unsigned int> t;
 #ifndef NDEBUG
   unsigned int sum = 0;
 #endif
   unsigned int k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, ++k) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, ++k) {
     // Need to sort the neighborInfo vectors once
     std::sort(it->second.begin(), it->second.end(), [&](unsigned int a, unsigned int b) {
       return puml.faces()[a].gid() < puml.faces()[b].gid();
@@ -627,9 +625,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   MPI_Waitall(neighborInfo.size() * 4, requests, MPI_STATUSES_IGNORE);
 
   k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::const_iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, k++) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, k++) {
     for (unsigned int i = 0; i < it->second.size(); i++) {
       // Set neighbor side
       int cellIds[2];

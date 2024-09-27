@@ -18,7 +18,7 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader(int rank) : mRank(rank), m_hasPlusFault(false) {}
+MeshReader::MeshReader(int rank) : mRank(rank) {}
 
 MeshReader::~MeshReader() = default;
 

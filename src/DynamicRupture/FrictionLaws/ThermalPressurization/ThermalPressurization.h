@@ -122,7 +122,7 @@ class ThermalPressurization {
                          unsigned int timeIndex,
                          unsigned int ltsFace);
 
-  real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
+  [[nodiscard]] real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 

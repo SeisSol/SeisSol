@@ -219,7 +219,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   size_t bndSize = -1;
   size_t bndElemSize = -1;
 
-  int* sizes = 0L;
+  int* sizes = nullptr;
   int maxSize = 0;
 
   // Get important dimensions
@@ -269,7 +269,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Calculate elemVertices
   for (unsigned int i = 0; i < vertices.size(); i++) {
-    const std::map<CubeVertex, int>::iterator it = vertexMap.find(vertices[i]);
+    const auto it = vertexMap.find(vertices[i]);
     if (it != vertexMap.end()) {
       elemVertices[i] = it->second;
     } else {
@@ -1152,7 +1152,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   int* elemMPIIndices = new int[numElemPerPart[3] * 4];
   int* bndLocalIds = new int[*std::max_element(numBndElements.begin(), numBndElements.end())];
 
-  size_t* bndSizePtr = new size_t[numPartitions[3]];
+  auto* bndSizePtr = new size_t[numPartitions[3]];
   int* bndElemSizePtr = new int[numPartitions[3] * bndSize];
   int* bndElemRankPtr = new int[numPartitions[3] * bndSize];
   int* bndElemLocalIdsPtr = new int[numPartitions[3] * bndSize * bndElemSize];
@@ -1444,8 +1444,8 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
 
   // copy the remaining Elem variables to m_elements
-  ElemVertices* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
-  ElemNeighbors* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors);
+  auto* elemVerticesCast = reinterpret_cast<ElemVertices*>(elemVertices);
+  auto* elemNeighborsCast = reinterpret_cast<ElemNeighbors*>(elemNeighbors);
 
   for (int i = 0; i < sizes[0]; i++) {
     m_elements[i].localId = i;
@@ -1478,7 +1478,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   const double halfWidthZ = scaleZ / 2.0;
 
   // Calculate vrtxCoords
-  double* vrtxCoords = new double[uniqueVertices.size() * 3];
+  auto* vrtxCoords = new double[uniqueVertices.size() * 3];
 
   for (unsigned int z = 0; z < numPartitions[2]; z++) {
     for (unsigned int y = 0; y < numPartitions[1]; y++) {
@@ -1569,7 +1569,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 }
 
 void seissol::geometry::CubeGenerator::findElementsPerVertex() {
-  for (std::vector<Element>::const_iterator i = m_elements.begin(); i != m_elements.end(); i++) {
+  for (auto i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
       // push back the localIds for each element of a vertex

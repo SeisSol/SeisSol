@@ -34,7 +34,7 @@ struct NumPoints {
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
 template <RangeType Type>
@@ -44,7 +44,7 @@ struct QInterpolated {
   using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::NumPaddedPoints>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
 /**

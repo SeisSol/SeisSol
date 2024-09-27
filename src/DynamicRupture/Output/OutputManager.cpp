@@ -36,6 +36,8 @@
 #include <utils/timeutils.h>
 #include <vector>
 
+namespace {
+
 struct NativeFormat {};
 struct WideFormat {};
 template <typename T, typename U = NativeFormat>
@@ -44,12 +46,12 @@ struct FormattedBuildinType {
 };
 
 template <typename T, typename U = NativeFormat>
-auto makeFormatted(T value) {
+static auto makeFormatted(T value) {
   return FormattedBuildinType<T, U>{value};
 }
 
 template <typename T, typename U = NativeFormat>
-std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
+static std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   if constexpr (std::is_floating_point_v<T>) {
     stream << std::setprecision(16) << std::scientific << obj.value;
   } else if constexpr (std::is_integral_v<T> && std::is_same_v<U, WideFormat>) {
@@ -60,10 +62,9 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   return stream;
 }
 
-namespace seissol::dr::output {
-std::string buildFileName(const std::string& namePrefix,
-                          const std::string& nameSuffix,
-                          const std::string& fileExtension = std::string()) {
+static std::string buildFileName(const std::string& namePrefix,
+                                 const std::string& nameSuffix,
+                                 const std::string& fileExtension = std::string()) {
   std::stringstream fileName;
   fileName << namePrefix << '-' << nameSuffix;
   if (fileExtension.empty()) {
@@ -74,9 +75,9 @@ std::string buildFileName(const std::string& namePrefix,
   }
 }
 
-std::string buildMPIFileName(const std::string& namePrefix,
-                             const std::string& nameSuffix,
-                             const std::string& fileExtension = std::string()) {
+static std::string buildMPIFileName(const std::string& namePrefix,
+                                    const std::string& nameSuffix,
+                                    const std::string& fileExtension = std::string()) {
 #ifdef PARALLEL
   std::stringstream suffix;
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
@@ -86,10 +87,10 @@ std::string buildMPIFileName(const std::string& namePrefix,
 #endif
 }
 
-std::string buildIndexedMPIFileName(const std::string& namePrefix,
-                                    int index,
-                                    const std::string& nameSuffix,
-                                    const std::string& fileExtension = std::string()) {
+static std::string buildIndexedMPIFileName(const std::string& namePrefix,
+                                           int index,
+                                           const std::string& nameSuffix,
+                                           const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
 #ifdef PARALLEL
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
@@ -100,11 +101,15 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
+} // namespace
+
+namespace seissol::dr::output {
+
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                              seissol::SeisSol& seissolInstance)
     : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
       ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
-  backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
+  backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
 }
 
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }

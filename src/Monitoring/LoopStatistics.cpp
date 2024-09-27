@@ -104,7 +104,7 @@ LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
     : name(name), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
-  regions.push_back(Region(name, includeInSummary));
+  regions.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {

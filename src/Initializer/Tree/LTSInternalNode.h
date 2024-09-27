@@ -153,15 +153,15 @@ public:
 
   inline LeafIterator endLeaf() { return LeafIterator(end()); }
 
-  inline ConstLeafIterator beginLeaf(LayerMask layerMask = LayerMask()) const {
+  [[nodiscard]] inline ConstLeafIterator beginLeaf(LayerMask layerMask = LayerMask()) const {
     ConstLeafIterator it = ConstLeafIterator(begin(), end(), layerMask);
     it.skipMaskedLayer();
     return it;
   }
 
-  inline ConstLeafIterator endLeaf() const { return ConstLeafIterator(end()); }
+  [[nodiscard]] inline ConstLeafIterator endLeaf() const { return ConstLeafIterator(end()); }
 
-  unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) const {
+  [[nodiscard]] unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) const {
     unsigned numCells = 0;
     for (const auto& leaf : leaves(layerMask)) {
       numCells += leaf.getNumberOfCells();
@@ -191,16 +191,16 @@ public:
     LeafIteratorWrapperConst(const LTSInternalNode& node, LayerMask mask)
         : node(node), mask(mask) {}
 
-    inline ConstLeafIterator begin() const { return node.beginLeaf(mask); }
+    [[nodiscard]] inline ConstLeafIterator begin() const { return node.beginLeaf(mask); }
 
-    inline ConstLeafIterator end() const { return node.endLeaf(); }
+    [[nodiscard]] inline ConstLeafIterator end() const { return node.endLeaf(); }
   };
 
   inline LeafIteratorWrapper leaves(LayerMask mask = LayerMask()) {
     return LeafIteratorWrapper(*this, mask);
   }
 
-  inline LeafIteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
+  [[nodiscard]] inline LeafIteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
     return LeafIteratorWrapperConst(*this, mask);
   }
 

@@ -49,8 +49,7 @@
 #include "device.h"
 #endif // ACL_DEVICE
 
-namespace seissol {
-namespace initializer {
+namespace seissol::initializer {
 /*
  * \class MemoryProperties
  *
@@ -103,7 +102,6 @@ struct GlobalDataInitializer {
 // Specific Global data initializers of SeisSol.
 using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
 using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-} // namespace initializer
-} // namespace seissol
+} // namespace seissol::initializer
 
 #endif

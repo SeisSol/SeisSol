@@ -49,15 +49,15 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
-  return LtsParameters(rate,
-                       wiggleFactorMinimum,
-                       wiggleFactorStepsize,
-                       wiggleFactorEnforceMaximumDifference,
-                       maxNumberOfClusters,
-                       autoMergeClusters,
-                       allowedPerformanceLossRatioAutoMerge,
-                       autoMergeCostBaseline,
-                       ltsWeightsType);
+  return {rate,
+          wiggleFactorMinimum,
+          wiggleFactorStepsize,
+          wiggleFactorEnforceMaximumDifference,
+          static_cast<int>(maxNumberOfClusters),
+          autoMergeClusters,
+          allowedPerformanceLossRatioAutoMerge,
+          autoMergeCostBaseline,
+          ltsWeightsType};
 }
 
 LtsParameters::LtsParameters(unsigned int rate,
@@ -147,10 +147,9 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
 
   if constexpr (isModelViscoelastic()) {
     auto modelReader = baseReader->readSubNode("equations");
-    const double freqCentral =
+    const auto freqCentral =
         modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-    const double freqRatio =
-        modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
+    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
     const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
     maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
     if (maxTimestepWidth > maxTimestepWidthDefault) {

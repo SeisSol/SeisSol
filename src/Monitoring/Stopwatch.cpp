@@ -10,7 +10,7 @@
 
 namespace seissol {
 
-Stopwatch::Stopwatch() : time(0) {}
+Stopwatch::Stopwatch() = default;
 
 /**
  * Reset the stopwatch to zero
@@ -87,9 +87,9 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Comm_size(comm, &size);
     avg /= size;
   } else {
-    MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-    MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+    MPI_Reduce(&avg, nullptr, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(&min, nullptr, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(&max, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
   }
 #endif // USE_MPI
 

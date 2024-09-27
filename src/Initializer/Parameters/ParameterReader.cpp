@@ -35,7 +35,7 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       return nextPath;
     }
   } else {
-    return std::optional<std::string>();
+    return {};
   }
 }
 

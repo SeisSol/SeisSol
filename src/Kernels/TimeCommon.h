@@ -117,7 +117,6 @@ struct TimeCommon {
                                       ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
-  private:
   TimeCommon() = delete;
 };
 } // namespace seissol::kernels

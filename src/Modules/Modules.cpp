@@ -96,7 +96,7 @@ const char* Modules::strHook(ModuleHook hook) {
   }
 }
 
-Modules::Modules() : nextHook(ModuleHook::FirstHook) {}
+Modules::Modules() = default;
 
 double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
   double nextSyncTime = std::numeric_limits<double>::max();

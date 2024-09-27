@@ -86,7 +86,7 @@ void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTre
 
 const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializer::LTSTree* ltsTree) {
   if (m_numberOfVariables == 0) {
-    return 0L;
+    return nullptr;
   } else {
     return ltsTree->var(m_integrals);
   }

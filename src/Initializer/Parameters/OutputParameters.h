@@ -72,7 +72,7 @@ struct OutputInterval {
   double lower;
   double upper;
 
-  bool contains(double value) const { return value >= lower && value <= upper; }
+  [[nodiscard]] bool contains(double value) const { return value >= lower && value <= upper; }
 };
 
 struct OutputBounds {
@@ -86,7 +86,7 @@ struct OutputBounds {
                OutputInterval intervalZ)
       : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ) {};
 
-  bool contains(double x, double y, double z) const {
+  [[nodiscard]] bool contains(double x, double y, double z) const {
     if (enabled) {
       return boundsX.contains(x) && boundsY.contains(y) && boundsZ.contains(z);
     } else {

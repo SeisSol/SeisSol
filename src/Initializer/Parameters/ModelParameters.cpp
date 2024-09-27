@@ -52,8 +52,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  const double freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-  const double freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
   if constexpr (isModelViscoelastic()) {
     if (freqRatio <= 0) {
       logError()

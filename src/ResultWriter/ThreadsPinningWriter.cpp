@@ -17,13 +17,16 @@
 #endif // __APPLE__
 
 #ifndef __APPLE__
-namespace seissol::writer::pinning::details {
+namespace {
+
+using namespace seissol::parallel;
+
 struct PinningInfo {
   std::string coreIds{};
   std::string numaIds{};
 };
 
-PinningInfo getPinningInfo(const cpu_set_t& set) {
+static PinningInfo getPinningInfo(const cpu_set_t& set) {
   std::stringstream coreIdsStream;
   std::stringstream numaIdsStream;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
@@ -56,21 +59,21 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 
   return pinningInfo;
 }
-} // namespace seissol::writer::pinning::details
+} // namespace
 #endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
 #ifndef __APPLE__
-  auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
+  auto workerInfo = getPinningInfo(pinning.getWorkerUnionMask().set);
 
-  seissol::writer::pinning::details::PinningInfo commThreadInfo;
+  PinningInfo commThreadInfo;
   if (seissol::useCommThread(seissol::MPI::mpi)) {
     auto freeCpus = pinning.getFreeCPUsMask();
-    commThreadInfo = pinning::details::getPinningInfo(freeCpus.set);
+    commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
     cpu_set_t emptyUnion;
     CPU_ZERO(&emptyUnion);
-    commThreadInfo = pinning::details::getPinningInfo(emptyUnion);
+    commThreadInfo = getPinningInfo(emptyUnion);
   }
 
   auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);

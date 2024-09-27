@@ -64,7 +64,7 @@ typedef struct Subfault_units {
   // NOLINTNEXTLINE
 } Subfault_units;
 
-typedef struct Subfault {
+using Subfault = struct Subfault {
   double tinit;
   double timestep;
   double mu;
@@ -72,7 +72,7 @@ typedef struct Subfault {
   Eigen::Vector3d tan1;
   Eigen::Vector3d tan2;
   Eigen::Vector3d normal;
-} Subfault;
+};
 
 using Offsets = std::array<unsigned, 3u>;
 

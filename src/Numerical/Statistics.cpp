@@ -51,7 +51,7 @@ auto seissol::statistics::parallelSummary(double value) -> Summary {
   if (rank == 0) {
     return Summary(collect);
   }
-  return Summary();
+  return {};
 #else
   return Summary(value);
 #endif

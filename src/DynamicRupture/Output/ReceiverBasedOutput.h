@@ -30,7 +30,7 @@ class ReceiverOutput {
                        std::shared_ptr<ReceiverOutputData> state,
                        double time = 0.0);
 
-  virtual std::vector<std::size_t> getOutputVariables() const;
+  [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};

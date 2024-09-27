@@ -54,10 +54,10 @@ inline int decodeBoundary(const void* data,
                           int face,
                           seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
-    const uint32_t* dataCasted = reinterpret_cast<const uint32_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
-    const uint64_t* dataCasted = reinterpret_cast<const uint64_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const int* dataCasted = reinterpret_cast<const int*>(data);

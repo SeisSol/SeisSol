@@ -69,8 +69,7 @@ namespace easi {
 class Component;
 } // namespace easi
 
-namespace seissol {
-namespace initializer {
+namespace seissol::initializer {
 constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
 
 class QueryGenerator;
@@ -115,13 +114,12 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
                                       const CellToVertexArray& cellToVertex);
-} // namespace initializer
-} // namespace seissol
+} // namespace seissol::initializer
 
 class seissol::initializer::QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
-  virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual easi::Query generate() const = 0;
 };
 
 class seissol::initializer::ElementBarycentreGenerator
@@ -129,7 +127,7 @@ class seissol::initializer::ElementBarycentreGenerator
   public:
   explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
       : m_cellToVertex(cellToVertex) {}
-  easi::Query generate() const override;
+  [[nodiscard]] easi::Query generate() const override;
 
   private:
   CellToVertexArray m_cellToVertex;
@@ -138,8 +136,8 @@ class seissol::initializer::ElementBarycentreGenerator
 class seissol::initializer::ElementAverageGenerator : public seissol::initializer::QueryGenerator {
   public:
   explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
-  easi::Query generate() const override;
-  const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
     return m_quadratureWeights;
   };
 
@@ -153,7 +151,7 @@ class seissol::initializer::FaultBarycentreGenerator : public seissol::initializ
   public:
   FaultBarycentreGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
       : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
-  easi::Query generate() const override;
+  [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& m_meshReader;
@@ -165,7 +163,7 @@ class seissol::initializer::FaultGPGenerator : public seissol::initializer::Quer
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
                    const std::vector<unsigned>& faceIDs)
       : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
-  easi::Query generate() const override;
+  [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& m_meshReader;

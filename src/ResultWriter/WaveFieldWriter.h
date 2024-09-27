@@ -80,13 +80,13 @@ class WaveFieldWriter
   seissol::SeisSol& seissolInstance;
 
   /** True if wave field output is enabled */
-  bool m_enabled;
+  bool m_enabled{false};
 
   /** The timestep component in the checkpoint header */
   DynStruct::Component<int> m_timestepComp;
 
   /** False if entire region is to be written */
-  bool isExtractRegionEnabled;
+  bool isExtractRegionEnabled{false};
 
   /** The asynchronous executor */
   WaveFieldWriterExecutor m_executor;
@@ -105,34 +105,34 @@ class WaveFieldWriter
 
   /** Number of variables */
 
-  unsigned int m_numVariables;
+  unsigned int m_numVariables{0};
 
   /** Number of integrated variables */
   unsigned int m_numIntegratedVariables;
 
   /** Flag indicated which variables should be written */
-  bool* m_outputFlags;
+  bool* m_outputFlags{nullptr};
 
   /** Flag indicated which low variables should be written */
-  bool* m_lowOutputFlags;
+  bool* m_lowOutputFlags{nullptr};
 
   /** Refined number of cells */
-  unsigned int m_numCells;
+  unsigned int m_numCells{0};
 
   /** Unrefined (low order) number of cells */
-  unsigned int m_numLowCells;
+  unsigned int m_numLowCells{0};
 
   /** Pointer to the degrees of freedom */
-  const real* m_dofs;
+  const real* m_dofs{nullptr};
 
   /** Pointer to the plastic strain */
-  const real* m_pstrain;
+  const real* m_pstrain{nullptr};
 
   /** Pointer to the integrals */
-  const real* m_integrals;
+  const real* m_integrals{nullptr};
 
   /** Mapping from the cell order to dofs order */
-  unsigned int* m_map;
+  unsigned int* m_map{nullptr};
 
   /** The stopwatch for the frontend */
   Stopwatch m_stopwatch;
@@ -158,10 +158,7 @@ class WaveFieldWriter
                                     std::map<int, int>& newToOldCellMap);
 
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), m_enabled(false), isExtractRegionEnabled(false),
-        m_numVariables(0), m_outputFlags(0L), m_lowOutputFlags(0L), m_numCells(0), m_numLowCells(0),
-        m_dofs(0L), m_pstrain(0L), m_integrals(0L), m_map(0L) {}
+  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output
@@ -171,7 +168,7 @@ class WaveFieldWriter
   /**
    * @return True if wave field output is enabled, false otherwise
    */
-  bool isEnabled() const { return m_enabled; }
+  [[nodiscard]] bool isEnabled() const { return m_enabled; }
 
   /**
    * Set the output prefix for the filename
@@ -226,12 +223,12 @@ class WaveFieldWriter
     m_stopwatch.printTime("Time wave field writer frontend:");
 
     delete[] m_outputFlags;
-    m_outputFlags = 0L;
+    m_outputFlags = nullptr;
     delete[] m_lowOutputFlags;
-    m_lowOutputFlags = 0L;
+    m_lowOutputFlags = nullptr;
     if (isExtractRegionEnabled) {
       delete[] m_map;
-      m_map = 0L;
+      m_map = nullptr;
     }
   }
 

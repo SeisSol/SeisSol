@@ -39,10 +39,10 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateVelocityWeakening:
     logError() << "friction law 7 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters,
                                                                       seissolInstance);

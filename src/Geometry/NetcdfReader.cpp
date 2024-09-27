@@ -80,7 +80,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   int ncVarBndElemRank = -1;
   int ncVarBndElemLocalIds = -1;
 
-  int* sizes = 0L;
+  int* sizes = nullptr;
   int maxSize = 0;
   if (masterRank == 0) {
 #ifdef NETCDF_PASSIVE
@@ -175,7 +175,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     sizes = new int[groupSize];
 
     for (int i = groupSize - 1; i >= 0; i--) {
-      const size_t start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, &start, &size));
@@ -212,14 +212,14 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
   m_elements.resize(sizes[0]);
 
-  ElemVertices* elemVertices = new ElemVertices[maxSize];
-  ElemNeighbors* elemNeighbors = new ElemNeighbors[maxSize];
-  ElemNeighborSides* elemNeighborSides = new ElemNeighborSides[maxSize];
-  ElemSideOrientations* elemSideOrientations = new ElemSideOrientations[maxSize];
-  ElemBoundaries* elemBoundaries = new ElemBoundaries[maxSize];
-  ElemNeighborRanks* elemNeighborRanks = new ElemNeighborRanks[maxSize];
-  ElemMPIIndices* elemMPIIndices = new ElemMPIIndices[maxSize];
-  ElemGroup* elemGroup = new ElemGroup[maxSize];
+  auto* elemVertices = new ElemVertices[maxSize];
+  auto* elemNeighbors = new ElemNeighbors[maxSize];
+  auto* elemNeighborSides = new ElemNeighborSides[maxSize];
+  auto* elemSideOrientations = new ElemSideOrientations[maxSize];
+  auto* elemBoundaries = new ElemBoundaries[maxSize];
+  auto* elemNeighborRanks = new ElemNeighborRanks[maxSize];
+  auto* elemMPIIndices = new ElemMPIIndices[maxSize];
+  auto* elemGroup = new ElemGroup[maxSize];
 
   //        SCOREP_USER_REGION_DEFINE( r_read_elements )
   //        SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements",
@@ -373,7 +373,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      const size_t start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarVrtxSize, &start, &size));
@@ -399,7 +399,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   }
 
   m_vertices.resize(sizes[0]);
-  VrtxCoords* vrtxCoords = new VrtxCoords[maxSize];
+  auto* vrtxCoords = new VrtxCoords[maxSize];
 
   //        SCOREP_USER_REGION_DEFINE( r_read_vertices )
   //        SCOREP_USER_REGION_BEGIN( r_read_vertices, "read_vertices",
@@ -457,7 +457,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      const size_t start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i + rank);
 
       int size;
       checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
@@ -589,7 +589,7 @@ void NetcdfReader::addMPINeighbor(int localID,
 }
 
 void NetcdfReader::findElementsPerVertex() {
-  for (std::vector<Element>::const_iterator i = m_elements.begin(); i != m_elements.end(); i++) {
+  for (auto i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
       m_vertices[i->vertices[j]].elements.push_back(i->localId);

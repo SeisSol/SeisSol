@@ -16,6 +16,13 @@
 #include <utils/logger.h>
 #include <vector>
 
+namespace {
+static double distance(const double v1[2], const double v2[2]) {
+  const Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
+  return (vector1 - vector2).norm();
+}
+} // namespace
+
 namespace seissol::dr {
 
 int getElementVertexId(int localSideId, int localFaceVertexId) {
@@ -99,11 +106,6 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   }
 
   return data;
-}
-
-double distance(const double v1[2], const double v2[2]) {
-  const Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
-  return (vector1 - vector2).norm();
 }
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],

@@ -105,7 +105,7 @@ class LTSTree : public LTSInternalNode {
     return *static_cast<TimeCluster*>(m_children[index].get());
   }
 
-  inline const TimeCluster& child(unsigned index) const {
+  [[nodiscard]] inline const TimeCluster& child(unsigned index) const {
     return *static_cast<TimeCluster*>(m_children[index].get());
   }
 
@@ -120,9 +120,9 @@ class LTSTree : public LTSInternalNode {
     return static_cast<T*>(varUntyped(handle.index, place));
   }
 
-  const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
+  [[nodiscard]] const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
 
-  inline unsigned getNumberOfVariables() const { return varInfo.size(); }
+  [[nodiscard]] inline unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
   void addVar(Variable<T>& handle,
@@ -245,14 +245,14 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
+  [[nodiscard]] const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
 
-  const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
+  [[nodiscard]] const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
 
-  size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
+  [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
     for (const auto& leaf : leaves(mask)) {
-      const size_t currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
+      const auto currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

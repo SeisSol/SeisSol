@@ -70,7 +70,7 @@ inline auto power(T base) -> T {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_floating_point<T>::value, T>::type square(T t) {
+inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
 }
 

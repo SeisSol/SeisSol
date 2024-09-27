@@ -42,7 +42,7 @@ struct ExtVrtxCoords {
     return coords[index];
   }
 
-  Eigen::Vector3d getAsEigen3LibVector() const {
+  [[nodiscard]] Eigen::Vector3d getAsEigen3LibVector() const {
     return Eigen::Vector3d(coords[0], coords[1], coords[2]);
   }
 
@@ -76,7 +76,7 @@ struct ExtTriangle {
     return points[index];
   }
 
-  ExtVrtxCoords point(size_t index) const {
+  [[nodiscard]] ExtVrtxCoords point(size_t index) const {
     assert((index < 3) && "ExtTriangle index must be less than 3");
     return points[index];
   }

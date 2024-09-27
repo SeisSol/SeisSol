@@ -69,7 +69,7 @@ class Stopwatch {
   struct timespec startTime;
 
   /** Time already spent */
-  long long time;
+  long long time{0};
 
   public:
   /**

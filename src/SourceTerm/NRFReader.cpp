@@ -49,11 +49,15 @@
 
 #include <cassert>
 
-void check_err(const int stat, const int line, const char* file) {
+namespace {
+
+static void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
+
+} // namespace
 
 void seissol::sourceterm::readNRF(const char* filename, NRF& nrf) {
   int ncid;

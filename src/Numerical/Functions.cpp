@@ -2,8 +2,7 @@
 #include <array>
 #include <cstdint>
 
-namespace seissol {
-namespace functions {
+namespace seissol::functions {
 
 uint64_t rangeProduct(uint64_t from, uint64_t to) {
   uint64_t product = 1;
@@ -185,5 +184,4 @@ std::array<double, 3u> gradDubinerP<3u>(const std::array<unsigned, 3u>& i,
   return gradTetraDubinerP(i, xi);
 }
 
-} // namespace functions
-} // namespace seissol
+} // namespace seissol::functions

@@ -47,19 +47,17 @@
 #include <array>
 #include <vector>
 
-namespace seissol {
-
-namespace writer {
+namespace seissol::writer {
 
 class PostProcessor {
   private:
   bool m_integrationMask[9];
-  int m_numberOfVariables;
+  int m_numberOfVariables{0};
   std::vector<int> m_integerMap;
   seissol::initializer::Variable<real> m_integrals;
 
   public:
-  PostProcessor() : m_numberOfVariables(0), m_integerMap(0L) {
+  PostProcessor() : m_integerMap(0L) {
     for (size_t i = 0; i < 9; i++) {
       m_integrationMask[i] = false;
     }
@@ -76,8 +74,6 @@ class PostProcessor {
   const real* getIntegrals(seissol::initializer::LTSTree* ltsTree);
 };
 
-} // namespace writer
-
-} // namespace seissol
+} // namespace seissol::writer
 
 #endif // POST_PROCESSOR_H

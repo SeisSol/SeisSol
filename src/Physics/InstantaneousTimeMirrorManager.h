@@ -16,7 +16,7 @@ namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
-  bool isEnabled;
+  bool isEnabled{false};
   double velocityScalingFactor{};
   double triggerTime{};
 
@@ -31,7 +31,7 @@ class InstantaneousTimeMirrorManager : Module {
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {};
+      : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,

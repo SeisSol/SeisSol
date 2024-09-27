@@ -21,7 +21,7 @@ class PointSourceCluster {
   virtual ~PointSourceCluster() = default;
   virtual void addTimeIntegratedPointSources(
       double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual unsigned size() const = 0;
+  [[nodiscard]] virtual unsigned size() const = 0;
 };
 
 struct PointSourceClusterPair {

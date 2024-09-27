@@ -57,7 +57,7 @@ class LoopStatistics {
 
   void addRegion(const std::string& name, bool includeInSummary = true);
 
-  unsigned getRegion(const std::string& name) const;
+  [[nodiscard]] unsigned getRegion(const std::string& name) const;
 
   void begin(unsigned region);
 

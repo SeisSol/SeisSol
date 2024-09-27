@@ -108,7 +108,7 @@ class Modules {
       hooks;
 
   /** The hook that should be called next */
-  ModuleHook nextHook;
+  ModuleHook nextHook{ModuleHook::FirstHook};
 
   private:
   Modules();

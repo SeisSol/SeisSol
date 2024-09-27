@@ -293,6 +293,8 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
             << newRealMeshFileName;
         return newRealMeshFileName;
       } else {
+        // (suppress preference for return move)
+        // NOLINTNEXTLINE
         return realMeshFileName;
       }
     }();

@@ -52,12 +52,12 @@ namespace seissol::initializer {
 class Node {
   protected:
   std::vector<std::shared_ptr<Node>> m_children;
-  Node* m_next;
+  Node* m_next{nullptr};
 
   void setPostOrderPointers(Node* previous = nullptr) {
-    for (unsigned child = 0; child < m_children.size(); ++child) {
-      m_children[child]->setPostOrderPointers(previous);
-      previous = m_children[child].get();
+    for (auto& child : m_children) {
+      child->setPostOrderPointers(previous);
+      previous = child.get();
     }
     if (previous != nullptr) {
       previous->m_next = this;
@@ -65,20 +65,20 @@ class Node {
   }
 
   public:
-  Node() : m_children(), m_next(nullptr) {}
+  Node() : m_children() {}
   virtual ~Node() = default;
 
   template <typename T>
   void setChildren(unsigned numChildren) {
     m_children.resize(numChildren);
-    for (unsigned child = 0; child < m_children.size(); ++child) {
-      m_children[child] = std::make_shared<T>();
+    for (auto& child : m_children) {
+      child = std::make_shared<T>();
     }
   }
 
-  inline bool isLeaf() const { return m_children.empty(); }
+  [[nodiscard]] inline bool isLeaf() const { return m_children.empty(); }
 
-  inline unsigned numChildren() const { return m_children.size(); }
+  [[nodiscard]] inline unsigned numChildren() const { return m_children.size(); }
 
   class Iterator {
 public:
@@ -151,29 +151,29 @@ protected:
     while (!start->isLeaf()) {
       start = start->m_children[0].get();
     }
-    assert(start == this || start->m_next != NULL);
-    return Iterator(start);
+    assert(start == this || start->m_next != nullptr);
+    return {start};
   }
 
   inline Iterator end() {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
-    return Iterator(this->m_next);
+    return {this->m_next};
   }
 
-  inline ConstIterator begin() const {
+  [[nodiscard]] inline ConstIterator begin() const {
     const Node* start = this;
     while (!start->isLeaf()) {
       start = start->m_children[0].get();
     }
-    assert(start == this || start->m_next != NULL);
-    return ConstIterator(start);
+    assert(start == this || start->m_next != nullptr);
+    return {start};
   }
 
-  inline ConstIterator end() const {
+  [[nodiscard]] inline ConstIterator end() const {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
-    return ConstIterator(this->m_next);
+    return {this->m_next};
   }
 };
 

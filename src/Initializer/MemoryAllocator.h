@@ -106,7 +106,7 @@ class AlignedArray {
   inline const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  constexpr std::size_t size() const noexcept { return N; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
 
   private:
   alignas(Alignment) T data_[N];
@@ -231,7 +231,7 @@ class MemkindArray {
   inline const T* end() const noexcept { return dataPtr + capacity; }
   constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
-  constexpr std::size_t size() const noexcept { return capacity; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
 
   private:
   T* dataPtr{nullptr};

@@ -78,7 +78,7 @@ struct Receiver {
 };
 
 struct DerivedReceiverQuantity {
-  virtual std::vector<std::string> quantities() const = 0;
+  [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
                        std::vector<real>&,
                        seissol::init::QAtPoint::view::type&,
@@ -86,7 +86,7 @@ struct DerivedReceiverQuantity {
 };
 
 struct ReceiverRotation : public DerivedReceiverQuantity {
-  std::vector<std::string> quantities() const override;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
                std::vector<real>&,
                seissol::init::QAtPoint::view::type&,
@@ -94,7 +94,7 @@ struct ReceiverRotation : public DerivedReceiverQuantity {
 };
 
 struct ReceiverStrain : public DerivedReceiverQuantity {
-  std::vector<std::string> quantities() const override;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
                std::vector<real>&,
                seissol::init::QAtPoint::view::type&,
@@ -127,7 +127,7 @@ class ReceiverCluster {
 
   inline std::vector<Receiver>::iterator end() { return m_receivers.end(); }
 
-  size_t ncols() const;
+  [[nodiscard]] size_t ncols() const;
 
   void allocateData();
   void freeData();

@@ -1,5 +1,14 @@
 # TODO: enable as much as possible from modernize, performance, and readability
 
+# TODO: enable
+# * modernize-use-trailing-return-type
+# * modernize-pass-by-value
+# * modernize-loop-convert
+# * modernize-deprecated-headers
+# maybe even
+# * modernize-avoid-c-arrays
+# * modernize-return-braced-init-list
+
 Checks: |
   -*,
   clang-diagnostic-*,
@@ -12,8 +21,14 @@ Checks: |
   -misc-non-private-member-variables-in-classes,
   -misc-unused-parameters,
   -misc-no-recursion,
-  modernize-use-override,
-  modernize-use-equals-default,
+  modernize-*,
+  -modernize-avoid-c-arrays,
+  -modernize-deprecated-headers,
+  -modernize-loop-convert,
+  -modernize-pass-by-value,
+  -modernize-return-braced-init-list,
+  -modernize-use-trailing-return-type,
+  mpi-*,
   performance-*,
   -performance-enum-size,
   -performance-avoid-endl,
