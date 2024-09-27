@@ -1,0 +1,62 @@
+name: build-seissol-gpu-intel
+on:
+  - push
+
+jobs:
+  seissol:
+    name: seissol
+    runs-on: ubuntu-24.04
+    container: seissol/gha-gpu-intel:davschneller-gpu-image
+    strategy:
+      fail-fast: false
+      matrix:
+        order:
+          - 6
+        arch:
+          - hsw
+        build_type:
+          - Release
+          - Debug
+        equation:
+          - elastic
+          - anisotropic
+        precision:
+          - single
+          - double
+        gpu:
+          - arch: skl
+            backend: oneapi
+            syclcc: dpcpp
+        compiler:
+          - cc: icx
+            cxx: icpx
+            fc: ifx
+    steps:
+      - name: checkout-seissol
+        uses: actions/checkout@v4
+
+      - id: build
+        name: build-seissol
+        run: |
+          git config --global --add safe.directory '*'
+          git submodule update --init --recursive
+          mkdir build && cd build
+          if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
+              mechanisms=3
+          else
+              mechanisms=0
+          fi
+
+          # TODO: change to `-Wall -Werror` at some point
+          EXTRA_FLAGS="-Wall"
+
+          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
+          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
+          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
+
+          export CC=${{matrix.compiler.cc}}
+          export CXX=${{matrix.compiler.cxx}}
+          export FC=${{matrix.compiler.fc}}
+
+          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.gpu.backend}} -DDEVICE_ARCH=${{matrix.gpu.arch}} -DSYCL_CC=${{matrix.gpu.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          ninja
