@@ -108,7 +108,7 @@ RUN wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && 
 
 # ACPP
 RUN apt-get install -y libboost-all-dev && \
-    git clone --recursive --depth 1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git gitbuild && \
+    git clone --recursive --depth 1 --branch v24.02.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
     cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=OFF -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=ON -DWITH_LEVEL_ZERO_BACKEND=OFF -DDEFAULT_TARGETS=cuda:sm_60 && \
     ninja install && \
