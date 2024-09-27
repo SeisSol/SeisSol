@@ -886,7 +886,7 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (auto& layer : m_dynRupTree.leaves(Ghost)) {
-    drRecorder.record(*m_dynRup, *it);
+    drRecorder.record(*m_dynRup, layer);
   }
 }
 #endif // ACL_DEVICE
