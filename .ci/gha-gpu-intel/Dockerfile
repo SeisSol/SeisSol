@@ -4,7 +4,7 @@
 
 # ## boilerplate
 
-FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
+FROM intel/hpckit:2024.2.1-0-devel-ubuntu22.04
 
 ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
@@ -39,16 +39,29 @@ RUN apt-get update -y && apt-get upgrade -y && \
     libreadline-dev \
     libxml2-dev \
     software-properties-common \
-    python3.10 python3-dev python3-pip \
+    python3 python3-dev python3-pip \
     python3-setuptools python3-numpy python3-scipy \
-    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build
+    libeigen3-dev libyaml-cpp-dev ninja-build \
+    numactl libnuma-dev
+
+# (Par)METIS
+
+RUN wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz && \
+    tar -xvf parmetis-4.0.3.tar.gz && \
+    cd parmetis-4.0.3 && \
+    sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h && \
+    make config cc=mpiicx cxx=mpiicpx prefix=/usr && \
+    make install -j $(nproc) && \
+    cp build/Linux-x86_64/libmetis/libmetis.a /usr/lib && \
+    cp metis/include/metis.h /usr/include && \
+    cd .. && rm -rf parmetis-4.0.3
 
 # ## IO
 
 # HDF5
 RUN wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.3/src/hdf5-1.12.3.tar.bz2 && \
     tar -xf hdf5-1.12.3.tar.bz2 && cd hdf5-1.12.3 && \
-    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpiicx CXX=mpiicpx ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
     make -j $(nproc) install && \
     cd .. && rm -rf hdf5-1.12.3
 
@@ -78,7 +91,7 @@ mkdir -p gitbuild/build && cd gitbuild/build && \
 # Lua
 RUN wget https://www.lua.org/ftp/lua-5.3.6.tar.gz && \
     tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6/ &&\
-    make linux CC=mpicc && make local && \
+    make linux && make local && \
     cp -r install/* /usr && \
     cd .. && rm -rf lua-5.3.6
 

@@ -42,6 +42,13 @@ jobs:
             cxx: clang++-18
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-nv:davschneller-gpu-image
+          - arch: sm_60
+            backend: cuda
+            syclcc: acpp
+            cc: nvc
+            cxx: nvc++
+            fc: nvfortran
+            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           - arch: gfx906
             backend: hip
             syclcc: acpp
@@ -59,10 +66,9 @@ jobs:
           - arch: skl
             backend: oneapi
             syclcc: dpcpp
-            compiler:
             cc: icx
             cxx: icpx
-            fc: gfortran-13 # TODO?
+            fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
     steps:
       - name: checkout-seissol

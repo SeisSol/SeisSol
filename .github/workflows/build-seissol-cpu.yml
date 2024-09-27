@@ -33,15 +33,19 @@ jobs:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-cpu:sha-44e8ec6
+            container: seissol/gha-cpu:davschneller-gpu-image
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
-            container: seissol/gha-cpu:sha-44e8ec6
+            container: seissol/gha-cpu:davschneller-gpu-image
           - cc: icx
             cxx: icpx
-            fc: gfortran-13 # TODO?
+            fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
+          - cc: nvc
+            cxx: nvc++
+            fc: nvfortran
+            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
       - name: checkout-seissol
         uses: actions/checkout@v4

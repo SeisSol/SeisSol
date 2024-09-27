@@ -19,6 +19,7 @@ jobs:
           - gha-gpu-nv
           - gha-gpu-amd
           - gha-gpu-intel
+          - gha-gpu-nvhpc
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
