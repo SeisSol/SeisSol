@@ -53,7 +53,7 @@ gpu_build:
         - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
         - for PRECISION in double single; do
             mkdir -p ./build_${BACKEND}_${PRECISION}_${EQUATION} && cd ./build_${BACKEND}_${PRECISION}_${EQUATION} ;
-            cmake ..
+            cmake .. -GNinja
             -DCMAKE_BUILD_TYPE=Release
             -DDEVICE_BACKEND=${BACKEND}
             -DDEVICE_ARCH=${GPU_MODEL}

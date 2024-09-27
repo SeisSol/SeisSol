@@ -57,7 +57,7 @@ build_seissol:
           mkdir -p $dirname && cd $dirname ;
           pwd;
           CMAKE_PREFIX_PATH=~ ;
-          cmake ..
+          cmake .. -GNinja
           -DNETCDF=ON
           -DMETIS=ON
           -DCOMMTHREAD=OFF
