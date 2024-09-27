@@ -9,41 +9,10 @@ variables:
     GPU_MODEL: "sm_60"
 
 stages:
-    - pre_build
     - build 
     - test
     - check
     - performance_eval
-
-gpu_pre_build:
-    stage: pre_build
-    allow_failure: false
-    variables:
-        GIT_STRATEGY: clone
-    tags:
-        - sccs
-        - build
-    before_script:
-        - git branch -vva
-        - echo $commit_author_name
-    script:
-        - echo "HOST arch.:" $HOST
-        - echo "GPU model:" $GPU_MODEL
-        - mkdir ./self_usr
-        - git clone https://github.com/uphoffc/ImpalaJIT.git impalajit &&
-          mkdir -p impalajit/build && cd impalajit/build &&
-          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
-          make -j $(nproc) install &&
-          cd ../..
-        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git easi &&
-          mkdir -p easi/build && cd easi/build &&
-          cmake .. -DASAGI=OFF -DIMPALAJIT=ON -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
-          make -j $(nproc) install &&
-          cd ../..
-    artifacts:
-        paths:
-            - ./self_usr
-        expire_in: 2 days
 
 .common_gpu_test_script: &common_gpu_steps
     - export CTEST_OUTPUT_ON_FAILURE=1
@@ -66,8 +35,6 @@ gpu_build:
     tags:
         - sccs
         - gpubuild
-    needs:
-        - job: gpu_pre_build
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
@@ -95,7 +62,7 @@ gpu_build:
             -DEQUATIONS=${EQUATION}
             -DNUMBER_OF_MECHANISMS=${MECHANISMS}
             -DPROXY_PYBINDING=ON ;
-            make -j $(nproc);
+            ninja;
             cd .. ;
           done;
         - set +u

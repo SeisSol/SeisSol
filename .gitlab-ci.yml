@@ -4,10 +4,10 @@ stages:
   - post-test
 
 variables:
-  cpu_image_name: "cpu-ci-image"
-  cpu_image_version: "v0.0.6"
+  cpu_image_name: "gha-cpu"
+  cpu_image_version: "sha-44e8ec6"
   gpu_image_name: "gpu-ci-image"
-  gpu_image_version: "v0.0.5"
+  gpu_image_version: "v0.1.0"
 
 Building_Docker_Images:
   stage: build

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 show_help() {
-  echo "Usage - does_image_exist.sh ubuntu 18.04"
+  echo "Usage - does_image_exist.sh ubuntu 24.04"
 }
 
 if [[ -z $1 ]]; then

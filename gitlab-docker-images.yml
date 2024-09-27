@@ -52,36 +52,13 @@ build-images:
   script:
     # cf. https://docs.gitlab.com/ee/ci/docker/using_kaniko.html
     - >
-      if [ $CPU_EXISTS == 0 ]; then
-        mkdir -p /kaniko/.docker ;
-        export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
-        echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
-        export full_image_name="${CI_REGISTRY_USER}/${cpu_image_name}:${cpu_image_version}" ;
-        echo "Building CPU image: ${full_image_name} (published then using ${CI_REGISTRY_LOCATION} )" ;
-        /kaniko/executor --context "${CI_PROJECT_DIR}" --build-arg "SEISSOL_SHA_COMMIT=$CI_COMMIT_SHA" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-cpu/Dockerfile.base" --destination "${full_image_name}" ;
-      else
-        echo "No CPU image changes; skipping build."
-      fi
-    - >
       if [ $GPU_COMPILER_EXISTS == 0 ]; then
         mkdir -p /kaniko/.docker ;
         export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
         echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
-        export full_compiler_image_name="${CI_REGISTRY_USER}/gpu-ci-compiler-image:${gpu_image_version}" ;
-        echo "Building GPU compiler image: ${full_compiler_image_name} (published then using ${CI_REGISTRY_LOCATION} )" ;
-        /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-gpu/Dockerfile.compilers" --destination "${full_compiler_image_name}" ;
+        export full_image_name="${CI_REGISTRY_USER}/${gpu_image_name}:${gpu_image_version}" ;
+        echo "Building GPU compiler image: ${gpu_image_name} (published then using ${CI_REGISTRY_LOCATION} )" ;
+        /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-gpu/Dockerfile" --destination "${full_image_name}" ;
       else
         echo "No GPU compiler image changes; skipping build."
-      fi
-    - >
-      if [ $GPU_EXISTS == 0 ]; then
-        mkdir -p /kaniko/.docker ;
-        export CI_REGISTRY_LOCATION="https://index.docker.io/v1/" ;
-        echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
-        export full_image_name="${CI_REGISTRY_USER}/${gpu_image_name}:${gpu_image_version}" ;
-        export full_compiler_image_name="${CI_REGISTRY_USER}/gpu-ci-compiler-image:${gpu_image_version}" ;
-        echo "Building GPU image: ${full_image_name} (published then using ${CI_REGISTRY_LOCATION} )" ;
-        /kaniko/executor --context "${CI_PROJECT_DIR}" --build-arg "BASE_IMAGE_NAME=$full_compiler_image_name" --build-arg "SEISSOL_SHA_COMMIT=$CI_COMMIT_SHA" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-gpu/Dockerfile.base" --destination "${full_image_name}" ;
-      else
-        echo "No GPU image changes; skipping build."
       fi

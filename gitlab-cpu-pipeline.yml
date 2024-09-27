@@ -74,7 +74,7 @@ build_seissol:
           -DDR_QUAD_RULE=stroud
           -DGEMM_TOOLS_LIST=LIBXSMM
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
-          make -j $(nproc);
+          ninja;
           cd .. ;
           
     artifacts:
@@ -109,7 +109,7 @@ run_unit_tests:
         - ls
         - cd $DIR
         - export CTEST_OUTPUT_ON_FAILURE=1
-        - make test
+        - ninja test
     retry: 2
 
 run_tpv:
