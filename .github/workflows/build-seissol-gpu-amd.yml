@@ -31,8 +31,8 @@ jobs:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-          - cc: clang-19
-            cxx: clang++-19
+          - cc: clang-18
+            cxx: clang++-18
             fc: gfortran-13 # TODO?
     steps:
       - name: checkout-seissol

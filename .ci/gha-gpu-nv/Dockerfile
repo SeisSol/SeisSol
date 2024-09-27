@@ -97,18 +97,19 @@ RUN pip3 install --break-system-packages git+https://github.com/SeisSol/PSpaMM.g
 RUN pip3 install --break-system-packages git+https://github.com/SeisSol/gemmforge.git
 RUN pip3 install --break-system-packages git+https://github.com/SeisSol/chainforge.git
 
-# clang-19
+# clang-18
 RUN wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
     apt-key add llvm-snapshot.gpg.key && \
     rm -f llvm-snapshot.gpg.key && \
-    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
-    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
+    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
+    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
     apt-get -y update && \
-    apt-get -y install libllvm19 llvm-19 llvm-19-dev clang-19 clang-tidy-19 libclang-19-dev libomp-19-dev
+    apt-get -y install libllvm18 llvm-18 llvm-18-dev clang-18 clang-tidy-18 libclang-18-dev libomp-18-dev lld-18
 
+# NOTE: ACPP up to v24.06.0 is incompatible with clang-19
 # ACPP
 RUN apt-get install -y libboost-all-dev && \
-    git clone --recursive --depth 1 --branch v24.02.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git gitbuild && \
+    git clone --recursive --depth 1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
     cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=OFF -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=ON -DWITH_LEVEL_ZERO_BACKEND=OFF -DDEFAULT_TARGETS=cuda:sm_60 && \
     ninja install && \
