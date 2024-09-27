@@ -31,11 +31,11 @@ class GenericTableEntry {
   GenericTableEntry(const GenericTableEntry& other)
       : hostVector(other.hostVector), deviceDataPtr(nullptr) {
     if (!hostVector.empty()) {
-      if (other.devicePtrs != nullptr) {
+      if (other.deviceDataPtr != nullptr) {
         deviceDataPtr = static_cast<PointerType>(
-            device.api->allocGlobMem(other.pointers.size() * sizeof(Type)));
+            device.api->allocGlobMem(other.hostVector.size() * sizeof(Type)));
         device.api->copyBetween(
-            deviceDataPtr, other.devicePtrs, other.pointers.size() * sizeof(Type));
+            deviceDataPtr, other.deviceDataPtr, other.hostVector.size() * sizeof(Type));
       }
     }
   }
