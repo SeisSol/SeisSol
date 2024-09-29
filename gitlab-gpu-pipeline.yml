@@ -4,7 +4,7 @@ default:
         entrypoint: [""]
 
 variables:
-    HOST: "noarch" # actually possible: snb
+    HOST: "snb"
     GPU_VENDOR: "nvidia"
     GPU_MODEL: "sm_60"
 
@@ -48,7 +48,7 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - pip3 install git+https://github.com/SeisSol/gemmforge.git@v0.0.207
+        - if [ "$BACKEND" = hipsycl ]; then pip3 uninstall --break-system-packages git+https://github.com/SeisSol/chainforge.git; fi;
         - set -euo pipefail
         - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
         - for PRECISION in double single; do
@@ -87,7 +87,7 @@ gpu_convergence_test:
     script:
         - *common_gpu_steps
         - git clone https://github.com/SeisSol/Examples.git tests
-        - pip3 install -r ./tests/convergence_elastic/requirements.txt
+        - pip3 --break-system-packages install -r ./tests/convergence_elastic/requirements.txt
         - set -euo pipefail
         - for PRECISION in double single; do
             if [ "$PRECISION" = single ]; then LPREC=s; fi;
@@ -171,7 +171,7 @@ check_faultoutput:
               tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
               BACKEND: [cuda]
     before_script:
-        - pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+        - pip3 --break-system-packages install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
     script: 
         - echo "check TPV${tpv} with ${PRECISION} PRECISION and ${BACKEND} backend"
         - ls
@@ -196,7 +196,7 @@ check_receivers:
               tpv: [5, 5-nuc, 6, 13, 101, 101-slip, 104, ahsp]
               BACKEND: [cuda]
     before_script:
-        - pip3 install pandas
+        - pip3 --break-system-packages install pandas
     script:
         - echo "check TPV${tpv}"
         - ls
@@ -222,7 +222,7 @@ gpu_check_energies:
               tpv: [5, 5-nuc, 6, 13, 16, 101, 101-slip, 104]
               BACKEND: [cuda]
     before_script:
-        - pip3 install pandas
+        - pip3 --break-system-packages install pandas
     script:
         - echo "check TPV${tpv}"
         - ls
@@ -251,7 +251,7 @@ gpu_performance_test:
         - for PRECISION in double single; do
             echo "[${BACKEND}] Running SeiSol proxy with PRECISION - ${PRECISION}" ;
             cd ./build_${BACKEND}_${PRECISION}_elastic ;
-            pip3 install -r ./proxy-runners/requirements.txt ;
+            pip3 --break-system-packages install -r ./proxy-runners/requirements.txt ;
             python3 ./proxy-runners/run-all.py -c 25000 -t 100 ;
             cat ./proxy_*.pd ;
             cd .. ;

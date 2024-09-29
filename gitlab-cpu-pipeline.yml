@@ -169,6 +169,8 @@ check_faultoutput:
         matrix:
             - precision: [double, single]
               tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+    before_script:
+        - pip3 --break-system-packages install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -192,6 +194,8 @@ check_receivers:
         matrix:
             - precision: [double, single]
               tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 101, 101-slip, 104, 105, ahsp, yoffe, gaussian]
+    before_script:
+        - pip3 --break-system-packages install pandas
     script: 
         - echo "check TPV${tpv}"
         - ls
@@ -217,6 +221,8 @@ check_energies:
         matrix:
             - precision: [double, single]
               tpv: [5, 5-nuc, 5-poro, 5-visco, 6, 13, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+    before_script:
+        - pip3 --break-system-packages install pandas
     script: 
         - echo "check TPV${tpv}"
         - ls
