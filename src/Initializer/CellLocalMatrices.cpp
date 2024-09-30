@@ -199,6 +199,23 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        auto isSpecialBC = [&cellInformation, cell](int side) {
+          auto hasDRFace = [](const CellLocalInformation& ci) {
+            bool hasAtLeastOneDRFace = false;
+            for (size_t i = 0; i < 4; ++i) {
+              if (ci.faceTypes[i] == FaceType::dynamicRupture) {
+                hasAtLeastOneDRFace = true;
+              }
+            }
+            return hasAtLeastOneDRFace;
+          };
+          const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+          const auto neighborID = cellInformation[cell].faceNeighborIds[side];
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformation[neighborID]);
+          const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+          return (cellInformation[cell].faceTypes[side] == FaceType::regular) && adjacentDRFaceExists;
+        };
+
         const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
         const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
         const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
@@ -218,20 +235,28 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        // localKrnl.QgodLocal = QgodLocalData;
-        localKrnl.QgodLocal = centralFluxData;
-        localKrnl.QcorrLocal = rusanovPlusData;
+        if (isSpecialBC(side)) {
+          localKrnl.QgodLocal = centralFluxData;
+          localKrnl.QcorrLocal = rusanovPlusData;
+        } else {
+          localKrnl.QgodLocal = QgodLocalData;
+          localKrnl.QcorrLocal = rusanovPlusNull;
+        }
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        // neighKrnl.QgodNeighbor = QgodNeighborData;
-        neighKrnl.QgodNeighbor = centralFluxData;
-        neighKrnl.QcorrNeighbor = rusanovMinusData;
+        if (isSpecialBC(side)) {
+          neighKrnl.QgodNeighbor = centralFluxData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
+        } else {
+          neighKrnl.QgodNeighbor = QgodNeighborData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
+        }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
