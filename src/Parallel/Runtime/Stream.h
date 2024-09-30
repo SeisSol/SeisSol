@@ -21,16 +21,17 @@ class StreamRuntime {
 
   public:
   static constexpr size_t RingbufferSize = 4;
+  static constexpr size_t EventbufferSize = 100; // >= 16 needed at the moment
 
   StreamRuntime() : disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
-    forkEvents.resize(RingbufferSize);
-    joinEvents.resize(RingbufferSize);
+    events.resize(EventbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
       ringbufferPtr[i] = device().api->createGenericStream();
-      forkEvents[i] = device().api->createEvent();
-      joinEvents[i] = device().api->createEvent();
+    }
+    for (size_t i = 0; i < EventbufferSize; ++i) {
+      events[i] = device().api->createEvent();
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -38,9 +39,6 @@ class StreamRuntime {
     for (size_t i = 0; i < RingbufferSize; ++i) {
       allStreams[i + 1] = ringbufferPtr[i];
     }
-
-    forkEventSycl = device().api->createEvent();
-    joinEventSycl = device().api->createEvent();
   }
 
   void dispose() {
@@ -48,11 +46,10 @@ class StreamRuntime {
       device().api->destroyGenericStream(streamPtr);
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
-        device().api->destroyEvent(forkEvents[i]);
-        device().api->destroyEvent(joinEvents[i]);
       }
-      device().api->destroyEvent(forkEventSycl);
-      device().api->destroyEvent(joinEventSycl);
+      for (size_t i = 0; i < EventbufferSize; ++i) {
+        device().api->destroyEvent(events[i]);
+      }
       disposed = true;
     }
   }
@@ -84,16 +81,38 @@ class StreamRuntime {
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
+#ifdef SEISSOL_KERNELS_HIP
+    if (captureState) {
+      const std::size_t base = captureStreams.size();
+      for (size_t i = 0; i < std::min(count, RingbufferSize); ++i) {
+        captureStreams.emplace_back(device().api->createGenericStream());
+        void* event = getEvent();
+        device().api->recordEventOnStream(event, streamPtr);
+        device().api->syncStreamWithEvent(captureStreams[i + base], event);
+      }
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, captureStreams[base + (i % RingbufferSize)], i);
+      }
+      for (size_t i = 0; i < std::min(count, RingbufferSize); ++i) {
+        void* event = getEvent();
+        device().api->recordEventOnStream(event, captureStreams[i + base]);
+        device().api->syncStreamWithEvent(streamPtr, event);
+      }
+      return;
+    }
+#endif
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(forkEvents[i], streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, streamPtr);
+      device().api->syncStreamWithEvent(ringbufferPtr[i], event);
     }
     for (size_t i = 0; i < count; ++i) {
       std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
     }
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(joinEvents[i], ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, joinEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, ringbufferPtr[i]);
+      device().api->syncStreamWithEvent(streamPtr, event);
     }
   }
 
@@ -108,11 +127,19 @@ class StreamRuntime {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     if (!computeGraphHandle) {
+      // TODO: remove captureState once ROCm is stable enough
       device().api->streamBeginCapture(allStreams);
+      captureState = true;
 
       std::invoke(std::forward<F>(handler), *this);
 
+      captureState = false;
       device().api->streamEndCapture();
+
+      for (auto* stream : captureStreams) {
+        device().api->destroyGenericStream(stream);
+      }
+      captureStreams.resize(0);
 
       computeGraphHandle = device().api->getLastGraphHandle();
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
@@ -133,28 +160,21 @@ class StreamRuntime {
   void syncToSycl(void* queue);
   void syncFromSycl(void* queue);
 
-  /*
-  // disabled unless using a modern compiler
-    template <typename F>
-    void envOMP(omp_depend_t& depobj, F&& handler) {
-      syncToOMP(depobj);
-      std::invoke(handler);
-      syncFromOMP(depobj);
-    }
-
-    void syncToOMP(omp_depend_t& depobj);
-    void syncFromOMP(omp_depend_t& depobj);
-  */
+  void* getEvent() {
+    void* event = events.at(eventPos);
+    eventPos = (eventPos + 1) % events.size();
+    return event;
+  }
 
   private:
   bool disposed;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> forkEvents;
-  std::vector<void*> joinEvents;
-  void* forkEventSycl;
-  void* joinEventSycl;
+  std::vector<void*> events;
+  std::size_t eventPos{0};
+  bool captureState{false};
+  std::vector<void*> captureStreams;
 #else
   public:
   void wait() {}
