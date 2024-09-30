@@ -100,7 +100,21 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
   const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";
 
-  const double etaHack = outputReader->readWithDefault("etahack", 1.0);
+  const double etaHack = [&]() {
+    const auto hackRead1 = reader->read<double>("etahack");
+    if (hackRead1.has_value()) {
+      return hackRead1.value();
+    } else {
+      const auto hackRead2 = outputReader->read<double>("etahack");
+      if (hackRead2.has_value()) {
+        logWarning(seissol::MPI::mpi.rank())
+            << "Reading the etahack parameter from the output section is deprecated and may be "
+               "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
+               "section instead.";
+      }
+      return hackRead2.value_or(1.0);
+    }
+  }();
 
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 

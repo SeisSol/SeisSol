@@ -201,7 +201,9 @@ CpuMask Pinning::getWorkerUnionMask() {
     CPU_ZERO(&worker);
     sched_getaffinity(0, sizeof(cpu_set_t), &worker);
 #pragma omp critical
-    { CPU_OR(&workerUnion, &workerUnion, &worker); }
+    {
+      CPU_OR(&workerUnion, &workerUnion, &worker);
+    }
   }
 #else
   sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
