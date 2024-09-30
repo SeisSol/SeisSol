@@ -342,7 +342,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         vtkproj.qb = dofsSingleQuantity;
         vtkproj.xf(order) = target;
         vtkproj.collvf(ConvergenceOrder, order, side) =
-            init::collvf::Values[ConvergenceOrder + (ConvergenceOrder + 1) * (order + 8 * side)];
+            init::collvf::Values[ConvergenceOrder + (ConvergenceOrder + 1) * (order + 9 * side)];
         vtkproj.execute(order, side);
       });
     }

@@ -14,27 +14,30 @@ def addKernels(generator, aderdg, matricesDir, targets=['cpu']):
 
         # the following is due to a shortcut in Yateto where 1-column matrices are interpreted as rank-1 vectors
 
+        maxOrder = 8
+        rangeLimit = maxOrder + 1
+
         qb = Tensor('qb', (aderdg.numberOf3DBasisFunctions(),))
         pb = Tensor('pb', (aderdg.numberOf2DBasisFunctions(),))
         pn = Tensor('pn', (aderdg.numberOf2DBasisFunctions(),))
-        xv = [Tensor(f'xv({i})', (((i+1)*(i+2)*(i+3))//6,)) for i in range(8)]
-        xf = [Tensor(f'xf({i})', (((i+1)*(i+2))//2,)) for i in range(8)]
+        xv = [Tensor(f'xv({i})', (((i+1)*(i+2)*(i+3))//6,)) for i in range(rangeLimit)]
+        xf = [Tensor(f'xf({i})', (((i+1)*(i+2))//2,)) for i in range(rangeLimit)]
 
         generator.addFamily(f'{name_prefix}projectBasisToVtkVolume',
-                  simpleParameterSpace(8),
+                  simpleParameterSpace(rangeLimit),
                   lambda i: xv[i]['p'] <= vtko.byName(f'collvv({aderdg.order},{i})')['pb'] * qb['b'],
                   target=target)
         generator.addFamily(f'{name_prefix}projectBasisToVtkFace',
-                  simpleParameterSpace(8),
+                  simpleParameterSpace(rangeLimit),
                   lambda i: xf[i]['p'] <= vtko.byName(f'collff({aderdg.order},{i})')['pb'] * pb['b'],
                   target=target)
         generator.addFamily(f'{name_prefix}projectNodalToVtkFace',
-                  simpleParameterSpace(8),
+                  simpleParameterSpace(rangeLimit),
                   lambda i: xf[i]['p'] <= vtko.byName(f'collff({aderdg.order},{i})')['pb'] * aderdg.db.MV2nTo2m['bm'] * pn['m'],
                   target=target)
 
         generator.addFamily(f'{name_prefix}projectBasisToVtkFaceFromVolume',
-                    simpleParameterSpace(8, 4),
+                    simpleParameterSpace(rangeLimit, 4),
                   lambda i,j: xf[i]['p'] <= vtko.byName(f'collvf({aderdg.order},{i},{j})')['pb'] * qb['b'],
                   target=target)
 
