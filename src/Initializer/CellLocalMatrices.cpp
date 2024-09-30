@@ -203,7 +203,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           auto hasDRFace = [](const CellLocalInformation& ci) {
             bool hasAtLeastOneDRFace = false;
             for (size_t i = 0; i < 4; ++i) {
-              if (ci.faceTypes[i] == FaceType::dynamicRupture) {
+              if (ci.faceTypes[i] == FaceType::DynamicRupture) {
                 hasAtLeastOneDRFace = true;
               }
             }
@@ -213,7 +213,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           const auto neighborID = cellInformation[cell].faceNeighborIds[side];
           const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformation[neighborID]);
           const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
-          return (cellInformation[cell].faceTypes[side] == FaceType::regular) && adjacentDRFaceExists;
+          return (cellInformation[cell].faceTypes[side] == FaceType::Regular) && adjacentDRFaceExists;
         };
 
         const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
@@ -255,7 +255,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           neighKrnl.QcorrNeighbor = rusanovMinusData;
         } else {
           neighKrnl.QgodNeighbor = QgodNeighborData;
-          neighKrnl.QcorrNeighbor = rusanovMinusData;
+          neighKrnl.QcorrNeighbor = rusanovMinusNull;
         }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
