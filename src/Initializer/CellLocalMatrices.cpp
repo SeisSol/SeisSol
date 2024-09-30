@@ -126,6 +126,9 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+
+    real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+    real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
     
 #ifdef _OPENMP
     #pragma omp for schedule(static)
@@ -196,10 +199,28 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
+        const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
+        const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
+
+        real centralFluxData[tensor::QgodLocal::size()]{};
+        real rusanovPlusData[tensor::QcorrLocal::size()]{};
+        real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+        auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+        auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
+        auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+        for (size_t i = 0; i < 9; i++) {
+          centralFluxView(i, i) = 0.5;
+          rusanovPlusView(i, i) = wavespeed * 0.5;
+          rusanovMinusView(i, i) = -wavespeed * 0.5;
+        }
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        localKrnl.QgodLocal = QgodLocalData;
+        // localKrnl.QgodLocal = QgodLocalData;
+        localKrnl.QgodLocal = centralFluxData;
+        localKrnl.QcorrLocal = rusanovPlusData;
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
@@ -208,13 +229,15 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
+        // neighKrnl.QgodNeighbor = QgodNeighborData;
+        neighKrnl.QgodNeighbor = centralFluxData;
+        neighKrnl.QcorrNeighbor = rusanovMinusData;
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
             cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-          // Already rotated!
+          // already rotated
           neighKrnl.Tinv = init::identityT::Values;
         }
         neighKrnl.execute();
