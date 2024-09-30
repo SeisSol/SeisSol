@@ -48,7 +48,8 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - if [ "$BACKEND" = hipsycl ]; then pip3 uninstall --break-system-packages git+https://github.com/SeisSol/chainforge.git; fi;
+        - if [ "$BACKEND" = hipsycl ]; then pip3 uninstall -y --break-system-packages chainforge; fi;
+        - export HIP_PATH=/opt/rocm
         - set -euo pipefail
         - if [ "$EQUATION" = viscoelastic2 ]; then MECHANISMS=3; else MECHANISMS=0; fi;
         - for PRECISION in double single; do
@@ -61,7 +62,7 @@ gpu_build:
             -DPRECISION=${PRECISION}
             -DEQUATIONS=${EQUATION}
             -DNUMBER_OF_MECHANISMS=${MECHANISMS}
-            -DPROXY_PYBINDING=ON ;
+            -DPROXY_PYBINDING=OFF ;
             ninja;
             cd .. ;
           done;

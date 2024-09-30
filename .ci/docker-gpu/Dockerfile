@@ -119,7 +119,7 @@ RUN apt-get install -y libboost-all-dev && \
 RUN apt-get install -y libnuma-dev gnupg2 && \
     wget https://repo.radeon.com/amdgpu-install/6.2/ubuntu/noble/amdgpu-install_6.2.60200-1_all.deb && \
     apt install -y ./amdgpu-install_6.2.60200-1_all.deb && \
-    amdgpu-install -y --usecase=hip --no-dkms && \
+    amdgpu-install -y --usecase=hiplibsdk --no-dkms && \
     rm ./amdgpu-install_6.2.60200-1_all.deb && \
     echo 'export PATH=$PATH:/opt/rocm/bin:/opt/rocm/rocprofiler/bin:/opt/rocm/opencl/bin' | tee -a /etc/profile.d/rocm.sh && \
     echo 'export HIPCC_VERBOSE=7' | tee -a /etc/profile.d/rocm.sh && \

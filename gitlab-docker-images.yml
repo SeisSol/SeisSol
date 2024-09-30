@@ -7,7 +7,7 @@ default:
     - sccs
     - imagebuild
   image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
+    name: gcr.io/kaniko-project/executor:v1.3.0-debug
     entrypoint: [""]
 
 check-images:
@@ -58,7 +58,7 @@ build-images:
         echo "{\"auths\":{\"$CI_REGISTRY_LOCATION\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json ;
         export full_image_name="${CI_REGISTRY_USER}/${gpu_image_name}:${gpu_image_version}" ;
         echo "Building GPU compiler image: ${gpu_image_name} (published then using ${CI_REGISTRY_LOCATION} )" ;
-        /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-gpu/Dockerfile" --destination "${full_image_name}" ;
+        /kaniko/executor --force --single-snapshot=true --cache=false --use-new-run --cleanup --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/.ci/docker-gpu/Dockerfile" --destination "${full_image_name}" ;
       else
         echo "No GPU compiler image changes; skipping build."
       fi
