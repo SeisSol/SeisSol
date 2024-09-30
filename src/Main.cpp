@@ -130,7 +130,9 @@ int main(int argc, char* argv[]) {
   }
 
 #pragma omp parallel
-  { LIKWID_MARKER_START("SeisSol"); }
+  {
+    LIKWID_MARKER_START("SeisSol");
+  }
 
   EPIK_TRACER("SeisSol");
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -200,7 +202,9 @@ int main(int argc, char* argv[]) {
   }
 
 #pragma omp parallel
-  { LIKWID_MARKER_STOP("SeisSol"); }
+  {
+    LIKWID_MARKER_STOP("SeisSol");
+  }
 
   LIKWID_MARKER_CLOSE;
   // Finalize SeisSol

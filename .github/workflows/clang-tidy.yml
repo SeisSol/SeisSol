@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 name: clang-tidy
 on:
   - push
@@ -5,22 +9,22 @@ on:
 jobs:
   clang-tidy:
     name: clang-tidy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-103 libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
+          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
 
           # keep, for once clang-19 or higher is needed
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
-          sudo add-apt-repository "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main"
           sudo apt-get update
 
           sudo apt-get -y install clang-18 clang-tidy-18 libomp-18-dev
 
-          sudo pip3 install numpy
+          sudo pip3 install numpy --break-system-packages
           sudo mkdir -p /opt/dependencies
 
       - name: checkout-libxsmm
