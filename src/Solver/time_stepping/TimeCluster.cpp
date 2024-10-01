@@ -395,10 +395,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   // local integration buffer
-  real l_integrationBuffer[tensor::I::size()] alignas(Alignment);
 
   // pointer for the call of the ADER-function
-  real* l_bufferPointer;
 
   real** buffers = i_layerData.var(m_lts->buffers);
   real** derivatives = i_layerData.var(m_lts->derivatives);
@@ -406,12 +404,16 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
-#ifdef _OPENMP
-  #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer), firstprivate(tmp) schedule(static)
-#endif
+// #ifdef _OPENMP
+//   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer), firstprivate(tmp) schedule(static)
+// #endif
   for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
+    real* l_bufferPointer;
+    real l_integrationBuffer[tensor::I::size()] alignas(Alignment) = {0.0};
+    kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+
+
     auto data = loader.entry(l_cell);
 
     // We need to check, whether we can overwrite the buffer or if it is
@@ -433,13 +435,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
     m_timeKernel.computeAder(timeStepSize(),
                              data,
-                             tmp,
+                             tmp, // only for gravitational stuff
                              l_bufferPointer,
                              derivatives[l_cell],
                              true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping); // again not used for us, only dirichilet and gravitational stuff
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,

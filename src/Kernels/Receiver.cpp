@@ -141,8 +141,6 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 double ReceiverCluster::calcReceivers(
     double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
 
-  std::size_t ncols = this->ncols();
-
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;
@@ -159,13 +157,13 @@ double ReceiverCluster::calcReceivers(
     // heuristic; to avoid the overhead from the parallel region
     auto threshold = std::max(1000, omp_get_num_threads() * 100);
     auto recvCount = m_receivers.size();
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (recvCount >= threshold)
-#endif
+// #ifdef _OPENMP
+// #pragma omp parallel for schedule(static) if (recvCount >= threshold)
+// #endif
     for (size_t i = 0; i < recvCount; ++i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(Alignment) real timeEvaluated[tensor::Q::size()] = {0.0};
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()] = {0.0};
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()] = {0.0};
 #ifdef USE_STP
       alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
@@ -175,7 +173,7 @@ double ReceiverCluster::calcReceivers(
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.spaceTimePredictor = stp;
 #else
-      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] = {0.0};
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;

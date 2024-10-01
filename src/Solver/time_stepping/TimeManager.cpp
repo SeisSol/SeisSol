@@ -291,11 +291,13 @@ void seissol::time_stepping::TimeManager::setFaultOutputManager(std::array<std::
   for(auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
-} // (TO DISCUSS: Modify to a vector and deal with writing separately)
+}
 
-std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS> seissol::time_stepping::TimeManager::getFaultOutputManager() {
-  for(unsigned int i = 0 ; i < MULTIPLE_SIMULATIONS; i++)
-{  assert(m_faultOutputManager[i] != nullptr); }
+std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>
+    seissol::time_stepping::TimeManager::getFaultOutputManager() {
+  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    assert(m_faultOutputManager[i] != nullptr);
+  }
   return m_faultOutputManager;
 }
 

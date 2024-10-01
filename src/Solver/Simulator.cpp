@@ -145,7 +145,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     }
 
     // update the DOFs
-    computeStopwatch.start();
+    computeStopwatch.start(); // everything seems same until here, need to go inside advance in Time now
     seissolInstance.timeManager().advanceInTime( upcomingTime );
     computeStopwatch.pause();
 
