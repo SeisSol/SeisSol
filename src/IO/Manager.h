@@ -23,14 +23,6 @@ class OutputManager : public seissol::Module {
   public:
   OutputManager(SeisSol& seissolInstance);
 
-  void setup() {
-    Modules::registerHook(*this, ModuleHook::PostMPIInit);
-    Modules::registerHook(*this, ModuleHook::Shutdown);
-  }
-
-  void postMPIInit() override;
-  void shutdown() override;
-
   void addOutput(const writer::ScheduledWriter& writer);
 
   // TODO: de-couple checkpoint loading/writing (forward the CheckpointManager)

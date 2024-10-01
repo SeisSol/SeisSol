@@ -646,7 +646,7 @@ void EnergyOutput::printEnergies() {
                     << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
                     << " ," << totalMomentumZ;
     } else {
-      logInfo(rank) << std::setprecision(outputPrecision) << "Volume energies skipped at this step";
+      logInfo(rank) << "Volume energies skipped at this step";
     }
 
     if (totalFrictionalWork) {

@@ -108,6 +108,7 @@ class VtkHdfWriter {
       const std::string&, double)>>
       instructions;
   std::size_t type;
+  std::size_t targetDegree;
   const static inline std::string GroupName = "VTKHDF";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";

@@ -25,14 +25,6 @@ void OutputManager::addOutput(const writer::ScheduledWriter& writer) {
   modules.back()->startup();
 }
 
-void OutputManager::postMPIInit() {
-  // init ASYNC here
-}
-
-void OutputManager::shutdown() {
-  // uninit ASYNC here
-}
-
 double OutputManager::loadCheckpoint(const std::string& path) {
   return checkpointManager.loadCheckpoint(path);
 }

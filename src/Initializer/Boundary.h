@@ -24,9 +24,6 @@ struct Boundary {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
   }
-
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) {}
 };
 
 } // namespace seissol::initializer

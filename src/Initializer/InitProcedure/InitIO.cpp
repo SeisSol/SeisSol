@@ -66,13 +66,6 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
-  /*  {
-      auto* tree = seissolInstance.getMemoryManager().getBoundaryTree();
-      checkpoint.registerTree("boundary", tree, nullptr);
-      seissolInstance.getMemoryManager().getBoundary()->registerCheckpointVariables(checkpoint,
-    tree);
-    }*/
-
   if (seissolInstance.getCheckpointLoadFile().has_value()) {
     const double time = seissolInstance.getOutputManager().loadCheckpoint(
         seissolInstance.getCheckpointLoadFile().value());
@@ -105,7 +98,6 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
 
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
-    // seissolInstance.getOutputManager().addOutput(WaveField);
     // record the clustering info i.e., distribution of elements within an LTS tree
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());

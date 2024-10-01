@@ -33,7 +33,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
   protected:
   void initTimeCaching() override {
-    outputData->maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
+    outputData->maxCacheLevel = ElementWiseBuilder::MaxAllowedCacheLevel;
     outputData->currentCacheLevel = 0;
   }
 
@@ -63,9 +63,9 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const auto& element = elementsInfo[elementIdx];
 
           // store coords of vertices of the current ELEMENT
-          constexpr size_t numVertices{4};
-          std::array<const double*, numVertices> elementVerticesCoords{};
-          for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          constexpr size_t NumVertices{4};
+          std::array<const double*, NumVertices> elementVerticesCoords{};
+          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
             auto globalVertexIdx = element.vertices[vertexIdx];
             elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
           }
@@ -124,9 +124,9 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const auto& element = elementsInfo[elementIdx];
 
           // store coords of vertices of the current ELEMENT
-          constexpr size_t numVertices{4};
-          std::array<const double*, numVertices> vertices{};
-          for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          constexpr size_t NumVertices{4};
+          std::array<const double*, NumVertices> vertices{};
+          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
             auto globalVertexIdx = element.vertices[vertexIdx];
             vertices[vertexIdx] = verticesInfo[globalVertexIdx].coords;
           }
@@ -169,7 +169,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  inline const static size_t maxAllowedCacheLevel = 1;
+  inline const static size_t MaxAllowedCacheLevel = 1;
 
   private:
   seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams;

@@ -274,7 +274,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   recvOffsets = recvResult.first;
   recvReorder = recvResult.second;
 
-  // selftest (maybe only activate for debug?)
+  // selftest
   {
     std::vector<std::size_t> targetCompare(targetIds.size());
     distribute(targetCompare.data(), sourceIds.data());
