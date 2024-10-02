@@ -27,7 +27,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
 
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (true && rank == 0) {
+  if (printPlan && rank == 0) {
     logInfo(rank) << "Printing current plan:" << std::string(strData, strData + size);
   }
 
