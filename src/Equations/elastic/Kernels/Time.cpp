@@ -263,9 +263,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // real epsInitzx = -0e-1; // eps_zx0
 
   // zero initial stress
-    real epsInitxx = -0.0; // eps_xx0
-    real epsInityy = -0.0; // eps_yy0
-    real epsInitzz = -0.0; // eps_zz0
+    real epsInitxx = -1.0e-20; // eps_xx0
+    real epsInityy = -1.0e-20; // eps_yy0
+    real epsInitzz = -1.0e-20; // eps_zz0
     real epsInitxy = -0.0; // eps_xy0
     real epsInityz = -0e-1; // eps_yz0
     real epsInitzx = -0e-1; // eps_zx0

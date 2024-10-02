@@ -253,9 +253,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             // eyzNodal[q] = -0e-1; // eps_yy0
             // ezxNodal[q] = -0e-1; // eps_zz0
 
-            exxNodal[q] = 0.0; // eps_xx0
-            eyyNodal[q] = 0.0; // eps_yy0
-            ezzNodal[q] = 0.0; // eps_zz0
+            exxNodal[q] = -1.0e-20; // eps_xx0
+            eyyNodal[q] = -1.0e-20; // eps_yy0
+            ezzNodal[q] = -1.0e-20; // eps_zz0
             exyNodal[q] = 0.0; // eps_xx0
             eyzNodal[q] = -0e-1; // eps_yy0
             ezxNodal[q] = -0e-1; // eps_zz0
