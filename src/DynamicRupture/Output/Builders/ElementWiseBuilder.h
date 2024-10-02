@@ -89,7 +89,6 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
       faultRefiner.reset(nullptr);
     } else {
       const auto order = elementwiseParams.vtkorder;
-      logInfo(localRank) << "Initializing fault field output. Order:" << order;
 
       const auto numFaultElements = meshReader->getFault().size();
 
