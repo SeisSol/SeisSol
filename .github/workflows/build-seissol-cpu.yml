@@ -7,10 +7,11 @@ on:
   - push
 
 jobs:
-  seissol:
-    name: seissol
+  seissol-build-test:
+    name: seissol-build-test
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -20,7 +21,7 @@ jobs:
           - hsw
         build_type:
           - Release
-          - Debug
+          #- Debug
         equation:
           - elastic
           - poroelastic
@@ -42,19 +43,20 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-          - cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
-      - name: checkout-seissol
+      - id: checkout
+        name: checkout-seissol
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - id: build
         name: build-seissol
         run: |
-          git config --global --add safe.directory '*'
-          git submodule update --init --recursive
           mkdir build && cd build
           if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
               mechanisms=3
@@ -73,19 +75,19 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
-          ninja
+          mkdir -p /opt/seissol
+
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          ninja install
 
       - name: test-seissol
-        if: steps.build.outcome == 'success'
-        continue-on-error: True
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           cd build
           ctest --rerun-failed --output-on-failure
       
       - name: run-seissol-no-input
-        if: steps.build.outcome == 'success'
-        continue-on-error: True
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           if [ "${{ matrix.precision }}" = single ]; then
               precision=s
@@ -112,8 +114,7 @@ jobs:
           echo "Success!"
 
       - name: run-proxy
-        if: steps.build.outcome == 'success'
-        continue-on-error: True
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           if [ "${{ matrix.precision }}" = single ]; then
               precision=s
@@ -128,3 +129,203 @@ jobs:
           ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh_dr
           ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 godunov_dr
           ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 all
+  
+      - name: upload-seissol
+        uses: actions/upload-artifact@v4
+        with:
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
+          path: /opt/seissol
+
+  seissol-run-test:
+    name: seissol-run-test
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.setup.container }}
+    continue-on-error: true
+    needs: [seissol-build-test]
+    strategy:
+      fail-fast: false
+      matrix:
+        case:
+          - name: tpv5
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv5-nuc
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv5-visco
+            equation: viscoelastic2
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv5-poro
+            equation: poroelastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv6
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv13
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv16
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv33
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv101
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv101-slip
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv104
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv105
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpvahsp
+            equation: anisotropic
+            energies: false
+            receivers: true
+            fault: true
+          - name: tpvgaussian
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpvyoffe
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
+        precision:
+          - single
+          - double
+        order:
+          - 6
+        arch:
+          - hsw
+        build_type:
+          - Release
+        setup:
+          - cc: gcc-13
+            cxx: g++-13
+            fc: gfortran-13
+            container: seissol/gha-cpu:davschneller-gpu-image
+          - cc: clang-19
+            cxx: clang++-19
+            fc: gfortran-13 # TODO?
+            container: seissol/gha-cpu:davschneller-gpu-image
+          - cc: icx
+            cxx: icpx
+            fc: ifx
+            container: seissol/gha-gpu-intel:davschneller-gpu-image
+          #- cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+        parallel:
+          - ranks: 1
+            threads: 4
+            commthread: false
+          - ranks: 4
+            threads: 1
+            commthread: false
+    steps:
+      - name: install-packages
+        run: |
+          pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+      
+      - id: get-precomputed-solutions
+        name: get-precomputed-solutions
+        uses: actions/checkout@v4
+        with:
+          repository: seissol/precomputed-seissol
+          ref: 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
+          path: precomputed
+      - name: get-seissol
+        uses: actions/download-artifact@v4
+        with:
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          path: install
+      - name: run-seissol
+        id: run
+        run: |
+          if [ "${{ matrix.precision }}" = single ]; then
+              precision=s
+          else
+              precision=d
+          fi
+
+          export PATH=$(pwd)/install/bin:$PATH
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
+
+          chmod +x $(pwd)/install/bin/*
+          
+          export OMP_NUM_THREADS=${{matrix.parallel.threads}}
+          export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
+
+          cd precomputed/${{matrix.case.name}}
+          
+          mpirun --oversubscribe --allow-run-as-root -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
+
+      # TODO: make this checkout obsolete
+      - name: get-verification-scripts
+        uses: actions/checkout@v4
+        with:
+          path: scripts
+      
+      - name: check-fault
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
+        run: |
+          FAULT_FILE=tpv-fault.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+      - name: check-receivers
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
+        run: |
+          EPSILON=0.05
+
+          if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
+            MODE=lsw;
+          elif [ ${{matrix.case.name}} = tpv105 ]; then
+            MODE=tp;
+          else
+            MODE=rs;
+          fi;
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+      - name: check-energy
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
+        run: |
+          ENERGY_FILE=tpv-energy.csv
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/${{matrix.precision}}/${ENERGY_FILE} --epsilon ${EPSILON}

@@ -5,8 +5,8 @@
 name: build-container
 
 on:
-  #- workflow_dispatch
-  - push
+  - workflow_dispatch
+  # - push
 
 jobs:
   build:

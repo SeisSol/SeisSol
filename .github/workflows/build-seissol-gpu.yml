@@ -7,8 +7,8 @@ on:
   - push
 
 jobs:
-  seissol:
-    name: seissol
+  seissol-build-test:
+    name: seissol-build-test
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     strategy:
@@ -73,12 +73,12 @@ jobs:
     steps:
       - name: checkout-seissol
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - id: build
         name: build-seissol
         run: |
-          git config --global --add safe.directory '*'
-          git submodule update --init --recursive
           mkdir build && cd build
           if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
               mechanisms=3
