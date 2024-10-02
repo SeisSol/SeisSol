@@ -45,6 +45,7 @@
 
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Parameters/ModelParameters.h"
 #include "Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
@@ -80,7 +81,8 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
-                                                         TimeStepping const&    timeStepping )
+                                                         TimeStepping const&    timeStepping,
+                                                         const parameters::ModelParameters& modelParameters )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
@@ -232,10 +234,13 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           rusanovMinusView(i, i) = -wavespeed * 0.5;
         }
 
+        const auto flux = isSpecialBC(side) ?
+          modelParameters.fluxNearFault : modelParameters.flux;
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        if (isSpecialBC(side)) {
+        if (flux == parameters::NumericalFlux::Rusanov) {
           localKrnl.QgodLocal = centralFluxData;
           localKrnl.QcorrLocal = rusanovPlusData;
         } else {
@@ -250,7 +255,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        if (isSpecialBC(side)) {
+        if (flux == parameters::NumericalFlux::Rusanov) {
           neighKrnl.QgodNeighbor = centralFluxData;
           neighKrnl.QcorrNeighbor = rusanovMinusData;
         } else {

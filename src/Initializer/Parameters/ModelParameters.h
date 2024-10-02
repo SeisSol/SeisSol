@@ -51,6 +51,8 @@ struct ITMParameters {
   ReflectionType itmReflectionType;
 };
 
+enum class NumericalFlux { Godunov, Rusanov };
+
 struct ModelParameters {
   bool hasBoundaryFile;
   bool plasticity;
@@ -62,6 +64,8 @@ struct ModelParameters {
   std::string boundaryFileName;
   std::string materialFileName;
   ITMParameters itmParameters;
+  NumericalFlux flux;
+  NumericalFlux fluxNearFault;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
