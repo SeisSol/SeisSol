@@ -434,7 +434,7 @@ void Time::computeBatchedIntegral(double expansionPoint,
   intKrnl.execute();
   device.api->popStackMemory();
 #else
-  seissol::kernels::time::aux::taylorSum(true, numElements, timeIntegratedDofs, timeDerivatives, deltaTLower, deltaTUpper, device.api->getDefaultStream());
+  seissol::kernels::time::aux::taylorSum(true, numElements, timeIntegratedDofs, timeDerivatives, deltaTLower, deltaTUpper, runtime.stream());
 #endif
 #else
   assert(false && "no implementation provided");
@@ -507,7 +507,7 @@ void Time::computeBatchedTaylorExpansion(real time,
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
 #else
-  seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, device.api->getDefaultStream());
+  seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, runtime.stream());
 #endif
 #else
   assert(false && "no implementation provided");
