@@ -120,7 +120,7 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 {
 private:
     // Last correction time of the neighboring cluster with higher dt
-    double lastSubTime;
+    double lastSubTime = 0.0;
 
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
     void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -145,7 +145,9 @@ private:
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
     
-    kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
+    // kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
+
+    std::array<kernels::DynamicRupture, MULTIPLE_SIMULATIONS> m_dynamicRuptureKernel; // to avoid data race conditions
 
     seissol::parallel::runtime::StreamRuntime streamRuntime;
 

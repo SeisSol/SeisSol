@@ -109,8 +109,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   derivativeExpr_DR = [I_DR['kp'] <= power_DR * dQ0_DR['kp']]
   derivativeTaylorExpansion_DR = power_DR*dQ0_DR['kp']
 
-  dQs_DR = [dQ0_DR]
-
   for i in range(1, aderdg.order):
     power_DR = powers_DR[i]
     derivativeSum_DR = Add()
@@ -120,10 +118,11 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     derivativeSum_DR = DeduceIndices(QuantitiesSingleSim['kp'].indices).visit(derivativeSum_DR)
     derivativeSum_DR = EquivalentSparsityPattern().visit(derivativeSum_DR)
     dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=False)
-    dQs_DR.append(dQ_DR)
     derivativeTaylorExpansion_DR += power_DR * dQ_DR['kp']
 
     derivatives_DR.append(dQ_DR)
+  
+
   
   derivativeTaylorExpansion_DR = I_DR['kp'] <= derivativeTaylorExpansion_DR
   for target in targets:

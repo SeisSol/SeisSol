@@ -135,20 +135,16 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   assert( ((uintptr_t)timeDerivativeMinus) % Alignment == 0 );
   assert( ((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0 );
   assert( ((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0 );
-  static_assert( tensor::Q::size() == tensor::I::size() );
+  static_assert( tensor::Q::size() == tensor::I::size() , "The tensors Q and I need to match in size");
 #endif
 
 // DEBUG: check this if this give the same output as master
 
-// #ifdef MULTIPLE_SIMULATIONS
-//   logError() << "Dynamic Rupture does not work with multiple simulations"; // (TO DISCUSS: what changes are required for the kernel)
-// #endif
-
   // alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()]; //(DEBUG: Need to change size of this)
   // alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()]; // Same
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()]; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()] = {0.0}; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()] = {0.0};
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
@@ -160,8 +156,8 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     // m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     // m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 
-    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus); // Need to check what is going into timeDerivativePlus here mainly given that the data is probably for the entire fused simulation and interleaved
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus); // Need to check what is going into timeDerivativeMinus here mainly given that the data is probably for the entire fused simulation and interleaved
     // This function does correct things if correct things go inside it
 #endif
 

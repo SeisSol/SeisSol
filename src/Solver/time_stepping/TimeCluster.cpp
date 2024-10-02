@@ -77,6 +77,7 @@
 #include <Initializer/tree/Layer.hpp>
 #include <Initializer/typedefs.hpp>
 #include <array>
+#include <equation-elastic-3-double/tensor.h>
 #include <memory>
 #include <tensor.h>
 #include <Common/Executor.hpp>
@@ -169,8 +170,10 @@ seissol::time_stepping::TimeCluster::TimeCluster(
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
   m_neighborKernel.setGlobalData(i_globalData);
-  m_dynamicRuptureKernel.setGlobalData(i_globalData); // (Don't need multiple dynamic rupture kernels)
-
+  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    m_dynamicRuptureKernel[i].setGlobalData(
+        i_globalData); // (Don't need multiple dynamic rupture kernels)
+  }
   computeFlops();
 
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
@@ -239,8 +242,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>& layerData ) {
   bool layerzero = true;
 
-  for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
-  if (layerData[i]->getNumberOfCells() > 0) layerzero = false;
+  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    if (layerData[i]->getNumberOfCells() > 0)
+      layerzero = false;
   }
 
   if(layerzero) return;
@@ -256,43 +260,56 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
   std::array<real**, MULTIPLE_SIMULATIONS> timeDerivativePlus;
   std::array<real**, MULTIPLE_SIMULATIONS> timeDerivativeMinus;
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedPlus;
-  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;
+  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;  
+  int dQ_DR_Size = 0;
+  for (unsigned int i = 0; i < CONVERGENCE_ORDER; i++) {
+    dQ_DR_Size += tensor::dQ_DR::size(i);
+  }
 
-  m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize()); // (have only one kernel, do only once)
 
   for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
-    
     faceInformation[i] = layerData[i]->var(m_dynRup[i]->faceInformation);
     godunovData[i] = layerData[i]->var(m_dynRup[i]->godunovData);
     drEnergyOutput[i] = layerData[i]->var(m_dynRup[i]->drEnergyOutput);
-    timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus);
-    timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);
+    timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus); // Is this interleafed or is this normal?
+    timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);// Is this interleafed or is this normal?
+
     qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus); // Is this interleafed or is this normal?
     qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus); // Is this interleafed or is this normal?
-    frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel.timePoints);
+    m_dynamicRuptureKernel[i].setTimeStepWidth(timeStepSize()); 
+    frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel[i].timePoints);
   }
 
-#pragma omp parallel 
-  {
-  LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
-  }
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
+// #pragma omp parallel 
+  // {
+  // LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
+  // }
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+// #ifdef _OPENMP
+//   #pragma omp parallel for schedule(static)
+// #endif
     for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
+      std::vector<real> timeDerivativePlusDR(dQ_DR_Size, 0.0);
+      std::vector<real> timeDerivativeMinusDR(dQ_DR_Size, 0.0);
+      for(unsigned int j = 0; j < dQ_DR_Size; j++){
+        timeDerivativePlusDR[j] = timeDerivativePlus[i][face][j*MULTIPLE_SIMULATIONS + i];
+        timeDerivativeMinusDR[j] = timeDerivativeMinus[i][face][j*MULTIPLE_SIMULATIONS + i];
+      }
       unsigned prefetchFace = (face < layerData[i]->getNumberOfCells() - 1) ? face + 1 : face;
-      m_dynamicRuptureKernel.spaceTimeInterpolation(
+      m_dynamicRuptureKernel[i].spaceTimeInterpolation(
           faceInformation[i][face],
           m_globalDataOnHost,
           &godunovData[i][face],
           &drEnergyOutput[i][face],
-          timeDerivativePlus[i][face], // wave propagation part
-          timeDerivativeMinus[i][face],
+          // timeDerivativePlus[i][face], // wave propagation part
+          // timeDerivativeMinus[i][face],
+          timeDerivativePlusDR.data(),
+          timeDerivativeMinusDR.data(),
           qInterpolatedPlus[i][face], // DR part
           qInterpolatedMinus[i][face],
           timeDerivativePlus[i][prefetchFace],
           timeDerivativeMinus[i][prefetchFace]);
+    logInfo() << "Random Debug Statement";
     }
   }
   SCOREP_USER_REGION_END(myRegionHandle)
@@ -304,7 +321,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel.timeWeights, streamRuntime);
+    frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel[i].timeWeights, streamRuntime);
   }
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
@@ -382,7 +399,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(
 
   for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
     long long faceNonZeroFlops, faceHardwareFlops;
-    m_dynamicRuptureKernel.flopsGodunovState(faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
+    m_dynamicRuptureKernel[i].flopsGodunovState(faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
     nonZeroFlops += faceNonZeroFlops;
     hardwareFlops += faceHardwareFlops;
   }
@@ -790,7 +807,7 @@ void TimeCluster::correct() { // Here, need to think what to do
    *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
    *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
    */
-  double subTimeStart = ct.correctionTime - lastSubTime;
+  double subTimeStart = ct.correctionTime - lastSubTime; // This is significantly different, lastSubTime -> almost zero in fused, but a huge value in master
 
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
