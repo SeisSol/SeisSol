@@ -178,19 +178,22 @@ message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
 if (DEVICE_ARCH MATCHES "sm_*")
     set(DEVICE_VENDOR "nvidia")
-    set(PREMULTIPLY_FLUX_DEFAULT ON)
+    set(IS_NVIDIA_OR_AMD ON)
 elseif(DEVICE_ARCH MATCHES "gfx*")
     set(DEVICE_VENDOR "amd")
-    set(PREMULTIPLY_FLUX_DEFAULT ON)
+    set(IS_NVIDIA_OR_AMD ON)
 else()
     # TODO(David): adjust as soon as we add support for more vendors
     set(DEVICE_VENDOR "intel")
-    set(PREMULTIPLY_FLUX_DEFAULT OFF)
+    set(IS_NVIDIA_OR_AMD OFF)
 endif()
 
 if (WITH_GPU)
-    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
-    option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ON)
+    # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
+    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
+
+    # experimental kernels should stay experimental; they've only be sort of tested on NV+AMD hardware for now
+    option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ${IS_NVIDIA_OR_AMD})
 endif()
 
 
