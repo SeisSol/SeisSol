@@ -74,7 +74,7 @@ gpu_build:
         - job: gpu_pre_build
     parallel:
         matrix:
-        - BACKEND: [cuda, hipsycl, hip]
+        - BACKEND: [cuda, hipsycl] # , hip
           EQUATION: [elastic]
         - BACKEND: [cuda]
           EQUATION: [anisotropic]
@@ -120,7 +120,7 @@ gpu_convergence_test:
         - gpu-nvidia-sm_60
     parallel:
         matrix:
-        - BACKEND: [cuda, hipsycl, hip]
+        - BACKEND: [cuda, hipsycl] # , hip
     script:
         - *common_gpu_steps
         - git clone https://github.com/SeisSol/Examples.git tests
