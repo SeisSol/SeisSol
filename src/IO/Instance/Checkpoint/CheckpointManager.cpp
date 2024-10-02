@@ -76,6 +76,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   void* datastore = std::malloc(1);
 
   logInfo(seissol::MPI::mpi.rank()) << "Loading checkpoint...";
+  logInfo(seissol::MPI::mpi.rank()) << "Checkpoint file:" << file;
 
   auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
   reader.openFile(file);

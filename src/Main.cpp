@@ -197,7 +197,6 @@ int main(int argc, char* argv[]) {
   if (args.isSet("checkpoint")) {
     const auto checkpointFile = args.getArgument<const char*>("checkpoint");
     seissolInstance.loadCheckpoint(checkpointFile);
-    logInfo(rank) << "Using the checkpoint file" << checkpointFile;
   }
 
   // run SeisSol

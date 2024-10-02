@@ -277,7 +277,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   // selftest
   {
     std::vector<std::size_t> targetCompare(targetIds.size());
-    distribute(targetCompare.data(), sourceIds.data());
+    distribute(targetCompare.data(), sourceIds.data()).complete();
     for (std::size_t i = 0; i < targetIds.size(); ++i) {
       assert(targetIds[i] == targetCompare[i]);
       if (targetIds[i] != targetCompare[i]) {

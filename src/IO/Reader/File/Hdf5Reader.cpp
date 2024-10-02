@@ -36,7 +36,13 @@ Hdf5Reader::Hdf5Reader(MPI_Comm comm) : comm(comm) {}
 void Hdf5Reader::checkExistence(const std::string& name, const std::string& type) {
   if (handles.empty()) {
     // we're opening a file, i.e. we'd need to check for the existence here
+  } else if (type == "attribute") {
+    // TODO: change type to enum
+    if (_eh(H5Aexists(handles.top(), name.c_str())) == 0) {
+      logError() << "The " << type.c_str() << name << "does not exist in the given Hdf5 file.";
+    }
   } else {
+    // groups + datasets
     if (_eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT)) == 0) {
       logError() << "The " << type.c_str() << name << "does not exist in the given Hdf5 file.";
     }
@@ -63,7 +69,7 @@ void Hdf5Reader::openGroup(const std::string& name) {
   handles.push(handle);
 }
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
-  checkExistence(name, "atttribute");
+  checkExistence(name, "attribute");
   const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t attrspace = _eh(H5Aget_space(attr));
   const hid_t rank = _eh(H5Sget_simple_extent_ndims(attrspace));
@@ -76,7 +82,7 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
 void Hdf5Reader::readAttributeRaw(void* data,
                                   const std::string& name,
                                   std::shared_ptr<datatype::Datatype> type) {
-  checkExistence(name, "atttribute");
+  checkExistence(name, "attribute");
   const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
