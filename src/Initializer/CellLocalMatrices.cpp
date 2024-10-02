@@ -99,6 +99,8 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
+  const auto*       cellInformationAll         = io_ltsTree->var(i_lts->cellInformation);
+
   for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
@@ -201,8 +203,8 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
-        auto isSpecialBC = [&cellInformation, cell](int side) {
-          auto hasDRFace = [](const CellLocalInformation& ci) {
+        const auto isSpecialBC = [&cellInformation, &cellInformationAll, cell](int side) {
+          const auto hasDRFace = [](const CellLocalInformation& ci) {
             bool hasAtLeastOneDRFace = false;
             for (size_t i = 0; i < 4; ++i) {
               if (ci.faceTypes[i] == FaceType::DynamicRupture) {
@@ -213,7 +215,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           };
           const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
           const auto neighborID = cellInformation[cell].faceNeighborIds[side];
-          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformation[neighborID]);
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformationAll[neighborID]);
           const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
           return (cellInformation[cell].faceTypes[side] == FaceType::Regular) && adjacentDRFaceExists;
         };
