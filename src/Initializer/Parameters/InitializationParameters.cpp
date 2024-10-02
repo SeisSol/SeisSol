@@ -2,6 +2,7 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
+#include <cstddef>
 #include <limits>
 
 namespace seissol::initializer::parameters {
@@ -31,7 +32,7 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto kVecRaw = seissol::initializer::convertStringToArray<double, 3>(kVecString);
   const Eigen::Vector3d kVec(kVecRaw.data());
   std::string defaultAmpFieldString;
-  for (int i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
     defaultAmpFieldString += " 0.0";
   }
   const auto ampFieldString = reader->readWithDefault("ampfield", defaultAmpFieldString);

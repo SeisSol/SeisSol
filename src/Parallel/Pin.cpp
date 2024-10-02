@@ -126,7 +126,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
-  assert(mask.size() == get_nprocs_conf());
+  assert(static_cast<int>(mask.size()) == get_nprocs_conf());
   for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
     if (mask[cpu]) {
       CPU_SET(cpu, &onlineMask.set);
@@ -201,7 +201,9 @@ CpuMask Pinning::getWorkerUnionMask() {
     CPU_ZERO(&worker);
     sched_getaffinity(0, sizeof(cpu_set_t), &worker);
 #pragma omp critical
-    { CPU_OR(&workerUnion, &workerUnion, &worker); }
+    {
+      CPU_OR(&workerUnion, &workerUnion, &worker);
+    }
   }
 #else
   sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);

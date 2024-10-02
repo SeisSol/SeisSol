@@ -159,8 +159,6 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 double ReceiverCluster::calcReceivers(
     double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
 
-  const std::size_t ncols = this->ncols();
-
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;
@@ -175,8 +173,8 @@ double ReceiverCluster::calcReceivers(
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
-    auto threshold = std::max(1000, omp_get_num_threads() * 100);
-    auto recvCount = m_receivers.size();
+    const std::size_t threshold = std::max(1000, omp_get_num_threads() * 100);
+    const std::size_t recvCount = m_receivers.size();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)
 #endif

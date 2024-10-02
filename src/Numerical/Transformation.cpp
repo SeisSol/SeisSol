@@ -255,31 +255,31 @@ void seissol::transformations::chiTau2XiEtaZeta(unsigned face,
 void seissol::transformations::XiEtaZeta2chiTau(unsigned face,
                                                 const double xiEtaZeta[3],
                                                 double chiTau[2]) {
-  constexpr double EPS = 1e-6;
+  [[maybe_unused]] constexpr double Eps = 1e-6;
 
   switch (face) {
   case 0: {
     chiTau[1] = xiEtaZeta[0];
     chiTau[0] = xiEtaZeta[1];
-    assert((std::abs(xiEtaZeta[2]) < EPS) && "reference coord is not on the 1st face");
+    assert((std::abs(xiEtaZeta[2]) < Eps) && "reference coord is not on the 1st face");
     break;
   }
   case 1: {
     chiTau[0] = xiEtaZeta[0];
     chiTau[1] = xiEtaZeta[2];
-    assert((std::abs(xiEtaZeta[1]) < EPS) && "reference coord is not on the 2nd face");
+    assert((std::abs(xiEtaZeta[1]) < Eps) && "reference coord is not on the 2nd face");
     break;
   }
   case 2: {
     chiTau[1] = xiEtaZeta[1];
     chiTau[0] = xiEtaZeta[2];
-    assert((std::abs(xiEtaZeta[0]) < EPS) && "reference coord is not on the 3rd face");
+    assert((std::abs(xiEtaZeta[0]) < Eps) && "reference coord is not on the 3rd face");
     break;
   }
   case 3: {
     chiTau[0] = xiEtaZeta[1];
     chiTau[1] = xiEtaZeta[2];
-    assert((std::abs(xiEtaZeta[0] + xiEtaZeta[1] + xiEtaZeta[2] - 1.0) < EPS) &&
+    assert((std::abs(xiEtaZeta[0] + xiEtaZeta[1] + xiEtaZeta[2] - 1.0) < Eps) &&
            "reference coord is not on the 4th face");
     break;
   }

@@ -16,6 +16,7 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/Tree
+        src/Kernels
         src/Modules
         src/Monitoring
         src/Numerical
@@ -58,26 +59,6 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Kernels/Common.h
-        src/Kernels/DynamicRupture.h
-        src/Kernels/DynamicRupture.cpp
-        src/Kernels/Local.h
-        src/Kernels/Neighbor.h
-        src/Kernels/Plasticity.h
-        src/Kernels/Plasticity.cpp
-        src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceClusterOnHost.h
-        src/Kernels/PointSourceClusterOnHost.cpp
-        src/Kernels/PointSourceClusterOnDevice.h
-        src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Kernels/Precision.h
-        src/Kernels/Receiver.h
-        src/Kernels/Receiver.cpp
-        src/Kernels/Time.h
-        src/Kernels/TimeCommon.h
-        src/Kernels/TimeCommon.cpp
-        src/Kernels/Touch.h
-        src/Kernels/Touch.cpp
         src/Model/CommonDatastructures.h
         src/Model/Plasticity.h
         src/ResultWriter/WaveFieldWriter.h

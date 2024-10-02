@@ -261,8 +261,8 @@ namespace seissol {
       getTransposedCoefficientMatrix(material, 0, ATView);
       std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities*seissol::model::MaterialT::NumQuantities> A;
       //transpose AT to get A
-      for (int i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-        for (int j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
+      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+        for (std::size_t j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
           A[i+seissol::model::MaterialT::NumQuantities*j] = AT[seissol::model::MaterialT::NumQuantities*i+j];
         }
       }
@@ -278,7 +278,7 @@ namespace seissol {
       //also check that the imaginary parts are zero
       int evNeg = 0;
       int evPos = 0;
-      for (int i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
         if (eigenvalues(i).real() < -zeroThreshold) {
           ++evNeg;
@@ -381,11 +381,11 @@ namespace seissol {
       }
 
       auto solver = Z.colPivHouseholderQr();
-      for(int col = 0; col < ConvergenceOrder; col++) {
+      for(std::size_t col = 0; col < ConvergenceOrder; col++) {
         Vector rhs = Vector::Zero();
         rhs(col) = 1.0;
         auto ZinvCol = solver.solve(rhs);
-        for(int row = 0; row < ConvergenceOrder; row++) {
+        for(std::size_t row = 0; row < ConvergenceOrder; row++) {
           //save as transposed
           Zinv(col,row) = ZinvCol(row);
         }
