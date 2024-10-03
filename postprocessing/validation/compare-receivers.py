@@ -224,14 +224,14 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*-*.dat")
     else:
         file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")
-    extract_id = re.compile(".+/\w+-\w+-(\d+)-\d+.dat")
+    extract_id = re.compile(r".+/\w+-\w+-(\d+)-\d+.dat")
 
     receiver_ids = []
     for fn in file_candidates:
         extract_id_result = extract_id.search(fn)
         if extract_id_result:
             receiver_ids.append(int(extract_id_result.group(1)))
-    return np.array(sorted(receiver_ids))
+    return np.array(sorted(list(set(receiver_ids))))
 
 
 if __name__ == "__main__":
@@ -252,8 +252,8 @@ if __name__ == "__main__":
         sim_faultreceiver_ids = find_all_receivers(args.output, args.prefix, True)
         ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
         faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
-        # Make sure, we actually compare some faultreceivers (but allow copy layer duplicates)
-        assert len(faultreceiver_ids) >= len(ref_faultreceiver_ids)
+        # Make sure, we actually compare some faultreceivers
+        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
     else:
         sim_faultreceiver_ids = []
         ref_faultreceiver_ids = []
@@ -262,8 +262,8 @@ if __name__ == "__main__":
     sim_receiver_ids = find_all_receivers(args.output, args.prefix, False)
     ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
-    # Make sure, we actually compare some receivers (but allow copy layer duplicates)
-    assert len(receiver_ids) >= len(ref_receiver_ids)
+    # Make sure, we actually compare some receivers
+    assert len(receiver_ids) == len(ref_receiver_ids)
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in ref_receiver_ids:
