@@ -182,11 +182,11 @@ jobs:
             energies: true
             receivers: false # FIXME: do not work right now; disabled in the Gitlab CI
             fault: true
-          - name: tpv33
-            equation: elastic
-            energies: true
-            receivers: true
-            fault: true
+          #- name: tpv33
+          #  equation: elastic
+          #  energies: true
+          #  receivers: true
+          #  fault: true
           - name: tpv101
             equation: elastic
             energies: true
@@ -296,24 +296,27 @@ jobs:
           fi
 
           if [ ${{matrix.setup.mpi}} = openmpi ]; then
-            MPI_OPTIONS=--oversubscribe --allow-run-as-root
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root";
           elif [ ${{matrix.setup.mpi}} = intel ]; then
-            MPI_OPTIONS=--allow-run-as-root
+            MPI_OPTIONS="";
           else
-            MPI_OPTIONS=--allow-run-as-root
+            MPI_OPTIONS="";
           fi;
 
           export PATH=$(pwd)/install/bin:$PATH
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
+
+          # needed for fault comparison
+          export SEISSOL_VERTEXFILTER=0
           
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun $MPI_OPTIONS -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

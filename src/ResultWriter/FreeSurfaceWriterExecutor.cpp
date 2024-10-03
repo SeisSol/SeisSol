@@ -88,7 +88,9 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
 		std::string extraIntVarName = "locationFlag";
 
-		m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str());
+		const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+
+		m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter);
 		m_xdmfWriter->setMesh(nCells,
 		                      static_cast<const unsigned int*>(info.buffer(CELLS)),
 		                      nVertices,

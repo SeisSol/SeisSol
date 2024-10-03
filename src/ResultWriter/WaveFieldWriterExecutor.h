@@ -207,7 +207,9 @@ public:
 		m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       std::string extraIntVarName = "clustering";
 
-		m_waveFieldWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str(),  true, true);
+	  const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+
+		m_waveFieldWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str(),  vertexFilter, true);
 		m_waveFieldWriter->setMesh(
 			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
 			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
@@ -253,7 +255,7 @@ public:
 			m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
 
-			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
+			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
 			m_lowWaveFieldWriter->setMesh(
 				info.bufferSize(param.bufferIds[LOWCELLS]) / (4*sizeof(unsigned int)),
 				static_cast<const unsigned int*>(info.buffer(param.bufferIds[LOWCELLS])),
