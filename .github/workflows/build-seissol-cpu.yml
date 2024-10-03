@@ -235,14 +235,17 @@ jobs:
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
+            pythonbreak: true
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
+            pythonbreak: true
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
+            pythonbreak: false
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
@@ -257,7 +260,13 @@ jobs:
     steps:
       - name: install-packages
         run: |
-          pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+          # circumvent problems with the Intel image still using Ubuntu 22.04
+
+          if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
+            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+          else
+            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+          fi
       
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
