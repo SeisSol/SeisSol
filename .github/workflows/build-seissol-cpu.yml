@@ -237,20 +237,25 @@ jobs:
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
+            mpi: openmpi
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
+            mpi: openmpi
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
+            mpi: intel
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  pythonbreak: true
+          #  mpi: TODO
         parallel:
           - ranks: 1
             threads: 4
@@ -290,6 +295,14 @@ jobs:
               precision=d
           fi
 
+          if [ ${{matrix.setup.mpi}} = openmpi ]; then
+            MPI_OPTIONS=--oversubscribe --allow-run-as-root
+          elif [ ${{matrix.setup.mpi}} = intel ]; then
+            MPI_OPTIONS=--allow-run-as-root
+          else
+            MPI_OPTIONS=--allow-run-as-root
+          fi;
+
           export PATH=$(pwd)/install/bin:$PATH
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
@@ -300,7 +313,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun --oversubscribe --allow-run-as-root -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
+          mpirun $MPI_OPTIONS -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
