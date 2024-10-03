@@ -266,7 +266,7 @@ if __name__ == "__main__":
     for i in receiver_ids:
         receiver_errors.loc[i, :] = receiver_diff(args, i)
     print("Relative L2 error of the different quantities at the different receivers")
-    print(receiver_errors)
+    print(receiver_errors.to_string())
 
     for q in receiver_errors.columns:
         broken_receivers = receiver_errors.index[
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     print(
         "Relative L2 error of the different quantities at the different faultreceivers"
     )
-    print(faultreceiver_errors)
+    print(faultreceiver_errors.to_string())
 
     for q in faultreceiver_errors.columns:
         broken_faultreceivers = faultreceiver_errors.index[
