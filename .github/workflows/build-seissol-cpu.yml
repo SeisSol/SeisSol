@@ -132,6 +132,7 @@ jobs:
   
       - name: upload-seissol
         uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
           path: /opt/seissol
