@@ -912,11 +912,19 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
-            // tpv5 35.4 deg, Zhao's y-x
-            real epsInitxx = -2.9027e-4; // eps_xx0
-            real epsInityy = -1.0539e-3; // eps_yy0
-            real epsInitzz = -2.9027e-4; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
+            // // tpv5 35.4 deg, Zhao's y-x
+            // real epsInitxx = -2.9027e-4; // eps_xx0
+            // real epsInityy = -1.0539e-3; // eps_yy0
+            // real epsInitzz = -2.9027e-4; // eps_zz0
+            // real epsInitxy = 1.0909e-3; // eps_xy0
+            // real epsInityz = -0e-1; // eps_yz0
+            // real epsInitzx = -0e-1; // eps_zx0
+
+            // zero initial stress
+            real epsInitxx = -1.0e-20; // eps_xx0
+            real epsInityy = -1.0e-20; // eps_yy0
+            real epsInitzz = -1.0e-20; // eps_zz0
+            real epsInitxy = -0.0; // eps_xy0
             real epsInityz = -0e-1; // eps_yz0
             real epsInitzx = -0e-1; // eps_zx0
 
