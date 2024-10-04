@@ -78,7 +78,7 @@ class RungeKuttaODESolver {
       const double adjustedDt = std::min(dt, timeSpan.end - curTime);
 
       for (auto i = 0U; i < stages.size(); ++i) {
-        buffer = curValue;
+        buffer.copyFrom(curValue);
         // j < i due to explict RK scheme
         for (auto j = 0U; j < i; ++j) {
           if (a(i, j) != 0.0) {

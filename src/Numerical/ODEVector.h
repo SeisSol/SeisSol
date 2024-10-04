@@ -67,6 +67,13 @@ class ODEVector {
    */
   ODEVector& operator*=(real scalar);
 
+  /**
+   * Copies the values from the given ODEVector
+   * @param other
+   * @return a reference to updated ODEVEctor
+   */
+  ODEVector& copyFrom(const ODEVector& other);
+
   //
   /**
    * Computes this += weight * rhs inplace

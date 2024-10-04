@@ -79,6 +79,14 @@ ODEVector& ODEVector::operator*=(real scalar) {
   return *this;
 }
 
+ODEVector& ODEVector::copyFrom(const ODEVector& other) {
+  for (std::size_t i = 0; i < storages.size(); ++i) {
+    assert(sizes[i] == other.sizes[i]);
+    std::copy_n(other.storages[i], sizes[i], storages[i]);
+  }
+  return *this;
+}
+
 void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
   if (weight == 0.0) {
     return;
