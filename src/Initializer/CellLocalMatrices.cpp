@@ -41,6 +41,7 @@
 
 #include "CellLocalMatrices.h"
 
+#include <Initializer/BasicTypedefs.h>
 #include <cassert>
 
 #include "Initializer/MemoryManager.h"
@@ -236,13 +237,22 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
           rusanovMinusView(i, i) = -wavespeed * 0.5;
         }
 
+        // check if we're on a face that has an adjacent cell with DR face
         const auto fluxDefault = isSpecialBC(side) ?
           modelParameters.fluxNearFault : modelParameters.flux;
         
-        const auto flux = 
-          cellInformation[cell].faceTypes[side] == FaceType::FreeSurface ||
-          cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity
-          ? parameters::NumericalFlux::Godunov : fluxDefault;
+        // exclude boundary conditions
+        static const std::vector<FaceType> GodunovBoundaryConditions = {
+          FaceType::FreeSurface,
+          FaceType::FreeSurfaceGravity,
+          FaceType::Analytical
+        };
+
+        const auto enforceGodunov
+          = std::any_of(GodunovBoundaryConditions.begin(), GodunovBoundaryConditions.end(),
+              [&](auto condition) {return condition == cellInformation[cell].faceTypes[side];});
+
+        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
