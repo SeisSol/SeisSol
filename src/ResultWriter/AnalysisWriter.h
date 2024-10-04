@@ -32,6 +32,12 @@ class CsvAnalysisWriter {
 
   ~CsvAnalysisWriter();
 
+  CsvAnalysisWriter(const CsvAnalysisWriter&) = delete;
+  auto operator=(const CsvAnalysisWriter&) = delete;
+
+  CsvAnalysisWriter(CsvAnalysisWriter&&) = delete;
+  auto operator=(CsvAnalysisWriter&&) = delete;
+
   private:
   std::ofstream out;
   bool isEnabled{false};

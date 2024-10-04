@@ -56,24 +56,11 @@ struct ExtVrtxCoords {
 
 struct ExtTriangle {
   ExtTriangle() = default;
-  ~ExtTriangle() = default;
+
   explicit ExtTriangle(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2, const ExtVrtxCoords& p3) {
     points[0] = p1;
     points[1] = p2;
     points[2] = p3;
-  }
-
-  ExtTriangle(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i) {
-      points[i] = other.points[i];
-    }
-  }
-
-  ExtTriangle& operator=(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i) {
-      points[i] = other.points[i];
-    }
-    return *this;
   }
 
   ExtVrtxCoords& point(size_t index) {

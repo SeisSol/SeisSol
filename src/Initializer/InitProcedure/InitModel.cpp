@@ -15,6 +15,7 @@
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
+#include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
@@ -131,7 +132,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
-  unsigned* ltsToMesh =
+  const unsigned* ltsToMesh =
       memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
 
   for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {

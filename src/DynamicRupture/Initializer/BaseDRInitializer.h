@@ -103,8 +103,9 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
-  std::vector<unsigned> getFaceIDsInIterator(const seissol::initializer::DynamicRupture* dynRup,
-                                             seissol::initializer::Layer& layer);
+  static std::vector<unsigned>
+      getFaceIDsInIterator(const seissol::initializer::DynamicRupture* dynRup,
+                           seissol::initializer::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -121,8 +122,8 @@ class BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  void initializeOtherVariables(const seissol::initializer::DynamicRupture* dynRup,
-                                seissol::initializer::Layer& layer);
+  static void initializeOtherVariables(const seissol::initializer::DynamicRupture* dynRup,
+                                       seissol::initializer::Layer& layer);
 
   /**
    * Reads the parameters from the easi file

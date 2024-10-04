@@ -2,6 +2,11 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+# TODO: apply
+# * modernize-use-trailing-return-type
+# * readability-function-size
+# * cppcoreguidelines-pro-type-const-cast
+
 Checks: |
   -*,
   clang-diagnostic-*,
@@ -19,6 +24,8 @@ Checks: |
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-pro-type-member-init,
+  -cppcoreguidelines-pro-type-const-cast
   llvm-*,
   -llvm-else-after-return,
   -llvm-header-guard,
@@ -44,6 +51,8 @@ Checks: |
   -readability-magic-numbers,
   -readability-math-missing-parentheses,
   -readability-function-cognitive-complexity,
+  -readability-function-size
+  -readability-suspicious-call-argument,
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase

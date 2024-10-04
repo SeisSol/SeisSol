@@ -97,8 +97,8 @@ void RateAndStateInitializer::addAdditionalParameters(
       dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
   real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
   real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
-  parameterToStorageMap.insert({"rs_sl0", (real*)rsSl0});
-  parameterToStorageMap.insert({"rs_a", (real*)rsA});
+  parameterToStorageMap.insert({"rs_sl0", reinterpret_cast<real*>(rsSl0)});
+  parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
 }
 
 RateAndStateInitializer::StateAndFriction
@@ -134,7 +134,7 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(dynRup);
   real(*rsSrW)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSrW);
-  parameterToStorageMap.insert({"rs_srW", (real*)rsSrW});
+  parameterToStorageMap.insert({"rs_srW", reinterpret_cast<real*>(rsSrW)});
 }
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
@@ -183,7 +183,9 @@ void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
 
   real(*halfWidthShearZone)[misc::NumPaddedPoints] = layer.var(concreteLts->halfWidthShearZone);
   real(*hydraulicDiffusivity)[misc::NumPaddedPoints] = layer.var(concreteLts->hydraulicDiffusivity);
-  parameterToStorageMap.insert({"tp_halfWidthShearZone", (real*)halfWidthShearZone});
-  parameterToStorageMap.insert({"tp_hydraulicDiffusivity", (real*)hydraulicDiffusivity});
+  parameterToStorageMap.insert(
+      {"tp_halfWidthShearZone", reinterpret_cast<real*>(halfWidthShearZone)});
+  parameterToStorageMap.insert(
+      {"tp_hydraulicDiffusivity", reinterpret_cast<real*>(hydraulicDiffusivity)});
 }
 } // namespace seissol::dr::initializer

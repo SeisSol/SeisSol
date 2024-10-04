@@ -153,12 +153,13 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
                                             const real* dofs,
                                             const real* pstrain,
                                             const real* integrals,
-                                            unsigned int* map,
+                                            const unsigned int* map,
                                             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
                                             xdmfwriter::BackendType backend,
                                             const std::string& backupTimeStamp) {
-  if (!m_enabled)
+  if (!m_enabled) {
     return;
+  }
 
   // Initialize the asynchronous module
   async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();

@@ -92,17 +92,6 @@ void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
   }
 }
 
-ODEVector& ODEVector::operator=(const ODEVector& other) {
-  for (std::size_t i = 0; i < storages.size(); ++i) {
-    assert(sizes[i] == other.sizes[i]);
-#pragma omp simd
-    for (std::size_t j = 0; j < sizes[i]; ++j) {
-      storages[i][j] = other.storages[i][j];
-    }
-  }
-  return *this;
-}
-
 real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   // Computes the L2 or LInf norm of the difference between two vectors.
   real error = 0.0;

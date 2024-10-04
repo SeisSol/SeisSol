@@ -20,7 +20,6 @@ class ODEVector {
 
   public:
   ODEVector() = default;
-  ODEVector(const ODEVector&) = default;
 
   /**
    *
@@ -75,14 +74,6 @@ class ODEVector {
    * @param rhs a reference to another ODEVector
    */
   void weightedAddInplace(real weight, const ODEVector& rhs);
-
-  /**
-   * Sets ODEVector to values from other vector.
-   * Warning: Only shallow copy, points to same storages
-   * @param other
-   * @return a reference to updated ODEVEctor
-   */
-  ODEVector& operator=(const ODEVector& other);
 
   /**
    *

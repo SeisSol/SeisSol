@@ -18,8 +18,15 @@
 namespace seissol::dr::output {
 template <int DIM>
 struct VarT {
+  VarT() = default;
   ~VarT() { releaseData(); }
   constexpr int dim() { return DIM; }
+
+  VarT(const VarT&) = delete;
+  auto operator=(const VarT&) -> VarT& = delete;
+
+  VarT(VarT&&) = default;
+  auto operator=(VarT&&) -> VarT& = default;
 
   real* operator[](int dim) {
     assert(dim < DIM && "access is out of the DIM. bounds");

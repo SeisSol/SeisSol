@@ -185,6 +185,12 @@ class ManagedAllocator {
    **/
   ~ManagedAllocator();
 
+  ManagedAllocator(const ManagedAllocator&) = delete;
+  auto operator=(const ManagedAllocator&) = delete;
+
+  ManagedAllocator(ManagedAllocator&&) = default;
+  auto operator=(ManagedAllocator&&) noexcept -> ManagedAllocator& = default;
+
   /**
    * Allocates a single chunk of memory with the given size and alignment.
    *
@@ -198,7 +204,18 @@ class ManagedAllocator {
 template <typename T>
 class MemkindArray {
   public:
+  MemkindArray(MemkindArray<T>&& source) = default;
   MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
+
+  auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
+    if (capacity != source.capacity) {
+      resize(source.capacity);
+    }
+    copyFrom(source);
+    return *this;
+  }
+  auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& = default;
+
   MemkindArray(const MemkindArray<T>& source, Memkind memkind)
       : MemkindArray(source.size(), memkind) {
     copyFrom(source);
@@ -209,6 +226,7 @@ class MemkindArray {
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
   MemkindArray(Memkind memkind) : memkind(memkind) {}
+
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);

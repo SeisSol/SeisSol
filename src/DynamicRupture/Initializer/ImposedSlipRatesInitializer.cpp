@@ -45,7 +45,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     VectorOfArraysT dipSlip(layer.getNumberOfCells());
     parameterToStorageMap.insert({"strike_slip", strikeSlip.data()->data()});
     parameterToStorageMap.insert({"dip_slip", dipSlip.data()->data()});
-    parameterToStorageMap.insert({"rupture_onset", (real*)onsetTime});
+    parameterToStorageMap.insert({"rupture_onset", reinterpret_cast<real*>(onsetTime)});
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, layer);
@@ -125,8 +125,8 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
   real(*tauS)[misc::NumPaddedPoints] = layer.var(concreteLts->tauS);
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
-  parameterToStorageMap.insert({"tau_S", (real*)tauS});
-  parameterToStorageMap.insert({"tau_R", (real*)tauR});
+  parameterToStorageMap.insert({"tau_S", reinterpret_cast<real*>(tauS)});
+  parameterToStorageMap.insert({"tau_R", reinterpret_cast<real*>(tauR)});
 }
 
 void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
@@ -152,6 +152,6 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian* const>(dynRup);
   real(*riseTime)[misc::NumPaddedPoints] = layer.var(concreteLts->riseTime);
-  parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});
+  parameterToStorageMap.insert({"rupture_rise_time", reinterpret_cast<real*>(riseTime)});
 }
 } // namespace seissol::dr::initializer

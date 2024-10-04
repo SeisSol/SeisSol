@@ -78,7 +78,7 @@ struct OnHost {
 
 struct OnDevice {
   struct DeviceCopyPolicy {
-    real* copy(const real* first, const real* last, real*& mem);
+    static real* copy(const real* first, const real* last, real*& mem);
   };
   using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
   static MemoryProperties getProperties();

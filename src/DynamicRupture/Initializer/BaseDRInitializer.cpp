@@ -42,9 +42,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
       };
       // fault can be either initialized by traction or by cartesian stress
       // this method reads either the nucleation stress or the initial stress
-      std::vector<std::string> identifiers;
-      Parametrization parametrization;
-      std::tie(identifiers, parametrization) = this->stressIdentifiers(readNucleation);
+      auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
       const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
       if (isFaultParameterizedByTraction) {
         // only read traction in normal, strike and dip direction

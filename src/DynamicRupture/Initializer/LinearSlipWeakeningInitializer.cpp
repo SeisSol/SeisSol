@@ -54,13 +54,14 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
   real(*muD)[misc::NumPaddedPoints] = layer.var(concreteLts->muD);
   real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
-  parameterToStorageMap.insert({"d_c", (real*)dC});
-  parameterToStorageMap.insert({"mu_s", (real*)muS});
-  parameterToStorageMap.insert({"mu_d", (real*)muD});
-  parameterToStorageMap.insert({"cohesion", (real*)cohesion});
+  parameterToStorageMap.insert({"d_c", reinterpret_cast<real*>(dC)});
+  parameterToStorageMap.insert({"mu_s", reinterpret_cast<real*>(muS)});
+  parameterToStorageMap.insert({"mu_d", reinterpret_cast<real*>(muD)});
+  parameterToStorageMap.insert({"cohesion", reinterpret_cast<real*>(cohesion)});
   if (this->faultProvides("forced_rupture_time")) {
     real(*forcedRuptureTime)[misc::NumPaddedPoints] = layer.var(concreteLts->forcedRuptureTime);
-    parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
+    parameterToStorageMap.insert(
+        {"forced_rupture_time", reinterpret_cast<real*>(forcedRuptureTime)});
   }
 }
 

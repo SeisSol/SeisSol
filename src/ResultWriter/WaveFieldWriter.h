@@ -192,7 +192,7 @@ class WaveFieldWriter
             const real* dofs,
             const real* pstrain,
             const real* integrals,
-            unsigned int* map,
+            const unsigned int* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);

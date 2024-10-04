@@ -286,6 +286,11 @@ class SeisSol {
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
         m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
+
+  SeisSol(const SeisSol&) = delete;
+  SeisSol(SeisSol&&) = delete;
+  auto operator=(const SeisSol&) = delete;
+  auto operator=(SeisSol&&) = delete;
 };
 
 } // namespace seissol
