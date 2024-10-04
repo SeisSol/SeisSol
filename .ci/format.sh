@@ -22,6 +22,7 @@ format() {
         src/Parallel
         src/Physics
         src/Reader
+        src/ResultWriter
         src/SourceTerm
         src/tests
         "
@@ -60,20 +61,6 @@ format() {
         src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/Model/CommonDatastructures.h
         src/Model/Plasticity.h
-        src/ResultWriter/WaveFieldWriter.h
-        src/ResultWriter/EnergyOutput.h
-        src/ResultWriter/EnergyOutput.cpp
-        src/ResultWriter/AnalysisWriter.h
-        src/ResultWriter/AnalysisWriter.cpp
-        src/ResultWriter/AsyncCellIDs.h
-        src/ResultWriter/AsyncIO.h
-        src/ResultWriter/AsyncIO.cpp
-        src/ResultWriter/MiniSeisSolWriter.h
-        src/ResultWriter/MiniSeisSolWriter.cpp
-        src/ResultWriter/PostProcessor.h
-        src/ResultWriter/PostProcessor.cpp
-        src/ResultWriter/ThreadsPinningWriter.h
-        src/ResultWriter/ThreadsPinningWriter.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
