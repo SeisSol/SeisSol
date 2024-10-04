@@ -226,21 +226,21 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]);
+                        const real (&slipRate)[dr::misc::NumPaddedPoints]);
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
-                                real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                         real localDc,
+                         unsigned int ltsFace,
+                         unsigned int pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                    real localSlipRate,
+                    real deltaT,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex) {
     return strength;
   };
 };
@@ -262,15 +262,15 @@ class BiMaterialFault {
    * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+                        const real (&slipRate)[dr::misc::NumPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
-                                real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                         real localDc,
+                         unsigned int ltsFace,
+                         unsigned int pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -301,7 +301,7 @@ class TPApprox {
    * Use a simple copy for now, maybe use proper resampling later
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+                        const real (&slipRate)[dr::misc::NumPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
@@ -313,10 +313,10 @@ class TPApprox {
 
 #pragma omp declare simd
   real strengthHook(real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                    real localSlipRate,
+                    real deltaT,
+                    unsigned int ltsFace,
+                    unsigned int pointIndex) {
     return strength;
   };
 

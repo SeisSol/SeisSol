@@ -73,16 +73,6 @@ namespace seissol::initializer {
 constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
 
 class QueryGenerator;
-class ElementBarycentreGenerator;
-class ElementAverageGenerator;
-class ElementBarycentreGeneratorPUML;
-class FaultBarycentreGenerator;
-class FaultGPGenerator;
-class ParameterDB;
-template <class T>
-class MaterialParameterDB;
-class FaultParameterDB;
-class EasiBoundary;
 
 // temporary struct until we have something like a lazy vector/iterator "map" (as in on-demand,
 // element-wise function application)
@@ -114,16 +104,14 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
                                       const CellToVertexArray& cellToVertex);
-} // namespace seissol::initializer
 
-class seissol::initializer::QueryGenerator {
+class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual easi::Query generate() const = 0;
 };
 
-class seissol::initializer::ElementBarycentreGenerator
-    : public seissol::initializer::QueryGenerator {
+class ElementBarycentreGenerator : public QueryGenerator {
   public:
   explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
       : m_cellToVertex(cellToVertex) {}
@@ -133,7 +121,7 @@ class seissol::initializer::ElementBarycentreGenerator
   CellToVertexArray m_cellToVertex;
 };
 
-class seissol::initializer::ElementAverageGenerator : public seissol::initializer::QueryGenerator {
+class ElementAverageGenerator : public QueryGenerator {
   public:
   explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
   [[nodiscard]] easi::Query generate() const override;
@@ -147,7 +135,7 @@ class seissol::initializer::ElementAverageGenerator : public seissol::initialize
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
-class seissol::initializer::FaultBarycentreGenerator : public seissol::initializer::QueryGenerator {
+class FaultBarycentreGenerator : public QueryGenerator {
   public:
   FaultBarycentreGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
       : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
@@ -158,7 +146,7 @@ class seissol::initializer::FaultBarycentreGenerator : public seissol::initializ
   unsigned m_numberOfPoints;
 };
 
-class seissol::initializer::FaultGPGenerator : public seissol::initializer::QueryGenerator {
+class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
                    const std::vector<unsigned>& faceIDs)
@@ -170,7 +158,7 @@ class seissol::initializer::FaultGPGenerator : public seissol::initializer::Quer
   const std::vector<unsigned>& m_faceIDs;
 };
 
-class seissol::initializer::ParameterDB {
+class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
   virtual void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) = 0;
@@ -178,7 +166,7 @@ class seissol::initializer::ParameterDB {
 };
 
 template <class T>
-class seissol::initializer::MaterialParameterDB : seissol::initializer::ParameterDB {
+class MaterialParameterDB : ParameterDB {
   public:
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
@@ -191,7 +179,7 @@ class seissol::initializer::MaterialParameterDB : seissol::initializer::Paramete
   std::vector<T>* m_materials{};
 };
 
-class seissol::initializer::FaultParameterDB : seissol::initializer::ParameterDB {
+class FaultParameterDB : ParameterDB {
   public:
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
@@ -204,7 +192,7 @@ class seissol::initializer::FaultParameterDB : seissol::initializer::ParameterDB
   std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
 };
 
-class seissol::initializer::EasiBoundary {
+class EasiBoundary {
   public:
   explicit EasiBoundary(const std::string& fileName);
 
@@ -221,5 +209,7 @@ class seissol::initializer::EasiBoundary {
   private:
   easi::Component* model;
 };
+
+} // namespace seissol::initializer
 
 #endif

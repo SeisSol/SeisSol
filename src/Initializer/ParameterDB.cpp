@@ -85,14 +85,15 @@
 #endif
 #include "utils/logger.h"
 
-seissol::initializer::CellToVertexArray::CellToVertexArray(
-    size_t size,
-    const CellToVertexFunction& elementCoordinates,
-    const CellToGroupFunction& elementGroups)
+namespace seissol::initializer {
+
+CellToVertexArray::CellToVertexArray(size_t size,
+                                     const CellToVertexFunction& elementCoordinates,
+                                     const CellToGroupFunction& elementGroups)
     : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
 
-seissol::initializer::CellToVertexArray seissol::initializer::CellToVertexArray::fromMeshReader(
-    const seissol::geometry::MeshReader& meshReader) {
+CellToVertexArray
+    CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
@@ -111,8 +112,7 @@ seissol::initializer::CellToVertexArray seissol::initializer::CellToVertexArray:
 }
 
 #ifdef USE_HDF
-seissol::initializer::CellToVertexArray
-    seissol::initializer::CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
+CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
   const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
@@ -133,7 +133,7 @@ seissol::initializer::CellToVertexArray
 }
 #endif
 
-seissol::initializer::CellToVertexArray seissol::initializer::CellToVertexArray::fromVectors(
+CellToVertexArray CellToVertexArray::fromVectors(
     const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
     const std::vector<int>& groups) {
   assert(vertices.size() == groups.size());
@@ -150,7 +150,7 @@ seissol::initializer::CellToVertexArray seissol::initializer::CellToVertexArray:
       [&](size_t i) { return groups[i]; });
 }
 
-easi::Query seissol::initializer::ElementBarycentreGenerator::generate() const {
+easi::Query ElementBarycentreGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, 3);
 
 #pragma omp parallel for schedule(static)
@@ -165,8 +165,7 @@ easi::Query seissol::initializer::ElementBarycentreGenerator::generate() const {
   return query;
 }
 
-seissol::initializer::ElementAverageGenerator::ElementAverageGenerator(
-    const CellToVertexArray& cellToVertex)
+ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
     : m_cellToVertex(cellToVertex) {
   double quadraturePoints[NumQuadpoints][3];
   double quadratureWeights[NumQuadpoints];
@@ -181,7 +180,7 @@ seissol::initializer::ElementAverageGenerator::ElementAverageGenerator(
   }
 }
 
-easi::Query seissol::initializer::ElementAverageGenerator::generate() const {
+easi::Query ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * NumQuadpoints, 3);
 
@@ -202,7 +201,7 @@ easi::Query seissol::initializer::ElementAverageGenerator::generate() const {
   return query;
 }
 
-easi::Query seissol::initializer::FaultBarycentreGenerator::generate() const {
+easi::Query FaultBarycentreGenerator::generate() const {
   const std::vector<Fault>& fault = m_meshReader.getFault();
   const std::vector<Element>& elements = m_meshReader.getElements();
   const std::vector<Vertex>& vertices = m_meshReader.getVertices();
@@ -232,7 +231,7 @@ easi::Query seissol::initializer::FaultBarycentreGenerator::generate() const {
   return query;
 }
 
-easi::Query seissol::initializer::FaultGPGenerator::generate() const {
+easi::Query FaultGPGenerator::generate() const {
   const std::vector<Fault>& fault = m_meshReader.getFault();
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
@@ -280,7 +279,6 @@ easi::Query seissol::initializer::FaultGPGenerator::generate() const {
   return query;
 }
 
-namespace seissol::initializer {
 using namespace seissol::model;
 
 template <>
@@ -544,10 +542,7 @@ void FaultParameterDB::evaluateModel(const std::string& fileName,
   delete model;
 }
 
-} // namespace seissol::initializer
-
-std::set<std::string>
-    seissol::initializer::FaultParameterDB::faultProvides(const std::string& fileName) {
+std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileName) {
   if (fileName.empty()) {
     return {};
   }
@@ -557,23 +552,18 @@ std::set<std::string>
   return supplied;
 }
 
-seissol::initializer::EasiBoundary::EasiBoundary(const std::string& fileName)
-    : model(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
 
-seissol::initializer::EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept
-    : model(other.model) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
 
-seissol::initializer::EasiBoundary&
-    seissol::initializer::EasiBoundary::operator=(EasiBoundary&& other) noexcept {
+EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
   std::swap(model, other.model);
   return *this;
 }
 
-seissol::initializer::EasiBoundary::~EasiBoundary() { delete model; }
+EasiBoundary::~EasiBoundary() { delete model; }
 
-void seissol::initializer::EasiBoundary::query(const real* nodes,
-                                               real* mapTermsData,
-                                               real* constantTermsData) const {
+void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
   if (model == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
@@ -648,7 +638,7 @@ void seissol::initializer::EasiBoundary::query(const real* nodes,
   model->evaluate(query, adapter);
 }
 
-easi::Component* seissol::initializer::loadEasiModel(const std::string& fileName) {
+easi::Component* loadEasiModel(const std::string& fileName) {
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);
@@ -658,7 +648,6 @@ easi::Component* seissol::initializer::loadEasiModel(const std::string& fileName
   return parser.parse(fileName);
 }
 
-namespace seissol::initializer {
 QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool plasticity,
                                       bool anisotropy,
@@ -691,10 +680,11 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   }
   return queryGen;
 }
-} // namespace seissol::initializer
 
-template class seissol::initializer::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
-template class seissol::initializer::MaterialParameterDB<seissol::model::ElasticMaterial>;
-template class seissol::initializer::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
-template class seissol::initializer::MaterialParameterDB<seissol::model::PoroElasticMaterial>;
-template class seissol::initializer::MaterialParameterDB<seissol::model::Plasticity>;
+template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
+template class MaterialParameterDB<seissol::model::ElasticMaterial>;
+template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
+template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
+template class MaterialParameterDB<seissol::model::Plasticity>;
+
+} // namespace seissol::initializer

@@ -18,8 +18,7 @@ class FastVelocityWeakeningLaw
                           const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime) {
     const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening*>(
-            dynRup);
+        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening*>(dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
   }

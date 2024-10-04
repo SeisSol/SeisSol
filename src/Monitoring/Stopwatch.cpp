@@ -28,7 +28,7 @@ void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
  * @return measured time (until now) in seconds
  */
 double Stopwatch::split() {
-  struct timespec end {};
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   return seconds(difftime(startTime, end));
@@ -40,7 +40,7 @@ double Stopwatch::split() {
  * @return measured time (until now) in seconds
  */
 double Stopwatch::pause() {
-  struct timespec end {};
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   time += difftime(startTime, end);

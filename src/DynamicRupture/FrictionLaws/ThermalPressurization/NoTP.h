@@ -18,9 +18,7 @@ class NoTP {
                          unsigned int timeIndex,
                          unsigned int ltsFace) {}
 
-  [[nodiscard]] real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
-    return 0;
-  };
+  [[nodiscard]] real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) { return 0; };
 };
 
 } // namespace seissol::dr::friction_law
