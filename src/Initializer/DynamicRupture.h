@@ -127,7 +127,7 @@ struct DynamicRupture {
     tree.addVar(waveSpeedsMinus, mask, 1, allocationModeDR(), true);
     tree.addVar(drEnergyOutput, mask, Alignment, allocationModeDR());
     tree.addVar(impAndEta, mask, 1, allocationModeDR(), true);
-    tree.addVar(impedanceMatrices, mask, 1, allocationModeDR(), true);
+    tree.addVar(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
     tree.addVar(initialStressInFaultCS, mask, 1, allocationModeDR());
     tree.addVar(nucleationStressInFaultCS, mask, 1, allocationModeDR(), true);
     tree.addVar(initialPressure, mask, 1, allocationModeDR());
