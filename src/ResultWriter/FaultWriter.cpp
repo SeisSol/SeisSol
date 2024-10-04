@@ -40,6 +40,7 @@
 
 #include "Parallel/MPI.h"
 
+#include <Initializer/PreProcessorMacros.h>
 #include <Kernels/Precision.h>
 #include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
