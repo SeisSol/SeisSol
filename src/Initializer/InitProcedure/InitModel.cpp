@@ -206,7 +206,8 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsTree(),
                                                     memoryManager.getLts(),
                                                     memoryManager.getLtsLut(),
-                                                    ltsInfo.timeStepping);
+                                                    ltsInfo.timeStepping,
+                                                    seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
     logWarning(seissol::MPI::mpi.rank())
