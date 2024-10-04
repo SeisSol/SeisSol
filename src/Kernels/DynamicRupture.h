@@ -94,8 +94,9 @@ class DynamicRupture {
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch);
 
-  static void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
-                                            seissol::parallel::runtime::StreamRuntime& runtime);
+  // NOLINTNEXTLINE
+  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
+                                     seissol::parallel::runtime::StreamRuntime& runtime);
 
   void flopsGodunovState(const DRFaceInformation& faceInfo,
                          long long& nonZeroFlops,
