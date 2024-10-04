@@ -41,32 +41,18 @@
 #include "Lut.h"
 #include <Initializer/Tree/LTSTree.h>
 #include <Initializer/Tree/Layer.h>
-#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <vector>
 
-seissol::initializer::Lut::LutsForMask::LutsForMask() {
-  for (auto& meshToLt : meshToLts) {
-    meshToLt = nullptr;
-  }
-}
-seissol::initializer::Lut::LutsForMask::~LutsForMask() {
-  delete[] duplicatedMeshIds;
-  for (auto& meshToLt : meshToLts) {
-    delete[] meshToLt;
-  }
-  delete[] ltsToMesh;
-}
-
 void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
                                                        LTSTree* ltsTree,
                                                        const unsigned* globalLtsToMesh,
                                                        unsigned numberOfMeshIds) {
   const unsigned numberOfLtsIds = ltsTree->getNumberOfCells(mask);
-  ltsToMesh = new unsigned[numberOfLtsIds];
+  ltsToMesh.resize(numberOfLtsIds);
 
   // ltsToMesh
   unsigned globalLtsId = 0;
@@ -84,12 +70,10 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
 
   // meshToLts
   for (auto& meshToLt : meshToLts) {
-    meshToLt = new unsigned[numberOfMeshIds];
-    std::fill(meshToLt, meshToLt + numberOfMeshIds, std::numeric_limits<unsigned>::max());
+    meshToLt.resize(numberOfMeshIds, std::numeric_limits<unsigned>::max());
   }
 
-  auto* numDuplicates = new unsigned[numberOfMeshIds];
-  memset(numDuplicates, 0, numberOfMeshIds * sizeof(unsigned));
+  std::vector<unsigned> numDuplicates(numberOfMeshIds);
 
   for (unsigned ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
     const unsigned meshId = ltsToMesh[ltsId];
@@ -99,14 +83,14 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
     }
   }
 
-  numberOfDuplicatedMeshIds = 0;
+  std::size_t numberOfDuplicatedMeshIds = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       ++numberOfDuplicatedMeshIds;
     }
   }
 
-  duplicatedMeshIds = new unsigned[numberOfDuplicatedMeshIds];
+  duplicatedMeshIds.resize(numberOfDuplicatedMeshIds);
 
   unsigned dupId = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
@@ -114,13 +98,9 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
       duplicatedMeshIds[dupId++] = meshId;
     }
   }
-
-  delete[] numDuplicates;
 }
 
 seissol::initializer::Lut::Lut() = default;
-
-seissol::initializer::Lut::~Lut() { delete[] m_meshToClusters; }
 
 void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
                                            unsigned* ltsToMesh,
@@ -132,7 +112,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
   for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
     const LayerMask mask = m_ltsTree->info(var).mask;
     LutsForMask& maskedLut = maskedLuts[mask.to_ulong()];
-    if (maskedLut.ltsToMesh == nullptr) {
+    if (maskedLut.ltsToMesh.empty()) {
       maskedLut.createLut(mask, m_ltsTree, ltsToMesh, numberOfMeshIds);
     }
   }
@@ -143,7 +123,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     unsigned offsetInterior;
   };
 
-  auto* clusters = new unsigned[m_ltsTree->numChildren() + 1];
+  std::vector<unsigned> clusters(m_ltsTree->numChildren() + 1);
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
   auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
@@ -159,7 +139,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
   }
 
-  m_meshToClusters = new unsigned[numberOfMeshIds];
+  m_meshToClusters.resize(numberOfMeshIds);
   m_meshToLayer.resize(numberOfMeshIds);
   unsigned cluster = 0;
   unsigned curClusterElements = 0;
@@ -186,6 +166,4 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
       }
     }
   }
-
-  delete[] clusters;
 }
