@@ -20,11 +20,13 @@
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <kernel.h>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -233,7 +235,8 @@ void OutputManager::initPickpointOutput() {
   misc::forEach(ppOutputData->vars, collectVariableNames);
 
   auto& outputData = ppOutputData;
-  for (const auto& receiver : outputData->receiverPoints) {
+  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+    const auto& receiver = outputData->receiverPoints[i];
     const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     auto fileName =
@@ -251,9 +254,35 @@ void OutputManager::initPickpointOutput() {
         file << baseHeader.str() << '\n';
 
         const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
+
+        // output coordinates
         file << "# x1\t" << makeFormatted(point[0]) << '\n';
         file << "# x2\t" << makeFormatted(point[1]) << '\n';
         file << "# x3\t" << makeFormatted(point[2]) << '\n';
+
+        // stress info
+        std::array<real, 6> rotatedInitialStress{};
+
+        {
+          auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+
+          const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
+          const auto initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+
+          seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+          alignAlongDipAndStrikeKernel.stressRotationMatrix =
+              outputData->stressGlbToDipStrikeAligned[i].data();
+          alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+              outputData->stressFaceAlignedToGlb[i].data();
+
+          alignAlongDipAndStrikeKernel.initialStress = initialStress;
+          alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
+          alignAlongDipAndStrikeKernel.execute();
+        }
+
+        file << "# P_0\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
+        file << "# T_s\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
+        file << "# T_d\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
 
       } else {
         logError() << "cannot open " << fileName;
