@@ -197,9 +197,9 @@ class ADERDGBase(ABC):
     pass
 
   def addInit(self, generator):
-    godunov_spp = self.godunov_spp()
-    self.QcorrLocal = Tensor('QcorrLocal', godunov_spp.shape)
-    self.QcorrNeighbor = Tensor('QcorrNeighbor', godunov_spp.shape)
+    flux_solver_spp = self.flux_solver_spp()
+    self.QcorrLocal = Tensor('QcorrLocal', flux_solver_spp.shape)
+    self.QcorrNeighbor = Tensor('QcorrNeighbor', flux_solver_spp.shape)
 
     fluxScale = Scalar('fluxScale')
     computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * (self.QgodLocal['kq'] * self.starMatrix(0)['ql'] + self.QcorrLocal['kl']) * self.T['jl']
