@@ -17,8 +17,9 @@
 #include <vector>
 
 namespace {
-static double distance(const double v1[2], const double v2[2]) {
-  const Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
+double distance(const double v1[2], const double v2[2]) {
+  const Eigen::Vector2d vector1(v1[0], v1[1]);
+  const Eigen::Vector2d vector2(v2[0], v2[1]);
   return (vector1 - vector2).norm();
 }
 } // namespace
@@ -98,8 +99,8 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.Size; ++i) {
+  auto* reshapedPoints = unsafe_reshape<2>(data.points.data());
+  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
     data.weights[i] = weightsView(i);
@@ -129,7 +130,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
+  double(*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 
@@ -139,14 +140,14 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
-    std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.Size);
+    std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
-  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int i1 = ((nearestGpIndex - 1) / (nPoly + 2)) + 1;
   int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
   if (i1 == 1) {
     i1 = i1 + 1;

@@ -8,8 +8,8 @@
 namespace seissol::initializer {
 struct GlobalTimestep {
   std::vector<double> cellTimeStepWidths;
-  double globalMinTimeStep;
-  double globalMaxTimeStep;
+  double globalMinTimeStep{};
+  double globalMaxTimeStep{};
 };
 
 namespace parameters {

@@ -48,7 +48,7 @@ class AnalysisWriter {
   };
 
   bool isEnabled{false}; // TODO(Lukas) Do we need this?
-  const seissol::geometry::MeshReader* meshReader;
+  const seissol::geometry::MeshReader* meshReader{};
 
   std::string fileName;
 

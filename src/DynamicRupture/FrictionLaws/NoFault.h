@@ -16,11 +16,11 @@ class NoFault : public BaseFrictionLaw<NoFault> {
                           real fullUpdateTime) {}
 
   void updateFrictionAndSlip(const FaultStresses& faultStresses,
-                             TractionResults& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned ltsFace,
-                             unsigned timeIndex);
+                                    TractionResults& tractionResults,
+                                    std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+                                    std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+                                    unsigned ltsFace,
+                                    unsigned timeIndex);
 
   void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};

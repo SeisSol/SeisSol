@@ -25,7 +25,7 @@ class FaultRefiner {
   ReceiverPoints&& moveAllReceiverPoints() { return std::move(points); }
 
   protected:
-  ReceiverPoints points{};
+  ReceiverPoints points;
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;

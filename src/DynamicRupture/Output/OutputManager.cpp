@@ -46,12 +46,12 @@ struct FormattedBuildinType {
 };
 
 template <typename T, typename U = NativeFormat>
-static auto makeFormatted(T value) {
+auto makeFormatted(T value) {
   return FormattedBuildinType<T, U>{value};
 }
 
 template <typename T, typename U = NativeFormat>
-static std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
+std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   if constexpr (std::is_floating_point_v<T>) {
     stream << std::setprecision(16) << std::scientific << obj.value;
   } else if constexpr (std::is_integral_v<T> && std::is_same_v<U, WideFormat>) {
@@ -62,9 +62,9 @@ static std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U>
   return stream;
 }
 
-static std::string buildFileName(const std::string& namePrefix,
-                                 const std::string& nameSuffix,
-                                 const std::string& fileExtension = std::string()) {
+std::string buildFileName(const std::string& namePrefix,
+                          const std::string& nameSuffix,
+                          const std::string& fileExtension = std::string()) {
   std::stringstream fileName;
   fileName << namePrefix << '-' << nameSuffix;
   if (fileExtension.empty()) {
@@ -75,9 +75,9 @@ static std::string buildFileName(const std::string& namePrefix,
   }
 }
 
-static std::string buildMPIFileName(const std::string& namePrefix,
-                                    const std::string& nameSuffix,
-                                    const std::string& fileExtension = std::string()) {
+std::string buildMPIFileName(const std::string& namePrefix,
+                             const std::string& nameSuffix,
+                             const std::string& fileExtension = std::string()) {
 #ifdef PARALLEL
   std::stringstream suffix;
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
@@ -87,10 +87,10 @@ static std::string buildMPIFileName(const std::string& namePrefix,
 #endif
 }
 
-static std::string buildIndexedMPIFileName(const std::string& namePrefix,
-                                           int index,
-                                           const std::string& nameSuffix,
-                                           const std::string& fileExtension = std::string()) {
+std::string buildIndexedMPIFileName(const std::string& namePrefix,
+                                    int index,
+                                    const std::string& nameSuffix,
+                                    const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
 #ifdef PARALLEL
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
@@ -197,8 +197,9 @@ void OutputManager::initElementwiseOutput() {
   std::vector<real*> dataPointers;
   auto recordPointers = [&dataPointers](auto& var, int) {
     if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim)
+      for (int dim = 0; dim < var.dim(); ++dim) {
         dataPointers.push_back(var.data[dim]);
+      }
     }
   };
   misc::forEach(ewOutputData->vars, recordPointers);
@@ -278,7 +279,7 @@ void OutputManager::init() {
 }
 
 void OutputManager::initFaceToLtsMap() {
-  if (drTree) {
+  if (drTree != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 

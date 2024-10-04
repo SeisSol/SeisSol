@@ -42,7 +42,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts =
+    const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
@@ -192,7 +192,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       if (this->drParameters->t0 == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
-        f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
+        f2 = 1.0 * static_cast<double>(time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime[ltsFace][pointIndex]) /
                             this->drParameters->t0,
@@ -204,11 +204,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  real (*dC)[misc::NumPaddedPoints];
-  real (*muS)[misc::NumPaddedPoints];
-  real (*muD)[misc::NumPaddedPoints];
-  real (*cohesion)[misc::NumPaddedPoints];
-  real (*forcedRuptureTime)[misc::NumPaddedPoints];
+  real (*dC)[misc::NumPaddedPoints]{};
+  real (*muS)[misc::NumPaddedPoints]{};
+  real (*muD)[misc::NumPaddedPoints]{};
+  real (*cohesion)[misc::NumPaddedPoints]{};
+  real (*forcedRuptureTime)[misc::NumPaddedPoints]{};
   SpecializationT specialization;
 };
 
@@ -226,21 +226,21 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                        const real (&slipRate)[dr::misc::NumPaddedPoints]);
+                               const real (&slipRate)[dr::misc::NumPaddedPoints]);
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
-                         real localDc,
-                         unsigned int ltsFace,
-                         unsigned int pointIndex) {
+                                real localDc,
+                                unsigned int ltsFace,
+                                unsigned int pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
 #pragma omp declare simd
   real strengthHook(real strength,
-                    real localSlipRate,
-                    real deltaT,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex) {
+                           real localSlipRate,
+                           real deltaT,
+                           unsigned int ltsFace,
+                           unsigned int pointIndex) {
     return strength;
   };
 };
@@ -254,7 +254,7 @@ class BiMaterialFault {
       : drParameters(parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
@@ -262,15 +262,15 @@ class BiMaterialFault {
    * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                        const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
-                         real localDc,
-                         unsigned int ltsFace,
-                         unsigned int pointIndex) {
+                                real localDc,
+                                unsigned int ltsFace,
+                                unsigned int pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -283,7 +283,7 @@ class BiMaterialFault {
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
-  real (*regularisedStrength)[misc::NumPaddedPoints];
+  real (*regularisedStrength)[misc::NumPaddedPoints]{};
 };
 
 /**
@@ -301,7 +301,7 @@ class TPApprox {
    * Use a simple copy for now, maybe use proper resampling later
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                        const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
@@ -313,10 +313,10 @@ class TPApprox {
 
 #pragma omp declare simd
   real strengthHook(real strength,
-                    real localSlipRate,
-                    real deltaT,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex) {
+                           real localSlipRate,
+                           real deltaT,
+                           unsigned int ltsFace,
+                           unsigned int pointIndex) {
     return strength;
   };
 

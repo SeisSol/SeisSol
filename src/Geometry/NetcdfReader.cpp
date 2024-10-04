@@ -22,8 +22,6 @@
 
 #endif // NETCDF_PASSIVE
 
-#include "MeshReader.h"
-
 #include "utils/env.h"
 #include "utils/logger.h"
 
@@ -32,16 +30,17 @@ namespace seissol::geometry {
 NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     : seissol::geometry::MeshReader(rank) {
   // Open nc file
-  int ncFile;
-  int masterRank;
+  int ncFile = 0;
+  int masterRank = 0;
   unsigned int groupSize = 1;
 #ifdef USE_MPI
   groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
-  if (nProcs % groupSize != 0)
+  if (nProcs % groupSize != 0) {
     logError() << "#Processes must be a multiple of the group size" << groupSize;
+  }
 
   const int master = (rank / groupSize) * groupSize;
-  MPI_Comm commMaster;
+  MPI_Comm commMaster = nullptr;
   MPI_Comm_split(
       seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 
@@ -87,19 +86,20 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else  // NETCDF_PASSIVE
        // Get important dimensions
-    int ncDimPart;
+    int ncDimPart = 0;
     checkNcError(nc_inq_dimid(ncFile, "partitions", &ncDimPart));
-    size_t partitions;
+    size_t partitions = 0;
     checkNcError(nc_inq_dimlen(ncFile, ncDimPart, &partitions));
 
-    if (partitions != static_cast<unsigned int>(nProcs))
+    if (partitions != static_cast<unsigned int>(nProcs)) {
       logError() << "Number of partitions in netCDF file does not match number of MPI ranks.";
+    }
 
-    int ncDimBndSize;
+    int ncDimBndSize = 0;
     checkNcError(nc_inq_dimid(ncFile, "boundaries", &ncDimBndSize));
     checkNcError(nc_inq_dimlen(ncFile, ncDimBndSize, &bndSize));
 
-    int ncDimBndElem;
+    int ncDimBndElem = 0;
     checkNcError(nc_inq_dimid(ncFile, "boundary_elements", &ncDimBndElem));
     checkNcError(nc_inq_dimlen(ncFile, ncDimBndElem, &bndElemSize));
 #endif // NETCDF_PASSIVE
@@ -177,7 +177,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     for (int i = groupSize - 1; i >= 0; i--) {
       const auto start = static_cast<size_t>(i + rank);
 
-      int size;
+      int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, &start, &size));
       sizes[i] = size;
       if (i != 0) {
@@ -205,7 +205,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
 #ifdef USE_MPI
   // Broadcast group information
-  int iHasGroup = hasGroup;
+  int iHasGroup = static_cast<int>(hasGroup);
   MPI_Bcast(&iHasGroup, 1, MPI_INT, 0, seissol::MPI::mpi.comm());
   hasGroup = iHasGroup != 0;
 #endif // USE_MPI
@@ -256,9 +256,10 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
       checkNcError(nc_get_vara_int(
           ncFile, ncVarElemMPIIndices, start, count, reinterpret_cast<int*>(elemMPIIndices)));
-      if (hasGroup)
+      if (hasGroup) {
         checkNcError(nc_get_vara_int(
             ncFile, ncVarElemGroup, start, count, reinterpret_cast<int*>(elemGroup)));
+      }
 
       if (i != 0) {
 #ifdef USE_MPI
@@ -375,7 +376,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     for (int i = groupSize - 1; i >= 0; i--) {
       const auto start = static_cast<size_t>(i + rank);
 
-      int size;
+      int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarVrtxSize, &start, &size));
       sizes[i] = size;
       if (i != 0) {
@@ -459,7 +460,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     for (int i = groupSize - 1; i >= 0; i--) {
       const auto start = static_cast<size_t>(i + rank);
 
-      int size;
+      int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
       sizes[i] = size;
 
@@ -501,11 +502,11 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
         bndStart[0] = static_cast<size_t>(j + rank);
 
         // Get neighbor rank from netcdf
-        int bndRank;
+        int bndRank = 0;
         checkNcError(nc_get_var1_int(ncFile, ncVarBndElemRank, bndStart, &bndRank));
 
         // Read size of this boundary from netcdf
-        int elemSize;
+        int elemSize = 0;
         checkNcError(nc_get_var1_int(ncFile, ncVarBndElemSize, bndStart, &elemSize));
 
         size_t bndCount[3] = {1, 1, bndElemSize};
@@ -530,9 +531,9 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     } else {
       if (i < sizes[0]) {
 #ifdef USE_MPI
-        int bndRank;
+        int bndRank = 0;
         MPI_Recv(&bndRank, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
-        int elemSize;
+        int elemSize = 0;
         MPI_Recv(&elemSize, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 
         MPI_Recv(bndElemLocalIds,
@@ -582,8 +583,9 @@ void NetcdfReader::addMPINeighbor(int localID,
 
   neighbor.elements.resize(elemSize);
 
-  for (int i = 0; i < elemSize; i++)
+  for (int i = 0; i < elemSize; i++) {
     neighbor.elements[i].localElement = bndElemLocalIds[i];
+  }
 
   m_MPINeighbors[bndRank] = neighbor;
 }
@@ -609,8 +611,9 @@ void NetcdfReader::collectiveAccess(int ncFile, int ncVar) {
 
 void NetcdfReader::checkNcError(int error) {
 #ifndef NETCDF_PASSIVE
-  if (error != NC_NOERR)
+  if (error != NC_NOERR) {
     logError() << "Error while reading netCDF file:" << nc_strerror(error);
+  }
 #endif // NETCDF_PASSIVE
 }
 

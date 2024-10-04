@@ -21,7 +21,7 @@
 namespace {
 
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
-static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
+TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 
   TravellingWaveParameters travellingWaveParameters;
@@ -37,12 +37,12 @@ static TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& s
   return travellingWaveParameters;
 }
 
-static AcousticTravellingWaveParametersITM
+AcousticTravellingWaveParametersITM
     getAcousticTravellingWaveITMInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   const auto& itmParams = seissolInstance.getSeisSolParameters().model.itmParameters;
 
-  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM;
+  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM{};
   acousticTravellingWaveParametersITM.k = initConditionParams.k;
   acousticTravellingWaveParametersITM.itmStartingTime = itmParams.itmStartingTime;
   acousticTravellingWaveParametersITM.itmDuration = itmParams.itmDuration;
@@ -52,12 +52,12 @@ static AcousticTravellingWaveParametersITM
 }
 #endif
 
-static std::vector<std::unique_ptr<physics::InitialField>>
+std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
   std::vector<std::unique_ptr<physics::InitialField>> initConditions;
-  std::string initialConditionDescription = "";
+  std::string initialConditionDescription;
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
@@ -150,7 +150,7 @@ static std::vector<std::unique_ptr<physics::InitialField>>
   return initConditions;
 }
 
-static void initInitialCondition(seissol::SeisSol& seissolInstance) {
+void initInitialCondition(seissol::SeisSol& seissolInstance) {
   auto initConditions = buildInitialConditionList(seissolInstance);
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
@@ -167,19 +167,19 @@ static void initInitialCondition(seissol::SeisSol& seissolInstance) {
   memoryManager.setInitialConditions(std::move(initConditions));
 }
 
-static void initSource(seissol::SeisSol& seissolInstance) {
+void initSource(seissol::SeisSol& seissolInstance) {
   const auto& srcparams = seissolInstance.getSeisSolParameters().source;
   auto& memoryManager = seissolInstance.getMemoryManager();
-  seissolInstance.sourceTermManager().loadSources(srcparams.type,
-                                                  srcparams.fileName.c_str(),
-                                                  seissolInstance.meshReader(),
-                                                  memoryManager.getLtsTree(),
-                                                  memoryManager.getLts(),
-                                                  memoryManager.getLtsLut(),
-                                                  seissolInstance.timeManager());
+  seissol::sourceterm::Manager::loadSources(srcparams.type,
+                                            srcparams.fileName.c_str(),
+                                            seissolInstance.meshReader(),
+                                            memoryManager.getLtsTree(),
+                                            memoryManager.getLts(),
+                                            memoryManager.getLtsLut(),
+                                            seissolInstance.timeManager());
 }
 
-static void initBoundary(seissol::SeisSol& seissolInstance) {
+void initBoundary(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.model.hasBoundaryFile) {
     seissolInstance.getMemoryManager().initializeEasiBoundaryReader(

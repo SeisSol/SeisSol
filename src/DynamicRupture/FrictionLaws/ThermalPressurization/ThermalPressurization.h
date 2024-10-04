@@ -107,7 +107,7 @@ class ThermalPressurization {
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
   /**
@@ -127,15 +127,15 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*temperature)[misc::NumPaddedPoints];
-  real (*pressure)[misc::NumPaddedPoints];
-  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints];
-  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints];
-  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints];
-  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints];
-  real (*halfWidthShearZone)[misc::NumPaddedPoints];
-  real (*hydraulicDiffusivity)[misc::NumPaddedPoints];
-  real (*faultStrength)[misc::NumPaddedPoints];
+  real (*temperature)[misc::NumPaddedPoints]{};
+  real (*pressure)[misc::NumPaddedPoints]{};
+  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*halfWidthShearZone)[misc::NumPaddedPoints]{};
+  real (*hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*faultStrength)[misc::NumPaddedPoints]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;

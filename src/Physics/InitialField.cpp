@@ -164,21 +164,22 @@ seissol::physics::TravellingWave::TravellingWave(
 
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
-    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm) {
+    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
+    : rho0(materialData.local.rho), c0(sqrt(materialData.local.lambda / materialData.local.rho)),
+      k(acousticTravellingWaveParametersItm.k),
+      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
+      tau(acousticTravellingWaveParametersItm.itmDuration) {
 #ifdef USE_ANISOTROPIC
   logError() << "This has not been yet implemented for anisotropic material";
 #else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
-  rho0 = materialData.local.rho;
-  c0 = sqrt(materialData.local.lambda / materialData.local.rho);
+
   logInfo() << "rho0 = " << rho0;
   logInfo() << "c0 = " << c0;
-  k = acousticTravellingWaveParametersItm.k;
+
   logInfo() << "k = " << k;
-  tITMMinus = acousticTravellingWaveParametersItm.itmStartingTime;
-  tau = acousticTravellingWaveParametersItm.itmDuration;
-  tITMPlus = tITMMinus + tau;
-  n = acousticTravellingWaveParametersItm.itmVelocityScalingFactor;
+
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
 #endif

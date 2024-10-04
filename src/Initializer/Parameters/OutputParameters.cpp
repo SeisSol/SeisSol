@@ -35,7 +35,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto enabled = reader->readWithDefault("checkpoint", true);
   CheckpointingBackend backend = CheckpointingBackend::DISABLED;
   double interval = 0.0;
-  std::string fileName = "";
+  std::string fileName;
   if (enabled) {
     interval = reader->readWithDefault("checkpointinterval", 0.0);
     warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
@@ -110,7 +110,7 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   const auto interval = reader->readWithDefault("surfaceoutputinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "surfaceoutput", "surfaceoutputinterval");
 
-  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
+  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0U);
 
   return FreeSurfaceOutputParameters{enabled, refinement, interval};
 }

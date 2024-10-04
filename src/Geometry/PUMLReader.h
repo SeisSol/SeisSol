@@ -91,19 +91,19 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Create the partitioning
    */
-  void partition(PUML::TETPUML& puml,
-                 initializer::time_stepping::LtsWeights* ltsWeights,
-                 double tpwgt,
-                 const char* meshFile,
-                 const char* partitioningLib,
-                 bool readPartitionFromFile,
-                 const char* checkPointFile);
-  int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
-  void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  static void partition(PUML::TETPUML& puml,
+                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        double tpwgt,
+                        const char* meshFile,
+                        const char* partitioningLib,
+                        bool readPartitionFromFile,
+                        const char* checkPointFile);
+  static int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  static void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
   /**
    * Generate the PUML data structure
    */
-  void generatePUML(PUML::TETPUML& puml);
+  static void generatePUML(PUML::TETPUML& puml);
 
   /**
    * Get the mesh

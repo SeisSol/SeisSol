@@ -66,9 +66,9 @@ class DynamicRupture {
 #endif
 
   public:
-  double timePoints[ConvergenceOrder];
-  double timeWeights[ConvergenceOrder];
-  real spaceWeights[NumSpaceQuadraturePoints];
+  double timePoints[ConvergenceOrder]{};
+  double timeWeights[ConvergenceOrder]{};
+  real spaceWeights[NumSpaceQuadraturePoints]{};
 #ifdef USE_STP
   std::array<std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>>, ConvergenceOrder>
       timeBasisFunctions;
@@ -95,7 +95,7 @@ class DynamicRupture {
       const real* timeDerivativeMinusPrefetch);
 
   void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table,
-                                     seissol::parallel::runtime::StreamRuntime& runtime);
+                                            seissol::parallel::runtime::StreamRuntime& runtime);
 
   void flopsGodunovState(const DRFaceInformation& faceInfo,
                          long long& nonZeroFlops,

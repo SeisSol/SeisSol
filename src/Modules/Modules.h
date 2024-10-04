@@ -72,28 +72,28 @@ enum class ModulePriority : int {
  * @warning The order of the hooks has to be the same they are called in SeisSol.
  */
 enum class ModuleHook : int {
-  PreMPI,
-  PostMPIInit,
-  PreMesh,
-  PostMesh,
-  PreLtsInit,
-  PostLtsInit,
-  PreModel,
-  PostModel,
+  PreMPI = 0,
+  PostMPIInit = 1,
+  PreMesh = 2,
+  PostMesh = 3,
+  PreLtsInit = 4,
+  PostLtsInit = 5,
+  PreModel = 6,
+  PostModel = 7,
   /**
    * Called when the simulation starts.
    *
    * @warning Only called when the simulation is not loaded from a checkpoint.
    */
-  SimulationStart,
+  SimulationStart = 8,
   /**
    * Global synchronization point during simulation
    *
    * Registering for this hook requires setting the update interval.
    */
-  SynchronizationPoint,
-  SimulationEnd,
-  Shutdown,
+  SynchronizationPoint = 9,
+  SimulationEnd = 10,
+  Shutdown = 11,
   FirstHook = PreMPI,
   MaxInitHooks = SimulationStart + 1,
   MaxHooks = Shutdown + 1
@@ -110,7 +110,6 @@ class Modules {
   /** The hook that should be called next */
   ModuleHook nextHook{ModuleHook::FirstHook};
 
-  private:
   Modules();
 
   /**
@@ -140,7 +139,6 @@ class Modules {
    */
   void _setSimulationStartTime(double time);
 
-  private:
   template <ModuleHook Hook>
   static void call(Module* module);
 

@@ -15,7 +15,7 @@ struct SIUnit {
 
   [[nodiscard]] std::string formatPrefix(double value, int digits = 4) const;
 
-  [[nodiscard]] std::string formatScientific(double value, int digits = 4) const;
+  [[nodiscard]] static std::string formatScientific(double value, int digits = 4);
 
   private:
   std::string unit;

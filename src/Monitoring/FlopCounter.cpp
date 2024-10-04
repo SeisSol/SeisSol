@@ -136,7 +136,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 /**
  * Prints the measured FLOP/s.
  */
-void FlopCounter::printPerformanceSummary(double wallTime) {
+void FlopCounter::printPerformanceSummary(double wallTime) const {
   const int rank = seissol::MPI::mpi.rank();
 
   enum Counter {

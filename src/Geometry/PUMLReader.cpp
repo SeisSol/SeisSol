@@ -302,8 +302,9 @@ int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
 
   const int status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, plistId, partition);
 
-  if (status < 0)
+  if (status < 0) {
     logError() << "An error occured when reading the partitionning with HDF5";
+  }
   H5Dclose(dataset);
   H5Fclose(file);
 
@@ -375,8 +376,9 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
 
   const int status = H5Dwrite(dataset, H5T_NATIVE_INT, memspace, filespace, plistId, partition);
 
-  if (status < 0)
+  if (status < 0) {
     logError() << "An error occured when writing the partitionning with HDF5";
+  }
   H5Dclose(dataset);
   H5Fclose(file);
 }

@@ -26,8 +26,9 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
+      ghostTimeClusters{};
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)

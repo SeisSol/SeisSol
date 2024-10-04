@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include <limits>
+#include <math.h>
 #include <stdexcept>
 #include <string>
 #include <utils/logger.h>
@@ -143,10 +144,10 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const auto weightFreeSurfaceWithGravity =
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
   const double cfl = reader->readWithDefault("cfl", 0.5);
-  double maxTimestepWidth;
+  double maxTimestepWidth = NAN;
 
   if constexpr (isModelViscoelastic()) {
-    auto modelReader = baseReader->readSubNode("equations");
+    auto* modelReader = baseReader->readSubNode("equations");
     const auto freqCentral =
         modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
     const auto freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());

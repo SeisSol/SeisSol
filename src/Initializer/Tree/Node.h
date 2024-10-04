@@ -65,7 +65,7 @@ class Node {
   }
 
   public:
-  Node() : m_children() {}
+  Node() = default;
   virtual ~Node() = default;
 
   template <typename T>
@@ -76,9 +76,9 @@ class Node {
     }
   }
 
-  [[nodiscard]] inline bool isLeaf() const { return m_children.empty(); }
+  [[nodiscard]] bool isLeaf() const { return m_children.empty(); }
 
-  [[nodiscard]] inline unsigned numChildren() const { return m_children.size(); }
+  [[nodiscard]] unsigned numChildren() const { return m_children.size(); }
 
   class Iterator {
 public:
@@ -96,18 +96,18 @@ public:
     Iterator() : m_node(nullptr) {}
     Iterator(Node* node) : m_node(node) {}
 
-    inline Iterator& operator++() {
+    Iterator& operator++() {
       m_node = m_node->m_next;
       return *this;
     }
 
-    inline reference operator*() { return *m_node; }
+    reference operator*() { return *m_node; }
 
-    inline pointer operator->() { return m_node; }
+    pointer operator->() { return m_node; }
 
-    inline bool operator==(const Iterator& other) const { return other.m_node == m_node; }
+    bool operator==(const Iterator& other) const { return other.m_node == m_node; }
 
-    inline bool operator!=(const Iterator& other) const { return other.m_node != m_node; }
+    bool operator!=(const Iterator& other) const { return other.m_node != m_node; }
 
 protected:
     value_type* m_node;
@@ -129,24 +129,24 @@ public:
     ConstIterator() : m_node(nullptr) {}
     ConstIterator(const Node* node) : m_node(node) {}
 
-    inline ConstIterator& operator++() {
+    ConstIterator& operator++() {
       m_node = m_node->m_next;
       return *this;
     }
 
-    inline reference operator*() { return *m_node; }
+    reference operator*() { return *m_node; }
 
-    inline pointer operator->() { return m_node; }
+    pointer operator->() { return m_node; }
 
-    inline bool operator==(const ConstIterator& other) const { return other.m_node == m_node; }
+    bool operator==(const ConstIterator& other) const { return other.m_node == m_node; }
 
-    inline bool operator!=(const ConstIterator& other) const { return other.m_node != m_node; }
+    bool operator!=(const ConstIterator& other) const { return other.m_node != m_node; }
 
 protected:
     const value_type* m_node;
   };
 
-  inline Iterator begin() {
+  Iterator begin() {
     Node* start = this;
     while (!start->isLeaf()) {
       start = start->m_children[0].get();
@@ -155,13 +155,13 @@ protected:
     return {start};
   }
 
-  inline Iterator end() {
+  Iterator end() {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
     return {this->m_next};
   }
 
-  [[nodiscard]] inline ConstIterator begin() const {
+  [[nodiscard]] ConstIterator begin() const {
     const Node* start = this;
     while (!start->isLeaf()) {
       start = start->m_children[0].get();
@@ -170,7 +170,7 @@ protected:
     return {start};
   }
 
-  [[nodiscard]] inline ConstIterator end() const {
+  [[nodiscard]] ConstIterator end() const {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
     return {this->m_next};

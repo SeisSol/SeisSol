@@ -34,7 +34,7 @@
 
 namespace seissol::writer {
 
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : out(), fileName(std::move(fileName)) {}
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName(std::move(fileName)) {}
 
 void CsvAnalysisWriter::writeHeader() {
   if (isEnabled) {
@@ -78,7 +78,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo(mpi.rank()) << "Print analysis for initial conditions"
                       << static_cast<int>(initialConditionType) << " at time " << simulationTime;
 
-  auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
+  const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
   auto* lts = seissolInstance.getMemoryManager().getLts();
   auto* ltsLut = seissolInstance.getMemoryManager().getLtsLut();
@@ -222,9 +222,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
             errsLInfLocal[curThreadId][v] = curError;
             elemsLInfLocal[curThreadId][v] = meshId;
           }
-          if (curAnalytical > analyticalsLInfLocal[curThreadId][v]) {
-            analyticalsLInfLocal[curThreadId][v] = curAnalytical;
-          }
+          analyticalsLInfLocal[curThreadId][v] =
+              std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
         }
       }
     }
@@ -239,9 +238,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           errLInfLocal[v] = errsLInfLocal[i][v];
           elemLInfLocal[v] = elemsLInfLocal[i][v];
         }
-        if (analyticalsLInfLocal[i][v] > analyticalLInfLocal[v]) {
-          analyticalLInfLocal[v] = analyticalsLInfLocal[i][v];
-        }
+        analyticalLInfLocal[v] = std::max(analyticalsLInfLocal[i][v], analyticalLInfLocal[v]);
       }
     }
 

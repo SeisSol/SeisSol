@@ -210,7 +210,8 @@ easi::Query seissol::initializer::FaultBarycentreGenerator::generate() const {
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
   for (const Fault& f : fault) {
-    int element, side;
+    int element = 0;
+    int side = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -244,7 +245,9 @@ easi::Query seissol::initializer::FaultGPGenerator::generate() const {
   // note: we have one generator per LTS layer
   for (const unsigned faultId : m_faceIDs) {
     const Fault& f = fault.at(faultId);
-    int element, side, sideOrientation;
+    int element = 0;
+    int side = 0;
+    int sideOrientation = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -545,7 +548,7 @@ void FaultParameterDB::evaluateModel(const std::string& fileName,
 
 std::set<std::string>
     seissol::initializer::FaultParameterDB::faultProvides(const std::string& fileName) {
-  if (fileName.length() == 0) {
+  if (fileName.empty()) {
     return {};
   }
   easi::Component* model = loadEasiModel(fileName);
@@ -635,8 +638,9 @@ void seissol::initializer::EasiBoundary::query(const real* nodes,
             termName, mapTermsData + offset, mapTerms.shape(0) * mapTerms.shape(1));
       } else {
         // Default: Extrapolate
-        for (size_t k = 0; k < mapTerms.shape(2); ++k)
+        for (size_t k = 0; k < mapTerms.shape(2); ++k) {
           mapTerms(i, j, k) = (varName == otherVarName) ? 1.0 : 0.0;
+        }
       }
       ++offset;
     }

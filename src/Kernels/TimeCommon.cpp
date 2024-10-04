@@ -123,7 +123,7 @@ void TimeCommon::computeIntegrals(Time& time,
 
   // adjust start times for GTS on derivatives
   for (unsigned int face = 0; face < 4; face++) {
-    if ((ltsSetup >> (face + 4)) % 2) {
+    if (((ltsSetup >> (face + 4)) % 2) != 0) {
       startTimes[face + 1] = timeStepStart;
     }
   }

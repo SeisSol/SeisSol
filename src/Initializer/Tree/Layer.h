@@ -51,7 +51,7 @@
 #include <type_traits>
 #include <vector>
 
-enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers };
+enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers = 3 };
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -72,9 +72,9 @@ struct DualMemoryContainer {
   void* host = nullptr;
   void* device = nullptr;
   AllocationMode allocationMode;
-  std::size_t allocationSize;
-  std::size_t allocationAlignment;
-  bool constant;
+  std::size_t allocationSize{};
+  std::size_t allocationAlignment{};
+  bool constant{};
 
   [[nodiscard]] void* get(AllocationPlace place) const {
     if (place == AllocationPlace::Host) {
@@ -188,9 +188,9 @@ struct ScratchpadMemory : public Bucket {};
 #endif
 
 struct MemoryInfo {
-  size_t bytes;
-  size_t alignment;
-  size_t elemsize;
+  size_t bytes{};
+  size_t alignment{};
+  size_t elemsize{};
   LayerMask mask;
   // seissol::memory::Memkind memkind;
   AllocationMode allocMode;
@@ -269,19 +269,19 @@ class Layer : public Node {
 #endif
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
-  [[nodiscard]] inline bool isMasked(LayerMask layerMask) const {
+  [[nodiscard]] bool isMasked(LayerMask layerMask) const {
     return (LayerMask(m_layerType) & layerMask).any();
   }
 
-  inline void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
+  void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
 
-  [[nodiscard]] inline enum LayerType getLayerType() const { return m_layerType; }
+  [[nodiscard]] enum LayerType getLayerType() const { return m_layerType; }
 
-  [[nodiscard]] inline unsigned getNumberOfCells() const { return m_numberOfCells; }
+  [[nodiscard]] unsigned getNumberOfCells() const { return m_numberOfCells; }
 
-  inline void setNumberOfCells(unsigned numberOfCells) { m_numberOfCells = numberOfCells; }
+  void setNumberOfCells(unsigned numberOfCells) { m_numberOfCells = numberOfCells; }
 
-  inline void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
+  void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
     assert(m_vars.empty() && m_buckets.empty() && m_bucketSizes.empty());
     m_vars.resize(numVars);
     m_buckets.resize(numBuckets);
@@ -297,7 +297,7 @@ class Layer : public Node {
   }
 #endif
 
-  inline void setBucketSize(const Bucket& handle, size_t size) {
+  void setBucketSize(const Bucket& handle, size_t size) {
     assert(m_bucketSizes.size() > handle.index);
     m_bucketSizes[handle.index] = size;
   }
@@ -309,12 +309,12 @@ class Layer : public Node {
   }
 #endif
 
-  inline size_t getBucketSize(const Bucket& handle) {
+  size_t getBucketSize(const Bucket& handle) {
     assert(m_bucketSizes.size() > handle.index);
     return m_bucketSizes[handle.index];
   }
 
-  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) {
+  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) const {
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
         bytes[var] += m_numberOfCells * vars[var].bytes;

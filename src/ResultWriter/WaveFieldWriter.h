@@ -92,7 +92,7 @@ class WaveFieldWriter
   WaveFieldWriterExecutor m_executor;
 
   /** Variable buffer ids (high and low order variables) */
-  int m_variableBufferIds[2];
+  int m_variableBufferIds[2]{};
 
   /** The output prefix for the filename */
   std::string m_outputPrefix;
@@ -108,7 +108,7 @@ class WaveFieldWriter
   unsigned int m_numVariables{0};
 
   /** Number of integrated variables */
-  unsigned int m_numIntegratedVariables;
+  unsigned int m_numIntegratedVariables{};
 
   /** Flag indicated which variables should be written */
   bool* m_outputFlags{nullptr};
@@ -139,14 +139,10 @@ class WaveFieldWriter
 
   /** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
   /*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
-  bool vertexInBox(const double* const boxBounds, const double* const vertexCoords) {
-    if (vertexCoords[0] <= boxBounds[1] && vertexCoords[0] >= boxBounds[0] &&
-        vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
-        vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4]) {
-      return true;
-    } else {
-      return false;
-    }
+  static bool vertexInBox(const double* const boxBounds, const double* const vertexCoords) {
+    return vertexCoords[0] <= boxBounds[1] && vertexCoords[0] >= boxBounds[0] &&
+           vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
+           vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4];
   }
 
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
@@ -217,8 +213,9 @@ class WaveFieldWriter
 
     finalize();
 
-    if (!m_enabled)
+    if (!m_enabled) {
       return;
+    }
 
     m_stopwatch.printTime("Time wave field writer frontend:");
 

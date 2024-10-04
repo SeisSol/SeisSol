@@ -59,10 +59,7 @@
 #include "SeisSol.h"
 
 #include "Common/Constants.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Modules.h"
 #include "Parallel/MPI.h"
-#include "SeisSol.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -81,7 +78,7 @@
 #include "Version.h"
 
 namespace {
-static std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
   std::shared_ptr<YAML::Node> inputParams = nullptr;
@@ -170,7 +167,7 @@ int main(int argc, char* argv[]) {
     [[fallthrough]];
   }
   case utils::Args::Error: {
-    seissol::MPI::mpi.finalize();
+    seissol::MPI::finalize();
     exit(1);
     break;
   }
@@ -178,12 +175,12 @@ int main(int argc, char* argv[]) {
     break;
   }
   }
-  const auto parameterFile = args.getAdditionalArgument("file", "parameters.par");
+  const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
   logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializer::parameters::ParameterReader parameterReader(
-      *yamlParams.get(), parameterFile, false);
+      *yamlParams, parameterFile, false);
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 

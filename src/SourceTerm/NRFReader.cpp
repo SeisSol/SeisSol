@@ -51,7 +51,7 @@
 
 namespace {
 
-static void check_err(const int stat, const int line, const char* file) {
+void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
@@ -60,28 +60,28 @@ static void check_err(const int stat, const int line, const char* file) {
 } // namespace
 
 void seissol::sourceterm::readNRF(const char* filename, NRF& nrf) {
-  int ncid;
-  int stat;
+  int ncid = 0;
+  int stat = 0;
 
   /* dimension ids */
-  int sourceDim;
-  int sroffsetDim;
-  int sample1Dim;
-  int sample2Dim;
-  int sample3Dim;
+  int sourceDim = 0;
+  int sroffsetDim = 0;
+  int sample1Dim = 0;
+  int sample2Dim = 0;
+  int sample3Dim = 0;
 
   /* dimension lengths */
-  size_t sourceLen;
-  size_t sroffsetLen;
+  size_t sourceLen = 0;
+  size_t sroffsetLen = 0;
   size_t sampleLen[3];
 
   /* variable ids */
-  int centresId;
-  int subfaultsId;
-  int sroffsetsId;
-  int sliprates1Id;
-  int sliprates2Id;
-  int sliprates3Id;
+  int centresId = 0;
+  int subfaultsId = 0;
+  int sroffsetsId = 0;
+  int sliprates1Id = 0;
+  int sliprates2Id = 0;
+  int sliprates3Id = 0;
 
   /* open nrf */
   stat = nc_open(filename, NC_NOWRITE, &ncid);

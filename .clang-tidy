@@ -1,18 +1,36 @@
-# TODO: enable as much as possible from modernize, performance, and readability
-
 # TODO: enable
 # * modernize-use-trailing-return-type
 # * modernize-pass-by-value
 # * modernize-loop-convert
 # * modernize-deprecated-headers
+# * cppcoreguidelines-narrowing-conversions
 # maybe even
 # * modernize-avoid-c-arrays
 # * modernize-return-braced-init-list
+# * cppcoreguidelines-pro-bounds-constant-array-index
+# * cppcoreguidelines-pro-bounds-array-to-pointer-decay
+# * cppcoreguidelines-owning-memory
+# ... and add a reasoning for each exclusion
+
+# TODO: enable clang-analyzer-*
 
 Checks: |
   -*,
   clang-diagnostic-*,
-  cppcoreguidelines-avoid-non-const-global-variables,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-no-malloc,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-narrowing-conversions,
   llvm-*,
   -llvm-else-after-return,
   -llvm-header-guard,
@@ -32,9 +50,12 @@ Checks: |
   performance-*,
   -performance-enum-size,
   -performance-avoid-endl,
-  readability-non-const-parameter,
-  readability-const-return-type,
-  readability-identifier-naming
+  readability-*,
+  -readability-else-after-return,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-function-cognitive-complexity,
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
@@ -340,3 +361,5 @@ CheckOptions:
     # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
     value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*|bits/.*|external/.*'
+  - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value:           True

@@ -143,8 +143,8 @@ class seissol::initializer::ElementAverageGenerator : public seissol::initialize
 
   private:
   CellToVertexArray m_cellToVertex;
-  std::array<double, NumQuadpoints> m_quadratureWeights;
-  std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints;
+  std::array<double, NumQuadpoints> m_quadratureWeights{};
+  std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
 class seissol::initializer::FaultBarycentreGenerator : public seissol::initializer::QueryGenerator {
@@ -172,7 +172,8 @@ class seissol::initializer::FaultGPGenerator : public seissol::initializer::Quer
 
 class seissol::initializer::ParameterDB {
   public:
-  virtual void evaluateModel(const std::string& fileName, const QueryGenerator* const queryGen) = 0;
+  virtual ~ParameterDB() = default;
+  virtual void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) = 0;
   static easi::Component* loadModel(const std::string& fileName);
 };
 
@@ -182,20 +183,21 @@ class seissol::initializer::MaterialParameterDB : seissol::initializer::Paramete
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
                             const std::vector<T>& materialsFromQuery);
-  void evaluateModel(const std::string& fileName, const QueryGenerator* const queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
   private:
-  std::vector<T>* m_materials;
+  std::vector<T>* m_materials{};
 };
 
 class seissol::initializer::FaultParameterDB : seissol::initializer::ParameterDB {
   public:
+  ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
   }
-  void evaluateModel(const std::string& fileName, const QueryGenerator* const queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:

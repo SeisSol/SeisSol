@@ -56,7 +56,7 @@ struct PickpointParameters {
   int printTimeInterval{1};
   int maxPickStore{50};
   std::array<bool, 12> outputMask{true, true, true};
-  std::string pickpointFileName{};
+  std::string pickpointFileName;
 };
 
 struct ReceiverOutputParameters {

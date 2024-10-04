@@ -16,7 +16,7 @@
 
 namespace {
 
-static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
+void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   auto* lts = memoryManager.getLts();
@@ -25,12 +25,12 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
 
   // Initialize checkpointing
-  int faultTimeStep;
+  int faultTimeStep = 0;
 
   // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip
   // magnitude
   real* stateVariable{nullptr};
-  if (dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)) {
+  if (dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup) != nullptr) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
         dynamic_cast<seissol::initializer::LTSRateAndState*>(dynRup)->stateVariable));
   } else {
@@ -39,7 +39,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   // Only with prakash-clifton regularization, we store the fault strength, otherwise use the
   // friction coefficient
   real* strength{nullptr};
-  if (dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)) {
+  if (dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup) != nullptr) {
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(
         dynamic_cast<seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup)
             ->regularisedStrength));
@@ -70,7 +70,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void setupOutput(seissol::SeisSol& seissolInstance) {
+void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   auto* lts = memoryManager.getLts();
@@ -146,13 +146,12 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix.c_str());
+  seissolInstance.flopCounter().init(seissolParams.output.prefix);
 
-  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
-                                        seissolParams.output.prefix.c_str());
+  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }
 
-static void enableCheckpointing(seissol::SeisSol& seissolInstance) {
+void enableCheckpointing(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.output.checkpointParameters.enabled) {
     seissolInstance.simulator().setCheckPointInterval(
@@ -164,14 +163,14 @@ static void enableCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
+void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
-static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.output.waveFieldParameters.enabled) {
     seissolInstance.waveFieldWriter().enable();
@@ -181,7 +180,7 @@ static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -196,7 +195,7 @@ static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void setIntegralMask(seissol::SeisSol& seissolInstance) {
+void setIntegralMask(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   seissolInstance.postProcessor().setIntegrationMask(
       seissolParams.output.waveFieldParameters.integrationMask);
@@ -217,7 +216,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
       filesystem::create_directory(outputDir);
     }
   }
-  MPI::mpi.barrier(MPI::mpi.comm());
+  seissol::MPI::barrier(MPI::mpi.comm());
 
   // always enable checkpointing first
   enableCheckpointing(seissolInstance);

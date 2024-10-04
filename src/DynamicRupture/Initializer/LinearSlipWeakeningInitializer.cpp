@@ -17,7 +17,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
 
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     bool(*dynStressTimePending)[misc::NumPaddedPoints] =
@@ -48,7 +48,7 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
   real(*dC)[misc::NumPaddedPoints] = layer.var(concreteLts->dC);
   real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
@@ -68,7 +68,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {

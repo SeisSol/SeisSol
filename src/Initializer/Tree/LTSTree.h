@@ -57,8 +57,8 @@ class LTSTree : public LTSInternalNode {
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
-  std::vector<size_t> variableSizes{}; /*!< sizes of variables within the entire tree in bytes */
-  std::vector<size_t> bucketSizes{};   /*!< sizes of buckets within the entire tree in bytes */
+  std::vector<size_t> variableSizes; /*!< sizes of variables within the entire tree in bytes */
+  std::vector<size_t> bucketSizes;   /*!< sizes of buckets within the entire tree in bytes */
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
@@ -101,12 +101,12 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  inline TimeCluster& child(unsigned index) {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  TimeCluster& child(unsigned index) {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
-  [[nodiscard]] inline const TimeCluster& child(unsigned index) const {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  [[nodiscard]] const TimeCluster& child(unsigned index) const {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -122,7 +122,7 @@ class LTSTree : public LTSInternalNode {
 
   [[nodiscard]] const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
 
-  [[nodiscard]] inline unsigned getNumberOfVariables() const { return varInfo.size(); }
+  [[nodiscard]] unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
   void addVar(Variable<T>& handle,

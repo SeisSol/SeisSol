@@ -80,8 +80,9 @@ ODEVector& ODEVector::operator*=(real scalar) {
 }
 
 void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
-  if (weight == 0.0)
+  if (weight == 0.0) {
     return;
+  }
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == rhs.sizes[i]);
 #pragma omp simd
@@ -114,8 +115,9 @@ real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
       maxError = std::max(std::abs(curDiff), maxError);
     }
   }
-  if (useLInfNorm)
+  if (useLInfNorm) {
     return maxError;
+  }
   return std::sqrt(error);
 }
 
@@ -131,7 +133,7 @@ real ODEVector::l2Norm() {
 }
 
 void ODEVector::print() {
-  const auto delim = "----------- print() -----------";
+  const auto* const delim = "----------- print() -----------";
   for (std::size_t i = 0; i < storages.size(); ++i) {
     std::cout << delim << std::endl;
     for (std::size_t j = 0; j < sizes[i]; ++j) {

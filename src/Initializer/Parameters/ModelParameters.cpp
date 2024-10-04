@@ -42,7 +42,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  const bool hasBoundaryFile = boundaryFileName.value_or("") != "";
+  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
   const bool useCellHomogenizedMaterial =

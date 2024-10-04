@@ -32,7 +32,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
-    auto* concreteLts =
+    const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSImposedSlipRates* const>(dynRup);
     auto* imposedSlipDirection1 = layer.var(concreteLts->imposedSlipDirection1);
     auto* imposedSlipDirection2 = layer.var(concreteLts->imposedSlipDirection2);
@@ -121,7 +121,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
   real(*tauS)[misc::NumPaddedPoints] = layer.var(concreteLts->tauS);
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
@@ -131,7 +131,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
 
 void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
   real(*tauS)[misc::NumPaddedPoints] = layer.var(concreteLts->tauS);
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
@@ -149,7 +149,7 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian* const>(dynRup);
   real(*riseTime)[misc::NumPaddedPoints] = layer.var(concreteLts->riseTime);
   parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});

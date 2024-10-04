@@ -14,22 +14,25 @@ struct ExtVrtxCoords {
 
   template <typename T>
   ExtVrtxCoords(const T& other) {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       coords[i] = other[i];
+    }
   }
 
   template <typename T>
   ExtVrtxCoords& operator=(const T& other) {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       coords[i] = other[i];
+    }
     return *this;
   }
 
   ExtVrtxCoords(std::initializer_list<double> inputCoords) {
     assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
     const auto* begin = inputCoords.begin();
-    for (int i = 0; i < 3; ++i, ++begin)
+    for (int i = 0; i < 3; ++i, ++begin) {
       coords[i] = *begin;
+    }
   }
 
   double& operator[](size_t index) {
@@ -61,13 +64,15 @@ struct ExtTriangle {
   }
 
   ExtTriangle(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       points[i] = other.points[i];
+    }
   }
 
   ExtTriangle& operator=(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
       points[i] = other.points[i];
+    }
     return *this;
   }
 
@@ -88,14 +93,14 @@ struct ExtTriangle {
 };
 
 struct ReceiverPoint {
-  ExtVrtxCoords global{};       // physical coords of a receiver
-  ExtVrtxCoords reference{};    // reference coords of a receiver
-  ExtTriangle globalTriangle{}; // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};       // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};      // Side ID of a reference element
-  int elementIndex{-1};         // Element which the receiver belongs to
-  int globalReceiverIndex{-1};  // receiver index of global list
-  bool isInside{false};         // If a point is inside the mesh or not
+  ExtVrtxCoords global;        // physical coords of a receiver
+  ExtVrtxCoords reference;     // reference coords of a receiver
+  ExtTriangle globalTriangle;  // a surrounding triangle of a receiver
+  int faultFaceIndex{-1};      // Face Fault index which the receiver belongs to
+  int localFaceSideId{-1};     // Side ID of a reference element
+  int elementIndex{-1};        // Element which the receiver belongs to
+  int globalReceiverIndex{-1}; // receiver index of global list
+  bool isInside{false};        // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
 

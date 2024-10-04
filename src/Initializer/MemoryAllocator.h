@@ -102,8 +102,8 @@ using VectorT =
 template <typename T, std::size_t N>
 class AlignedArray {
   public:
-  inline T* data() { return data_; }
-  inline const T* data() const { return data_; }
+  T* data() { return data_; }
+  const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
   [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
@@ -223,12 +223,12 @@ class MemkindArray {
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
   ~MemkindArray() { free(dataPtr, memkind); }
-  inline T* data() noexcept { return dataPtr; }
-  inline const T* data() const noexcept { return dataPtr; }
-  inline T* begin() noexcept { return dataPtr; }
-  inline T* end() noexcept { return dataPtr + capacity; }
-  inline const T* begin() const noexcept { return dataPtr; }
-  inline const T* end() const noexcept { return dataPtr + capacity; }
+  T* data() noexcept { return dataPtr; }
+  const T* data() const noexcept { return dataPtr; }
+  T* begin() noexcept { return dataPtr; }
+  T* end() noexcept { return dataPtr + capacity; }
+  const T* begin() const noexcept { return dataPtr; }
+  const T* end() const noexcept { return dataPtr + capacity; }
   constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
   [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }

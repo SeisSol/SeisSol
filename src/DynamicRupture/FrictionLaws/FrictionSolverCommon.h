@@ -112,8 +112,8 @@ inline void precomputeStressFromQInterpolated(
   const auto invZsNeig = impAndEta.invZsNeig;
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-  auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+  const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
 
@@ -264,8 +264,8 @@ inline void postcomputeImposedStateFromNewStress(
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
 
@@ -506,8 +506,8 @@ inline void computeFrictionEnergy(
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;

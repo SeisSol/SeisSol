@@ -16,14 +16,14 @@ class RateAndStateInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
-                       seissol::initializer::LTSTree* const dynRupTree) override;
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
+                               const seissol::initializer::DynamicRupture* dynRup,
                                seissol::initializer::Layer& layer) override;
 
   struct StateAndFriction {
@@ -73,7 +73,7 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * Adds the additional parameters rs_srW
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
+                               const seissol::initializer::DynamicRupture* dynRup,
                                seissol::initializer::Layer& layer) override;
 
   /**
@@ -115,15 +115,15 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
-                       seissol::initializer::LTSTree* const dynRupTree) override;
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
+                               const seissol::initializer::DynamicRupture* dynRup,
                                seissol::initializer::Layer& layer) override;
 };
 

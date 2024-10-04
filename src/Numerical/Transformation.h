@@ -119,9 +119,15 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
                                            Tmatrix& oTinv,
                                            unsigned row = 0,
                                            unsigned col = 0) {
-  const real nx = iNormal[0], ny = iNormal[1], nz = iNormal[2];
-  const real sx = iTangent1[0], sy = iTangent1[1], sz = iTangent1[2];
-  const real tx = iTangent2[0], ty = iTangent2[1], tz = iTangent2[2];
+  const real nx = iNormal[0];
+  const real ny = iNormal[1];
+  const real nz = iNormal[2];
+  const real sx = iTangent1[0];
+  const real sy = iTangent1[1];
+  const real sz = iTangent1[2];
+  const real tx = iTangent2[0];
+  const real ty = iTangent2[1];
+  const real tz = iTangent2[2];
 
   oTinv(row + 0, col + 0) = nx * nx;
   oTinv(row + 1, col + 0) = sx * sx;

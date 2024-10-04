@@ -28,7 +28,7 @@ void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
  * @return measured time (until now) in seconds
  */
 double Stopwatch::split() {
-  struct timespec end;
+  struct timespec end {};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   return seconds(difftime(startTime, end));
@@ -40,7 +40,7 @@ double Stopwatch::split() {
  * @return measured time (until now) in seconds
  */
 double Stopwatch::pause() {
-  struct timespec end;
+  struct timespec end {};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   time += difftime(startTime, end);
@@ -73,8 +73,9 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   double min = time;
   double max = time;
 
-  if (comm == MPI_COMM_NULL)
+  if (comm == MPI_COMM_NULL) {
     comm = seissol::MPI::mpi.comm();
+  }
 
   MPI_Comm_rank(comm, &rank);
 
@@ -83,7 +84,7 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
-    int size;
+    int size = 0;
     MPI_Comm_size(comm, &size);
     avg /= size;
   } else {

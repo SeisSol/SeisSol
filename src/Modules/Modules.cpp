@@ -131,9 +131,7 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
   return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
 }
 
-void Modules::setSimulationStartTime(double time) {
-  return instance()._setSimulationStartTime(time);
-}
+void Modules::setSimulationStartTime(double time) { instance()._setSimulationStartTime(time); }
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \

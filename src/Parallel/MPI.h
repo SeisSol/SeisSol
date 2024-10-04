@@ -189,7 +189,8 @@ class MPI : public MPIBasic {
       comm = std::optional<MPI_Comm>(m_comm);
     }
 
-    int rank, size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(comm.value(), &rank);
     MPI_Comm_size(comm.value(), &size);
 
@@ -254,12 +255,12 @@ class MPI : public MPIBasic {
    */
   const auto& getHostNames() { return hostNames; }
 
-  void barrier(MPI_Comm comm) const { MPI_Barrier(comm); }
+  static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
   /**
    * Finalize MPI
    */
-  void finalize() { MPI_Finalize(); }
+  static void finalize() { MPI_Finalize(); }
 
   void setDataTransferModeFromEnv();
 
@@ -271,10 +272,10 @@ class MPI : public MPIBasic {
 
   private:
   MPI_Comm m_comm;
-  MPI_Comm m_sharedMemComm;
+  MPI_Comm m_sharedMemComm{};
   MPI() : m_comm(MPI_COMM_NULL) {}
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
-  std::vector<std::string> hostNames{};
+  std::vector<std::string> hostNames;
 };
 
 #endif // USE_MPI

@@ -52,16 +52,16 @@ class MPIBasic {
   int m_rank{0};
 
   /** Rank in the shared memory sub-communicator */
-  int m_sharedMemMpiRank;
+  int m_sharedMemMpiRank{};
 
   /** Number of processors */
   int m_size{1};
 
   /** Number of ranks in the shared memory sub-communicator */
-  int m_sharedMemMpiSize;
+  int m_sharedMemMpiSize{};
 
   /** Requires threadsafe MPI */
-  bool m_threadsafe;
+  bool m_threadsafe{};
 
   MPIBasic() {}
 

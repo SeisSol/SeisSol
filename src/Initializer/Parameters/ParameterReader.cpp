@@ -91,7 +91,7 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited.emplace(subnodeName);
   logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
   if (subreaders.find(subnodeName) == subreaders.end()) {
-    bool empty;
+    bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
 

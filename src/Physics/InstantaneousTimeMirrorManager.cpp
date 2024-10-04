@@ -147,7 +147,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   {
     for (auto& cluster : *timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto neighborClusters = cluster->getNeighborClusters();
+      auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
@@ -156,7 +156,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
     for (auto& cluster : *ghostTimeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
+      auto* ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
@@ -169,7 +169,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     for (auto& cluster : *timeClusters) {
       //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
       cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
-      auto neighborClusters = cluster->getNeighborClusters();
+      auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
                                            velocityScalingFactor);
@@ -179,7 +179,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
     for (auto& cluster : *ghostTimeClusters) {
       //        cluster->getClusterTimes() = cluster->getClusterTimes() * velocityScalingFactor;
       cluster->setClusterTimes(cluster->getClusterTimes() * velocityScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
+      auto* ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
                                            velocityScalingFactor);

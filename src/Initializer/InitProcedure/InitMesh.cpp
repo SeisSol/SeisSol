@@ -34,7 +34,7 @@
 namespace {
 
 template <typename TT>
-static TT _checkH5Err(TT&& status, const char* file, int line, int rank) {
+TT _checkH5Err(TT&& status, const char* file, int line, int rank) {
   if (status < 0) {
     logError() << utils::nospace << "An HDF5 error occurred in PUML (" << file << ": " << line
                << ") on rank " << rank;
@@ -44,10 +44,10 @@ static TT _checkH5Err(TT&& status, const char* file, int line, int rank) {
 
 #define _eh(status) _checkH5Err(status, __FILE__, __LINE__, rank)
 
-static void postMeshread(seissol::geometry::MeshReader& meshReader,
-                         const Eigen::Vector3d& displacement,
-                         const Eigen::Matrix3d& scalingMatrix,
-                         seissol::SeisSol& seissolInstance) {
+void postMeshread(seissol::geometry::MeshReader& meshReader,
+                  const Eigen::Vector3d& displacement,
+                  const Eigen::Matrix3d& scalingMatrix,
+                  seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
@@ -72,8 +72,8 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   seissolInstance.getLtsLayout().setMesh(meshReader);
 }
 
-static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
-                         seissol::SeisSol& seissolInstance) {
+void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                  seissol::SeisSol& seissolInstance) {
 #if defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
@@ -119,7 +119,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 
       auto format = [&]() {
         if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
-          char* formatRaw;
+          char* formatRaw = nullptr;
           _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
           auto format = std::string(formatRaw);
           _eh(H5free_memory(formatRaw));
@@ -192,14 +192,14 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const LtsWeightsConfig config{
       boundaryFormat,
       seissolParams.model.materialFileName,
-      static_cast<unsigned int>(seissolParams.timeStepping.lts.getRate()),
+      seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
       seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
-  auto meshReader =
+  auto* meshReader =
       new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                         seissolParams.mesh.partitioningLib.c_str(),
                                         seissolParams.timeStepping.maxTimestepWidth,
@@ -224,10 +224,10 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 #endif // defined(USE_HDF) && defined(USE_MPI)
 }
 
-static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
-  auto& mpiNeighbors = meshReader.getMPINeighbors();
+size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
+  const auto& mpiNeighbors = meshReader.getMPINeighbors();
   size_t numEdges{0};
-  for (auto& [_, neighborInfo] : mpiNeighbors) {
+  for (const auto& [_, neighborInfo] : mpiNeighbors) {
     // Note: this includes the case when multiple faces
     // of an element are located at a partition boarder
     numEdges += neighborInfo.elements.size();
@@ -235,9 +235,8 @@ static size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
   return numEdges;
 }
 
-static void
-    readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
-                      seissol::SeisSol& seissolInstance) {
+void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
+                       seissol::SeisSol& seissolInstance) {
 #if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
@@ -246,8 +245,8 @@ static void
   const auto commSize = seissol::MPI::mpi.size();
   const std::string realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
 
-  seissolInstance.setMeshReader(new seissol::geometry::CubeGenerator(
-      commRank, commSize, realMeshFileName.c_str(), cubeParameters));
+  seissolInstance.setMeshReader(
+      new seissol::geometry::CubeGenerator(commRank, commSize, realMeshFileName, cubeParameters));
 #else
   logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
                 "not linked to Netcdf.";

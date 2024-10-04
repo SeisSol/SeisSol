@@ -52,7 +52,7 @@ class RungeKuttaODESolver {
 
   // Temporary storage
   std::vector<ODEVector> stages;
-  std::vector<std::vector<real>> storages{};
+  std::vector<std::vector<real>> storages;
   ODEVector buffer;
 
   public:

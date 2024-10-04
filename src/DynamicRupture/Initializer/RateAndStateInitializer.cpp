@@ -17,7 +17,8 @@ void RateAndStateInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
-  auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
 
@@ -70,7 +71,7 @@ RateAndStateInitializer::StateAndFriction
                                                             real rsSr0,
                                                             real rsF0,
                                                             real initialSlipRate) {
-  StateAndFriction result;
+  StateAndFriction result{};
   const double absoluteTraction = misc::magnitude(traction1, traction2);
   const double tmp = std::abs(absoluteTraction / (rsA * pressure));
   result.stateVariable = rsSl0 / rsSr0 *
@@ -92,7 +93,8 @@ void RateAndStateInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
-  auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
   real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
   real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
   parameterToStorageMap.insert({"rs_sl0", (real*)rsSl0});
@@ -109,7 +111,7 @@ RateAndStateInitializer::StateAndFriction
                                                                         real rsSr0,
                                                                         real rsF0,
                                                                         real initialSlipRate) {
-  StateAndFriction result;
+  StateAndFriction result{};
   const real absoluteTraction = misc::magnitude(traction1, traction2);
   const real tmp = std::abs(absoluteTraction / (rsA * pressure));
   result.stateVariable =
@@ -129,7 +131,7 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, layer);
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(dynRup);
   real(*rsSrW)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSrW);
   parameterToStorageMap.insert({"rs_srW", (real*)rsSrW});
@@ -140,7 +142,7 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   RateAndStateInitializer::initializeFault(dynRup, dynRupTree);
 
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -176,7 +178,7 @@ void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
   RateAndStateFastVelocityInitializer::addAdditionalParameters(
       parameterToStorageMap, dynRup, layer);
 
-  auto* concreteLts =
+  const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
 
   real(*halfWidthShearZone)[misc::NumPaddedPoints] = layer.var(concreteLts->halfWidthShearZone);

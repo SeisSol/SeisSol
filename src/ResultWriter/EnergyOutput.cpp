@@ -341,9 +341,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     for (unsigned i = 0; i < layer.getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-          if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
-            localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
-          }
+          localMin = std::min(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j], localMin);
         }
       }
     }
@@ -480,8 +478,9 @@ void EnergyOutput::computeVolumeEnergies() {
     auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
     // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
-      if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity)
+      if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {
         continue;
+      }
 
       // Displacements are stored in face-aligned coordinate system.
       // We need to rotate it to the global coordinate system.
@@ -611,19 +610,19 @@ void EnergyOutput::printEnergies() {
     const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
     if (shouldComputeVolumeEnergies()) {
-      if (totalElasticEnergy) {
+      if (totalElasticEnergy != 0.0) {
         logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                       << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
-      if (totalAcousticEnergy) {
+      if (totalAcousticEnergy != 0.0) {
         logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): "
                       << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                       << ratioAcousticPotential;
       }
-      if (energiesStorage.gravitationalEnergy()) {
+      if (energiesStorage.gravitationalEnergy() != 0.0) {
         logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
       }
-      if (energiesStorage.plasticMoment()) {
+      if (energiesStorage.plasticMoment() != 0.0) {
         logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment() << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
@@ -635,7 +634,7 @@ void EnergyOutput::printEnergies() {
       logInfo(rank) << "Volume energies skipped at this step";
     }
 
-    if (totalFrictionalWork) {
+    if (totalFrictionalWork != 0.0) {
       logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
       logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()

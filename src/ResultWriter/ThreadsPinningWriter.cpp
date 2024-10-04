@@ -22,11 +22,11 @@ namespace {
 using namespace seissol::parallel;
 
 struct PinningInfo {
-  std::string coreIds{};
-  std::string numaIds{};
+  std::string coreIds;
+  std::string numaIds;
 };
 
-static PinningInfo getPinningInfo(const cpu_set_t& set) {
+PinningInfo getPinningInfo(const cpu_set_t& set) {
   std::stringstream coreIdsStream;
   std::stringstream numaIdsStream;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
@@ -64,7 +64,7 @@ static PinningInfo getPinningInfo(const cpu_set_t& set) {
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
 #ifndef __APPLE__
-  auto workerInfo = getPinningInfo(pinning.getWorkerUnionMask().set);
+  auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
   if (seissol::useCommThread(seissol::MPI::mpi)) {

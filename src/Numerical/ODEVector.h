@@ -12,9 +12,9 @@ namespace seissol::ode {
  * For examples, see unit test ODEInt.t.h.
  */
 class ODEVector {
-  std::vector<real*> storages{};
-  std::vector<std::size_t> sizes{};
-  std::vector<std::size_t> offsets{};
+  std::vector<real*> storages;
+  std::vector<std::size_t> sizes;
+  std::vector<std::size_t> offsets;
 
   [[nodiscard]] std::pair<std::size_t, std::size_t> index(std::size_t idx) const;
 

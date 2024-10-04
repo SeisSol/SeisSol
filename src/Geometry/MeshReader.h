@@ -89,7 +89,6 @@ class MeshReader {
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
 
-  protected:
   MeshReader(int rank);
 
   public:

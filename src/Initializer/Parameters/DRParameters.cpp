@@ -98,7 +98,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";
+  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
   const double etaHack = [&]() {
     const auto hackRead1 = reader->read<double>("etahack");

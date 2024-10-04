@@ -96,7 +96,7 @@ class SeisSol {
 
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
-  initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
@@ -277,11 +277,11 @@ class SeisSol {
       timeMirrorManagers;
 
   //! time stamp which can be used for backuping files of previous runs
-  std::string m_backupTimeStamp{};
+  std::string m_backupTimeStamp;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), m_seissolParameters(parameters), m_ltsLayout(parameters),
+      : m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
         m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),

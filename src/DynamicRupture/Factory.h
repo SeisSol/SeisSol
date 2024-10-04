@@ -95,9 +95,9 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
-std::unique_ptr<seissol::dr::factory::AbstractFactory> getFactory(
-    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& dynRupParameter,
-    seissol::SeisSol& seissolInstance);
+std::unique_ptr<seissol::dr::factory::AbstractFactory>
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+               seissol::SeisSol& seissolInstance);
 
 } // namespace dr::factory
 } // namespace seissol

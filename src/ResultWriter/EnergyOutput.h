@@ -127,11 +127,11 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceSlipRateBelowThreshold{};
   real minTimeSinceMomentRateBelowThreshold = 0.0;
-  double terminatorMaxTimePostRupture;
-  double energyOutputInterval;
-  double terminatorMomentRateThreshold;
+  double terminatorMaxTimePostRupture{};
+  double energyOutputInterval{};
+  double terminatorMomentRateThreshold{};
   double seismicMomentPrevious = 0.0;
 };
 
