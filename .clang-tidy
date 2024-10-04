@@ -6,6 +6,7 @@
 # * modernize-use-trailing-return-type
 # * readability-function-size
 # * cppcoreguidelines-pro-type-const-cast
+# * readability-convert-member-functions-to-static
 
 Checks: |
   -*,
@@ -53,6 +54,7 @@ Checks: |
   -readability-function-cognitive-complexity,
   -readability-function-size
   -readability-suspicious-call-argument,
+  -readability-convert-member-functions-to-static,
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase

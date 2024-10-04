@@ -205,14 +205,14 @@ public:
   }
 
   template <typename F>
-  void iterateLeaves(F&& leafFunction, LayerMask mask = LayerMask()) {
+  void iterateLeaves(F leafFunction, LayerMask mask = LayerMask()) {
     for (auto& leaf : leaves(mask)) {
       leafFunction(leaf);
     }
   }
 
   template <typename F>
-  void iterateLeaves(F&& leafFunction, LayerMask mask = LayerMask()) const {
+  void iterateLeaves(F leafFunction, LayerMask mask = LayerMask()) const {
     for (const auto& leaf : leaves(mask)) {
       leafFunction(leaf);
     }

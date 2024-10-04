@@ -210,8 +210,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
         for (size_t v = 0; v < NumQuantities; ++v) {
-          const auto curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
-          const auto curAnalytical = std::abs(analyticalSolution(i, v));
+          const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
+          const double curAnalytical = std::abs(analyticalSolution(i, v));
 
           errsL1Local[curThreadId][v] += curWeight * curError;
           errsL2Local[curThreadId][v] += curWeight * curError * curError;

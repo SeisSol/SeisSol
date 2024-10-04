@@ -165,11 +165,12 @@ seissol::physics::TravellingWave::TravellingWave(
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
     const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
-    : rho0(materialData.local.rho), c0(sqrt(materialData.local.lambda / materialData.local.rho)),
+    : rho0(materialData.local.rho),
+      c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
       k(acousticTravellingWaveParametersItm.k),
-      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor),
       tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
-      tau(acousticTravellingWaveParametersItm.itmDuration) {
+      tau(acousticTravellingWaveParametersItm.itmDuration),
+      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
 #ifdef USE_ANISOTROPIC
   logError() << "This has not been yet implemented for anisotropic material";
 #else

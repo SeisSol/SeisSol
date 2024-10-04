@@ -85,10 +85,10 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
-  assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
+  static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0], "Shape mismatch for flux matrices");
+  static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1], "Shape mismatch for flux matrices");
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  const unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   assert(LayerMask(Ghost) == i_lts->material.mask);
   assert(LayerMask(Ghost) == i_lts->localIntegration.mask);
@@ -261,7 +261,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  const unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   for (auto& layer : io_ltsTree->leaves(Ghost)) {
     auto* cellInformation = layer.var(i_lts->cellInformation);

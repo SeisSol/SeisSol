@@ -132,7 +132,7 @@ class WaveFieldWriter
   const real* m_integrals{nullptr};
 
   /** Mapping from the cell order to dofs order */
-  unsigned int* m_map{nullptr};
+  std::vector<unsigned int> m_map;
 
   /** The stopwatch for the frontend */
   Stopwatch m_stopwatch;
@@ -151,7 +151,7 @@ class WaveFieldWriter
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
                                     const std::vector<unsigned>& ltsClusteringData,
-                                    std::map<int, int>& newToOldCellMap);
+                                    std::map<int, int>& newToOldCellMap) const;
 
   public:
   WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
@@ -223,10 +223,6 @@ class WaveFieldWriter
     m_outputFlags = nullptr;
     delete[] m_lowOutputFlags;
     m_lowOutputFlags = nullptr;
-    if (isExtractRegionEnabled) {
-      delete[] m_map;
-      m_map = nullptr;
-    }
   }
 
   void tearDown() override { m_executor.finalize(); }

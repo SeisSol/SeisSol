@@ -75,18 +75,6 @@ std::string buildFileName(const std::string& namePrefix,
   }
 }
 
-std::string buildMPIFileName(const std::string& namePrefix,
-                             const std::string& nameSuffix,
-                             const std::string& fileExtension = std::string()) {
-#ifdef PARALLEL
-  std::stringstream suffix;
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
-  return buildFileName(namePrefix, suffix.str(), fileExtension);
-#else
-  return buildFileName(namePrefix, nameSuffix, fileExtension);
-#endif
-}
-
 std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     int index,
                                     const std::string& nameSuffix,
