@@ -40,7 +40,7 @@
 
 #include "Parallel/MPI.h"
 
-#include <Initializer/PreProcessorMacros.h>
+#include <Initializer/PreProcessorMacros.h> // IWYU pragma: keep
 #include <Kernels/Precision.h>
 #include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
