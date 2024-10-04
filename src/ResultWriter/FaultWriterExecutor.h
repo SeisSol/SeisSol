@@ -67,7 +67,7 @@ struct FaultParam {
 
 class FaultWriterExecutor {
   public:
-  enum BufferIds { OutputPrefix = 0, CELLS = 1, VERTICES = 2, FAULTTAGS = 3, VARIABLES0 = 4 };
+  enum BufferIds { OutputPrefix = 0, Cells = 1, Vertices = 2, FaultTags = 3, Variables0 = 4 };
 
   private:
   xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
@@ -108,7 +108,7 @@ class FaultWriterExecutor {
     m_xdmfWriter->addTimeStep(param.time);
 
     for (unsigned int i = 0; i < m_numVariables; i++) {
-      m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(VARIABLES0 + i)));
+      m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
     }
 
     m_xdmfWriter->flush();
@@ -141,11 +141,11 @@ class FaultWriterExecutor {
     m_xdmfWriter = nullptr;
   }
 
-  static std::string getLabelName(size_t index) { return LABELS[index]; }
+  static std::string getLabelName(size_t index) { return Labels[index]; }
 
   private:
   /** Variable names in the output */
-  static const char* const LABELS[];
+  static const char* const Labels[];
 };
 
 } // namespace seissol::writer

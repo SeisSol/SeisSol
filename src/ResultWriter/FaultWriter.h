@@ -133,7 +133,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     param.time = time;
 
     for (unsigned int i = 0; i < m_numVariables; i++) {
-      sendBuffer(FaultWriterExecutor::VARIABLES0 + i);
+      sendBuffer(FaultWriterExecutor::Variables0 + i);
     }
 
     call(param);

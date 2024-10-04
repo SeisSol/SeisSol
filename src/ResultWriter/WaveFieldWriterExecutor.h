@@ -61,15 +61,15 @@ namespace seissol::writer {
 enum BufferTags {
   OutputPrefix = 0,
   OutputFlags = 1,
-  CELLS = 2,
-  VERTICES = 3,
-  CLUSTERING = 4,
-  VARIABLE0 = 5,
-  LOWCELLS = 6,
-  LOWVERTICES = 7,
+  Cells = 2,
+  Vertices = 3,
+  Clustering = 4,
+  Variables0 = 5,
+  LowCells = 6,
+  LowVertices = 7,
   LowOutputFlags = 8,
-  LOWVARIABLE0 = 9,
-  BuffertagMax = LOWVARIABLE0
+  LowVariables0 = 9,
+  BuffertagMax = LowVariables0
 };
 
 struct WaveFieldInitParam {
@@ -156,10 +156,10 @@ class WaveFieldWriterExecutor {
 #ifdef USE_MPI
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
-    const int commColour = (info.bufferSize(param.bufferIds[CELLS]) == 0) ? 0 : 1;
+    const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
     MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
     // Start the if statement
-    if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
+    if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank
       MPI_Comm_rank(m_comm, &rank);
 #endif // USE_MPI
@@ -177,19 +177,19 @@ class WaveFieldWriterExecutor {
       m_waveFieldWriter->init(
           variables, std::vector<const char*>(), extraIntVarName.c_str(), true, true);
       m_waveFieldWriter->setMesh(
-          info.bufferSize(param.bufferIds[CELLS]) / (4 * sizeof(unsigned int)),
-          static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
-          info.bufferSize(param.bufferIds[VERTICES]) / (3 * sizeof(double)),
-          static_cast<const double*>(info.buffer(param.bufferIds[VERTICES])),
+          info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
+          static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
+          info.bufferSize(param.bufferIds[Vertices]) / (3 * sizeof(double)),
+          static_cast<const double*>(info.buffer(param.bufferIds[Vertices])),
           param.timestep != 0);
 
-      setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[CLUSTERING])));
+      setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
       logInfo(rank) << "High order output initialized";
 
       //
       // Low order I/O
       //
-      if (param.bufferIds[LOWCELLS] >= 0) {
+      if (param.bufferIds[LowCells] >= 0) {
         // Pstrain or Integrated quantities enabled
         m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LowOutputFlags]));
         // Variables
@@ -220,18 +220,18 @@ class WaveFieldWriterExecutor {
 
         m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
         m_lowWaveFieldWriter->setMesh(
-            info.bufferSize(param.bufferIds[LOWCELLS]) / (4 * sizeof(unsigned int)),
-            static_cast<const unsigned int*>(info.buffer(param.bufferIds[LOWCELLS])),
-            info.bufferSize(param.bufferIds[LOWVERTICES]) / (3 * sizeof(double)),
-            static_cast<const double*>(info.buffer(param.bufferIds[LOWVERTICES])),
+            info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
+            static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
+            info.bufferSize(param.bufferIds[LowVertices]) / (3 * sizeof(double)),
+            static_cast<const double*>(info.buffer(param.bufferIds[LowVertices])),
             param.timestep != 0);
 
         logInfo(rank) << "Low order output initialized";
       }
 
       // Save ids for the variables
-      m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
-      m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+      m_variableBufferIds[0] = param.bufferIds[Variables0];
+      m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
       logInfo(rank) << "Initializing XDMF wave field output. Done.";
 #ifdef USE_MPI

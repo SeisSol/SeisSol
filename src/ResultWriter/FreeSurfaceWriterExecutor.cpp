@@ -59,8 +59,8 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     logError() << "Free surface writer already initialized.";
   }
 
-  const unsigned int nCells = info.bufferSize(CELLS) / (3 * sizeof(int));
-  const unsigned int nVertices = info.bufferSize(VERTICES) / (3 * sizeof(double));
+  const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
+  const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
 #ifdef USE_MPI
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
@@ -79,7 +79,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     std::vector<const char*> variables;
     variables.reserve(m_numVariables);
     for (unsigned int i = 0; i < m_numVariables; i++) {
-      variables.push_back(LABELS[i]);
+      variables.push_back(Labels[i]);
     }
 
     // TODO get the timestep from the checkpoint
@@ -94,15 +94,15 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
 
     m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str());
     m_xdmfWriter->setMesh(nCells,
-                          static_cast<const unsigned int*>(info.buffer(CELLS)),
+                          static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
-                          static_cast<const double*>(info.buffer(VERTICES)),
+                          static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
-    setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LOCATIONFLAGS)));
+    setLocationFlagData(static_cast<const unsigned int*>(info.buffer(LocationFlags)));
 
     logInfo(rank) << "Initializing free surface output. Done.";
   }
 }
 
-const char* const seissol::writer::FreeSurfaceWriterExecutor::LABELS[] = {
+const char* const seissol::writer::FreeSurfaceWriterExecutor::Labels[] = {
     "v1", "v2", "v3", "u1", "u2", "u3"};

@@ -103,12 +103,12 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
 
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
-  assert(bufferId == FaultWriterExecutor::CELLS);
+  assert(bufferId == FaultWriterExecutor::Cells);
   bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
-  assert(bufferId == FaultWriterExecutor::VERTICES);
+  assert(bufferId == FaultWriterExecutor::Vertices);
 
   bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
-  assert(bufferId == FaultWriterExecutor::FAULTTAGS);
+  assert(bufferId == FaultWriterExecutor::FaultTags);
 
   // Create data buffers
   std::fill_n(param.outputMask, FaultInitParam::OutputMaskSize, false);
@@ -167,18 +167,18 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   //
   sendBuffer(FaultWriterExecutor::OutputPrefix);
 
-  sendBuffer(FaultWriterExecutor::CELLS);
-  sendBuffer(FaultWriterExecutor::VERTICES);
-  sendBuffer(FaultWriterExecutor::FAULTTAGS);
+  sendBuffer(FaultWriterExecutor::Cells);
+  sendBuffer(FaultWriterExecutor::Vertices);
+  sendBuffer(FaultWriterExecutor::FaultTags);
 
   // Initialize the executor
   callInit(param);
 
   // Remove unused buffers
   removeBuffer(FaultWriterExecutor::OutputPrefix);
-  removeBuffer(FaultWriterExecutor::CELLS);
-  removeBuffer(FaultWriterExecutor::VERTICES);
-  removeBuffer(FaultWriterExecutor::FAULTTAGS);
+  removeBuffer(FaultWriterExecutor::Cells);
+  removeBuffer(FaultWriterExecutor::Vertices);
+  removeBuffer(FaultWriterExecutor::FaultTags);
 
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);

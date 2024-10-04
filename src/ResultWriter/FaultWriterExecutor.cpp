@@ -59,8 +59,8 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     logError() << "Wave field writer already initialized";
   }
 
-  const unsigned int nCells = info.bufferSize(CELLS) / (3 * sizeof(int));
-  const unsigned int nVertices = info.bufferSize(VERTICES) / (3 * sizeof(double));
+  const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
+  const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
 #ifdef USE_MPI
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
@@ -78,7 +78,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < FaultInitParam::OutputMaskSize; i++) {
       if (param.outputMask[i]) {
-        variables.push_back(LABELS[i]);
+        variables.push_back(Labels[i]);
       }
     }
     m_numVariables = variables.size();
@@ -94,16 +94,16 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
 
     m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", true, true);
     m_xdmfWriter->setMesh(nCells,
-                          static_cast<const unsigned int*>(info.buffer(CELLS)),
+                          static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
-                          static_cast<const double*>(info.buffer(VERTICES)),
+                          static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
-    setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FAULTTAGS)));
+    setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
 
     logInfo(rank) << "Initializing XDMF fault output. Done.";
   }
 }
 
-const char* const seissol::writer::FaultWriterExecutor::LABELS[] = {
+const char* const seissol::writer::FaultWriterExecutor::Labels[] = {
     "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0",
     "Pn0", "Sls", "Sld", "Vr",  "ASl", "PSR", "RT",  "DS",  "P_f", "Tmp"};

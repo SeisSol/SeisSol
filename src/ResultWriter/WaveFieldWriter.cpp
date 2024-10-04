@@ -332,13 +332,13 @@ void seissol::writer::WaveFieldWriter::init(
   const unsigned int* constCells = adjustOffsets(meshRefiner);
 
   // Create mesh buffers
-  param.bufferIds[CELLS] =
+  param.bufferIds[Cells] =
       addSyncBuffer(constCells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-  param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner->getVertexData(),
+  param.bufferIds[Vertices] = addSyncBuffer(meshRefiner->getVertexData(),
                                             meshRefiner->getNumVertices() * 3 * sizeof(double));
   std::vector<unsigned int> refinedClusteringData =
       generateRefinedClusteringData(meshRefiner, ltsClusteringData, newToOldCellMap);
-  param.bufferIds[CLUSTERING] = addSyncBuffer(refinedClusteringData.data(),
+  param.bufferIds[Clustering] = addSyncBuffer(refinedClusteringData.data(),
                                               meshRefiner->getNumCells() * sizeof(unsigned int));
 
   // Create data buffers
@@ -347,7 +347,7 @@ void seissol::writer::WaveFieldWriter::init(
     if (m_outputFlags[i]) {
       const unsigned int id = addBuffer(nullptr, meshRefiner->getNumCells() * sizeof(real));
       if (!first) {
-        param.bufferIds[VARIABLE0] = id;
+        param.bufferIds[Variables0] = id;
         first = true;
       }
     }
@@ -384,13 +384,13 @@ void seissol::writer::WaveFieldWriter::init(
     constLowCells = adjustOffsets(pLowMeshRefiner);
 
     // Create mesh buffers
-    param.bufferIds[LOWCELLS] =
+    param.bufferIds[LowCells] =
         addSyncBuffer(constLowCells, pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-    param.bufferIds[LOWVERTICES] = addSyncBuffer(
+    param.bufferIds[LowVertices] = addSyncBuffer(
         pLowMeshRefiner->getVertexData(), pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
 
     // Create data buffers
-    param.bufferIds[LOWVARIABLE0] =
+    param.bufferIds[LowVariables0] =
         addBuffer(nullptr, pLowMeshRefiner->getNumCells() * sizeof(real));
 
     const int numLowVars = m_numIntegratedVariables;
@@ -403,9 +403,9 @@ void seissol::writer::WaveFieldWriter::init(
     m_numLowCells = pLowMeshRefiner->getNumCells();
   } else {
     // No low order output
-    param.bufferIds[LOWCELLS] = -1;
-    param.bufferIds[LOWVERTICES] = -1;
-    param.bufferIds[LOWVARIABLE0] = -1;
+    param.bufferIds[LowCells] = -1;
+    param.bufferIds[LowVertices] = -1;
+    param.bufferIds[LowVariables0] = -1;
   }
 
   //
@@ -415,14 +415,14 @@ void seissol::writer::WaveFieldWriter::init(
 
   sendBuffer(param.bufferIds[OutputFlags], m_numVariables * sizeof(bool));
 
-  sendBuffer(param.bufferIds[CELLS], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-  sendBuffer(param.bufferIds[VERTICES], meshRefiner->getNumVertices() * 3 * sizeof(double));
-  sendBuffer(param.bufferIds[CLUSTERING], meshRefiner->getNumCells() * sizeof(unsigned int));
+  sendBuffer(param.bufferIds[Cells], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+  sendBuffer(param.bufferIds[Vertices], meshRefiner->getNumVertices() * 3 * sizeof(double));
+  sendBuffer(param.bufferIds[Clustering], meshRefiner->getNumCells() * sizeof(unsigned int));
 
   if (integrals != nullptr) {
-    sendBuffer(param.bufferIds[LOWCELLS],
+    sendBuffer(param.bufferIds[LowCells],
                pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-    sendBuffer(param.bufferIds[LOWVERTICES],
+    sendBuffer(param.bufferIds[LowVertices],
                pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
     sendBuffer(param.bufferIds[LowOutputFlags],
                WaveFieldWriterExecutor::NumLowvariables * sizeof(bool));
@@ -433,12 +433,12 @@ void seissol::writer::WaveFieldWriter::init(
 
   // Remove buffers
   removeBuffer(param.bufferIds[OutputPrefix]);
-  removeBuffer(param.bufferIds[CELLS]);
-  removeBuffer(param.bufferIds[VERTICES]);
-  removeBuffer(param.bufferIds[CLUSTERING]);
+  removeBuffer(param.bufferIds[Cells]);
+  removeBuffer(param.bufferIds[Vertices]);
+  removeBuffer(param.bufferIds[Clustering]);
   if (integrals != nullptr) {
-    removeBuffer(param.bufferIds[LOWCELLS]);
-    removeBuffer(param.bufferIds[LOWVERTICES]);
+    removeBuffer(param.bufferIds[LowCells]);
+    removeBuffer(param.bufferIds[LowVertices]);
   }
 
   // Remove the low mesh refiner if it was setup
@@ -454,8 +454,8 @@ void seissol::writer::WaveFieldWriter::init(
   m_pstrain = pstrain;
   m_integrals = integrals;
 
-  m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
-  m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+  m_variableBufferIds[0] = param.bufferIds[Variables0];
+  m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
   delete meshRefiner;
 }

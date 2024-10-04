@@ -175,12 +175,12 @@ void seissol::writer::FreeSurfaceWriter::init(
 
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(unsigned));
-  assert(bufferId == FreeSurfaceWriterExecutor::CELLS);
+  assert(bufferId == FreeSurfaceWriterExecutor::Cells);
   bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
-  assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
+  assert(bufferId == FreeSurfaceWriterExecutor::Vertices);
   bufferId =
       addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
-  assert(bufferId == FreeSurfaceWriterExecutor::LOCATIONFLAGS);
+  assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
 
   for (auto& velocity : m_freeSurfaceIntegrator->velocities) {
     addBuffer(velocity, nCells * sizeof(real));
@@ -194,9 +194,9 @@ void seissol::writer::FreeSurfaceWriter::init(
   //
   sendBuffer(FreeSurfaceWriterExecutor::OutputPrefix);
 
-  sendBuffer(FreeSurfaceWriterExecutor::CELLS);
-  sendBuffer(FreeSurfaceWriterExecutor::VERTICES);
-  sendBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
+  sendBuffer(FreeSurfaceWriterExecutor::Cells);
+  sendBuffer(FreeSurfaceWriterExecutor::Vertices);
+  sendBuffer(FreeSurfaceWriterExecutor::LocationFlags);
 
   // Initialize the executor
   FreeSurfaceInitParam param;
@@ -207,9 +207,9 @@ void seissol::writer::FreeSurfaceWriter::init(
 
   // Remove unused buffers
   removeBuffer(FreeSurfaceWriterExecutor::OutputPrefix);
-  removeBuffer(FreeSurfaceWriterExecutor::CELLS);
-  removeBuffer(FreeSurfaceWriterExecutor::VERTICES);
-  removeBuffer(FreeSurfaceWriterExecutor::LOCATIONFLAGS);
+  removeBuffer(FreeSurfaceWriterExecutor::Cells);
+  removeBuffer(FreeSurfaceWriterExecutor::Vertices);
+  removeBuffer(FreeSurfaceWriterExecutor::LocationFlags);
 
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);
@@ -239,7 +239,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   param.time = time;
 
   for (unsigned i = 0; i < 2 * FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
-    sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
+    sendBuffer(FreeSurfaceWriterExecutor::Variables0 + i);
   }
 
   call(param);
