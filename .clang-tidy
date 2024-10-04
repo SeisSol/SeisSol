@@ -1,18 +1,6 @@
-# TODO: enable
-# * modernize-use-trailing-return-type
-# * modernize-pass-by-value
-# * modernize-loop-convert
-# * modernize-deprecated-headers
-# * cppcoreguidelines-narrowing-conversions
-# maybe even
-# * modernize-avoid-c-arrays
-# * modernize-return-braced-init-list
-# * cppcoreguidelines-pro-bounds-constant-array-index
-# * cppcoreguidelines-pro-bounds-array-to-pointer-decay
-# * cppcoreguidelines-owning-memory
-# ... and add a reasoning for each exclusion
-
-# TODO: enable clang-analyzer-*
+# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
 Checks: |
   -*,

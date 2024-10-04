@@ -665,20 +665,21 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      double surfaceArea = 0;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        plusSurfaceArea = 1.e99; plusVolume = 1.0; surfaceArea = 1.e99;
+        plusSurfaceArea = 1.e99; plusVolume = 1.0;
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
         surfaceArea = minusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        minusSurfaceArea = 1.e99; minusVolume = 1.0; surfaceArea = 1.e99;
+        minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
