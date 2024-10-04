@@ -635,7 +635,11 @@ unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
 void TimeCluster::setReceiverTime(double receiverTime) { this->receiverTime = receiverTime; }
 
-void TimeCluster::finalize() { streamRuntime.dispose(); }
+void TimeCluster::finalize() {
+  sourceCluster.host.reset(nullptr);
+  sourceCluster.device.reset(nullptr);
+  streamRuntime.dispose();
+}
 
 template <bool UsePlasticity>
 std::pair<long, long>

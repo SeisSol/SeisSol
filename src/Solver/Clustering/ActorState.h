@@ -43,7 +43,7 @@ class MessageQueue {
   [[nodiscard]] size_t size() const;
 };
 
-enum class StateType { Synchronized, ComputeStart, ComputeDone };
+enum class StateType { Waiting, Synchronized, ComputeStart, ComputeDone };
 
 struct ActorState {
   StateType type;

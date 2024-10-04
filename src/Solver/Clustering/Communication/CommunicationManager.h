@@ -20,8 +20,6 @@ class AbstractCommunicationManager {
 
   virtual ~AbstractCommunicationManager() = default;
 
-  GhostClustersT& getGhostClusters();
-
   protected:
   explicit AbstractCommunicationManager(GhostClustersT ghostClusters);
   bool poll();

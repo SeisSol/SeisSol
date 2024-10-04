@@ -25,7 +25,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::solver::clustering::AbstractTimeCluster>>* timeClusters;
+  std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>> timeClusters;
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
@@ -41,7 +41,7 @@ class InstantaneousTimeMirrorManager : Module {
                                                // what exactly is to be sent here
 
   void setTimeClusterVector(
-      std::vector<std::unique_ptr<seissol::solver::clustering::AbstractTimeCluster>>* timeClusters);
+      const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>& timeClusters);
 
   void syncPoint(double currentTime) override;
 

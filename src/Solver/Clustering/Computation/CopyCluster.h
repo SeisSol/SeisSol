@@ -60,6 +60,7 @@ class CopyCluster : public TimeCluster {
   void reset() override {
     if (dataSent) {
       neighbor->stopTo(streamRuntime);
+      dataSent = false;
     }
   }
 

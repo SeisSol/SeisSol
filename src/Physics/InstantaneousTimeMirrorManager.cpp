@@ -171,7 +171,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::solver::clustering::AbstractTimeCluster>>* timeClusters) {
+    const std::vector<std::unique_ptr<seissol::solver::clustering::AbstractTimeCluster>>& timeClusters) {
   this->timeClusters = timeClusters;
 }
 

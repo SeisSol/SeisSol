@@ -16,10 +16,6 @@ AbstractCommunicationManager::AbstractCommunicationManager(
     : ghostClusters(std::move(ghostClusters)) {}
 void AbstractCommunicationManager::reset() {}
 
-AbstractCommunicationManager::GhostClustersT& AbstractCommunicationManager::getGhostClusters() {
-  return ghostClusters;
-}
-
 bool AbstractCommunicationManager::poll() {
   bool finished = true;
   for (auto& ghostCluster : ghostClusters) {

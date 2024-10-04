@@ -42,6 +42,6 @@ class CommunicationClusterFactory {
 
   std::vector<std::unique_ptr<RecvNeighborCluster>> getAllRecvs(const HaloCommunication& comm);
 
-  std::vector<std::unique_ptr<RecvNeighborCluster>> getAllSends(const HaloCommunication& comm);
+  std::vector<std::unique_ptr<SendNeighborCluster>> getAllSends(const HaloCommunication& comm);
 };
 } // namespace seissol::solver::clustering::communication

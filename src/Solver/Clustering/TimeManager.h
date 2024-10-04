@@ -16,6 +16,7 @@
 #define TIMEMANAGER_H_
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
+#include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <cassert>
 #include <list>
@@ -74,11 +75,10 @@ class TimeManager {
   // std::vector<std::weak_ptr<AbstractTimeCluster>> highPrioClusters;
   // std::vector<std::weak_ptr<AbstractTimeCluster>> lowPrioClusters;
 
-  std::vector<std::unique_ptr<computation::TimeCluster>> clusters;
+  std::vector<std::shared_ptr<AbstractTimeCluster>> clusters;
+
   std::vector<computation::TimeCluster*> highPrioClusters;
   std::vector<computation::TimeCluster*> lowPrioClusters;
-
-  std::vector<std::unique_ptr<computation::DynamicRuptureCluster>> clustersDR;
   std::vector<computation::DynamicRuptureCluster*> highPrioClustersDR;
   std::vector<computation::DynamicRuptureCluster*> lowPrioClustersDR;
 

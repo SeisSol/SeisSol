@@ -280,10 +280,6 @@ class TimeCluster : public CellCluster {
    * @param sourceCluster Contains point sources for cluster
    */
   void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
-  void freePointSources() {
-    sourceCluster.host.reset(nullptr);
-    sourceCluster.device.reset(nullptr);
-  }
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
     this->receiverCluster = receiverCluster;

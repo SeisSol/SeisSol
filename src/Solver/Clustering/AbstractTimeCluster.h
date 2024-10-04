@@ -117,8 +117,6 @@ class AbstractTimeCluster {
    */
   std::vector<NeighborCluster>* getNeighborClusters();
 
-  void setPhase(double time);
-
   // (dummy)
   virtual LayerType getLayerType() const { return Interior; }
 };
