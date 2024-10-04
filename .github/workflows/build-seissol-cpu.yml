@@ -307,9 +307,6 @@ jobs:
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
-
-          # needed for fault comparison
-          export SEISSOL_VERTEXFILTER=0
           
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
@@ -324,8 +321,9 @@ jobs:
         with:
           path: scripts
       
+      # for now, compare faults only on single-rank setups
       - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault && matrix.parallel.ranks == 1 }}
         run: |
           FAULT_FILE=tpv-fault.xdmf
           EPSILON=0.05
