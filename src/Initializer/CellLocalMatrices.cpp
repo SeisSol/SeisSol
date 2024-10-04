@@ -230,14 +230,19 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
         auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
         auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
-        for (size_t i = 0; i < 9; i++) {
+        for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]); i++) {
           centralFluxView(i, i) = 0.5;
           rusanovPlusView(i, i) = wavespeed * 0.5;
           rusanovMinusView(i, i) = -wavespeed * 0.5;
         }
 
-        const auto flux = isSpecialBC(side) ?
+        const auto fluxDefault = isSpecialBC(side) ?
           modelParameters.fluxNearFault : modelParameters.flux;
+        
+        const auto flux = 
+          cellInformation[cell].faceTypes[side] == FaceType::FreeSurface ||
+          cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity
+          ? parameters::NumericalFlux::Godunov : fluxDefault;
 
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
