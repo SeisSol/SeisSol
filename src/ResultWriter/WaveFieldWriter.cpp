@@ -80,7 +80,6 @@ void seissol::writer::WaveFieldWriter::setUp() {
 
 void seissol::writer::WaveFieldWriter::enable() {
   m_enabled = true;
-  seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 seissol::refinement::TetrahedronRefiner<double>*
@@ -190,7 +189,7 @@ void seissol::writer::WaveFieldWriter::init(
   /** All initialization parameters */
   WaveFieldInitParam param{};
 
-  param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
+  param.timestep = 0;
 
   /** List of all buffer ids */
   param.bufferIds[OutputPrefix] =
@@ -534,9 +533,6 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   WaveFieldParam param;
   param.time = time;
   call(param);
-
-  // Update last time step
-  seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
   m_stopwatch.pause();
 

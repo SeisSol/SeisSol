@@ -46,7 +46,6 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include "Checkpoint/DynStruct.h"
 #include "FreeSurfaceWriterExecutor.h"
 #include "Geometry/MeshReader.h"
 #include "Modules/Module.h"
@@ -68,11 +67,8 @@ class FreeSurfaceWriter
   /** Is enabled? */
   bool m_enabled{false};
 
-  /** Timestep component in the checkpoint header */
-  DynStruct::Component<int> m_timestepComp;
-
-  /** The asynchronous executor */
-  FreeSurfaceWriterExecutor m_executor;
+	/** The asynchronous executor */
+	FreeSurfaceWriterExecutor m_executor;
 
   /** Frontend stopwatch */
   Stopwatch m_stopwatch;

@@ -365,6 +365,10 @@ public:
     updateRelaxTime();
   }
 
+  void setLastSubTime(double lastSubTime) {
+    this->lastSubTime = lastSubTime;
+  }
+
 
   void reset() override;
 

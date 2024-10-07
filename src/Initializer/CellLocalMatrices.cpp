@@ -41,10 +41,12 @@
 
 #include "CellLocalMatrices.h"
 
+#include <Initializer/BasicTypedefs.h>
 #include <cassert>
 
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Parameters/ModelParameters.h"
 #include "Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
@@ -80,7 +82,8 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
-                                                         TimeStepping const&    timeStepping )
+                                                         TimeStepping const&    timeStepping,
+                                                         const parameters::ModelParameters& modelParameters )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
@@ -97,6 +100,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
+  const auto*       cellInformationAll         = io_ltsTree->var(i_lts->cellInformation);
   for (auto& layer : io_ltsTree->leaves(Ghost)) {
     CellMaterialData*           material                = layer.var(i_lts->material);
     LocalIntegrationData*       localIntegration        = layer.var(i_lts->localIntegration);
@@ -126,6 +130,9 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+
+    real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+    real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
     
 #ifdef _OPENMP
     #pragma omp for schedule(static)
@@ -196,25 +203,87 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        const auto isSpecialBC = [&cellInformation, &cellInformationAll, cell](int side) {
+          const auto hasDRFace = [](const CellLocalInformation& ci) {
+            bool hasAtLeastOneDRFace = false;
+            for (size_t i = 0; i < 4; ++i) {
+              if (ci.faceTypes[i] == FaceType::DynamicRupture) {
+                hasAtLeastOneDRFace = true;
+              }
+            }
+            return hasAtLeastOneDRFace;
+          };
+          const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+          const auto neighborID = cellInformation[cell].faceNeighborIds[side];
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformationAll[neighborID]);
+          const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+          return (cellInformation[cell].faceTypes[side] == FaceType::Regular) && adjacentDRFaceExists;
+        };
+
+        const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
+        const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
+        const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
+
+        real centralFluxData[tensor::QgodLocal::size()]{};
+        real rusanovPlusData[tensor::QcorrLocal::size()]{};
+        real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+        auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+        auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
+        auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+        for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]); i++) {
+          centralFluxView(i, i) = 0.5;
+          rusanovPlusView(i, i) = wavespeed * 0.5;
+          rusanovMinusView(i, i) = -wavespeed * 0.5;
+        }
+
+        // check if we're on a face that has an adjacent cell with DR face
+        const auto fluxDefault = isSpecialBC(side) ?
+          modelParameters.fluxNearFault : modelParameters.flux;
+        
+        // exclude boundary conditions
+        static const std::vector<FaceType> GodunovBoundaryConditions = {
+          FaceType::FreeSurface,
+          FaceType::FreeSurfaceGravity,
+          FaceType::Analytical
+        };
+
+        const auto enforceGodunov
+          = std::any_of(GodunovBoundaryConditions.begin(), GodunovBoundaryConditions.end(),
+              [&](auto condition) {return condition == cellInformation[cell].faceTypes[side];});
+
+        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        localKrnl.QgodLocal = QgodLocalData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          localKrnl.QgodLocal = centralFluxData;
+          localKrnl.QcorrLocal = rusanovPlusData;
+        } else {
+          localKrnl.QgodLocal = QgodLocalData;
+          localKrnl.QcorrLocal = rusanovPlusNull;
+        }
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          neighKrnl.QgodNeighbor = centralFluxData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
+        } else {
+          neighKrnl.QgodNeighbor = QgodNeighborData;
+          neighKrnl.QcorrNeighbor = rusanovMinusNull;
+        }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
             cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-          // Already rotated!
+          // already rotated
           neighKrnl.Tinv = init::identityT::Values;
         }
         neighKrnl.execute();

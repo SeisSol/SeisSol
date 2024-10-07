@@ -65,6 +65,22 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
+  const auto flux =
+      reader->readWithDefaultStringEnum<NumericalFlux>("numflux",
+                                                       "godunov",
+                                                       {
+                                                           {"godunov", NumericalFlux::Godunov},
+                                                           {"rusanov", NumericalFlux::Rusanov},
+                                                       });
+
+  const auto fluxNearFault =
+      reader->readWithDefaultStringEnum<NumericalFlux>("numfluxnearfault",
+                                                       "godunov",
+                                                       {
+                                                           {"godunov", NumericalFlux::Godunov},
+                                                           {"rusanov", NumericalFlux::Rusanov},
+                                                       });
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          useCellHomogenizedMaterial,
@@ -74,6 +90,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          tv,
                          boundaryFileName.value_or(""),
                          materialFileName,
-                         itmParameters};
+                         itmParameters,
+                         flux,
+                         fluxNearFault};
 }
 } // namespace seissol::initializer::parameters

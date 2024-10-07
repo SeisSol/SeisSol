@@ -73,12 +73,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
              double maximumAllowedTimeStep,
-             const char* checkPointFile,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
-             double tpwgt = 1.0,
-             bool readPartitionFromFile = false);
+             double tpwgt = 1.0);
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
@@ -92,14 +90,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
    * Create the partitioning
    */
   static void partition(PUML::TETPUML& puml,
-                        initializer::time_stepping::LtsWeights* ltsWeights,
-                        double tpwgt,
-                        const char* meshFile,
-                        const char* partitioningLib,
-                        bool readPartitionFromFile,
-                        const char* checkPointFile);
-  static int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
-  static void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+                 initializer::time_stepping::LtsWeights* ltsWeights,
+                 double tpwgt,
+                 const char* meshFile,
+                 const char* partitioningLib);
   /**
    * Generate the PUML data structure
    */

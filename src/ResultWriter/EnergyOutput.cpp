@@ -27,6 +27,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <init.h>
+#include <iomanip>
+#include <ios>
 #include <kernel.h>
 #include <limits>
 #include <mpi.h>
@@ -167,6 +169,7 @@ void EnergyOutput::syncPoint(double time) {
 void EnergyOutput::simulationStart() {
   if (isFileOutputEnabled) {
     out.open(outputFileName);
+    out << std::scientific;
     writeHeader();
   }
   syncPoint(0.0);
@@ -609,35 +612,45 @@ void EnergyOutput::printEnergies() {
     const auto totalMomentumY = energiesStorage.totalMomentumY();
     const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
+    const auto outputPrecision =
+        seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
+
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy != 0.0) {
-        logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                       << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (totalAcousticEnergy != 0.0) {
-        logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): "
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Acoustic energy (total, % kinematic, % potential): "
                       << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                       << ratioAcousticPotential;
       }
       if (energiesStorage.gravitationalEnergy() != 0.0) {
-        logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
       }
       if (energiesStorage.plasticMoment() != 0.0) {
-        logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Plastic moment (value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment() << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
-      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
                     << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
 
     if (totalFrictionalWork != 0.0) {
-      logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-      logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
                     << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     }
 

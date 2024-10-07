@@ -3,6 +3,7 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
+#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <algorithm>
@@ -174,19 +175,28 @@ void MeshReader::extractFaultInformation(
       // Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
+      auto remoteNeighbor = i.neighbors[j] == static_cast<int>(m_elements.size());
+
       // Index of the element on the other side
-      const int neighborIndex =
-          i.neighbors[j] == static_cast<int>(m_elements.size()) ? -1 : i.neighbors[j];
+      const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
+
+      const GlobalElemId neighborGlobalId =
+          remoteNeighbor ? m_ghostlayerMetadata[i.neighborRanks[j]][i.mpiIndices[j]].globalId
+                         : m_elements[i.neighbors[j]].globalId;
 
       if (isPlus) {
+        f.globalId = i.globalId;
         f.element = i.localId;
         f.side = j;
+        f.neighborGlobalId = neighborGlobalId;
         f.neighborElement = neighborIndex;
         f.neighborSide = i.neighborSides[j];
         f.tag = i.faultTags[j];
       } else {
+        f.globalId = neighborGlobalId;
         f.element = neighborIndex;
         f.side = i.neighborSides[j];
+        f.neighborGlobalId = i.globalId;
         f.neighborElement = i.localId;
         f.neighborSide = j;
         f.tag = i.faultTags[j];
@@ -244,11 +254,13 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 2;
-  const std::vector<int> datatypeBlocklen{12, 1};
+  const int datatypeCount = 3;
+  const std::vector<int> datatypeBlocklen{12, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
-                                                   offsetof(GhostElementMetadata, group)};
-  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE, MPI_INT};
+                                                   offsetof(GhostElementMetadata, group),
+                                                   offsetof(GhostElementMetadata, globalId)};
+  const std::vector<MPI_Datatype> datatypeDatatype{
+      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type()};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -277,6 +289,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
         ghost.vertices[v][2] = vertex.coords[2];
       }
       ghost.group = element.group;
+      ghost.globalId = element.globalId;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
