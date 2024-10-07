@@ -15,6 +15,7 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/Tree
+        src/IO
         src/Kernels
         src/Modules
         src/Monitoring

@@ -41,6 +41,7 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"
@@ -214,6 +215,18 @@ struct LTS {
     tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(analyticScratch, 1, AllocationMode::HostDevicePinned);
 #endif
+  }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) {
+    manager.registerData("dofs", tree, dofs);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      manager.registerData("dofsAne", tree, dofsAne);
+    }
+    // check plasticity usage over the layer mask (for now)
+    if (plasticity.mask == LayerMask(Ghost)) {
+      manager.registerData("pstrain", tree, pstrain);
+    }
   }
 };
 

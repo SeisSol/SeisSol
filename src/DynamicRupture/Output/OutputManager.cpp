@@ -7,6 +7,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Writer/Writer.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -22,8 +24,10 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <ctime>
 #include <fstream>
+#include <init.h>
 #include <iomanip>
 #include <ios>
 #include <kernel.h>
@@ -191,33 +195,87 @@ void OutputManager::initElementwiseOutput() {
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
   const auto backendType = seissolParameters.output.xdmfWriterBackend;
 
-  std::vector<real*> dataPointers;
-  auto recordPointers = [&dataPointers](auto& var, int) {
-    if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim)
-        dataPointers.push_back(var.data[dim]);
+  if (seissolParameters.output.elementwiseParameters.vtkorder < 0) {
+    std::vector<real*> dataPointers;
+    auto recordPointers = [&dataPointers](auto& var, int) {
+      if (var.isActive) {
+        for (int dim = 0; dim < var.dim(); ++dim)
+          dataPointers.push_back(var.data[dim]);
+      }
+    };
+    misc::forEach(ewOutputData->vars, recordPointers);
+
+    seissolInstance.faultWriter().init(cellConnectivity.data(),
+                                       vertices.data(),
+                                       faultTags.data(),
+                                       static_cast<unsigned int>(receiverPoints.size()),
+                                       static_cast<unsigned int>(3 * receiverPoints.size()),
+                                       &intMask[0],
+                                       const_cast<const real**>(dataPointers.data()),
+                                       seissolParameters.output.prefix.data(),
+                                       printTime,
+                                       backendType,
+                                       backupTimeStamp);
+
+    seissolInstance.faultWriter().setupCallbackObject(this);
+  } else {
+    // Code to be refactored.
+
+    auto order = seissolParameters.output.elementwiseParameters.vtkorder;
+    if (order == 0) {
+      logError() << "VTK order 0 is currently not supported for the elementwise fault output.";
     }
-  };
-  misc::forEach(ewOutputData->vars, recordPointers);
 
-  seissolInstance.faultWriter().init(cellConnectivity.data(),
-                                     vertices.data(),
-                                     faultTags.data(),
-                                     static_cast<unsigned int>(receiverPoints.size()),
-                                     static_cast<unsigned int>(3 * receiverPoints.size()),
-                                     &intMask[0],
-                                     const_cast<const real**>(dataPointers.data()),
-                                     seissolParameters.output.prefix.data(),
-                                     printTime,
-                                     backendType,
-                                     backupTimeStamp);
+    io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
+                                            receiverPoints.size() /
+                                                seissol::init::vtk2d::Shape[order][1],
+                                            2,
+                                            order);
 
-  seissolInstance.faultWriter().setupCallbackObject(this);
+    writer.addPointProjector([=](double* target, std::size_t index) {
+      for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          target[i * 3 + j] =
+              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+        }
+      }
+    });
+
+    misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
+      if (var.isActive) {
+        for (int d = 0; d < var.dim(); ++d) {
+          auto* data = var.data[d];
+          writer.addPointData<real>(VariableLabels[i][d],
+                                    std::vector<std::size_t>(),
+                                    [=](real* target, std::size_t index) {
+                                      std::memcpy(
+                                          target,
+                                          data + seissol::init::vtk2d::Shape[order][1] * index,
+                                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+                                    });
+        }
+      }
+    });
+
+    auto& self = *this;
+    writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+
+    io::writer::ScheduledWriter schedWriter;
+    schedWriter.interval = printTime;
+    schedWriter.name = "fault-elementwise";
+    schedWriter.planWrite = writer.makeWriter();
+
+    seissolInstance.getOutputManager().addOutput(schedWriter);
+  }
 }
 
 void OutputManager::initPickpointOutput() {
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
+
+  if (seissolParameters.output.pickpointParameters.collectiveio) {
+    logError() << "Collective IO for the Fault Pickpoint output is still under construction.";
+  }
 
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";

@@ -83,7 +83,6 @@ static void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
-  seissolInstance.checkPointManager().close();
   seissolInstance.faultWriter().close();
   seissolInstance.freeSurfaceWriter().close();
 
