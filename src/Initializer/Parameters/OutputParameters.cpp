@@ -141,11 +141,17 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
+  const auto computeAcceleration = reader->readWithDefault("receivercomputeacceleration", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
-  return ReceiverOutputParameters{
-      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName};
+  return ReceiverOutputParameters{enabled,
+                                  computeRotation,
+                                  computeStrain,
+                                  computeAcceleration,
+                                  interval,
+                                  samplingInterval,
+                                  fileName};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {

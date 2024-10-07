@@ -134,6 +134,7 @@ pickdt = 0.005                       ! Pickpoint Sampling
 ReceiverOutputInterval = 10.0
 ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
 ReceiverComputeStrain = 0          ! Compute strain at the receivers
+ReceiverAcceleration = 0           ! Compute Acceleration at the receivers
 
 ! Free surface output
 SurfaceOutput = 1
