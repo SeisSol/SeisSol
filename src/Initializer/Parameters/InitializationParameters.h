@@ -20,7 +20,8 @@ enum class InitializationType : int {
   Ocean0,
   Ocean1,
   Ocean2,
-  PressureInjection
+  PressureInjection,
+  Easi
 };
 
 struct InitializationParameters {
@@ -31,6 +32,7 @@ struct InitializationParameters {
   double magnitude;
   double width;
   double k;
+  std::string filename;
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);
