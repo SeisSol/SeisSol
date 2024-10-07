@@ -10,6 +10,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -17,7 +18,7 @@ namespace seissol::io::writer {
 
 DataSource::DataSource(std::shared_ptr<datatype::Datatype> datatype,
                        const std::vector<std::size_t>& shape)
-    : datatypeP(datatype), shapeP(shape) {}
+    : datatypeP(std::move(datatype)), shapeP(shape) {}
 
 DataSource::~DataSource() = default;
 
@@ -29,7 +30,7 @@ WriteInline::WriteInline(const void* dataPtr,
                          std::size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : DataSource(datatype, shape) {
+    : DataSource(std::move(datatype), shape) {
   data.resize(size);
   std::memcpy(data.data(), dataPtr, size);
 }
@@ -37,7 +38,7 @@ WriteInline::WriteInline(const void* dataPtr,
 WriteInline::WriteInline(YAML::Node node)
     : DataSource(datatype::Datatype::deserialize(node["datatype"]),
                  node["shape"].as<std::vector<std::size_t>>()) {
-  const YAML::Binary rawData = node["data"].as<YAML::Binary>();
+  const auto rawData = node["data"].as<YAML::Binary>();
   data.resize(rawData.size());
   std::copy_n(rawData.data(), rawData.size(), data.begin());
 }
@@ -60,7 +61,7 @@ std::size_t WriteInline::count(const async::ExecInfo& info) {
   return data.size() / datatype()->size();
 }
 
-void WriteInline::assignId(int) {}
+void WriteInline::assignId(int /*id*/) {}
 
 bool WriteInline::distributed() { return false; }
 
@@ -88,7 +89,7 @@ std::size_t WriteBufferRemote::count(const async::ExecInfo& info) {
   return info.bufferSize(id) / datatype()->size();
 }
 
-void WriteBufferRemote::assignId(int) {}
+void WriteBufferRemote::assignId(int /*id*/) {}
 
 const void* WriteBufferRemote::getLocalPointer() const { return nullptr; }
 std::size_t WriteBufferRemote::getLocalSize() const { return 0; }
@@ -99,7 +100,7 @@ WriteBuffer::WriteBuffer(const void* data,
                          size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : id(-1), data(data), size(size), DataSource(datatype, shape) {}
+    : data(data), size(size), DataSource(std::move(datatype), shape) {}
 
 YAML::Node WriteBuffer::serialize() {
   YAML::Node node;

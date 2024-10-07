@@ -134,9 +134,7 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
   }
 }
 
-void seissol::writer::FreeSurfaceWriter::enable() {
-	m_enabled = true;
-}
+void seissol::writer::FreeSurfaceWriter::enable() { m_enabled = true; }
 
 void seissol::writer::FreeSurfaceWriter::init(
     const seissol::geometry::MeshReader& meshReader,
@@ -196,12 +194,12 @@ void seissol::writer::FreeSurfaceWriter::init(
   sendBuffer(FreeSurfaceWriterExecutor::Vertices);
   sendBuffer(FreeSurfaceWriterExecutor::LocationFlags);
 
-	// Initialize the executor
-	FreeSurfaceInitParam param;
-	param.timestep = 0;
-	param.backend = backend;
-	param.backupTimeStamp = backupTimeStamp;
-	callInit(param);
+  // Initialize the executor
+  FreeSurfaceInitParam param;
+  param.timestep = 0;
+  param.backend = backend;
+  param.backupTimeStamp = backupTimeStamp;
+  callInit(param);
 
   // Remove unused buffers
   removeBuffer(FreeSurfaceWriterExecutor::OutputPrefix);
@@ -242,7 +240,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   call(param);
 
-	m_stopwatch.pause();
+  m_stopwatch.pause();
 
   logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }

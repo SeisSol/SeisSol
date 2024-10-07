@@ -27,7 +27,7 @@ class VtkHdfWriter {
                std::size_t targetDegree);
 
   template <typename F>
-  void addPointProjector(F&& projector) {
+  void addPointProjector(F projector) {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
@@ -44,7 +44,7 @@ class VtkHdfWriter {
   template <typename T, typename F>
   void addPointData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
-                    F&& pointMapper) {
+                    F pointMapper) {
     auto selfLocalElementCount = localElementCount;
     auto selfPointsPerElement = pointsPerElement;
 
@@ -61,7 +61,7 @@ class VtkHdfWriter {
   template <typename T, typename F>
   void addCellData(const std::string& name,
                    const std::vector<std::size_t>& dimensions,
-                   F&& cellMapper) {
+                   F cellMapper) {
     auto selfLocalElementCount = localElementCount;
 
     instructions.emplace_back([=](const std::string& filename, double time) {
@@ -95,7 +95,7 @@ class VtkHdfWriter {
   std::string name;
   std::size_t localElementCount;
   std::size_t globalElementCount;
-  std::size_t elementOffset;
+  std::size_t elementOffset{0};
   std::size_t localPointCount;
   std::size_t globalPointCount;
   std::size_t pointOffset;

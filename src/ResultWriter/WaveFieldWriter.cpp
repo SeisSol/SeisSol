@@ -78,9 +78,7 @@ void seissol::writer::WaveFieldWriter::setUp() {
   }
 }
 
-void seissol::writer::WaveFieldWriter::enable() {
-  m_enabled = true;
-}
+void seissol::writer::WaveFieldWriter::enable() { m_enabled = true; }
 
 seissol::refinement::TetrahedronRefiner<double>*
     seissol::writer::WaveFieldWriter::createRefiner(int refinement) {

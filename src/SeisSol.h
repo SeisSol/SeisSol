@@ -288,9 +288,9 @@ class SeisSol {
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
       : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_freeSurfaceWriter(*this), m_analysisWriter(*this),
-        m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
+        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
+        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
+        timeMirrorManagers(*this, *this) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

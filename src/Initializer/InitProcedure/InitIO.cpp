@@ -170,7 +170,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         celllist.push_back(i);
       }
     }
-    std::size_t* cellIndices = new std::size_t[celllist.size()];
+    auto* cellIndices = new std::size_t[celllist.size()];
     std::copy(celllist.begin(), celllist.end(), cellIndices);
 
     io::writer::ScheduledWriter schedWriter;

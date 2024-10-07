@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
   seissol::SeisSol seissolInstance(parameters);
 
   if (args.isSet("checkpoint")) {
-    const auto checkpointFile = args.getArgument<const char*>("checkpoint");
+    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
     seissolInstance.loadCheckpoint(checkpointFile);
   }
 

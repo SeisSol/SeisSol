@@ -67,8 +67,8 @@ class FreeSurfaceWriter
   /** Is enabled? */
   bool m_enabled{false};
 
-	/** The asynchronous executor */
-	FreeSurfaceWriterExecutor m_executor;
+  /** The asynchronous executor */
+  FreeSurfaceWriterExecutor m_executor;
 
   /** Frontend stopwatch */
   Stopwatch m_stopwatch;

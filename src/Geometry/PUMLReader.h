@@ -90,10 +90,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
    * Create the partitioning
    */
   static void partition(PUML::TETPUML& puml,
-                 initializer::time_stepping::LtsWeights* ltsWeights,
-                 double tpwgt,
-                 const char* meshFile,
-                 const char* partitioningLib);
+                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        double tpwgt,
+                        const char* meshFile,
+                        const char* partitioningLib);
   /**
    * Generate the PUML data structure
    */

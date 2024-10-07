@@ -319,7 +319,7 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
