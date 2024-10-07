@@ -12,8 +12,6 @@
 #include <string>
 #include <utils/logger.h>
 
-namespace {} // namespace
-
 namespace seissol::io::writer::module {
 std::mutex AsyncWriter::globalLock = std::mutex();
 
