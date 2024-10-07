@@ -33,31 +33,17 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("checkpoint", true);
-  CheckpointingBackend backend = CheckpointingBackend::DISABLED;
   double interval = 0.0;
-  std::string fileName = "";
   if (enabled) {
     interval = reader->readWithDefault("checkpointinterval", 0.0);
     warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
   } else {
     reader->markUnused({"checkpointinterval"});
   }
-  // separate if{} here because `enabled` may change after `warnIntervalAndDisable` function
-  if (enabled) {
-    backend = reader->readWithDefaultStringEnum<CheckpointingBackend>(
-        "checkpointbackend",
-        "none",
-        {{"none", CheckpointingBackend::DISABLED},
-         {"posix", CheckpointingBackend::POSIX},
-         {"hdf5", CheckpointingBackend::HDF5},
-         {"mpio", CheckpointingBackend::MPIO},
-         {"mpio_async", CheckpointingBackend::MpioAsync},
-         {"sionlib", CheckpointingBackend::SIONLIB}});
-    fileName = reader->readOrFail<std::string>("checkpointfile", "No checkpoint fileName given.");
-  } else {
-    reader->markUnused({"checkpointbackend", "checkpointfile"});
-  }
-  return CheckpointParameters{enabled, interval, backend, fileName};
+
+  reader->warnDeprecated({"checkpointbackend", "checkpointfile"});
+
+  return CheckpointParameters{enabled, interval};
 }
 
 ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader) {
@@ -74,8 +60,10 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
   const int refinement = reader->readWithDefault("refinement", 2);
   reader->warnDeprecated({"printintervalcriterion"});
 
+  const auto vtkorder = reader->readWithDefault("vtkorder", -1);
+
   return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement};
+      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
@@ -88,6 +76,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
   const auto computeVolumeEnergiesEveryOutput =
       reader->readWithDefault("computevolumeenergieseveryoutput", 1);
   const auto terminalOutput = reader->readWithDefault("energyterminaloutput", false);
+  const auto terminalPrecision = reader->readWithDefault("energyterminalprecision", 6);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
@@ -99,6 +88,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 computeVolumeEnergiesEveryOutput,
                                 interval,
                                 terminalOutput,
+                                terminalPrecision,
                                 terminatorMaxTimePostRupture,
                                 terminatorMomentRateThreshold};
 }
@@ -112,14 +102,16 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval};
+  const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
+
+  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
-  const auto maxPickStore = 50;
+  const auto maxPickStore = reader->readWithDefault("maxpickstore", 50);
 
   const auto outputMaskString =
       reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
@@ -127,9 +119,12 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 
   const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
 
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+
   reader->warnDeprecated({"noutpoints"});
 
-  return PickpointParameters{printTimeInterval, maxPickStore, outputMask, pickpointFileName};
+  return PickpointParameters{
+      printTimeInterval, maxPickStore, outputMask, pickpointFileName, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -144,8 +139,10 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+
   return ReceiverOutputParameters{
-      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName};
+      enabled, computeRotation, computeStrain, interval, samplingInterval, fileName, collectiveio};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
@@ -202,8 +199,17 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
 
-  return WaveFieldOutputParameters{
-      enabled, interval, refinement, bounds, outputMask, plasticityMask, integrationMask, groups};
+  const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
+
+  return WaveFieldOutputParameters{enabled,
+                                   vtkorder,
+                                   interval,
+                                   refinement,
+                                   bounds,
+                                   outputMask,
+                                   plasticityMask,
+                                   integrationMask,
+                                   groups};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
