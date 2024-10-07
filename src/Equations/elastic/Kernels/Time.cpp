@@ -70,8 +70,8 @@
  **/
 
 #include "Kernels/TimeBase.h"
-#include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/Time.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -91,6 +91,8 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 
 #include <yateto.h>
+
+#include "utils/logger.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -309,7 +311,7 @@ void Time::computeBatchedAder(double timeStepWidth,
     }
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -437,7 +439,7 @@ void Time::computeBatchedIntegral(double expansionPoint,
   seissol::kernels::time::aux::taylorSum(true, numElements, timeIntegratedDofs, timeDerivatives, deltaTLower, deltaTUpper, runtime.stream());
 #endif
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -510,7 +512,7 @@ void Time::computeBatchedTaylorExpansion(real time,
   seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, runtime.stream());
 #endif
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

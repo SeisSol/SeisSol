@@ -100,7 +100,7 @@ template <bool Integral,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
-static __global__ __launch_bounds__(Blocksize) // seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder)
+static __global__ __launch_bounds__(Blocksize)
 void taylorSumKernel(TargetRealT** targetBatch,
                                   const SourceRealT** sourceBatch,
                                   TargetRealT start,

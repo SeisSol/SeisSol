@@ -51,6 +51,8 @@
 #include <stdint.h>
 #include <tensor.h>
 
+#include "utils/logger.h"
+
 #include "Numerical/Quadrature.h"
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
@@ -293,7 +295,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
     resetDeviceCurrentState(streamCounter);
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
