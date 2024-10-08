@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
