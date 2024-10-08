@@ -581,6 +581,8 @@ if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
 
+  add_subdirectory(tests)
+
   # Coverage
   if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
     include(cmake/CodeCoverage.cmake)
@@ -595,79 +597,6 @@ if (TESTING)
                     "*/yaml-cpp-install/*"
     )
   endif()
-
-  set(seissol_test_sources
-          tests/Model/TestModel.cpp
-          tests/Initializer/TestInitializer.cpp
-          tests/Numerical/TestNumerical.cpp
-          tests/Geometry/TestGeometry.cpp
-          tests/Kernel/TestKernel.cpp
-          tests/SourceTerm/TestSourceTerm.cpp
-          tests/Parallel/TestParallel.cpp
-          tests/Pipeline/TestPipeline.cpp
-          tests/ResultWriter/TestResultWriter.cpp
-          tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
-          tests/DynamicRupture/TestDynamicRupture.cpp
-          tests/Common/TestCommon.cpp
-          )
-
-
-  if (TESTING_GENERATED)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-            )
-  endif()
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Initializer/TimeStepping/mesh.h5
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Initializer/TimeStepping/material.yaml
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
-    COPYONLY
-    )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/ResultWriter/receiver_correct.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
-    COPYONLY
-  )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/fsrm_source1.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
-    COPYONLY
-  )
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/fsrm_source2.dat
-    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
-    COPYONLY
-  )
-
-  if (NETCDF)
-    configure_file(
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/source_loh.nrf
-            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
-            COPYONLY
-    )
-    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/tests/Reader/ReaderTest.cpp)
-  endif()
-
-  add_executable(SeisSol-serial-test
-            ${seissol_test_sources}
-            tests/TestMain.cpp)
-  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
-if(WITH_GPU)
-  target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
-endif()
-  target_include_directories(SeisSol-serial-test PUBLIC external/)
-  target_include_directories(SeisSol-serial-test PRIVATE tests/)
-  doctest_discover_tests(SeisSol-serial-test)
-
-  # Avoid duplicate definition of FLOP counters
-  target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
 if (WITH_GPU)
