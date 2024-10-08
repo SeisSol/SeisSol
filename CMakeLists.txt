@@ -132,9 +132,9 @@ find_package(GemmTools REQUIRED)
 
 add_custom_command(
   COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
      "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
      "--device_arch" ${DEVICE_ARCH_STR}
@@ -149,25 +149,25 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
         build-time-make-directory
-        generated_code/arch.py
-        generated_code/memlayout.py
-        generated_code/viscoelastic.py
-        generated_code/DynamicRupture.py
-        generated_code/Plasticity.py
-        generated_code/multSim.py
-        generated_code/aderdg.py
-        generated_code/generate.py
-        generated_code/Point.py
-        generated_code/elastic.py
-        generated_code/viscoelastic2.py
-        generated_code/poroelastic.py
-        generated_code/anisotropic.py
-        generated_code/SurfaceDisplacement.py
-        generated_code/NodalBoundaryConditions.py
-        generated_code/matrices
+        generated-code/arch.py
+        generated-code/memlayout.py
+        generated-code/viscoelastic.py
+        generated-code/DynamicRupture.py
+        generated-code/Plasticity.py
+        generated-code/multSim.py
+        generated-code/aderdg.py
+        generated-code/generate.py
+        generated-code/Point.py
+        generated-code/elastic.py
+        generated-code/viscoelastic2.py
+        generated-code/poroelastic.py
+        generated-code/anisotropic.py
+        generated-code/SurfaceDisplacement.py
+        generated-code/NodalBoundaryConditions.py
+        generated-code/matrices
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."
