@@ -164,7 +164,7 @@ add_custom_command(
 add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(SeisSol-common-properties INTERFACE IMPORTED)
 
-include(src/sources.cmake)
+add_subdirectory(src)
 
 # enforce code generation to run before any other target
 add_dependencies(SeisSol-common-properties SeisSol-codegen)
