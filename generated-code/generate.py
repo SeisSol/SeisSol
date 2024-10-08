@@ -49,14 +49,14 @@ from yateto import gemm_configuration
 from yateto.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
-import kernels.DynamicRupture as DynamicRupture
-import kernels.Plasticity as Plasticity
-import kernels.SurfaceDisplacement as SurfaceDisplacement
-import kernels.Point as Point
-import kernels.NodalBoundaryConditions as NodalBoundaryConditions
-import kernels.memlayout as memlayout
-import kernels.vtkproject as vtkproject
-import kernels.general as general
+import kernels.dynamic_rupture
+import kernels.plasticity
+import kernels.surface_displacement
+import kernels.point
+import kernels.nodalbc
+import kernels.memlayout
+import kernels.vtkproject
+import kernels.general
 
 def main():
   cmdLineParser = argparse.ArgumentParser()
@@ -96,7 +96,7 @@ def main():
       'multipleSimulations': cmdLineArgs.multipleSimulations,
       'targets': targets
     }
-    mem_layout = memlayout.guessMemoryLayout(env)
+    mem_layout = kernels.memlayout.guessMemoryLayout(env)
   else:
     mem_layout = cmdLineArgs.memLayout
 
@@ -137,24 +137,24 @@ def main():
   adg.addTime(generator, targets)
   adg.add_include_tensors(include_tensors)
 
-  vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
-  vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
+  kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+  kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
 
   # Common kernels
-  include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
+  include_tensors.update(kernels.dynamic_rupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
                                                   adg,
                                                   cmdLineArgs.matricesDir,
                                                   cmdLineArgs.drQuadRule,
                                                   targets))
 
-  Plasticity.addKernels(generator, 
+  kernels.plasticity.addKernels(generator, 
                         adg,
                         cmdLineArgs.matricesDir,
                         cmdLineArgs.PlasticityMethod,
                         targets)
-  NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
-  SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
-  Point.addKernels(generator, adg)
+  kernels.nodalbc.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
+  kernels.surface_displacement.addKernels(generator, adg, include_tensors, targets)
+  kernels.point.addKernels(generator, adg)
 
   # pick up the user's defined gemm tools
   gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
@@ -213,12 +213,12 @@ def main():
 
     # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
     generator = Generator(arch)
-    general.addStiffnessTensor(generator)
+    kernels.general.addStiffnessTensor(generator)
     generator.generate(outputDir=outputDir,
                       namespace='seissol_general',
                       gemm_cfg=GeneratorCollection([Eigen(arch)]),
                       cost_estimator=cost_estimators,
-                      include_tensors=general.includeMatrices(cmdLineArgs.matricesDir))
+                      include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir))
 
   generate_general(subfolders)
 

@@ -45,7 +45,7 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from kernels.elastic import ElasticADERDG as ADERDGBase
-from kernels.multSim import OptionalDimTensor
+from kernels.multsim import OptionalDimTensor
 
 class AnisotropicADERDG(ADERDGBase):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):

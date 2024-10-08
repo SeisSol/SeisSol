@@ -42,7 +42,7 @@ import numpy as np
 from kernels.common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
-from kernels.multSim import OptionalDimTensor
+from kernels.multsim import OptionalDimTensor
 from copy import deepcopy
 import numpy as np
 

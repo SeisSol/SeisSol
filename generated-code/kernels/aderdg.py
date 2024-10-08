@@ -42,7 +42,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from kernels.common import generate_kernel_name_prefix
 
-from kernels.multSim import OptionalDimTensor
+from kernels.multsim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
@@ -209,9 +209,9 @@ class ADERDGBase(ABC):
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
-    multSimToFirstSim = Tensor('multSimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
+    multsimToFirstSim = Tensor('multsimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
     if self.Q.hasOptDim():
-      copyQToQFortran = QFortran['kp'] <= self.Q['kp'] * multSimToFirstSim['s']
+      copyQToQFortran = QFortran['kp'] <= self.Q['kp'] * multsimToFirstSim['s']
     else:
       copyQToQFortran = QFortran['kp'] <= self.Q['kp']
 

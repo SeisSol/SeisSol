@@ -41,7 +41,7 @@
 import numpy as np
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile
-from kernels.multSim import OptionalDimTensor
+from kernels.multsim import OptionalDimTensor
 from kernels.common import generate_kernel_name_prefix
 
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):

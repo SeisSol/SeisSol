@@ -42,7 +42,7 @@
 import numpy as np
 from yateto import Tensor, simpleParameterSpace
 from yateto.memory import CSCMemoryLayout
-from kernels.multSim import OptionalDimTensor
+from kernels.multsim import OptionalDimTensor
 from kernels.common import generate_kernel_name_prefix
 
 
