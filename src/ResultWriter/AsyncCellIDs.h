@@ -80,7 +80,7 @@ class AsyncCellIDs {
     // Add the offset to all cells
     localCells.resize(nCells * CellVertices);
     for (unsigned int i = 0; i < nCells * CellVertices; i++) {
-      localCells[i] = localCells[i] + offset;
+      localCells[i] = cells[i] + offset;
     }
     constCells = localCells.data();
 #else  // USE_MPI
