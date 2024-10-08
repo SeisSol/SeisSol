@@ -57,6 +57,8 @@
 #include <cstring>
 #include <tensor.h>
 
+#include "utils/logger.h"
+
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
 #include "device.h"
@@ -450,7 +452,7 @@ unsigned Plasticity::computePlasticityBatched(
   }
 
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
   return 0;
 #endif // ACL_DEVICE
 }

@@ -58,6 +58,8 @@
 
 #include "Kernels/Common.h"
 
+#include "utils/logger.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels {
@@ -372,7 +374,7 @@ void Local::computeBatchedIntegral(
     device.api->popStackMemory();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -426,7 +428,7 @@ void Local::evaluateBatchedTimeDependentBc(
     }
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";;
 #endif // ACL_DEVICE
 }
 
