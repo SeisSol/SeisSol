@@ -93,6 +93,9 @@ class ViscoelasticADERDG(LinearADERDG):
 
   def sourceMatrix(self):
     return self.db.ET
+  
+  def name(self):
+    return 'viscoelastic2'
 
   def godunov_spp(self):
     spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)

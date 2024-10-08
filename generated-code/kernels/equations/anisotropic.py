@@ -58,6 +58,9 @@ class AnisotropicADERDG(ADERDGBase):
 
     self.kwargs = kwargs
 
+  def name(self):
+    return 'anisotropic'
+
   def addInit(self, generator):
       super().addInit(generator)
 

@@ -136,6 +136,9 @@ class ADERDGBase(ABC):
     self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
     self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
 
+  def name(self):
+    return ''
+
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
 
@@ -242,6 +245,8 @@ class ADERDGBase(ABC):
 
 
 class LinearADERDG(ADERDGBase):
+  def name(self):
+    return 'linear'
 
   def sourceMatrix(self):
     return None

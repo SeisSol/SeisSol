@@ -46,7 +46,7 @@ import os
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.gemm_configuration import GeneratorCollection, Eigen
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import kernels.dynamic_rupture
@@ -59,6 +59,7 @@ import kernels.vtkproject
 import kernels.general
 
 def main():
+
   cmdLineParser = argparse.ArgumentParser()
   cmdLineParser.add_argument('--equations')
   cmdLineParser.add_argument('--matricesDir')
@@ -81,82 +82,15 @@ def main():
   cmdLineArgs = cmdLineParser.parse_args()
 
   # derive the compute platform
-  gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+  gpu_platforms = ['cuda', 'hip', 'hipsycl', 'acpp', 'oneapi']
   targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
-  subfolders = []
-
-  if cmdLineArgs.memLayout == 'auto':
-    # TODO(Lukas) Don't hardcode this
-    env = {
-      'equations': cmdLineArgs.equations,
-      'order': cmdLineArgs.order,
-      'arch': cmdLineArgs.host_arch,
-      'device_arch': cmdLineArgs.device_arch,
-      'multipleSimulations': cmdLineArgs.multipleSimulations,
-      'targets': targets
-    }
-    mem_layout = kernels.memlayout.guessMemoryLayout(env)
-  else:
-    mem_layout = cmdLineArgs.memLayout
-
-
   if cmdLineArgs.device_backend == 'none':
-      arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
   else:
-      arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
 
-
-  equationsSpec = importlib.util.find_spec(f'kernels.equations.{cmdLineArgs.equations}')
-  try:
-    equations = equationsSpec.loader.load_module()
-  except:
-    raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
-
-  cmdArgsDict = vars(cmdLineArgs)
-  cmdArgsDict['memLayout'] = mem_layout
-
-  if cmdLineArgs.equations == 'anisotropic':
-      adg = equations.AnisotropicADERDG(**cmdArgsDict)
-  elif cmdLineArgs.equations == 'elastic':
-      adg = equations.ElasticADERDG(**cmdArgsDict)
-  elif cmdLineArgs.equations == 'viscoelastic':
-      adg = equations.ViscoelasticADERDG(**cmdArgsDict)
-  elif cmdLineArgs.equations == 'viscoelastic2':
-      adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
-  else:
-      adg = equations.PoroelasticADERDG(**cmdArgsDict)
-
-  include_tensors = set()
-  generator = Generator(arch)
-
-  # Equation-specific kernels
-  adg.addInit(generator)
-  adg.addLocal(generator, targets)
-  adg.addNeighbor(generator, targets)
-  adg.addTime(generator, targets)
-  adg.add_include_tensors(include_tensors)
-
-  kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
-  kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
-
-  # Common kernels
-  include_tensors.update(kernels.dynamic_rupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
-                                                  adg,
-                                                  cmdLineArgs.matricesDir,
-                                                  cmdLineArgs.drQuadRule,
-                                                  targets))
-
-  kernels.plasticity.addKernels(generator, 
-                        adg,
-                        cmdLineArgs.matricesDir,
-                        cmdLineArgs.PlasticityMethod,
-                        targets)
-  kernels.nodalbc.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
-  kernels.surface_displacement.addKernels(generator, adg, include_tensors, targets)
-  kernels.point.addKernels(generator, adg)
-
-  # pick up the user's defined gemm tools
+  # pick up the gemm tools defined by the user
   gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
   gemm_generators = []
 
@@ -175,9 +109,8 @@ def main():
             "Please, refer to the documentation".format(tool))
       sys.exit("failure")
 
-
   cost_estimators = BoundingBoxCostEstimator
-  if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
+  if 'gpu' in targets:
     try:
       chainforge_spec = importlib.util.find_spec('chainforge')
       chainforge_spec.loader.load_module()
@@ -185,21 +118,90 @@ def main():
     except:
       print('WARNING: ChainForge was not found. Falling back to GemmForge.')
 
-  precision = 'double' if cmdLineArgs.host_arch[0] == 'd' else 'single'
-  outputDirName = f'equation-{cmdLineArgs.equations}-{cmdLineArgs.order}-{precision}'
-  trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
-  if not os.path.exists(trueOutputDir):
-    os.mkdir(trueOutputDir)
+  subfolders = []
 
-  subfolders += [outputDirName]
+  equationsSpec = importlib.util.find_spec(f'kernels.equations.{cmdLineArgs.equations}')
+  try:
+    equations = equationsSpec.loader.load_module()
+  except:
+    raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-  # Generate code
-  gemmTools = GeneratorCollection(gemm_generators)
-  generator.generate(outputDir=trueOutputDir,
-                    namespace='seissol',
-                    gemm_cfg=gemmTools,
-                    cost_estimator=cost_estimators,
-                    include_tensors=include_tensors)
+  if cmdLineArgs.equations == 'anisotropic':
+    equation_class = equations.AnisotropicADERDG
+  elif cmdLineArgs.equations == 'elastic':
+    equation_class = equations.ElasticADERDG
+  elif cmdLineArgs.equations == 'viscoelastic':
+    equation_class = equations.ViscoelasticADERDG
+  elif cmdLineArgs.equations == 'viscoelastic2':
+    equation_class = equations.Viscoelastic2ADERDG
+  else:
+    equation_class = equations.PoroelasticADERDG
+
+  def generate_equation(subfolders, equation, order):
+    precision = 'double' if cmdLineArgs.host_arch[0] == 'd' else 'single'
+
+    if cmdLineArgs.memLayout == 'auto':
+      # TODO(Lukas) Don't hardcode this
+      env = {
+        'equations': cmdLineArgs.equations,
+        'order': order,
+        'arch': cmdLineArgs.host_arch,
+        'device_arch': cmdLineArgs.device_arch,
+        'multipleSimulations': cmdLineArgs.multipleSimulations,
+        'targets': targets
+      }
+      mem_layout = kernels.memlayout.guessMemoryLayout(env)
+    else:
+      mem_layout = cmdLineArgs.memLayout
+
+    cmdArgsDict = vars(cmdLineArgs)
+    cmdArgsDict['memLayout'] = mem_layout
+
+    adg = equation(**cmdArgsDict)
+
+    include_tensors = set()
+    generator = Generator(arch)
+
+    # Equation-specific kernels
+    adg.addInit(generator)
+    adg.addLocal(generator, targets)
+    adg.addNeighbor(generator, targets)
+    adg.addTime(generator, targets)
+    adg.add_include_tensors(include_tensors)
+
+    kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+    kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
+
+    # Common kernels
+    include_tensors.update(kernels.dynamic_rupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
+                                                    adg,
+                                                    cmdLineArgs.matricesDir,
+                                                    cmdLineArgs.drQuadRule,
+                                                    targets))
+
+    kernels.plasticity.addKernels(generator, 
+                          adg,
+                          cmdLineArgs.matricesDir,
+                          cmdLineArgs.PlasticityMethod,
+                          targets)
+    kernels.nodalbc.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
+    kernels.surface_displacement.addKernels(generator, adg, include_tensors, targets)
+    kernels.point.addKernels(generator, adg)
+
+    outputDirName = f'equation-{adg.name()}-{order}-{precision}'
+    trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
+    if not os.path.exists(trueOutputDir):
+      os.mkdir(trueOutputDir)
+
+    subfolders += [outputDirName]
+
+    # Generate code
+    gemmTools = GeneratorCollection(gemm_generators)
+    generator.generate(outputDir=trueOutputDir,
+                      namespace='seissol',
+                      gemm_cfg=gemmTools,
+                      cost_estimator=cost_estimators,
+                      include_tensors=include_tensors)
 
   def generate_general(subfolders):
     # we use always use double here, since these kernels are only used in the initialization
@@ -220,13 +222,15 @@ def main():
                       cost_estimator=cost_estimators,
                       include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir))
 
-  generate_general(subfolders)
-
   def forward_files(filename):
     with open(os.path.join(cmdLineArgs.outputDir, filename), 'w') as file:
       file.writelines(['// IWYU pragma: begin_exports\n'])
       file.writelines([f'#include "{os.path.join(folder, filename)}"\n' for folder in subfolders])
       file.writelines(['// IWYU pragma: end_exports\n'])
+
+
+  generate_equation(subfolders, equation_class, cmdLineArgs.order)
+  generate_general(subfolders)
 
   forward_files('init.h')
   forward_files('kernel.h')

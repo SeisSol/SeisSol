@@ -57,6 +57,9 @@ class ElasticADERDG(LinearADERDG):
 
   def numberOfQuantities(self):
     return 9
+  
+  def name(self):
+    return 'elastic'
 
   def starMatrix(self, dim):
     return self.db.star[dim]

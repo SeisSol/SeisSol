@@ -55,6 +55,9 @@ class PoroelasticADERDG(LinearADERDG):
     extractTractionsSPP[2, 5] = 1
     extractTractionsSPP[3, 9] = 1
     return extractTractionsSPP
+  
+  def name(self):
+    return 'poroelastic'
 
   def transformationSpp(self):
     spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)

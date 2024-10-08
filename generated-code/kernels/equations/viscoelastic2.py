@@ -108,6 +108,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
   def starMatrix(self, dim):
     return self.db.star[dim]
+  
+  def name(self):
+    return 'viscoelastic2'
 
   def addInit(self, generator):
     super().addInit(generator)
