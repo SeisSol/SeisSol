@@ -1,5 +1,4 @@
 import numpy as np
-import kernels.viscoelastic2 as viscoelastic2
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression

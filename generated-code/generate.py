@@ -107,7 +107,7 @@ def main():
       arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
 
 
-  equationsSpec = importlib.util.find_spec(f'kernels.{cmdLineArgs.equations}')
+  equationsSpec = importlib.util.find_spec(f'kernels.equations.{cmdLineArgs.equations}')
   try:
     equations = equationsSpec.loader.load_module()
   except:

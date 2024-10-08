@@ -44,7 +44,7 @@ from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFr
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-from kernels.elastic import ElasticADERDG as ADERDGBase
+from kernels.equations.elastic import ElasticADERDG as ADERDGBase
 from kernels.multsim import OptionalDimTensor
 
 class AnisotropicADERDG(ADERDGBase):
