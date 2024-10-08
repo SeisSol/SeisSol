@@ -39,10 +39,10 @@
 #
 
 import numpy as np
-from common import *
+from kernels.common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
-from multSim import OptionalDimTensor
+from kernels.multSim import OptionalDimTensor
 from copy import deepcopy
 import numpy as np
 

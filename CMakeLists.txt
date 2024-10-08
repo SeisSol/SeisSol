@@ -152,22 +152,10 @@ add_custom_command(
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
         build-time-make-directory
-        generated-code/arch.py
-        generated-code/memlayout.py
-        generated-code/viscoelastic.py
-        generated-code/DynamicRupture.py
-        generated-code/Plasticity.py
-        generated-code/multSim.py
-        generated-code/aderdg.py
         generated-code/generate.py
-        generated-code/Point.py
-        generated-code/elastic.py
-        generated-code/viscoelastic2.py
-        generated-code/poroelastic.py
-        generated-code/anisotropic.py
-        generated-code/SurfaceDisplacement.py
-        generated-code/NodalBoundaryConditions.py
+        generated-code/kernels
         generated-code/matrices
+        generated-code/config
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."

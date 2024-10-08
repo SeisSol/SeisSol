@@ -6,8 +6,8 @@ from yateto import Tensor, Scalar
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-from aderdg import LinearADERDG
-from multSim import OptionalDimTensor
+from kernels.aderdg import LinearADERDG
+from kernels.multSim import OptionalDimTensor
 
 def choose(n, k):
   num = np.prod(np.arange(n,n-k,-1))

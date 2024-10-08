@@ -42,8 +42,8 @@
 import numpy as np
 from yateto import Tensor, simpleParameterSpace
 from yateto.memory import CSCMemoryLayout
-from multSim import OptionalDimTensor
-from common import generate_kernel_name_prefix
+from kernels.multSim import OptionalDimTensor
+from kernels.common import generate_kernel_name_prefix
 
 
 def addKernels(generator, aderdg, include_tensors, targets):

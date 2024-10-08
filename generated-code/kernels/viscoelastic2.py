@@ -45,8 +45,8 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.memory import CSCMemoryLayout
 
-from aderdg import ADERDGBase
-from multSim import OptionalDimTensor
+from kernels.aderdg import ADERDGBase
+from kernels.multSim import OptionalDimTensor
 
 class Viscoelastic2ADERDG(ADERDGBase):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):

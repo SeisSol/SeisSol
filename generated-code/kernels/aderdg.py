@@ -40,9 +40,9 @@
 
 import numpy as np
 from abc import ABC, abstractmethod
-from common import generate_kernel_name_prefix
+from kernels.common import generate_kernel_name_prefix
 
-from multSim import OptionalDimTensor
+from kernels.multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern

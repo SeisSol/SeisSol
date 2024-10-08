@@ -41,7 +41,7 @@
   
 import numpy as np
 from yateto import Tensor, Scalar
-from multSim import OptionalDimTensor
+from kernels.multSim import OptionalDimTensor
 
 def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()

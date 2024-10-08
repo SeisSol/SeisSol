@@ -42,7 +42,7 @@ import numpy as np
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import LinearADERDG
+from kernels.aderdg import LinearADERDG
 
 class ViscoelasticADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):

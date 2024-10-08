@@ -1,9 +1,9 @@
 import numpy as np
-import viscoelastic2
-from multSim import OptionalDimTensor
+import kernels.viscoelastic2 as viscoelastic2
+from kernels.multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
-from common import generate_kernel_name_prefix
+from kernels.common import generate_kernel_name_prefix
 
 def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod, targets):
     easi_ident_map = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
