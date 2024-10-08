@@ -66,4 +66,3 @@ Load the relevant :ref:`modules <compile_run_supermuc>`.
   mkdir build && cd build
   cmake ..
   make -j
-

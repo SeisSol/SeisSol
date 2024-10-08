@@ -58,7 +58,14 @@ hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
 
 target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 set_property(TARGET SeisSol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
-
+target_compile_definitions(SeisSol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
+        CONVERGENCE_ORDER=${ORDER}
+        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+        ${DR_QUAD_RULE})
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+target_compile_definitions(SeisSol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
 
 if (IS_NVCC_PLATFORM)
     set_target_properties(SeisSol-device-lib PROPERTIES LINKER_LANGUAGE HIP)

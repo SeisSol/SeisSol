@@ -42,6 +42,7 @@
 #define INITIALIZER_DR_H_
 
 #include "DynamicRupture/Misc.h"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"
@@ -127,7 +128,7 @@ struct DynamicRupture {
     tree.addVar(waveSpeedsMinus, mask, 1, allocationModeDR(), true);
     tree.addVar(drEnergyOutput, mask, Alignment, allocationModeDR());
     tree.addVar(impAndEta, mask, 1, allocationModeDR(), true);
-    tree.addVar(impedanceMatrices, mask, 1, allocationModeDR(), true);
+    tree.addVar(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
     tree.addVar(initialStressInFaultCS, mask, 1, allocationModeDR());
     tree.addVar(nucleationStressInFaultCS, mask, 1, allocationModeDR(), true);
     tree.addVar(initialPressure, mask, 1, allocationModeDR());
@@ -155,6 +156,24 @@ struct DynamicRupture {
     tree.addScratchpadMemory(idofsMinusOnDevice, 1, AllocationMode::DeviceOnly);
 #endif
   }
+
+  virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                           LTSTree* tree) {
+    manager.registerData("initialStressInFaultCS", tree, initialStressInFaultCS);
+    manager.registerData("initialPressure", tree, initialPressure);
+    manager.registerData("mu", tree, mu);
+    manager.registerData("slipRate1", tree, slipRate1);
+    manager.registerData("slipRate2", tree, slipRate2);
+    manager.registerData("accumulatedSlipMagnitude", tree, accumulatedSlipMagnitude);
+    manager.registerData("slip1", tree, slip1);
+    manager.registerData("slip2", tree, slip2);
+    manager.registerData("peakSlipRate", tree, peakSlipRate);
+    manager.registerData("ruptureTime", tree, ruptureTime);
+    manager.registerData("ruptureTimePending", tree, ruptureTimePending);
+    manager.registerData("dynStressTime", tree, dynStressTime);
+    manager.registerData("dynStressTimePending", tree, dynStressTimePending);
+    manager.registerData("drEnergyOutput", tree, drEnergyOutput);
+  }
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
@@ -164,7 +183,7 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> cohesion;
   Variable<real[dr::misc::NumPaddedPoints]> forcedRuptureTime;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(dC, mask, 1, allocationModeDR(), true);
@@ -178,10 +197,16 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
   Variable<real[dr::misc::NumPaddedPoints]> regularisedStrength;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     LTSLinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(regularisedStrength, mask, 1, allocationModeDR());
+  }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) override {
+    seissol::initializer::LTSLinearSlipWeakening::registerCheckpointVariables(manager, tree);
+    manager.registerData("regularisedStrength", tree, regularisedStrength);
   }
 };
 
@@ -190,19 +215,25 @@ struct LTSRateAndState : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
   Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(rsA, mask, 1, allocationModeDR(), true);
     tree.addVar(rsSl0, mask, 1, allocationModeDR(), true);
     tree.addVar(stateVariable, mask, 1, allocationModeDR());
   }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) override {
+    seissol::initializer::DynamicRupture::registerCheckpointVariables(manager, tree);
+    manager.registerData("stateVariable", tree, stateVariable);
+  }
 };
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
   Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     LTSRateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(rsSrW, mask, 1, allocationModeDR(), true);
@@ -221,7 +252,7 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndStateFastVelocity
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     LTSRateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, Alignment, allocationModeDR());
@@ -234,6 +265,14 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndStateFastVelocity
     tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
     tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
   }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) override {
+    seissol::initializer::LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager,
+                                                                                            tree);
+    manager.registerData("temperature", tree, temperature);
+    manager.registerData("pressure", tree, pressure);
+  }
 };
 
 struct LTSImposedSlipRates : public DynamicRupture {
@@ -241,7 +280,7 @@ struct LTSImposedSlipRates : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection2;
   Variable<real[dr::misc::NumPaddedPoints]> onsetTime;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(imposedSlipDirection1, mask, 1, allocationModeDR(), true);
@@ -254,7 +293,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> tauS;
   Variable<real[dr::misc::NumPaddedPoints]> tauR;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(tauS, mask, 1, allocationModeDR(), true);
@@ -265,7 +304,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> riseTime;
 
-  virtual void addTo(LTSTree& tree) {
+  void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(riseTime, mask, 1, allocationModeDR(), true);

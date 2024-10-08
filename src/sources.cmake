@@ -84,12 +84,6 @@ add_library(SeisSol-lib STATIC)
 endif()
 
 target_sources(SeisSol-lib PRIVATE
-src/Checkpoint/Backend.cpp
-src/Checkpoint/Fault.cpp
-src/Checkpoint/Manager.cpp
-src/Checkpoint/posix/Fault.cpp
-src/Checkpoint/posix/Wavefield.cpp
-
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
@@ -169,22 +163,6 @@ set(SYCL_ONLY_SRC_FILES
 
 target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
-
-if (MPI)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/FaultAsync.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Fault.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/WavefieldAsync.cpp
-)
-endif()
-
-if (HDF5)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Fault.cpp
-    )
-endif()
 
 if (HDF5 AND MPI)
   target_sources(SeisSol-lib PRIVATE
@@ -271,6 +249,7 @@ if (WITH_GPU)
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
                              ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
                              ${CMAKE_BINARY_DIR}/src/generated_code
+                             ${CMAKE_BINARY_DIR}/src
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
   # include cmake files will define SeisSol-device-lib target
@@ -289,3 +268,6 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+
+add_subdirectory(src/IO)
+target_link_libraries(SeisSol-lib PUBLIC seissol-io)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 [submodule "submodules/xdmfwriter"]
 	path = submodules/xdmfwriter
 	url = ../../TUM-I5/XdmfWriter.git
@@ -18,4 +22,4 @@
 	url = ../../SeisSol/Device.git
 [submodule "submodules/fty"]
 	path = submodules/fty
-	url = ../../ravil-mobile/fty.git
+	url = ../../SeisSol/fty.git

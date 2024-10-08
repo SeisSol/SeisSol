@@ -58,6 +58,7 @@ namespace seissol::geometry {
 struct GhostElementMetadata {
   double vertices[4][3];
   int group;
+  GlobalElemId globalId;
 };
 
 class MeshReader {
