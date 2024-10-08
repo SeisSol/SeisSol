@@ -1,5 +1,5 @@
 #include "Initializer/Parameters/LtsParameters.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <memory>
 #include <numeric>
 

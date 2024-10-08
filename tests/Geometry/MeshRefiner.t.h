@@ -1,4 +1,4 @@
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <Eigen/Dense>
 #include <array>
 

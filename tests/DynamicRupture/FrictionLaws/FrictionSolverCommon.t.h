@@ -2,7 +2,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 
 namespace seissol::unit_test {
 

@@ -1,7 +1,7 @@
 #include <Eigen/Dense>
 
 #include "Initializer/PointMapper.h"
-#include "tests/Geometry/MockReader.h"
+#include "Geometry/MockReader.h"
 
 namespace seissol::unit_test {
 

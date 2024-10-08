@@ -4,10 +4,10 @@
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
-#include "tests/Geometry/MockReader.h"
+#include "Geometry/MockReader.h"
 #include <Eigen/Dense>
 #include <iostream>
-#include <tests/TestHelper.h>
+#include <TestHelper.h>
 
 namespace seissol::unit_test {
 

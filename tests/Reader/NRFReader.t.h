@@ -1,4 +1,4 @@
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <cstdlib>
 
 #include "SourceTerm/NRF.h"

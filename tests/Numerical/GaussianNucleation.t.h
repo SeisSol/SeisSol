@@ -1,6 +1,6 @@
 #include "Numerical/GaussianNucleationFunction.h"
 #include "doctest.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <Kernels/Precision.h>
 #include <cassert>
 
