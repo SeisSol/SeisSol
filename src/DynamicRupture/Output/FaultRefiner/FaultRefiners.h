@@ -18,14 +18,14 @@ class FaultRefiner {
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
-  virtual int getNumSubTriangles() const = 0;
+  [[nodiscard]] virtual int getNumSubTriangles() const = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
   ReceiverPoints&& moveAllReceiverPoints() { return std::move(points); }
 
   protected:
-  ReceiverPoints points{};
+  ReceiverPoints points;
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;
@@ -37,19 +37,19 @@ class FaultRefiner {
 
 class NoRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 1; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 1; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 3; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 3; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceQuadRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 4; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 

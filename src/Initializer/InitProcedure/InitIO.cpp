@@ -26,7 +26,7 @@
 
 namespace {
 
-static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
+void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
 
   {
@@ -79,7 +79,7 @@ static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void setupOutput(seissol::SeisSol& seissolInstance) {
+void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   auto* lts = memoryManager.getLts();
@@ -115,7 +115,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
+        ltsLut->getMeshToLtsLut(lts->dofs.mask)[0].data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
@@ -170,7 +170,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         celllist.push_back(i);
       }
     }
-    std::size_t* cellIndices = new std::size_t[celllist.size()];
+    auto* cellIndices = new std::size_t[celllist.size()];
     std::copy(celllist.begin(), celllist.end(), cellIndices);
 
     io::writer::ScheduledWriter schedWriter;
@@ -386,20 +386,19 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix.c_str());
+  seissolInstance.flopCounter().init(seissolParams.output.prefix);
 
-  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
-                                        seissolParams.output.prefix.c_str());
+  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }
 
-static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
+void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
-static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
@@ -410,7 +409,7 @@ static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -429,7 +428,7 @@ static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void setIntegralMask(seissol::SeisSol& seissolInstance) {
+void setIntegralMask(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   seissolInstance.postProcessor().setIntegrationMask(
       seissolParams.output.waveFieldParameters.integrationMask);
@@ -450,7 +449,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
       filesystem::create_directory(outputDir);
     }
   }
-  MPI::mpi.barrier(MPI::mpi.comm());
+  seissol::MPI::barrier(MPI::mpi.comm());
 
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);

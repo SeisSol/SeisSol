@@ -19,7 +19,7 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader(int rank) : mRank(rank), m_hasPlusFault(false) {}
+MeshReader::MeshReader(int rank) : mRank(rank) {}
 
 MeshReader::~MeshReader() = default;
 
@@ -40,7 +40,7 @@ const std::unordered_map<int, std::vector<GhostElementMetadata>>&
 
 const std::vector<Fault>& MeshReader::getFault() const { return m_fault; }
 
-bool MeshReader::hasFault() const { return m_fault.size() > 0; }
+bool MeshReader::hasFault() const { return !m_fault.empty(); }
 
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
@@ -78,17 +78,19 @@ void MeshReader::extractFaultInformation(
       // Set default mpi fault indices
       i.mpiFaultIndices[j] = -1;
 
-      if (i.boundaries[j] != 3)
+      if (i.boundaries[j] != 3) {
         continue;
+      }
 
       // DR boundary
 
       if (i.neighborRanks[j] == mRank) {
         // Completely local DR boundary
 
-        if (i.neighbors[j] < i.localId)
+        if (i.neighbors[j] < i.localId) {
           // This was already handled by the other side
           continue;
+        }
       } else {
         // Handle boundary faces
 
@@ -98,7 +100,7 @@ void MeshReader::extractFaultInformation(
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
-      Fault f;
+      Fault f{};
 
       // Detect +/- side
       // Computes the distance between the bary center of the tetrahedron and the face
@@ -113,7 +115,8 @@ void MeshReader::extractFaultInformation(
 
       // Compute normal of the DR face
       // Boundary side vector pointing in chi- and tau-direction
-      VrtxCoords chiVec, tauVec;
+      VrtxCoords chiVec;
+      VrtxCoords tauVec;
       MeshTools::sub(m_vertices[i.vertices[MeshTools::FACE2NODES[j][1]]].coords,
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      chiVec);
@@ -126,12 +129,13 @@ void MeshReader::extractFaultInformation(
       MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 
       // Check whether the tetrahedron and the reference point are on the same side of the face
-      VrtxCoords tmp1, tmp2;
+      VrtxCoords tmp1;
+      VrtxCoords tmp2;
       MeshTools::sub(refPoint, m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords, tmp1);
       MeshTools::sub(m_vertices[i.vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      tmp2);
-      bool isPlus;
+      bool isPlus = false;
       if (refPointMethod == seissol::initializer::parameters::RefPointMethod::Point) {
         isPlus = MeshTools::dot(tmp1, f.normal) * MeshTools::dot(tmp2, f.normal) > 0;
       } else {
@@ -201,8 +205,9 @@ void MeshReader::extractFaultInformation(
       m_fault.push_back(f);
 
       // Check if we have a plus fault side
-      if (isPlus || neighborIndex >= 0)
+      if (isPlus || neighborIndex >= 0) {
         m_hasPlusFault = true;
+      }
     }
   }
 
@@ -240,13 +245,13 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
   constexpr int Tag = 10;
-  const auto comm = seissol::MPI::mpi.comm();
+  MPI_Comm comm = seissol::MPI::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
 
   // TODO(David): Once a generic MPI type inference module is ready, replace this part here ...
   // Maybe.
-  MPI_Datatype ghostElementType;
+  MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
   const int datatypeCount = 3;

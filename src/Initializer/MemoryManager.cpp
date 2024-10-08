@@ -87,6 +87,8 @@
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
+#include "Common/Iterator.h"
+
 #include "generated_code/tensor.h"
 
 #ifdef ACL_DEVICE
@@ -565,24 +567,22 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   }
 
   // Iterate over layers of standard lts tree and face lts tree together.
-  auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
-    for (;
-       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
-       ++layer, ++boundaryLayer) {
-    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+  for (auto [layer, boundaryLayer] : seissol::common::zip(m_ltsTree.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+    CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
 
     unsigned numberOfBoundaryFaces = 0;
+    const auto layerSize = layer.getNumberOfCells();
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
 #endif // _OPENMP
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layerSize; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
       }
     }
-    boundaryLayer->setNumberOfCells(numberOfBoundaryFaces);
+    boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
   }
   m_boundaryTree.allocateVariables();
   m_boundaryTree.touchVariables();
@@ -590,17 +590,15 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   // The boundary tree is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both trees at the same time.
-  for (auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
-       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
-       ++layer, ++boundaryLayer) {
-    auto* cellInformation = layer->var(m_lts.cellInformation);
-    auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
-    auto* boundaryMappingDevice = layer->var(m_lts.boundaryMappingDevice);
-    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Host);
-    auto* faceInformationDevice = boundaryLayer->var(m_boundary.faceInformation, AllocationPlace::Device);
+  for (auto [layer, boundaryLayer] : seissol::common::zip(m_ltsTree.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+    auto* cellInformation = layer.var(m_lts.cellInformation);
+    auto* boundaryMapping = layer.var(m_lts.boundaryMapping);
+    auto* boundaryMappingDevice = layer.var(m_lts.boundaryMappingDevice);
+    auto* faceInformation = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Host);
+    auto* faceInformationDevice = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Device);
 
     auto boundaryFace = 0;
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
@@ -633,13 +631,13 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
 
 void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 {
-  for (auto layer = m_ltsTree.beginLeaf(m_lts.faceDisplacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
-    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
-    real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
-    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
+  for (auto& layer : m_ltsTree.leaves(m_lts.faceDisplacements.mask)) {
+    CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
+    CellMaterialData* cellMaterialData = layer.var(m_lts.material);
 
     unsigned numberOfFaces = 0;
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       for (unsigned int face = 0; face < 4; ++face) {
         if (requiresDisplacement(cellInformation[cell],
                                  cellMaterialData[cell],
@@ -656,7 +654,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
         }
       }
     }
-    layer->setBucketSize(m_lts.faceDisplacementsBuffer, numberOfFaces * 1 * tensor::faceDisplacement::size() * sizeof(real));
+    layer.setBucketSize(m_lts.faceDisplacementsBuffer, numberOfFaces * 1 * tensor::faceDisplacement::size() * sizeof(real));
   }
 }
 
@@ -665,18 +663,18 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
-  for (auto layer = ltsTree.beginLeaf(Ghost); layer != ltsTree.endLeaf(); ++layer) {
+  for (auto& layer : ltsTree.leaves(Ghost)) {
 
-    CellLocalInformation *cellInformation = layer->var(lts.cellInformation);
+    CellLocalInformation *cellInformation = layer.var(lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*faceNeighbors)[4] = layer->var(lts.faceNeighborsDevice);
+    real *(*faceNeighbors)[4] = layer.var(lts.faceNeighborsDevice);
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
 
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
@@ -713,13 +711,13 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
         }
       }
     }
-    layer->setScratchpadSize(lts.integratedDofsScratch,
+    layer.setScratchpadSize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
-    layer->setScratchpadSize(lts.derivativesScratch,
+    layer.setScratchpadSize(lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
-    layer->setScratchpadSize(lts.nodalAvgDisplacements,
+    layer.setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
-    layer->setScratchpadSize(lts.analyticScratch,
+    layer.setScratchpadSize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
   }
 }
@@ -728,29 +726,29 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
     LTSTree &ltsTree,
     DynamicRupture& dynRup) {
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
-  for (auto layer = ltsTree.beginLeaf(); layer != ltsTree.endLeaf(); ++layer) {
-    const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
-    layer->setScratchpadSize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
+  for (auto& layer : ltsTree.leaves()) {
+    const auto layerSize = layer.getNumberOfCells();
+    layer.setScratchpadSize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
+    layer.setScratchpadSize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
   }
 }
 #endif
 
 void seissol::initializer::MemoryManager::initializeFaceDisplacements()
 {
-  for (auto layer = m_ltsTree.beginLeaf(m_lts.faceDisplacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
-    if (layer->getBucketSize(m_lts.faceDisplacementsBuffer) == 0) {
+  for (auto& layer : m_ltsTree.leaves(m_lts.faceDisplacements.mask)) {
+    if (layer.getBucketSize(m_lts.faceDisplacementsBuffer) == 0) {
       continue;
     }
-    real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
-    real* bucket = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer));
-    real* (*displacementsDevice)[4] = layer->var(m_lts.faceDisplacementsDevice);
-    real* bucketDevice = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
+    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
+    real* bucket = static_cast<real*>(layer.bucket(m_lts.faceDisplacementsBuffer));
+    real* (*displacementsDevice)[4] = layer.var(m_lts.faceDisplacementsDevice);
+    real* bucketDevice = static_cast<real*>(layer.bucket(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
 #endif // _OPENMP
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (displacements[cell][face] != nullptr) {
           // Remove constant part that was added in deriveDisplacementsBucket.
@@ -819,21 +817,21 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
-    if (it->getBucketSize(m_lts.buffersDerivatives) > 0) {
-      void* data = it->bucket(m_lts.buffersDerivatives, seissol::initializer::AllocationPlace::Device);
+  for (auto& layer : m_ltsTree.leaves()) {
+    if (layer.getBucketSize(m_lts.buffersDerivatives) > 0) {
+      void* data = layer.bucket(m_lts.buffersDerivatives, seissol::initializer::AllocationPlace::Device);
       device::DeviceInstance::getInstance().algorithms.touchMemory(
         reinterpret_cast<real*>(data),
-        it->getBucketSize(m_lts.buffersDerivatives) / sizeof(real),
+        layer.getBucketSize(m_lts.buffersDerivatives) / sizeof(real),
         true, stream);
     }
   }
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
-  for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
-    real** buffers = it->var(m_lts.buffers);
-    real** derivatives = it->var(m_lts.derivatives);
-    kernels::touchBuffersDerivatives(buffers, derivatives, it->getNumberOfCells());
+  for (auto& layer : m_ltsTree.leaves()) {
+    real** buffers = layer.var(m_lts.buffers);
+    real** derivatives = layer.var(m_lts.derivatives);
+    kernels::touchBuffersDerivatives(buffers, derivatives, layer.getNumberOfCells());
   }
 
 #ifdef USE_MPI
@@ -881,14 +879,14 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (auto it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
-    recorder.record(m_lts, *it);
+  for (auto& layer : m_ltsTree.leaves(Ghost)) {
+    recorder.record(m_lts, layer);
   }
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
-    drRecorder.record(*m_dynRup, *it);
+  for (auto& layer : m_dynRupTree.leaves(Ghost)) {
+    drRecorder.record(*m_dynRup, layer);
   }
 }
 #endif // ACL_DEVICE

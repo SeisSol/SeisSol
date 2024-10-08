@@ -22,7 +22,7 @@
 namespace {
 #define _eh(x) _ehh(x, __FILE__, __LINE__)
 
-static hid_t _ehh(hid_t data, const char* file, int line) {
+hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
     logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
@@ -81,7 +81,7 @@ std::size_t Hdf5Reader::attributeCount(const std::string& name) {
 }
 void Hdf5Reader::readAttributeRaw(void* data,
                                   const std::string& name,
-                                  std::shared_ptr<datatype::Datatype> type) {
+                                  const std::shared_ptr<datatype::Datatype>& type) {
   checkExistence(name, "attribute");
   const hid_t attr = _eh(H5Aopen(handles.top(), name.c_str(), H5P_DEFAULT));
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
@@ -97,7 +97,8 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));
 
-  int mpirank, mpisize;
+  int mpirank = 0;
+  int mpisize = 0;
   MPI_Comm_size(comm, &mpisize);
   MPI_Comm_rank(comm, &mpirank);
 
@@ -106,7 +107,7 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
                              std::size_t count,
-                             std::shared_ptr<datatype::Datatype> targetType) {
+                             const std::shared_ptr<datatype::Datatype>& targetType) {
   checkExistence(name, "dataset");
   const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
@@ -162,7 +163,7 @@ void Hdf5Reader::readDataRaw(void* data,
 
   std::size_t read = 0;
 
-  unsigned char* ptr = reinterpret_cast<unsigned char*>(data);
+  auto* ptr = reinterpret_cast<unsigned char*>(data);
 
   for (std::size_t i = 0; i < rounds; ++i) {
     filepos[0] = start + read;

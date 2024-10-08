@@ -25,11 +25,11 @@ class Hdf5Location {
 
   explicit Hdf5Location(YAML::Node node);
 
-  std::string file() const;
-  std::vector<std::string> groups() const;
-  std::optional<std::string> dataset() const;
+  [[nodiscard]] std::string file() const;
+  [[nodiscard]] std::vector<std::string> groups() const;
+  [[nodiscard]] std::optional<std::string> dataset() const;
 
-  std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const;
+  [[nodiscard]] std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const;
 
   YAML::Node serialize();
 
@@ -40,6 +40,7 @@ class Hdf5Location {
 };
 
 struct Hdf5AttributeWrite : public WriteInstruction {
+  ~Hdf5AttributeWrite() override = default;
   Hdf5Location location;
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
@@ -56,6 +57,7 @@ struct Hdf5AttributeWrite : public WriteInstruction {
 };
 
 struct Hdf5DataWrite : public WriteInstruction {
+  ~Hdf5DataWrite() override = default;
   Hdf5Location location;
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;

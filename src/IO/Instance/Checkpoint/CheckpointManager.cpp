@@ -35,10 +35,10 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
-    for (auto& [_, ckpTree] : dataRegistry) {
+    for (const auto& [_, ckpTree] : dataRegistry) {
       const std::size_t cells = ckpTree.tree->getNumberOfCells(Ghost);
       assert(cells == ckpTree.ids.size());
-      std::size_t totalCells;
+      std::size_t totalCells = 0;
       MPI_Allreduce(&cells,
                     &totalCells,
                     1,
@@ -50,7 +50,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
           "__ids",
           writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
           datatype::inferDatatype<std::size_t>()));
-      for (auto& variable : ckpTree.variables) {
+      for (const auto& variable : ckpTree.variables) {
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
             variable.name,
@@ -116,7 +116,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
 
     reader.closeGroup();
   }
-  const double time = reader.readAttributeScalar<double>("__time");
+  const auto time = reader.readAttributeScalar<double>("__time");
   reader.closeGroup();
   reader.closeFile();
 

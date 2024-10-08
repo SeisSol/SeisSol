@@ -7,8 +7,7 @@
 #include <limits>
 
 namespace seissol {
-Module::Module()
-    : isyncInterval(0), nextSyncPoint(0), lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
+Module::Module() : lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
 
 Module::~Module() = default;
 

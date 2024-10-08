@@ -53,7 +53,7 @@ template <typename T>
 void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handle,
                                   seissol::initializer::MemoryManager& memoryManager) {
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
-  unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
+  const unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
   const unsigned numberOfDuplicatedMeshIds =
       memoryManager.getLtsLut()->getNumberOfDuplicatedMeshIds(handle.mask);
   T* var = memoryManager.getLtsTree()->var(handle);

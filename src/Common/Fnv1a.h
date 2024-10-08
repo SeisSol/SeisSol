@@ -1,24 +1,28 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
 // Copyright (C) 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef FNV1A_H
-#define FNV1A_H
+#ifndef SEISSOL_SRC_COMMON_FNV1A_H_
+#define SEISSOL_SRC_COMMON_FNV1A_H_
 
 #include <cstdint>
 #include <string_view>
 
 namespace seissol {
 
-constexpr std::uint64_t fnv1a(char const* str, std::size_t n) {
-  constexpr std::uint64_t basis = 0xcbf29ce484222325;
-  constexpr std::uint64_t prime = 0x00000100000001b3;
-  return n > 0 ? (fnv1a(str, n - 1) ^ str[n - 1]) * prime : basis;
+constexpr auto fnv1a(const char* str, std::size_t n) -> std::uint64_t {
+  constexpr std::uint64_t Basis = 0xcbf29ce484222325ULL;
+  constexpr std::uint64_t Prime = 0x00000100000001b3ULL;
+  return n > 0 ? (fnv1a(str, n - 1) ^ str[n - 1]) * Prime : Basis;
 }
-constexpr std::uint64_t fnv1a(std::string_view str) { return fnv1a(str.data(), str.size()); }
+constexpr auto fnv1a(const std::string_view& str) -> std::uint64_t {
+  return fnv1a(str.data(), str.size());
+}
 
 namespace literals {
 
-constexpr std::uint64_t operator""_fnv1a(char const* str, std::size_t n) {
+constexpr auto operator""_fnv1a(const char* str, std::size_t n) -> std::uint64_t {
   return seissol::fnv1a(str, n);
 }
 
@@ -26,4 +30,4 @@ constexpr std::uint64_t operator""_fnv1a(char const* str, std::size_t n) {
 
 } // namespace seissol
 
-#endif // FNV1A_H
+#endif // SEISSOL_SRC_COMMON_FNV1A_H_

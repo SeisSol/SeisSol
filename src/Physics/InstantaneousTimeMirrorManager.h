@@ -16,7 +16,7 @@ namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
-  bool isEnabled;
+  bool isEnabled{false};
   double velocityScalingFactor{};
   double timeStepScalingFactor = 1.0;
   double triggerTime{};
@@ -27,12 +27,13 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
+      ghostTimeClusters{};
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {};
+      : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,

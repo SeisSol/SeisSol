@@ -68,14 +68,14 @@
 #ifdef USE_NETCDF
 namespace {
 
-static void check_err(const int stat, const int line, const char* file) {
+void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
 
 template <typename T>
-static nc_type type2nc() {
+nc_type type2nc() {
   if constexpr (std::is_signed_v<T>) {
     static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
                   "type2nc supports 32 or 64 bit integral types only");
@@ -104,7 +104,7 @@ LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
     : name(name), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
-  regions.push_back(Region(name, includeInSummary));
+  regions.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
@@ -120,7 +120,7 @@ void LoopStatistics::begin(unsigned region) {
 }
 
 void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   addSample(region, numIterations, subRegion, regions[region].begin, endTime);
 }
@@ -128,7 +128,7 @@ void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRe
 void LoopStatistics::addSample(
     unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
   if (outputSamples) {
-    Sample sample;
+    Sample sample{};
     sample.begin = begin;
     sample.end = end;
     sample.numIters = numIterations;
@@ -195,7 +195,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     }
   }
 
-  int rank;
+  int rank = 0;
 #ifdef USE_MPI
   MPI_Comm_rank(comm, &rank);
 #else
@@ -248,8 +248,9 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
-      if (!regions[region].includeInSummary)
+      if (!regions[region].includeInSummary) {
         continue;
+      }
       const double x = getNumIters(region);
       const double x2 = getNumItersSquared(region);
       const double y = getTime(region);
@@ -292,10 +293,11 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       const std::string fileName = ss.str();
 
       long nSamples = regions[region].times.size();
-      long sampleOffset;
+      long sampleOffset = 0;
       MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
 
-      int ncid, stat;
+      int ncid = 0;
+      int stat = 0;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
                            MPI::mpi.comm(),
@@ -303,7 +305,12 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
 
-      int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
+      int sampledim = 0;
+      int rankdim = 0;
+      int timespectyp = 0;
+      int sampletyp = 0;
+      int offsetid = 0;
+      int sampleid = 0;
 
       stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
@@ -357,7 +364,8 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE);
       check_err(stat, __LINE__, __FILE__);
 
-      std::size_t start, count;
+      std::size_t start = 0;
+      std::size_t count = 0;
       long offsetData[2];
       if (rank == 0) {
         start = 0;

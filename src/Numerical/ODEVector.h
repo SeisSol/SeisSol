@@ -12,15 +12,14 @@ namespace seissol::ode {
  * For examples, see unit test ODEInt.t.h.
  */
 class ODEVector {
-  std::vector<real*> storages{};
-  std::vector<std::size_t> sizes{};
-  std::vector<std::size_t> offsets{};
+  std::vector<real*> storages;
+  std::vector<std::size_t> sizes;
+  std::vector<std::size_t> offsets;
 
   [[nodiscard]] std::pair<std::size_t, std::size_t> index(std::size_t idx) const;
 
   public:
   ODEVector() = default;
-  ODEVector(const ODEVector&) = default;
 
   /**
    *
@@ -68,6 +67,13 @@ class ODEVector {
    */
   ODEVector& operator*=(real scalar);
 
+  /**
+   * Copies the values from the given ODEVector
+   * @param other
+   * @return a reference to updated ODEVEctor
+   */
+  ODEVector& copyFrom(const ODEVector& other);
+
   //
   /**
    * Computes this += weight * rhs inplace
@@ -75,14 +81,6 @@ class ODEVector {
    * @param rhs a reference to another ODEVector
    */
   void weightedAddInplace(real weight, const ODEVector& rhs);
-
-  /**
-   * Sets ODEVector to values from other vector.
-   * Warning: Only shallow copy, points to same storages
-   * @param other
-   * @return a reference to updated ODEVEctor
-   */
-  ODEVector& operator=(const ODEVector& other);
 
   /**
    *

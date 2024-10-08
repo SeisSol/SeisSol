@@ -16,7 +16,7 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
   if (fileName.has_value()) {
     const auto lastPath = filesystem::path(rootPath);
-    const auto nextPath = filesystem::path(fileName.value());
+    auto nextPath = filesystem::path(fileName.value());
     const auto loadFileName = [&]() {
       if (nextPath.is_relative()) {
         // remove file
@@ -35,7 +35,7 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       return nextPath;
     }
   } else {
-    return std::optional<std::string>();
+    return {};
   }
 }
 
@@ -91,7 +91,7 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited.emplace(subnodeName);
   logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
   if (subreaders.find(subnodeName) == subreaders.end()) {
-    bool empty;
+    bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
 

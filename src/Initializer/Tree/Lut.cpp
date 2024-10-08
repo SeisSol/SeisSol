@@ -41,58 +41,39 @@
 #include "Lut.h"
 #include <Initializer/Tree/LTSTree.h>
 #include <Initializer/Tree/Layer.h>
-#include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <vector>
-
-seissol::initializer::Lut::LutsForMask::LutsForMask()
-    : ltsToMesh(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0) {
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    meshToLts[dup] = NULL;
-  }
-}
-seissol::initializer::Lut::LutsForMask::~LutsForMask() {
-  delete[] duplicatedMeshIds;
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    delete[] meshToLts[dup];
-  }
-  delete[] ltsToMesh;
-}
 
 void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
                                                        LTSTree* ltsTree,
                                                        const unsigned* globalLtsToMesh,
                                                        unsigned numberOfMeshIds) {
   const unsigned numberOfLtsIds = ltsTree->getNumberOfCells(mask);
-  ltsToMesh = new unsigned[numberOfLtsIds];
+  ltsToMesh.resize(numberOfLtsIds);
 
   // ltsToMesh
   unsigned globalLtsId = 0;
   unsigned offset = 0;
-  for (auto it = ltsTree->beginLeaf(); it != ltsTree->endLeaf(); ++it) {
-    if (!it->isMasked(mask)) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+  for (const auto& layer : ltsTree->leaves()) {
+    if (!layer.isMasked(mask)) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         const unsigned meshId = globalLtsToMesh[globalLtsId + cell];
         ltsToMesh[offset + cell] = meshId;
       }
-      offset += it->getNumberOfCells();
+      offset += layer.getNumberOfCells();
     }
-    globalLtsId += it->getNumberOfCells();
+    globalLtsId += layer.getNumberOfCells();
   }
 
   // meshToLts
-  for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
-    meshToLts[dup] = new unsigned[numberOfMeshIds];
-    std::fill(
-        meshToLts[dup], meshToLts[dup] + numberOfMeshIds, std::numeric_limits<unsigned>::max());
+  for (auto& meshToLt : meshToLts) {
+    meshToLt.resize(numberOfMeshIds, std::numeric_limits<unsigned>::max());
   }
 
-  unsigned* numDuplicates = new unsigned[numberOfMeshIds];
-  memset(numDuplicates, 0, numberOfMeshIds * sizeof(unsigned));
+  std::vector<unsigned> numDuplicates(numberOfMeshIds);
 
   for (unsigned ltsId = 0; ltsId < numberOfLtsIds; ++ltsId) {
     const unsigned meshId = ltsToMesh[ltsId];
@@ -102,14 +83,14 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
     }
   }
 
-  numberOfDuplicatedMeshIds = 0;
+  std::size_t numberOfDuplicatedMeshIds = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
       ++numberOfDuplicatedMeshIds;
     }
   }
 
-  duplicatedMeshIds = new unsigned[numberOfDuplicatedMeshIds];
+  duplicatedMeshIds.resize(numberOfDuplicatedMeshIds);
 
   unsigned dupId = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
@@ -117,13 +98,9 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
       duplicatedMeshIds[dupId++] = meshId;
     }
   }
-
-  delete[] numDuplicates;
 }
 
-seissol::initializer::Lut::Lut() : m_ltsTree(NULL), m_meshToClusters(NULL) {}
-
-seissol::initializer::Lut::~Lut() { delete[] m_meshToClusters; }
+seissol::initializer::Lut::Lut() = default;
 
 void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
                                            unsigned* ltsToMesh,
@@ -135,7 +112,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
   for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
     const LayerMask mask = m_ltsTree->info(var).mask;
     LutsForMask& maskedLut = maskedLuts[mask.to_ulong()];
-    if (maskedLut.ltsToMesh == NULL) {
+    if (maskedLut.ltsToMesh.empty()) {
       maskedLut.createLut(mask, m_ltsTree, ltsToMesh, numberOfMeshIds);
     }
   }
@@ -146,7 +123,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     unsigned offsetInterior;
   };
 
-  auto* clusters = new unsigned[m_ltsTree->numChildren() + 1];
+  std::vector<unsigned> clusters(m_ltsTree->numChildren() + 1);
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
   auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
@@ -162,7 +139,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
   }
 
-  m_meshToClusters = new unsigned[numberOfMeshIds];
+  m_meshToClusters.resize(numberOfMeshIds);
   m_meshToLayer.resize(numberOfMeshIds);
   unsigned cluster = 0;
   unsigned curClusterElements = 0;
@@ -189,6 +166,4 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
       }
     }
   }
-
-  delete[] clusters;
 }

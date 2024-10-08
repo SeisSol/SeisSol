@@ -48,7 +48,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
       return std::optional<T>();
     }
   }
-  static std::shared_ptr<Datatype> deserialize(YAML::Node strtype);
+  static std::shared_ptr<Datatype> deserialize(YAML::Node node);
 };
 
 class OpaqueDatatype : public Datatype {

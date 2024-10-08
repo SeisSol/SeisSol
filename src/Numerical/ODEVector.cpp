@@ -79,9 +79,18 @@ ODEVector& ODEVector::operator*=(real scalar) {
   return *this;
 }
 
+ODEVector& ODEVector::copyFrom(const ODEVector& other) {
+  for (std::size_t i = 0; i < storages.size(); ++i) {
+    assert(sizes[i] == other.sizes[i]);
+    std::copy_n(other.storages[i], sizes[i], storages[i]);
+  }
+  return *this;
+}
+
 void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
-  if (weight == 0.0)
+  if (weight == 0.0) {
     return;
+  }
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == rhs.sizes[i]);
 #pragma omp simd
@@ -89,17 +98,6 @@ void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
       storages[i][j] += weight * rhs.storages[i][j];
     }
   }
-}
-
-ODEVector& ODEVector::operator=(const ODEVector& other) {
-  for (std::size_t i = 0; i < storages.size(); ++i) {
-    assert(sizes[i] == other.sizes[i]);
-#pragma omp simd
-    for (std::size_t j = 0; j < sizes[i]; ++j) {
-      storages[i][j] = other.storages[i][j];
-    }
-  }
-  return *this;
 }
 
 real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
@@ -114,8 +112,9 @@ real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
       maxError = std::max(std::abs(curDiff), maxError);
     }
   }
-  if (useLInfNorm)
+  if (useLInfNorm) {
     return maxError;
+  }
   return std::sqrt(error);
 }
 
@@ -131,7 +130,7 @@ real ODEVector::l2Norm() {
 }
 
 void ODEVector::print() {
-  const auto delim = "----------- print() -----------";
+  const auto* const delim = "----------- print() -----------";
   for (std::size_t i = 0; i < storages.size(); ++i) {
     std::cout << delim << std::endl;
     for (std::size_t j = 0; j < sizes[i]; ++j) {
