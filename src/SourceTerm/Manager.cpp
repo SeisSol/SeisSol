@@ -412,7 +412,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.sampleOffsets[0][0] = 0;
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
-      real* ptr_velocityComponent = fsrm.solidVelocityComponent;
+      real* ptrVelocityComponent = fsrm.solidVelocityComponent;
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
@@ -425,10 +425,10 @@ auto loadSourcesFromFSRM(const char* fileName,
         if (fsrm.solidVel3cVector[fsrmIndex][0] + fsrm.solidVel3cVector[fsrmIndex][1] +
                 fsrm.solidVel3cVector[fsrmIndex][2] >
             1e-5) {
-          ptr_velocityComponent = fsrm.solidVel3cVector[fsrmIndex].data();
+          ptrVelocityComponent = fsrm.solidVel3cVector[fsrmIndex].data();
         }
         transformMomentTensor(fsrm.momentTensor,
-                              ptr_velocityComponent,
+                              ptrVelocityComponent,
                               fsrm.pressureComponent,
                               fsrm.fluidVelocityComponent,
                               fsrm.strikes[fsrmIndex],
