@@ -80,11 +80,7 @@ static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 }
 
 static void closeSeisSol(seissol::SeisSol& seissolInstance) {
-  logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
-  // cleanup IO
-  seissolInstance.waveFieldWriter().close();
-  seissolInstance.faultWriter().close();
-  seissolInstance.freeSurfaceWriter().close();
+  logInfo(seissol::MPI::mpi.rank()) << "Cleaning up memory.";
 
   // deallocate memory manager
   seissolInstance.deleteMemoryManager();
