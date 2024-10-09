@@ -271,23 +271,23 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
     faceInformation[i] = layerData[i]->var(m_dynRup[i]->faceInformation);
     godunovData[i] = layerData[i]->var(m_dynRup[i]->godunovData);
     drEnergyOutput[i] = layerData[i]->var(m_dynRup[i]->drEnergyOutput);
-    timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus); // Is this interleafed or is this normal?
-    timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);// Is this interleafed or is this normal?
+    timeDerivativePlus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativePlus); // These are interleaved -> hence need to pick the right values for the spacetime interpolation
+    timeDerivativeMinus[i] = layerData[i]->var(m_dynRup[i]->timeDerivativeMinus);// These are interleaved -> hence need to pick the right values for the spacetime interpolation
 
-    qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus); // Is this interleafed or is this normal?
-    qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus); // Is this interleafed or is this normal?
+    qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus); // This is normal
+    qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus); // This is normal
     m_dynamicRuptureKernel[i].setTimeStepWidth(timeStepSize()); 
     frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel[i].timePoints);
   }
 
-// #pragma omp parallel 
-  // {
-  // LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
-  // }
+#pragma omp parallel 
+  {
+  LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
+  }
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-// #ifdef _OPENMP
-//   #pragma omp parallel for schedule(static)
-// #endif
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
     for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
       std::vector<real> timeDerivativePlusDR(dQ_DR_Size, 0.0);
       std::vector<real> timeDerivativeMinusDR(dQ_DR_Size, 0.0);
@@ -295,21 +295,19 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
         timeDerivativePlusDR[j] = timeDerivativePlus[i][face][j*MULTIPLE_SIMULATIONS + i];
         timeDerivativeMinusDR[j] = timeDerivativeMinus[i][face][j*MULTIPLE_SIMULATIONS + i];
       }
+      
       unsigned prefetchFace = (face < layerData[i]->getNumberOfCells() - 1) ? face + 1 : face;
       m_dynamicRuptureKernel[i].spaceTimeInterpolation(
           faceInformation[i][face],
           m_globalDataOnHost,
           &godunovData[i][face],
           &drEnergyOutput[i][face],
-          // timeDerivativePlus[i][face], // wave propagation part
-          // timeDerivativeMinus[i][face],
           timeDerivativePlusDR.data(),
           timeDerivativeMinusDR.data(),
           qInterpolatedPlus[i][face], // DR part
           qInterpolatedMinus[i][face],
           timeDerivativePlus[i][prefetchFace],
           timeDerivativeMinus[i][prefetchFace]);
-    logInfo() << "Random Debug Statement";
     }
   }
   SCOREP_USER_REGION_END(myRegionHandle)

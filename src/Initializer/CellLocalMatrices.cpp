@@ -410,7 +410,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellDRMapping (*drMappingDevice)[4] = io_ltsTree->var(i_lts->drMappingDevice);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
-  real** derivatives = io_ltsTree->var(i_lts->derivatives);
+  real** derivatives = io_ltsTree->var(i_lts->derivatives); // The WP derivatives pointer thing
   real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
   real** derivativesDevice = io_ltsTree->var(i_lts->derivativesDevice);
   real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
@@ -506,12 +506,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
         assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
         if (fault[meshFace].element >= 0) {
-          timeDerivativePlus[ltsFace] = timeDerivative1;
-          timeDerivativeMinus[ltsFace] = timeDerivative2;
+          timeDerivativePlus[ltsFace] = timeDerivative1; // The respective timederivative pointers are set in DR here -> that means they are already linked correctly
+          timeDerivativeMinus[ltsFace] = timeDerivative2; 
           timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
           timeDerivativeMinusDevice[ltsFace] = timeDerivative2Device;
         } else {
-          timeDerivativePlus[ltsFace] = timeDerivative2;
+          timeDerivativePlus[ltsFace] = timeDerivative2; // The respective timederivative pointers are set in DR here -> same as above
           timeDerivativeMinus[ltsFace] = timeDerivative1;
           timeDerivativePlusDevice[ltsFace] = timeDerivative2Device;
           timeDerivativeMinusDevice[ltsFace] = timeDerivative1Device;
@@ -712,7 +712,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
-        logWarning() << "fault[meshFace].element is negative, blowing up solution on purpose";
+        logWarning() << "fault[meshFace].element is negative at meshFace: " << meshFace << ", blowing up solution on purpose";
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
@@ -720,7 +720,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
-        logWarning() << "fault[meshFace].neighborElement is negative, blowing up solution on purpose";
+        logWarning() << "fault[meshFace].neighborElement is negative at meshFace: " << meshFace << ", blowing up solution on purpose";
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
