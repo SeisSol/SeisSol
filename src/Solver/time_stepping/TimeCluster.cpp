@@ -170,10 +170,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
   m_localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
   m_neighborKernel.setGlobalData(i_globalData);
-  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    m_dynamicRuptureKernel[i].setGlobalData(
-        i_globalData); // (Don't need multiple dynamic rupture kernels)
-  }
+  m_dynamicRuptureKernel.setGlobalData(i_globalData);
   computeFlops();
 
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
@@ -266,6 +263,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
     dQ_DR_Size += tensor::dQ_DR::size(i);
   }
 
+  m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 
   for (unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     faceInformation[i] = layerData[i]->var(m_dynRup[i]->faceInformation);
@@ -276,8 +274,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
 
     qInterpolatedPlus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedPlus); // This is normal
     qInterpolatedMinus[i] = layerData[i]->var(m_dynRup[i]->qInterpolatedMinus); // This is normal
-    m_dynamicRuptureKernel[i].setTimeStepWidth(timeStepSize()); 
-    frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel[i].timePoints);
+    frictionSolver[i]->computeDeltaT(m_dynamicRuptureKernel.timePoints);
   }
 
 #pragma omp parallel 
@@ -297,7 +294,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
       }
       
       unsigned prefetchFace = (face < layerData[i]->getNumberOfCells() - 1) ? face + 1 : face;
-      m_dynamicRuptureKernel[i].spaceTimeInterpolation(
+      m_dynamicRuptureKernel.spaceTimeInterpolation(
           faceInformation[i][face],
           m_globalDataOnHost,
           &godunovData[i][face],
@@ -319,7 +316,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel[i].timeWeights, streamRuntime);
+    frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel.timeWeights, streamRuntime);
   }
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
@@ -397,7 +394,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(
 
   for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
     long long faceNonZeroFlops, faceHardwareFlops;
-    m_dynamicRuptureKernel[i].flopsGodunovState(faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
+    m_dynamicRuptureKernel.flopsGodunovState(faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
     nonZeroFlops += faceNonZeroFlops;
     hardwareFlops += faceHardwareFlops;
   }
@@ -420,14 +417,16 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
 
-// #ifdef _OPENMP
-//   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer), firstprivate(tmp) schedule(static)
-// #endif
-  for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
-    real* l_bufferPointer;
-    real l_integrationBuffer[tensor::I::size()] alignas(Alignment) = {0.0};
-    kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+  real* l_bufferPointer;
+  real l_integrationBuffer[tensor::I::size()] alignas(Alignment) = {0.0};
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
+  auto timeStepLocal = timeStepSize();
+
+#ifdef _OPENMP
+  #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer), firstprivate(tmp) schedule(static)
+#endif
+  for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
 
     auto data = loader.entry(l_cell);
 
@@ -448,7 +447,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder(timeStepSize(),
+    m_timeKernel.computeAder(timeStepLocal,
                              data,
                              tmp, // only for gravitational stuff
                              l_bufferPointer,
@@ -456,14 +455,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                              true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping); // again not used for us, only dirichilet and gravitational stuff
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
                                   ct.correctionTime,
-                                  timeStepSize()
+                                  timeStepLocal
     );
 
     for (unsigned face = 0; face < 4; ++face) {
@@ -847,11 +846,12 @@ void TimeCluster::correct() { // Here, need to think what to do
   // First cluster calls fault receiver output
   // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
+  auto timeStepLocal = timeStepSize();
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
       dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
     for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-      faultOutputManager[i]->writePickpointOutput(ct.correctionTime + timeStepSize(),
-                                                  timeStepSize());
+      faultOutputManager[i]->writePickpointOutput(ct.correctionTime + timeStepLocal,
+                                                  timeStepLocal);
     } /// \todo this method needs modification to incorporate fused simulations
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
@@ -937,6 +937,7 @@ std::pair<long, long>
 
   real* l_timeIntegrated[4];
   real* l_faceNeighbors_prefetch[4];
+  auto timeStepLocal = timeStepSize();
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated,                  \
@@ -948,8 +949,10 @@ std::pair<long, long>
                i_layerData,                                                                        \
                plasticity,                                                                         \
                drMapping,                                                                          \
-               subTimeStart) reduction(+ : numberOTetsWithPlasticYielding)
+               subTimeStart) reduction(+ : numberOTetsWithPlasticYielding)                         \
+               firstprivate(timeStepLocal)
 #endif
+
   for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
     auto data = loader.entry(l_cell);
     seissol::kernels::TimeCommon::computeIntegrals(
@@ -957,7 +960,7 @@ std::pair<long, long>
         data.cellInformation().ltsSetup,
         data.cellInformation().faceTypes,
         subTimeStart,
-        timeStepSize(),
+        timeStepLocal,
         faceNeighbors[l_cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
@@ -1011,7 +1014,7 @@ std::pair<long, long>
       updateRelaxTime();
       numberOTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(m_oneMinusIntegratingFactor,
-                                                          timeStepSize(),
+                                                          timeStepLocal,
                                                           m_tv,
                                                           m_globalDataOnHost,
                                                           &plasticity[l_cell],

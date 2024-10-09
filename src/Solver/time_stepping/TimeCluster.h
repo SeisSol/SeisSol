@@ -145,9 +145,9 @@ private:
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
     
-    // kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
+    kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
 
-    std::array<kernels::DynamicRupture, MULTIPLE_SIMULATIONS> m_dynamicRuptureKernel; // to avoid data race conditions
+    // std::array<kernels::DynamicRupture, MULTIPLE_SIMULATIONS> m_dynamicRuptureKernel; // to avoid data race conditions
 
     seissol::parallel::runtime::StreamRuntime streamRuntime;
 
