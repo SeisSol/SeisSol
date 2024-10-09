@@ -5,10 +5,10 @@
 #ifndef KERNELS_POINTSOURCECLUSTER_H_
 #define KERNELS_POINTSOURCECLUSTER_H_
 
-#include "Kernels/precision.hpp"
-#include "Numerical_aux/Functions.h"
-#include "Parallel/Runtime/Stream.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Kernels/Precision.h"
+#include "Numerical/Functions.h"
+#include "Parallel/Runtime/Stream.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,7 +44,7 @@ inline real computeSampleTimeIntegral(double from,
                                       double to,
                                       const double onsetTime,
                                       const double samplingInterval,
-                                      real* sample,
+                                      const real* sample,
                                       std::size_t sampleSize) {
   const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
@@ -54,11 +54,11 @@ inline real computeSampleTimeIntegral(double from,
      */
     const auto t0 = index * samplingInterval;
     const auto t1 = t0 + samplingInterval;
-    const auto S0 = sample[index];
-    const auto S1 = sample[index + 1];
+    const auto s0 = sample[index];
+    const auto s1 = sample[index + 1];
     const auto tdiff = tTo - tFrom;
     const auto tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
-    return (S0 * (t1 * tdiff - tdiff2) + S1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
+    return (s0 * (t1 * tdiff - tdiff2) + s1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
   };
 
   if (sampleSize == 0) {

@@ -49,15 +49,15 @@
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 
 namespace seissol {
   class SeisSol;
   namespace dr::output {
     class OutputManager;
-  }
-}
+  } // namespace dr::output
+} // namespace seissol
 
 
 namespace seissol::writer {
@@ -103,7 +103,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp();
+	void setUp() override;
 
 	void setTimestep(unsigned int timestep)
 	{
@@ -171,7 +171,7 @@ public:
 		m_stopwatch.printTime("Time fault writer frontend:");
 	}
 
-	void tearDown()
+	void tearDown() override
 	{
 		m_executor.finalize();
 	}
@@ -183,11 +183,11 @@ public:
 	//
 	// Hooks
 	//
-	void simulationStart();
+	void simulationStart() override;
 
-	void syncPoint(double currentTime);
+	void syncPoint(double currentTime) override;
 };
 
-}
+} // namespace seissol::writer
 
 #endif // FAULTWRITER_H

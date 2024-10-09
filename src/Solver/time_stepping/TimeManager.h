@@ -41,7 +41,7 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
-#include <DynamicRupture/Output/OutputManager.hpp>
+#include <DynamicRupture/Output/OutputManager.h>
 #include <array>
 #include <cassert>
 #include <list>
@@ -49,11 +49,11 @@
 #include <queue>
 #include <vector>
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/MemoryManager.h"
-#include "Initializer/time_stepping/LtsLayout.h"
+#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "ResultWriter/ReceiverWriter.h"

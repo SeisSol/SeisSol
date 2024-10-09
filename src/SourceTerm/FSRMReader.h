@@ -42,12 +42,11 @@
 #define READER_FSRMREADER_H_
 
 #include <Eigen/Dense>
-#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
 
-#include "Initializer/BasicTypedefs.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::sourceterm {
 

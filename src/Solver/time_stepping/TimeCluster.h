@@ -71,30 +71,31 @@
 #ifndef TIMECLUSTER_H_
 #define TIMECLUSTER_H_
 
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/TimeCommon.h>
-#include <array>
-#include <memory>
 #ifdef USE_MPI
 #include <mpi.h>
+#include <list>
 #endif
 
-#include "Initializer/typedefs.hpp"
-#include "Initializer/LTS.h"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
+#include "Initializer/LTS.h"
+#include "Initializer/Tree/LTSTree.h"
 
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
-#include "Initializer/DynamicRupture.h"
-#include "Kernels/DynamicRupture.h"
+#include "Kernels/Time.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
+#include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/Time.h"
-#include "Monitoring/ActorStateStatistics.h"
+#include "Kernels/TimeCommon.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "Monitoring/LoopStatistics.h"
-#include <Common/Executor.hpp>
+#include "Monitoring/ActorStateStatistics.h"
+#include "Initializer/DynamicRupture.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.h"
+#include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
 
@@ -377,6 +378,10 @@ public:
   void setTv(double tv) {
     m_tv = tv;
     updateRelaxTime();
+  }
+
+  void setLastSubTime(double lastSubTime) {
+    this->lastSubTime = lastSubTime;
   }
 
 

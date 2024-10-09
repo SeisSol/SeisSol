@@ -44,8 +44,8 @@
 #include "SeisSol.h"
 #include "WaveFieldWriter.h"
 #include "Geometry/MeshReader.h"
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Monitoring/Instrumentation.h"
 #include "Modules/Modules.h"
 
 void seissol::writer::WaveFieldWriter::setUp() {
@@ -63,7 +63,6 @@ void seissol::writer::WaveFieldWriter::setUp() {
 
 void seissol::writer::WaveFieldWriter::enable() {
   m_enabled = true;
-  seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 seissol::refinement::TetrahedronRefiner<double>*
@@ -173,7 +172,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
   /** All initialization parameters */
   WaveFieldInitParam param{};
 
-  // param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
+  param.timestep = 0;
 
   /** List of all buffer ids */
   param.bufferIds[OUTPUT_PREFIX] =

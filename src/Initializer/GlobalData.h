@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -41,7 +42,7 @@
 #define GLOBALDATA_H_
 
 #include "MemoryAllocator.h"
-#include "typedefs.hpp"
+#include "Typedefs.h"
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -49,61 +50,60 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializer {
-    /*
-    * \class MemoryProperties
-    *
-    * \brief An auxiliary data structure for a policy-based design
-    *
-    * Attributes are initialized with CPU memory properties by default.
-    * See, an example of a policy-based design in GlobalData.cpp
-    * */
-    struct MemoryProperties {
-      size_t alignment{Alignment};
-      size_t pagesizeHeap{PagesizeHeap};
-      size_t pagesizeStack{PagesizeStack};
-    };
+namespace initializer {
+/*
+ * \class MemoryProperties
+ *
+ * \brief An auxiliary data structure for a policy-based design
+ *
+ * Attributes are initialized with CPU memory properties by default.
+ * See, an example of a policy-based design in GlobalData.cpp
+ * */
+struct MemoryProperties {
+  size_t alignment{Alignment};
+  size_t pagesizeHeap{PagesizeHeap};
+  size_t pagesizeStack{PagesizeStack};
+};
 
-    namespace matrixmanip {
-      struct OnHost {
-        using CopyManagerT = typename yateto::DefaultCopyManager<real>;
-        static MemoryProperties getProperties();
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initSpecificGlobalData(GlobalData& globalData,
-                                           memory::ManagedAllocator& allocator,
-                                           CopyManagerT& copyManager,
-                                           size_t alignment,
-                                           seissol::memory::Memkind memkind);
-      };
+namespace matrixmanip {
+struct OnHost {
+  using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+  static MemoryProperties getProperties();
+  static void negateStiffnessMatrix(GlobalData& globalData);
+  static void initSpecificGlobalData(GlobalData& globalData,
+                                     memory::ManagedAllocator& allocator,
+                                     CopyManagerT& copyManager,
+                                     size_t alignment,
+                                     seissol::memory::Memkind memkind);
+};
 
-      struct OnDevice {
-        struct DeviceCopyPolicy {
-          real* copy(real const* first, real const* last, real*& mem);
-        };
-        using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
-        static MemoryProperties getProperties();
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initSpecificGlobalData(GlobalData& globalData,
-                                           memory::ManagedAllocator& allocator,
-                                           CopyManagerT& copyManager,
-                                           size_t alignment,
-                                           seissol::memory::Memkind memkind);
-      };
-    }  // namespace matrixmanip
+struct OnDevice {
+  struct DeviceCopyPolicy {
+    real* copy(const real* first, const real* last, real*& mem);
+  };
+  using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+  static MemoryProperties getProperties();
+  static void negateStiffnessMatrix(GlobalData& globalData);
+  static void initSpecificGlobalData(GlobalData& globalData,
+                                     memory::ManagedAllocator& allocator,
+                                     CopyManagerT& copyManager,
+                                     size_t alignment,
+                                     seissol::memory::Memkind memkind);
+};
+} // namespace matrixmanip
 
+// Generalized Global data initializers of SeisSol.
+template <typename MatrixManipPolicyT>
+struct GlobalDataInitializer {
+  static void init(GlobalData& globalData,
+                   memory::ManagedAllocator& memoryAllocator,
+                   enum memory::Memkind memkind);
+};
 
-    // Generalized Global data initializers of SeisSol.
-    template<typename MatrixManipPolicyT>
-    struct GlobalDataInitializer {
-      static void init(GlobalData &globalData,
-                       memory::ManagedAllocator &memoryAllocator,
-                       enum memory::Memkind memkind);
-    };
-
-    // Specific Global data initializers of SeisSol.
-    using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
-    using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-  }  // namespace initializer
+// Specific Global data initializers of SeisSol.
+using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
+using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
+} // namespace initializer
 } // namespace seissol
 
 #endif

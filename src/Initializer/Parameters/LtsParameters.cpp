@@ -1,8 +1,13 @@
 #include "LtsParameters.h"
 
+#include <Initializer/Parameters/ParameterReader.h>
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 
+#include <limits>
+#include <stdexcept>
+#include <string>
 #include <utils/logger.h>
 
 #include "ModelParameters.h"
@@ -162,8 +167,6 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   } else {
     maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
   }
-
-  auto abortReader = baseReader->readSubNode("abortcriteria");
 
   auto* timeReader = baseReader->readSubNode("abortcriteria");
   const double endTime = timeReader->readWithDefault("endtime", 15.0);

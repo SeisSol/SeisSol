@@ -1,6 +1,16 @@
 #include "SeisSolParameters.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <vector>
+#include <Initializer/Parameters/CubeGeneratorParameters.h>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/Parameters/InitializationParameters.h>
+#include <Initializer/Parameters/LtsParameters.h>
+#include <Initializer/Parameters/MeshParameters.h>
+#include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Initializer/Parameters/ParameterReader.h>
+#include <Initializer/Parameters/SourceParameters.h>
+#include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 
@@ -9,13 +19,10 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  // std::vector<DRParameters> drParameters;
   std::array<std::shared_ptr<DRParameters>, MULTIPLE_SIMULATIONS> drParameters;
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-    // drParameters.push_back(readDRParameters(parameterReader, i));
     drParameters[i] = std::make_shared<DRParameters>(readDRParameters(parameterReader, i));
   }
-  //   const DRParameters drParameters = readDRParameters(parameterReader);
   const InitializationParameters initializationParameters =
       readInitializationParameters(parameterReader);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);

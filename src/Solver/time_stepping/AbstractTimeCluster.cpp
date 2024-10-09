@@ -214,7 +214,7 @@ void AbstractTimeCluster::reset() {
 
   // There can be pending messages from before the sync point
   processMessages();
-  for (auto& neighbor : neighbors) {
+  for ([[maybe_unused]] const auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
   ct.stepsSinceLastSync = 0;
@@ -243,10 +243,16 @@ ActorState AbstractTimeCluster::getState() const {
 
 void AbstractTimeCluster::setPredictionTime(double time) {
   ct.predictionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.predictionTime = time;
+  }
 }
 
 void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.correctionTime = time;
+  }
 }
 
 long AbstractTimeCluster::getTimeStepRate() {

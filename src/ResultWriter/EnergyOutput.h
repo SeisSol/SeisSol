@@ -10,16 +10,9 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
-#include <Geometry/MeshReader.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
@@ -31,7 +24,7 @@ namespace writer {
 
 struct EnergiesStorage {
   static constexpr size_t NumberOfEnergies = 10;
-  std::array<double, multipleSimulations::numberOfSimulations * NumberOfEnergies> energies{};
+  std::array<double, MULTIPLE_SIMULATIONS * NumberOfEnergies> energies{};
 
   double& gravitationalEnergy(size_t sim);
 
@@ -78,10 +71,10 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-  ~EnergyOutput();
+  ~EnergyOutput() override;
 
   private:
-  std::array<real, multipleSimulations::numberOfSimulations>
+  std::array<real, MULTIPLE_SIMULATIONS>
       computeStaticWork(const real* degreesOfFreedomPlus,
                         const real* degreesOfFreedomMinus,
                         const DRFaceInformation& faceInfo,
@@ -101,7 +94,7 @@ class EnergyOutput : public Module {
   void printEnergies();
 
   void checkAbortCriterion(
-      const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations],
+      const real (&timeSinceThreshold)[MULTIPLE_SIMULATIONS],
       const std::string& prefix_message);
 
   void writeHeader();
@@ -124,10 +117,13 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
+#ifdef ACL_DEVICE
   real* timeDerivativePlusHost = nullptr;
   real* timeDerivativeMinusHost = nullptr;
   real* timeDerivativePlusHostMapped = nullptr;
   real* timeDerivativeMinusHostMapped = nullptr;
+#endif
+
   const GlobalData* global = nullptr;
   // seissol::initializer::DynamicRupture* dynRup = nullptr;
   // seissol::initializer::LTSTree* dynRupTree = nullptr;
@@ -139,12 +135,12 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
-  real minTimeSinceMomentRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
+  real minTimeSinceSlipRateBelowThreshold[MULTIPLE_SIMULATIONS] = {0.0};
+  real minTimeSinceMomentRateBelowThreshold[MULTIPLE_SIMULATIONS] = {0.0};
   double terminatorMaxTimePostRupture;
   double energyOutputInterval;
   double terminatorMomentRateThreshold;
-  double seismicMomentPrevious[multipleSimulations::numberOfSimulations] = {0.0};
+  double seismicMomentPrevious[MULTIPLE_SIMULATIONS] = {0.0};
 };
 
 } // namespace writer

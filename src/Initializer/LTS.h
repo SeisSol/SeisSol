@@ -41,16 +41,17 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/common.hpp"
-#include "Model/plasticity.hpp"
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Model/Plasticity.h"
+#include "Tree/Layer.h"
 #include "generated_code/tensor.h"
-#include "tree/Layer.hpp"
 
 #ifdef ACL_DEVICE
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 #endif
 
 namespace seissol::tensor {
@@ -107,7 +108,9 @@ inline auto allocationModeWP(AllocationPreset preset,
   case seissol::initializer::AllocationPreset::Dofs:
     [[fallthrough]];
   case seissol::initializer::AllocationPreset::PlasticityData:
-    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+  case seissol::initializer::AllocationPreset::Timebucket:
+    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
   default:
     return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
   }
@@ -117,7 +120,7 @@ inline auto allocationModeWP(AllocationPreset preset,
 struct LTS {
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
-  Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
   Variable<real*> buffers;
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
@@ -212,6 +215,18 @@ struct LTS {
     tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(analyticScratch, 1, AllocationMode::HostDevicePinned);
 #endif
+  }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) {
+    manager.registerData("dofs", tree, dofs);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      manager.registerData("dofsAne", tree, dofsAne);
+    }
+    // check plasticity usage over the layer mask (for now)
+    if (plasticity.mask == LayerMask(Ghost)) {
+      manager.registerData("pstrain", tree, pstrain);
+    }
   }
 };
 

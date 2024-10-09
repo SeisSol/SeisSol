@@ -55,6 +55,7 @@ import SurfaceDisplacement
 import Point
 import NodalBoundaryConditions
 import memlayout
+import vtkproject
 import general
 
 cmdLineParser = argparse.ArgumentParser()
@@ -134,6 +135,9 @@ adg.addLocal(generator, targets)
 adg.addNeighbor(generator, targets)
 adg.addTime(generator, targets)
 adg.add_include_tensors(include_tensors)
+
+vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
 
 # Common kernels
 include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),

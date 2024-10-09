@@ -40,11 +40,11 @@
 #ifndef ELASTIC_SETUP_H_
 #define ELASTIC_SETUP_H_
 
-#include "Model/common.hpp"
-#include "Kernels/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Model/Common.h"
+#include "Kernels/Common.h"
+#include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include "Numerical_aux/Eigenvalues.h"
+#include "Numerical/Eigenvalues.h"
 
 namespace seissol {
   namespace model {
@@ -168,8 +168,8 @@ namespace seissol {
          }
        
        
-         if (faceType == FaceType::freeSurface) {
-           MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::acoustic : MaterialType::elastic;
+         if (faceType == FaceType::FreeSurface) {
+           MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
            getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
          } else {
            Matrix99 chi = Matrix99::Zero();

@@ -123,8 +123,6 @@ void seissol::writer::FreeSurfaceWriter::setUp()	{
 void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
-
-	seissolInstance.checkPointManager().header().add(m_timestepComp);
 }
 
 
@@ -185,7 +183,6 @@ void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader co
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
-	// param.timestep = seissolInstance.checkPointManager().header().value(m_timestepComp);
 	param.timestep = 0;
 	param.backend = backend;
 	param.backupTimeStamp = backupTimeStamp;

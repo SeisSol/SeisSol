@@ -36,7 +36,7 @@ The output type generated is determined by the **OutputPointType** variable in t
 Configuring ParaView output
 ---------------------------
 
-You can adjust the ParaView output using the Elementwise namelist. Here's an example of how to do this:
+You can adjust the ParaView output using the Elementwise namelist. Here is an example of how to do this:
 
 .. code-block:: Fortran
 
@@ -45,6 +45,7 @@ You can adjust the ParaView output using the Elementwise namelist. Here's an exa
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
+  vtkorder = -1
   /
 
 printTimeInterval_Sec
@@ -122,6 +123,11 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 .. _outputmask-1:
 
 OutputMask
-~~~~~~~~~~~
+~~~~~~~~~~
 
 This is the same as for the ParaView output.
+
+High-Order VTKHDF Output
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The high-order elementwise output can be enabled by setting ``vtkorder`` in the ``elementwise`` section to a positive value, corresponding to the order of the output polynomial per cell.

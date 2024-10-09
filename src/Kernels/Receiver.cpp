@@ -39,18 +39,36 @@
  **/
 
 #include "Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Parallel/DataCollector.h"
+#include "Monitoring/FlopCounter.h"
+#include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
-#include <Common/Executor.hpp>
-#include <Initializer/tree/Layer.hpp>
-#include <Kernels/common.hpp>
+#include <Common/Constants.h>
+#include <Common/Executor.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/Lut.h>
+#include <Kernels/Common.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
+#include <Numerical/Transformation.h>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <init.h>
+#include <memory>
 #include <omp.h>
+#include <string>
+#include <tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
+#include <Parallel/Helper.h>
+#include <unordered_map>
 #endif
 
 namespace {
@@ -124,7 +142,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   }
 
   // (time + number of quantities) * number of samples until sync point
-  size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
+  const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back(
       pointId,
       point,
@@ -155,11 +173,11 @@ double ReceiverCluster::calcReceivers(
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
-    auto threshold = std::max(1000, omp_get_num_threads() * 100);
-    auto recvCount = m_receivers.size();
-// #ifdef _OPENMP
-// #pragma omp parallel for schedule(static) if (recvCount >= threshold)
-// #endif
+    const std::size_t threshold = std::max(1000, omp_get_num_threads() * 100);
+    const std::size_t recvCount = m_receivers.size();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) if (recvCount >= threshold)
+#endif
     for (size_t i = 0; i < recvCount; ++i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()] = {0.0};
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()] = {0.0};
@@ -218,7 +236,7 @@ double ReceiverCluster::calcReceivers(
       while (receiverTime < expansionPoint + timeStepWidth) {
 #ifdef USE_STP
         // eval time basis
-        double tau = (time - expansionPoint) / timeStepWidth;
+        const double tau = (time - expansionPoint) / timeStepWidth;
         seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
                                                                                    tau);
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();

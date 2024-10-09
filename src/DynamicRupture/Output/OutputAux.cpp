@@ -1,12 +1,12 @@
-#include "OutputAux.hpp"
-#include "Common/constants.hpp"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/Geometry.hpp"
+#include "OutputAux.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Kernels/precision.hpp"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Transformation.h"
+#include "Kernels/Precision.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 #include <cstddef>
 #include <init.h>
@@ -101,10 +101,16 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   };
 
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.size; ++i) {
+  for (size_t i = 0; i < data.Size; ++i) {
+    #ifdef MULTIPLE_SIMULATIONS
     reshapedPoints[i][0] = pointsView(0, i);
     reshapedPoints[i][1] = pointsView(1, i);
     data.weights[i] = getWeights(i);
+    #else
+    reshapedPoints[i][0] = pointsView(i, 0);
+    reshapedPoints[i][1] = pointsView(i, 1);
+    data.weights[i] = weightsView(i);
+    #endif
   }
 
   return data;
@@ -147,7 +153,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.size);
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }

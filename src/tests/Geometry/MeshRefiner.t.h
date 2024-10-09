@@ -1,26 +1,27 @@
+#include "tests/TestHelper.h"
 #include <Eigen/Dense>
 #include <array>
 
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Geometry/refinement/RefinerUtils.h"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
 #include "MockReader.h"
 
 namespace seissol::unit_test {
 
-void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
+inline void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
   for (int i = 0; i < 3; i++) {
     REQUIRE(a[i] == AbsApprox(b[i]).epsilon(epsilon));
   }
 }
 
-void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
+inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
   for (int i = 0; i < 4; i++) {
     REQUIRE(a[i] == b[i]);
   }
 }
 
 TEST_CASE("Mesh refiner") {
-  constexpr double epsilon = std::numeric_limits<double>::epsilon();
+  constexpr double Epsilon = std::numeric_limits<double>::epsilon();
   std::srand(0);
   const auto vertices =
       std::array<Eigen::Vector3d, 4>{{Eigen::Vector3d((double)std::rand() / RAND_MAX,
@@ -50,12 +51,12 @@ TEST_CASE("Mesh refiner") {
                                                                 Eigen::Vector4i(0, 2, 3, 4),
                                                                 Eigen::Vector4i(1, 2, 3, 4)};
 
-    seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
-    seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy4);
+    const seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
+    const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy4);
     REQUIRE(meshRefiner.getNumCells() == 4);
     REQUIRE(meshRefiner.getNumVertices() == 5);
     for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
-      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy4[i], epsilon);
+      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy4[i], Epsilon);
     }
     for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy4[i]);
@@ -83,12 +84,12 @@ TEST_CASE("Mesh refiner") {
                                                                 Eigen::Vector4i(5, 6, 8, 9),
                                                                 Eigen::Vector4i(5, 7, 8, 9)};
 
-    seissol::refinement::DivideTetrahedronBy8<double> refineBy8;
-    seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy8);
+    const seissol::refinement::DivideTetrahedronBy8<double> refineBy8;
+    const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy8);
     REQUIRE(meshRefiner.getNumCells() == 8);
     REQUIRE(meshRefiner.getNumVertices() == 10);
     for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
-      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy8[i], epsilon);
+      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy8[i], Epsilon);
     }
     for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy8[i]);
@@ -131,12 +132,12 @@ TEST_CASE("Mesh refiner") {
         Eigen::Vector4i(6, 8, 9, 16), Eigen::Vector4i(5, 7, 8, 17), Eigen::Vector4i(5, 7, 9, 17),
         Eigen::Vector4i(5, 8, 9, 17), Eigen::Vector4i(7, 8, 9, 17)};
 
-    seissol::refinement::DivideTetrahedronBy32<double> refineBy32;
-    seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy32);
+    const seissol::refinement::DivideTetrahedronBy32<double> refineBy32;
+    const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy32);
     REQUIRE(meshRefiner.getNumCells() == 32);
     REQUIRE(meshRefiner.getNumVertices() == 18);
     for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
-      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy32[i], epsilon);
+      assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy32[i], Epsilon);
     }
     for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy32[i]);

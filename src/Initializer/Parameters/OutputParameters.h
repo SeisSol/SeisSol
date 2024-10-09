@@ -7,15 +7,13 @@
 
 #include <xdmfwriter/backends/Backend.h>
 
-#include "Equations/datastructures.hpp"
-#include "Initializer/InputAux.hpp"
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {
 
-constexpr double veryLongTime = 1.0e100;
-
-enum CheckpointingBackend { POSIX, HDF5, MPIO, MPIO_ASYNC, SIONLIB, DISABLED };
+constexpr double VeryLongTime = 1.0e100;
 
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
@@ -26,8 +24,6 @@ enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refi
 struct CheckpointParameters {
   bool enabled;
   double interval;
-  CheckpointingBackend backend;
-  std::string fileName;
 };
 
 struct ElementwiseFaultParameters {
@@ -35,6 +31,7 @@ struct ElementwiseFaultParameters {
   std::array<bool, 12> outputMask{true, true, true, true};
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
+  int vtkorder{-1};
 };
 
 struct EnergyOutputParameters {
@@ -42,6 +39,7 @@ struct EnergyOutputParameters {
   int computeVolumeEnergiesEveryOutput;
   double interval;
   bool terminalOutput;
+  int terminalPrecision;
   double terminatorMaxTimePostRupture;
   double terminatorMomentRateThreshold;
 };
@@ -50,6 +48,7 @@ struct FreeSurfaceOutputParameters {
   bool enabled;
   unsigned refinement;
   double interval;
+  int vtkorder{-1};
 };
 
 struct PickpointParameters {
@@ -57,6 +56,7 @@ struct PickpointParameters {
   int maxPickStore{50};
   std::array<bool, 12> outputMask{true, true, true};
   std::string pickpointFileName{};
+  bool collectiveio{false};
 };
 
 struct ReceiverOutputParameters {
@@ -66,6 +66,7 @@ struct ReceiverOutputParameters {
   double interval;
   double samplingInterval;
   std::string fileName;
+  bool collectiveio{false};
 };
 
 struct OutputInterval {
@@ -97,10 +98,11 @@ struct OutputBounds {
 
 struct WaveFieldOutputParameters {
   bool enabled;
+  int vtkorder;
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
-  std::array<bool, seissol::model::Material_t::NumberOfQuantities> outputMask;
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask;
   std::array<bool, 7> plasticityMask;
   std::array<bool, 9> integrationMask;
   std::unordered_set<int> groups;

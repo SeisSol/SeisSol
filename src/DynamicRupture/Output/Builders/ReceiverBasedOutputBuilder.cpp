@@ -1,18 +1,18 @@
-#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
-#include "Common/constants.hpp"
+#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/DataTypes.hpp"
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Kernels/precision.hpp"
-#include "Model/common.hpp"
-#include "Numerical_aux/Transformation.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Kernels/Precision.h"
+#include "Model/Common.h"
+#include "Numerical/Transformation.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -23,11 +23,12 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <yateto/TensorView.h>
+#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
+#include <Initializer/Tree/Layer.h>
 #include <memory>
 #include <tensor.h>
 #endif
@@ -90,7 +91,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       elementIndicesGhost;
   std::size_t foundPoints = 0;
 
-  constexpr size_t numVertices{4};
+  constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
       if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {
@@ -109,19 +110,19 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      const VrtxCoords* elemCoords[numVertices]{};
-      for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+      const VrtxCoords* elemCoords[NumVertices]{};
+      for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
         const auto address = elementsInfo[elementIndex].vertices[vertexIdx];
         elemCoords[vertexIdx] = &(verticesInfo[address].coords);
       }
 
-      const VrtxCoords* neighborElemCoords[numVertices]{};
+      const VrtxCoords* neighborElemCoords[NumVertices]{};
       if (neighborElementIndex >= 0) {
         if (elementIndices.find(neighborElementIndex) == elementIndices.end()) {
           const auto index = elementIndices.size();
           elementIndices[neighborElementIndex] = index;
         }
-        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+        for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
           neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
         }
@@ -140,7 +141,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
               GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), index};
         }
 
-        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+        for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
           auto* data = const_cast<double*>(array3d);
           neighborElemCoords[vertexIdx] = reinterpret_cast<double(*)[3]>(data);
@@ -318,14 +319,14 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
     VrtxCoords xab, xac;
     {
-      constexpr size_t x{0}, y{1}, z{2};
-      xab[x] = face.point(1)[x] - face.point(0)[x];
-      xab[y] = face.point(1)[y] - face.point(0)[y];
-      xab[z] = face.point(1)[z] - face.point(0)[z];
+      constexpr size_t X{0}, Y{1}, Z{2};
+      xab[X] = face.point(1)[X] - face.point(0)[X];
+      xab[Y] = face.point(1)[Y] - face.point(0)[Y];
+      xab[Z] = face.point(1)[Z] - face.point(0)[Z];
 
-      xac[x] = face.point(2)[x] - face.point(0)[x];
-      xac[y] = face.point(2)[y] - face.point(0)[y];
-      xac[z] = face.point(2)[z] - face.point(0)[z];
+      xac[X] = face.point(2)[X] - face.point(0)[X];
+      xac[Y] = face.point(2)[Y] - face.point(0)[Y];
+      xac[Z] = face.point(2)[Z] - face.point(0)[Z];
     }
 
     const auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
@@ -343,12 +344,12 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int numPoly = ConvergenceOrder - 1;
+  constexpr int NumPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
 #ifdef stroud
-    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, numPoly);
+    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
 #else
     geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
 #endif

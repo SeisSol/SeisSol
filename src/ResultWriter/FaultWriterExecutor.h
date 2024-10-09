@@ -47,7 +47,7 @@
 #include "xdmfwriter/XdmfWriter.h"
 #include "async/ExecInfo.h"
 #include "Monitoring/Stopwatch.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol
 {

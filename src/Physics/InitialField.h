@@ -8,8 +8,8 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::physics {
@@ -69,10 +69,9 @@ class Planarwave : public InitialField {
   std::vector<std::complex<double>> m_ampField;
   const double m_phase;
   const Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> m_lambdaA;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
   std::array<std::complex<double>,
-             seissol::model::Material_t::NumberOfQuantities *
-                 seissol::model::Material_t::NumberOfQuantities>
+             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       m_eigenvectors;
 
   private:

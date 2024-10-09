@@ -5,15 +5,15 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/ODEInt.h"
-#include <Parallel/Runtime/Stream.hpp>
+#include "Numerical/Quadrature.h"
+#include "Numerical/ODEInt.h"
+#include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include <tuple>
 #endif
@@ -122,7 +122,7 @@ public:
     const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
     // Note: Probably need to increase ConvergenceOrderby 1 here!
-    for (int order = 1; order < ConvergenceOrder+1; ++order) {
+    for (std::size_t order = 1; order < ConvergenceOrder+1; ++order) {
       dofsFaceNodal.setZero();
 
       projectKernel.execute(order - 1, faceIdx);
@@ -263,7 +263,7 @@ public:
       const double g = gravitationalAcceleration;
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (int order = 1; order < ConvergenceOrder+1; ++order) {
+      for (std::size_t order = 1; order < ConvergenceOrder+1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);

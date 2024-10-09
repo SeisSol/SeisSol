@@ -6,6 +6,8 @@
 
 #include "generated_code/tensor.h"
 #include <utils/logger.h>
+#include <Kernels/Precision.h>
+#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -19,30 +21,18 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
-    // touch buffers
-    // logInfo() << "Reached here 1";
     real* buffer = buffers[cell];
-    // logInfo() << "Reached here 2";
     if (buffer != NULL) {
-      // logInfo() << "Reached here 3";
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
-        // zero time integration buffers
-        // logInfo() << "Reached here 4";
         buffer[dof] = (real)0;
-        // logInfo() << "Reached here 5";
       }
     }
-    // logInfo() << "Reached here 6";
 
     // touch derivatives
     real* derivative = derivatives[cell];
-    // logInfo() << "Reached here 7";
     if (derivative != NULL) {
-      // logInfo() << "Reached here 8";
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
-        // logInfo() << "Reached here 9";
         derivative[dof] = (real)0;
-        // logInfo() << "Reached here 10";
       }
     }
   }

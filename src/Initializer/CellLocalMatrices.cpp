@@ -42,15 +42,17 @@
 #include "CellLocalMatrices.h"
 
 #include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/BasicTypedefs.h>
 #include <cassert>
 
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
-#include "tree/Layer.hpp"
-#include "Numerical_aux/Transformation.h"
-#include "Equations/Setup.h"
-#include "Model/common.hpp"
+#include "Parameters/ModelParameters.h"
+#include "Tree/Layer.h"
+#include "Numerical/Transformation.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Model/Common.h"
 #include "Geometry/MeshTools.h"
 #include "generated_code/tensor.h"
 #include "generated_code/kernel.h"
@@ -78,14 +80,15 @@ void setStarMatrix( real* i_AT,
   }
 }
 
-void seissol::initializer::initializeCellLocalMatrices(
-    const seissol::geometry::MeshReader& i_meshReader,
-    LTSTree* io_ltsTree,
-    LTS* i_lts,
-    Lut* i_ltsLut,
-    const TimeStepping& timeStepping) {
-  const std::vector<Element>& elements = i_meshReader.getElements();
-  const std::vector<Vertex>& vertices = i_meshReader.getVertices();
+void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
+                                                         LTSTree*               io_ltsTree,
+                                                         LTS*                   i_lts,
+                                                         Lut*                   i_ltsLut,
+                                                         TimeStepping const&    timeStepping,
+                                                         const parameters::ModelParameters& modelParameters )
+{
+  std::vector<Element> const& elements = i_meshReader.getElements();
+  std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
   assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
   assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
@@ -99,7 +102,9 @@ void seissol::initializer::initializeCellLocalMatrices(
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  const auto*       cellInformationAll         = io_ltsTree->var(i_lts->cellInformation);
+
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
     NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
@@ -128,6 +133,9 @@ void seissol::initializer::initializeCellLocalMatrices(
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+
+    real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+    real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
     
 #ifdef _OPENMP
     #pragma omp for schedule(static)
@@ -175,7 +183,7 @@ void seissol::initializer::initializeCellLocalMatrices(
 
         real NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::Anisotropic) {
           seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
                                                       seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
                                                       cellInformation[cell].faceTypes[side],
@@ -198,25 +206,87 @@ void seissol::initializer::initializeCellLocalMatrices(
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        const auto isSpecialBC = [&cellInformation, &cellInformationAll, cell](int side) {
+          const auto hasDRFace = [](const CellLocalInformation& ci) {
+            bool hasAtLeastOneDRFace = false;
+            for (size_t i = 0; i < 4; ++i) {
+              if (ci.faceTypes[i] == FaceType::DynamicRupture) {
+                hasAtLeastOneDRFace = true;
+              }
+            }
+            return hasAtLeastOneDRFace;
+          };
+          const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+          const auto neighborID = cellInformation[cell].faceNeighborIds[side];
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformationAll[neighborID]);
+          const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+          return (cellInformation[cell].faceTypes[side] == FaceType::Regular) && adjacentDRFaceExists;
+        };
+
+        const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
+        const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
+        const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
+
+        real centralFluxData[tensor::QgodLocal::size()]{};
+        real rusanovPlusData[tensor::QcorrLocal::size()]{};
+        real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+        auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+        auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
+        auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+        for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]); i++) {
+          centralFluxView(i, i) = 0.5;
+          rusanovPlusView(i, i) = wavespeed * 0.5;
+          rusanovMinusView(i, i) = -wavespeed * 0.5;
+        }
+
+        // check if we're on a face that has an adjacent cell with DR face
+        const auto fluxDefault = isSpecialBC(side) ?
+          modelParameters.fluxNearFault : modelParameters.flux;
+        
+        // exclude boundary conditions
+        static const std::vector<FaceType> GodunovBoundaryConditions = {
+          FaceType::FreeSurface,
+          FaceType::FreeSurfaceGravity,
+          FaceType::Analytical
+        };
+
+        const auto enforceGodunov
+          = std::any_of(GodunovBoundaryConditions.begin(), GodunovBoundaryConditions.end(),
+              [&](auto condition) {return condition == cellInformation[cell].faceTypes[side];});
+
+        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        localKrnl.QgodLocal = QgodLocalData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          localKrnl.QgodLocal = centralFluxData;
+          localKrnl.QcorrLocal = rusanovPlusData;
+        } else {
+          localKrnl.QgodLocal = QgodLocalData;
+          localKrnl.QcorrLocal = rusanovPlusNull;
+        }
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          neighKrnl.QgodNeighbor = centralFluxData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
+        } else {
+          neighKrnl.QgodNeighbor = QgodNeighborData;
+          neighKrnl.QcorrNeighbor = rusanovMinusNull;
+        }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
-            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
-          // Already rotated!
+        if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
+          // already rotated
           neighKrnl.Tinv = init::identityT::Values;
         }
         neighKrnl.execute();
@@ -264,7 +334,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
-  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
@@ -278,9 +348,9 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
         coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
-            && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
-            && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
+        if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity
+            && cellInformation[cell].faceTypes[side] != FaceType::Dirichlet
+            && cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
           continue;
         }
         // Compute nodal points in global coordinates for each side.
@@ -334,7 +404,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
         real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
         assert(easiBoundaryMap != nullptr);
         assert(easiBoundaryConstant != nullptr);
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
           easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
         } else {
           // Boundary should not be evaluated
@@ -370,7 +440,7 @@ void copyEigenToYateto(const Eigen::Matrix<T, dim1, dim2>& matrix,
 }
 
 constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::Material_t::NumberOfQuantities> eigenpair) {
+Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities> eigenpair) {
 #ifdef USE_POROELASTIC
   constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
   constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
@@ -418,7 +488,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
 
   for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
-    for (LTSTree::leaf_iterator it = dynRupTree[i]->beginLeaf(LayerMask(Ghost));
+    for (auto it = dynRupTree[i]->beginLeaf(LayerMask(Ghost));
          it != dynRupTree[i]->endLeaf(); ++it) {
       real** timeDerivativePlus = it->var(dynRup[i]->timeDerivativePlus);
       real** timeDerivativeMinus = it->var(dynRup[i]->timeDerivativeMinus);
@@ -634,11 +704,11 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
             1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
         switch (plusMaterial->getMaterialType()) {
-        case seissol::model::MaterialType::acoustic: {
+        case seissol::model::MaterialType::Acoustic: {
           logError() << "Dynamic Rupture is not possible with an acoustic material.";
           break;
         }
-        case seissol::model::MaterialType::poroelastic: {
+        case seissol::model::MaterialType::Poroelastic: {
           // TODO (SW) Extract this into a function
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
@@ -663,19 +733,23 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
 
           break;
         }
-        case seissol::model::MaterialType::anisotropic: {
-          logError() << "Dynamic Rupture does not work with anisotropy yet.";
+        case seissol::model::MaterialType::Anisotropic: {
+          logError() << "The Dynamic Rupture mechanism does not work with anisotropy yet.";
           //TODO(VK): Make DR work with anisotropy 
           break;
         }
-        case seissol::model::MaterialType::elastic: {
+        case seissol::model::MaterialType::Elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
-        case seissol::model::MaterialType::viscoelastic: {
+        case seissol::model::MaterialType::Viscoelastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
+          break;
+        }
+        default: {
+          logError() << "The Dynamic Rupture mechanism does not work with the given material yet.";
           break;
         }
       }
@@ -705,7 +779,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      double surfaceArea = 0;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;

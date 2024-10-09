@@ -4,12 +4,15 @@
 
 #include "PointSourceClusterOnHost.h"
 
-#include "SourceTerm/PointSource.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include "precision.hpp"
 
-#include <utility>
+#include <Kernels/PointSourceCluster.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <SourceTerm/Typedefs.h>
+#include <memory>
+#include <tensor.h>
 
 namespace seissol::kernels {
 
@@ -26,12 +29,15 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned m = 0; m < mapping.size(); ++m) {
-      unsigned startSource = mapping[m].pointSourcesOffset;
-      unsigned endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
-      for (unsigned source = startSource; source < endSource; ++source) {
-        if (sources_->mode == sourceterm::PointSources::NRF) {
+      const unsigned startSource = mapping[m].pointSourcesOffset;
+      const unsigned endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
+      if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
+        for (unsigned source = startSource; source < endSource; ++source) {
           addTimeIntegratedPointSourceNRF(source, from, to, *mapping[m].dofs);
-        } else {
+        } 
+        }
+        else {
+        for (unsigned source = startSource; source < endSource; ++source) {
           addTimeIntegratedPointSourceFSRM(source, from, to, *mapping[m].dofs);
         }
       }

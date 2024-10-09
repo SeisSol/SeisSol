@@ -201,11 +201,15 @@ class ADERDGBase(ABC):
     pass
 
   def addInit(self, generator):
+    flux_solver_spp = self.flux_solver_spp()
+    self.QcorrLocal = Tensor('QcorrLocal', flux_solver_spp.shape)
+    self.QcorrNeighbor = Tensor('QcorrNeighbor', flux_solver_spp.shape)
+
     fluxScale = Scalar('fluxScale')
-    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
+    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * (self.QgodLocal['kq'] * self.starMatrix(0)['ql'] + self.QcorrLocal['kl']) * self.T['jl']
     generator.add('computeFluxSolverLocal', computeFluxSolverLocal)
 
-    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
+    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * (self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] + self.QcorrNeighbor['kl']) * self.T['jl']
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
@@ -259,11 +263,11 @@ class LinearADERDG(ADERDGBase):
     super().addInit(generator)
 
     iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
-    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
-    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+    iniCond = Tensor('iniCond', iniShape, alignStride=True)
+    dofsQP = Tensor('dofsQP', iniShape, alignStride=True)
 
-    generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
-    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+    generator.add('projectIniCond', self.QsingleSim['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.QsingleSim['lp'])
     dofsModified = self.Q_ijs['ijs'] <= self.Q['ij']
     generator.add('dofsModified', dofsModified)
     dofsModifiedReversed = self.Q['ij'] <= self.Q_ijs['ijs']

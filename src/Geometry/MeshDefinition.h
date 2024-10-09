@@ -43,7 +43,6 @@
 #define MESH_DEFINITION_H
 
 #include <cstddef>
-#include <cstdint>
 #include <vector>
 
 namespace seissol {
@@ -101,11 +100,13 @@ struct MPINeighborElement {
 };
 
 struct Fault {
+  GlobalElemId globalId;
   /** The element which contains this fault */
   LocalElemId element;
   /** The side of the element */
   SideId side;
 
+  GlobalElemId neighborGlobalId;
   LocalElemId neighborElement;
   SideId neighborSide;
   int tag;

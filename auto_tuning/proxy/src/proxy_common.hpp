@@ -6,20 +6,20 @@
 #include <unordered_map>
 #include <stdexcept>
 
-enum Kernel {
-  all = 0,
-  local,
-  neigh,
-  ader,
-  localwoader,
-  neigh_dr,
-  godunov_dr
+enum class Kernel {
+  All = 0,
+  Local,
+  Neighbor,
+  Ader,
+  LocalWOAder,
+  NeighborDR,
+  GodunovDR
 };
 
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
-  Kernel kernel{Kernel::all};
+  Kernel kernel{Kernel::All};
   bool verbose{true};
 };
 
@@ -93,23 +93,23 @@ struct Aux {
 
 protected:
   inline static std::unordered_map<Kernel, std::string> map{
-      {Kernel::all,         "all"},
-      {Kernel::local,       "local"},
-      {Kernel::neigh,       "neigh"},
-      {Kernel::ader,        "ader"},
-      {Kernel::localwoader, "localwoader"},
-      {Kernel::neigh_dr,    "neigh_dr"},
-      {Kernel::godunov_dr,  "godunov_dr"}
+      {Kernel::All,         "all"},
+      {Kernel::Local,       "local"},
+      {Kernel::Neighbor,       "neigh"},
+      {Kernel::Ader,        "ader"},
+      {Kernel::LocalWOAder, "localwoader"},
+      {Kernel::NeighborDR,    "neigh_dr"},
+      {Kernel::GodunovDR,  "godunov_dr"}
   };
 
   inline static std::unordered_map<std::string, Kernel> invMap{
-      {"all", Kernel::all},
-      {"local", Kernel::local},
-      {"neigh", Kernel::neigh},
-      {"ader", Kernel::ader},
-      {"localwoader", Kernel::localwoader},
-      {"neigh_dr", Kernel::neigh_dr},
-      {"godunov_dr", Kernel::godunov_dr}
+      {"all", Kernel::All},
+      {"local", Kernel::Local},
+      {"neigh", Kernel::Neighbor},
+      {"ader", Kernel::Ader},
+      {"localwoader", Kernel::LocalWOAder},
+      {"neigh_dr", Kernel::NeighborDR},
+      {"godunov_dr", Kernel::GodunovDR}
   };
 };
 

@@ -70,18 +70,16 @@
  **/
 
 #include "Parallel/MPI.h"
-#include <Common/constants.hpp>
+#include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
-#include <DynamicRupture/Output/OutputManager.hpp>
+#include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/DynamicRupture.h>
-#include <Initializer/tree/Layer.hpp>
-#include <Initializer/typedefs.hpp>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
 #include <array>
-#include <equation-elastic-3-double/tensor.h>
 #include <memory>
 #include <tensor.h>
-#include <Common/Executor.hpp>
-#include <Initializer/tree/Layer.hpp>
+#include <Common/Executor.h>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 
@@ -90,8 +88,8 @@
 #endif
 
 #include "Kernels/Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
 #include "TimeCluster.h"
 
@@ -406,7 +404,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
+  real* l_bufferPointer;
+  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
   // local integration buffer
+  alignas(Alignment) real l_integrationBuffer[tensor::I::size()];
 
   // pointer for the call of the ADER-function
 
@@ -417,9 +418,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
 
-  real* l_bufferPointer;
-  real l_integrationBuffer[tensor::I::size()] alignas(Alignment) = {0.0};
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   auto timeStepLocal = timeStepSize();
 
@@ -469,7 +467,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
@@ -668,7 +666,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
     flopsHardware += cellHardware;
     // Contribution from displacement/integrated displacement
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
+      if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
                                                              cellInformation[cell].faceTypes[face]);
@@ -972,19 +970,19 @@ std::pair<long, long>
         l_timeIntegrated);
 
     l_faceNeighbors_prefetch[0] =
-        (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
+        (cellInformation[l_cell].faceTypes[1] != FaceType::DynamicRupture)
             ? faceNeighbors[l_cell][1]
             : drMapping[l_cell][1].godunov[0]; // the prefetch does not change anything numerical,
                                                // just cache behaviour
     /// \todo think of a cleaner way to actually do the prefetch later
     l_faceNeighbors_prefetch[1] =
-        (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
+        (cellInformation[l_cell].faceTypes[2] != FaceType::DynamicRupture)
             ? faceNeighbors[l_cell][2]
             : drMapping[l_cell][2].godunov[0]; // the prefetch does not change anything numerical,
                                                // just cache behaviour
     /// \todo think of a cleaner way to actually do the prefetch later
     l_faceNeighbors_prefetch[2] =
-        (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
+        (cellInformation[l_cell].faceTypes[3] != FaceType::DynamicRupture)
             ? faceNeighbors[l_cell][3]
             : drMapping[l_cell][3].godunov[0]; // the prefetch does not change anything numerical,
                                                // just cache behaviour
@@ -993,7 +991,7 @@ std::pair<long, long>
     // fourth face's prefetches
     if (l_cell < (i_layerData.getNumberOfCells() - 1)) {
       l_faceNeighbors_prefetch[3] =
-          (cellInformation[l_cell + 1].faceTypes[0] != FaceType::dynamicRupture)
+          (cellInformation[l_cell + 1].faceTypes[0] != FaceType::DynamicRupture)
               ? faceNeighbors[l_cell + 1][0]
               : drMapping[l_cell + 1][0].godunov[0]; // the prefetch does not change anything
                                                      // numerical, just cache behaviour

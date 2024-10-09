@@ -69,6 +69,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   supermuc
   shaheen
   frontera
+  frontier
   marconi
   heisenbug
   leonardo
@@ -88,13 +89,14 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Output
   
+  io
+  off-fault-receivers
   fault-output
   free-surface-output
-  off-fault-receivers
-  postprocessing-and-visualization
   wave-field-output
-  checkpointing
   energy-output
+  checkpointing
+  postprocessing-and-visualization
  
 .. toctree::
   :maxdepth: 2

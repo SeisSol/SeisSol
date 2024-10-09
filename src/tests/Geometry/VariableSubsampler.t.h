@@ -4,21 +4,21 @@
 
 #include <Eigen/Dense>
 
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Geometry/refinement/RefinerUtils.h"
-#include "Geometry/refinement/VariableSubSampler.h"
-#include "Kernels/precision.hpp"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Geometry/Refinement/RefinerUtils.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
+#include "Kernels/Precision.h"
 #include "MockReader.h"
 
 namespace seissol::unit_test {
 
 TEST_CASE("Variable Subsampler") {
-  constexpr double epsilon = std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = std::numeric_limits<real>::epsilon();
   std::srand(1234);
 
   SUBCASE("Divide by 4") {
-    seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
-    seissol::refinement::VariableSubsampler<double> subsampler(1, refineBy4, 3, 9, 12);
+    const seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
+    const seissol::refinement::VariableSubsampler<double> subsampler(1, refineBy4, 3, 9, 12);
 
     const std::array<real, 36> expectedDOFs = {
         -0.95909429432054482678,  -0.24576668840548565598, -0.073841666364211855367,
@@ -37,7 +37,7 @@ TEST_CASE("Variable Subsampler") {
     // For order 3 there are 108 DOFs (taking alignment into account)
     std::array<real, 108> dofs;
     for (int i = 0; i < 108; i++) {
-      dofs[i] = (real)std::rand() / RAND_MAX;
+      dofs[i] = static_cast<real>(std::rand()) / static_cast<real>(RAND_MAX);
     }
     unsigned int cellMap[1] = {0};
     // A triangle is divided into four subtriangles there are 9 quantities.
@@ -48,7 +48,7 @@ TEST_CASE("Variable Subsampler") {
       subsampler.get(dofs.data(), cellMap, var, &outDofs[var * 4]);
     }
     for (int i = 0; i < 36; i++) {
-      REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(epsilon));
+      REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
     }
   };
 }

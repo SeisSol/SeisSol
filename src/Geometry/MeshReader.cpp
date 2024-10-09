@@ -3,12 +3,15 @@
 #include "MeshDefinition.h"
 #include "MeshTools.h"
 
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <map>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #ifdef USE_MPI
 #include <mpi.h>
@@ -16,9 +19,9 @@
 
 namespace seissol::geometry {
 
-MeshReader::MeshReader(int rank) : m_rank(rank), m_hasPlusFault(false) {}
+MeshReader::MeshReader(int rank) : mRank(rank), m_hasPlusFault(false) {}
 
-MeshReader::~MeshReader() {}
+MeshReader::~MeshReader() = default;
 
 const std::vector<Element>& MeshReader::getElements() const { return m_elements; }
 
@@ -30,7 +33,7 @@ const std::map<int, std::vector<MPINeighborElement>>& MeshReader::getMPIFaultNei
   return m_MPIFaultNeighbors;
 }
 
-const std::unordered_map<int, std::vector<GhostElementMetadata>>
+const std::unordered_map<int, std::vector<GhostElementMetadata>>&
     MeshReader::getGhostlayerMetadata() const {
   return m_ghostlayerMetadata;
 }
@@ -80,7 +83,7 @@ void MeshReader::extractFaultInformation(
 
       // DR boundary
 
-      if (i.neighborRanks[j] == m_rank) {
+      if (i.neighborRanks[j] == mRank) {
         // Completely local DR boundary
 
         if (i.neighbors[j] < i.localId)
@@ -91,7 +94,7 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
+        const MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -168,19 +171,28 @@ void MeshReader::extractFaultInformation(
       // Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
       MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 
+      auto remoteNeighbor = i.neighbors[j] == static_cast<int>(m_elements.size());
+
       // Index of the element on the other side
-      int neighborIndex =
-          i.neighbors[j] == static_cast<int>(m_elements.size()) ? -1 : i.neighbors[j];
+      const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
+
+      const GlobalElemId neighborGlobalId =
+          remoteNeighbor ? m_ghostlayerMetadata[i.neighborRanks[j]][i.mpiIndices[j]].globalId
+                         : m_elements[i.neighbors[j]].globalId;
 
       if (isPlus) {
+        f.globalId = i.globalId;
         f.element = i.localId;
         f.side = j;
+        f.neighborGlobalId = neighborGlobalId;
         f.neighborElement = neighborIndex;
         f.neighborSide = i.neighborSides[j];
         f.tag = i.faultTags[j];
       } else {
+        f.globalId = neighborGlobalId;
         f.element = neighborIndex;
         f.side = i.neighborSides[j];
+        f.neighborGlobalId = i.globalId;
         f.neighborElement = i.localId;
         f.neighborSide = j;
         f.tag = i.faultTags[j];
@@ -197,7 +209,7 @@ void MeshReader::extractFaultInformation(
   // Sort fault neighbor lists and update MPI fault indices
   for (auto& i : m_MPIFaultNeighbors) {
 
-    if (i.first > m_rank) {
+    if (i.first > mRank) {
       std::sort(i.second.begin(),
                 i.second.end(),
                 [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
@@ -227,7 +239,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   std::unordered_map<int, std::vector<GhostElementMetadata>> sendData;
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
-  constexpr int tag = 10;
+  constexpr int Tag = 10;
   const auto comm = seissol::MPI::mpi.comm();
 
   std::vector<MPI_Request> requests(m_MPINeighbors.size() * 2);
@@ -237,11 +249,13 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementType;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 2;
-  const std::vector<int> datatypeBlocklen{12, 1};
+  const int datatypeCount = 3;
+  const std::vector<int> datatypeBlocklen{12, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
-                                                   offsetof(GhostElementMetadata, group)};
-  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE, MPI_INT};
+                                                   offsetof(GhostElementMetadata, group),
+                                                   offsetof(GhostElementMetadata, globalId)};
+  const std::vector<MPI_Datatype> datatypeDatatype{
+      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type()};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -270,6 +284,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
         ghost.vertices[v][2] = vertex.coords[2];
       }
       ghost.group = element.group;
+      ghost.globalId = element.globalId;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -277,14 +292,14 @@ void MeshReader::exchangeGhostlayerMetadata() {
               count,
               ghostElementType,
               targetRank,
-              tag,
+              Tag,
               comm,
               &requests[counter]);
     MPI_Isend(sendData[targetRank].data(),
               count,
               ghostElementType,
               targetRank,
-              tag,
+              Tag,
               comm,
               &requests[counter + 1]);
   }

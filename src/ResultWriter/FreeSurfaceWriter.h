@@ -49,7 +49,6 @@
 #include <async/Module.h>
 #include "Modules/Module.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Checkpoint/DynStruct.h"
 #include "Monitoring/Stopwatch.h"
 #include "FreeSurfaceWriterExecutor.h"
 
@@ -66,9 +65,6 @@ private:
 
 	/** Is enabled? */
 	bool m_enabled;
-
-	/** Timestep component in the checkpoint header */
-	DynStruct::Component<int> m_timestepComp;
 
 	/** The asynchronous executor */
 	FreeSurfaceWriterExecutor m_executor;
@@ -92,7 +88,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp();
+	void setUp() override;
 
 	void enable();
 
@@ -118,7 +114,7 @@ public:
 		m_stopwatch.printTime("Time free surface writer frontend:");
 	}
 
-	void tearDown()
+	void tearDown() override
 	{
 		m_executor.finalize();
 	}
@@ -126,13 +122,13 @@ public:
 	//
 	// Hooks
 	//
-	void simulationStart();
+	void simulationStart() override;
 
-	void syncPoint(double currentTime);
+	void syncPoint(double currentTime) override;
 };
 
-}
+} // namespace writer
 
-}
+} // namespace seissol
 
 #endif // FREESURFACEWRITER_H

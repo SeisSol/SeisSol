@@ -11,16 +11,76 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
-        src/Initializers/Parameters
+        src/Geometry
+        src/Initializer/BatchRecorders
+        src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/Tree
+        src/IO
+        src/Kernels
         src/Modules
+        src/Monitoring
+        src/Numerical
+        src/Parallel
+        src/Physics
         src/Reader
+        src/SourceTerm
+        src/tests
         "
-    
+
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/main.cpp
+        src/Equations/elastic/Model/Datastructures.h
+        src/Equations/elastic/Model/IntegrationData.h
+        src/Equations/viscoelastic/Model/IntegrationData.h
+        src/Equations/viscoelastic2/Model/Datastructures.h
+        src/Equations/viscoelastic2/Model/IntegrationData.h
+        src/Equations/anisotropic/Model/Datastructures.h
+        src/Equations/anisotropic/Model/IntegrationData.h
+        src/Equations/poroelastic/Model/Datastructures.h
+        src/Equations/poroelastic/Model/IntegrationData.h
+        src/Equations/Datastructures.h
+        src/Equations/Setup.h
+        src/Initializer/BasicTypedefs.h
+        src/Initializer/Boundary.h
+        src/Initializer/DynamicRupture.h
+        src/Initializer/DeviceGraph.h
+        src/Initializer/GlobalData.h
+        src/Initializer/GlobalData.cpp
+        src/Initializer/InitialFieldProjection.h
+        src/Initializer/InitialFieldProjection.cpp
+        src/Initializer/InputAux.h
+        src/Initializer/LTS.h
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
+        src/Initializer/ParameterDB.h
+        src/Initializer/ParameterDB.cpp
+        src/Initializer/PointMapper.h
+        src/Initializer/PointMapper.cpp
+        src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/GlobalTimestep.h
+        src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Model/CommonDatastructures.h
+        src/Model/Plasticity.h
+        src/ResultWriter/WaveFieldWriter.h
+        src/ResultWriter/EnergyOutput.h
+        src/ResultWriter/EnergyOutput.cpp
+        src/ResultWriter/AnalysisWriter.h
+        src/ResultWriter/AnalysisWriter.cpp
+        src/ResultWriter/AsyncCellIDs.h
+        src/ResultWriter/AsyncIO.h
+        src/ResultWriter/AsyncIO.cpp
+        src/ResultWriter/MiniSeisSolWriter.h
+        src/ResultWriter/MiniSeisSolWriter.cpp
+        src/ResultWriter/PostProcessor.h
+        src/ResultWriter/PostProcessor.cpp
+        src/ResultWriter/ThreadsPinningWriter.h
+        src/ResultWriter/ThreadsPinningWriter.cpp
+        src/SeisSol.h
         src/SeisSol.cpp
+        src/Main.cpp
         "
+
 
     local SEISSOL_SOURCE_DIR="${1}"
     local SEISSOL_BUILD_DIR="${2}"
@@ -46,7 +106,7 @@ format() {
         FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
 
-    python3 ${SEISSOL_SOURCE_DIR}/.ci/run-clang-tidy.py -use-color -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
+    run-clang-tidy -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
 }
 
 format $@

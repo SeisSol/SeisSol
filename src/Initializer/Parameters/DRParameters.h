@@ -5,7 +5,7 @@
 
 #include <Eigen/Dense>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {

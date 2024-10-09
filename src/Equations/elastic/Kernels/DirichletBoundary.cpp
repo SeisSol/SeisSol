@@ -2,7 +2,10 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "Kernels/DirichletBoundary.h"
 #pragma GCC diagnostic pop
-void seissol::kernels::computeAverageDisplacement(double deltaT,
+
+namespace seissol::kernels {
+
+void computeAverageDisplacement(double deltaT,
 					 const real* timeDerivatives,
 					 const unsigned int derivativesOffsets[ConvergenceOrder],
 					 real timeIntegrated[tensor::I::size()] 
@@ -21,7 +24,7 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
   real factorial = 2.0;
   double power = deltaT * deltaT;
   
-  for (int der = 0; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     intKrnl.power(der) = power / factorial;
 
     factorial *= der + 2.0;
@@ -29,4 +32,6 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
   }
   intKrnl.execute();
 }
+
+} // namespace seissol::kernels
 
