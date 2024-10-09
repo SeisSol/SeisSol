@@ -5,8 +5,6 @@
 #include <string>
 #include <unordered_set>
 
-#include <xdmfwriter/backends/Backend.h>
-
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
@@ -20,6 +18,11 @@ enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
+
+enum class XdmfBackend : int {
+  Posix,
+  Hdf5
+};
 
 struct CheckpointParameters {
   bool enabled;
@@ -111,7 +114,7 @@ struct WaveFieldOutputParameters {
 struct OutputParameters {
   bool loopStatisticsNetcdfOutput;
   OutputFormat format;
-  xdmfwriter::BackendType xdmfWriterBackend;
+  XdmfBackend xdmfWriterBackend;
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
@@ -124,7 +127,7 @@ struct OutputParameters {
   OutputParameters() = default;
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
-                   xdmfwriter::BackendType xdmfWriterBackend,
+                   XdmfBackend xdmfWriterBackend,
                    std::string prefix,
                    CheckpointParameters checkpointParameters,
                    ElementwiseFaultParameters elementwiseParameters,

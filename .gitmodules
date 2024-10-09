@@ -2,9 +2,6 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-[submodule "submodules/xdmfwriter"]
-	path = submodules/xdmfwriter
-	url = ../../TUM-I5/XdmfWriter.git
 [submodule "submodules/utils"]
 	path = submodules/utils
 	url = ../../TUM-I5/utils.git
