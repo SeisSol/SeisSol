@@ -124,7 +124,7 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
       ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)),
       numFused(numFused) {
 
-  logInfo() << "Receiver output called for simulation: " << numFused;
+  logInfo(seissol::MPI::mpi.rank()) << "Receiver output called for simulation: " << numFused;
 
   backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
 }
