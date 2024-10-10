@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Initializer/LTS.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/GlobalData.h"
-#include "Solver/time_stepping/MiniSeisSol.cpp"
+#include "Solver/Proxy/MiniSeisSol.cpp"
 #include <yateto.h>
 #include <unordered_set>
 #include <Parallel/Runtime/Stream.h>
@@ -69,7 +69,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <device.h>
 #include <unordered_set>
 #include "Initializer/BatchRecorders/Recorders.h"
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 seissol::initializer::LTSTree               *m_ltsTree{nullptr};
@@ -121,7 +120,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   // init RNG
   srand48(i_cells);
   m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
-  m_ltsTree->setNumberOfTimeClusters(1);
+  m_ltsTree->setTimeClusters({0});
   m_ltsTree->fixate();
   
   seissol::initializer::TimeCluster& cluster = m_ltsTree->child(0);

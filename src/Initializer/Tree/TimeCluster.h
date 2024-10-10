@@ -55,6 +55,12 @@ class TimeCluster : public LTSInternalNode {
     child<Interior>().setLayerType(Interior);
   }
 
+  void setClusterId(int id) {
+    child<Ghost>().setClusterId(id);
+    child<Copy>().setClusterId(id);
+    child<Interior>().setClusterId(id);
+  }
+
   template <enum LayerType LAYER>
   inline Layer& child() {
     return *static_cast<Layer*>(m_children[Log2<LAYER>::Result].get());

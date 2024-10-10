@@ -9,6 +9,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
 #include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"

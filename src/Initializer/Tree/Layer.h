@@ -45,6 +45,7 @@
 #include "Initializer/DeviceGraph.h"
 #include "Initializer/MemoryAllocator.h"
 #include "Node.h"
+#include "Parallel/Helper.h"
 #include <bitset>
 #include <cstring>
 #include <limits>
@@ -199,6 +200,7 @@ struct MemoryInfo {
 
 class Layer : public Node {
   private:
+  int m_clusterId;
   enum LayerType m_layerType;
   unsigned m_numberOfCells;
   std::vector<DualMemoryContainer> m_vars;
@@ -240,6 +242,12 @@ class Layer : public Node {
     return static_cast<T*>(m_vars[handle.index].get(place));
   }
 
+  void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
+    assert(index != std::numeric_limits<unsigned>::max());
+    assert(m_vars.size() > index);
+    return m_vars[index].get(place);
+  }
+
   template <typename T>
   void varSynchronizeTo(const Variable<T>& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
@@ -276,6 +284,10 @@ class Layer : public Node {
   inline void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
 
   inline enum LayerType getLayerType() const { return m_layerType; }
+
+  inline void setClusterId(int clusterId) { m_clusterId = clusterId; }
+
+  inline int getClusterId() const { return m_clusterId; }
 
   inline unsigned getNumberOfCells() const { return m_numberOfCells; }
 
@@ -333,7 +345,11 @@ class Layer : public Node {
   // scratchpad mem. size is bigger then the one inside of the array
   void findMaxScratchpadSizes(std::vector<size_t>& bytes) {
     for (size_t id = 0; id < bytes.size(); ++id) {
-      bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+      if (concurrentClusters()) {
+        bytes[id] += m_scratchpadSizes[id];
+      } else {
+        bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+      }
     }
   }
 #endif
@@ -358,10 +374,11 @@ class Layer : public Node {
   }
 
 #ifdef ACL_DEVICE
-  void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory) {
+  void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory,
+                                      const std::vector<std::size_t>& offsets) {
     assert(m_scratchpads.size() == memory.size());
     for (size_t id = 0; id < m_scratchpads.size(); ++id) {
-      m_scratchpads[id] = memory[id];
+      m_scratchpads[id].offsetFrom(memory[id], offsets[id], m_scratchpadSizes[id]);
     }
   }
 #endif

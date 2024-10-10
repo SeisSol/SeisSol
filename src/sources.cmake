@@ -15,15 +15,6 @@ add_library(SeisSol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
 src/Initializer/GlobalData.cpp
-src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
-src/Solver/time_stepping/AbstractTimeCluster.cpp
-src/Solver/time_stepping/ActorState.cpp
-src/Solver/time_stepping/CommunicationManager.cpp
-src/Solver/time_stepping/DirectGhostTimeCluster.cpp
-src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/MiniSeisSol.cpp
-src/Solver/time_stepping/TimeCluster.cpp
-src/Solver/time_stepping/TimeManager.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -60,9 +51,11 @@ src/Numerical/Functions.cpp
 src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
-src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
 src/ResultWriter/AsyncIO.cpp
+
+src/Parallel/Runtime/Stream.cpp
+src/Parallel/HelperThread.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
@@ -141,8 +134,6 @@ src/Physics/InitialField.cpp
 
 src/SeisSol.cpp
 
-src/Solver/FreeSurfaceIntegrator.cpp
-
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
 
@@ -150,6 +141,7 @@ src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Solver/Clustering/Computation/DynamicRuptureClusterSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )
@@ -267,6 +259,10 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+
+
+add_subdirectory(src/Solver)
+target_link_libraries(SeisSol-common-lib PUBLIC seissol-solver)
 
 add_subdirectory(src/IO)
 target_link_libraries(SeisSol-lib PUBLIC seissol-io)
