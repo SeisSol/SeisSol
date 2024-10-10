@@ -36,15 +36,17 @@ DynamicRuptureCluster::DynamicRuptureCluster(
     seissol::dr::output::OutputManager* faultOutputManager,
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
-    ActorStateStatistics* actorStateStatistics)
+    ActorStateStatistics* actorStateStatistics,
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : FaceCluster(maxTimeStepSize,
                   timeStepRate,
 #ifdef ACL_DEVICE
                   layer->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
-                                                                  : Executor::Host
+                                                                  : Executor::Host,
 #else
-                  Executor::Host
+                  Executor::Host,
 #endif
+                  cpuExecutor
                   ),
       profilingId(profilingId), layer(layer), descr(descr), frictionSolver(frictionSolver),
       frictionSolverDevice(frictionSolverDevice), faultOutputManager(faultOutputManager),

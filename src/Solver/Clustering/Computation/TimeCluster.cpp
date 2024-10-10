@@ -100,15 +100,17 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          seissol::initializer::LTS* lts,
                          seissol::SeisSol& seissolInstance,
                          LoopStatistics* loopStatistics,
-                         ActorStateStatistics* actorStateStatistics)
+                         ActorStateStatistics* actorStateStatistics,
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : CellCluster(maxTimeStepSize,
                   timeStepRate,
 #ifdef ACL_DEVICE
                   clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
-                                                                        : Executor::Host
+                                                                        : Executor::Host,
 #else
-                  Executor::Host
+                  Executor::Host,
 #endif
+                  cpuExecutor
                   ),
       // cluster ids
       usePlasticity(usePlasticity), seissolInstance(seissolInstance),

@@ -14,6 +14,7 @@
 
 #ifndef TIMEMANAGER_H_
 #define TIMEMANAGER_H_
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
@@ -98,18 +99,9 @@ class TimeManager {
    **/
   TimeManager(seissol::SeisSol& seissolInstance);
 
-  /**
-   * Adds the time clusters to the time manager.
-   *
-   * @param i_timeStepping time stepping scheme.
-   * @param i_meshStructure mesh structure.
-   * @param memoryManager memory manager.
-   * @param i_meshToClusters mapping from the mesh to the clusters.
-   **/
-  void addClusters(TimeStepping& timeStepping,
-                   const communication::HaloCommunication& halo,
-                   initializer::MemoryManager& memoryManager,
-                   bool usePlasticity);
+  void addClusters(initializer::ClusterLayout& layout,
+                              initializer::MemoryManager& memoryManager,
+                              bool usePlasticity);
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* getFaultOutputManager();

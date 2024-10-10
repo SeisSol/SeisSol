@@ -35,7 +35,7 @@ class AbstractTimeCluster {
 
   [[nodiscard]] double timeStepSize() const;
 
-  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   bool maySynchronize();
   virtual void start() = 0;
@@ -125,7 +125,7 @@ class CellCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
   ~CellCluster() override;
-  CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+  CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   public:
 };
@@ -134,7 +134,7 @@ class FaceCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Interact; }
   ~FaceCluster() override;
-  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   public:
 };

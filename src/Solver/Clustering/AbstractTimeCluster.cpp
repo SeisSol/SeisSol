@@ -8,6 +8,8 @@
 #include "utils/logger.h"
 #include <Common/Executor.h>
 #include <Parallel/Helper.h>
+#include <Parallel/Host/CpuExecutor.h>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -22,9 +24,10 @@ double AbstractTimeCluster::timeStepSize() const { return ct.timeStepSize(syncTi
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,
                                          long timeStepRate,
-                                         Executor executor)
+                                         Executor executor,
+                                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : timeOfLastStageChange(std::chrono::steady_clock::now()), timeStepRate(timeStepRate),
-      numberOfTimeSteps(0), executor(executor) {
+      numberOfTimeSteps(0), executor(executor), streamRuntime(cpuExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 
@@ -280,11 +283,11 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
   });
 }
 
-CellCluster::CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor) {}
+CellCluster::CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
 
-FaceCluster::FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor) {}
+FaceCluster::FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
 
 CellCluster::~CellCluster() = default;
 

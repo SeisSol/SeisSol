@@ -266,7 +266,8 @@ class TimeCluster : public CellCluster {
               seissol::initializer::LTS* lts,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
-              ActorStateStatistics* actorStateStatistics);
+              ActorStateStatistics* actorStateStatistics,
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   /**
    * Destructor of a LTS cluster.

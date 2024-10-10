@@ -67,17 +67,22 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   cpuExecutor = std::make_shared<parallel::host::SyncExecutor>();
 }
 
-void TimeManager::addClusters2(initializer::ClusterLayout& layout,
+void TimeManager::addClusters(initializer::ClusterLayout& layout,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   const auto globalData = memoryManager.getGlobalData();
   int profilingId = 0;
+
+  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   communication::CommunicationClusterFactory communicationFactory(communication::CommunicationMode::DirectMPI, layout.globalClusterCount);
   communicationFactory.prepare();
 
   const auto sendClusters = communicationFactory.getAllSends(layout.comm);
   const auto recvClusters = communicationFactory.getAllRecvs(layout.comm);
+
+  std::vector<std::unordered_map<LayerType, std::shared_ptr<AbstractTimeCluster>>> cellClusterBackmap(layout.localClusterIds.size());
+  std::vector<std::unordered_map<LayerType, std::shared_ptr<AbstractTimeCluster>>> faceClusterBackmap(layout.localClusterIds.size());
 
   for (auto& layer : memoryManager.getLtsTree()->leaves()) {
     const auto globalClusterId = layer.getClusterId();
@@ -100,7 +105,8 @@ void TimeManager::addClusters2(initializer::ClusterLayout& layout,
           memoryManager.getLts(),
           seissolInstance,
           &loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId)));
+          &actorStateStatisticsManager.addCluster(profilingId),
+          cpuExecutor));
       ++profilingId;
     }
     if (layer.getLayerType() == Copy) {
@@ -117,16 +123,22 @@ void TimeManager::addClusters2(initializer::ClusterLayout& layout,
           seissolInstance,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
-          sendClusters.at(localClusterId)));
+          sendClusters.at(localClusterId),
+          cpuExecutor));
       ++profilingId;
     }
     if (layer.getLayerType() == Ghost) {
       clusters.push_back(std::make_unique<computation::GhostCluster>(
         timeStepSize,
         timeStepRate,
-        recvClusters.at(localClusterId)
+        recvClusters.at(localClusterId),
+        cpuExecutor
       ));
     }
+
+    cellClusterBackmap[layer.getClusterId()][layer.getLayerType()] = clusters.back();
+
+    clusteringWriter.addCluster(profilingId, localClusterId, layer.getLayerType(), layer.getNumberOfCells(), 0);
   }
   for (auto& layer : memoryManager.getDynamicRuptureTree()->leaves(Ghost)) {
     const auto localClusterId = layer.getClusterId();
@@ -147,15 +159,30 @@ void TimeManager::addClusters2(initializer::ClusterLayout& layout,
           memoryManager.getFaultOutputManager(),
           seissolInstance,
           &loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId)));
+          &actorStateStatisticsManager.addCluster(profilingId),
+          cpuExecutor));
       ++profilingId;
     }
+
+    faceClusterBackmap[layer.getClusterId()][layer.getLayerType()] = clusters.back();
+
+    clusteringWriter.addCluster(profilingId, localClusterId, layer.getLayerType(), layer.getNumberOfCells(), 0);
   }
 
-  for (auto& cluster : clusters) {
-    for (auto& otherCluster : clusters) {
-      if (cluster)
-    }
+  // TODO: localClusterIds, better handling (is it sorted?)
+  for (std::size_t i = 0; i < layout.localClusterIds.size(); ++i) {
+    cellClusterBackmap[i][Copy]->connect(*cellClusterBackmap[i][Interior]);
+    cellClusterBackmap[i][Copy]->connect(*cellClusterBackmap[i][Ghost]);
+
+    faceClusterBackmap[i][Interior]->connect(*cellClusterBackmap[i][Interior]);
+    faceClusterBackmap[i][Interior]->connect(*cellClusterBackmap[i][Copy]);
+
+    faceClusterBackmap[i][Copy]->connect(*cellClusterBackmap[i][Copy]);
+  }
+
+  for (std::size_t i = 1; i < layout.localClusterIds.size(); ++i) {
+    cellClusterBackmap[i][Interior]->connect(*cellClusterBackmap[i-1][Interior]);
+    cellClusterBackmap[i][Copy]->connect(*cellClusterBackmap[i-1][Copy]);
   }
 
   std::vector<std::shared_ptr<NeighborCluster>> communication;
@@ -164,11 +191,11 @@ void TimeManager::addClusters2(initializer::ClusterLayout& layout,
   communication.insert(communication.end(), recvClusters.begin(), recvClusters.end());
 
   if (seissol::useCommThread(MPI::mpi)) {
-    communicationManager = std::make_unique<communication::ThreadedCommunicationManager>(
+    communicationManager = std::make_shared<communication::ThreadedCommunicationManager>(
         communication, &seissolInstance.getPinning());
   } else {
     communicationManager =
-        std::make_unique<communication::SerialCommunicationManager>(communication);
+        std::make_shared<communication::SerialCommunicationManager>(communication);
   }
 
   auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
@@ -178,197 +205,12 @@ void TimeManager::addClusters2(initializer::ClusterLayout& layout,
   decreaseManager.setTimeClusterVector(clusters);
 }
 
-void TimeManager::addClusters(TimeStepping& timeStepping,
-                              const communication::HaloCommunication& halo,
-                              initializer::MemoryManager& memoryManager,
-                              bool usePlasticity) {
-  SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<NeighborCluster>> communicationClusters;
-  // assert non-zero pointers
-  assert(meshStructure != NULL);
-
-  // store the time stepping
-  this->timeStepping = timeStepping;
-
-  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
-
-  // iterate over local time clusters
-  for (unsigned int localClusterId = 0; localClusterId < timeStepping.numberOfLocalClusters;
-       localClusterId++) {
-    // get memory layout of this cluster
-    auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
-
-    const unsigned int globalClusterId = timeStepping.clusterIds[localClusterId];
-    // chop off at synchronization time
-    const auto timeStepSize = timeStepping.globalCflTimeStepWidths[globalClusterId];
-    const long timeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
-                                   static_cast<long>(globalClusterId));
-
-    // Dynamic rupture
-    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
-
-    for (auto type : {Copy, Interior}) {
-      const auto offsetMonitoring = type == Interior ? 0 : timeStepping.numberOfGlobalClusters;
-      // We print progress only if it is the cluster with the largest time step on each rank.
-      // This does not mean that it is the largest cluster globally!
-      const bool printProgress =
-          (localClusterId == timeStepping.numberOfLocalClusters - 1) && (type == Interior);
-      const auto profilingId = globalClusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
-      auto* dynRupData = &dynRupTree.child(type);
-      clusters.push_back(std::make_unique<computation::TimeCluster>(
-          localClusterId,
-          globalClusterId,
-          profilingId,
-          usePlasticity,
-          type,
-          timeStepSize,
-          timeStepRate,
-          printProgress,
-          globalData,
-          layerData,
-          memoryManager.getLts(),
-          seissolInstance,
-          &loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId)));
-      clustersDR.push_back(std::make_unique<computation::DynamicRuptureCluster>(
-          timeStepSize,
-          timeStepRate,
-          profilingId,
-          dynRupData,
-          memoryManager.getDynamicRupture(),
-          globalData,
-          memoryManager.getFrictionLaw(),
-          memoryManager.getFrictionLawDevice(),
-          memoryManager.getFaultOutputManager(),
-          seissolInstance,
-          &loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId)));
-
-      const auto clusterSize = layerData->getNumberOfCells();
-      const auto dynRupSize = dynRupData->getNumberOfCells();
-      // Add writer to output
-      clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
-    }
-    auto& interior = clusters[clusters.size() - 1];
-    auto& copy = clusters[clusters.size() - 2];
-    auto& interiorDR = clustersDR[clustersDR.size() - 1];
-    auto& copyDR = clustersDR[clustersDR.size() - 2];
-    auto& ghost = clusters[clusters.size() - 3];
-
-    // Mark copy layers as higher priority layers.
-    interior->setPriority(ActorPriority::Low);
-    copy->setPriority(ActorPriority::High);
-
-    interiorDR->setPriority(ActorPriority::Low);
-    copyDR->setPriority(ActorPriority::High);
-
-    // Copy/interior with same timestep are neighbors
-    interior->connect(*copy);
-
-    // connect clusters to DR clusters
-    interior->connect(*interiorDR);
-    copy->connect(*interiorDR);
-    copy->connect(*copyDR);
-
-    copy->connect(*ghost);
-    ghost->connect(*copyDR);
-
-    // Connect new copy/interior to previous two copy/interior
-    // Then all clusters that are neighboring are connected.
-    // Note: Only clusters with a distance of 1 time step factor
-    // are connected.
-    if (localClusterId > 0) {
-      assert(clusters.size() >= 4);
-      for (int i = 0; i < 2; ++i) {
-        copy->connect(*clusters[clusters.size() - 3 - i - 1]);
-        interior->connect(*clusters[clusters.size() - 3 - i - 1]);
-      }
-    }
-
-    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
-    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
-
-    increaseManager.setTimeClusterVector(&clusters);
-    decreaseManager.setTimeClusterVector(&clusters);
-#ifdef USE_MPI
-    // Create ghost time clusters for MPI
-    const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
-    const auto persistent = usePersistentMpi();
-    auto factory = communication::CommunicationClusterFactory(
-        communication::CommunicationMode::DirectMPI, halo.copy.size());
-    factory.prepare();
-
-    for (unsigned int otherGlobalClusterId = 0;
-         otherGlobalClusterId < timeStepping.numberOfGlobalClusters;
-         ++otherGlobalClusterId) {
-      const bool hasNeighborRegions =
-          std::any_of(meshStructure->neighboringClusters,
-                      meshStructure->neighboringClusters + meshStructure->numberOfRegions,
-                      [otherGlobalClusterId](const auto& neighbor) {
-                        return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
-                      });
-      if (hasNeighborRegions) {
-        assert(otherGlobalClusterId >= std::max(static_cast<int>(globalClusterId - 1), 0));
-        assert(otherGlobalClusterId <
-               std::min(globalClusterId + 2, timeStepping.numberOfGlobalClusters));
-        const auto otherTimeStepSize = timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
-        const long otherTimeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
-                                            static_cast<long>(otherGlobalClusterId));
-
-        auto ghostCluster = factory.get(otherTimeStepSize,
-                                        otherTimeStepRate,
-                                        globalClusterId,
-                                        otherGlobalClusterId,
-                                        meshStructure,
-                                        preferredDataTransferMode,
-                                        persistent);
-        ghostClusters.push_back(std::move(ghostCluster));
-
-        // Connect with previous copy layer.
-        ghostClusters.back()->connect(*copy);
-      }
-    }
-#endif
-  }
-
-  clusteringWriter.write();
-
-  // Sort clusters by time step size in increasing order
-  auto rateSorter = [](const auto& a, const auto& b) {
-    return a->getTimeStepRate() < b->getTimeStepRate();
-  };
-  std::sort(clusters.begin(), clusters.end(), rateSorter);
-
-  for (const auto& cluster : clusters) {
-    if (cluster->getPriority() == ActorPriority::High) {
-      highPrioClusters.emplace_back(cluster.get());
-    } else {
-      lowPrioClusters.emplace_back(cluster.get());
-    }
-  }
-  for (const auto& cluster : clusters) {
-    if (cluster->getPriority() == ActorPriority::High) {
-      highPrioClustersDR.emplace_back(cluster.get());
-    } else {
-      lowPrioClustersDR.emplace_back(cluster.get());
-    }
-  }
-
-  std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
-
-  if (seissol::useCommThread(MPI::mpi)) {
-    communicationManager = std::make_unique<communication::ThreadedCommunicationManager>(
-        std::move(ghostClusters), &seissolInstance.getPinning());
-  } else {
-    communicationManager =
-        std::make_unique<communication::SerialCommunicationManager>(std::move(ghostClusters));
-  }
-}
-
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
   this->faultOutputManager = faultOutputManager;
-  for (auto& cluster : clustersDR) {
+  for (auto& cluster : highPrioClustersDR) {
+    cluster->setFaultOutputManager(faultOutputManager);
+  }
+  for (auto& cluster : lowPrioClustersDR) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 }

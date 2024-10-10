@@ -31,7 +31,8 @@ class DynamicRuptureCluster : public FaceCluster {
                         seissol::dr::output::OutputManager* faultOutputManager,
                         seissol::SeisSol& seissolInstance,
                         LoopStatistics* loopStatistics,
-                        ActorStateStatistics* actorStateStatistics);
+                        ActorStateStatistics* actorStateStatistics,
+                        const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
   void computeFlops();

@@ -13,7 +13,7 @@
 namespace seissol::solver::clustering::communication {
 class AbstractCommunicationManager {
   public:
-  using GhostClustersT = std::vector<std::unique_ptr<NeighborCluster>>;
+  using GhostClustersT = std::vector<std::shared_ptr<NeighborCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset();
