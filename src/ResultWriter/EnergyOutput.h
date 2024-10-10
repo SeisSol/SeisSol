@@ -111,10 +111,13 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
+#ifdef ACL_DEVICE
   real* timeDerivativePlusHost = nullptr;
   real* timeDerivativeMinusHost = nullptr;
   real* timeDerivativePlusHostMapped = nullptr;
   real* timeDerivativeMinusHostMapped = nullptr;
+#endif
+
   const GlobalData* global = nullptr;
   seissol::initializer::DynamicRupture* dynRup = nullptr;
   seissol::initializer::LTSTree* dynRupTree = nullptr;

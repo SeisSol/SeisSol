@@ -100,6 +100,19 @@ enum VariableID {
   Size
 };
 
+const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SRd"},
+                                                                     {"T_s", "T_d", "P_n"},
+                                                                     {"u_n"},
+                                                                     {"Mud", "StV"},
+                                                                     {"Ts0", "Td0", "Pn0"},
+                                                                     {"Sls", "Sld"},
+                                                                     {"Vr"},
+                                                                     {"ASl"},
+                                                                     {"PSR"},
+                                                                     {"RT"},
+                                                                     {"DS"},
+                                                                     {"P_f", "Tmp"}};
+
 using FaceToLtsMapType = std::vector<std::pair<seissol::initializer::Layer*, size_t>>;
 
 } // namespace seissol::dr::output

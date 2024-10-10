@@ -27,6 +27,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <init.h>
+#include <iomanip>
+#include <ios>
 #include <kernel.h>
 #include <limits>
 #include <mpi.h>
@@ -170,6 +172,7 @@ void EnergyOutput::syncPoint(double time) {
 void EnergyOutput::simulationStart() {
   if (isFileOutputEnabled) {
     out.open(outputFileName);
+    out << std::scientific;
     writeHeader();
   }
   syncPoint(0.0);
@@ -250,11 +253,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-  constexpr auto QSize = tensor::Q::size();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
+    constexpr auto QSize = tensor::Q::size();
     const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     auto& table = it->getConditionalTable<inner_keys::Dr>();
     if (table.find(timeIntegrationKey) != table.end()) {
@@ -355,20 +358,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 }
 
 void EnergyOutput::computeVolumeEnergies() {
-  auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
-  auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
-  auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
-  auto& totalMomentumX = energiesStorage.totalMomentumX();
-  auto& totalMomentumY = energiesStorage.totalMomentumY();
-  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
-  auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
-  auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
-  auto& totalPlasticMoment = energiesStorage.plasticMoment();
+  // TODO: abstract energy calculation, and implement it for anisotropic and poroelastic
+  [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
+  [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
+  [[maybe_unused]] auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  [[maybe_unused]] auto& totalMomentumX = energiesStorage.totalMomentumX();
+  [[maybe_unused]] auto& totalMomentumY = energiesStorage.totalMomentumY();
+  [[maybe_unused]] auto& totalMomentumZ = energiesStorage.totalMomentumZ();
+  [[maybe_unused]] auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
+  [[maybe_unused]] auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
+  [[maybe_unused]] auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
   const std::vector<Element>& elements = meshReader->getElements();
   const std::vector<Vertex>& vertices = meshReader->getVertices();
 
-  const auto g = seissolInstance.getGravitationSetup().acceleration;
+  [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
@@ -532,11 +536,7 @@ void EnergyOutput::computeVolumeEnergies() {
     if (isPlasticityEnabled) {
       // plastic moment
       real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-#ifdef USE_ANISOTROPIC
-      real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-      const real mu = material.local.mu;
-#endif
+      const real mu = material.local.getMuBar();
       totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
     }
   }
@@ -616,35 +616,45 @@ void EnergyOutput::printEnergies() {
     const auto totalMomentumY = energiesStorage.totalMomentumY();
     const auto totalMomentumZ = energiesStorage.totalMomentumZ();
 
+    const auto outputPrecision =
+        seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
+
     if (shouldComputeVolumeEnergies()) {
       if (totalElasticEnergy) {
-        logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                       << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (totalAcousticEnergy) {
-        logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): "
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Acoustic energy (total, % kinematic, % potential): "
                       << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                       << ratioAcousticPotential;
       }
       if (energiesStorage.gravitationalEnergy()) {
-        logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
       }
       if (energiesStorage.plasticMoment()) {
-        logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+        logInfo(rank) << std::setprecision(outputPrecision)
+                      << "Plastic moment (value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment() << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
       }
-      logInfo(rank) << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
                     << " ," << totalMomentumZ;
     } else {
       logInfo(rank) << "Volume energies skipped at this step";
     }
 
     if (totalFrictionalWork) {
-      logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-      logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
+      logInfo(rank) << std::setprecision(outputPrecision)
+                    << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
                     << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     }
 

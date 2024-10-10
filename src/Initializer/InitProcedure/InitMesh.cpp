@@ -51,23 +51,22 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
-    logWarning(seissol::MPI::mpi.rank())
-        << "There are no local mesh elements on this rank. Is your mesh big enough?";
+    logWarning() << "There are no local mesh elements on this rank (" << seissol::MPI::mpi.rank()
+                 << "). Is your mesh big enough?";
   }
 
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
-  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
+  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
+  meshReader.exchangeGhostlayerMetadata();
 
+  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
   auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
   const VrtxCoords center{drParameters->referencePoint[0],
                           drParameters->referencePoint[1],
                           drParameters->referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters->refPointMethod);
-
-  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
-  meshReader.exchangeGhostlayerMetadata();
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 }
@@ -186,8 +185,6 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   seissol::Stopwatch watch;
   watch.start();
 
-  const bool readPartitionFromFile = seissolInstance.simulator().checkPointingEnabled();
-
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
       boundaryFormat,
@@ -199,15 +196,12 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
-  auto meshReader =
-      new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
-                                        seissolParams.mesh.partitioningLib.c_str(),
-                                        seissolParams.timeStepping.maxTimestepWidth,
-                                        seissolParams.output.checkpointParameters.fileName.c_str(),
-                                        boundaryFormat,
-                                        ltsWeights.get(),
-                                        nodeWeight,
-                                        readPartitionFromFile);
+  auto meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
+                                                      seissolParams.mesh.partitioningLib.c_str(),
+                                                      seissolParams.timeStepping.maxTimestepWidth,
+                                                      boundaryFormat,
+                                                      ltsWeights.get(),
+                                                      nodeWeight);
   seissolInstance.setMeshReader(meshReader);
 
   watch.pause();

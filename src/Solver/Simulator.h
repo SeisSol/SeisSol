@@ -34,12 +34,6 @@ class seissol::Simulator {
   //! usePlasticity = true if plasticity is on
   bool usePlasticity;
 
-  //! last time a checkpoint was written
-  double checkPointTime;
-
-  //! time interval of the checkpoints
-  double checkPointInterval;
-
   //! If true, the while loop of the simulation will be aborted (see terminator)
   bool aborted;
 
@@ -73,27 +67,15 @@ class seissol::Simulator {
    */
   void setCurrentTime(double currentTime);
 
-  /**
-   * Sets the interval for checkpointing.
-   *
-   * @param checkPointInterval check point interval.
-   **/
-  void setCheckPointInterval(double checkPointInterval);
+    /**
+     * update m_abort to abort the main loop of the simulation (see terminator)
+     */
+    void abort();
 
-  /**
-   * Returns if the simulator is going to write check points.
-   */
-  bool checkPointingEnabled();
-
-  /**
-   * update abort to abort the main loop of the simulation (see terminator)
-   */
-  void abort();
-
-  /**
-   * Simulates until finished.
-   **/
-  void simulate(seissol::SeisSol& seissolInstance);
+    /**
+     * Simulates until finished.
+     **/
+    void simulate(seissol::SeisSol& seissolInstance);
 };
 
 #endif

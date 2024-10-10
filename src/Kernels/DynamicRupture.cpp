@@ -51,6 +51,8 @@
 #include <stdint.h>
 #include <tensor.h>
 
+#include "utils/logger.h"
+
 #include "Numerical/Quadrature.h"
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
@@ -161,7 +163,7 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
 #ifdef USE_STP
     m_timeKernel.evaluateAtTime(
         timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
@@ -293,7 +295,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
     resetDeviceCurrentState(streamCounter);
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

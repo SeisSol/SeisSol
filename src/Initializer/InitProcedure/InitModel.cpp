@@ -206,7 +206,8 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                     memoryManager.getLtsTree(),
                                                     memoryManager.getLts(),
                                                     memoryManager.getLtsLut(),
-                                                    ltsInfo.timeStepping);
+                                                    ltsInfo.timeStepping,
+                                                    seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
     logWarning(seissol::MPI::mpi.rank())
@@ -296,6 +297,8 @@ static void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
                                                    numberOfDRCopyFaces,
                                                    numberOfDRInteriorFaces,
                                                    seissolParams.model.plasticity);
+
+  seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;

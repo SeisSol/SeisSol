@@ -14,6 +14,15 @@ target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 target_compile_features(SeisSol-device-lib PRIVATE cxx_std_17)
 target_compile_features(SeisSol-device-lib PRIVATE cuda_std_17)
 target_compile_options(SeisSol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+target_compile_definitions(SeisSol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
+        CONVERGENCE_ORDER=${ORDER}
+        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+        ${DR_QUAD_RULE})
+
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+target_compile_definitions(SeisSol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
 
 string(REPLACE "sm_" "" CUDA_DEVICE_ARCH "${DEVICE_ARCH}")
 set_target_properties(SeisSol-device-lib PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")

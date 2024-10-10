@@ -70,8 +70,8 @@
  **/
 
 #include "Kernels/TimeBase.h"
-#include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/Time.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -92,6 +92,8 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
+#include "utils/logger.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
@@ -99,7 +101,7 @@ namespace seissol::kernels {
 
 TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
-  for (int order = 0; order < ConvergenceOrder; ++order) {
+  for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
@@ -116,7 +118,7 @@ void Time::setHostGlobalData(GlobalData const* global) {
 #ifdef USE_STP
   //Note: We could use the space time predictor for elasticity.
   //This is not tested and experimental
-  for (int n = 0; n < ConvergenceOrder; ++n) {
+  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
@@ -203,7 +205,7 @@ void Time::computeAder(double timeStepWidth,
   krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
   krnl.power(0) = timeStepWidth;
-  for (unsigned der = 1; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
     krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der+1);
   }
 
@@ -286,7 +288,7 @@ void Time::computeBatchedAder(double timeStepWidth,
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
     derivativesKrnl.power(0) = timeStepWidth;
-    for (unsigned Der = 1; Der < ConvergenceOrder; ++Der) {
+    for (std::size_t Der = 1; Der < ConvergenceOrder; ++Der) {
       derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * timeStepWidth / real(Der + 1);
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem);
@@ -309,7 +311,7 @@ void Time::computeBatchedAder(double timeStepWidth,
     }
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -369,7 +371,7 @@ void Time::computeIntegral( double                            expansionPoint,
   }
  
   // iterate over time derivatives
-  for(int der = 0; der < ConvergenceOrder; ++der ) {
+  for(std::size_t der = 0; der < ConvergenceOrder; ++der ) {
     firstTerm  *= deltaTUpper;
     secondTerm *= deltaTLower;
     factorial  *= (real)(der+1);
@@ -399,6 +401,9 @@ void Time::computeBatchedIntegral(double expansionPoint,
   real deltaTLower = integrationStart - expansionPoint;
   real deltaTUpper = integrationEnd - expansionPoint;
 
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+  // compute lengths of integration intervals
+
   // initialization of scalars in the taylor series expansion (0th term)
   real firstTerm  = static_cast<real>(1.0);
   real secondTerm = static_cast<real>(1.0);
@@ -418,7 +423,7 @@ void Time::computeBatchedIntegral(double expansionPoint,
   }
 
   // iterate over time derivatives
-  for(int der = 0; der < ConvergenceOrder; ++der) {
+  for(std::size_t der = 0; der < ConvergenceOrder; ++der) {
     firstTerm *= deltaTUpper;
     secondTerm *= deltaTLower;
     factorial *= static_cast<real>(der + 1);
@@ -431,7 +436,10 @@ void Time::computeBatchedIntegral(double expansionPoint,
   intKrnl.execute();
   device.api->popStackMemory();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(true, numElements, timeIntegratedDofs, timeDerivatives, deltaTLower, deltaTUpper, runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -460,7 +468,7 @@ void Time::computeTaylorExpansion( real         time,
   intKrnl.power(0) = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+  for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
 
@@ -480,6 +488,9 @@ void Time::computeBatchedTaylorExpansion(real time,
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
+  const real deltaT = time - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
   intKrnl.I = timeEvaluated;
@@ -491,14 +502,17 @@ void Time::computeBatchedTaylorExpansion(real time,
   // iterate over time derivatives
   const real deltaT = time - expansionPoint;
   intKrnl.power(0) = 1.0;
-  for(int derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+  for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
 
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 

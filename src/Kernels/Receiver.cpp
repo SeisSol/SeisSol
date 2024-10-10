@@ -162,8 +162,6 @@ double ReceiverCluster::calcReceivers(double time,
                                       Executor executor,
                                       seissol::parallel::runtime::StreamRuntime& runtime) {
 
-  const std::size_t ncols = this->ncols();
-
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;

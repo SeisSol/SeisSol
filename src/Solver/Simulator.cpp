@@ -35,15 +35,6 @@ seissol::Simulator::Simulator()
     : currentTime(0), finalTime(0), usePlasticity(false), checkPointTime(0),
       checkPointInterval(std::numeric_limits<double>::max()), aborted(false) {}
 
-void seissol::Simulator::setCheckPointInterval(double checkPointInterval) {
-  assert(checkPointInterval > 0);
-  this->checkPointInterval = checkPointInterval;
-}
-
-bool seissol::Simulator::checkPointingEnabled() {
-  return checkPointInterval < std::numeric_limits<double>::max();
-}
-
 void seissol::Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
   this->finalTime = finalTime;
@@ -85,7 +76,6 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   }
 
   // intialize wave field and checkpoint time
-  checkPointTime = currentTime;
   Modules::setSimulationStartTime(currentTime);
 
   // derive next synchronization time
@@ -93,8 +83,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, 0.0));
-  upcomingTime = std::min(upcomingTime, std::abs(checkPointTime + checkPointInterval));
+  upcomingTime = std::min( upcomingTime, Modules::callSyncHook(currentTime, 0.0) );
 
   double lastSplit = 0;
 
@@ -121,31 +110,18 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     // update current time
     currentTime = upcomingTime;
 
-    // Set new upcoming time (might by overwritten by any of the modules)
-    upcomingTime = finalTime;
-
-    // synchronize data (TODO(David): synchronize lazily)
+    // Synchronize data (TODO(David): synchronize lazily)
     seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
 
-    // Check all synchronization point hooks
-    upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, timeTolerance));
-
-    // write checkpoint if required
-    if (std::abs(currentTime - (checkPointTime + checkPointInterval)) < timeTolerance) {
-      const unsigned int faultTimeStep = seissolInstance.faultWriter().timestep();
-      seissolInstance.checkPointManager().write(currentTime, faultTimeStep);
-      checkPointTime += checkPointInterval;
-    }
-    upcomingTime = std::min(upcomingTime, checkPointTime + checkPointInterval);
+    // Check all synchronization point hooks and set the new upcoming time
+    upcomingTime = std::min(finalTime, Modules::callSyncHook(currentTime, timeTolerance));
 
     ioStopwatch.pause();
 
-    const double currentSplit = simulationStopwatch.split();
-    Stopwatch::print(
-        "Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
-    Stopwatch::print(
-        "Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
+    double currentSplit = simulationStopwatch.split();
+    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }
@@ -158,7 +134,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   const double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
   computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
-  ioStopwatch.printTime("Simulation time (IO):", seissol::MPI::mpi.comm());
+  ioStopwatch.printTime("Simulation time (blocking IO):", seissol::MPI::mpi.comm());
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
