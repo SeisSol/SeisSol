@@ -5,22 +5,32 @@
 #pragma once
 
 #include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Solver/Clustering/Communication/NeighborCluster.h>
+#include <cstddef>
 #include <mpi.h>
-namespace seissol::solver::clustering::communication {
+#include <vector>
+namespace seissol::initializer {
+    
+struct RemoteCellRegion {
+  std::size_t count;
+  int rank;
+};
+
+struct HaloStructure {
+  std::vector<std::vector<RemoteCellRegion>> ghost;
+  std::vector<std::vector<RemoteCellRegion>> copy;
+};
 
 template <typename T>
-void haloCommunication(const HaloCommunication& comm,
+void haloCommunication(const HaloStructure& comm,
                        seissol::initializer::Variable<T>& var,
                        seissol::initializer::LTSTree& tree,
                        MPI_Datatype datatype) {
   haloCommunication(comm, var.handle, tree, datatype);
 }
 
-void haloCommunication(const HaloCommunication& comm,
+void haloCommunication(const HaloStructure& comm,
                        unsigned varIndex,
                        seissol::initializer::LTSTree& tree,
                        MPI_Datatype datatype);
 
-} // namespace seissol::solver::clustering::communication
+} // namespace seissol::initializer

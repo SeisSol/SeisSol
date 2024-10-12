@@ -18,7 +18,9 @@ class CCLSendNeighborCluster : public SendNeighborCluster {
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  CCLSendNeighborCluster(const std::vector<RemoteCluster>& remote, void* comm);
+  CCLSendNeighborCluster(const std::vector<RemoteCluster>& remote,
+                         void* comm,
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
   ~CCLSendNeighborCluster() override;
 
   private:
@@ -33,7 +35,9 @@ class CCLRecvNeighborCluster : public RecvNeighborCluster {
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  CCLRecvNeighborCluster(const std::vector<RemoteCluster>& remote, void* comm);
+  CCLRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
+                         void* comm,
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
   ~CCLRecvNeighborCluster() override;
 
   private:

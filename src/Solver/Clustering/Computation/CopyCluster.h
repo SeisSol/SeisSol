@@ -17,7 +17,6 @@ class CopyCluster : public TimeCluster {
               bool usePlasticity,
               double maxTimeStepSize,
               long timeStepRate,
-              bool printProgress,
               CompoundGlobalData globalData,
               seissol::initializer::Layer* clusterData,
               seissol::initializer::LTS* lts,
@@ -32,7 +31,7 @@ class CopyCluster : public TimeCluster {
                     usePlasticity,
                     maxTimeStepSize,
                     timeStepRate,
-                    printProgress,
+                    false,
                     globalData,
                     clusterData,
                     lts,
@@ -44,7 +43,10 @@ class CopyCluster : public TimeCluster {
   LayerType getLayerType() const override { return Copy; }
 
   protected:
-  void start() override { dataSent = false; }
+  void start() override {
+    TimeCluster::start();
+    dataSent = false;
+  }
 
   void runCompute(ComputeStep step) override {
     if (step == ComputeStep::Predict && dataSent) {
@@ -60,6 +62,7 @@ class CopyCluster : public TimeCluster {
   }
 
   void reset() override {
+    TimeCluster::reset();
     if (dataSent) {
       neighbor->stopTo(streamRuntime);
       dataSent = false;

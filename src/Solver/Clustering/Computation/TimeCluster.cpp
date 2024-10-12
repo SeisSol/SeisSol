@@ -110,8 +110,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
 #else
                   Executor::Host,
 #endif
-                  cpuExecutor
-                  ),
+                  cpuExecutor),
       // cluster ids
       usePlasticity(usePlasticity), seissolInstance(seissolInstance),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
@@ -257,7 +256,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr &&
-          data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
+          data.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = globalDataOnHost->V3mTo2nFace;
@@ -446,7 +445,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     flopsHardware += cellHardware;
     // Contribution from displacement/integrated displacement
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
+      if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
             GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
                 face, cellInformation[cell].faceTypes[face]);
@@ -638,8 +637,8 @@ unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 void TimeCluster::setReceiverTime(double receiverTime) { this->receiverTime = receiverTime; }
 
 void TimeCluster::finalize() {
-  sourceCluster.host.reset(nullptr);
-  sourceCluster.device.reset(nullptr);
+  // sourceCluster.host.reset(nullptr);
+  // sourceCluster.device.reset(nullptr);
   streamRuntime.dispose();
 }
 
@@ -670,14 +669,14 @@ std::pair<long, long>
   real* faceNeighborsPrefetch[4];
 
   auto globalDataOnHost = this->globalDataOnHost;
-  auto& self = *this;
+  auto* self = this;
 
   streamRuntime.enqueueOmpFor(numberOfCells, [=](std::size_t cell) {
     real* timeIntegrated[4];
     real* faceNeighborsPrefetch[4];
     auto data = loader.entry(cell);
     seissol::kernels::TimeCommon::computeIntegrals(
-        self.timeKernel,
+        self->timeKernel,
         data.cellInformation().ltsSetup,
         data.cellInformation().faceTypes,
         subTimeStart,
@@ -691,27 +690,27 @@ std::pair<long, long>
 #endif
         timeIntegrated);
 
-    faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::dynamicRupture)
+    faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                    ? faceNeighbors[cell][1]
                                    : drMapping[cell][1].godunov;
-    faceNeighborsPrefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::dynamicRupture)
+    faceNeighborsPrefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::DynamicRupture)
                                    ? faceNeighbors[cell][2]
                                    : drMapping[cell][2].godunov;
-    faceNeighborsPrefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::dynamicRupture)
+    faceNeighborsPrefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::DynamicRupture)
                                    ? faceNeighbors[cell][3]
                                    : drMapping[cell][3].godunov;
 
     // fourth face's prefetches
     if (cell < (numberOfCells - 1)) {
       faceNeighborsPrefetch[3] =
-          (cellInformation[cell + 1].faceTypes[0] != FaceType::dynamicRupture)
+          (cellInformation[cell + 1].faceTypes[0] != FaceType::DynamicRupture)
               ? faceNeighbors[cell + 1][0]
               : drMapping[cell + 1][0].godunov;
     } else {
       faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
     }
 
-    self.neighborKernel.computeNeighborsIntegral(
+    self->neighborKernel.computeNeighborsIntegral(
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {

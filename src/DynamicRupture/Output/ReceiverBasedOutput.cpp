@@ -69,12 +69,10 @@ void ReceiverOutput::calcFaultOutput(
   const auto faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  outputData->deviceDataCollector->gatherToHost(stream);
+  outputData->deviceDataCollector->gatherToHost(runtime.stream());
   for (auto& [_, dataCollector] : outputData->deviceVariables) {
-    dataCollector->gatherToHost(stream);
+    dataCollector->gatherToHost(runtime.stream());
   }
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
   runtime.enqueueOmpFor(outputData->receiverPoints.size(), [=](size_t i) {

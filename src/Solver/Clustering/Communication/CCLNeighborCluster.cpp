@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "CCLNeighborCluster.h"
+#include <Solver/Clustering/Communication/NeighborCluster.h>
 
 #ifdef USE_CCL
 #ifdef CCL_NCCL
@@ -26,24 +27,29 @@ namespace seissol::solver::clustering::communication {
 
 bool CCLSendNeighborCluster::poll() { return true; }
 void CCLSendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
+  if (remote.size() > 0) {
 #ifdef USE_CCL
-  ncclGroupStart();
-  for (std::size_t i = 0; i < remote.size(); ++i) {
-    const auto& cluster = remote.at(i);
-    ncclSend(cluster.data,
-             cluster.size,
-             CclReal, // TODO(David): use cluster.datatype here instead
-             cluster.rank,
-             static_cast<ncclComm_t>(comm),
-             static_cast<StreamT>(runtime.stream()));
-  }
-  ncclGroupEnd();
+    ncclGroupStart();
+    for (std::size_t i = 0; i < remote.size(); ++i) {
+      const auto& cluster = remote.at(i);
+      ncclSend(cluster.data,
+               cluster.size,
+               CclReal, // TODO(David): use cluster.datatype here instead
+               cluster.rank,
+               static_cast<ncclComm_t>(comm),
+               static_cast<StreamT>(runtime.stream()));
+    }
+    ncclGroupEnd();
 #endif
+  }
 }
 void CCLSendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {}
 
-CCLSendNeighborCluster::CCLSendNeighborCluster(const std::vector<RemoteCluster>& remote, void* comm)
-    : remote(remote), comm(comm) {
+CCLSendNeighborCluster::CCLSendNeighborCluster(
+    const std::vector<RemoteCluster>& remote,
+    void* comm,
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    : remote(remote), comm(comm), SendNeighborCluster(cpuExecutor) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
     void* handle;
@@ -65,24 +71,29 @@ CCLSendNeighborCluster::~CCLSendNeighborCluster() {
 
 bool CCLRecvNeighborCluster::poll() { return true; }
 void CCLRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
+  if (remote.size() > 0) {
 #ifdef USE_CCL
-  ncclGroupStart();
-  for (std::size_t i = 0; i < remote.size(); ++i) {
-    const auto& cluster = remote.at(i);
-    ncclRecv(cluster.data,
-             cluster.size,
-             CclReal, // TODO(David): use cluster.datatype here instead
-             cluster.rank,
-             static_cast<ncclComm_t>(comm),
-             static_cast<StreamT>(runtime.stream()));
-  }
-  ncclGroupEnd();
+    ncclGroupStart();
+    for (std::size_t i = 0; i < remote.size(); ++i) {
+      const auto& cluster = remote.at(i);
+      ncclRecv(cluster.data,
+               cluster.size,
+               CclReal, // TODO(David): use cluster.datatype here instead
+               cluster.rank,
+               static_cast<ncclComm_t>(comm),
+               static_cast<StreamT>(runtime.stream()));
+    }
+    ncclGroupEnd();
 #endif
+  }
 }
 void CCLRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {}
 
-CCLRecvNeighborCluster::CCLRecvNeighborCluster(const std::vector<RemoteCluster>& remote, void* comm)
-    : remote(remote), comm(comm) {
+CCLRecvNeighborCluster::CCLRecvNeighborCluster(
+    const std::vector<RemoteCluster>& remote,
+    void* comm,
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    : remote(remote), comm(comm), RecvNeighborCluster(cpuExecutor) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
     void* handle;

@@ -11,11 +11,6 @@
 #include <Solver/Clustering/Communication/DirectMPINeighborCluster.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 
-#if defined(ACL_DEVICE) && defined(USE_CCL)
-#include "CCLCluster.h"
-#include "CCLSetup.h"
-#endif
-
 namespace seissol::solver::clustering::communication {
 enum class CommunicationMode {
   DirectMPI,
@@ -34,14 +29,22 @@ class CommunicationClusterFactory {
 
   void prepare();
 
-  std::unique_ptr<SendNeighborCluster> getSend(std::size_t cluster,
-                                               const std::vector<RemoteCluster>& remoteClusters);
+  std::shared_ptr<SendNeighborCluster>
+      getSend(std::size_t cluster,
+              const std::vector<RemoteCluster>& remoteClusters,
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
-  std::unique_ptr<RecvNeighborCluster> getRecv(std::size_t cluster,
-                                               const std::vector<RemoteCluster>& remoteClusters);
+  std::shared_ptr<RecvNeighborCluster>
+      getRecv(std::size_t cluster,
+              const std::vector<RemoteCluster>& remoteClusters,
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
-  std::vector<std::unique_ptr<RecvNeighborCluster>> getAllRecvs(const HaloCommunication& comm);
+  std::vector<std::shared_ptr<RecvNeighborCluster>>
+      getAllRecvs(const HaloCommunication& comm,
+                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
-  std::vector<std::unique_ptr<SendNeighborCluster>> getAllSends(const HaloCommunication& comm);
+  std::vector<std::shared_ptr<SendNeighborCluster>>
+      getAllSends(const HaloCommunication& comm,
+                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 };
 } // namespace seissol::solver::clustering::communication

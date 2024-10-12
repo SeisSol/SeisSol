@@ -16,7 +16,6 @@ add_library(seissol-solver
     Clustering/Communication/CCLNeighborCluster.cpp
     Clustering/Communication/CCLSetup.cpp
     Clustering/Communication/NeighborCluster.cpp
-    Clustering/Communication/HaloHelper.cpp
     Clustering/Communication/CommunicationFactory.cpp
     Clustering/Communication/CommunicationManager.cpp
     Clustering/Communication/DirectMPINeighborCluster.cpp

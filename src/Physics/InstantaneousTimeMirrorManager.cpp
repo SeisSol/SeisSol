@@ -165,7 +165,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
@@ -198,7 +198,8 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>& timeClusters) {
+    const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>&
+        timeClusters) {
   this->timeClusters = timeClusters;
 }
 

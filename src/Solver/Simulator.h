@@ -67,15 +67,15 @@ class seissol::Simulator {
    */
   void setCurrentTime(double currentTime);
 
-    /**
-     * update m_abort to abort the main loop of the simulation (see terminator)
-     */
-    void abort();
+  /**
+   * update m_abort to abort the main loop of the simulation (see terminator)
+   */
+  void abort();
 
-    /**
-     * Simulates until finished.
-     **/
-    void simulate(seissol::SeisSol& seissolInstance);
+  /**
+   * Simulates until finished.
+   **/
+  void simulate(seissol::SeisSol& seissolInstance);
 };
 
 #endif

@@ -17,7 +17,7 @@
 #include <Kernels/Precision.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Monitoring/LoopStatistics.h>
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <xdmfwriter/scorep_wrapper.h>
@@ -46,8 +46,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
 #else
                   Executor::Host,
 #endif
-                  cpuExecutor
-                  ),
+                  cpuExecutor),
       profilingId(profilingId), layer(layer), descr(descr), frictionSolver(frictionSolver),
       frictionSolverDevice(frictionSolverDevice), faultOutputManager(faultOutputManager),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),

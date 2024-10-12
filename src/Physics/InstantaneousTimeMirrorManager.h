@@ -42,7 +42,8 @@ class InstantaneousTimeMirrorManager : Module {
                                                // what exactly is to be sent here
 
   void setTimeClusterVector(
-      const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>& timeClusters);
+      const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>&
+          timeClusters);
 
   void syncPoint(double currentTime) override;
 

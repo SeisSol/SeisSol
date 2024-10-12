@@ -32,8 +32,7 @@
 #include "Simulator.h"
 
 seissol::Simulator::Simulator()
-    : currentTime(0), finalTime(0), usePlasticity(false), checkPointTime(0),
-      checkPointInterval(std::numeric_limits<double>::max()), aborted(false) {}
+    : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}
 
 void seissol::Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
@@ -53,7 +52,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  parallel::runtime::StreamRuntime syncRuntime;
+  parallel::runtime::StreamRuntime syncRuntime(std::make_shared<parallel::host::SyncExecutor>());
   faultOutputManager->writePickpointOutput(0.0, 0.0, syncRuntime);
   syncRuntime.wait();
 
@@ -83,7 +82,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min( upcomingTime, Modules::callSyncHook(currentTime, 0.0) );
+  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime, 0.0));
 
   double lastSplit = 0;
 
@@ -119,9 +118,12 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     ioStopwatch.pause();
 
     double currentSplit = simulationStopwatch.split();
-    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print(
+        "Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
+    Stopwatch::print(
+        "Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print(
+        "Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
   }

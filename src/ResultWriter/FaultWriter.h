@@ -51,7 +51,9 @@
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include <Parallel/Host/SyncExecutor.h>
 #include <Parallel/Runtime/Stream.h>
+#include <memory>
 
 namespace seissol {
   class SeisSol;
@@ -86,7 +88,7 @@ private:
 
 	dr::output::OutputManager* callbackObject{nullptr};
 
-	parallel::runtime::StreamRuntime runtime;
+	parallel::runtime::StreamRuntime runtime{std::make_shared<parallel::host::SyncExecutor>()};
 
 public:
 	FaultWriter(seissol::SeisSol& seissolInstance) : 

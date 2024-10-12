@@ -6,7 +6,6 @@
 
 #include "NeighborCluster.h"
 #include <Parallel/Runtime/Stream.h>
-#include <atomic>
 #include <mpi.h>
 #include <vector>
 
@@ -18,13 +17,15 @@ class DirectMPISendNeighborCluster : public SendNeighborCluster {
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  DirectMPISendNeighborCluster(const std::vector<RemoteCluster>& remote);
+  DirectMPISendNeighborCluster(const std::vector<RemoteCluster>& remote,
+                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
   ~DirectMPISendNeighborCluster() override;
 
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
+  uint32_t progress = 0;
 };
 
 class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
@@ -33,13 +34,15 @@ class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  DirectMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote);
+  DirectMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
+                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
   ~DirectMPIRecvNeighborCluster() override;
 
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
+  uint32_t progress = 0;
 };
 
 /*

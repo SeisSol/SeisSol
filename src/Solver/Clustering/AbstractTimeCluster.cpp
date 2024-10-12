@@ -22,10 +22,11 @@
 namespace seissol::solver::clustering {
 double AbstractTimeCluster::timeStepSize() const { return ct.timeStepSize(syncTime); }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,
-                                         long timeStepRate,
-                                         Executor executor,
-                                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+AbstractTimeCluster::AbstractTimeCluster(
+    double maxTimeStepSize,
+    long timeStepRate,
+    Executor executor,
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : timeOfLastStageChange(std::chrono::steady_clock::now()), timeStepRate(timeStepRate),
       numberOfTimeSteps(0), executor(executor), streamRuntime(cpuExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
@@ -283,10 +284,16 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
   });
 }
 
-CellCluster::CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+CellCluster::CellCluster(double maxTimeStepSize,
+                         long timeStepRate,
+                         Executor executor,
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
 
-FaceCluster::FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+FaceCluster::FaceCluster(double maxTimeStepSize,
+                         long timeStepRate,
+                         Executor executor,
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
 
 CellCluster::~CellCluster() = default;

@@ -5,7 +5,10 @@
 #include <memory>
 namespace seissol::parallel::host {
 
-class Task {};
+class Task {
+  public:
+  virtual void wait() = 0;
+};
 
 class CpuExecutor {
   public:

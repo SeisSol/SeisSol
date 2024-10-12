@@ -13,11 +13,13 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
+#include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -251,10 +253,10 @@ static void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto mLtsTree = memoryManager.getLtsTree();
-    auto mLts = memoryManager.getLts();
-    auto mLtsLut = memoryManager.getLtsLut();
-    auto mTimeStepping = seissolInstance.timeManager().getTimeStepping();
+    auto* mLtsTree = memoryManager.getLtsTree();
+    auto* mLts = memoryManager.getLts();
+    auto* mLtsLut = memoryManager.getLtsLut();
+    auto* mTimeStepping = new TimeStepping(ltsInfo.timeStepping);
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
@@ -328,10 +330,20 @@ static void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolIn
 
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
-  seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,
-                                            ltsInfo.meshStructure,
-                                            seissolInstance.getMemoryManager(),
-                                            seissolParams.model.plasticity);
+  std::vector<int> localClusters(ltsInfo.timeStepping.clusterIds,
+                                 ltsInfo.timeStepping.clusterIds +
+                                     ltsInfo.timeStepping.numberOfLocalClusters);
+  auto layout = initializer::ClusterLayout(ltsInfo.timeStepping.globalTimeStepRates[0],
+                                           ltsInfo.timeStepping.globalCflTimeStepWidths[0],
+                                           ltsInfo.timeStepping.numberOfGlobalClusters,
+                                           localClusters);
+
+  solver::clustering::communication::HaloCommunication halo =
+      solver::clustering::communication::getHaloCommunication(
+          ltsInfo.timeStepping.numberOfLocalClusters, ltsInfo.meshStructure);
+
+  seissolInstance.timeManager().addClusters(
+      layout, halo, seissolInstance.getMemoryManager(), seissolParams.model.plasticity);
 
   // set tv for all time clusters (this needs to be done, after the time clusters start existing)
   if (seissolParams.model.plasticity) {

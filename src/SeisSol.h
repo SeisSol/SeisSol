@@ -100,7 +100,7 @@ class SeisSol {
 
   initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
 
-  time_stepping::TimeManager& timeManager() { return m_timeManager; }
+  solver::clustering::TimeManager& timeManager() { return m_timeManager; }
 
   Simulator& simulator() { return m_simulator; }
 
@@ -239,7 +239,7 @@ class SeisSol {
   std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager m_timeManager;
+  solver::clustering::TimeManager m_timeManager;
 
   //! Simulator
   Simulator m_simulator;

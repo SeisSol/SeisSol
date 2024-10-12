@@ -29,6 +29,8 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Parallel/Host/SyncExecutor.h>
+#include <memory>
 #include <stdexcept>
 #include <stdlib.h>
 #include <tensor.h>
@@ -241,7 +243,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager,
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
-  seissol::parallel::runtime::StreamRuntime runtime;
+  seissol::parallel::runtime::StreamRuntime runtime(
+      std::make_shared<parallel::host::SyncExecutor>());
 
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();

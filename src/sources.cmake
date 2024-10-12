@@ -36,6 +36,7 @@ src/DynamicRupture/Misc.cpp
 
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 src/Initializer/PointMapper.cpp
+src/Initializer/TimeStepping/Halo.cpp
 src/Modules/Module.cpp
 src/Modules/Modules.cpp
 
@@ -86,6 +87,9 @@ src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/FaultWriterExecutor.cpp
+
+src/Parallel/Host/SyncExecutor.cpp
+src/Parallel/Host/Threading.cpp
 
 src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
@@ -262,7 +266,7 @@ endif()
 
 
 add_subdirectory(src/Solver)
-target_link_libraries(SeisSol-common-lib PUBLIC seissol-solver)
+target_link_libraries(SeisSol-lib PUBLIC seissol-solver)
 
 add_subdirectory(src/IO)
 target_link_libraries(SeisSol-lib PUBLIC seissol-io)

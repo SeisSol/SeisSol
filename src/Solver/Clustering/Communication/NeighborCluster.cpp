@@ -33,6 +33,9 @@ HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStruc
   return communication;
 }
 
+NeighborCluster::NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    : myRuntime(parallel::runtime::StreamRuntime(cpuExecutor)) {}
+
 void NeighborCluster::startFrom(parallel::runtime::StreamRuntime& runtime) {
   void* event = runtime.recordEvent();
   this->myRuntime.waitEvent(event);

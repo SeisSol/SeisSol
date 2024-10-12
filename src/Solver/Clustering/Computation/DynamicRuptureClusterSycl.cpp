@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "DynamicRuptureCluster.hpp"
+#include "DynamicRuptureCluster.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 
 namespace seissol::solver::clustering::computation {
 void DynamicRuptureCluster::initFrictionSolverDevice() {

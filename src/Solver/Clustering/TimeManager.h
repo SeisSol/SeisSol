@@ -32,7 +32,6 @@
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/Clustering/Communication/CommunicationManager.h"
-#include "Solver/Clustering/Communication/GhostTimeClusterFactory.h"
 #include "Solver/Clustering/Computation/DynamicRuptureCluster.h"
 #include "Solver/Clustering/Computation/TimeCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -66,8 +65,7 @@ class TimeManager {
 
   seissol::SeisSol& seissolInstance;
 
-  //! time stepping
-  TimeStepping timeStepping;
+  std::optional<initializer::ClusterLayout> layout;
 
   std::shared_ptr<parallel::host::CpuExecutor> cpuExecutor;
 
@@ -78,13 +76,14 @@ class TimeManager {
 
   std::vector<std::shared_ptr<AbstractTimeCluster>> clusters;
 
-  std::vector<computation::TimeCluster*> highPrioClusters;
-  std::vector<computation::TimeCluster*> lowPrioClusters;
-  std::vector<computation::DynamicRuptureCluster*> highPrioClustersDR;
-  std::vector<computation::DynamicRuptureCluster*> lowPrioClustersDR;
+  std::vector<std::shared_ptr<computation::TimeCluster>> cellClusters;
+  std::vector<std::shared_ptr<computation::DynamicRuptureCluster>> faceClusters;
+
+  std::vector<std::shared_ptr<AbstractTimeCluster>> highPrioClusters;
+  std::vector<std::shared_ptr<AbstractTimeCluster>> lowPrioClusters;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
-  std::unique_ptr<communication::AbstractCommunicationManager> communicationManager;
+  std::shared_ptr<communication::AbstractCommunicationManager> communicationManager;
 
   //! Stopwatch
   LoopStatistics loopStatistics;
@@ -100,8 +99,9 @@ class TimeManager {
   TimeManager(seissol::SeisSol& seissolInstance);
 
   void addClusters(initializer::ClusterLayout& layout,
-                              initializer::MemoryManager& memoryManager,
-                              bool usePlasticity);
+                   const communication::HaloCommunication& halo,
+                   initializer::MemoryManager& memoryManager,
+                   bool usePlasticity);
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* getFaultOutputManager();
@@ -148,8 +148,6 @@ class TimeManager {
   void freeDynamicResources();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
-
-  inline const TimeStepping* getTimeStepping() { return &timeStepping; }
 };
 
 } // namespace seissol::solver::clustering

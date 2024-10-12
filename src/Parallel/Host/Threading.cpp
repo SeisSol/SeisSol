@@ -14,6 +14,11 @@ class FromDeviceEvent : public Task {
   void init() {}
   void record() {}
   bool poll() { return true; }
+
+  void wait() override {
+    while (!poll())
+      ;
+  }
 };
 #endif
 
@@ -26,6 +31,11 @@ class SimpleEvent : public Task {
   void init() { data->store(false); }
   void record() { data->store(true); }
   bool poll() { return data->load(); }
+
+  void wait() override {
+    while (!poll())
+      ; // TODO: yield?
+  }
 };
 
 struct SimpleTask {
@@ -86,8 +96,8 @@ void ThreadStackExecutor::complete() { completed.store(true); }
 // emulate a de-facto pthread-like runtime; until all OMP features are implemented properly
 void ThreadStackExecutor::run() {
   std::vector<SimpleTask> nextTasks;
-  std::vector<std::atomic<int>> done;
-#pragma omp parallel
+  std::vector<std::unique_ptr<std::atomic<int>>> done;
+#pragma omp parallel shared(nextTasks, done)
   {
     while (running.load()) {
       bool allEmpty = true;
@@ -103,8 +113,8 @@ void ThreadStackExecutor::run() {
           }
           for (auto it = tasks.begin(); it != tasks.end(); ++it) {
             if (std::invoke(it->ready)) {
-              nextTasks.push_back(*it);
-              done.push_back(omp_get_num_threads());
+              nextTasks.emplace_back(*it);
+              done.emplace_back(std::make_unique<std::atomic<int>>(omp_get_num_threads()));
               it = tasks.erase(it);
             }
           }
@@ -115,11 +125,11 @@ void ThreadStackExecutor::run() {
       }
       for (std::size_t j = 0; j < nextTasks.size(); ++j) {
         auto& task = nextTasks[j];
-#pragma omp for nowait schedule(dynamic, 1)
+#pragma omp for nowait schedule(static)
         for (std::size_t i = 0; i < task.size; ++i) {
           std::invoke(task.function, i);
         }
-        auto prev = done[j].fetch_sub(1);
+        auto prev = done[j]->fetch_sub(1);
         if (prev == 1) {
           std::invoke(task.completion);
         }

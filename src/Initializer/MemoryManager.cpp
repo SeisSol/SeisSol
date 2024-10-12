@@ -68,7 +68,7 @@
  * Memory management of SeisSol.
  **/
 
-#include <Parallel/Helper.hpp>
+#include <Parallel/Helper.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -525,19 +525,14 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  m_dynRupTree.setTimeClusters(i_timeStepping.numberOfLocalClusters, i_timeStepping.clusterIds);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc >= i_timeStepping.numberOfLocalClusters) {
-        cluster.child<Copy>().setNumberOfCells(0);
-        cluster.child<Interior>().setNumberOfCells(0);
-    } else {
-        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
-    }
+    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
 
   m_dynRupTree.allocateVariables();

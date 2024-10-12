@@ -1,6 +1,6 @@
 #include "OMPTasking.h"
 
-#include <Parallel/Host/CpuExecutor.hpp>
+#include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Pin.h>
 #include <functional>
 #include <memory>
@@ -14,6 +14,10 @@ namespace seissol::parallel::host {
 
 class OMPTask : public Task {
   omp_depend_t depobj;
+
+  void wait() override {
+#pragma omp taskwait // TODO
+  }
 };
 
 void OMPTaskingExecutor::start(const std::function<void(CpuExecutor&)>& continuation,
@@ -25,7 +29,9 @@ void OMPTaskingExecutor::start(const std::function<void(CpuExecutor&)>& continua
     device.api->setDevice(0);
 #endif
 #pragma omp single
-    { std::invoke(continuation, *this); }
+    {
+      std::invoke(continuation, *this);
+    }
   }
 #pragma omp taskwait
 }

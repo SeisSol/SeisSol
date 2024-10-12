@@ -44,7 +44,6 @@
 #define TIMECLUSTER_H_
 
 #include <Initializer/Tree/Layer.h>
-#include <SeisSol.h>
 #ifdef USE_MPI
 #include <list>
 #include <mpi.h>
@@ -76,6 +75,8 @@
 
 namespace seissol {
 
+class SeisSol;
+
 namespace kernels {
 class ReceiverCluster;
 } // namespace kernels
@@ -89,14 +90,13 @@ class TimeCluster : public CellCluster {
 
   protected:
   void runCompute(ComputeStep step) override;
+  void handleAdvancedComputeTimeMessage(ComputeStep,
+                                        const NeighborCluster& neighborCluster) override;
+  void start() override {}
 
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
-
-  void handleAdvancedComputeTimeMessage(ComputeStep,
-                                        const NeighborCluster& neighborCluster) override;
-  void start() override {}
   void predict();
   void correct();
   bool usePlasticity;
@@ -227,7 +227,6 @@ class TimeCluster : public CellCluster {
   //! Update relax time for plasticity
   double getRelaxTime() { return (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0; }
 
-  const LayerType layerType;
   //! time of the next receiver output
   double receiverTime;
 
@@ -300,7 +299,7 @@ class TimeCluster : public CellCluster {
 
   std::vector<NeighborCluster>* getNeighborClusters();
 
-  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
+  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   std::string description() const override { return "cell-cluster"; }
 };

@@ -21,6 +21,7 @@
 #include "Kernels/Precision.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Parallel/Host/SyncExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <array>
@@ -259,7 +260,12 @@ void OutputManager::initElementwiseOutput() {
     });
 
     auto& self = *this;
-    writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+    writer.addHook([&](std::size_t, double) {
+      auto runtime =
+          parallel::runtime::StreamRuntime(std::make_shared<parallel::host::SyncExecutor>());
+      self.updateElementwiseOutput(runtime);
+      runtime.wait();
+    });
 
     io::writer::ScheduledWriter schedWriter;
     schedWriter.interval = printTime;

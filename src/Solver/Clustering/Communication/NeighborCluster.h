@@ -5,8 +5,10 @@
 #pragma once
 
 #include <Initializer/Typedefs.h>
+#include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/Clustering/ActorState.h>
+#include <stdexcept>
 namespace seissol::solver::clustering::communication {
 
 struct RemoteCluster {
@@ -31,6 +33,7 @@ struct CommunicationSetup {
 
 class NeighborCluster {
   public:
+  NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>&);
   virtual bool poll() = 0;
   virtual void start(parallel::runtime::StreamRuntime& runtime) = 0;
   virtual void stop(parallel::runtime::StreamRuntime& runtime) = 0;
@@ -43,8 +46,18 @@ class NeighborCluster {
   parallel::runtime::StreamRuntime myRuntime;
 };
 
-class SendNeighborCluster : public NeighborCluster {};
+class SendNeighborCluster : public NeighborCluster {
+  public:
+  SendNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+      : NeighborCluster(cpuExecutor) {}
+  ~SendNeighborCluster() override = default;
+};
 
-class RecvNeighborCluster : public NeighborCluster {};
+class RecvNeighborCluster : public NeighborCluster {
+  public:
+  RecvNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+      : NeighborCluster(cpuExecutor) {}
+  ~RecvNeighborCluster() override = default;
+};
 
 } // namespace seissol::solver::clustering::communication

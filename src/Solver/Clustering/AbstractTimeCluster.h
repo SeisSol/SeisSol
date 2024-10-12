@@ -35,7 +35,10 @@ class AbstractTimeCluster {
 
   [[nodiscard]] double timeStepSize() const;
 
-  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+  AbstractTimeCluster(double maxTimeStepSize,
+                      long timeStepRate,
+                      Executor executor,
+                      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   bool maySynchronize();
   virtual void start() = 0;
@@ -63,7 +66,7 @@ class AbstractTimeCluster {
   virtual bool emptyStep(ComputeStep step) const { return true; }
   virtual bool processMessages();
   virtual void handleAdvancedComputeTimeMessage(ComputeStep step,
-                                                const NeighborCluster& neighborCluster) = 0;
+                                                const NeighborCluster& neighborCluster) {}
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
   bool hasDifferentExecutorNeighbor();
@@ -76,6 +79,8 @@ class AbstractTimeCluster {
 
   public:
   virtual ~AbstractTimeCluster();
+
+  virtual void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {}
 
   virtual std::string description() const { return ""; }
 
@@ -125,7 +130,10 @@ class CellCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
   ~CellCluster() override;
-  CellCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+  CellCluster(double maxTimeStepSize,
+              long timeStepRate,
+              Executor executor,
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   public:
 };
@@ -134,7 +142,10 @@ class FaceCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Interact; }
   ~FaceCluster() override;
-  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor, const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+  FaceCluster(double maxTimeStepSize,
+              long timeStepRate,
+              Executor executor,
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
 
   public:
 };
