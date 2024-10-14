@@ -696,6 +696,9 @@ if(WITH_GPU)
   target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
 endif()
   target_include_directories(SeisSol-serial-test PUBLIC external/)
+
+  separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
+  set_property(TARGET SeisSol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
   doctest_discover_tests(SeisSol-serial-test)
 
   # Avoid duplicate definition of FLOP counters
