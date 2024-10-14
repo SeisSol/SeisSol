@@ -58,6 +58,9 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
+  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
+  meshReader.exchangeGhostlayerMetadata();
+
   logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
 
   auto drParameters = seissolInstance.getMemoryManager().getDRParameters();
@@ -67,9 +70,6 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
                     drParameters[0]->referencePoint[2]}; /// \todo (VK) find a cleaner better way to do this for fused simulations. Right now, we are assuming
                     // that the user does not mess up and put different reference points in different simulation files
   meshReader.extractFaultInformation(center, drParameters[0]->refPointMethod); /// \todo (VK): same as above
-
-  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
-  meshReader.exchangeGhostlayerMetadata();
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 }
