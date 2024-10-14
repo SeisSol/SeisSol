@@ -43,10 +43,10 @@ jobs:
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-          #- cc: nvc
-          #  cxx: nvc++
-          #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          - cc: nvc
+            cxx: nvc++
+            fc: nvfortran
+            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
     steps:
       - id: checkout
         name: checkout-seissol
@@ -77,7 +77,13 @@ jobs:
 
           mkdir -p /opt/seissol
 
-          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          if [ ${{matrix.setup.cc}} = nvc ]; then
+            TESTING_COMMAND="mpirun -n1";
+          else
+            TESTING_COMMAND="";
+          fi;
+
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja install
 
       - name: test-seissol
@@ -250,12 +256,12 @@ jobs:
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
-          #- cc: nvc
-          #  cxx: nvc++
-          #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-          #  pythonbreak: true
-          #  mpi: TODO
+          - cc: nvc
+            cxx: nvc++
+            fc: nvfortran
+            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+            pythonbreak: true
+            mpi: nvidia
         parallel:
           - ranks: 1
             threads: 4
