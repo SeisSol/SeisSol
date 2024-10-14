@@ -25,7 +25,9 @@ class DirectMPISendNeighborCluster : public SendNeighborCluster {
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
-  uint32_t progress = 0;
+  uint32_t progressRestart{0};
+  uint32_t* progressEnd;
+  uint32_t progressStart{0};
 };
 
 class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
@@ -42,7 +44,9 @@ class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
-  uint32_t progress = 0;
+  uint32_t progressRestart{0};
+  uint32_t* progressEnd;
+  uint32_t progressStart{0};
 };
 
 /*

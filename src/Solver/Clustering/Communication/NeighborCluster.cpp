@@ -15,7 +15,7 @@ HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStruc
   for (std::size_t i = 0; i < clusterCount; ++i) {
     const auto& clusterStructure = structure[i];
     for (std::size_t j = 0; j < clusterStructure.numberOfRegions; ++j) {
-      const std::size_t clusterIndex = clusterStructure.neighboringClusters[j][0];
+      const std::size_t clusterIndex = clusterStructure.neighboringClusters[j][1];
       communication.copy.at(clusterIndex)
           .emplace_back(RemoteCluster{clusterStructure.copyRegions[j],
                                       clusterStructure.copyRegionSizes[j],

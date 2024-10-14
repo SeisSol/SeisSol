@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "DirectMPINeighborCluster.h"
+#include <Initializer/MemoryAllocator.h>
 #include <Parallel/MPI.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <mpi.h>
@@ -16,9 +17,15 @@ namespace seissol::solver::clustering::communication {
 bool DirectMPISendNeighborCluster::poll() {
   if (requests.size() > 0) {
     std::lock_guard guard(requestMutex);
-    int result;
-    MPI_Testsome(requests.size(), requests.data(), &result, status.data(), MPI_STATUSES_IGNORE);
-    return result == requests.size();
+    int result = 0;
+    MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
+    const auto done = result != 0;
+    if (done && *progressEnd < progressRestart) {
+      const auto increment = progressRestart - *progressEnd;
+#pragma omp atomic
+      *progressEnd += increment;
+    }
+    return done;
   } else {
     return true;
   }
@@ -29,13 +36,17 @@ void DirectMPISendNeighborCluster::start(parallel::runtime::StreamRuntime& runti
     runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
       MPI_Startall(requests.size(), requests.data());
+      ++progressRestart;
     });
-    ++progress;
+    ++progressStart;
   }
 }
 
 void DirectMPISendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {
-  runtime.enqueueHost([&] { MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE); });
+  if (requests.size() > 0) {
+    device::DeviceInstance::getInstance().api->streamWaitMemory(
+        runtime.stream(), progressEnd, progressStart);
+  }
 }
 
 DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
@@ -53,20 +64,29 @@ DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
                   MPI::mpi.comm(),
                   &requests[i]);
   }
+  progressEnd = memory::allocTyped<uint32_t>(1, 1, memory::PinnedMemory);
+  *progressEnd = 0;
 }
 
 DirectMPISendNeighborCluster::~DirectMPISendNeighborCluster() {
   for (auto& request : requests) {
     MPI_Request_free(&request);
   }
+  memory::free(progressEnd, memory::PinnedMemory);
 }
 
 bool DirectMPIRecvNeighborCluster::poll() {
   if (requests.size() > 0) {
     std::lock_guard guard(requestMutex);
-    int result;
-    MPI_Testsome(requests.size(), requests.data(), &result, status.data(), MPI_STATUSES_IGNORE);
-    return result == requests.size();
+    int result = 0;
+    MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
+    const auto done = result != 0;
+    if (done && *progressEnd < progressRestart) {
+      const auto increment = progressRestart - *progressEnd;
+#pragma omp atomic
+      *progressEnd += increment;
+    }
+    return done;
   } else {
     return true;
   }
@@ -77,13 +97,17 @@ void DirectMPIRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runti
     runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
       MPI_Startall(requests.size(), requests.data());
+      ++progressRestart;
     });
-    ++progress;
+    ++progressStart;
   }
 }
 
 void DirectMPIRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {
-  runtime.enqueueHost([&] { MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE); });
+  if (requests.size() > 0) {
+    device::DeviceInstance::getInstance().api->streamWaitMemory(
+        runtime.stream(), progressEnd, progressStart);
+  }
 }
 
 DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
@@ -101,12 +125,15 @@ DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
                   MPI::mpi.comm(),
                   &requests[i]);
   }
+  progressEnd = memory::allocTyped<uint32_t>(1, 1, memory::PinnedMemory);
+  *progressEnd = 0;
 }
 
 DirectMPIRecvNeighborCluster::~DirectMPIRecvNeighborCluster() {
   for (auto& request : requests) {
     MPI_Request_free(&request);
   }
+  memory::free(progressEnd, memory::PinnedMemory);
 }
 
 /*
