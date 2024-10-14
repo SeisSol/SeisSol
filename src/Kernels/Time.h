@@ -76,7 +76,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/TimeBase.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <limits>

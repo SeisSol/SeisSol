@@ -2,8 +2,8 @@
 #include <CL/sycl.hpp>
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <init.h>
-#include <tensor.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <yateto.h>
 #include <cstdio>
 

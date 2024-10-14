@@ -43,7 +43,7 @@
 #define KERNELS_LOCALBASE_H_
 
 #include <memory>
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #include "Physics/InitialField.h"
 
 namespace seissol {

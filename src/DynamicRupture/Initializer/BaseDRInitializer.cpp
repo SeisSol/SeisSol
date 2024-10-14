@@ -10,12 +10,12 @@
 #include "Kernels/Precision.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #include <Eigen/Dense>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>

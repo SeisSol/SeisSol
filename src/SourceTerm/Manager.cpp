@@ -79,9 +79,9 @@
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "PointSource.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>

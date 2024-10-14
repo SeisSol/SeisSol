@@ -45,7 +45,7 @@
 
 #include "Solver/Pipeline/GenericPipeline.h"
 #include "Solver/Pipeline/DrTuner.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif

@@ -4,8 +4,8 @@
 
 #include "PointSourceClusterOnDevice.h"
 
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
+#include "generated-code/init.h"
+#include "generated-code/tensor.h"
 
 // needs to be loaded after Eigen at the moment, due to SYCL
 #include "Parallel/AcceleratorDevice.h"

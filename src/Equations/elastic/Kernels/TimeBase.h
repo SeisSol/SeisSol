@@ -72,7 +72,7 @@
 #define KERNELS_TIMEBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>

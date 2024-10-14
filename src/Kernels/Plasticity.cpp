@@ -43,8 +43,8 @@
 
 #include "Plasticity.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
@@ -55,7 +55,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <tensor.h>
+#include <generated-code/tensor.h>
 
 #include "utils/logger.h"
 

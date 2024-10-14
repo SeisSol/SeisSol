@@ -44,7 +44,7 @@ ${HCC_PATH} \
 <LINK_LIBRARIES>")
 
 set(DEVICE_SRC ${DEVICE_SRC}
-               ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+               ${CMAKE_BINARY_DIR}/generated-code/generated-code/gpulike_subroutine.cpp
                ${CMAKE_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
                ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp)
 

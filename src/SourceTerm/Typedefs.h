@@ -46,7 +46,7 @@
 #include "Common/Constants.h"
 #include "Initializer/MemoryAllocator.h"
 #include "Kernels/Precision.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #include <array>
 #include <cstdlib>
 

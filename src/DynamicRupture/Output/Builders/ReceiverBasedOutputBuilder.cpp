@@ -18,7 +18,7 @@
 #include <cassert>
 #include <cstddef>
 #include <functional>
-#include <init.h>
+#include <generated-code/init.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -29,8 +29,8 @@
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
 #include <Initializer/Tree/Layer.h>
+#include <generated-code/tensor.h>
 #include <memory>
-#include <tensor.h>
 #endif
 
 namespace seissol::dr::output {

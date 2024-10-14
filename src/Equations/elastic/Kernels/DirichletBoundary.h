@@ -1,9 +1,9 @@
 #ifndef EQUATION_DIRICHLET_BOUNDARY_H_
 #define EQUATION_DIRICHLET_BOUNDARY_H_
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 
 #include "Initializer/Typedefs.h"
 

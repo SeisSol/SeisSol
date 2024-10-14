@@ -41,7 +41,7 @@
 
 #include "Kernels/Local.h"
 
-#include <tensor.h>
+#include <generated-code/tensor.h>
 #include <yateto.h>
 
 

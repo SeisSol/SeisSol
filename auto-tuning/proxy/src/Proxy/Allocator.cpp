@@ -41,8 +41,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Kernels/Precision.h>
 #include <Solver/time_stepping/MiniSeisSol.h>
 #include <cstddef>
+#include <generated-code/tensor.h>
 #include <stdlib.h>
-#include <tensor.h>
 
 namespace seissol::proxy {
 

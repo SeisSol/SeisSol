@@ -48,13 +48,13 @@
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <cstring>
+#include <generated-code/tensor.h>
 #include <stdint.h>
-#include <tensor.h>
 
 #include "utils/logger.h"
 
 #include "Numerical/Quadrature.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>

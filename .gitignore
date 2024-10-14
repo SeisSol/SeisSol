@@ -17,7 +17,7 @@ com.apple.timemachine.supported
 .kdev_include_paths
 
 # jetbrains
-generated_code/.idea
+generated-code/.idea
 .idea
 
 # VisualCode / VS Code

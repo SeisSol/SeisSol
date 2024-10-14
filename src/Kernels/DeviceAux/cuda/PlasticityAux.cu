@@ -1,11 +1,11 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
-#include "tensor.h"
+#include "generated-code/tensor.h"
 #include <cmath>
 #include <cstddef>
 #include <driver_types.h>
-#include <init.h>
+#include <generated-code/init.h>
 #include <type_traits>
 #include <vector_types.h>
 

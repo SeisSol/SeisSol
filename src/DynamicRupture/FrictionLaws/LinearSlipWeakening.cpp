@@ -5,8 +5,8 @@
 #include "Kernels/Precision.h"
 #include <algorithm>
 #include <cmath>
-#include <init.h>
-#include <kernel.h>
+#include <generated-code/init.h>
+#include <generated-code/kernel.h>
 namespace seissol::dr::friction_law {
 
 void NoSpecialization::resampleSlipRate(

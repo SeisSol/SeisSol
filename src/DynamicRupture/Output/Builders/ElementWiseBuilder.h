@@ -7,7 +7,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <init.h>
+#include <generated-code/init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {

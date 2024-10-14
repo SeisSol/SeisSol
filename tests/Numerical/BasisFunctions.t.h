@@ -1,8 +1,8 @@
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
-#include "doctest.h"
-#include "generated_code/init.h"
 #include "TestHelper.h"
+#include "doctest.h"
+#include "generated-code/init.h"
 
 namespace seissol::unit_test {
 TEST_CASE("Sampled Basis Functions") {

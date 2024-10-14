@@ -21,7 +21,7 @@ set(SEISSOL_TEST_SOURCES
 if (TESTING_GENERATED)
     set(SEISSOL_TEST_SOURCES
         ${SEISSOL_TEST_SOURCES}
-        ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+        ${CMAKE_BINARY_DIR}/generated-code/generated-code/test-kernel.cpp
         )
 endif()
 

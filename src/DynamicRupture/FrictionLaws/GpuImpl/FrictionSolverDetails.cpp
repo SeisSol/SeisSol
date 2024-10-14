@@ -7,7 +7,7 @@
 #include "Kernels/Precision.h"
 #include "Parallel/AcceleratorDevice.h"
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(

@@ -11,7 +11,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
+#include <generated-code/tensor.h>
 #include <vector>
 #include <yateto.h>
 

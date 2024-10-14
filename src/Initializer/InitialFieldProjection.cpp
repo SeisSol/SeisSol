@@ -46,8 +46,8 @@
 #include "Initializer/MemoryManager.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 
 #include "Initializer/PreProcessorMacros.h"
 #include <Common/Constants.h>
@@ -60,7 +60,7 @@
 #include <Physics/InitialField.h>
 #include <array>
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
 #include <memory>
 #include <vector>
 

@@ -44,8 +44,8 @@
 #define MODEL_ELASTIC_DATASTRUCTURES_H_
 
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

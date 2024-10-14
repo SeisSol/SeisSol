@@ -7,7 +7,7 @@
 #include <Kernels/Precision.h>
 #include <array>
 #include <cstddef>
-#include <tensor.h>
+#include <generated-code/tensor.h>
 #include <vector>
 #include <yateto.h>
 

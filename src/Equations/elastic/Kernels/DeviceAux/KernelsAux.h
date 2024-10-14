@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Kernels/Precision.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol::kernels::time::aux {
 void

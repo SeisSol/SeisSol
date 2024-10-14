@@ -55,10 +55,10 @@
 #include <cassert>
 #include <cstddef>
 #include <easi/Query.h>
-#include <init.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <iterator>
 #include <set>
-#include <tensor.h>
 #include <utility>
 #include <vector>
 #ifdef USE_HDF
@@ -68,7 +68,7 @@
 
 #include "PUML/Downward.h"
 
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #endif
 #include "ParameterDB.h"
 #include <algorithm>

@@ -6,7 +6,7 @@
 #include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>

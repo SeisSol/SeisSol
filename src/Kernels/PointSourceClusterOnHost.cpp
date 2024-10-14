@@ -4,15 +4,15 @@
 
 #include "PointSourceClusterOnHost.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
 
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <SourceTerm/Typedefs.h>
+#include <generated-code/tensor.h>
 #include <memory>
-#include <tensor.h>
 
 namespace seissol::kernels {
 

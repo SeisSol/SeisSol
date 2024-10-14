@@ -55,7 +55,7 @@
 
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 #include "Equations/Datastructures.h"
 

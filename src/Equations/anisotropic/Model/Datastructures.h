@@ -42,9 +42,9 @@
 
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <array>

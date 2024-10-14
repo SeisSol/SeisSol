@@ -52,7 +52,7 @@ extern long long libxsmm_num_total_flops;
 #include <yateto.h>
 
 #include "Kernels/DenseMatrixOps.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol::kernels {
 

@@ -8,7 +8,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Parallel/MPI.h"
 
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 
 namespace seissol::initializer::time_stepping {

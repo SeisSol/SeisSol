@@ -10,7 +10,7 @@
 #include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
 #include "Numerical/Eigenvalues.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol {
   namespace model {

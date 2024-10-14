@@ -42,7 +42,7 @@
 #ifndef KERNELS_NEIGHBORBASE_H_
 #define KERNELS_NEIGHBORBASE_H_
 
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 
 namespace seissol {
   namespace kernels {

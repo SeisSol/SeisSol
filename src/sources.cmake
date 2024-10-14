@@ -1,16 +1,4 @@
 # Source code
-add_library(SeisSol-kernel-lib
-
-# do YATeTo first, since kernel.cpp usually takes really long
-
-# kernel.cpp usually takes the longest
-# (for CPUs, at least; for GPUs, we have a different library alltogether)
-${CMAKE_BINARY_DIR}/src/generated_code/kernel.cpp
-${CMAKE_BINARY_DIR}/src/generated_code/tensor.cpp
-${CMAKE_BINARY_DIR}/src/generated_code/subroutine.cpp
-${CMAKE_BINARY_DIR}/src/generated_code/init.cpp
-)
-
 add_library(SeisSol-common-lib
 
 ${CMAKE_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
@@ -72,8 +60,6 @@ ${CMAKE_SOURCE_DIR}/src/Solver/Simulator.cpp
 ${CMAKE_SOURCE_DIR}/src/ResultWriter/AnalysisWriter.cpp
 )
 
-# target_link_options(SeisSol-common-lib PUBLIC SeisSol-kernel-lib)
-target_compile_options(SeisSol-kernel-lib PRIVATE -fPIC)
 target_compile_options(SeisSol-common-lib PRIVATE -fPIC)
 
 if (SHARED)
@@ -152,16 +138,18 @@ ${CMAKE_SOURCE_DIR}/src/Parallel/Runtime/StreamOMP.cpp
 set(SYCL_DEPENDENT_SRC_FILES
   ${CMAKE_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
   ${CMAKE_SOURCE_DIR}/src/Parallel/MPI.cpp
+  PARENT_SCOPE
 )
 
 set(SYCL_ONLY_SRC_FILES
   ${CMAKE_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
   ${CMAKE_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
-  ${CMAKE_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
+  ${CMAKE_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp
+  PARENT_SCOPE
+)
 
 target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
-target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_BINARY_DIR}/src/generated_code)
 
 if (HDF5 AND MPI)
   target_sources(SeisSol-lib PRIVATE
@@ -244,10 +232,9 @@ if (WITH_GPU)
           ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
           ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
-
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
                              ${CMAKE_SOURCE_DIR}/submodules/yateto/include
-                             ${CMAKE_BINARY_DIR}/${CMAKE_SOURCE_DIR}/src/generated_code
+                             ${CMAKE_BINARY_DIR}/generated-code
                              ${CMAKE_BINARY_DIR}/src
                              ${CMAKE_SOURCE_DIR}/src)
 
@@ -266,6 +253,8 @@ if (WITH_GPU)
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
+else()
+
 endif()
 
 add_subdirectory(IO)

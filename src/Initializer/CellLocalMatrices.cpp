@@ -52,8 +52,8 @@
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Model/Common.h"
 #include "Geometry/MeshTools.h"
-#include "generated_code/tensor.h"
-#include "generated_code/kernel.h"
+#include "generated-code/tensor.h"
+#include "generated-code/kernel.h"
 #include <utils/logger.h>
 #ifdef ACL_DEVICE
 #include <device.h>

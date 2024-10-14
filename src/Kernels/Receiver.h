@@ -50,7 +50,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <optional>

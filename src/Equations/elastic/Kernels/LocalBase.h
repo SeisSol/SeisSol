@@ -42,7 +42,7 @@
 #define KERNELS_VOLUMEBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"

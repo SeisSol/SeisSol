@@ -47,7 +47,7 @@
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)

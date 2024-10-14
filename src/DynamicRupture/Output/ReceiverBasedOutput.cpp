@@ -13,15 +13,15 @@
 #include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <init.h>
+#include <generated-code/init.h>
 #include <memory>
 #include <vector>
 

@@ -1,7 +1,7 @@
 enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
-        ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+        ${CMAKE_BINARY_DIR}/generated-code/generated-code/gpulike_subroutine.cpp
         ${CMAKE_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu
         ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/cuda/KernelsAux.cu)
 

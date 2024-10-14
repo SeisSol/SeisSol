@@ -47,8 +47,8 @@
 #include <Kernels/Time.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
+#include <generated-code/tensor.h>
 #include <stdint.h>
-#include <tensor.h>
 
 #include "utils/logger.h"
 

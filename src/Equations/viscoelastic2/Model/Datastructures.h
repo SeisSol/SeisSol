@@ -47,7 +47,7 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #include <array>
 #include <cstddef>
 #include <string>

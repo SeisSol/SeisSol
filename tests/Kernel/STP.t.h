@@ -9,12 +9,12 @@
 #include "Model/Common.h"
 #include "Model/PoroelasticSetup.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
 
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Kernels/Common.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 namespace seissol::unit_test {
 

@@ -48,7 +48,7 @@
 #include "Kernels/Common.h"
 #include "Model/Plasticity.h"
 #include "Tree/Layer.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"

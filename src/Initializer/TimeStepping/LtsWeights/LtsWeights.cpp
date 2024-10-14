@@ -52,7 +52,7 @@
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol::initializer::time_stepping {
 

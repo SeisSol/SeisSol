@@ -15,10 +15,10 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
 #include <cstring>
-#include <init.h>
-#include <kernel.h>
+#include <generated-code/init.h>
+#include <generated-code/kernel.h>
+#include <generated-code/tensor.h>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 

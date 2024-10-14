@@ -51,7 +51,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Kernels/Common.h"
 #include "Equations/Datastructures.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 #include "DynamicRupture/Typedefs.h"
 #include "DynamicRupture/Misc.h"
 #include "IO/Datatype/Datatype.h"

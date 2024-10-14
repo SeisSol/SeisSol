@@ -8,8 +8,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <init.h>
-#include <tensor.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <vector>
 #include <yateto.h>
 

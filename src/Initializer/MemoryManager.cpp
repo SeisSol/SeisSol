@@ -87,7 +87,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"

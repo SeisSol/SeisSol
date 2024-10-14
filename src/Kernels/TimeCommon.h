@@ -46,7 +46,7 @@
 
 #include "Initializer/Typedefs.h"
 #include "Kernels/Time.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 namespace seissol::kernels {
 struct TimeCommon {

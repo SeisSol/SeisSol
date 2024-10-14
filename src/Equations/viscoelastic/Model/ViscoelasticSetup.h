@@ -46,7 +46,7 @@
 #include "Numerical/Transformation.h"
 
 #include <yateto.h>
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol {
   namespace model {

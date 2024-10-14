@@ -1,7 +1,7 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 #include <CL/sycl.hpp>
 #include <cmath>
-#include <init.h>
+#include <generated-code/init.h>
 
 namespace seissol::kernels::device::aux::plasticity {
 

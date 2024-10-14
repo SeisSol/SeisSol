@@ -9,7 +9,7 @@
 #include "Numerical/Transformation.h"
 #include <Eigen/Dense>
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
 #include <limits>
 #include <tuple>
 #include <utility>

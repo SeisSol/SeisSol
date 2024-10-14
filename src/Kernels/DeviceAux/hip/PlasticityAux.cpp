@@ -1,7 +1,7 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 #include "hip/hip_runtime.h"
 #include <cmath>
-#include <init.h>
+#include <generated-code/init.h>
 #include <type_traits>
 
 // NOTE: using c++14 because of cuda@10

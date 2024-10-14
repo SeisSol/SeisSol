@@ -39,13 +39,13 @@
  **/
 
 #include "GlobalData.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
+#include <generated-code/tensor.h>
 #include <yateto.h>
 
 #ifdef _OPENMP

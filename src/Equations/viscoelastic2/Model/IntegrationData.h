@@ -2,7 +2,7 @@
 #define MODEL_VISCOELASTIC2_INTEGRATIONDATA_H_
 
 #include "Kernels/Precision.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 namespace seissol::model {
 

@@ -42,7 +42,7 @@
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 #include <Common/Constants.h>
 #include <Common/Executor.h>
 #include <Initializer/LTS.h>
@@ -55,11 +55,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <memory>
 #include <omp.h>
 #include <string>
-#include <tensor.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>

@@ -41,7 +41,7 @@
 #ifndef BASIS_FUNCTION_H
 #define BASIS_FUNCTION_H
 
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include <cmath>
 #include <numeric>
 #include <type_traits>

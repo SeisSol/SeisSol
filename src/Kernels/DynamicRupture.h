@@ -44,8 +44,8 @@
 
 #include "Initializer/Typedefs.h"
 #include "Kernels/Time.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 #ifdef USE_STP
 #include "Numerical/BasisFunction.h"
 #include <array>

@@ -1,8 +1,8 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <init.h>
-#include <tensor.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <yateto.h>
 #include <hip/hip_runtime.h>
 #include <cstdio>

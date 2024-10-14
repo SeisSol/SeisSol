@@ -10,7 +10,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 
 namespace seissol::physics {
 class InitialField {

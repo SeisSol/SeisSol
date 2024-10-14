@@ -3,8 +3,8 @@
 #include "Kernels/Precision.h"
 #include <cstdio>
 #include <cuda.h>
-#include <init.h>
-#include <tensor.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <yateto.h>
 
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS

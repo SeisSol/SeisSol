@@ -45,7 +45,7 @@
 
 #include "utils/logger.h"
 #include "Initializer/Typedefs.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical/Transformation.h"
 #include "Numerical/Eigenvalues.h"

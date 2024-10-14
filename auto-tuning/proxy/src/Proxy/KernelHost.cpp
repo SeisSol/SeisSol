@@ -44,9 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
 #include <Parallel/Runtime/Stream.h>
+#include <generated-code/tensor.h>
 #include <memory>
 #include <omp.h>
-#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,

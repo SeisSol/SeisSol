@@ -6,7 +6,7 @@
 #include <Initializer/Tree/Layer.h>
 #include <Kernels/Precision.h>
 #include <cstddef>
-#include <tensor.h>
+#include <generated-code/tensor.h>
 #include <vector>
 #include <yateto.h>
 

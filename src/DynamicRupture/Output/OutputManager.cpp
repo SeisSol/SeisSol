@@ -27,10 +27,10 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
+#include <generated-code/init.h>
+#include <generated-code/kernel.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <ostream>
 #include <sstream>

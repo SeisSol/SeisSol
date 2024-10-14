@@ -26,15 +26,15 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <init.h>
+#include <generated-code/init.h>
+#include <generated-code/kernel.h>
+#include <generated-code/tensor.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <limits>
 #include <mpi.h>
 #include <ostream>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 

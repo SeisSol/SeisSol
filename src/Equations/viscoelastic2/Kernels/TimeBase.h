@@ -42,7 +42,7 @@
 #ifndef KERNELS_TIMEBASE_H_
 #define KERNELS_TIMEBASE_H_
 
-#include "generated_code/kernel.h"
+#include "generated-code/kernel.h"
 
 namespace seissol {
   namespace kernels {

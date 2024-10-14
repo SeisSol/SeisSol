@@ -48,7 +48,7 @@
 #include "Initializer/Typedefs.h"
 #include "Parallel/Helper.h"
 #include "Tree/Layer.h"
-#include "generated_code/tensor.h"
+#include "generated-code/tensor.h"
 
 namespace seissol::initializer {
 

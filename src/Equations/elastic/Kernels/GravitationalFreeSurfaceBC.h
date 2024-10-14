@@ -1,9 +1,9 @@
 #ifndef SEISSOL_GRAVIATIONALFREESURFACEBC_H
 #define SEISSOL_GRAVIATIONALFREESURFACEBC_H
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "generated-code/init.h"
+#include "generated-code/kernel.h"
+#include "generated-code/tensor.h"
 
 #include "Initializer/Typedefs.h"
 

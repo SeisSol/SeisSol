@@ -4,7 +4,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
 
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include <cmath>
 #include <stdexcept>
 #include <tuple>

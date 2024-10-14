@@ -43,7 +43,7 @@
 #include "Model/Common.h"
 #include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
+#include "generated-code/init.h"
 #include "Numerical/Eigenvalues.h"
 
 namespace seissol {

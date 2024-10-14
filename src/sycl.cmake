@@ -1,7 +1,7 @@
 if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
 
   set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+          ${CMAKE_BINARY_DIR}/generated-code/generated-code/gpulike_subroutine.cpp
           ${CMAKE_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp
           ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/sycl/KernelsAux.cpp)
 
@@ -33,7 +33,7 @@ if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
 
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   set(DEVICE_SRC ${DEVICE_SRC}
-                 ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+                 ${CMAKE_BINARY_DIR}/generated-code/generated-code/gpulike_subroutine.cpp
                  ${CMAKE_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp
                  ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/sycl/KernelsAux.cpp)
 

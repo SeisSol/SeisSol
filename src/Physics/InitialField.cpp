@@ -7,10 +7,10 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
-#include <init.h>
+#include <generated-code/init.h>
+#include <generated-code/tensor.h>
 #include <limits>
 #include <math.h>
-#include <tensor.h>
 
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
