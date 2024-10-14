@@ -19,8 +19,9 @@ TEST_CASE("DR Variables") {
     output::DrVarsT drVars;
 
     std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i)
+    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
       mask[i] = true;
+    }
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 
@@ -41,8 +42,9 @@ TEST_CASE("DR Variables") {
     output::DrVarsT drVars;
 
     std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i)
+    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
       mask[i] = true;
+    }
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 

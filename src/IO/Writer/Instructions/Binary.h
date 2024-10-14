@@ -14,6 +14,7 @@
 namespace seissol::io::writer::instructions {
 
 struct BinaryWrite : public WriteInstruction {
+  ~BinaryWrite() override = default;
   std::string filename;
   std::shared_ptr<writer::DataSource> dataSource;
 

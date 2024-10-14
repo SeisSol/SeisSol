@@ -69,7 +69,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <device.h>
 #include <unordered_set>
 #include "Initializer/BatchRecorders/Recorders.h"
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 seissol::initializer::LTSTree               *m_ltsTree{nullptr};

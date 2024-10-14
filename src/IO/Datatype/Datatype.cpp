@@ -13,12 +13,13 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace {
-static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>
-    deserializeMemberInfo(YAML::Node members) {
+std::vector<seissol::io::datatype::StructDatatype::MemberInfo>
+    deserializeMemberInfo(const YAML::Node& members) {
   std::vector<seissol::io::datatype::StructDatatype::MemberInfo> memberInfo;
   for (YAML::Node member : members) {
     seissol::io::datatype::StructDatatype::MemberInfo info;
@@ -30,13 +31,12 @@ static std::vector<seissol::io::datatype::StructDatatype::MemberInfo>
   return memberInfo;
 }
 
-static const std::string Base64 =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static const std::string Base64Pad = "=";
-static const std::array<int, 256> FromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const std::string Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const std::string Base64Pad = "=";
+const std::array<int, 256> FromBase64 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 template <int Count>
-static void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, int dataPtr3) {
+void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, int dataPtr3) {
   const int data = dataPtr1 | (dataPtr2 << 8) | (dataPtr3 << 16);
   if constexpr (Count > 0) {
     const auto data1 = data & 0x3f;
@@ -57,8 +57,7 @@ static void base64Convert(std::ostringstream& sstr, int dataPtr1, int dataPtr2, 
 }
 
 template <int Count>
-static void
-    base64Revert(const std::string& idata, std::size_t ipos, char* odata, std::size_t opos) {
+void base64Revert(const std::string& idata, std::size_t ipos, char* odata, std::size_t opos) {
   const auto idata1 = FromBase64[idata[ipos]];
   const auto idata2 = FromBase64[idata[ipos + 1]];
   const auto idata3 = FromBase64[idata[ipos + 2]];
@@ -79,7 +78,7 @@ static void
 }
 
 template <typename T>
-static std::string toStringRawPrimitive(const void* data, int precision) {
+std::string toStringRawPrimitive(const void* data, int precision) {
   const auto value = *reinterpret_cast<const T*>(data);
   std::ostringstream sstr;
   sstr << std::setprecision(precision) << value;
@@ -87,7 +86,7 @@ static std::string toStringRawPrimitive(const void* data, int precision) {
 }
 
 template <typename T>
-static std::optional<std::vector<char>> fromStringRawPrimitive(const std::string& str) {
+std::optional<std::vector<char>> fromStringRawPrimitive(const std::string& str) {
   std::istringstream sstr(str);
   T value;
   sstr >> value;
@@ -103,7 +102,7 @@ namespace seissol::io::datatype {
 Datatype::~Datatype() = default;
 
 Array::Array(std::shared_ptr<Datatype> type, const std::vector<std::size_t>& dimensions)
-    : type(type), dimensions(dimensions) {}
+    : type(std::move(type)), dimensions(dimensions) {}
 
 Array Datatype::unwrap(std::size_t maxDimensions) { return Array(shared_from_this(), {}); }
 
@@ -241,7 +240,7 @@ std::optional<std::vector<char>> IntegerDatatype::fromStringRaw(const std::strin
 
 ArrayDatatype::ArrayDatatype(std::shared_ptr<Datatype> base,
                              const std::vector<std::size_t>& dimensions)
-    : baseP(base), dimensionsP(dimensions) {}
+    : baseP(std::move(base)), dimensionsP(dimensions) {}
 
 ArrayDatatype::ArrayDatatype(YAML::Node node)
     : baseP(Datatype::deserialize(node["base"])),
@@ -300,7 +299,7 @@ YAML::Node StructDatatype::serialize() const {
   node["type"] = "struct";
   node["size"] = sizeP;
   std::vector<YAML::Node> members;
-  for (auto member : membersP) {
+  for (const auto& member : membersP) {
     YAML::Node membernode;
     membernode["name"] = member.name;
     membernode["offset"] = member.offset;

@@ -132,7 +132,7 @@ inline std::string bcToString(int id) {
  * @param sideBC: boundary condition tag at the side to check
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
-inline bool checkMeshCorrectnessLocally(PUML::TETPUML::face_t face,
+inline bool checkMeshCorrectnessLocally(const PUML::TETPUML::face_t& face,
                                         const int* cellNeighbors,
                                         int side,
                                         int sideBC,
@@ -296,7 +296,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   const int* group = reinterpret_cast<const int*>(puml.cellData(0));
   const void* boundaryCond = puml.cellData(1);
-  const size_t* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
+  const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -380,19 +380,17 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   // Exchange ghost layer information and generate neighbor list
   char** copySide = new char*[neighborInfo.size()];
   char** ghostSide = new char*[neighborInfo.size()];
-  unsigned long** copyFirstVertex = new unsigned long*[neighborInfo.size()];
-  unsigned long** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** copyFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
 
-  MPI_Request* requests = new MPI_Request[neighborInfo.size() * 4];
+  auto* requests = new MPI_Request[neighborInfo.size() * 4];
 
   std::unordered_set<unsigned int> t;
 #ifndef NDEBUG
   unsigned int sum = 0;
 #endif
   unsigned int k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, ++k) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, ++k) {
     // Need to sort the neighborInfo vectors once
     std::sort(it->second.begin(), it->second.end(), [&](unsigned int a, unsigned int b) {
       return puml.faces()[a].gid() < puml.faces()[b].gid();
@@ -462,9 +460,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   MPI_Waitall(neighborInfo.size() * 4, requests, MPI_STATUSES_IGNORE);
 
   k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::const_iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, k++) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, k++) {
     for (unsigned int i = 0; i < it->second.size(); i++) {
       // Set neighbor side
       int cellIds[2];

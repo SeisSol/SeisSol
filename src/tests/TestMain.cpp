@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
 
   const int returnValue = context.run();
 
-  seissol::MPI::mpi.finalize();
+  seissol::MPI::finalize();
 
   return returnValue;
 }

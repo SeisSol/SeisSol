@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include <limits>
+#include <math.h>
 #include <stdexcept>
 #include <string>
 #include <utils/logger.h>
@@ -49,15 +50,15 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
-  return LtsParameters(rate,
-                       wiggleFactorMinimum,
-                       wiggleFactorStepsize,
-                       wiggleFactorEnforceMaximumDifference,
-                       maxNumberOfClusters,
-                       autoMergeClusters,
-                       allowedPerformanceLossRatioAutoMerge,
-                       autoMergeCostBaseline,
-                       ltsWeightsType);
+  return {rate,
+          wiggleFactorMinimum,
+          wiggleFactorStepsize,
+          wiggleFactorEnforceMaximumDifference,
+          static_cast<int>(maxNumberOfClusters),
+          autoMergeClusters,
+          allowedPerformanceLossRatioAutoMerge,
+          autoMergeCostBaseline,
+          ltsWeightsType};
 }
 
 LtsParameters::LtsParameters(unsigned int rate,
@@ -143,14 +144,13 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const auto weightFreeSurfaceWithGravity =
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
   const double cfl = reader->readWithDefault("cfl", 0.5);
-  double maxTimestepWidth;
+  double maxTimestepWidth = std::numeric_limits<double>::max();
 
   if constexpr (isModelViscoelastic()) {
-    auto modelReader = baseReader->readSubNode("equations");
-    const double freqCentral =
+    auto* modelReader = baseReader->readSubNode("equations");
+    const auto freqCentral =
         modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-    const double freqRatio =
-        modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
+    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
     const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
     maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
     if (maxTimestepWidth > maxTimestepWidthDefault) {

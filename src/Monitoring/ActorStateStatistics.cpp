@@ -32,7 +32,7 @@ ActorStateStatistics::Sample::Sample(seissol::time_stepping::ActorState state)
   clock_gettime(CLOCK_MONOTONIC, &begin);
 }
 void ActorStateStatistics::Sample::finish() {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   end = endTime;
 }

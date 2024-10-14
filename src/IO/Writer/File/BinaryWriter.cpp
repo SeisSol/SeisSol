@@ -23,7 +23,7 @@ void BinaryFile::openFile(const std::string& name) {
                 &file);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(comm, &rank);
   if (rank == 0) {
     MPI_File_write(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);

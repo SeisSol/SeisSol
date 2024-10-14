@@ -78,7 +78,8 @@ struct Receiver {
 };
 
 struct DerivedReceiverQuantity {
-  virtual std::vector<std::string> quantities() const = 0;
+  virtual ~DerivedReceiverQuantity() = default;
+  [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
                        std::vector<real>&,
                        seissol::init::QAtPoint::view::type&,
@@ -86,19 +87,21 @@ struct DerivedReceiverQuantity {
 };
 
 struct ReceiverRotation : public DerivedReceiverQuantity {
-  std::vector<std::string> quantities() const override;
+  ~ReceiverRotation() override = default;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
-               std::vector<real>&,
-               seissol::init::QAtPoint::view::type&,
-               seissol::init::QDerivativeAtPoint::view::type&) override;
+               std::vector<real>& /*output*/,
+               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 struct ReceiverStrain : public DerivedReceiverQuantity {
-  std::vector<std::string> quantities() const override;
+  ~ReceiverStrain() override = default;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
-               std::vector<real>&,
-               seissol::init::QAtPoint::view::type&,
-               seissol::init::QDerivativeAtPoint::view::type&) override;
+               std::vector<real>& /*output*/,
+               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 class ReceiverCluster {
@@ -123,11 +126,11 @@ class ReceiverCluster {
   double calcReceivers(
       double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
 
-  inline std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
+  std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
-  inline std::vector<Receiver>::iterator end() { return m_receivers.end(); }
+  std::vector<Receiver>::iterator end() { return m_receivers.end(); }
 
-  size_t ncols() const;
+  [[nodiscard]] size_t ncols() const;
 
   void allocateData();
   void freeData();
@@ -138,8 +141,8 @@ class ReceiverCluster {
   std::vector<Receiver> m_receivers;
   seissol::kernels::Time m_timeKernel;
   std::vector<unsigned> m_quantities;
-  unsigned m_nonZeroFlops;
-  unsigned m_hardwareFlops;
+  unsigned m_nonZeroFlops{};
+  unsigned m_hardwareFlops{};
   double m_samplingInterval;
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;

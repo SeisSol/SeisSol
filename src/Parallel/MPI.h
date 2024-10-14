@@ -98,7 +98,7 @@ class MPI : public MPIBasic {
   void setComm(MPI_Comm comm);
 
   template <typename T>
-  MPI_Datatype castToMpiType() const {
+  [[nodiscard]] MPI_Datatype castToMpiType() const {
     if constexpr (std::is_same_v<T, double>) {
       return MPI_DOUBLE;
     } else if constexpr (std::is_same_v<T, float>) {
@@ -121,7 +121,7 @@ class MPI : public MPIBasic {
    * Method supports only basic types
    */
   template <typename T>
-  auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
+  [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
     auto collect = std::vector<T>(m_size);
     auto type = castToMpiType<T>();
     if (not comm.has_value()) {
@@ -138,8 +138,8 @@ class MPI : public MPIBasic {
    * Method supports only basic types
    */
   template <typename ContainerType>
-  std::vector<ContainerType> collectContainer(const ContainerType& container,
-                                              std::optional<MPI_Comm> comm = {}) const {
+  [[nodiscard]] std::vector<ContainerType>
+      collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
     using InternalType = typename ContainerType::value_type;
 
     if (not comm.has_value()) {
@@ -189,7 +189,8 @@ class MPI : public MPIBasic {
       comm = std::optional<MPI_Comm>(m_comm);
     }
 
-    int rank, size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(comm.value(), &rank);
     MPI_Comm_size(comm.value(), &size);
 
@@ -242,24 +243,24 @@ class MPI : public MPIBasic {
   /**
    * @return The main communicator for the application
    */
-  MPI_Comm comm() const { return m_comm; }
+  [[nodiscard]] MPI_Comm comm() const { return m_comm; }
 
   /**
    * @return The node communicator (shared memory) for the application
    */
-  MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
+  [[nodiscard]] MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
 
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
   const auto& getHostNames() { return hostNames; }
 
-  void barrier(MPI_Comm comm) const { MPI_Barrier(comm); }
+  static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
   /**
    * Finalize MPI
    */
-  void finalize() { MPI_Finalize(); }
+  static void finalize() { MPI_Finalize(); }
 
   void setDataTransferModeFromEnv();
 
@@ -271,10 +272,10 @@ class MPI : public MPIBasic {
 
   private:
   MPI_Comm m_comm;
-  MPI_Comm m_sharedMemComm;
+  MPI_Comm m_sharedMemComm{};
   MPI() : m_comm(MPI_COMM_NULL) {}
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
-  std::vector<std::string> hostNames{};
+  std::vector<std::string> hostNames;
 };
 
 #endif // USE_MPI

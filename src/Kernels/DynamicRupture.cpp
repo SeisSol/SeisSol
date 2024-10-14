@@ -77,7 +77,9 @@ void DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment)
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned h = 0; h < 4; ++h) {
-      assert(((const uintptr_t)global->faceToNodalMatrices(face, h)) % alignment == 0);
+      assert((reinterpret_cast<const uintptr_t>(global->faceToNodalMatrices(face, h))) %
+                 alignment ==
+             0);
     }
   }
 #endif

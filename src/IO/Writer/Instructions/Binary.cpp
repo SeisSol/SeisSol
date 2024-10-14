@@ -7,6 +7,7 @@
 #include "Data.h"
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -21,7 +22,7 @@ YAML::Node BinaryWrite::serialize() {
 
 BinaryWrite::BinaryWrite(const std::string& filename,
                          std::shared_ptr<writer::DataSource> dataSource)
-    : filename(filename), dataSource(dataSource) {}
+    : filename(filename), dataSource(std::move(dataSource)) {}
 
 BinaryWrite::BinaryWrite(YAML::Node node)
     : filename(node["file"].as<std::string>()),

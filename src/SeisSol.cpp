@@ -57,7 +57,6 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
-#include "SeisSol.h"
 
 namespace seissol {
 
@@ -98,9 +97,10 @@ bool SeisSol::init(int argc, char* argv[]) {
                   << parallel::Pinning::maskToString(pinning.getOnlineMask());
   }
   logInfo(rank) << "OpenMP worker affinity (this process):"
-                << parallel::Pinning::maskToString(pinning.getWorkerUnionMask());
+                << parallel::Pinning::maskToString(
+                       seissol::parallel::Pinning::getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :"
-                << parallel::Pinning::maskToString(pinning.getNodeMask());
+                << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
 
   seissol::printCommThreadInfo(seissol::MPI::mpi);
   if (seissol::useCommThread(seissol::MPI::mpi)) {
@@ -118,7 +118,7 @@ bool SeisSol::init(int argc, char* argv[]) {
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
-  rlimit rlim;
+  rlimit rlim{};
   if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
     // Softlimit (rlim_cur) is enforced by the kernel.
@@ -169,7 +169,7 @@ void SeisSol::finalize() {
 
   m_timeManager.freeDynamicResources();
 
-  seissol::MPI::mpi.finalize();
+  seissol::MPI::finalize();
 
   logInfo(rank) << "SeisSol done. Goodbye.";
 }

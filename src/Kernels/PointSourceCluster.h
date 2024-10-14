@@ -21,7 +21,7 @@ class PointSourceCluster {
   virtual ~PointSourceCluster() = default;
   virtual void addTimeIntegratedPointSources(
       double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual unsigned size() const = 0;
+  [[nodiscard]] virtual unsigned size() const = 0;
 };
 
 struct PointSourceClusterPair {
@@ -78,14 +78,14 @@ inline real computeSampleTimeIntegral(double from,
   // j_{to}   := \argmin_j s.t. t_{to}   <= j*dt =  ceil[t_{to}   / dt]
   long toIndex = MathFunctions::ceil(to / samplingInterval);
 
-  fromIndex = MathFunctions::max(0l, fromIndex);
+  fromIndex = MathFunctions::max(0L, fromIndex);
   toIndex = MathFunctions::min(static_cast<long>(sampleSize) - 1, toIndex);
   // Return zero if there is no overlap between integration interval and sample time interval
   if (fromIndex >= toIndex) {
     return 0.0;
   }
 
-  if (toIndex - fromIndex == 1l) {
+  if (toIndex - fromIndex == 1L) {
     return integrate(fromIndex, from, to);
   }
 

@@ -22,7 +22,7 @@ namespace seissol::io::writer {
 WriteInstance::WriteInstance(MPI_Comm comm) : hdf5(comm), binary(comm) {}
 
 void WriteInstance::write(const async::ExecInfo& info,
-                          std::shared_ptr<instructions::WriteInstruction> instruction) {
+                          const std::shared_ptr<instructions::WriteInstruction>& instruction) {
   if (dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()) != nullptr) {
     hdf5.writeData(info, *dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()));
   }
@@ -43,12 +43,12 @@ Writer::Writer() = default;
 
 Writer::Writer(const std::string& data) {
   const YAML::Node plan = YAML::Load(data);
-  for (const auto& instruction : plan) {
+  for (const YAML::Node& instruction : plan) {
     instructions.push_back(instructions::WriteInstruction::deserialize(instruction));
   }
 }
 
-void Writer::addInstruction(std::shared_ptr<instructions::WriteInstruction> instruction) {
+void Writer::addInstruction(const std::shared_ptr<instructions::WriteInstruction>& instruction) {
   instructions.push_back(instruction);
 }
 
@@ -67,7 +67,7 @@ std::string Writer::serialize() {
 
 WriteInstance Writer::beginWrite(const async::ExecInfo& info) {
   WriteInstance instance(MPI_COMM_WORLD);
-  for (auto instruction : instructions) {
+  for (const auto& instruction : instructions) {
     instance.write(info, instruction);
   }
   return instance;
