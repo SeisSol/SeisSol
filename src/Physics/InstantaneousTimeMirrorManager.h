@@ -18,6 +18,7 @@ class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
   bool isEnabled;
   double velocityScalingFactor{};
+  double timeStepScalingFactor = 1.0;
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};

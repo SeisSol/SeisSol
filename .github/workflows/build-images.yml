@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-name: build-container
+name: build-docker
 
 on:
   - workflow_dispatch
