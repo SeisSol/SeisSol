@@ -296,11 +296,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+    const auto layerSize = layer.getNumberOfCells();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
         + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
-    shared(layer,                                                                                  \
+    shared(layerSize,                                                                              \
                drEnergyOutput,                                                                     \
                faceInformation,                                                                    \
                timeDerivativeMinusPtr,                                                             \
@@ -309,7 +310,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus)
 #endif
-    for (unsigned i = 0; i < layer.getNumberOfCells(); ++i) {
+    for (unsigned i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
           totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
@@ -339,9 +340,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layer, drEnergyOutput, faceInformation)
+    shared(layerSize, drEnergyOutput, faceInformation)
 #endif
-    for (unsigned i = 0; i < layer.getNumberOfCells(); ++i) {
+    for (unsigned i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
           localMin = std::min(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j], localMin);
@@ -615,23 +616,27 @@ void EnergyOutput::printEnergies() {
     const auto outputPrecision =
         seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
+    const auto shouldPrint = [](double thresholdValue) {
+      return std::abs(thresholdValue) > 1.e-20;
+    };
+
     if (shouldComputeVolumeEnergies()) {
-      if (totalElasticEnergy != 0.0) {
+      if (shouldPrint(totalElasticEnergy)) {
         logInfo(rank) << std::setprecision(outputPrecision)
                       << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                       << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
-      if (totalAcousticEnergy != 0.0) {
+      if (shouldPrint(totalAcousticEnergy)) {
         logInfo(rank) << std::setprecision(outputPrecision)
                       << "Acoustic energy (total, % kinematic, % potential): "
                       << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                       << ratioAcousticPotential;
       }
-      if (energiesStorage.gravitationalEnergy() != 0.0) {
+      if (shouldPrint(energiesStorage.gravitationalEnergy())) {
         logInfo(rank) << std::setprecision(outputPrecision)
                       << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
       }
-      if (energiesStorage.plasticMoment() != 0.0) {
+      if (shouldPrint(energiesStorage.plasticMoment())) {
         logInfo(rank) << std::setprecision(outputPrecision)
                       << "Plastic moment (value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment() << " ,"
@@ -645,7 +650,7 @@ void EnergyOutput::printEnergies() {
       logInfo(rank) << "Volume energies skipped at this step";
     }
 
-    if (totalFrictionalWork != 0.0) {
+    if (shouldPrint(totalFrictionalWork)) {
       logInfo(rank) << std::setprecision(outputPrecision)
                     << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;

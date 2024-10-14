@@ -144,7 +144,7 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const auto weightFreeSurfaceWithGravity =
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
   const double cfl = reader->readWithDefault("cfl", 0.5);
-  double maxTimestepWidth = NAN;
+  double maxTimestepWidth = std::numeric_limits<double>::max();
 
   if constexpr (isModelViscoelastic()) {
     auto* modelReader = baseReader->readSubNode("equations");

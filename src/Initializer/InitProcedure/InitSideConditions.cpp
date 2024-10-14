@@ -25,7 +25,7 @@ namespace {
 TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 
-  TravellingWaveParameters travellingWaveParameters;
+  TravellingWaveParameters travellingWaveParameters{};
   travellingWaveParameters.origin = initConditionParams.origin;
   travellingWaveParameters.kVec = initConditionParams.kVec;
   constexpr double Eps = 1e-15;

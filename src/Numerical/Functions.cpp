@@ -1,8 +1,8 @@
 #include "Functions.h"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
-#include <math.h>
 
 namespace seissol::functions {
 
@@ -18,7 +18,7 @@ double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
   if (n == 0) {
     return 1.0;
   }
-  double pm2 = NAN;
+  double pm2 = 0.0;
   double pm1 = 1.0;
   double pm = 0.5 * a - 0.5 * b + (1.0 + 0.5 * (a + b)) * x;
   const double a2B2 = static_cast<double>(a * a) - static_cast<double>(b * b);
@@ -55,7 +55,7 @@ double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, doub
   if (n == 0) {
     return 1.0;
   }
-  double pm2 = NAN;
+  double pm2 = 0.0;
   double pm1 = 1.0;
   double pm = (0.5 * a - 0.5 * b) * y + (1.0 + 0.5 * (a + b)) * x;
   for (unsigned m = 2; m <= n; ++m) {
@@ -72,9 +72,9 @@ std::array<double, 3>
   if (n == 0) {
     return {1.0, 0.0, 0.0};
   }
-  double pm2 = NAN;
-  double ddxPm2 = NAN;
-  double ddyPm2 = NAN;
+  double pm2 = 0.0;
+  double ddxPm2 = 0.0;
+  double ddyPm2 = 0.0;
   double pm1 = 1.0;
   double ddxPm1 = 0.0;
   double ddyPm1 = 0.0;

@@ -52,18 +52,15 @@ class MPIBasic {
   int m_rank{0};
 
   /** Rank in the shared memory sub-communicator */
-  int m_sharedMemMpiRank{};
+  int m_sharedMemMpiRank{0};
 
   /** Number of processors */
   int m_size{1};
 
   /** Number of ranks in the shared memory sub-communicator */
-  int m_sharedMemMpiSize{};
+  int m_sharedMemMpiSize{1};
 
-  /** Requires threadsafe MPI */
-  bool m_threadsafe{};
-
-  MPIBasic() {}
+  MPIBasic() = default;
 
   public:
   virtual ~MPIBasic() = default;

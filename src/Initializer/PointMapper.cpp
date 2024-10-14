@@ -115,8 +115,8 @@ void findMeshIds(const Eigen::Vector3d* points,
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, 4>, 4>();
     for (int face = 0; face < 4; ++face) {
-      VrtxCoords n;
-      VrtxCoords p;
+      VrtxCoords n{};
+      VrtxCoords p{};
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
 
