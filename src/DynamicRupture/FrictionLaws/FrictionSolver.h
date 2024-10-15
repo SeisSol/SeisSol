@@ -46,6 +46,8 @@ class FrictionSolver {
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
 
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
+
   protected:
   /**
    * Adjust initial stress by adding nucleation stress * nucleation function

@@ -68,6 +68,7 @@
  * Memory management of SeisSol.
  **/
 
+#include <Parallel/Helper.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -505,7 +506,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
-  m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_ltsTree.setTimeClusters(i_timeStepping.numberOfLocalClusters, i_timeStepping.clusterIds);
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();
@@ -524,19 +525,14 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  m_dynRupTree.setTimeClusters(i_timeStepping.numberOfLocalClusters, i_timeStepping.clusterIds);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc >= i_timeStepping.numberOfLocalClusters) {
-        cluster.child<Copy>().setNumberOfCells(0);
-        cluster.child<Interior>().setNumberOfCells(0);
-    } else {
-        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
-    }
+    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
 
   m_dynRupTree.allocateVariables();
@@ -974,15 +970,17 @@ void seissol::initializer::MemoryManager::initFrictionData() {
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->initSyclQueue();
+    if (!concurrentClusters()) {
+      if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
+        impl->initSyclQueue();
 
-      LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-      impl->setMaxClusterSize(maxSize);
+        LayerMask mask = seissol::initializer::LayerMask(Ghost);
+        auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
+        impl->setMaxClusterSize(maxSize);
 
-      impl->allocateAuxiliaryMemory();
-      impl->copyStaticDataToDevice();
+        impl->allocateAuxiliaryMemory();
+        impl->copyStaticDataToDevice();
+      }
     }
 #endif // ACL_DEVICE
   }

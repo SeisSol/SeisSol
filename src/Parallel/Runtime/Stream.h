@@ -2,8 +2,11 @@
 #define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
 
 #include <Initializer/Tree/Layer.h>
+#include <Parallel/Host/CpuExecutor.h>
 #include <functional>
+#include <mutex>
 #include <omp.h>
+#include <queue>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -15,22 +18,22 @@ namespace seissol::parallel::runtime {
 enum class Runtime { Native, Sycl, OpenMP };
 
 class StreamRuntime {
+  private:
+  std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
 #ifdef ACL_DEVICE
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
+  static std::mutex mutexCPU;
 
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime() : disposed(false) {
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu)
+      : cpu(cpu), disposed(false) {
     streamPtr = device().api->createGenericStream();
     ringbufferPtr.resize(RingbufferSize);
-    forkEvents.resize(RingbufferSize);
-    joinEvents.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
       ringbufferPtr[i] = device().api->createGenericStream();
-      forkEvents[i] = device().api->createEvent();
-      joinEvents[i] = device().api->createEvent();
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -39,8 +42,11 @@ class StreamRuntime {
       allStreams[i + 1] = ringbufferPtr[i];
     }
 
-    forkEventSycl = device().api->createEvent();
-    joinEventSycl = device().api->createEvent();
+    // heuristic value
+    constexpr std::size_t StartEvents = 10000;
+    for (size_t i = 0; i < StartEvents; ++i) {
+      events.push(device().api->createEvent());
+    }
   }
 
   void dispose() {
@@ -48,13 +54,13 @@ class StreamRuntime {
       device().api->destroyGenericStream(streamPtr);
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
-        device().api->destroyEvent(forkEvents[i]);
-        device().api->destroyEvent(joinEvents[i]);
       }
-      device().api->destroyEvent(forkEventSycl);
-      device().api->destroyEvent(joinEventSycl);
-      disposed = true;
+      while (!events.empty()) {
+        device().api->destroyEvent(events.front());
+        events.pop();
+      }
     }
+    disposed = true;
   }
 
   ~StreamRuntime() { dispose(); }
@@ -74,26 +80,26 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
-    enqueueHost([=]() {
-#pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler, i);
-      }
-    });
+    if (elemCount > 0) {
+      auto cpu = this->cpu;
+      enqueueHost([cpu, elemCount, handler]() { cpu->add(0, elemCount, handler, {})->wait(); });
+    }
   }
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(forkEvents[i], streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, streamPtr);
+      device().api->syncStreamWithEvent(ringbufferPtr[i], event);
     }
     for (size_t i = 0; i < count; ++i) {
       std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
     }
     for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(joinEvents[i], ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, joinEvents[i]);
+      void* event = getEvent();
+      device().api->recordEventOnStream(event, ringbufferPtr[i]);
+      device().api->syncStreamWithEvent(streamPtr, event);
     }
   }
 
@@ -102,11 +108,7 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
-  void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
-                F&& handler) {
-    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
-
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
     if (!computeGraphHandle) {
       device().api->streamBeginCapture(allStreams);
 
@@ -115,12 +117,20 @@ class StreamRuntime {
       device().api->streamEndCapture();
 
       computeGraphHandle = device().api->getLastGraphHandle();
-      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
     }
 
     if (computeGraphHandle.isInitialized()) {
       device().api->launchGraph(computeGraphHandle, streamPtr);
     }
+  }
+
+  template <typename F>
+  void runGraph(seissol::initializer::GraphKey computeGraphKey,
+                seissol::initializer::Layer& layer,
+                F&& handler) {
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
   }
 
   template <typename F>
@@ -146,19 +156,55 @@ class StreamRuntime {
     void syncFromOMP(omp_depend_t& depobj);
   */
 
+  void recycleEvent(void* eventPtr) { events.push(eventPtr); }
+
+  void* getEvent() {
+    constexpr std::size_t NextEvents = 100;
+    if (events.size() < NextEvents) {
+      for (size_t i = 0; i < NextEvents; ++i) {
+        events.push(device().api->createEvent());
+      }
+    }
+    void* newEvent = events.front();
+    events.pop();
+    return newEvent;
+  }
+
+  void* recordEvent() {
+    void* newEvent = getEvent();
+    device().api->recordEventOnStream(newEvent, stream());
+    return newEvent;
+  }
+
+  void waitEvent(void* eventPtr) { device().api->syncStreamWithEvent(stream(), eventPtr); }
+
   private:
   bool disposed;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> forkEvents;
-  std::vector<void*> joinEvents;
-  void* forkEventSycl;
-  void* joinEventSycl;
+  std::queue<void*> events;
 #else
   public:
   void wait() {}
   void dispose() {}
+
+  template <typename F>
+  void enqueueHost(F&& handler) {
+    std::invoke(std::forward<F>(handler));
+  }
+
+  template <typename F>
+  void enqueueOmpFor(std::size_t elemCount, F&& handler) {
+    if (elemCount > 0) {
+      enqueueHost([=]() {
+#pragma omp parallel for schedule(static)
+        for (std::size_t i = 0; i < elemCount; ++i) {
+          std::invoke(handler, i);
+        }
+      });
+    }
+  }
 #endif
 };
 
