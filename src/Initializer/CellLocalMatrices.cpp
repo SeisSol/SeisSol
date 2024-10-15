@@ -463,13 +463,13 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
     LTSTree* io_ltsTree,
     LTS* i_lts,
     Lut* i_ltsLut,
-    // LTSTree*               dynRupTree,
     std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
-    // DynamicRupture*        dynRup,
     std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
     unsigned* ltsFaceToMeshFace,
     const GlobalData& global,
     double etaHack) {
+  
+  unsigned int rank = seissol::MPI::mpi.rank();
   real TData[tensor::T::size()] = {0.0};
   real TinvData[tensor::Tinv::size()] = {0.0};
   real APlusData[tensor::star::size(0)] = {0.0};
@@ -787,7 +787,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
-        logWarning() << "fault[meshFace].element is negative at meshFace: " << meshFace << ", blowing up solution on purpose";
+        logWarning(rank) << "fault[meshFace].element is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
@@ -795,7 +795,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
-        logWarning() << "fault[meshFace].neighborElement is negative at meshFace: " << meshFace << ", blowing up solution on purpose";
+        logWarning(rank) << "fault[meshFace].neighborElement is negative at meshFace: " << meshFace << ", on rank: " << rank << ", blowing up solution on purpose";
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
