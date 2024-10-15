@@ -154,19 +154,22 @@ void DynamicRupture::spaceTimeInterpolation(
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
   assert( timeDerivativeMinus != nullptr );
-  #ifdef MULTIPLE_SIMULATIONS
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()] = {0.0}; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()] = {0.0};
-  #else
+  #ifndef MULTIPLE_SIMULATIONS
   assert( ((uintptr_t)timeDerivativePlus) % Alignment == 0 ); // All these are required to be on once we figure out how to get the padding on for other dimensions
   assert( ((uintptr_t)timeDerivativeMinus) % Alignment == 0 );
   assert( ((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0 );
   assert( ((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0 );
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] = {0.0}; 
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()] = {0.0}; 
   #endif
 
   static_assert( tensor::Q::size() == tensor::I::size() , "The tensors Q and I need to match in size");
+#endif
+
+#ifdef MULTIPLE_SIMULATIONS
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()] = {0.0}; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()] = {0.0};
+#else
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] = {0.0}; 
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()] = {0.0}; 
 #endif 
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
