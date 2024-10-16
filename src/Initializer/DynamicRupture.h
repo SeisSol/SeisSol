@@ -311,8 +311,7 @@ struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   }
 };
 
-struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
-};
+struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {};
 
 } // namespace seissol::initializer
 

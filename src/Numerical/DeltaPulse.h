@@ -3,14 +3,13 @@
 
 namespace seissol::deltaPulse {
 
-inline real deltaPulse(real time, real timeStep, real elementSurfaceArea){
+inline real deltaPulse(real time, real timeStep, real surfaceArea) {
 
-    if(time > 0 && time <= timeStep){
-        return (1 / timeStep) * (1 / elementSurfaceArea);
-    }
-    else{
-        return 0;
-    }
+  if (time > 0 && time <= timeStep) {
+    return (1 / timeStep) * (1 / surfaceArea);
+  } else {
+    return 0;
+  }
 }
 
 } // namespace seissol::deltaPulse

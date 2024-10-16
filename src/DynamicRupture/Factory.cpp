@@ -171,15 +171,14 @@ DynamicRuptureTuple ImposedSlipRatesGaussianFactory::produce() {
 }
 
 DynamicRuptureTuple ImposedSlipRatesDeltaFactory::produce() {
-  return {std::make_unique<seissol::initializer::LTSImposedSlipRatesDelta>(),
-          std::make_unique<initializer::ImposedSlipRatesDeltaInitializer>(drParameters,
-                                                                             seissolInstance),
-          std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(
-              drParameters.get()),
-          std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(
-              drParameters.get()),
-          std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
-                                                  seissolInstance)};
+  return {
+      std::make_unique<seissol::initializer::LTSImposedSlipRatesDelta>(),
+      std::make_unique<initializer::ImposedSlipRatesDeltaInitializer>(drParameters,
+                                                                      seissolInstance),
+      std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(drParameters.get()),
+      std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(drParameters.get()),
+      std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
+                                              seissolInstance)};
 }
 
 DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
