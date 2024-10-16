@@ -4,6 +4,7 @@
 #include "Kernels/Precision.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
+#include "Numerical/DeltaPulse.h"
 #include <cstddef>
 
 namespace seissol::dr::friction_law {
@@ -43,4 +44,23 @@ real GaussianSTF::evaluate(real currentTime,
       currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, riseTime[ltsFace][pointIndex]);
   return smoothStepIncrement / timeIncrement;
 }
+
+void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
+                                     real fullUpdateTime) {
+  auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
+  onsetTime = layerData.var(concreteLts->onsetTime);
+}
+
+real DeltaSTF::evaluate(real currentTime,
+                        real timeIncrement,
+                        size_t ltsFace,
+                        size_t pointIndex) {
+  // replace last argument with surface area of considered element
+  return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex],
+                                timeIncrement, 1);
+}
+
+
 } // namespace seissol::dr::friction_law

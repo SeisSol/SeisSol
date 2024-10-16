@@ -159,4 +159,9 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
   real(*riseTime)[misc::NumPaddedPoints] = it->var(concreteLts->riseTime);
   parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});
 }
+
+void ImposedSlipRatesDeltaInitializer::addAdditionalParameters(
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::LTSInternalNode::LeafIterator& it) {}
 } // namespace seissol::dr::initializer
