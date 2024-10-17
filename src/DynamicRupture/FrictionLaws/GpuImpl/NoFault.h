@@ -16,7 +16,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
     auto* devFaultStresses{this->faultStresses};
     auto* devTractionResults{this->tractionResults};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -42,8 +42,8 @@ class NoFault : public BaseFrictionSolver<NoFault> {
    */
   void saveDynamicStressOutput() {}
 
-  void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
-  void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
+  void preHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
+  void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
 
   protected:
 };

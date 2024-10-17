@@ -31,7 +31,7 @@ class BaseFrictionLaw : public FrictionSolver {
     if (layerData.getNumberOfCells() == 0) {
       return;
     }
-    
+
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
