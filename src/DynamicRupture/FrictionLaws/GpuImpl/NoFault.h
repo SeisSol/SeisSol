@@ -10,6 +10,10 @@ class NoFault : public BaseFrictionSolver<NoFault> {
   NoFault(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<NoFault>(drParameters) {};
 
+  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
+                                      const seissol::initializer::DynamicRupture* const dynRup,
+                                      real fullUpdateTime) override {}
+
   void updateFrictionAndSlip(unsigned timeIndex) {
     auto* devTraction1{this->traction1};
     auto* devTraction2{this->traction2};
