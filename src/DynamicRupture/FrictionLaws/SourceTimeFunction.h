@@ -3,6 +3,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
+#include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
 
@@ -28,6 +29,18 @@ class GaussianSTF {
   private:
   real (*onsetTime)[misc::NumPaddedPoints];
   real (*riseTime)[misc::NumPaddedPoints];
+
+  public:
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* const dynRup,
+                          real fullUpdateTime);
+
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+};
+
+class DeltaSTF {
+  private:
+  real (*onsetTime)[misc::NumPaddedPoints];
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
