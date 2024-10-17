@@ -785,17 +785,15 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;
       } else {
-        /// Blow up solution on purpose if used by mistake
+        /// Blow up solution on purpose if used by mistake. This happens automatically with higher ranks for DR copy clusters
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
-        logWarning(rank) << "fault[meshFace].element is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
         surfaceArea = minusSurfaceArea;
       } else {
-        /// Blow up solution on purpose if used by mistake
+        /// Blow up solution on purpose if used by mistake. This happens automatically with higher ranks for DR copy clusters
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
-        logWarning(rank) << "fault[meshFace].neighborElement is negative at meshFace: " << meshFace << ", on rank: " << rank << ", blowing up solution on purpose";
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
