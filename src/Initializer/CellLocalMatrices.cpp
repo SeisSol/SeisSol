@@ -42,6 +42,7 @@
 #include "CellLocalMatrices.h"
 
 #include <Initializer/BasicTypedefs.h>
+#include <Parallel/MPI.h>
 #include <cassert>
 
 #include "Initializer/MemoryManager.h"
@@ -483,6 +484,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
   real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
   CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
 
+  unsigned int rank = seissol::MPI::mpi.rank();
+
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
@@ -743,6 +746,9 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
+  #ifdef NDEBUG      
+        logWarning(rank) << "fault[meshFace].element is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
+  #endif    
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
@@ -750,6 +756,9 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
+#ifdef NDEBUG
+        logWarning(rank) << "fault[meshFace].neighborelement is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
+#endif
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
