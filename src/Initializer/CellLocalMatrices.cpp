@@ -746,7 +746,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
-  #ifdef NDEBUG      
+  #ifndef NDEBUG      
         logWarning(rank) << "fault[meshFace].element is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
   #endif    
       }
@@ -756,7 +756,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
-#ifdef NDEBUG
+#ifndef NDEBUG
         logWarning(rank) << "fault[meshFace].neighborelement is negative at meshFace: " << meshFace << ", on rank: " << rank <<", blowing up solution on purpose";
 #endif
       }
