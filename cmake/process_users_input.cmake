@@ -1,12 +1,21 @@
-option(HDF5 "Use HDF5 library for data output" ON)
+# FIXME: forced to be on
+# option(HDF5 "Use HDF5 library for data output" ON)
+set(HDF5 ON)
+
 option(NETCDF "Use netcdf library for mesh input" ON)
 
 set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library for mesh partitioning")
 set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
-option(MPI "Use MPI parallelization" ON)
-option(OPENMP "Use OpenMP parallelization" ON)
+# FIXME: forced to be on
+# option(MPI "Use MPI parallelization" ON)
+set(MPI ON)
+
+# FIXME: forced to be on
+# option(OPENMP "Use OpenMP parallelization" ON)
+set(OPENMP ON)
+
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
@@ -75,9 +84,10 @@ option(SHARED "Build SeisSol as shared library" OFF)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
-set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
-set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
-set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
+# FIXME: currently unused
+#set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
+#set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
+#set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 
 set(LOG_LEVEL_MASTER "info" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
@@ -112,7 +122,7 @@ check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
-check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
+# check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 # deduce GEMM_TOOLS_LIST based on the host arch
