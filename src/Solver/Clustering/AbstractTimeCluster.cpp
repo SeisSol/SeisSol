@@ -133,6 +133,14 @@ ActResult AbstractTimeCluster::act() {
   auto stateBefore = state;
   auto changed = advanceState();
 
+  // TODO: advance over empty
+
+  if (stateBefore.step != state.step || stateBefore.type != state.type) {
+    logDebug(MPI::mpi.rank()) << "State change for" << identifier() << ":"
+                              << actorStateToString(stateBefore) << "to"
+                              << actorStateToString(state) << ". Time:" << ct.time[lastStep()];
+  }
+
   const auto currentTime = std::chrono::steady_clock::now();
   result.isStateChanged = changed;
   if (!result.isStateChanged) {

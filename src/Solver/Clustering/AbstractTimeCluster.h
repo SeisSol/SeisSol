@@ -105,6 +105,8 @@ class AbstractTimeCluster {
 
   long getTimeStepRate();
 
+  std::string identifier() const { return description() + "-" + std::to_string(ct.timeStepRate); }
+
   /**
    * @brief Returns the time step size of the cluster.
    * @return the time step size of the cluster.

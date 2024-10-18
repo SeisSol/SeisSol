@@ -301,7 +301,7 @@ class TimeCluster : public CellCluster {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
-  std::string description() const override { return "cell-cluster"; }
+  std::string description() const override { return "interior-cell"; }
 };
 
 } // namespace solver::clustering::computation

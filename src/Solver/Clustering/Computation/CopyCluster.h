@@ -69,6 +69,8 @@ class CopyCluster : public TimeCluster {
     }
   }
 
+  std::string description() const override { return "copy-cell"; }
+
   private:
   std::shared_ptr<communication::SendNeighborCluster> neighbor;
   bool dataSent{false};

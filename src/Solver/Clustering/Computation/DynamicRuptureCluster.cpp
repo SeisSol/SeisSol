@@ -28,6 +28,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
     double maxTimeStepSize,
     long timeStepRate,
     unsigned profilingId,
+    LayerType layerType,
     seissol::initializer::Layer* layer,
     seissol::initializer::DynamicRupture* descr,
     CompoundGlobalData globalData,

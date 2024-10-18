@@ -56,6 +56,8 @@ class GhostCluster : public AbstractTimeCluster {
     }
   }
 
+  std::string description() const override { return "ghost-cell"; }
+
   private:
   std::shared_ptr<communication::RecvNeighborCluster> neighbor;
 };

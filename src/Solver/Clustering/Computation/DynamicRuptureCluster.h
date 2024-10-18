@@ -23,6 +23,7 @@ class DynamicRuptureCluster : public FaceCluster {
   DynamicRuptureCluster(double maxTimeStepSize,
                         long timeStepRate,
                         unsigned profilingId,
+                        LayerType layerType,
                         seissol::initializer::Layer* layer,
                         seissol::initializer::DynamicRupture* descr,
                         CompoundGlobalData globalData,
@@ -41,11 +42,21 @@ class DynamicRuptureCluster : public FaceCluster {
     // TODO(David): remove
     this->faultOutputManager = faultOutputManager;
   }
-  std::string description() const override { return "face-cluster"; }
+  std::string description() const override {
+    if (getLayerType() == Interior) {
+      return "interior-face";
+    } else {
+      return "copy-face";
+    }
+  }
   ~DynamicRuptureCluster() override = default;
+
+  LayerType getLayerType() const override { return type; }
 
   protected:
   seissol::SeisSol& seissolInstance;
+
+  LayerType type;
 
   void computeDynamicRupture();
   void handleDynamicRupture();
