@@ -89,6 +89,12 @@ class ImposedSlipRatesGaussianFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
+class ImposedSlipRatesDeltaFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
 class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;

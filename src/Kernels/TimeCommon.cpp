@@ -50,6 +50,8 @@
 #include <stdint.h>
 #include <tensor.h>
 
+#include "utils/logger.h"
+
 #ifdef ACL_DEVICE
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
@@ -175,7 +177,7 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
         runtime);
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

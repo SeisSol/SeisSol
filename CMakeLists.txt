@@ -341,6 +341,10 @@ if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
 
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+  target_compile_definitions(SeisSol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
+
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-common-properties INTERFACE debug
           -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan

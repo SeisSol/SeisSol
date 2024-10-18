@@ -74,6 +74,14 @@ class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
                                const seissol::initializer::DynamicRupture* dynRup,
                                seissol::initializer::Layer& layer) override;
 };
+
+class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
+  using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               const seissol::initializer::DynamicRupture* const dynRup,
+                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+};
+
 } // namespace seissol::dr::initializer
 
 #endif // SEISSOL_IMPOSEDSLIPINITIALIZER_H
