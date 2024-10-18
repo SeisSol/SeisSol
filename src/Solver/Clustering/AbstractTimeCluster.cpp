@@ -133,7 +133,9 @@ ActResult AbstractTimeCluster::act() {
   auto stateBefore = state;
   auto changed = advanceState();
 
-  // TODO: advance over empty
+  // skip all empty and easy states (while possible)
+  while (advanceState())
+    ;
 
   if (stateBefore.step != state.step || stateBefore.type != state.type) {
     logDebug(MPI::mpi.rank()) << "State change for" << identifier() << ":"
