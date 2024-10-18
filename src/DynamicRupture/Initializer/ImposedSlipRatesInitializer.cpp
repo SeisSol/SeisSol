@@ -158,5 +158,5 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
 void ImposedSlipRatesDeltaInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
-    seissol::initializer::LTSInternalNode::LeafIterator& it) {}
+    seissol::initializer::Layer& layer) {}
 } // namespace seissol::dr::initializer
