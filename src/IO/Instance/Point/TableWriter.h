@@ -22,6 +22,7 @@ struct TableQuantity {
 
 class TableWriter {
   public:
+  virtual ~TableWriter() = default;
   TableWriter();
 
   void addQuantity(const TableQuantity& quantity);
@@ -33,7 +34,7 @@ class TableWriter {
     addCellRaw(&data, sizeof(T));
   }
 
-  std::shared_ptr<datatype::Datatype> getRowDatatype() const;
+  [[nodiscard]] std::shared_ptr<datatype::Datatype> getRowDatatype() const;
 
   void resetStorage();
 

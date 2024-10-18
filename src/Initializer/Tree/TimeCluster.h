@@ -56,11 +56,11 @@ class TimeCluster : public LTSInternalNode {
   }
 
   template <enum LayerType LAYER>
-  inline Layer& child() {
+  Layer& child() {
     return *static_cast<Layer*>(m_children[Log2<LAYER>::Result].get());
   }
 
-  inline Layer& child(LayerType type) {
+  Layer& child(LayerType type) {
     switch (type) {
     case Ghost:
       return child<Ghost>();

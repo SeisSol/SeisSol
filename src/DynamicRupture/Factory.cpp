@@ -18,7 +18,7 @@ namespace friction_law_gpu = seissol::dr::friction_law;
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance) {
   switch (drParameters->frictionLawType) {
   case seissol::initializer::parameters::FrictionLawType::NoFault:
@@ -41,10 +41,10 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateVelocityWeakening:
     logError() << "friction law 7 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters,
                                                                       seissolInstance);

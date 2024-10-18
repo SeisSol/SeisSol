@@ -42,6 +42,8 @@
 #include <utils/timeutils.h>
 #include <vector>
 
+namespace {
+
 struct NativeFormat {};
 struct WideFormat {};
 template <typename T, typename U = NativeFormat>
@@ -66,10 +68,9 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   return stream;
 }
 
-namespace seissol::dr::output {
-std::string buildFileName(std::string namePrefix,
-                          std::string nameSuffix,
-                          std::string fileExtension = std::string()) {
+std::string buildFileName(const std::string& namePrefix,
+                          const std::string& nameSuffix,
+                          const std::string& fileExtension = std::string()) {
   std::stringstream fileName;
   fileName << namePrefix << '-' << nameSuffix;
   if (fileExtension.empty()) {
@@ -80,22 +81,10 @@ std::string buildFileName(std::string namePrefix,
   }
 }
 
-std::string buildMPIFileName(std::string namePrefix,
-                             std::string nameSuffix,
-                             std::string fileExtension = std::string()) {
-#ifdef PARALLEL
-  std::stringstream suffix;
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
-  return buildFileName(namePrefix, suffix.str(), fileExtension);
-#else
-  return buildFileName(namePrefix, nameSuffix, fileExtension);
-#endif
-}
-
-std::string buildIndexedMPIFileName(std::string namePrefix,
+std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     int index,
-                                    std::string nameSuffix,
-                                    std::string fileExtension = std::string()) {
+                                    const std::string& nameSuffix,
+                                    const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
 #ifdef PARALLEL
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
@@ -106,11 +95,15 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
+} // namespace
+
+namespace seissol::dr::output {
+
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                              seissol::SeisSol& seissolInstance)
     : seissolInstance(seissolInstance), ewOutputData(std::make_shared<ReceiverOutputData>()),
       ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)) {
-  backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
+  backupTimeStamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
 }
 
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }
@@ -199,8 +192,9 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim)
+        for (int dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
+        }
       }
     };
     misc::forEach(ewOutputData->vars, recordPointers);
@@ -325,7 +319,7 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -360,19 +354,17 @@ void OutputManager::init() {
 }
 
 void OutputManager::initFaceToLtsMap() {
-  if (drTree) {
+  if (drTree != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
-    for (auto it = drTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
-         it != drTree->endLeaf();
-         ++it) {
+    for (auto& layer : drTree->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = it->var(drDescr->faceInformation);
-      for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
+      DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
+      for (size_t ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 

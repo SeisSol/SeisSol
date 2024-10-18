@@ -11,11 +11,11 @@ struct SIUnit {
   public:
   SIUnit(const std::string& unit, bool binary);
 
-  std::string formatTime(double value, bool exact = true, int digits = 4) const;
+  [[nodiscard]] std::string formatTime(double value, bool exact = true, int digits = 4) const;
 
-  std::string formatPrefix(double value, int digits = 4) const;
+  [[nodiscard]] std::string formatPrefix(double value, int digits = 4) const;
 
-  std::string formatScientific(double value, int digits = 4) const;
+  [[nodiscard]] static std::string formatScientific(double value, int digits = 4);
 
   private:
   std::string unit;

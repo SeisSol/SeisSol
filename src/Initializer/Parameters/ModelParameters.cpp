@@ -42,7 +42,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  const bool hasBoundaryFile = boundaryFileName.value_or("") != "";
+  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
   const bool useCellHomogenizedMaterial =
@@ -52,8 +52,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  const double freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-  const double freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
   if constexpr (isModelViscoelastic()) {
     if (freqRatio <= 0) {
       logError()
