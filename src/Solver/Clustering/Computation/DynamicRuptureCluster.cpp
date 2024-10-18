@@ -52,7 +52,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
       frictionSolverDevice(frictionSolverDevice), faultOutputManager(faultOutputManager),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      seissolInstance(seissolInstance) {
+      seissolInstance(seissolInstance), layerType(layerType) {
   dynamicRuptureKernel.setGlobalData(globalData);
 
   computeFlops();

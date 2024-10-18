@@ -51,12 +51,12 @@ class DynamicRuptureCluster : public FaceCluster {
   }
   ~DynamicRuptureCluster() override = default;
 
-  LayerType getLayerType() const override { return type; }
+  LayerType getLayerType() const override { return layerType; }
 
   protected:
   seissol::SeisSol& seissolInstance;
 
-  LayerType type;
+  LayerType layerType;
 
   void computeDynamicRupture();
   void handleDynamicRupture();

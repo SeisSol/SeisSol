@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <unordered_map>
 
 #include "Common/Executor.h"
@@ -79,6 +80,7 @@ struct NeighborCluster {
   Executor executor;
   ClusterTimes ct;
   ComputeStep lastStep;
+  std::string identifier;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
   std::unordered_map<ComputeStep, void*> events;

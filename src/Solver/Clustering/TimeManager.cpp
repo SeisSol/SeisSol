@@ -145,7 +145,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
       highPrioClusters.push_back(clusters.back());
     }
 
-    cellClusterBackmap[layer.getClusterId()][layer.getLayerType()] = clusters.back();
+    cellClusterBackmap[localClusterId][layer.getLayerType()] = clusters.back();
     if (layer.getLayerType() != Ghost) {
       cellClusters.push_back(std::dynamic_pointer_cast<computation::TimeCluster>(clusters.back()));
 
@@ -186,7 +186,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
       }
     }
 
-    faceClusterBackmap[layer.getClusterId()][layer.getLayerType()] = clusters.back();
+    faceClusterBackmap[localClusterId][layer.getLayerType()] = clusters.back();
     faceClusters.push_back(
         std::dynamic_pointer_cast<computation::DynamicRuptureCluster>(clusters.back()));
 
@@ -208,11 +208,14 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
     connectIfBothExist(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Copy]);
 
     connectIfBothExist(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Copy]);
+    connectIfBothExist(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
   }
 
   for (std::size_t i = 1; i < layout.localClusterIds.size(); ++i) {
     if (layout.localClusterIds[i - 1] + 1 == layout.localClusterIds[i]) {
       connectIfBothExist(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Interior]);
+      connectIfBothExist(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Copy]);
+      connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Interior]);
       connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Copy]);
     }
   }

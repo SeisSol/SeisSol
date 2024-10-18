@@ -225,6 +225,8 @@ void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
   other.neighbors.back().inbox = std::make_shared<MessageQueue>();
   neighbors.back().outbox = other.neighbors.back().inbox;
   other.neighbors.back().outbox = neighbors.back().inbox;
+  neighbors.back().identifier = other.identifier();
+  other.neighbors.back().identifier = identifier();
 }
 
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
