@@ -55,9 +55,7 @@ void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 
 real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
   // Currently, the delta pulse is normalized in time equivalent to FL33 and FL34
-  // The last argument can be used to normalize in space, which is needed when computing numerical
-  // Gfs
-  return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, 1);
+  return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement);
 }
 
 } // namespace seissol::dr::friction_law
