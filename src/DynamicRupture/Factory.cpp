@@ -58,7 +58,7 @@ DynamicRuptureTuple NoFaultFactory::produce() {
   return {std::make_unique<seissol::initializer::DynamicRupture>(),
           std::make_unique<initializer::NoFaultInitializer>(drParameters, seissolInstance),
           std::make_unique<friction_law::NoFault>(drParameters.get()),
-          std::make_unique<friction_law::NoFault>(drParameters.get()),
+          std::make_unique<friction_law_gpu::NoFault>(drParameters.get()),
           std::make_unique<output::OutputManager>(std::make_unique<output::NoFault>(),
                                                   seissolInstance)};
 }
