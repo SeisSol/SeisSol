@@ -16,15 +16,15 @@ class AdjointRSFInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
-                       seissol::initializer::LTSTree* const dynRupTree) override;
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               const seissol::initializer::DynamicRupture* dynRup,
+                               seissol::initializer::Layer& layer) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -73,8 +73,8 @@ class AdjointRSFFastVelInitializer : public AdjointRSFInitializer {
    * Adds the additional parameters rs_srW
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               const seissol::initializer::DynamicRupture* dynRup,
+                               seissol::initializer::Layer& layer) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
