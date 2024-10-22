@@ -10,7 +10,7 @@
 #include <memory>
 
 namespace seissol::io::datatype {
-hid_t convertToHdf5(std::shared_ptr<Datatype> datatype);
+hid_t convertToHdf5(const std::shared_ptr<Datatype>& datatype);
 } // namespace seissol::io::datatype
 
 #endif // SEISSOL_SRC_IO_DATATYPE_HDF5TYPE_H_

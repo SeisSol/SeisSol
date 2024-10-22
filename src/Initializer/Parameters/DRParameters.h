@@ -24,6 +24,7 @@ enum class FrictionLawType : unsigned int {
   RateAndStateFastVelocityWeakening = 103,
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
+  ImposedSlipRatesDelta = 35,
   RateAndStateVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
   AdjointSlip = 204,
@@ -69,7 +70,7 @@ struct DRParameters {
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
-  std::string faultFileName{""};
+  std::string faultFileName;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};

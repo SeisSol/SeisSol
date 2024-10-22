@@ -335,6 +335,8 @@ struct LTSAdjointRSFFastVelWeakening : public LTSAdjointRSF {
   }
 };
 
+struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {};
+
 } // namespace seissol::initializer
 
 #endif // INITIALIZER_DR_H_

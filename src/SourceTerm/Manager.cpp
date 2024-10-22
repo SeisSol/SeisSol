@@ -77,7 +77,6 @@
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Manager.h"
 #include "Numerical/Transformation.h"
-#include "Parallel/MPI.h"
 #include "PointSource.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -88,12 +87,10 @@
 #include <Initializer/LTS.h>
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/Parameters/SourceParameters.h>
-#include <Initializer/PointMapper.h>
 #include <Initializer/Tree/LTSTree.h>
 #include <Initializer/Tree/Layer.h>
 #include <Initializer/Tree/Lut.h>
 #include <Kernels/PointSourceCluster.h>
-#include <Kernels/PointSourceClusterOnHost.h>
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
@@ -124,7 +121,9 @@
 #include <Parallel/Helper.h>
 #endif
 
-namespace seissol::sourceterm {
+namespace {
+
+using namespace seissol::sourceterm;
 
 /**
  * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
@@ -184,7 +183,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
   faultBasis[8] = subfault.normal(2);
 
   pointSources.A[index] = subfault.area;
-  std::array<double, 81> stiffnessTensor;
+  std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
   case seissol::model::MaterialType::Anisotropic:
     [[fallthrough]];
@@ -230,9 +229,9 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       ++next;
     }
 
-    for (unsigned ltsId, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
-                                  (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
-                                      std::numeric_limits<unsigned>::max();
+    for (unsigned ltsId = 0, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
+                                      (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
+                                          std::numeric_limits<unsigned>::max();
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs = &ltsTree->var(lts->dofs, place)[ltsId];
       clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
@@ -312,8 +311,8 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
   return layeredClusterMapping;
 }
 
-auto makePointSourceCluster(ClusterMapping mapping,
-                            PointSources sources,
+auto makePointSourceCluster(const ClusterMapping& mapping,
+                            const PointSources& sources,
                             const unsigned* meshIds,
                             seissol::initializer::LTSTree* ltsTree,
                             seissol::initializer::LTS* lts,
@@ -461,7 +460,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       }
 
       sourceCluster[cluster] = makePointSourceCluster(
-          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 
@@ -505,9 +504,9 @@ auto loadSourcesFromNRF(const char* fileName,
   }
 
   // Checking that all sources are within the domain
-  int globalnumSources = numSources;
+  unsigned globalnumSources = numSources;
 #ifdef USE_MPI
-  MPI_Reduce(&numSources, &globalnumSources, 1, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  MPI_Reduce(&numSources, &globalnumSources, 1, MPI_UNSIGNED, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #endif
 
   if (rank == 0) {
@@ -571,7 +570,7 @@ auto loadSourcesFromNRF(const char* fileName,
             memkind);
       }
       sourceCluster[cluster] = makePointSourceCluster(
-          std::move(clusterMappings[cluster]), sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
     }
   }
 
@@ -580,6 +579,10 @@ auto loadSourcesFromNRF(const char* fileName,
   return layeredSourceClusters;
 }
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+
+} // namespace
+
+namespace seissol::sourceterm {
 
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
