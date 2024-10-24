@@ -100,9 +100,15 @@ jobs:
           else
               precision=d
           fi
+          if [ ${{matrix.setup.cc}} = nvc ]; then
+            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+          else
+            TESTING_COMMAND="";
+          fi
+
           cd build
           set +e
-          ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
           RETVAL_EXE=$?
           ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
           RETVAL_PROXY=$?
