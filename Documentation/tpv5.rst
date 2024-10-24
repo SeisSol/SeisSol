@@ -26,7 +26,7 @@ Geometry
 
 The fault within the three-dimensional medium is a vertical
 right-lateral strike-slip planar fault that resides in a half-space. The
-fault reaches the Earth’s surface. The rupture is allowed within a
+fault reaches the Earth surface. The rupture is allowed within a
 rectangular area that is 30000 m long :math:`\times` 15000 m deep. The
 bottom boundary of and the right and left ends of the allowed 30000 m
 :math:`\times` 15000 m rupture area are defined by a strength barrier.
@@ -36,26 +36,23 @@ along-strike and 7500m depth.
 
 The mesh is generated in GMSH. All the files that are needed for the
 simulation are provided. 
-
-1. The tpv5.geo file contains the geometry for
+The ``tpv5.geo`` file contains the geometry for
 the fault in a cubit region.
 
-2. Then the .geo file can be meshed by using:
+To convert it to a SeisSol input, two steps are necessary:
+
+1. Let GMSH mesh the ``geo`` file:
 
 ``$ gmsh tpv5.geo -3 -optimize -o tpv5.msh``
 
-3. Then convert the .msh file to 3D Gambit neutral file
-
-``$ gmsh2gambit -i tpv5.msh -o tpv5.neu``
-
-The toolbox of **gmsh2gambit** is used for converting gmsh file to Gambit neutrual file. It can be found in SeisSol GitHub https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing
-
-4. The 3D Gambit file can be converted to PUML format for LTS in latest version of SeisSol by:
+2. Then, convert the GMSH file to the PUML format for SeisSol by:
   
-``$ pumgen tpv5.neu tpv5``
+``$ pumgen -m msh2 tpv5.msh tpv5``
 
 The compilation and usage of PUMGen can be found in https://github.com/SeisSol/PUMGen/wiki and https://seissol.readthedocs.io/en/latest/
-The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo. The mesh file can be generated using the bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh.
+The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo.
+The mesh file can also be generated using the bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh which essentially follows
+the same two steps (running GMSH and PUMgen) as described above.
 
 
 .. figure:: LatexFigures/mesh5.png
