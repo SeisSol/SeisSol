@@ -78,7 +78,7 @@ jobs:
           mkdir -p /opt/seissol
 
           if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -n1";
+            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
           else
             TESTING_COMMAND="";
           fi;
@@ -306,7 +306,7 @@ jobs:
           elif [ ${{matrix.setup.mpi}} = intel ]; then
             MPI_OPTIONS="";
           else
-            MPI_OPTIONS="";
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root";
           fi;
 
           export PATH=$(pwd)/install/bin:$PATH
