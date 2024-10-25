@@ -32,19 +32,23 @@ class CommunicationClusterFactory {
   std::shared_ptr<SendNeighborCluster>
       getSend(std::size_t cluster,
               const std::vector<RemoteCluster>& remoteClusters,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority);
 
   std::shared_ptr<RecvNeighborCluster>
       getRecv(std::size_t cluster,
               const std::vector<RemoteCluster>& remoteClusters,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority);
 
   std::vector<std::shared_ptr<RecvNeighborCluster>>
       getAllRecvs(const HaloCommunication& comm,
-                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                  double priority);
 
   std::vector<std::shared_ptr<SendNeighborCluster>>
       getAllSends(const HaloCommunication& comm,
-                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                  double priority);
 };
 } // namespace seissol::solver::clustering::communication

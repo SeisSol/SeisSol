@@ -26,9 +26,11 @@ AbstractTimeCluster::AbstractTimeCluster(
     double maxTimeStepSize,
     long timeStepRate,
     Executor executor,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
     : timeOfLastStageChange(std::chrono::steady_clock::now()), timeStepRate(timeStepRate),
-      numberOfTimeSteps(0), executor(executor), streamRuntime(cpuExecutor) {
+      numberOfTimeSteps(0), executor(executor), streamRuntime(cpuExecutor, priority),
+      priority(priority) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 
@@ -47,6 +49,10 @@ bool AbstractTimeCluster::advanceState() {
     if (state.step == lastStep() && maySynchronize()) {
       synchronize();
       return true;
+    } else if (muted || emptyStep(next)) {
+      state.step = next;
+      state.type = StateType::ComputeStart;
+      return true;
     } else if (allComputed(state.step)) {
       preCompute(state.step);
       runCompute(next);
@@ -56,13 +62,9 @@ bool AbstractTimeCluster::advanceState() {
       state.step = next;
       state.type = StateType::ComputeStart;
       return true;
-    } else if (emptyStep(next)) {
-      state.step = next;
-      state.type = StateType::ComputeStart;
-      return true;
     }
   } else if (state.type == StateType::ComputeStart) {
-    if (emptyStep(state.step) || pollCompute(state.step)) {
+    if (muted || emptyStep(state.step) || pollCompute(state.step)) {
       postCompute(state.step);
       state.type = StateType::ComputeDone;
       return true;
@@ -137,7 +139,7 @@ ActResult AbstractTimeCluster::act() {
   while (advanceState())
     ;
 
-  if (stateBefore.step != state.step || stateBefore.type != state.type) {
+  if (changed) {
     logDebug(MPI::mpi.rank()) << "State change for" << identifier() << ":"
                               << actorStateToString(stateBefore) << "to"
                               << actorStateToString(state) << ". Time:" << ct.time[lastStep()];
@@ -266,9 +268,7 @@ void AbstractTimeCluster::reset() {
   }
 }
 
-ActorPriority AbstractTimeCluster::getPriority() const { return priority; }
-
-void AbstractTimeCluster::setPriority(ActorPriority newPriority) { this->priority = newPriority; }
+double AbstractTimeCluster::getPriority() const { return priority; }
 
 ActorState AbstractTimeCluster::getState() const { return state; }
 
@@ -296,17 +296,30 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
   });
 }
 
+void AbstractTimeCluster::setPhase(int steps) { phaseSteps = steps; }
+void AbstractTimeCluster::mute() { muted = true; }
+void AbstractTimeCluster::unmute() { muted = false; }
+bool AbstractTimeCluster::isDefaultPhase() {
+  // if phaseSteps == 0 then we execute everything.
+  // otherwise, we're in a default phase iff we don't synchronize in the middle of it
+  const auto lastStepSize = ct.speculativeTimeStepSize(syncTime, phaseSteps);
+  // TODO: is that good?
+  return phaseSteps > 0 && (lastStepSize.has_value() && lastStepSize.value() == ct.maxTimeStepSize);
+}
+
 CellCluster::CellCluster(double maxTimeStepSize,
                          long timeStepRate,
                          Executor executor,
-                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                         double priority)
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor, priority) {}
 
 FaceCluster::FaceCluster(double maxTimeStepSize,
                          long timeStepRate,
                          Executor executor,
-                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor) {}
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                         double priority)
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor, cpuExecutor, priority) {}
 
 CellCluster::~CellCluster() = default;
 

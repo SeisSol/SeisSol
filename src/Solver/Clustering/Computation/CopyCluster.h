@@ -24,7 +24,8 @@ class CopyCluster : public TimeCluster {
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics,
               std::shared_ptr<communication::SendNeighborCluster> neighbor,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority)
       : TimeCluster(clusterId,
                     globalClusterId,
                     profilingId,
@@ -38,7 +39,8 @@ class CopyCluster : public TimeCluster {
                     seissolInstance,
                     loopStatistics,
                     actorStateStatistics,
-                    cpuExecutor),
+                    cpuExecutor,
+                    priority),
         neighbor(neighbor) {}
   LayerType getLayerType() const override { return Copy; }
 

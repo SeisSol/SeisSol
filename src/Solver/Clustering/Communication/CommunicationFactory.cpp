@@ -35,7 +35,8 @@ void CommunicationClusterFactory::prepare() {
 std::shared_ptr<SendNeighborCluster> CommunicationClusterFactory::getSend(
     std::size_t cluster,
     const std::vector<RemoteCluster>& remoteClusters,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority) {
   switch (mode) {
 #ifdef ACL_DEVICE
   case CommunicationMode::HostSurrogateMPI: {
@@ -44,12 +45,13 @@ std::shared_ptr<SendNeighborCluster> CommunicationClusterFactory::getSend(
   }
 #ifdef USE_CCL
   case CommunicationMode::DirectCCL: {
-    return std::make_shared<CCLSendNeighborCluster>(remoteClusters, comms.at(cluster), cpuExecutor);
+    return std::make_shared<CCLSendNeighborCluster>(
+        remoteClusters, comms.at(cluster), cpuExecutor, priority);
   }
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPISendNeighborCluster>(remoteClusters, cpuExecutor);
+    return std::make_shared<DirectMPISendNeighborCluster>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;
@@ -60,7 +62,8 @@ std::shared_ptr<SendNeighborCluster> CommunicationClusterFactory::getSend(
 std::shared_ptr<RecvNeighborCluster> CommunicationClusterFactory::getRecv(
     std::size_t cluster,
     const std::vector<RemoteCluster>& remoteClusters,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority) {
   switch (mode) {
 #ifdef ACL_DEVICE
   case CommunicationMode::HostSurrogateMPI: {
@@ -69,12 +72,13 @@ std::shared_ptr<RecvNeighborCluster> CommunicationClusterFactory::getRecv(
   }
 #ifdef USE_CCL
   case CommunicationMode::DirectCCL: {
-    return std::make_shared<CCLRecvNeighborCluster>(remoteClusters, comms.at(cluster), cpuExecutor);
+    return std::make_shared<CCLRecvNeighborCluster>(
+        remoteClusters, comms.at(cluster), cpuExecutor, priority);
   }
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPIRecvNeighborCluster>(remoteClusters, cpuExecutor);
+    return std::make_shared<DirectMPIRecvNeighborCluster>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;
@@ -84,22 +88,24 @@ std::shared_ptr<RecvNeighborCluster> CommunicationClusterFactory::getRecv(
 
 std::vector<std::shared_ptr<RecvNeighborCluster>> CommunicationClusterFactory::getAllRecvs(
     const HaloCommunication& comm,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority) {
   std::vector<std::shared_ptr<RecvNeighborCluster>> clusters;
   clusters.reserve(comm.ghost.size());
   for (std::size_t i = 0; i < comm.ghost.size(); ++i) {
-    clusters.emplace_back(getRecv(i, comm.ghost.at(i), cpuExecutor));
+    clusters.emplace_back(getRecv(i, comm.ghost.at(i), cpuExecutor, priority));
   }
   return clusters;
 }
 
 std::vector<std::shared_ptr<SendNeighborCluster>> CommunicationClusterFactory::getAllSends(
     const HaloCommunication& comm,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority) {
   std::vector<std::shared_ptr<SendNeighborCluster>> clusters;
   clusters.reserve(comm.copy.size());
   for (std::size_t i = 0; i < comm.ghost.size(); ++i) {
-    clusters.emplace_back(getSend(i, comm.copy.at(i), cpuExecutor));
+    clusters.emplace_back(getSend(i, comm.copy.at(i), cpuExecutor, priority));
   }
   return clusters;
 }

@@ -17,7 +17,7 @@ namespace seissol::solver::clustering {
 
 class AbstractTimeCluster {
   private:
-  ActorPriority priority = ActorPriority::Low;
+  double priority = 0.0;
   std::chrono::steady_clock::time_point timeOfLastStageChange;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut = false;
@@ -32,13 +32,15 @@ class AbstractTimeCluster {
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
   Executor executor;
+  bool muted{false};
 
   [[nodiscard]] double timeStepSize() const;
 
   AbstractTimeCluster(double maxTimeStepSize,
                       long timeStepRate,
                       Executor executor,
-                      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                      double priority);
 
   bool maySynchronize();
   virtual void start() = 0;
@@ -77,6 +79,8 @@ class AbstractTimeCluster {
 
   std::queue<void*> events;
 
+  int phaseSteps{};
+
   public:
   virtual ~AbstractTimeCluster();
 
@@ -91,8 +95,7 @@ class AbstractTimeCluster {
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
-  [[nodiscard]] virtual ActorPriority getPriority() const;
-  virtual void setPriority(ActorPriority priority);
+  [[nodiscard]] virtual double getPriority() const;
 
   void connect(AbstractTimeCluster& other);
   void setSyncTime(double newSyncTime);
@@ -126,6 +129,11 @@ class AbstractTimeCluster {
 
   // (dummy)
   virtual LayerType getLayerType() const { return Interior; }
+
+  void setPhase(int steps);
+  void mute();
+  void unmute();
+  bool isDefaultPhase();
 };
 
 class CellCluster : public AbstractTimeCluster {
@@ -135,7 +143,8 @@ class CellCluster : public AbstractTimeCluster {
   CellCluster(double maxTimeStepSize,
               long timeStepRate,
               Executor executor,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority);
 
   public:
 };
@@ -147,7 +156,8 @@ class FaceCluster : public AbstractTimeCluster {
   FaceCluster(double maxTimeStepSize,
               long timeStepRate,
               Executor executor,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority);
 
   public:
 };

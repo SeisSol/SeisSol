@@ -48,8 +48,9 @@ void CCLSendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {}
 CCLSendNeighborCluster::CCLSendNeighborCluster(
     const std::vector<RemoteCluster>& remote,
     void* comm,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : remote(remote), comm(comm), SendNeighborCluster(cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
+    : remote(remote), comm(comm), SendNeighborCluster(cpuExecutor, priority) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
     void* handle;
@@ -92,8 +93,9 @@ void CCLRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {}
 CCLRecvNeighborCluster::CCLRecvNeighborCluster(
     const std::vector<RemoteCluster>& remote,
     void* comm,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : remote(remote), comm(comm), RecvNeighborCluster(cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
+    : remote(remote), comm(comm), RecvNeighborCluster(cpuExecutor, priority) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
     void* handle;

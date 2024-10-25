@@ -33,7 +33,7 @@ struct CommunicationSetup {
 
 class NeighborCluster {
   public:
-  NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>&);
+  NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>&, double priority);
   virtual bool poll() = 0;
   virtual void start(parallel::runtime::StreamRuntime& runtime) = 0;
   virtual void stop(parallel::runtime::StreamRuntime& runtime) = 0;
@@ -48,15 +48,17 @@ class NeighborCluster {
 
 class SendNeighborCluster : public NeighborCluster {
   public:
-  SendNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-      : NeighborCluster(cpuExecutor) {}
+  SendNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                      double priority)
+      : NeighborCluster(cpuExecutor, priority) {}
   ~SendNeighborCluster() override = default;
 };
 
 class RecvNeighborCluster : public NeighborCluster {
   public:
-  RecvNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-      : NeighborCluster(cpuExecutor) {}
+  RecvNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                      double priority)
+      : NeighborCluster(cpuExecutor, priority) {}
   ~RecvNeighborCluster() override = default;
 };
 

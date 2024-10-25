@@ -266,7 +266,8 @@ class TimeCluster : public CellCluster {
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics,
-              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+              const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+              double priority);
 
   /**
    * Destructor of a LTS cluster.

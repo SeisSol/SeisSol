@@ -18,7 +18,8 @@ class DirectMPISendNeighborCluster : public SendNeighborCluster {
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
   DirectMPISendNeighborCluster(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                               double priority);
   ~DirectMPISendNeighborCluster() override;
 
   private:
@@ -37,7 +38,8 @@ class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
   DirectMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                               double priority);
   ~DirectMPIRecvNeighborCluster() override;
 
   private:

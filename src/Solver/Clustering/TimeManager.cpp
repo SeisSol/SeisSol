@@ -81,8 +81,8 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
       communication::CommunicationMode::DirectMPI, layout.globalClusterCount);
   communicationFactory.prepare();
 
-  const auto sendClusters = communicationFactory.getAllSends(halo, cpuExecutor);
-  const auto recvClusters = communicationFactory.getAllRecvs(halo, cpuExecutor);
+  const auto sendClusters = communicationFactory.getAllSends(halo, cpuExecutor, PriorityHighest);
+  const auto recvClusters = communicationFactory.getAllRecvs(halo, cpuExecutor, PriorityHighest);
 
   std::vector<std::unordered_map<LayerType, std::shared_ptr<AbstractTimeCluster>>>
       cellClusterBackmap(layout.localClusterIds.size());
@@ -116,7 +116,8 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           seissolInstance,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
-          cpuExecutor));
+          cpuExecutor,
+          PriorityLowest));
       ++profilingId;
       lowPrioClusters.push_back(clusters.back());
     }
@@ -135,13 +136,18 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
           sendClusters.at(localClusterId),
-          cpuExecutor));
+          cpuExecutor,
+          PriorityNormal));
       ++profilingId;
       highPrioClusters.push_back(clusters.back());
     }
     if (layer.getLayerType() == Ghost) {
-      clusters.push_back(std::make_shared<computation::GhostCluster>(
-          timeStepSize, timeStepRate, recvClusters.at(localClusterId), cpuExecutor));
+      clusters.push_back(
+          std::make_shared<computation::GhostCluster>(timeStepSize,
+                                                      timeStepRate,
+                                                      recvClusters.at(localClusterId),
+                                                      cpuExecutor,
+                                                      PriorityNormal));
       highPrioClusters.push_back(clusters.back());
     }
 
@@ -177,7 +183,8 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           seissolInstance,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
-          cpuExecutor));
+          cpuExecutor,
+          layer.getLayerType() == Interior ? PriorityLowest : PriorityNormal));
       ++profilingId;
       if (layer.getLayerType() == Interior) {
         lowPrioClusters.push_back(clusters.back());
@@ -268,7 +275,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
-  const auto phaseExecute = [&]() {
+  const auto epochExecute = [&]() {
     // Move all clusters from RestartAfterSync to Corrected
     // Does not involve any computations
     for (auto& cluster : clusters) {
@@ -297,7 +304,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     }
   };
 
-  cpuExecutor->start([&](const auto&) { phaseExecute(); }, &seissolInstance.getPinning());
+  cpuExecutor->start([&](const auto&) { epochExecute(); }, &seissolInstance.getPinning());
 
 #ifdef ACL_DEVICE
   device.api->syncDevice();

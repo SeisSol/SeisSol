@@ -16,8 +16,9 @@ class GhostCluster : public AbstractTimeCluster {
   GhostCluster(double maxTimeStepSize,
                long timeStepRate,
                std::shared_ptr<communication::RecvNeighborCluster> neighbor,
-               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host, cpuExecutor),
+               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+               double priority)
+      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host, cpuExecutor, priority),
         neighbor(neighbor) {}
 
   LayerType getLayerType() const override { return Ghost; }

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <unordered_map>
@@ -14,6 +15,10 @@
 #include "Common/Executor.h"
 
 namespace seissol::solver::clustering {
+
+constexpr double PriorityHighest = 1.0;
+constexpr double PriorityNormal = 0.5;
+constexpr double PriorityLowest = 0.0;
 
 enum class ComputeStep { Predict, Interact, Correct };
 
@@ -69,6 +74,8 @@ struct ClusterTimes {
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
+  [[nodiscard]] std::optional<double> speculativeTimeStepSize(double syncTime, int lookahead) const;
+
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const;
 
   double getTimeStepSize() const { return maxTimeStepSize; }
@@ -91,8 +98,6 @@ struct NeighborCluster {
 struct ActResult {
   bool isStateChanged = false;
 };
-
-enum class ActorPriority { Low, High };
 
 } // namespace seissol::solver::clustering
 

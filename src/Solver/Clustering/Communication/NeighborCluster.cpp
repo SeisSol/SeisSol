@@ -16,6 +16,7 @@ HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStruc
     const auto& clusterStructure = structure[i];
     for (std::size_t j = 0; j < clusterStructure.numberOfRegions; ++j) {
       const std::size_t clusterIndex = clusterStructure.neighboringClusters[j][1];
+      // TODO: neighboring global-only clusters
       communication.copy.at(clusterIndex)
           .emplace_back(RemoteCluster{clusterStructure.copyRegions[j],
                                       clusterStructure.copyRegionSizes[j],
@@ -33,8 +34,9 @@ HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStruc
   return communication;
 }
 
-NeighborCluster::NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : myRuntime(parallel::runtime::StreamRuntime(cpuExecutor)) {}
+NeighborCluster::NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                                 double priority)
+    : myRuntime(parallel::runtime::StreamRuntime(cpuExecutor, priority)) {}
 
 void NeighborCluster::startFrom(parallel::runtime::StreamRuntime& runtime) {
   void* event = runtime.recordEvent();

@@ -69,11 +69,6 @@ class TimeManager {
 
   std::shared_ptr<parallel::host::CpuExecutor> cpuExecutor;
 
-  //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  // std::vector<std::unique_ptr<AbstractTimeCluster>> clusters;
-  // std::vector<std::weak_ptr<AbstractTimeCluster>> highPrioClusters;
-  // std::vector<std::weak_ptr<AbstractTimeCluster>> lowPrioClusters;
-
   std::vector<std::shared_ptr<AbstractTimeCluster>> clusters;
 
   std::vector<std::shared_ptr<computation::TimeCluster>> cellClusters;

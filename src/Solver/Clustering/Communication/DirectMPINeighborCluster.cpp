@@ -51,8 +51,9 @@ void DirectMPISendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtim
 
 DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
     const std::vector<RemoteCluster>& remote,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : SendNeighborCluster(cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
+    : SendNeighborCluster(cpuExecutor, priority) {
   requests.resize(remote.size());
   status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
@@ -112,8 +113,9 @@ void DirectMPIRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtim
 
 DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
     const std::vector<RemoteCluster>& remote,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
-    : RecvNeighborCluster(cpuExecutor) {
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
+    : RecvNeighborCluster(cpuExecutor, priority) {
   requests.resize(remote.size());
   status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {

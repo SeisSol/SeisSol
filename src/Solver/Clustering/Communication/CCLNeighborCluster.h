@@ -20,7 +20,8 @@ class CCLSendNeighborCluster : public SendNeighborCluster {
 
   CCLSendNeighborCluster(const std::vector<RemoteCluster>& remote,
                          void* comm,
-                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                         double priority);
   ~CCLSendNeighborCluster() override;
 
   private:
@@ -37,7 +38,8 @@ class CCLRecvNeighborCluster : public RecvNeighborCluster {
 
   CCLRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
                          void* comm,
-                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor);
+                         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                         double priority);
   ~CCLRecvNeighborCluster() override;
 
   private:

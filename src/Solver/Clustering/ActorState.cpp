@@ -35,6 +35,9 @@ std::string actorStateToString(ActorState state) {
   if (state.type == StateType::Synchronized) {
     return "Synchronized";
   }
+  if (state.type == StateType::Waiting) {
+    return "Waiting";
+  }
   if (state.type == StateType::ComputeStart) {
     return "ComputeStart: " + stepstring;
   }
@@ -70,6 +73,15 @@ long ClusterTimes::nextSteps() const {
 
 double ClusterTimes::timeStepSize(double syncTime) const {
   return std::min(syncTime - time.at(ComputeStep::Correct), maxTimeStepSize);
+}
+
+std::optional<double> ClusterTimes::speculativeTimeStepSize(double syncTime, int lookahead) const {
+  const auto leftTime = syncTime - time.at(ComputeStep::Correct) - lookahead * maxTimeStepSize;
+  if (leftTime >= 0) {
+    return std::min(leftTime, maxTimeStepSize);
+  } else {
+    return {};
+  }
 }
 
 long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const {
