@@ -15,8 +15,6 @@
 
 namespace seissol::parallel::runtime {
 
-enum class Runtime { Native, Sycl, OpenMP };
-
 class StreamRuntime {
   private:
   std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
@@ -28,12 +26,13 @@ class StreamRuntime {
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu)
-      : cpu(cpu), disposed(false) {
-    streamPtr = device().api->createGenericStream();
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu,
+                double priority = 0.0)
+      : cpu(cpu), disposed(false), priority(priority) {
+    streamPtr = device().api->createStream(priority);
     ringbufferPtr.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
-      ringbufferPtr[i] = device().api->createGenericStream();
+      ringbufferPtr[i] = device().api->createStream(priority);
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -180,6 +179,7 @@ class StreamRuntime {
 
   private:
   bool disposed;
+  double priority;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
@@ -206,6 +206,22 @@ class StreamRuntime {
     }
   }
 #endif
+};
+
+class HostRuntime {
+  public:
+};
+
+class NativeRuntime {
+  public:
+};
+
+class SyclRuntime {
+  public:
+};
+
+class OpenMPRuntime {
+  public:
 };
 
 } // namespace seissol::parallel::runtime
