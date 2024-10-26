@@ -151,7 +151,7 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: ubuntu-24.04
+    runs-on: sccs-ci-zen2
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
@@ -267,7 +267,7 @@ jobs:
             fc: nvfortran
             container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
             pythonbreak: true
-            mpi: nvidia
+            mpi: openmpi
         parallel:
           - ranks: 1
             threads: 4
@@ -311,8 +311,6 @@ jobs:
             MPI_OPTIONS="--oversubscribe --allow-run-as-root";
           elif [ ${{matrix.setup.mpi}} = intel ]; then
             MPI_OPTIONS="";
-          else
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root";
           fi;
 
           export PATH=$(pwd)/install/bin:$PATH
