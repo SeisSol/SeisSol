@@ -212,7 +212,6 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
     }
   };
 
-  device.api->resetCircularStreamCounter();
   for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
