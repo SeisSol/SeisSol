@@ -42,6 +42,12 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
       fixInterpolatedSTFParameters(const seissol::initializer::DynamicRupture* const dynRup,
                                    seissol::initializer::LTSInternalNode::LeafIterator& it);
 
+  virtual void
+      imposeOnElementLevel(const seissol::initializer::DynamicRupture* const dynRup,
+                           seissol::initializer::LTSTree::LeafIterator& it,
+                           std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
+                           std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip);
+
   private:
   /**
    * Rotate slip from strike/dip cooordinate system to the fault aligned coordinate system.
@@ -83,6 +89,11 @@ class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                const seissol::initializer::DynamicRupture* const dynRup,
                                seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+
+  void imposeOnElementLevel(const seissol::initializer::DynamicRupture* const dynRup,
+                            seissol::initializer::LTSTree::LeafIterator& it,
+                            std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
+                            std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip) override;
 };
 
 } // namespace seissol::dr::initializer

@@ -60,6 +60,8 @@ void ImposedSlipRatesInitializer::initializeFault(
     const auto faceIDs = getFaceIDsInIterator(dynRup, it);
     queryModel(faultParameterDB, faceIDs);
 
+    imposeOnElementLevel(dynRup, it, strikeSlip, dipSlip);
+
     rotateSlipToFaultCS(
         dynRup, it, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
@@ -121,6 +123,14 @@ void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(
   // do nothing
 }
 
+void ImposedSlipRatesInitializer::imposeOnElementLevel(
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::LTSTree::LeafIterator& it,
+    std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
+    std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip) {
+  // do nothing
+}
+
 void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
@@ -164,4 +174,26 @@ void ImposedSlipRatesDeltaInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSInternalNode::LeafIterator& it) {}
+
+void ImposedSlipRatesDeltaInitializer::imposeOnElementLevel(
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::LTSTree::LeafIterator& it,
+    std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
+    std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip) {
+  /*auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
+  real(*strikeSlip)[misc::NumPaddedPoints] = it->var(concreteLts->strikeSlip);
+  real(*dipSlip)[misc::NumPaddedPoints] = it->var(concreteLts->dipSlip);
+  // impose an element's maximum slip value on each integration point
+  */
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    auto maxStrikeSlip = std::max_element(strikeSlip[ltsFace].begin(), strikeSlip[ltsFace].end());
+    auto maxDipSlip = std::max_element(dipSlip[ltsFace].begin(), dipSlip[ltsFace].end());
+    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      strikeSlip[ltsFace][pointIndex] = *maxStrikeSlip;
+      dipSlip[ltsFace][pointIndex] = *maxDipSlip;
+    }
+  }
+}
+
 } // namespace seissol::dr::initializer
