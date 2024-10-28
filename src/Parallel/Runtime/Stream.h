@@ -81,7 +81,13 @@ class StreamRuntime {
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     if (elemCount > 0) {
       auto cpu = this->cpu;
-      enqueueHost([cpu, elemCount, handler]() { cpu->add(0, elemCount, handler, {})->wait(); });
+      enqueueHost([cpu, elemCount, handler]() {
+#pragma omp parallel for schedule(static)
+        for (std::size_t i = 0; i < elemCount; ++i) {
+          std::invoke(handler, i);
+        }
+        // cpu->add(0, elemCount, handler, {})->wait();
+      });
     }
   }
 
@@ -108,7 +114,7 @@ class StreamRuntime {
 
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
-    if (!computeGraphHandle) {
+    if (!computeGraphHandle.isInitialized()) {
       device().api->streamBeginCapture(allStreams);
 
       std::invoke(std::forward<F>(handler), *this);
@@ -129,7 +135,13 @@ class StreamRuntime {
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
+    bool needsUpdate = !computeGraphHandle.isInitialized();
+
     runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
+
+    if (needsUpdate && computeGraphHandle.isInitialized()) {
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+    }
   }
 
   template <typename F>

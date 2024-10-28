@@ -162,6 +162,10 @@ int main(int argc, char* argv[]) {
 #endif
   }
 
+#ifdef ACL_DEVICE
+  device.api->setupPrinting(rank);
+#endif
+
   // TODO Read parameters here
   // Parse command line arguments
   utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
