@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "DirectMPINeighborCluster.h"
+#include <AbstractAPI.h>
 #include <Initializer/MemoryAllocator.h>
 #include <Parallel/MPI.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
@@ -65,7 +66,9 @@ DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
                   MPI::mpi.comm(),
                   &requests[i]);
   }
-  progressEnd = memory::allocTyped<uint32_t>(1, 1, memory::PinnedMemory);
+  progressEnd =
+      reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(uint32_t), device::Destination::CurrentDevice));
   *progressEnd = 0;
 }
 
@@ -73,7 +76,7 @@ DirectMPISendNeighborCluster::~DirectMPISendNeighborCluster() {
   for (auto& request : requests) {
     MPI_Request_free(&request);
   }
-  memory::free(progressEnd, memory::PinnedMemory);
+  device::DeviceInstance::getInstance().api->freePinnedMem(progressEnd);
 }
 
 bool DirectMPIRecvNeighborCluster::poll() {
@@ -127,7 +130,9 @@ DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
                   MPI::mpi.comm(),
                   &requests[i]);
   }
-  progressEnd = memory::allocTyped<uint32_t>(1, 1, memory::PinnedMemory);
+  progressEnd =
+      reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
+          sizeof(uint32_t), device::Destination::CurrentDevice));
   *progressEnd = 0;
 }
 
@@ -135,7 +140,7 @@ DirectMPIRecvNeighborCluster::~DirectMPIRecvNeighborCluster() {
   for (auto& request : requests) {
     MPI_Request_free(&request);
   }
-  memory::free(progressEnd, memory::PinnedMemory);
+  device::DeviceInstance::getInstance().api->freePinnedMem(progressEnd);
 }
 
 /*
