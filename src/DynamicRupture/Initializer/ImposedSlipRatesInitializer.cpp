@@ -180,12 +180,7 @@ void ImposedSlipRatesDeltaInitializer::imposeOnElementLevel(
     seissol::initializer::LTSTree::LeafIterator& it,
     std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
     std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip) {
-  /*auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
-  real(*strikeSlip)[misc::NumPaddedPoints] = it->var(concreteLts->strikeSlip);
-  real(*dipSlip)[misc::NumPaddedPoints] = it->var(concreteLts->dipSlip);
   // impose an element's maximum slip value on each integration point
-  */
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     auto maxStrikeSlip = std::max_element(strikeSlip[ltsFace].begin(), strikeSlip[ltsFace].end());
     auto maxDipSlip = std::max_element(dipSlip[ltsFace].begin(), dipSlip[ltsFace].end());
