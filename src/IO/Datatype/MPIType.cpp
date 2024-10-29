@@ -21,13 +21,13 @@ static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
 
 namespace {
 MPI_Datatype convertOpaque(const seissol::io::datatype::Datatype& datatype) {
-  MPI_Datatype type = nullptr;
+  MPI_Datatype type = MPI_DATATYPE_NULL;
   MPI_Type_contiguous(datatype.size(), MPI_BYTE, &type);
   return type;
 }
 
 MPI_Datatype convertString(const seissol::io::datatype::Datatype& datatype) {
-  MPI_Datatype type = nullptr;
+  MPI_Datatype type = MPI_DATATYPE_NULL;
   MPI_Type_contiguous(datatype.size(), MPI_CHAR, &type);
   return type;
 }
@@ -37,13 +37,13 @@ MPI_Datatype convertArray(const seissol::io::datatype::ArrayDatatype& datatype) 
   for (const std::size_t dim : datatype.dimensions()) {
     total *= dim;
   }
-  MPI_Datatype type = nullptr;
+  MPI_Datatype type = MPI_DATATYPE_NULL;
   MPI_Type_contiguous(total, seissol::io::datatype::convertToMPI(datatype.base(), false), &type);
   return type;
 }
 
 MPI_Datatype convertStruct(const seissol::io::datatype::StructDatatype& datatype) {
-  MPI_Datatype type = nullptr;
+  MPI_Datatype type = MPI_DATATYPE_NULL;
   std::vector<MPI_Datatype> subtypes;
   std::vector<MPI_Aint> suboffsets;
   std::vector<int> subsizes;
@@ -88,7 +88,7 @@ MPI_Datatype convertToMPI(const std::shared_ptr<Datatype>& datatype, bool autoco
       return autocommitRegistry.at(serialized);
     }
   }
-  MPI_Datatype type = nullptr;
+  MPI_Datatype type = MPI_DATATYPE_NULL;
   bool needsCommit = false;
   if (dynamic_cast<const ArrayDatatype*>(datatype.get()) != nullptr) {
     type = convertArray(dynamic_cast<const ArrayDatatype&>(*datatype));
