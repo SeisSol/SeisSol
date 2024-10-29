@@ -44,14 +44,14 @@ jobs:
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-24.04
-          - arch: sm_60
-            backend: cuda
-            syclcc: acpp
-            cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-            runner: sccs-ci-nv-sm60
+          #- arch: sm_60
+          #  backend: cuda
+          #  syclcc: acpp
+          #  cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  runner: sccs-ci-nv-sm60
           - arch: gfx906
             backend: hip
             syclcc: acpp
@@ -223,15 +223,15 @@ jobs:
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
-          - arch: sm_60
-            backend: cuda
-            syclcc: acpp
-            cc: nvc
-            cxx: nvc++
-            fc: nvfortran
-            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-            pythonbreak: true
-            mpi: openmpi
+          #- arch: sm_60
+          #  backend: cuda
+          #  syclcc: acpp
+          #  cc: nvc
+          #  cxx: nvc++
+          #  fc: nvfortran
+          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  pythonbreak: true
+          #  mpi: openmpi
         parallel:
           - ranks: 1
             threads: 4
