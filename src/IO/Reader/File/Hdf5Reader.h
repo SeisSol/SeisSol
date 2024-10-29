@@ -38,7 +38,7 @@ class Hdf5Reader {
   std::size_t attributeCount(const std::string& name);
   void readAttributeRaw(void* data,
                         const std::string& name,
-                        std::shared_ptr<datatype::Datatype> type);
+                        const std::shared_ptr<datatype::Datatype>& type);
   template <typename T>
   std::vector<T>
       readData(const std::string& name,
@@ -52,7 +52,7 @@ class Hdf5Reader {
   void readDataRaw(void* data,
                    const std::string& name,
                    std::size_t count,
-                   std::shared_ptr<datatype::Datatype> targetType);
+                   const std::shared_ptr<datatype::Datatype>& targetType);
   void closeGroup();
   void closeFile();
 

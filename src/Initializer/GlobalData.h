@@ -49,8 +49,7 @@
 #include "device.h"
 #endif // ACL_DEVICE
 
-namespace seissol {
-namespace initializer {
+namespace seissol::initializer {
 /*
  * \class MemoryProperties
  *
@@ -79,7 +78,7 @@ struct OnHost {
 
 struct OnDevice {
   struct DeviceCopyPolicy {
-    real* copy(const real* first, const real* last, real*& mem);
+    static real* copy(const real* first, const real* last, real*& mem);
   };
   using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
   static MemoryProperties getProperties();
@@ -103,7 +102,6 @@ struct GlobalDataInitializer {
 // Specific Global data initializers of SeisSol.
 using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
 using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-} // namespace initializer
-} // namespace seissol
+} // namespace seissol::initializer
 
 #endif

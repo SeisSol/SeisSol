@@ -23,9 +23,7 @@ namespace seissol::io::writer::module {
 WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning)
-    : prefix(prefix), settings(settings), lastWrite(-1), pinning(pinning) {
-  rank = seissol::MPI::mpi.rank();
-}
+    : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning) {}
 
 void WriterModule::setUp() {
   logInfo(rank) << "Output Writer" << settings.name << ": setup.";
@@ -78,7 +76,7 @@ void WriterModule::syncPoint(double time) {
   std::unordered_set<DataSource*> handledSources;
   std::vector<int> idsToSend;
   std::unordered_set<int> idSet;
-  for (auto& instruction : writer.getInstructions()) {
+  for (const auto& instruction : writer.getInstructions()) {
     for (auto& dataSource : instruction->dataSources()) {
       if (handledSources.find(dataSource.get()) == handledSources.end()) {
         // TODO: make a better flag than distributed here
@@ -90,7 +88,7 @@ void WriterModule::syncPoint(double time) {
             if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
               // pass-through buffer
               auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
-              auto pointer = writeBuffer->getLocalPointer();
+              const auto* pointer = writeBuffer->getLocalPointer();
               auto size = writeBuffer->getLocalSize();
               if (pointerMap.find(pointer) == pointerMap.end()) {
                 BufferPointer repr;

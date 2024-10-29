@@ -15,11 +15,10 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(
-            dynRup);
+    const auto* concreteLts =
+        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening*>(dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
   }
@@ -37,11 +36,11 @@ class FastVelocityWeakeningLaw
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  real updateStateVariable(unsigned int pointIndex,
-                           unsigned int face,
-                           real stateVarReference,
-                           real timeIncrement,
-                           real localSlipRate) const {
+  [[nodiscard]] real updateStateVariable(unsigned int pointIndex,
+                                         unsigned int face,
+                                         real stateVarReference,
+                                         real timeIncrement,
+                                         real localSlipRate) const {
     const double muW = this->drParameters->muW;
     const double localSrW = this->srW[face][pointIndex];
     const double localA = this->a[face][pointIndex];
@@ -80,10 +79,10 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMu(unsigned int ltsFace,
-                unsigned int pointIndex,
-                real localSlipRateMagnitude,
-                real localStateVariable) const {
+  [[nodiscard]] real updateMu(unsigned int ltsFace,
+                              unsigned int pointIndex,
+                              real localSlipRateMagnitude,
+                              real localStateVariable) const {
     // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
     const double localA = this->a[ltsFace][pointIndex];
     // x in asinh(x) for mu calculation
@@ -104,10 +103,10 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMuDerivative(unsigned int ltsFace,
-                          unsigned int pointIndex,
-                          real localSlipRateMagnitude,
-                          real localStateVariable) const {
+  [[nodiscard]] real updateMuDerivative(unsigned int ltsFace,
+                                        unsigned int pointIndex,
+                                        real localSlipRateMagnitude,
+                                        real localStateVariable) const {
     const double localA = this->a[ltsFace][pointIndex];
     const double c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
     const double result =
