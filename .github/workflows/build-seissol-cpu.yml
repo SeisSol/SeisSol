@@ -308,7 +308,7 @@ jobs:
           fi
 
           if [ ${{matrix.setup.mpi}} = openmpi ]; then
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root";
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
           elif [ ${{matrix.setup.mpi}} = intel ]; then
             MPI_OPTIONS="";
           fi;
