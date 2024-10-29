@@ -220,7 +220,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
       for (unsigned face = 0; face < 4; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          assert(data.faceDisplacements()[face] != nullptr);
+          assert(dataHost.faceDisplacementsDevice()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
