@@ -88,7 +88,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
   std::stringstream suffix;
 #ifdef PARALLEL
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
-         << makeFormatted<int, WideFormat>(MPI::mpi.rank());
+         << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
 #else
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
 #endif
