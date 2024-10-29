@@ -90,7 +90,7 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           cd build
-          ctest --rerun-failed --output-on-failure
+          ctest -j --rerun-failed --output-on-failure
       
       - name: run-seissol-no-input
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
