@@ -320,6 +320,7 @@ jobs:
           
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
+          export SEISSOL_MINI_NUM_ELEMENTS=100
 
           cd precomputed/${{matrix.case.name}}
           
