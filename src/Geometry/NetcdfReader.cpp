@@ -40,7 +40,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   }
 
   const int master = (rank / groupSize) * groupSize;
-  MPI_Comm commMaster = nullptr;
+  MPI_Comm commMaster = MPI_COMM_NULL;
   MPI_Comm_split(
       seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 

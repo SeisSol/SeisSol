@@ -215,7 +215,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
 
   // Setup MPI Communicator
 #ifdef USE_MPI
-  MPI_Comm commMaster = nullptr;
+  MPI_Comm commMaster = MPI_COMM_NULL;
   MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
 #endif // USE_MPI
 
