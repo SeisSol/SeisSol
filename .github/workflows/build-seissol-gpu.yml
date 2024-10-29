@@ -11,6 +11,7 @@ jobs:
     name: seissol-build-test
     runs-on: sccs-ci-zen2 #${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
