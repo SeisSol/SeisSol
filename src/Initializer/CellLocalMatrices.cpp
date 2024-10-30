@@ -41,10 +41,12 @@
 
 #include "CellLocalMatrices.h"
 
+#include <Initializer/BasicTypedefs.h>
 #include <cassert>
 
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
+#include "Parameters/ModelParameters.h"
 #include "Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
@@ -80,15 +82,16 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
-                                                         TimeStepping const&    timeStepping )
+                                                         TimeStepping const&    timeStepping,
+                                                         const parameters::ModelParameters& modelParameters )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
-  assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
+  static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0], "Shape mismatch for flux matrices");
+  static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1], "Shape mismatch for flux matrices");
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  const unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   assert(LayerMask(Ghost) == i_lts->material.mask);
   assert(LayerMask(Ghost) == i_lts->localIntegration.mask);
@@ -97,11 +100,12 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
   assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
 
-  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    CellMaterialData*           material                = it->var(i_lts->material);
-    LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
-    NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
-    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
+  const auto*       cellInformationAll         = io_ltsTree->var(i_lts->cellInformation);
+  for (auto& layer : io_ltsTree->leaves(Ghost)) {
+    CellMaterialData*           material                = layer.var(i_lts->material);
+    LocalIntegrationData*       localIntegration        = layer.var(i_lts->localIntegration);
+    NeighboringIntegrationData* neighboringIntegration  = layer.var(i_lts->neighboringIntegration);
+    CellLocalInformation*       cellInformation         = layer.var(i_lts->cellInformation);
 
 #ifdef _OPENMP
   #pragma omp parallel
@@ -126,11 +130,14 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+
+    real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+    real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
     
 #ifdef _OPENMP
     #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       unsigned clusterId = cellInformation[cell].clusterId;
       auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
       unsigned meshId = ltsToMesh[cell];
@@ -196,25 +203,87 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        const auto isSpecialBC = [&cellInformation, &cellInformationAll, cell](int side) {
+          const auto hasDRFace = [](const CellLocalInformation& ci) {
+            bool hasAtLeastOneDRFace = false;
+            for (size_t i = 0; i < 4; ++i) {
+              if (ci.faceTypes[i] == FaceType::DynamicRupture) {
+                hasAtLeastOneDRFace = true;
+              }
+            }
+            return hasAtLeastOneDRFace;
+          };
+          const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+          const auto neighborID = cellInformation[cell].faceNeighborIds[side];
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformationAll[neighborID]);
+          const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+          return (cellInformation[cell].faceTypes[side] == FaceType::Regular) && adjacentDRFaceExists;
+        };
+
+        const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
+        const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
+        const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
+
+        real centralFluxData[tensor::QgodLocal::size()]{};
+        real rusanovPlusData[tensor::QcorrLocal::size()]{};
+        real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+        auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+        auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
+        auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+        for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]); i++) {
+          centralFluxView(i, i) = 0.5;
+          rusanovPlusView(i, i) = wavespeed * 0.5;
+          rusanovMinusView(i, i) = -wavespeed * 0.5;
+        }
+
+        // check if we're on a face that has an adjacent cell with DR face
+        const auto fluxDefault = isSpecialBC(side) ?
+          modelParameters.fluxNearFault : modelParameters.flux;
+        
+        // exclude boundary conditions
+        static const std::vector<FaceType> GodunovBoundaryConditions = {
+          FaceType::FreeSurface,
+          FaceType::FreeSurfaceGravity,
+          FaceType::Analytical
+        };
+
+        const auto enforceGodunov
+          = std::any_of(GodunovBoundaryConditions.begin(), GodunovBoundaryConditions.end(),
+              [&](auto condition) {return condition == cellInformation[cell].faceTypes[side];});
+
+        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        localKrnl.QgodLocal = QgodLocalData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          localKrnl.QgodLocal = centralFluxData;
+          localKrnl.QcorrLocal = rusanovPlusData;
+        } else {
+          localKrnl.QgodLocal = QgodLocalData;
+          localKrnl.QcorrLocal = rusanovPlusNull;
+        }
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
+        if (flux == parameters::NumericalFlux::Rusanov) {
+          neighKrnl.QgodNeighbor = centralFluxData;
+          neighKrnl.QcorrNeighbor = rusanovMinusData;
+        } else {
+          neighKrnl.QgodNeighbor = QgodNeighborData;
+          neighKrnl.QcorrNeighbor = rusanovMinusNull;
+        }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
             cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-          // Already rotated!
+          // already rotated
           neighKrnl.Tinv = init::identityT::Values;
         }
         neighKrnl.execute();
@@ -231,7 +300,7 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
 #ifdef _OPENMP
     }
 #endif
-    ltsToMesh += it->getNumberOfCells();
+    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -261,16 +330,16 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  const unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
-  for (auto it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    auto* cellInformation = it->var(i_lts->cellInformation);
-    auto* boundary = it->var(i_lts->boundaryMapping);
+  for (auto& layer : io_ltsTree->leaves(Ghost)) {
+    auto* cellInformation = layer.var(i_lts->cellInformation);
+    auto* boundary = layer.var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       const auto& element = elements[ltsToMesh[cell]];
       double const* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
@@ -347,7 +416,7 @@ void seissol::initializer::initializeBoundaryMappings(const seissol::geometry::M
 
       }
     }
-    ltsToMesh += it->getNumberOfCells();
+    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -415,31 +484,31 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
-  for (auto it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-    real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real**                                timeDerivativePlusDevice                                        = it->var(dynRup->timeDerivativePlusDevice);
-    real**                                timeDerivativeMinusDevice                                       = it->var(dynRup->timeDerivativeMinusDevice);
-    DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Host);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Host);
-    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Host);
-    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Host);
-    real                                (*imposedStatePlusDevice)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus, AllocationPlace::Device);
-    real                                (*imposedStateMinusDevice)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus, AllocationPlace::Device);
-    real                                (*fluxSolverPlusDevice)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus, AllocationPlace::Device);
-    real                                (*fluxSolverMinusDevice)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus, AllocationPlace::Device);
-    DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
-    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = it->var(dynRup->impedanceMatrices);
+  for (auto& layer : dynRupTree->leaves(Ghost)) {
+    real**                                timeDerivativePlus                                        = layer.var(dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                       = layer.var(dynRup->timeDerivativeMinus);
+    real**                                timeDerivativePlusDevice                                        = layer.var(dynRup->timeDerivativePlusDevice);
+    real**                                timeDerivativeMinusDevice                                       = layer.var(dynRup->timeDerivativeMinusDevice);
+    DRGodunovData*                        godunovData                                               = layer.var(dynRup->godunovData);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = layer.var(dynRup->imposedStatePlus, AllocationPlace::Host);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = layer.var(dynRup->imposedStateMinus, AllocationPlace::Host);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Host);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Host);
+    real                                (*imposedStatePlusDevice)[tensor::QInterpolated::size()]          = layer.var(dynRup->imposedStatePlus, AllocationPlace::Device);
+    real                                (*imposedStateMinusDevice)[tensor::QInterpolated::size()]         = layer.var(dynRup->imposedStateMinus, AllocationPlace::Device);
+    real                                (*fluxSolverPlusDevice)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Device);
+    real                                (*fluxSolverMinusDevice)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Device);
+    DRFaceInformation*                    faceInformation                                           = layer.var(dynRup->faceInformation);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = layer.var(dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = layer.var(dynRup->waveSpeedsMinus);
+    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = layer.var(dynRup->impAndEta);
+    seissol::dr::ImpedanceMatrices*       impedanceMatrices                                         = layer.var(dynRup->impedanceMatrices);
 
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
@@ -665,28 +734,29 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      double surfaceArea = 0;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        plusSurfaceArea = 1.e99; plusVolume = 1.0; surfaceArea = 1.e99;
+        plusSurfaceArea = 1.e99; plusVolume = 1.0;
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
         surfaceArea = minusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
-        minusSurfaceArea = 1.e99; minusVolume = 1.0; surfaceArea = 1.e99;
+        minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;
 
-      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
-      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
+      real                                (*fluxSolverPlusHost)[tensor::fluxSolver::size()]               = layer.var(dynRup->fluxSolverPlus);
+      real                                (*fluxSolverMinusHost)[tensor::fluxSolver::size()]              = layer.var(dynRup->fluxSolverMinus);
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
@@ -699,7 +769,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices( seissol::geometry::
       krnl.execute();
     }
 
-    layerLtsFaceToMeshFace += it->getNumberOfCells();
+    layerLtsFaceToMeshFace += layer.getNumberOfCells();
   }
 }
 

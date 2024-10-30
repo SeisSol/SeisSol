@@ -16,12 +16,15 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/Tree
+        src/IO
+        src/Kernels
         src/Modules
         src/Monitoring
         src/Numerical
         src/Parallel
         src/Physics
         src/Reader
+        src/ResultWriter
         src/SourceTerm
         src/tests
         "
@@ -58,42 +61,8 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Kernels/Common.h
-        src/Kernels/DynamicRupture.h
-        src/Kernels/DynamicRupture.cpp
-        src/Kernels/Local.h
-        src/Kernels/Neighbor.h
-        src/Kernels/Plasticity.h
-        src/Kernels/Plasticity.cpp
-        src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceClusterOnHost.h
-        src/Kernels/PointSourceClusterOnHost.cpp
-        src/Kernels/PointSourceClusterOnDevice.h
-        src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Kernels/Precision.h
-        src/Kernels/Receiver.h
-        src/Kernels/Receiver.cpp
-        src/Kernels/Time.h
-        src/Kernels/TimeCommon.h
-        src/Kernels/TimeCommon.cpp
-        src/Kernels/Touch.h
-        src/Kernels/Touch.cpp
         src/Model/CommonDatastructures.h
         src/Model/Plasticity.h
-        src/ResultWriter/WaveFieldWriter.h
-        src/ResultWriter/EnergyOutput.h
-        src/ResultWriter/EnergyOutput.cpp
-        src/ResultWriter/AnalysisWriter.h
-        src/ResultWriter/AnalysisWriter.cpp
-        src/ResultWriter/AsyncCellIDs.h
-        src/ResultWriter/AsyncIO.h
-        src/ResultWriter/AsyncIO.cpp
-        src/ResultWriter/MiniSeisSolWriter.h
-        src/ResultWriter/MiniSeisSolWriter.cpp
-        src/ResultWriter/PostProcessor.h
-        src/ResultWriter/PostProcessor.cpp
-        src/ResultWriter/ThreadsPinningWriter.h
-        src/ResultWriter/ThreadsPinningWriter.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp

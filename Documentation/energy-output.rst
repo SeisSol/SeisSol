@@ -46,12 +46,14 @@ Configuration
     OutputFile = 'output/conv'
     EnergyOutput = 1
     EnergyTerminalOutput = 1
+    EnergyTerminalPrecision = 6
     EnergyOutputInterval = 0.05
     ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval 
     /
 
 Energy output
 ~~~~~~~~~~~~~~
+Controlled via ``EnergyOutput``.
 | 0 : no output
 | 1 : csv output
 
@@ -59,15 +61,18 @@ For the example configuration, the output is written in the file "output/conv-en
 
 Terminal output
 ~~~~~~~~~~~~~~~~
+Controlled via ``EnergyTerminalOutput``.
 | 0 : no output
 | 1 : additional output to stdout
 
 Additionally, the energy can be written to stdout.
-This can be useful for debugging.
+This can be useful for debugging. To increase the precision of the terminal output, adjust the ``EnergyTerminalPrecision`` field to the desired accuracy (a value of about 15 is sufficient to check for machine accuracy).
+
+Note that ``EnergyOutput`` needs to be enabled for the terminal output to work.
 
 Output interval
 ~~~~~~~~~~~~~~~~
-The output interval is controlled by EnergyOutputInterval.
+The output interval is controlled by ``EnergyOutputInterval``.
 If the output interval is not specified, the energy will be computed at the start of the simulation and at the end of the simulation.
 
 

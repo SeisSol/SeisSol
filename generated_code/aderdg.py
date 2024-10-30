@@ -197,11 +197,15 @@ class ADERDGBase(ABC):
     pass
 
   def addInit(self, generator):
+    flux_solver_spp = self.flux_solver_spp()
+    self.QcorrLocal = Tensor('QcorrLocal', flux_solver_spp.shape)
+    self.QcorrNeighbor = Tensor('QcorrNeighbor', flux_solver_spp.shape)
+
     fluxScale = Scalar('fluxScale')
-    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
+    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * (self.QgodLocal['kq'] * self.starMatrix(0)['ql'] + self.QcorrLocal['kl']) * self.T['jl']
     generator.add('computeFluxSolverLocal', computeFluxSolverLocal)
 
-    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
+    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * (self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] + self.QcorrNeighbor['kl']) * self.T['jl']
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))

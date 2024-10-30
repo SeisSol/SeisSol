@@ -83,7 +83,7 @@ struct Element {
 };
 
 struct Vertex {
-  VrtxCoords coords;
+  VrtxCoords coords{};
   /** Elements sharing this neighbor */
   std::vector<LocalElemId> elements;
 };
@@ -100,11 +100,13 @@ struct MPINeighborElement {
 };
 
 struct Fault {
+  GlobalElemId globalId;
   /** The element which contains this fault */
   LocalElemId element;
   /** The side of the element */
   SideId side;
 
+  GlobalElemId neighborGlobalId;
   LocalElemId neighborElement;
   SideId neighborSide;
   int tag;
@@ -119,7 +121,7 @@ struct Fault {
 
 struct MPINeighbor {
   /** Local ID of the MPI neighbor */
-  LocalElemId localID;
+  LocalElemId localID{};
 
   std::vector<MPINeighborElement> elements;
 };

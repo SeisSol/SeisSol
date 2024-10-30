@@ -58,6 +58,7 @@ namespace seissol::geometry {
 struct GhostElementMetadata {
   double vertices[4][3];
   int group;
+  GlobalElemId globalId;
 };
 
 class MeshReader {
@@ -87,9 +88,8 @@ class MeshReader {
   std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
 
   /** Has a plus fault side */
-  bool m_hasPlusFault;
+  bool m_hasPlusFault{false};
 
-  protected:
   MeshReader(int rank);
 
   public:

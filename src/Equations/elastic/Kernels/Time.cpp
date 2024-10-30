@@ -70,8 +70,8 @@
  **/
 
 #include "Kernels/TimeBase.h"
-#include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/Time.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -91,6 +91,8 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 
 #include <yateto.h>
+
+#include "utils/logger.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
@@ -309,7 +311,7 @@ void Time::computeBatchedAder(double timeStepWidth,
     }
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -396,8 +398,11 @@ void Time::computeBatchedIntegral(double expansionPoint,
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real deltaTLower = integrationStart - expansionPoint;
-  real deltaTUpper = integrationEnd - expansionPoint;
+  const real deltaTLower = integrationStart - expansionPoint;
+  const real deltaTUpper = integrationEnd - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+  // compute lengths of integration intervals
 
   // initialization of scalars in the taylor series expansion (0th term)
   real firstTerm  = static_cast<real>(1.0);
@@ -431,7 +436,10 @@ void Time::computeBatchedIntegral(double expansionPoint,
   intKrnl.execute();
   device.api->popStackMemory();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(true, numElements, timeIntegratedDofs, timeDerivatives, deltaTLower, deltaTUpper, runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -480,6 +488,9 @@ void Time::computeBatchedTaylorExpansion(real time,
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
+  const real deltaT = time - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
   intKrnl.I = timeEvaluated;
@@ -489,7 +500,6 @@ void Time::computeBatchedTaylorExpansion(real time,
   }
 
   // iterate over time derivatives
-  const real deltaT = time - expansionPoint;
   intKrnl.power(0) = 1.0;
   for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
@@ -498,7 +508,10 @@ void Time::computeBatchedTaylorExpansion(real time,
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(false, numElements, timeEvaluated, const_cast<const real**>(timeDerivatives), 0, deltaT, runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 

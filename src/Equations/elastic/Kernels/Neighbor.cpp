@@ -74,6 +74,8 @@
 #include <cassert>
 #include <stdint.h>
 
+#include "utils/logger.h"
+
 namespace seissol::kernels {
 
 void NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
@@ -246,7 +248,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &
     resetDeviceCurrentState(streamCounter);
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
