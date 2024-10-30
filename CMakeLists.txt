@@ -109,7 +109,7 @@ endif()
 
 find_package(GemmTools REQUIRED)
 
-add_library(SeisSol-common-properties INTERFACE IMPORTED)
+add_library(SeisSol-common-properties INTERFACE)
 
 find_package(Eigen3 3.4 REQUIRED)
 target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen)
