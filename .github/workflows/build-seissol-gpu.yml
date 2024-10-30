@@ -290,6 +290,9 @@ jobs:
           export SEISSOL_MINI_NUM_ELEMENTS=100
           export DEVICE_STACK_MEM_SIZE=0.25
 
+          # FIXME: compile the container with GPU-aware MPI
+          export SEISSOL_USM_MPI=1
+
           cd precomputed/${{matrix.case.name}}
           
           mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.setup.arch}}_${{matrix.setup.backend}}_${{matrix.order}}_${{matrix.case.equation}}
