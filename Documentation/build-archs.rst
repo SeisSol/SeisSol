@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Build Architectures
 ===================
 
@@ -67,7 +72,7 @@ CPU Architectures
      - AMD Zen 3
      - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
      - Ryzen 5??? series, 7?3?, 8?3? series
-     -
+     - LUMI (GPU partition), Frontier (GPU partition)
    * - ``bergamo``
      - AMD Zen 4
      - Generates AVX512 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``skx``.

@@ -76,7 +76,7 @@ slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
-and fault properties in the **parameters.par**. 
+and fault properties in the ``parameters.par``. 
 It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
 Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
@@ -108,7 +108,7 @@ compared with that elsewhere. The parameters in TPV5 are listed in Table
 
 Table: Table of LSR parameters on the fault in tpv5.
 
-Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the fault.yaml file.
+Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the ``fault.yaml`` file.
 
 Results
 ~~~~~~~
@@ -149,7 +149,7 @@ prefix\_cell.hf), the variables are shown in Table [table:wavefield]
 +---------+-------------+---------------------------------+
 
 Table: Table of wavefield output in SeisSol. Index denotes the position
-used in *iOutputMask* in SeisSol parameter file.
+used in ``iOutputMask`` in SeisSol parameter file.
 
 In the fault dynamics output file (prefix-fault.xdmf,
 prefix-fault\_vertex,h5 and prefix-fault\_cell,h5), the variables are
@@ -182,4 +182,4 @@ shown in Table [table:faultout]
 +---------+--------------------+-------------------------------------------------------------------------------+
 
 Table: Table of fault dynamic output in SeisSol. Index denotes the
-position used in *iOutputMask* in SeisSol parameter file.
+position used in ``iOutputMask`` in SeisSol parameter file.

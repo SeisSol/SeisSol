@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Frequent Build and Running Issues
 ---------------------------------
 
@@ -42,5 +47,5 @@ This problem also occurs, if you use the ImpalaJIT backend for easi on ARM-based
 The crash usually happens then when reading material parameters, i.e. around the log messages of ``Computing LTS weights.``, or after ``Begin init model.``.
 
 In this case, it is best to use the Lua backend for easi instead.
-The ImpalaJIT backend is used for ``!Function`` constructs while the Lua backend uses ``!Lua`` constructs—there is not (yet) a transpiler to Lua, i.e. you will have to look for a Lua version of the script instead or write it yourself.
+The ImpalaJIT backend is used for ``!Function`` constructs while the Lua backend uses ``!Lua`` constructs. Since easi v1.5.0, a transpiler for ``!Function`` to ``!Lua`` constructs is included.
 Recently the SeisSol Examples repository has been converted to using Lua instead of ImpalaJIT.

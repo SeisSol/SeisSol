@@ -8,29 +8,21 @@ General
 .. _gpu_process_pinning:
 
 The current GPU version of SeisSol targets the latest NVidia Graphics cards. Therefore, you
-need to have at least **CUDA 10** installed in your environment. Moreover, make sure
-that your installed MPI implementation is **CUDA-Aware**. Here is a list of 
-known CUDA-Aware MPI vendors:
+need to have at least **CUDA 11** or ROCm 5.2 installed in your environment. Moreover, make sure
+that your installed MPI implementation is GPU-aware. If you are unsure, consult the documentation of the cluster you are using.
 
-- OpenMPI
-- MVAPICH2
-- CRAY MPI
-- IBM Platform MPI
-- SGI MPI
-
-Please, referer to the corresponding documentation if you need to install
-CUDA-Aware MPI manually. We also encourage you to bind your MPI with `UCX communication layer
+You can also `UCX communication layer
 <https://github.com/openucx/ucx>`_ if you need to manually configure CUDA-Aware MPI for a cluster or your local server 
 with an open-source MPI implementation e.g., OpenMPI.
 
 GPU version of SeisSol follows *single rank/single GPU* strategy. Therefore, 
 if you want to run SeisSol on **M** nodes where each node is equipped with **N** GPUs then
-make sure that you launch SeisSol with **M x N** MPI processes. 
+make sure that you launch SeisSol with **M x N** MPI processes.
 
 To achieve the most efficient CPU-to-GPU communication and vice versa you have 
 to pin your MPI processes to CPU cores which are the closest to the target 
 GPUs. This problem is also known as GPU affinity. Latest versions of workload 
-managers (e.g., SLURM) are aware of this problem and try to provide an 
+managers (e.g. SLURM) are aware of this problem and try to provide an 
 automatic, GPU-aware process pinning. Consider the following SLURM options:
 
 - `--ntasks-per-gpu`
@@ -50,7 +42,7 @@ does not use a workload manager but is equipped with multiple GPUs per node.
 Some systems have complex numbering of processing units and/or NUMA domains.
 Sometime it is very difficult to achieve desirable pinning of the communication and/or
 output-writing threads with HPC resource managers like SLURM. Therefore, SeisSol provides
-*SEISSOL_FREE_CPUS_MASK* environment variable which helps to describe locations
+``SEISSOL_FREE_CPUS_MASK`` environment variable which helps to describe locations
 of the auxiliary threads per local MPI process. The variable accepts a comma separated
 list of elements where an element can be either 1) an integer, or 2) a range of
 integers defined as *[start, end]* or 3) a comma separated list of integers
@@ -71,11 +63,12 @@ locations for the *i*-th local MPI process.
 Supported SeisSol Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- elastic wave propagation model 
+- elastic (isotropic, anisotropic) wave propagation model
 - kinematic point sources
 - dynamic rupture: linear slip weakening, slow and fast velocity weakening friction laws
 - off-fault plasticity model
 
+Experimental branches include support for visco-elastic wave propagation as well.
 
 Compilation
 ~~~~~~~~~~~
@@ -100,8 +93,8 @@ Compile SeisSol with (e.g.)
 
 The following two CMake options can be useful to improve performance:
 
-* `USE_GRAPH_CAPTURING`: enables CUDA/HIP graphs. These are used to speed up the kernel execution for elastic or anisotropic equations.
-* `PREMULTIPLY_FLUX`: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
+* ``USE_GRAPH_CAPTURING``: enables CUDA/HIP graphs. These are used to speed up the kernel execution for wave propagation equations.
+* ``PREMULTIPLY_FLUX``: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
 
 Execution
 ~~~~~~~~~
@@ -126,25 +119,23 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
 
 The following device-specific environment variables are supported right now:
 
-* SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE
-* SEISSOL_SERIAL_NODE_DEVICE_INIT
+* ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
+* ``SEISSOL_SERIAL_NODE_DEVICE_INIT``
 
 Currently, SeisSol allocates MPI buffers using the global memory type.
 Some MPI implementations are not GPU-aware and do not support direct point-to-point
-communication on device buffers. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+communication on device buffers. SeisSol provides the ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
 environment variable that can be used to select the memory type for the buffers.
-The *host* value means that the data will be copied to/from the host memory
-before/after each *MPI_Isend* / *MPI_Irecv*.
-The default value is *direct* which means that the communication
-goes over the global memory and thus does not involve explicit data
-copies.
+The ``host`` value means that the data will be copied to/from the host memory
+before/after each ``MPI_Isend`` / ``MPI_Irecv``.
+The default value is ``direct`` which copies the data out of the GPU buffers directly.
 
 .. figure:: LatexFigures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram 
    :width: 10.0cm
    :align: center
 
-The variable "SEISSOL_SERIAL_NODE_DEVICE_INIT" exists to mitigate some possible execution bugs
+The variable ``SEISSOL_SERIAL_NODE_DEVICE_INIT`` exists to mitigate some possible execution bugs
 with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
-To enable it, set "SEISSOL_SERIAL_NODE_DEVICE_INIT=1". To explicitly disable it,
-write "SEISSOL_SERIAL_NODE_DEVICE_INIT=0".
+To enable it, set ``SEISSOL_SERIAL_NODE_DEVICE_INIT=1``. To explicitly disable it,
+write ``SEISSOL_SERIAL_NODE_DEVICE_INIT=0``.

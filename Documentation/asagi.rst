@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 ASAGI
 =====
 
@@ -37,7 +42,7 @@ Installing ASAGI
 ----------------
 
 Be careful that the python and gcc package is the same as for the
-compilation of SeisSol in a later step!
+compilation of SeisSol in a later step.
 First clone ASAGI with:
 
 .. code-block:: bash

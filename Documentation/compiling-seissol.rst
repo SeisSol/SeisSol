@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _build_seissol:
 
 Compiling and Running SeisSol

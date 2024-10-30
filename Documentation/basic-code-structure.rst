@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Basic code structure
 ====================
 
@@ -7,7 +12,6 @@ src/
 ============= =============
 Folder        Description
 ============= =============
-Checkpoint    Code related to checkpointing implementation, which allows to restart a simulation after failure.
 Common        Routines which are used in several parts of the code, or are generic enough to not fit anywhere else.
 Equations     Model-specific code.
 Geometry      Everything related to reading tetrahedral meshes and setting up geometry information.
