@@ -1,5 +1,9 @@
-.. SeisSol documentation master file, created by
-   sphinx-quickstart on Wed Nov  7 15:42:26 2018.
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
+.. Main SeisSol documentation file.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 

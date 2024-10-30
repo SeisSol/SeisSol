@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
 #
 # Configuration file for the Sphinx documentation builder.
 #

@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _northridge:
 
 Kinematic source example - 1994 Northridge earthquake
