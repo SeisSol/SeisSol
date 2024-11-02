@@ -67,7 +67,7 @@ printtimeinterval_sec = 0.2      ! Time interval at which output will be written
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 1
-vtkoutput = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
+vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
 /
 
 ! parameterize ascii fault file outputs

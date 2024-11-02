@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -78,7 +79,7 @@ YAML::Node Hdf5AttributeWrite::serialize() {
 Hdf5AttributeWrite::Hdf5AttributeWrite(const Hdf5Location& location,
                                        const std::string& name,
                                        std::shared_ptr<writer::DataSource> dataSource)
-    : location(location), name(name), dataSource(dataSource) {}
+    : location(location), name(name), dataSource(std::move(dataSource)) {}
 
 Hdf5AttributeWrite::Hdf5AttributeWrite(YAML::Node node)
     : name(node["name"].as<std::string>()),
@@ -92,8 +93,8 @@ Hdf5DataWrite::Hdf5DataWrite(const Hdf5Location& location,
                              std::shared_ptr<writer::DataSource> dataSource,
                              std::shared_ptr<datatype::Datatype> targetType,
                              int compress)
-    : location(location), name(name), dataSource(dataSource), targetType(targetType),
-      compress(compress) {}
+    : location(location), name(name), dataSource(std::move(dataSource)),
+      targetType(std::move(targetType)), compress(compress) {}
 
 YAML::Node Hdf5DataWrite::serialize() {
   YAML::Node node;

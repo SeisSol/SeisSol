@@ -21,7 +21,7 @@ class WriteInstance {
   WriteInstance(MPI_Comm comm);
 
   void write(const async::ExecInfo& info,
-             std::shared_ptr<instructions::WriteInstruction> instruction);
+             const std::shared_ptr<instructions::WriteInstruction>& instruction);
 
   void close();
 
@@ -36,7 +36,7 @@ class Writer {
 
   explicit Writer(const std::string& data);
 
-  void addInstruction(std::shared_ptr<instructions::WriteInstruction> instruction);
+  void addInstruction(const std::shared_ptr<instructions::WriteInstruction>& instruction);
 
   std::string serialize();
 
@@ -44,7 +44,8 @@ class Writer {
 
   void endWrite();
 
-  const std::vector<std::shared_ptr<instructions::WriteInstruction>>& getInstructions() const;
+  [[nodiscard]] const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
+      getInstructions() const;
 
   private:
   std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions;

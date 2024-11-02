@@ -57,7 +57,7 @@ class LoopStatistics {
 
   void addRegion(const std::string& name, bool includeInSummary = true);
 
-  unsigned getRegion(const std::string& name) const;
+  [[nodiscard]] unsigned getRegion(const std::string& name) const;
 
   void begin(unsigned region);
 
@@ -93,7 +93,7 @@ class LoopStatistics {
     std::string name;
     std::vector<Sample> times;
     bool includeInSummary;
-    timespec begin;
+    timespec begin{};
     StatisticVariables variables;
 
     Region(const std::string& name, bool includeInSummary);

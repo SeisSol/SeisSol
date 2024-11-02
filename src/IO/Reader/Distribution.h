@@ -22,7 +22,7 @@ public:
     void complete();
 
 private:
-    bool completed;
+    bool completed{false};
     std::function<void()> completion;
   };
 

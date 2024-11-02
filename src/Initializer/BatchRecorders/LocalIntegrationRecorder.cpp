@@ -220,7 +220,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
       for (unsigned face = 0; face < 4; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          assert(data.faceDisplacements()[face] != nullptr);
+          assert(dataHost.faceDisplacementsDevice()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
@@ -229,11 +229,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
           aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
           displacementsPtrs[face].push_back(dataHost.faceDisplacementsDevice()[face]);
-          t[face].push_back(data.boundaryMapping()[face].TData);
-          tInv[face].push_back(data.boundaryMapping()[face].TinvData);
+          t[face].push_back(dataHost.boundaryMappingDevice()[face].TData);
+          tInv[face].push_back(dataHost.boundaryMappingDevice()[face].TinvData);
 
-          rhos[face].push_back(data.material().local.rho);
-          lambdas[face].push_back(data.material().local.getLambdaBar());
+          rhos[face].push_back(dataHost.material().local.rho);
+          lambdas[face].push_back(dataHost.material().local.getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
@@ -289,12 +289,13 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          tInv[face].push_back(data.boundaryMapping()[face].TinvData);
+          tInv[face].push_back(dataHost.boundaryMappingDevice()[face].TinvData);
           aminusTPtrs[face].push_back(data.neighboringIntegration().nAmNm1[face]);
 
-          easiBoundaryMapPtrs[face].push_back(data.boundaryMapping()[face].easiBoundaryMap);
+          easiBoundaryMapPtrs[face].push_back(
+              dataHost.boundaryMappingDevice()[face].easiBoundaryMap);
           easiBoundaryConstantPtrs[face].push_back(
-              data.boundaryMapping()[face].easiBoundaryConstant);
+              dataHost.boundaryMappingDevice()[face].easiBoundaryConstant);
         }
       }
     }

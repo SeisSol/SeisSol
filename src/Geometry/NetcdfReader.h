@@ -68,7 +68,6 @@ class NetcdfReader : public seissol::geometry::MeshReader {
    */
   void findElementsPerVertex();
 
-  private:
   /**
    * Switch to collective access for a netCDf variable
    */

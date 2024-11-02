@@ -95,7 +95,7 @@ class SeisSol {
 
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
-  initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
@@ -156,7 +156,7 @@ class SeisSol {
    */
   void freeMeshReader() {
     delete m_meshReader;
-    m_meshReader = 0L;
+    m_meshReader = nullptr;
   }
 
   /**
@@ -215,7 +215,7 @@ class SeisSol {
   io::AsyncIO m_asyncIO;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* m_meshReader;
+  seissol::geometry::MeshReader* m_meshReader{nullptr};
 
   //! Lts Layout
   initializer::time_stepping::LtsLayout m_ltsLayout;
@@ -256,17 +256,21 @@ class SeisSol {
       timeMirrorManagers;
 
   //! time stamp which can be used for backuping files of previous runs
-  std::string m_backupTimeStamp{};
+  std::string m_backupTimeStamp;
 
   std::optional<std::string> checkpointLoadFile;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), outputManager(*this), m_seissolParameters(parameters), m_meshReader(nullptr),
-        m_ltsLayout(parameters),
+      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_analysisWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this) {}
+
+  SeisSol(const SeisSol&) = delete;
+  SeisSol(SeisSol&&) = delete;
+  auto operator=(const SeisSol&) = delete;
+  auto operator=(SeisSol&&) = delete;
 };
 
 } // namespace seissol
