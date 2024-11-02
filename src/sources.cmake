@@ -257,5 +257,3 @@ else()
 
 endif()
 
-add_subdirectory(IO)
-target_link_libraries(SeisSol-lib PUBLIC seissol-io)
