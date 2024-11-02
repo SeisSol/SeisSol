@@ -41,7 +41,7 @@ These modules have been compiled based on the main branch of https://github.com/
     # GPU version of seissol
     pip3 install --user git+https://github.com/SeisSol/gemmforge.git
     pip3 install --user git+https://github.com/SeisSol/chainforge.git
-    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single +%gcc@12 +python +cuda cuda_arch=86  ^easi +python
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 +python +cuda cuda_arch=86  ^easi +python
     spack module tcl refresh --upstream-modules seissol
 
 

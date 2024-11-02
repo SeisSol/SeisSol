@@ -15,9 +15,9 @@ namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
-  bool isEnabled;
-  double velocityScalingFactor{};
-  double timeStepScalingFactor = 1.0;
+  bool isEnabled{false};
+  double velocityScalingFactor{1.0};
+  double timeStepScalingFactor{1.0};
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
@@ -30,7 +30,7 @@ class InstantaneousTimeMirrorManager : Module {
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {};
+      : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,

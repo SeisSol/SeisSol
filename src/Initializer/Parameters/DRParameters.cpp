@@ -37,6 +37,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        FrictionLawType::RateAndStateFastVelocityWeakening,
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
+       FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
@@ -44,7 +45,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       SlipRateOutputType::TractionsAndFailure,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
   if (((frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
-       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian)) and
+       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
+       (frictionLawType == FrictionLawType::ImposedSlipRatesDelta)) and
       (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
     logWarning(seissol::MPI::mpi.rank())
         << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
@@ -98,7 +100,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";
+  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
   const double etaHack = [&]() {
     const auto hackRead1 = reader->read<double>("etahack");

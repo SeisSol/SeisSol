@@ -22,6 +22,7 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Touch.cpp
 src/Kernels/PointSourceClusterOnHost.cpp
 
+src/Common/Filesystem.cpp
 src/Common/IntegerMaskParser.cpp
 src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
 src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp

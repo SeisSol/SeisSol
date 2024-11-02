@@ -33,7 +33,7 @@ ActorStateStatistics::Sample::Sample(seissol::solver::clustering::ComputeStep st
   clock_gettime(CLOCK_MONOTONIC, &begin);
 }
 void ActorStateStatistics::Sample::finish() {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   end = endTime;
 }

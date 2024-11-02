@@ -52,7 +52,7 @@
 #include <type_traits>
 #include <vector>
 
-enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers };
+enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers = 3 };
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -73,11 +73,11 @@ struct DualMemoryContainer {
   void* host = nullptr;
   void* device = nullptr;
   AllocationMode allocationMode;
-  std::size_t allocationSize;
-  std::size_t allocationAlignment;
-  bool constant;
+  std::size_t allocationSize{};
+  std::size_t allocationAlignment{};
+  bool constant{};
 
-  void* get(AllocationPlace place) const {
+  [[nodiscard]] void* get(AllocationPlace place) const {
     if (place == AllocationPlace::Host) {
       return host;
     } else if (place == AllocationPlace::Device) {
@@ -174,8 +174,8 @@ template <typename T>
 struct Variable {
   unsigned index;
   LayerMask mask;
-  unsigned count;
-  Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
+  unsigned count{1};
+  Variable() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 struct Bucket {
@@ -189,9 +189,9 @@ struct ScratchpadMemory : public Bucket {};
 #endif
 
 struct MemoryInfo {
-  size_t bytes;
-  size_t alignment;
-  size_t elemsize;
+  size_t bytes{};
+  size_t alignment{};
+  size_t elemsize{};
   LayerMask mask;
   // seissol::memory::Memkind memkind;
   AllocationMode allocMode;
@@ -202,7 +202,7 @@ class Layer : public Node {
   private:
   int m_clusterId;
   enum LayerType m_layerType;
-  unsigned m_numberOfCells;
+  unsigned m_numberOfCells{0};
   std::vector<DualMemoryContainer> m_vars;
   std::vector<DualMemoryContainer> m_buckets;
   std::vector<size_t> m_bucketSizes;
@@ -218,7 +218,7 @@ class Layer : public Node {
 #endif
 
   public:
-  Layer() : m_numberOfCells(0) {}
+  Layer() = default;
   ~Layer() override = default;
 
   void synchronizeTo(AllocationPlace place, void* stream) {
@@ -277,23 +277,23 @@ class Layer : public Node {
 #endif
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
-  inline bool isMasked(LayerMask layerMask) const {
+  [[nodiscard]] bool isMasked(LayerMask layerMask) const {
     return (LayerMask(m_layerType) & layerMask).any();
   }
 
-  inline void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
+  void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
 
-  inline enum LayerType getLayerType() const { return m_layerType; }
+  [[nodiscard]] enum LayerType getLayerType() const { return m_layerType; }
 
   inline void setClusterId(int clusterId) { m_clusterId = clusterId; }
 
-  inline int getClusterId() const { return m_clusterId; }
+  [[nodiscard]] int getClusterId() const { return m_clusterId; }
 
-  inline unsigned getNumberOfCells() const { return m_numberOfCells; }
+  [[nodiscard]] unsigned getNumberOfCells() const { return m_numberOfCells; }
 
-  inline void setNumberOfCells(unsigned numberOfCells) { m_numberOfCells = numberOfCells; }
+  void setNumberOfCells(unsigned numberOfCells) { m_numberOfCells = numberOfCells; }
 
-  inline void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
+  void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
     assert(m_vars.empty() && m_buckets.empty() && m_bucketSizes.empty());
     m_vars.resize(numVars);
     m_buckets.resize(numBuckets);
@@ -309,7 +309,7 @@ class Layer : public Node {
   }
 #endif
 
-  inline void setBucketSize(const Bucket& handle, size_t size) {
+  void setBucketSize(const Bucket& handle, size_t size) {
     assert(m_bucketSizes.size() > handle.index);
     m_bucketSizes[handle.index] = size;
   }
@@ -321,12 +321,12 @@ class Layer : public Node {
   }
 #endif
 
-  inline size_t getBucketSize(const Bucket& handle) {
+  size_t getBucketSize(const Bucket& handle) {
     assert(m_bucketSizes.size() > handle.index);
     return m_bucketSizes[handle.index];
   }
 
-  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) {
+  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) const {
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
         bytes[var] += m_numberOfCells * vars[var].bytes;

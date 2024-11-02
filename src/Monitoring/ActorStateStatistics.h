@@ -20,7 +20,7 @@ class ActorStateStatistics {
     explicit Sample(seissol::solver::clustering::ComputeStep state);
     void finish();
     seissol::solver::clustering::ComputeStep state;
-    timespec begin;
+    timespec begin{};
     std::optional<timespec> end;
     int numEnteredRegion;
     Sample() = delete;

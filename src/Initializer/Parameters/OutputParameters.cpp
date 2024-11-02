@@ -100,7 +100,7 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   const auto interval = reader->readWithDefault("surfaceoutputinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "surfaceoutput", "surfaceoutputinterval");
 
-  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0u);
+  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0U);
 
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
@@ -228,7 +228,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
           {"hdf5", xdmfwriter::BackendType::H5},
 #endif
       });
-  const std::string prefix =
+  const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);

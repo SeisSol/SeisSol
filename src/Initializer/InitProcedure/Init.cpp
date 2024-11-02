@@ -22,7 +22,7 @@
 
 namespace {
 
-static void reportDeviceMemoryStatus() {
+void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const auto rank = seissol::MPI::mpi.rank();
@@ -49,7 +49,7 @@ static void reportDeviceMemoryStatus() {
 #endif
 }
 
-static void initSeisSol(seissol::SeisSol& seissolInstance) {
+void initSeisSol(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
   // set g
@@ -71,7 +71,7 @@ static void initSeisSol(seissol::SeisSol& seissolInstance) {
   sim.setFinalTime(seissolParams.timeStepping.endTime);
 }
 
-static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
+void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -79,7 +79,7 @@ static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   pinningWriter.write(seissolInstance.getPinning());
 }
 
-static void closeSeisSol(seissol::SeisSol& seissolInstance) {
+void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
@@ -98,7 +98,7 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
 
   // just put a barrier here to make sure everyone is synched
   logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 
   seissol::Stopwatch watch;
   logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
@@ -109,7 +109,7 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
 
   // make sure everyone is really done
   logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 
   closeSeisSol(seissolInstance);
 }

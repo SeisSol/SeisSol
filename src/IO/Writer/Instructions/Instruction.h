@@ -13,6 +13,7 @@ namespace seissol::io::writer::instructions {
 
 class WriteInstruction {
   public:
+  virtual ~WriteInstruction() = default;
   virtual YAML::Node serialize() = 0;
   static std::shared_ptr<WriteInstruction> deserialize(YAML::Node node);
 

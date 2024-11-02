@@ -154,7 +154,7 @@ void ReceiverOutput::calcFaultOutput(
 
     this->computeLocalStresses(local);
     const real strength = this->computeLocalStrength(local);
-    this->updateLocalTractions(local, strength);
+    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -194,7 +194,7 @@ void ReceiverOutput::calcFaultOutput(
       break;
     }
     case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
-      this->computeSlipRate(local, tangent1, tangent2, strike, dip);
+      seissol::dr::output::ReceiverOutput::computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
     }

@@ -23,7 +23,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   const size_t size = info.bufferSize(PlanId);
   const char* strData = reinterpret_cast<const char*>(data);
 
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (printPlan && rank == 0) {
     logInfo(rank) << "Printing current plan:" << std::string(strData, strData + size);
