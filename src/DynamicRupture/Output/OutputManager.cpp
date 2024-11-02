@@ -189,11 +189,8 @@ void OutputManager::initElementwiseOutput() {
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
-  io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
-                                          receiverPoints.size() /
-                                              seissol::init::vtk2d::Shape[order][1],
-                                          2,
-                                          order);
+  io::instance::mesh::VtkHdfWriter writer(
+      "fault-elementwise", receiverPoints.size() / seissol::init::vtk2d::Shape[order][1], 2, order);
 
   writer.addPointProjector([=](double* target, std::size_t index) {
     for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
@@ -208,14 +205,12 @@ void OutputManager::initElementwiseOutput() {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addPointData<real>(VariableLabels[i][d],
-                                  std::vector<std::size_t>(),
-                                  [=](real* target, std::size_t index) {
-                                    std::memcpy(
-                                        target,
-                                        data + seissol::init::vtk2d::Shape[order][1] * index,
-                                        sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-                                  });
+        writer.addPointData<real>(
+            VariableLabels[i][d], std::vector<std::size_t>(), [=](real* target, std::size_t index) {
+              std::memcpy(target,
+                          data + seissol::init::vtk2d::Shape[order][1] * index,
+                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+            });
       }
     }
   });

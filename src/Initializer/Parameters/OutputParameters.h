@@ -19,10 +19,7 @@ enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
 
-enum class XdmfBackend : int {
-  Posix,
-  Hdf5
-};
+enum class XdmfBackend : int { Posix, Hdf5 };
 
 struct CheckpointParameters {
   bool enabled;

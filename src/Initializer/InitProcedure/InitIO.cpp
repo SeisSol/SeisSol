@@ -10,7 +10,6 @@
 #include <Geometry/MeshDefinition.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Tree/Layer.h>
-#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
