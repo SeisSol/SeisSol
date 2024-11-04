@@ -9,7 +9,7 @@ on:
 jobs:
   seissol-build-test:
     name: seissol-build-test
-    runs-on: sccs-ci-zen2 #${{ matrix.setup.runner }}
+    runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     strategy:
