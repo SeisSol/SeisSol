@@ -116,7 +116,7 @@ target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
 add_subdirectory(generated-code)
 
-target_link_libraries(seissol-common-properties INTERFACE seissol-genkernel)
+target_link_libraries(seissol-genkernel INTERFACE seissol-common-properties)
 
 add_subdirectory(src)
 
