@@ -1,5 +1,5 @@
 # Source code
-aadd_library(SeisSol-common-lib
+add_library(SeisSol-common-lib
 
 ${CMAKE_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
 ${CMAKE_SOURCE_DIR}/src/Initializer/GlobalData.cpp
@@ -63,12 +63,12 @@ ${CMAKE_SOURCE_DIR}/src/ResultWriter/AnalysisWriter.cpp
 target_compile_options(SeisSol-common-lib PRIVATE -fPIC)
 
 if (SHARED)
-add_library(SeisSol-lib SHARED)
+add_library(seissol-lib SHARED)
 else()
-add_library(SeisSol-lib STATIC)
+add_library(seissol-lib STATIC)
 endif()
 
-target_sources(SeisSol-lib PRIVATE
+target_sources(seissol-lib PRIVATE
 ${CMAKE_SOURCE_DIR}/src/ResultWriter/EnergyOutput.cpp
 ${CMAKE_SOURCE_DIR}/src/ResultWriter/FreeSurfaceWriter.cpp
 ${CMAKE_SOURCE_DIR}/src/ResultWriter/FreeSurfaceWriterExecutor.cpp
