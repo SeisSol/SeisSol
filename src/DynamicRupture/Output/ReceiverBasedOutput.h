@@ -113,7 +113,7 @@ class ReceiverOutput {
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData> data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
