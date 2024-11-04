@@ -220,7 +220,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
       for (unsigned face = 0; face < 4; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          assert(data.faceDisplacements()[face] != nullptr);
+          assert(dataHost.faceDisplacementsDevice()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
@@ -232,8 +232,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.boundaryMappingDevice()[face].TData);
           tInv[face].push_back(dataHost.boundaryMappingDevice()[face].TinvData);
 
-          rhos[face].push_back(data.material().local.rho);
-          lambdas[face].push_back(data.material().local.getLambdaBar());
+          rhos[face].push_back(dataHost.material().local.rho);
+          lambdas[face].push_back(dataHost.material().local.getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
