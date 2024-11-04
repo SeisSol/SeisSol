@@ -1,5 +1,5 @@
 # Source code
-add_library(SeisSol-common-lib
+aadd_library(SeisSol-common-lib
 
 ${CMAKE_SOURCE_DIR}/src/Initializer/CellLocalMatrices.cpp
 ${CMAKE_SOURCE_DIR}/src/Initializer/GlobalData.cpp
@@ -149,10 +149,10 @@ set(SYCL_ONLY_SRC_FILES
   PARENT_SCOPE
 )
 
-target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
+target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 
 if (HDF5 AND MPI)
-  target_sources(SeisSol-lib PRIVATE
+  target_sources(seissol-lib PRIVATE
     ${CMAKE_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
     ${CMAKE_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
     ${CMAKE_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/LtsWeights.cpp
@@ -161,8 +161,7 @@ if (HDF5 AND MPI)
 endif()
 
 if (NETCDF)
-  target_sources(SeisSol-common-lib PRIVATE ${CMAKE_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
-  target_sources(SeisSol-lib PRIVATE
+  target_sources(seissol-lib PRIVATE
     ${CMAKE_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     ${CMAKE_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
     )
@@ -177,8 +176,8 @@ if ("${EQUATIONS}" STREQUAL "elastic")
     ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
     )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/elastic)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ELASTIC)
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/elastic)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-common-lib PRIVATE
@@ -187,8 +186,8 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
     ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
     )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_VISCOELASTIC)
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-common-lib PRIVATE
@@ -196,8 +195,8 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic2)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_VISCOELASTIC2)
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(SeisSol-common-lib PRIVATE
@@ -206,8 +205,8 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
     ${CMAKE_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
     ${CMAKE_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/anisotropic)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ANISOTROPIC)
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/anisotropic)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(SeisSol-common-lib PRIVATE
@@ -215,18 +214,18 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     ${CMAKE_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
     ${CMAKE_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/poroelastic)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_STP)
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_POROELASTIC)
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_SOURCE_DIR}/src/Equations/poroelastic)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_STP)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
 endif()
 
-target_include_directories(SeisSol-common-properties INTERFACE
+target_include_directories(seissol-common-properties INTERFACE
         ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
 
 # GPU code
 if (WITH_GPU)
-  target_sources(SeisSol-lib PRIVATE
+  target_sources(seissol-lib PRIVATE
           ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
           ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
           ${CMAKE_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
@@ -248,7 +247,7 @@ if (WITH_GPU)
   endif()
 
   target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
-  target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
+  target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)

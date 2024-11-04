@@ -64,7 +64,7 @@ endif()
 add_executable(SeisSol-serial-test
         ${SEISSOL_TEST_SOURCES}
         TestMain.cpp)
-target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+target_link_libraries(SeisSol-serial-test PRIVATE seissol-lib)
 if(WITH_GPU)
     target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
 endif()

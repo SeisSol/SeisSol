@@ -2,4 +2,4 @@
 include(sources.cmake)
 
 add_subdirectory(IO)
-target_link_libraries(SeisSol-lib PUBLIC seissol-io)
+target_link_libraries(seissol-lib PUBLIC seissol-io)
