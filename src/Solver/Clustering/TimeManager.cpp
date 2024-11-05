@@ -135,7 +135,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           seissolInstance,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
-          sendClusters.at(localClusterId),
+          sendClusters.at(globalClusterId),
           cpuExecutor,
           PriorityNormal));
       ++profilingId;
@@ -145,7 +145,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
       clusters.push_back(
           std::make_shared<computation::GhostCluster>(timeStepSize,
                                                       timeStepRate,
-                                                      recvClusters.at(localClusterId),
+                                                      recvClusters.at(globalClusterId),
                                                       cpuExecutor,
                                                       PriorityNormal));
       highPrioClusters.push_back(clusters.back());

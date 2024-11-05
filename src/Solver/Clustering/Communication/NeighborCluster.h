@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
@@ -24,7 +25,8 @@ struct HaloCommunication {
   std::vector<std::vector<RemoteCluster>> copy;
 };
 
-HaloCommunication getHaloCommunication(std::size_t clusterCount, const MeshStructure* structure);
+HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,
+                                       const MeshStructure* structure);
 
 struct CommunicationSetup {
   ComputeStep start;

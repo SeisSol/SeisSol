@@ -338,8 +338,7 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                            localClusters);
 
   solver::clustering::communication::HaloCommunication halo =
-      solver::clustering::communication::getHaloCommunication(
-          ltsInfo.timeStepping.numberOfLocalClusters, ltsInfo.meshStructure);
+      solver::clustering::communication::getHaloCommunication(layout, ltsInfo.meshStructure);
 
   seissolInstance.timeManager().addClusters(
       layout, halo, seissolInstance.getMemoryManager(), seissolParams.model.plasticity);
