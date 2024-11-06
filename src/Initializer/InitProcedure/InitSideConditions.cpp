@@ -152,7 +152,6 @@ std::vector<std::unique_ptr<physics::InitialField>>
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {
-  auto initConditions = buildInitialConditionList(seissolInstance);
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
 
