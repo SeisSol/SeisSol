@@ -62,11 +62,14 @@
 #include <Physics/InitialField.h>
 #include <array>
 #include <cstddef>
+#include <easi/Query.h>
+#include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
 #include <easi/util/AsagiReader.h>
 #include <init.h>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 GENERATE_HAS_MEMBER(selectAneFull)
