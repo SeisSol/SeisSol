@@ -20,22 +20,29 @@ customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloading
 SimModeler version
 ------------------
 
-We have used so far 3 main versions of SimModeler (3, 4 and 5).
+We have used several versions of SimModeler so far.
 Sometimes, quality meshes can be obtained on older versions of SimModeler
 whereas the latest version of SimModeler is not able to get quality
 meshes (in that case the support of SimModeler is very reactive and
 helpful). It is then important to notice that smd file created in older
 versions of SimModeler can be read in all SimModeler versions. On the
-other hand, smd file from the latest simModeler releases are not
+other hand, smd file from the latest SimModeler releases are not
 backward compatible. Anyway, in most cases, we strongly recommend using
 the latest version of SimModeler.
+
+Discrete tab
+------------
+
+After importing all your meshing files and making sure the box "Add New Part in Current Model" 
+is ticked during the imports, you need to union all files.
+Go to "Discrete" tab and select "Union Parts". E.g., add both the fault and the box representing the domain and click apply.
 
 Analysis tab
 ------------
 
-tab Analysis > Click twice on "New Case" on the Analysis Attributes panel.
+Tab Analysis > Click twice on "New Case" on the Analysis Attributes panel.
 give a name. If your SimModeler is set for SeisSol, the solver
-seisSol should appear in the drop-down menu.
+seissol should appear in the drop-down menu.
 
 Select the top surface (several surfaces can be selected by holding
 Shift), click on the + sign > Boundary conditions > Free Surface. And

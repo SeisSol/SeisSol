@@ -1,23 +1,20 @@
-#ifndef SEISSOL_FILESYSTEM_H
-#define SEISSOL_FILESYSTEM_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
 
-#include <string>
+#ifndef SEISSOL_SRC_COMMON_FILESYSTEM_H_
+#define SEISSOL_SRC_COMMON_FILESYSTEM_H_
+
 #include <optional>
-#include "utils/timeutils.h"
+#include <string>
 
 #ifdef EXPERIMENTAL_FS
 #include <experimental/filesystem> // IWYU pragma: export
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 namespace seissol {
 namespace filesystem = std::experimental::filesystem;
-
-inline bool directoryExists(seissol::filesystem::directory_entry entry) {
-  auto pathName = entry.path().string();
-  struct stat info;
-  return stat(pathName.c_str(), &info) == 0;
-}
 } // namespace seissol
 
 #else
@@ -25,36 +22,16 @@ inline bool directoryExists(seissol::filesystem::directory_entry entry) {
 #include <filesystem> // IWYU pragma: export
 namespace seissol {
 namespace filesystem = std::filesystem;
-
-inline bool directoryExists(seissol::filesystem::directory_entry entry) {
-  return entry.exists();
-}
 } // namespace seissol
 
 #endif // EXPERIMENTAL_FS
 
-
 namespace seissol {
-inline void generateBackupFileIfNecessary(std::string fileName,
-                                          std::string fileExtension,
-                                          std::optional<std::string> timeStamp = {}) {
-  std::stringstream fullName;
-  fullName << fileName << '.' << fileExtension;
-  seissol::filesystem::path path(fullName.str());
-  seissol::filesystem::directory_entry entry(path);
+auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
 
-  if (seissol::directoryExists(entry)) {
-    if (!timeStamp.has_value()) {
-      auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
-      timeStamp = std::optional<std::string>(stamp);
-    }
-    std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << timeStamp.value() << '.' << fileExtension;
-    seissol::filesystem::path copyPath(backupFileName.str());
-    seissol::filesystem::rename(path, copyPath);
-  }
-}
+void generateBackupFileIfNecessary(const std::string& fileName,
+                                   const std::string& fileExtension,
+                                   const std::optional<std::string>& timeStamp = {});
 } // namespace seissol
 
-#endif // SEISSOL_FILESYSTEM_H
-
+#endif // SEISSOL_SRC_COMMON_FILESYSTEM_H_

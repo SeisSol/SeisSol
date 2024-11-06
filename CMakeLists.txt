@@ -179,9 +179,7 @@ add_library(SeisSol-common-properties INTERFACE IMPORTED)
 include(src/sources.cmake)
 
 # enforce code generation to run before any other target
-add_dependencies(SeisSol-lib SeisSol-codegen)
-add_dependencies(SeisSol-kernel-lib SeisSol-codegen)
-add_dependencies(SeisSol-common-lib SeisSol-codegen)
+add_dependencies(SeisSol-common-properties SeisSol-codegen)
 
 target_link_libraries(SeisSol-lib PUBLIC SeisSol-common-properties)
 target_link_libraries(SeisSol-kernel-lib PUBLIC SeisSol-common-properties)
@@ -331,10 +329,8 @@ if(${EQUATIONS} STREQUAL "poroelastic")
     include(FortranCInterface)
     FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
     find_package(LAPACK REQUIRED)
-    target_include_directories(SeisSol-common-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(SeisSol-common-lib PUBLIC ${LAPACK_LIBRARIES})
-    target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(SeisSol-lib PUBLIC ${LAPACK_LIBRARIES})
+    target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(SeisSol-common-properties INTERFACE ${LAPACK_LIBRARIES})
   else()
     message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
   endif()
@@ -343,6 +339,10 @@ endif()
 
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-common-properties INTERFACE INTEGRATE_QUANTITIES)
+endif()
+
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+  target_compile_definitions(SeisSol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
@@ -637,7 +637,6 @@ if (TESTING)
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Parallel/TestParallel.cpp
-          src/tests/Pipeline/TestPipeline.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
           src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp

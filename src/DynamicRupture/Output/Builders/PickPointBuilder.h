@@ -131,14 +131,14 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto meshElements = meshReader->getElements();
     auto meshVertices = meshReader->getVertices();
 
-    constexpr int numSides{2};
-    constexpr int numVertices{4};
+    constexpr int NumSides{2};
+    constexpr int NumVertices{4};
 
     std::vector<Vertex> faultVertices;
-    faultVertices.reserve(numVertices * numFaultElements * numSides);
+    faultVertices.reserve(NumVertices * numFaultElements * NumSides);
 
     std::vector<Element> faultElements;
-    faultElements.reserve(numFaultElements * numSides);
+    faultElements.reserve(numFaultElements * NumSides);
 
     std::vector<size_t> filtertedToOrigIndices;
     filtertedToOrigIndices.reserve(2 * numFaultElements);
@@ -153,12 +153,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         // element copy done on purpose because we are recording
         // a new vertex array and thus we need to modify vertex indices
         // inside of each element
-        std::array<Element*, numSides> elements{&meshElements[faultItem.element],
+        std::array<Element*, NumSides> elements{&meshElements[faultItem.element],
                                                 &meshElements[faultItem.neighborElement]};
-        for (int sideId = 0; sideId < numSides; ++sideId) {
+        for (int sideId = 0; sideId < NumSides; ++sideId) {
           auto element = (*elements[sideId]);
 
-          for (size_t vertexIdx{0}; vertexIdx < numVertices; ++vertexIdx) {
+          for (size_t vertexIdx{0}; vertexIdx < NumVertices; ++vertexIdx) {
             faultVertices.push_back(meshVertices[element.vertices[vertexIdx]]);
             element.vertices[vertexIdx] = faultVertices.size() - 1;
           }

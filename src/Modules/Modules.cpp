@@ -96,7 +96,7 @@ const char* Modules::strHook(ModuleHook hook) {
   }
 }
 
-Modules::Modules() : nextHook(ModuleHook::FirstHook) {}
+Modules::Modules() = default;
 
 double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
   double nextSyncTime = std::numeric_limits<double>::max();
@@ -131,9 +131,7 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
   return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
 }
 
-void Modules::setSimulationStartTime(double time) {
-  return instance()._setSimulationStartTime(time);
-}
+void Modules::setSimulationStartTime(double time) { instance()._setSimulationStartTime(time); }
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \
