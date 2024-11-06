@@ -65,12 +65,14 @@
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
-#include <easi/util/AsagiReader.h>
 #include <init.h>
 #include <memory>
 #include <string>
-#include <utils/logger.h>
 #include <vector>
+
+#ifdef USE_ASAGI
+#include <easi/util/AsagiReader.h>
+#endif
 
 // time-dependent conditions require easi version 1.5.0 or higher
 #ifdef EASI_VERSION_MAJOR
@@ -81,6 +83,8 @@
 
 #ifdef SUPPORTS_EASI_TIME
 #include <set>
+#else
+#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(selectAneFull)
@@ -92,6 +96,12 @@ namespace seissol::init {
 class selectAneFull;
 class selectElaFull;
 } // namespace seissol::init
+
+#ifndef USE_ASAGI
+namespace easi {
+class AsagiReader {};
+} // namespace easi
+#endif
 
 namespace {
 struct EasiLoader {
