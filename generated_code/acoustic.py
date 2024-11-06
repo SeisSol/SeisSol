@@ -76,9 +76,3 @@ class AcousticADERDG(LinearADERDG):
     extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
     extractTractionsSPP[0, 0] = 1
     return extractTractionsSPP
-
-  def setBottomToIdentity(self, selectVelocitySpp):
-    selectVelocitySpp[1:4,0:3] = np.eye(3)
-
-  def setSelectTractionSppToTrue(self, selectTractionSpp):
-    selectTractionSpp[0,0] = True

@@ -101,8 +101,6 @@ namespace seissol {
          R(3,3) = local.lambda;
 
          if (faceType == FaceType::FreeSurface) {
-          //  MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
-          //  getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
            for (size_t i = 0; i < 4; i++) {
              for (size_t j = 0; j < 4; j++) {
                QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();

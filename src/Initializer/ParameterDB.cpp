@@ -294,7 +294,6 @@ template <>
 void MaterialParameterDB<AcousticMaterial>::addBindingPoints(
     easi::ArrayOfStructsAdapter<AcousticMaterial>& adapter) {
   adapter.addBindingPoint("rho", &AcousticMaterial::rho);
-  adapter.addBindingPoint("mu", &AcousticMaterial::mu);
   adapter.addBindingPoint("lambda", &AcousticMaterial::lambda);
 }
 

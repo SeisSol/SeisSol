@@ -70,8 +70,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 }
 
 void InstantaneousTimeMirrorManager::updateVelocities() {
-#ifdef USE_ANISOTROPIC
-  logError() << "This feature has not been implemented for anisotropic yet";
+#if defined(USE_ANISOTROPIC) || defined(USE_ACOUSTIC)
+  logError() << "This feature has not been implemented for anisotropic and acoustic yet";
 #else
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;

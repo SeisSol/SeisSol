@@ -60,22 +60,20 @@ struct AcousticMaterial : Material {
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "acoustic";
   static inline const std::array<std::string, NumQuantities> Quantities = {
-      "xx", "v1", "v2", "v3"};
+      "p", "v1", "v2", "v3"};
 
   double lambda;
-  double mu;
 
   double getLambdaBar() const override { return lambda; }
 
-  double getMuBar() const override { return mu; }
+  double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
   AcousticMaterial(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 3);
+    assert(numMaterialValues == 2);
 
     this->rho = materialValues[0];
-    this->mu = 0.0;
-    this->lambda = materialValues[2];
+    this->lambda = materialValues[1];
   }
 
   ~AcousticMaterial() override = default;
