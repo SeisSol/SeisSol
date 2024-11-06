@@ -61,14 +61,16 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
-                                      const seissol::geometry::MeshReader& meshReader);
+                                      const seissol::geometry::MeshReader& meshReader,
+                                      bool needsTime);
 
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
                              LTS const& lts,
-                             const Lut& ltsLut);
+                             const Lut& ltsLut,
+                             bool needsTime);
 } // namespace seissol::initializer
 
 #endif

@@ -102,7 +102,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     data = initializer::projectEasiFields(
         {seissolInstance.getSeisSolParameters().initialization.filename},
         simulationTime,
-        *meshReader);
+        *meshReader,
+        seissolInstance.getSeisSolParameters().initialization.hasTime);
   }
 
   double quadraturePoints[NumQuadPoints][3];

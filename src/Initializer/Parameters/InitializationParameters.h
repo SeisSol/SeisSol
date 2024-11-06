@@ -33,6 +33,7 @@ struct InitializationParameters {
   double width;
   double k;
   std::string filename;
+  bool hasTime;
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);

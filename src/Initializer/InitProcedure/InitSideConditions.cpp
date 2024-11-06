@@ -164,7 +164,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                   seissolInstance.meshReader(),
                                                   seissolInstance.getMemoryManager(),
                                                   *memoryManager.getLts(),
-                                                  *memoryManager.getLtsLut());
+                                                  *memoryManager.getLtsLut(),
+                                                  initConditionParams.hasTime);
   } else {
     auto initConditions = buildInitialConditionList(seissolInstance);
     if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {

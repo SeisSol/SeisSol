@@ -68,9 +68,20 @@
 #include <easi/util/AsagiReader.h>
 #include <init.h>
 #include <memory>
-#include <set>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
+
+// time-dependent conditions require easi version 1.5.0 or higher
+#ifdef EASI_VERSION_MAJOR
+#if EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1
+#define SUPPORTS_EASI_TIME
+#endif
+#endif
+
+#ifdef SUPPORTS_EASI_TIME
+#include <set>
+#endif
 
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
@@ -97,13 +108,17 @@ struct EasiLoader {
 
     // NOTE: easi currently sorts the dimension names lexicographically (due to using std::set)
     // hence: if we have time as a dimension, it will come first
-    const auto dimensions = hasTime ? 4 : 3;
+#ifdef SUPPORTS_EASI_TIME
     const auto dimensionNames =
         hasTime ? std::set<std::string>{"t", "x", "y", "z"} : std::set<std::string>{"x", "y", "z"};
-#if EASI_VERSION_MINOR < 5
-    parser = std::make_unique<easi::YAMLParser>(dimensions, asagiReader.get(), 'x');
-#else
     parser = std::make_unique<easi::YAMLParser>(dimensionNames, asagiReader.get());
+#else
+    // ignore time
+    if (hasTime) {
+      logError() << "easi is too old for time-dependent initial conditions. You need at least "
+                    "version 1.5.0.";
+    }
+    parser = std::make_unique<easi::YAMLParser>(3, asagiReader.get(), 'x');
 #endif
     components.resize(files.size());
     for (std::size_t i = 0; i < files.size(); ++i) {
@@ -192,17 +207,16 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
-                                      const seissol::geometry::MeshReader& meshReader) {
+                                      const seissol::geometry::MeshReader& meshReader,
+                                      bool needsTime) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const bool hasTime = false;
-
-  const int dimensions = hasTime ? 4 : 3;
-  const int spaceStart = hasTime ? 1 : 0;
+  const int dimensions = needsTime ? 4 : 3;
+  const int spaceStart = needsTime ? 1 : 0;
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
@@ -228,7 +242,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         query.x(elem * NumQuadPoints + i, spaceStart + 0) = transformed[0];
         query.x(elem * NumQuadPoints + i, spaceStart + 1) = transformed[1];
         query.x(elem * NumQuadPoints + i, spaceStart + 2) = transformed[2];
-        if (hasTime) {
+        if (needsTime) {
           query.x(elem * NumQuadPoints + i, 0) = 0;
         }
         query.group(elem * NumQuadPoints + i) = elements[elem].group;
@@ -240,7 +254,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                            elements.size());
   const auto dataPointStride = iniFields.size() * model::MaterialT::Quantities.size();
   {
-    auto models = EasiLoader(hasTime, iniFields);
+    auto models = EasiLoader(needsTime, iniFields);
     for (std::size_t i = 0; i < iniFields.size(); ++i) {
       auto adapter = easi::ArraysAdapter();
       for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
@@ -260,14 +274,15 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
                              LTS const& lts,
-                             const Lut& ltsLut) {
+                             const Lut& ltsLut,
+                             bool needsTime) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto data = projectEasiFields(iniFields, 0, meshReader);
+  const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);
 
   const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
   const auto quantityCount = model::MaterialT::Quantities.size();
