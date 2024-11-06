@@ -1,0 +1,10 @@
+<matrices>
+  <matrix columns="4" name="star" rows="4">
+    <entry column="1" row="2"/>
+    <entry column="1" row="3"/>
+    <entry column="1" row="4"/>
+    <entry column="2" row="1"/>
+    <entry column="3" row="1"/>
+    <entry column="4" row="1"/>
+  </matrix>
+</matrices>

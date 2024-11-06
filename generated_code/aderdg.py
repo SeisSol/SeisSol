@@ -125,13 +125,11 @@ class ADERDGBase(ABC):
     self.db.update(project2nFaceTo3m)
 
     selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    self.setBottomToIdentity(selectVelocitySpp)
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
     self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
-    self.selectTractionSpp[0,0] = True
-    self.selectTractionSpp[3,1] = True
-    self.selectTractionSpp[5,2] = True
+    self.setSelectTractionSppToTrue(self.selectTractionSpp)
 
     self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
     self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
@@ -179,6 +177,14 @@ class ADERDGBase(ABC):
 
   def mapToTractions(self):
     return self.extractTractions().T
+
+  def setBottomToIdentity(self, selectVelocitySpp):
+    selectVelocitySpp[6:9,0:3] = np.eye(3)
+
+  def setSelectTractionSppToTrue(self, selectTractionSpp):
+    selectTractionSpp[0,0] = True
+    selectTractionSpp[3,1] = True
+    selectTractionSpp[5,2] = True
 
   @abstractmethod
   def numberOfQuantities(self):

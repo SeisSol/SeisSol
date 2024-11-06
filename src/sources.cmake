@@ -192,6 +192,16 @@ if ("${EQUATIONS}" STREQUAL "elastic")
   target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ELASTIC)
 
+elseif ("${EQUATIONS}" STREQUAL "acoustic")
+  target_sources(SeisSol-common-lib PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Time.cpp
+    )
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ACOUSTIC)
+
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-common-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/DirichletBoundary.cpp
