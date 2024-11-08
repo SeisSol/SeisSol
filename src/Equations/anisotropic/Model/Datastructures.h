@@ -52,6 +52,9 @@
 #include <string>
 
 namespace seissol::model {
+class AnisotropicLocalData;
+class AnisotropicNeighborData;
+
 struct AnisotropicMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -61,6 +64,9 @@ struct AnisotropicMaterial : Material {
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
+
+  using LocalSpecificData = AnisotropicLocalData;
+  using NeighborSpecificData = AnisotropicNeighborData;
 
   double c11;
   double c12;

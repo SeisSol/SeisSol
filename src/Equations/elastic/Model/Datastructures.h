@@ -52,6 +52,9 @@
 #include <string>
 
 namespace seissol::model {
+class ElasticLocalData;
+class ElasticNeighborData;
+
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -61,6 +64,9 @@ struct ElasticMaterial : Material {
   static inline const std::string Text = "elastic";
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
+
+  using LocalSpecificData = ElasticLocalData;
+  using NeighborSpecificData = ElasticNeighborData;
 
   double lambda;
   double mu;

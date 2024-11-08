@@ -53,6 +53,9 @@
 #include <string>
 
 namespace seissol::model {
+class ViscoElasticLocalData;
+class ViscoElasticNeighborData;
+
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
@@ -65,6 +68,9 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
+
+  using LocalSpecificData = ViscoElasticLocalData;
+  using NeighborSpecificData = ViscoElasticNeighborData;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];

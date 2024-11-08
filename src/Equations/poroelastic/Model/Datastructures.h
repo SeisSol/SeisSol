@@ -9,6 +9,9 @@
 #include <string>
 
 namespace seissol::model {
+class PoroelasticLocalData;
+class PoroelasticNeighborData;
+
 struct PoroElasticMaterial : ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -18,6 +21,9 @@ struct PoroElasticMaterial : ElasticMaterial {
   static inline const std::string Text = "poroelastic";
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3", "p", "v1_f", "v2_f", "v3_f"};
+
+  using LocalSpecificData = PoroelasticLocalData;
+  using NeighborSpecificData = PoroelasticNeighborData;
 
   double bulkSolid;
   double porosity;
