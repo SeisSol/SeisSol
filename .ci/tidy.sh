@@ -11,6 +11,11 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Equations/elastic/Model
+        src/Equations/viscoelastic/Model
+        src/Equations/viscoelastic2/Model
+        src/Equations/anisotropic/Model
+        src/Equations/poroelastic/Model
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure

@@ -71,9 +71,9 @@ struct ElasticMaterial : Material {
   double lambda;
   double mu;
 
-  double getLambdaBar() const override { return lambda; }
+  [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
-  double getMuBar() const override { return mu; }
+  [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
   ElasticMaterial(const double* materialValues, int numMaterialValues) {
@@ -113,13 +113,13 @@ struct ElasticMaterial : Material {
     stiffnessTensorView(2, 2, 2, 2) = lambda + 2 * mu;
   }
 
-  double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
+  [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
 
-  double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }
+  [[nodiscard]] double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }
 
-  double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
+  [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 } // namespace seissol::model
 

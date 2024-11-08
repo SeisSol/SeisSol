@@ -106,7 +106,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   ~ViscoElasticMaterialParametrized() override = default;
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<NUMBER_OF_RELAXATION_MECHANISMS>;
