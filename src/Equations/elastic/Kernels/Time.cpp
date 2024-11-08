@@ -398,8 +398,8 @@ void Time::computeBatchedIntegral(double expansionPoint,
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real deltaTLower = integrationStart - expansionPoint;
-  real deltaTUpper = integrationEnd - expansionPoint;
+  const real deltaTLower = integrationStart - expansionPoint;
+  const real deltaTUpper = integrationEnd - expansionPoint;
 
 #ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
   // compute lengths of integration intervals
@@ -500,7 +500,6 @@ void Time::computeBatchedTaylorExpansion(real time,
   }
 
   // iterate over time derivatives
-  const real deltaT = time - expansionPoint;
   intKrnl.power(0) = 1.0;
   for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);

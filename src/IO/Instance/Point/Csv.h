@@ -17,15 +17,16 @@ namespace seissol::io::instance::point {
 
 class Csv : public TableWriter {
   public:
+  ~Csv() override = default;
   Csv();
 
-  std::string quote(const std::string& str) const;
+  [[nodiscard]] std::string quote(const std::string& str) const;
 
   std::ostringstream& quote(std::ostringstream& stream, const std::string& str) const;
 
-  std::string header() const;
+  [[nodiscard]] std::string header() const;
 
-  std::string rows() const;
+  [[nodiscard]] std::string rows() const;
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;
 

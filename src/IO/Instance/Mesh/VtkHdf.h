@@ -95,7 +95,7 @@ class VtkHdfWriter {
   std::string name;
   std::size_t localElementCount;
   std::size_t globalElementCount;
-  std::size_t elementOffset;
+  std::size_t elementOffset{0};
   std::size_t localPointCount;
   std::size_t globalPointCount;
   std::size_t pointOffset;

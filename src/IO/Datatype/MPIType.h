@@ -10,7 +10,7 @@
 #include <mpi.h>
 
 namespace seissol::io::datatype {
-MPI_Datatype convertToMPI(std::shared_ptr<Datatype> datatype, bool autocommit = true);
+MPI_Datatype convertToMPI(const std::shared_ptr<Datatype>& datatype, bool autocommit = true);
 } // namespace seissol::io::datatype
 
 #endif // SEISSOL_SRC_IO_DATATYPE_MPITYPE_H_
