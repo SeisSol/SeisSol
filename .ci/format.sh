@@ -10,6 +10,11 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Equations/elastic/Model
+        src/Equations/viscoelastic/Model
+        src/Equations/viscoelastic2/Model
+        src/Equations/anisotropic/Model
+        src/Equations/poroelastic/Model
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
@@ -30,15 +35,6 @@ format() {
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Equations/elastic/Model/Datastructures.h
-        src/Equations/elastic/Model/IntegrationData.h
-        src/Equations/viscoelastic/Model/IntegrationData.h
-        src/Equations/viscoelastic2/Model/Datastructures.h
-        src/Equations/viscoelastic2/Model/IntegrationData.h
-        src/Equations/anisotropic/Model/Datastructures.h
-        src/Equations/anisotropic/Model/IntegrationData.h
-        src/Equations/poroelastic/Model/Datastructures.h
-        src/Equations/poroelastic/Model/IntegrationData.h
         src/Equations/Datastructures.h
         src/Equations/Setup.h
         src/Initializer/BasicTypedefs.h
