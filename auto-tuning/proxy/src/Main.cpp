@@ -30,6 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "Proxy/Common.h"
+#include "Proxy/Runner.h"
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -40,16 +41,27 @@ using namespace seissol::proxy;
 auto main(int argc, char* argv[]) -> int {
   std::stringstream kernelHelp;
   auto allowedKernels = Aux::getAllowedKernels();
-  kernelHelp << "Kernel: ";
-  for (const auto& kernel : allowedKernels) {
-    kernelHelp << ", " << kernel;
+  kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
+                "sequentially in each pass): ";
+  {
+    bool comma = false;
+    for (const auto& kernel : allowedKernels) {
+      if (comma) {
+        kernelHelp << ", ";
+      }
+      kernelHelp << kernel;
+      comma = true;
+    }
   }
+
+  const char* formatValues[] = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software.");
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
+  args.addEnumOption("format", formatValues, 'f', "The output format", false);
 
   if (args.parse(argc, argv) != utils::Args::Success) {
     return -1;
@@ -58,17 +70,20 @@ auto main(int argc, char* argv[]) -> int {
   ProxyConfig config{};
   config.cells = args.getAdditionalArgument<unsigned>("cells");
   config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
-  auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
+  const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
+  const auto formatValue = args.getArgument<int>("format", 0);
+
+  const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
 
   try {
-    config.kernel = Aux::str2kernel(kernelStr);
+    config.kernels = Aux::str2kernel(kernelStr);
   } catch (std::runtime_error& error) {
     std::cerr << error.what() << std::endl;
     return -1;
   }
 
   auto output = runProxy(config);
-  Aux::writeOutput(std::cout, output, kernelStr, OutputFormat::Plain);
+  Aux::writeOutput(std::cout, output, kernelStr, format);
   std::cout.flush();
 
   return 0;

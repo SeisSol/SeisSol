@@ -17,7 +17,7 @@ enum class OutputFormat { Plain, Json };
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
-  Kernel kernel{Kernel::All};
+  std::vector<Kernel> kernels;
   bool verbose{true};
 };
 
@@ -38,12 +38,10 @@ struct ProxyOutput {
   double gibPerSecond{};
 };
 
-ProxyOutput runProxy(ProxyConfig config);
-
 struct Aux {
-  static auto kernel2str(Kernel kernel) -> std::string;
+  static auto kernel2str(const std::vector<Kernel>& kernels) -> std::string;
 
-  static auto str2kernel(const std::string& kernelStr) -> Kernel;
+  static auto str2kernel(const std::string& kernelStr) -> std::vector<Kernel>;
 
   static auto getAllowedKernels() -> std::vector<std::string>;
 

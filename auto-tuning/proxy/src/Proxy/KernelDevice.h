@@ -31,7 +31,7 @@ class ProxyKernelDeviceNeighbor : public ProxyKernelHostNeighbor {
 
 class ProxyKernelDeviceNeighborDR : public ProxyKernelDeviceNeighbor {
   public:
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 class ProxyKernelDeviceGodunovDR : public ProxyKernelHostGodunovDR {

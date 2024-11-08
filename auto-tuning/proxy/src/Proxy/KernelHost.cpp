@@ -85,7 +85,8 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   // iterate over cells
   const unsigned nrOfCells = data.ltsTree.child(0).child<Interior>().getNumberOfCells();
   for (unsigned int cell = 0; cell < nrOfCells; ++cell) {
-    unsigned int nonZeroFlops, hardwareFlops;
+    unsigned int nonZeroFlops = 0;
+    unsigned int hardwareFlops = 0;
     // get flops
     data.timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
     ret.nonzeroFlop += nonZeroFlops;
@@ -134,7 +135,8 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   const unsigned nrOfCells = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
-    unsigned int nonZeroFlops, hardwareFlops;
+    unsigned int nonZeroFlops = 0;
+    unsigned int hardwareFlops = 0;
     data.localKernel.flopsIntegral(cellInformation[cell].faceTypes, nonZeroFlops, hardwareFlops);
     ret.nonzeroFlop += nonZeroFlops;
     ret.hardwareFlop += hardwareFlops;
@@ -257,8 +259,10 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
   for (unsigned int cell = 0; cell < nrOfCells; cell++) {
-    unsigned int nonZeroFlops, hardwareFlops;
-    long long drNonZeroFlops, drHardwareFlops;
+    unsigned int nonZeroFlops = 0;
+    unsigned int hardwareFlops = 0;
+    long long drNonZeroFlops = 0;
+    long long drHardwareFlops = 0;
     // get flops
     data.neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
                                                cellInformation[cell].faceRelations,
@@ -316,7 +320,8 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   seissol::initializer::Layer& interior = data.dynRupTree.child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
   for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
-    long long drNonZeroFlops, drHardwareFlops;
+    long long drNonZeroFlops = 0;
+    long long drHardwareFlops = 0;
     data.dynRupKernel.flopsGodunovState(faceInformation[face], drNonZeroFlops, drHardwareFlops);
     ret.nonzeroFlop += drNonZeroFlops;
     ret.hardwareFlop += drHardwareFlops;

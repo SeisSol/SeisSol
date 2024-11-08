@@ -29,6 +29,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "Runner.h"
+
 #include "Kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
@@ -38,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <memory>
 #include <sys/time.h>
+#include <vector>
 
 #ifdef USE_MEMKIND
 #include <hbwmalloc.h>
@@ -59,10 +62,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace {
 using namespace seissol::proxy;
-static void testKernel(std::shared_ptr<ProxyData>& data,
-                       std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
-                       std::shared_ptr<ProxyKernel>& kernel,
-                       std::size_t timesteps) {
+void testKernel(std::shared_ptr<ProxyData>& data,
+                std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
+                std::shared_ptr<ProxyKernel>& kernel,
+                std::size_t timesteps) {
   for (std::size_t i = 0; i < timesteps; ++i) {
     kernel->run(*data, *runtime);
   }
@@ -78,11 +81,15 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   registerMarkers();
 
   auto kernel = [&]() {
-    if constexpr (isDeviceOn()) {
-      return getProxyKernelDevice(config.kernel);
-    } else {
-      return getProxyKernelHost(config.kernel);
+    std::vector<std::shared_ptr<ProxyKernel>> subkernels;
+    for (const auto& kernelName : config.kernels) {
+      if constexpr (isDeviceOn()) {
+        subkernels.emplace_back(getProxyKernelDevice(kernelName));
+      } else {
+        subkernels.emplace_back(getProxyKernelHost(kernelName));
+      }
     }
+    return std::dynamic_pointer_cast<ProxyKernel>(std::make_shared<ChainKernel>(subkernels));
   }();
 
   const bool enableDynamicRupture = kernel->needsDR();
@@ -97,7 +104,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   print_hostname();
 
   if (config.verbose) {
-    std::cout << "Allocating fake data..." << std::endl;
+    std::cerr << "Allocating fake data... ";
   }
 
   auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
@@ -105,10 +112,11 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
   if (config.verbose) {
-    std::cout << "...done\n" << std::endl;
+    std::cerr << "...done" << std::endl;
   }
 
-  struct timeval startTime, endTime;
+  struct timeval startTime;
+  struct timeval endTime;
 #ifdef __USE_RDTSC
   size_t cyclesStart, cyclesEnd;
 #endif
@@ -122,7 +130,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 
   const seissol::monitoring::FlopCounter flopCounter;
 
-  gettimeofday(&startTime, NULL);
+  gettimeofday(&startTime, nullptr);
 #ifdef __USE_RDTSC
   cyclesStart = __rdtsc();
 #endif
@@ -134,7 +142,7 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 #ifdef __USE_RDTSC
   cyclesEnd = __rdtsc();
 #endif
-  gettimeofday(&endTime, NULL);
+  gettimeofday(&endTime, nullptr);
   total = sec(startTime, endTime);
 #ifdef __USE_RDTSC
   std::cout << "Cycles via __rdtsc()" << std::endl;

@@ -13,14 +13,14 @@ class ProxyKernelHostAder : public ProxyKernel {
   public:
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
   auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 class ProxyKernelHostLocalWOAder : public ProxyKernel {
   public:
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
   auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 class ProxyKernelHostLocal
@@ -33,19 +33,19 @@ class ProxyKernelHostNeighbor : public ProxyKernel {
   public:
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
   auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 class ProxyKernelHostNeighborDR : public ProxyKernelHostNeighbor {
   public:
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 class ProxyKernelHostGodunovDR : public ProxyKernel {
   public:
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
   auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
-  auto needsDR() const -> bool override;
+  [[nodiscard]] auto needsDR() const -> bool override;
 };
 
 using ProxyKernelHostAll = CompoundKernel<ProxyKernelHostLocal, ProxyKernelHostNeighbor>;

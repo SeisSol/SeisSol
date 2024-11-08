@@ -69,7 +69,7 @@ void ProxyData::initGlobalData() {
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
 
-  const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+  const auto timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
   dynRupKernel.setTimeStepWidth(timeStepWidth);
 }
 
@@ -107,10 +107,10 @@ void ProxyData::initDataStructures(bool enableDR) {
     dynRupTree.allocateVariables();
     dynRupTree.touchVariables();
 
-    fakeDerivativesHost = (real*)allocator.allocateMemory(
-        cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-        PagesizeHeap,
-        seissol::memory::Standard);
+    fakeDerivativesHost = reinterpret_cast<real*>(
+        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
+                                 PagesizeHeap,
+                                 seissol::memory::Standard));
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -121,10 +121,10 @@ void ProxyData::initDataStructures(bool enableDR) {
     }
 
 #ifdef ACL_DEVICE
-    fakeDerivatives = (real*)allocator.allocateMemory(
-        cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
-        PagesizeHeap,
-        seissol::memory::DeviceGlobalMemory);
+    fakeDerivatives = reinterpret_cast<real*>(
+        allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
+                                 PagesizeHeap,
+                                 seissol::memory::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,

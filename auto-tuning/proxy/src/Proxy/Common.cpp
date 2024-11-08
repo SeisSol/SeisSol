@@ -3,17 +3,19 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "Common.h"
+#include <cstddef>
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace {
 using namespace seissol::proxy;
-const static std::unordered_map<Kernel, std::string> Map{
+const std::unordered_map<Kernel, std::string> Map{
     {Kernel::All, "all"},
     {Kernel::Local, "local"},
     {Kernel::Neighbor, "neigh"},
@@ -24,32 +26,49 @@ const static std::unordered_map<Kernel, std::string> Map{
     {Kernel::AllDR, "all_dr"},
 };
 
-const static std::unordered_map<std::string, Kernel> InvMap{{"all", Kernel::All},
-                                                            {"local", Kernel::Local},
-                                                            {"neigh", Kernel::Neighbor},
-                                                            {"ader", Kernel::Ader},
-                                                            {"localwoader", Kernel::LocalWOAder},
-                                                            {"neigh_dr", Kernel::NeighborDR},
-                                                            {"godunov_dr", Kernel::GodunovDR},
-                                                            {"all_dr", Kernel::AllDR}};
+const std::unordered_map<std::string, Kernel> InvMap{{"all", Kernel::All},
+                                                     {"local", Kernel::Local},
+                                                     {"neigh", Kernel::Neighbor},
+                                                     {"ader", Kernel::Ader},
+                                                     {"localwoader", Kernel::LocalWOAder},
+                                                     {"neigh_dr", Kernel::NeighborDR},
+                                                     {"godunov_dr", Kernel::GodunovDR},
+                                                     {"all_dr", Kernel::AllDR}};
 } // namespace
 
 namespace seissol::proxy {
 
-auto Aux::kernel2str(Kernel kernel) -> std::string {
-  if (Map.find(kernel) != Map.end()) {
-    return Map.at(kernel);
-  } else {
-    throw std::runtime_error("unknown kernel type");
+auto Aux::kernel2str(const std::vector<Kernel>& kernel) -> std::string {
+  std::string output;
+  for (std::size_t i = 0; i < kernel.size(); ++i) {
+    if (i > 0) {
+      output += ",";
+    }
+    if (Map.find(kernel[i]) != Map.end()) {
+      output += Map.at(kernel[i]);
+    } else {
+      throw std::runtime_error("Unknown kernel type");
+    }
   }
+  return output;
 }
 
-auto Aux::str2kernel(const std::string& kernelStr) -> Kernel {
-  if (InvMap.find(kernelStr) != InvMap.end()) {
-    return InvMap.at(kernelStr);
-  } else {
-    throw std::runtime_error("unknown kernel string: " + kernelStr);
+auto Aux::str2kernel(const std::string& kernelStr) -> std::vector<Kernel> {
+  auto parts = utils::StringUtils::split(kernelStr, ',');
+  for (auto& part : parts) {
+    utils::StringUtils::trim(part);
   }
+
+  std::vector<Kernel> kernels(parts.size());
+  for (std::size_t i = 0; i < parts.size(); ++i) {
+    if (InvMap.find(parts[i]) != InvMap.end()) {
+      kernels[i] = InvMap.at(parts[i]);
+    } else {
+      throw std::runtime_error("Unknown kernel string: " + parts[i]);
+    }
+  }
+
+  return kernels;
 }
 
 auto Aux::getAllowedKernels() -> std::vector<std::string> {
@@ -92,7 +111,11 @@ void Aux::writeOutput(std::ostream& stream,
     stream << '\n';
   } else {
     stream << '{';
-    const auto writeField = [&stream](const std::string& name, const auto& data) {
+    bool hasData = false;
+    const auto writeField = [&stream, &hasData](const std::string& name, const auto& data) {
+      if (hasData) {
+        stream << ',';
+      }
       using DataType = std::decay_t<decltype(data)>;
       stream << '\"' << name << "\":";
       if constexpr (std::is_same_v<DataType, std::string> || std::is_same_v<DataType, char*>) {
@@ -100,7 +123,7 @@ void Aux::writeOutput(std::ostream& stream,
       } else {
         stream << data;
       }
-      stream << ',';
+      hasData = true;
     };
     writeField("name", kernelStr);
     writeField("time", output.time);
@@ -116,7 +139,7 @@ void Aux::writeOutput(std::ostream& stream,
     writeField("gflops-nz", output.nonZeroGFlops);
     writeField("gflops-hw", output.hardwareGFlops);
     writeField("gibs", output.gibPerSecond);
-    stream << '}';
+    stream << '}' << '\n';
   }
 }
 
