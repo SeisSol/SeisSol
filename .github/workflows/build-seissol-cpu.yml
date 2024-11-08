@@ -155,6 +155,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
+    if: ${{ github.repository == 'SeisSol/SeisSol' }}
     strategy:
       fail-fast: false
       matrix:
