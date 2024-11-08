@@ -51,7 +51,7 @@ src/version.h
 *.mod
 
 # Build
-build*
+build*/
 Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
