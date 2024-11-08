@@ -53,8 +53,8 @@
 #include "Model/CommonDatastructures.h"
 
 
-namespace seissol {
-  namespace model {
+
+namespace seissol::model {
     bool testIfAcoustic(real mu);
 
     template<typename Tmaterial, typename Tmatrix>
@@ -121,8 +121,14 @@ namespace seissol {
                                 VrtxCoords const i_tangent2,
                                 init::T::view::type& o_T,
                                 init::Tinv::view::type& o_Tinv );
-  }
-}
+    
+    template<typename MaterialT>
+    MaterialT getRotatedMaterialCoefficients(real rotationParameters[36],
+                                                          MaterialT& material) {
+                                                            return material;
+                                                          }
+} // namespace seissol::model
+
 
 
 
