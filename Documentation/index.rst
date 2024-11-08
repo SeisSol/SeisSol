@@ -40,15 +40,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
-  :caption: Structural models
-
-  cad-models
-  meshing-with-simmodeler
-  meshing-with-pumgen
-  gmsh
-
-.. toctree::
-  :maxdepth: 2
   :caption: Installing SeisSol
 
   build-overview
@@ -92,6 +83,17 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
 .. toctree::
   :maxdepth: 2
+  :caption: Structural models and Meshing
+
+  cad-models
+  meshing-with-simmodeler
+  meshing-with-pumgen
+  gmsh
+  asagi
+  PUML-mesh-format
+
+.. toctree::
+  :maxdepth: 2
   :caption: Seismic source
 
   dynamic-rupture
@@ -116,8 +118,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Further documentation
 
-  PUML-mesh-format
-  asagi
   sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
