@@ -13,18 +13,24 @@ Currently, SeisSol supports two mesh formats.
 PUML Mesh Format
 ~~~~~~~~~~~~~~~~
 
-The main input format for SeisSol is the so-called PUML format,
-named after the **P**arallel **U**nstructured **M**esh **L**ibrary.
+The main input format for SeisSol is called PUML;
+an acronym for **P**\ arallel **U**\ nstructured **M**\ esh **L**\ ibrary.
 
-The format is mostly compatible to Xdmf. For example, with a corresponding Xdmf XML file, it can be visualized in e.g. ParaView.
-The data is always encoded in Hdf5. In fact, the Xdmf XML description is currently ignored by SeisSol.
+The data is stored in a single Hdf5 file, consisting of the following datasets:
+-   ``/geometry``: contains the geometric coordinates of the vertices. Dimension: (nNodes, 3)
+-   ``/connect``: describes the tetrahedra by their vertices. Dimension: (nCells, 4)
+-   ``/group``: contains the group ID for each tetrahedron; which is used in selecting different material properties. Dimension: (nCells,).
+-   ``/boundary``: contains the boundary condition information for all four faces of each tetrahedron. Dimension: (nCells,) or (nCells, 4).
 
-The h5 file contains the data (arrays) in binary format and the xdmf describes it.
-The content of the hdf5 file can be view using ``h5dump``, and the Xdmf file can be visualized using ParaView.
+The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump -H <file>`` will output only the dataset headers.
+
+The format itself is mostly compatible to Xdmf, given a corresponding Xdmf XML file. With such, it can be visualized in e.g. ParaView.
+Other than that, the Xdmf XML description is currently ignored by SeisSol.
+
 The boundary conditions can be extracted from a PUML mesh and visualised in ParaView using this 
 `script <https://github.com/SeisSol/Meshing/blob/master/vizualizeBoundaryConditions/vizualizeBoundaryConditions.py>`_.
 
-Here is an example of the Xdmf file (describing the hdf5 content):
+An example Hdf5 file looks as follows:
 
 .. code-block:: xml
 
@@ -49,19 +55,16 @@ Here is an example of the Xdmf file (describing the hdf5 content):
     </Domain>
    </Xdmf>
 
-It shows that the hdf5 file consists of 4 arrays: geometry, connect, group and boundary.
+It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group and boundary.
 
--   geometry contains the coordinates of the nodes. Dimension: (nNodes, 3)
--   connect contains the volume cell connectivity. Dimension: (nCells, 4)
--   group contains the region id of each volume cell (different properties can then be affected on different volumes). Dimension: nCells.
--   boundary contains the boundary conditions of each face of each volume cell. Dimension: nCells. (except when you use 32-bit boundary conditions)
-
-Each tetrahedron has 4 faces. In our format, the 4 boundary condition ids (4 bits each) are store within a single integer (16 bits) variable. The values can be unpacked, for example in python using:
+In the default format (``int32``), the 4 boundary condition ids for each tetrahedron (8 bits each) are store within a single integer (32 bits) variable. The values can be unpacked, for example in python using:
 
 .. code-block:: python
 
    for faceId in range(0,4):
       boundaryFace[faceId] = (boundary >> (faceId*8)) & 0xFF;
+
+Other boundary formats (``int64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``int32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
 | The possibles values of the boundary condition ids range from 0 to 255.
 | In SeisSol, boundary conditions are historically tagged as:
@@ -75,7 +78,7 @@ Each tetrahedron has 4 faces. In our format, the 4 boundary condition ids (4 bit
 | 7: analytical
 | n>7: dynamic rupture (See :doc:`fault-tagging`)
 
-Here is the convention defining the face id in a tetrahedron:
+The following convention for defining a face ID is used:
 
 .. code-block:: python
 
@@ -85,9 +88,9 @@ Netcdf Input Format (Deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An older input format. It still supports periodic boundary conditions, as used e.g. for the convergence tests.
-However, it requires a fixed partition encoded in the file, and is thus usually less performant than the PUML format.
+However, it requires a fixed partition encoded in the file, and is thus usually far more restricted and less performant than the PUML format.
 
 Cube Generator
 ~~~~~~~~~~~~~~
 
-A cube mesh generator is integrated in SeisSol as well; and it also supports periodic boundary conditions.
+A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions.
