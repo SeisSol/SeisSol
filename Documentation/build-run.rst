@@ -18,14 +18,16 @@ Running the Proxy
 To test if your SeisSol installation works, and to get an estimate on its performance,
 you can run the SeisSol proxy. To test for full functionality, run
 
-.. code-block::
+.. code-block:: bash
+
     SeisSol_proxy_YOUR_CONFIGURATION 1000 10 all
 
 Note that you will need a matching GPU for a SeisSol GPU build.
 
 For benchmarking the performance (make sure you don't do that on a login node), check
 
-.. code-block::
+.. code-block:: bash
+
     SeisSol_proxy_YOUR_CONFIGURATION 1000000 50 all
 
 Sometimes, it is useful to only run a specific kernel, e.g. ``ader``.
@@ -95,7 +97,8 @@ Starting SeisSol
 
 Finally, to run SeisSol, you simply invoke your compiled binary (not the proxy) with a SeisSol parameter file. Like this:
 
-.. code-block::
-    SeisSol_YOUR_CONFIGURATION parameters.par
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION parameters.par
 
 If your parameter file is in your launch directory and called ``parameters.par``, you may also leave that parameter away.

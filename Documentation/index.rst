@@ -51,7 +51,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Installing SeisSol
 
-  spack
   build-overview
   build-dependencies
   build-seissol
@@ -60,6 +59,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   a-first-example
   build-parameters
   build-archs
+  build-problems
 
 .. toctree::
   :maxdepth: 2
