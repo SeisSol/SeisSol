@@ -13,8 +13,8 @@ Thus, we recommend using the Spack package; it can be found in the official Spac
 
 Otherwise, if the spack package does not work, you can also install SeisSol on your own.
 
-* Start by installing dependencies. See the instructions under :doc:`_build_dependencies`.
+* Start by installing dependencies. See the instructions under :ref:`Build Dependencies <build_dependencies>`.
 
-* Then, compile SeisSol. See the instructions under :doc:`_build_seissol`.
+* Then, compile SeisSol. See the instructions under :ref:`Build SeisSol <build_seissol>`.
 
 Once you are done, you can test your installation by running some examples.

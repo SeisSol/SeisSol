@@ -12,7 +12,7 @@ This tutorial will guide you through the steps of your first SeisSol
 simulation. We will use the `SCEC TPV33
 benchmark <http://scecdata.usc.edu/cvws/tpv33docs.html>`__ as an example
 in this tutorial. We assume that you have successfully :ref:`compiled SeisSol 
-<Compiling_and_running_seissol>`.
+<build_seissol>`.
 
 This tutorial is targeted to people who have compiled SeisSol and want 
 to test their installation for the first time. If you are completely new
