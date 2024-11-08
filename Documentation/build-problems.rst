@@ -4,7 +4,7 @@
   SPDX-License-Identifier: BSD-3-Clause
 
 Frequent Build and Running Issues
----------------------------------
+=================================
 
 The following issues appear frequently when trying to compile or to run SeisSol.
 
