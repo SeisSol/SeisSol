@@ -13,6 +13,7 @@ jobs:
   update-stats:
     name: github-repo-stats
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'SeisSol/SeisSol' }} # Run only on the main repository
     steps:
       - name: run-ghrs
         # Use latest release.
