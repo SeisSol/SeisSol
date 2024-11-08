@@ -21,6 +21,7 @@ Checkpoint Writing
 The checkpoint writing is configured as any other output writer, i.e. you will have to add the ``output`` section the following parameter(s):
 
 .. code:: fortran
+   
    checkpoint = 1
    checkpointinterval = 0.4
 
