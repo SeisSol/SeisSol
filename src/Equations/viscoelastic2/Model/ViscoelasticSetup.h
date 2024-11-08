@@ -54,30 +54,30 @@ namespace seissol {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
-    inline void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
-                                                            unsigned        i_dim,
+    inline void getTransposedViscoelasticCoefficientMatrix( real            omega,
+                                                            unsigned        dim,
                                                             unsigned        mech,
-                                                            T&              o_M )
+                                                            T&              M )
       {
         unsigned col = 9 + mech * 6;
-        switch (i_dim)
+        switch (dim)
         {
           case 0:
-            o_M(6, col)     = -i_omega;
-            o_M(7, col + 3) = -0.5 * i_omega;
-            o_M(8, col + 5) = -0.5 * i_omega;
+            M(6, col)     = -omega;
+            M(7, col + 3) = -0.5 * omega;
+            M(8, col + 5) = -0.5 * omega;
             break;
 
           case 1:
-            o_M(7, col + 1) = -i_omega;
-            o_M(6, col + 3) = -0.5 * i_omega;
-            o_M(8, col + 4) = -0.5 * i_omega;
+            M(7, col + 1) = -omega;
+            M(6, col + 3) = -0.5 * omega;
+            M(8, col + 4) = -0.5 * omega;
             break;
 
           case 2:
-            o_M(8, col + 2) = -i_omega;
-            o_M(7, col + 4) = -0.5 * i_omega;
-            o_M(6, col + 5) = -0.5 * i_omega;
+            M(8, col + 2) = -omega;
+            M(7, col + 4) = -0.5 * omega;
+            M(6, col + 5) = -0.5 * omega;
             break;
         }
       }
@@ -90,7 +90,7 @@ namespace seissol {
     void getTransposedSourceCoefficientTensor(  ViscoElasticMaterial const& material,
                                                 T& E )
       {
-        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+        for (unsigned mech = 0; mech < seissol::model::MaterialT::Mechanisms; ++mech) {
           double const* theta = material.theta[mech];
           E(0, mech, 0) = theta[0];
           E(1, mech, 0) = theta[1];
@@ -108,13 +108,13 @@ namespace seissol {
       }
 
     template<typename T>
-    void getTransposedCoefficientMatrix( ViscoElasticMaterial const&    i_material,
-                                         unsigned                       i_dim,
+    void getTransposedCoefficientMatrix( ViscoElasticMaterial const&    material,
+                                         unsigned                       dim,
                                          T&                             AT )
       {
-        getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(i_material), i_dim, AT);
+        getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(material), dim, AT);
 
-        getTransposedViscoelasticCoefficientMatrix( 1.0, i_dim, 0, AT );
+        getTransposedViscoelasticCoefficientMatrix( 1.0, dim, 0, AT );
       }
 
 
@@ -146,7 +146,7 @@ namespace seissol {
         for (unsigned d = 0; d < 3; ++d) {
           Coeff.setZero();
           getTransposedCoefficientMatrix(material, d, Coeff);
-          for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+          for (unsigned mech = 0; mech < ViscoElasticMaterial::Mechanisms; ++mech) {
             getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
                 d,
                 mech,
@@ -164,8 +164,8 @@ namespace seissol {
         E.setZero();
         getTransposedSourceCoefficientTensor(material, E);
         Coeff.setZero();
-        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-          unsigned offset = 9 + mech * 6;
+        for (unsigned mech = 0; mech < seissol::model::MaterialT::Mechanisms; ++mech) {
+          unsigned offset = seissol::model::MaterialT::NumElasticQuantities + mech * seissol::model::MaterialT::NumberPerMechanism;
           for (unsigned i = 0; i < tensor::E::Shape[0]; ++i) {
             for (unsigned j = 0; j < tensor::E::Shape[2]; ++j) {
               Coeff(offset + i, j) = E(i, mech, j);
@@ -174,10 +174,10 @@ namespace seissol {
         }
 
         // E' = diag(-omega_1 I, ..., -omega_L I)
-        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-          unsigned offset = 9 + 6*mech;
+        for (unsigned mech = 0; mech < seissol::model::MaterialT::Mechanisms; ++mech) {
+          unsigned offset = seissol::model::MaterialT::NumElasticQuantities + seissol::model::MaterialT::NumberPerMechanism*mech;
           yateto::DenseTensorView<2,double> ETblock(data + offset + offset * seissol::model::MaterialT::NumQuantities, {seissol::model::MaterialT::NumQuantities, 6});
-          for (unsigned i = 0; i < 6; ++i) {
+          for (unsigned i = 0; i < seissol::model::MaterialT::NumberPerMechanism; ++i) {
             ETblock(i, i) = -material.omega[mech];
           }
         }
@@ -201,7 +201,7 @@ namespace seissol {
       auto w = init::w::view::create(localData->w);
       auto W = init::W::view::create(localData->W);
       W.setZero();
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+      for (unsigned mech = 0; mech < seissol::model::MaterialT::Mechanisms; ++mech) {
         w(mech) = material.omega[mech];
         W(mech,mech) = -material.omega[mech];
       }
@@ -213,7 +213,7 @@ namespace seissol {
     {
       // We only need the local omegas
       auto w = init::w::view::create(neighborData->w);
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+      for (unsigned mech = 0; mech < seissol::model::MaterialT::Mechanisms; ++mech) {
         w(mech) = localMaterial.omega[mech];
       }
     }

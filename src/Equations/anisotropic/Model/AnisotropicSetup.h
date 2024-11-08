@@ -44,6 +44,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
+#include "Datastructures.h"
 #include "Model/Common.h"
 #include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
@@ -54,86 +55,86 @@ namespace seissol {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
-    inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
-                                                unsigned                    i_dim,
-                                                T&                          o_M )
+    inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  material,
+                                                unsigned                    dim,
+                                                T&                          M )
       {
-        o_M.setZero();
+        M.setZero();
 
-        real rhoInv = 1.0 / i_material.rho;
+        real rhoInv = 1.0 / material.rho;
 
-        switch (i_dim)
+        switch (dim)
         {
           case 0:
-            o_M(6,0) = -i_material.c11;
-            o_M(7,0) = -i_material.c16;
-            o_M(8,0) = -i_material.c15;
-            o_M(6,1) = -i_material.c12;
-            o_M(7,1) = -i_material.c26;
-            o_M(8,1) = -i_material.c25;
-            o_M(6,2) = -i_material.c13;
-            o_M(7,2) = -i_material.c36;
-            o_M(8,2) = -i_material.c35;
-            o_M(6,3) = -i_material.c16;
-            o_M(7,3) = -i_material.c66;
-            o_M(8,3) = -i_material.c56;
-            o_M(6,4) = -i_material.c14;
-            o_M(7,4) = -i_material.c46;
-            o_M(8,4) = -i_material.c45;
-            o_M(6,5) = -i_material.c15;
-            o_M(7,5) = -i_material.c56;
-            o_M(8,5) = -i_material.c55;
-            o_M(0,6) = -rhoInv;
-            o_M(3,7) = -rhoInv;
-            o_M(5,8) = -rhoInv;
+            M(6,0) = -material.c11;
+            M(7,0) = -material.c16;
+            M(8,0) = -material.c15;
+            M(6,1) = -material.c12;
+            M(7,1) = -material.c26;
+            M(8,1) = -material.c25;
+            M(6,2) = -material.c13;
+            M(7,2) = -material.c36;
+            M(8,2) = -material.c35;
+            M(6,3) = -material.c16;
+            M(7,3) = -material.c66;
+            M(8,3) = -material.c56;
+            M(6,4) = -material.c14;
+            M(7,4) = -material.c46;
+            M(8,4) = -material.c45;
+            M(6,5) = -material.c15;
+            M(7,5) = -material.c56;
+            M(8,5) = -material.c55;
+            M(0,6) = -rhoInv;
+            M(3,7) = -rhoInv;
+            M(5,8) = -rhoInv;
             break;
 
           case 1:
-            o_M(6,0) = -i_material.c16;
-            o_M(7,0) = -i_material.c12;
-            o_M(8,0) = -i_material.c14;
-            o_M(6,1) = -i_material.c26;
-            o_M(7,1) = -i_material.c22;
-            o_M(8,1) = -i_material.c24;
-            o_M(6,2) = -i_material.c36;
-            o_M(7,2) = -i_material.c23;
-            o_M(8,2) = -i_material.c34;
-            o_M(6,3) = -i_material.c66;
-            o_M(7,3) = -i_material.c26;
-            o_M(8,3) = -i_material.c46;
-            o_M(6,4) = -i_material.c46;
-            o_M(7,4) = -i_material.c24;
-            o_M(8,4) = -i_material.c44;
-            o_M(6,5) = -i_material.c56;
-            o_M(7,5) = -i_material.c25;
-            o_M(8,5) = -i_material.c45;
-            o_M(3,6) = -rhoInv;
-            o_M(1,7) = -rhoInv;
-            o_M(4,8) = -rhoInv;
+            M(6,0) = -material.c16;
+            M(7,0) = -material.c12;
+            M(8,0) = -material.c14;
+            M(6,1) = -material.c26;
+            M(7,1) = -material.c22;
+            M(8,1) = -material.c24;
+            M(6,2) = -material.c36;
+            M(7,2) = -material.c23;
+            M(8,2) = -material.c34;
+            M(6,3) = -material.c66;
+            M(7,3) = -material.c26;
+            M(8,3) = -material.c46;
+            M(6,4) = -material.c46;
+            M(7,4) = -material.c24;
+            M(8,4) = -material.c44;
+            M(6,5) = -material.c56;
+            M(7,5) = -material.c25;
+            M(8,5) = -material.c45;
+            M(3,6) = -rhoInv;
+            M(1,7) = -rhoInv;
+            M(4,8) = -rhoInv;
             break;
 
           case 2:
-            o_M(6,0) = -i_material.c15;
-            o_M(7,0) = -i_material.c14;
-            o_M(8,0) = -i_material.c13;
-            o_M(6,1) = -i_material.c25;
-            o_M(7,1) = -i_material.c24;
-            o_M(8,1) = -i_material.c23;
-            o_M(6,2) = -i_material.c35;
-            o_M(7,2) = -i_material.c34;
-            o_M(8,2) = -i_material.c33;
-            o_M(6,3) = -i_material.c56;
-            o_M(7,3) = -i_material.c46;
-            o_M(8,3) = -i_material.c36;
-            o_M(6,4) = -i_material.c45;
-            o_M(7,4) = -i_material.c44;
-            o_M(8,4) = -i_material.c34;
-            o_M(6,5) = -i_material.c55;
-            o_M(7,5) = -i_material.c45;
-            o_M(8,5) = -i_material.c35;
-            o_M(5,6) = -rhoInv;
-            o_M(4,7) = -rhoInv;
-            o_M(2,8) = -rhoInv;
+            M(6,0) = -material.c15;
+            M(7,0) = -material.c14;
+            M(8,0) = -material.c13;
+            M(6,1) = -material.c25;
+            M(7,1) = -material.c24;
+            M(8,1) = -material.c23;
+            M(6,2) = -material.c35;
+            M(7,2) = -material.c34;
+            M(8,2) = -material.c33;
+            M(6,3) = -material.c56;
+            M(7,3) = -material.c46;
+            M(8,3) = -material.c36;
+            M(6,4) = -material.c45;
+            M(7,4) = -material.c44;
+            M(8,4) = -material.c34;
+            M(6,5) = -material.c55;
+            M(7,5) = -material.c45;
+            M(8,5) = -material.c35;
+            M(5,6) = -rhoInv;
+            M(4,7) = -rhoInv;
+            M(2,8) = -rhoInv;
             break;
 
           default:
