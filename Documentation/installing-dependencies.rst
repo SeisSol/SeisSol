@@ -3,28 +3,37 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
+.. _build_dependencies:
+
 Installing Dependencies
 =======================
 
 For compiling SeisSol, you will need the following dependencies during build:
 
-- A C++17-capable compiler. For the 
-  - GCC (>= 9.0)
-  - ICC (>= 2021.0)
-  - The CI currently verifies the build against gcc 13.2 and clang 19
+- A C++17-capable compiler. The following works:
+
+  - GCC (>= 9.0; tested: 13.2)
+  - ICX (tested: 2024.2)
+  - Clang (tested: 18, 19)
+  - NVHPC (tested: 24.09; currently still slow!)
+  - Cray CE (however: no commthread support; needs ``SEISSOL_COMMTHREAD=0``)
+  - ICC 2021.9 is supported up to v1.2.0 only
+  - The CI currently verifies the build against Gcc 13.2, Clang 19, ICX 2024.2, and NVHPC 24.09
 - CMake (>= 3.20)
-- Python (>= 3.5)
-- Numpy (>= 1.12.0)
+- Python (>= 3.9)
+
+  - numpy (>= 1.12.0)
+  - setuptools (>= 0.61.0)
 
 Additionally, you need the following libraries:
 
 - MPI (Support for MPI Standard >= 2.2)
 - Eigen (>= 3.4)
-- hdf5 (>= 1.8)
-- easi (>= 1.2)
+- Hdf5 (>= 1.8, parallel)
+- easi (>= 1.5)
 - (optional, recommended) a code generator
 
-  - libxsmm (== 1.17, newer versions do not work with YATeTo right now)
+  - libxsmm (== 1.17 if using inline-assembly (LIBXSMM); otherwise >= 1.17 (LIBXSMM_JIT))
   - PSpaMM
 - (optional, recommended) mesh partitioning
 
@@ -43,8 +52,8 @@ For the GPU version, the following packages need to be installed as well:
 
 - SYCL: either AdaptiveCpp (formerly known as hipSYCL/Open SYCL) >= 23.10 or DPC++
 - gemmforge (>= 0.0.207, for Nvidia, AMD and Intel GPUs)
-- (optional, recommended) chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
-- CUDA (>= 11.0) for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
+- (optional, recommended) chainforge (>= 0.0.3, for Nvidia and AMD GPUs)
+- CUDA (>= 11.0) for Nvidia GPUs, or HIP (ROCm >= 6.0.0) for AMD GPUs
 
 .. _spack_installation:
 
@@ -67,11 +76,13 @@ In _all_ cases before building something manually,
 make sure to check the installed module files. That is, type ``module avail`` and look for the software you want to use.
 Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/3.20.0``).
 
+However, in some cases, the modules may be incomplete. Check that especially when using NVHPC, or the components for building AdaptiveCpp (LLVM, Boost).
+
 Setting Helpful Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Create a file ``setup.sh`` with the following enviroment variables. The following script assumes that you use the folder `~/seissol`
-for building.
+for building—adjust to your actual location.
 
 .. code-block:: bash
 
@@ -195,6 +206,8 @@ PSpaMM is a Python package, meaning that you can directly install it via pip:
 .. code-block:: bash
 
    pip3 install --user git+https://github.com/SeisSol/PSpaMM.git
+
+Usually PSpaMM is fast, but a bit slower than LIBXSMM. However, in some cases, it supersedes it.
 
 Mesh Partitioning (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
