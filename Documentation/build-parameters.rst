@@ -3,6 +3,8 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
+.. _build_parameters:
+
 Build Parameter Reference
 =========================
 
@@ -12,17 +14,17 @@ For a good overview and easy, we recommend the use of ``ccmake``. To do so, simp
 (i.e. add a "c" in front of the command)
 Alternatively, you may also modify the ``CMakeCache.txt`` in your build directory directly (for it to exist, ``cmake`` needs to be run first).
 
-Equation-specific parameters
-----------------------------
+Simulation- and Optimization-specific Parameters
+------------------------------------------------
 
 The following parameters will alter the name of the SeisSol executable.
 You may explicitly compile and install multiple of these configurations at the same time—however, you will have to re-do the CMake and build process for each configuration.
 
-- ``CMAKE_BUILD_TYPE``: Either
+- ``CMAKE_BUILD_TYPE``: Either ``Release``, ``RelWithDebInfo``, or ``Debug``
 
-    * ``Debug``: Also enables assertions. Note that more bugs can appear here than when running with the release options.
-    * ``RelWithDebInfo``: optimizes a bit less than ``Release`` (usually ``-O2``), but offers more debug information.
     * ``Release``: default value; usually optimizes with ``-O3``.
+    * ``RelWithDebInfo``: optimizes a bit less than ``Release`` (usually ``-O2``), but offers more debug information.
+    * ``Debug``: Also enables assertions. Note that more bugs can appear here than when running with the release options.
 - ``EQUATION``: the equation system to compile for
 
     * ``elastic``: isotropic elastic
@@ -35,7 +37,7 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``PRECISION``:
 
     * ``single``: use single precision. Recommended in general for faster simulations. But especially for consumer GPUs (i.e. Nvidia GeForce, AMD Radeon, Intel ARC etc.), since these have usually a high performance difference between single and double precision.
-    * ``double``: use double precision. Recommended, if your simulation fails with single precision.
+    * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
 
@@ -47,8 +49,8 @@ Generic parameters
 - ``DR_QUAD_RULE``: the quadrature rule used for the 
 - ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
 
-    * ``nb``
-    * ``ib``
+    * ``nb``: nodal basis
+    * ``ib``: interpolating basis
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests
@@ -66,7 +68,7 @@ CPU-specific parameters
 - ``MEMKIND``: enables HBM support.
 - ``NUMA_AWARE_PINNING``: pin the free CPUs (those used for the communication and IO threads) according to the given NUMA domains.
 - ``MEMORY_LAYOUT``: the sparsity patterns to apply. If not given, it will be chosen by the CPU architecture.
-- ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from specific code generation for small matrices. Currently supports combinations of the following:
+- ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from code generation specifically for small matrices. Currently supports combinations of the following:
 
     * ``auto``: automatically selects the installed and usable GEMM generators out of ``LIBXSMM_JIT``, ``LIBXSMM`` and ``PSpaMM`` (in this order).
     * ``LIBXSMM_JIT``: libxsmm, in JIT mode
@@ -86,9 +88,9 @@ GPU-specific parameters
     * ``oneapi``: SYCL, more specifically Intel Data Parallel C++ (DPC++). Provides support for Intel, AMD, and Nvidia GPUs. The open source variant is located under https://github.com/intel/llvm
 - ``DEVICE_ARCH``: the parameter to tune and compile the kernels for. See build-archs for an overview.
 - ``SYCLCC``: chooses the SYCL compiler used for the dynamic rupture and point source parts. Can be either AdaptiveCpp (``hipsycl``) or DPC++ (``dpcpp``); the description is the same as for the ``DEVICE_BACKEND``.
-- ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support and we use NVHPc
-- ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since TODO) and HIP (requires ROCm 6.0). Compute graph support for SYCL is still experimental, although DPC++/oneAPI supports it.
-- ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP.
+- ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
+- ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0) and HIP (requires ROCm 6.1 or higher). Compute graph support for SYCL is still experimental, although DPC++/oneAPI implements an extension for it
+- ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
 
 Options currently known to be broken
 ------------------------------------
@@ -99,5 +101,5 @@ The following options are available, but need to be left in the state that they 
 - ``MPI``: assumed to be always enabled. Builds without MPI will most likely give incorrect results at the moment. If you want to build without MPI support, you will at the current moment have to explicitly disable the graph partitioning, as each of the supported libraries will need MPI on its own already. Official support for builds without MPI is very low priority.
 - ``OPENMP``: assumed to be always enabled. Probably more dispensable than the ``MPI`` flag, but no guarantee (nor testing) for correctness is given. There are currently no specific plans to make this
 - ``HDF5``: assumed to be always enabled.
-- ``LOG_LEVEL``: currently unused. Use ``LOG_LEVEL_MASTER`` instead.
+- ``LOG_LEVEL_MASTER``: currently unused. Use ``LOG_LEVEL`` instead.
 - ``NUMBER_OF_FUSED_SIMULATIONS``: needs to be 0 or 1. Currently still broken for any higher number; but a fix is planned, cf. https://github.com/SeisSol/SeisSol/pull/385

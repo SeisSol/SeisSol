@@ -58,7 +58,7 @@ CPU Architectures
      - Generates AVX-512{F,CD,PF,ER} instructions.
      - Intel Xeon Phi coprocessor, as well as 
      - LRZ CoolMUC 3
-   * - ``rome``
+   * - ``naples``
      - AMD Zen 1
      - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
      - Ryzen 1xxx series
@@ -129,7 +129,7 @@ CPU Architectures
      -
      - 
    * - ``apple-m2``
-     - Apple M1 CPU
+     - Apple M2 CPU
      - 
      -
      - 

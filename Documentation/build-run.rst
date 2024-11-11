@@ -3,6 +3,8 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
+.. _build_run:
+
 Running SeisSol
 ===============
 
@@ -40,11 +42,12 @@ Note that it may be beneficial in some cases for the performance to set ``OMP_NU
 You should normally not require MPI to run SeisSol with only one process. If you have to, however, make sure to run as ``mpirun -n 1 -bind-to none ./SeisSol`` to still make use of all available cores.
 However, if you have two or more GPUs in your PC, you will be required to use N MPI ranks for utilizing all available N GPUs.
 
-Performance Considerations
+Performance considerations
 --------------------------
 
-To run SeisSol properly, it is advisable to do the pinning to the CPU cores explicitly, even for GPU builds.
-For now, see the section on environment-variables.rst for a sample configuration. On a cluster, it is advisable to leave one core free from the pinning,
+To run SeisSol at full speed, it is highly recommended pinning all threads to CPU cores explicitly, even for GPU builds.
+
+On a cluster, it is advisable to leave one core free from the pinning,
 so that it can be used by the MPI communication thread and the IO thread. Generally, the following variables can help:
 
 .. code-block:: bash
@@ -84,6 +87,19 @@ locations for the *i*-th MPI process on the node.
 
   # Note, it is allowed to mix the formats of list elements. For example,
   export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
+
+IO Setup
+--------
+
+For the IO, the following environment variables are recommended to be set, when running on a cluster:
+
+.. code-block:: bash
+    
+    export XDMFWRITER_ALIGNMENT=8388608
+    export XDMFWRITER_BLOCK_SIZE=8388608
+
+    export ASYNC_MODE=THREAD
+    export ASYNC_BUFFER_ALIGNMENT=8388608
 
 GPU Visibility
 --------------
