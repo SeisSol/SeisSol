@@ -1,21 +1,21 @@
-#include "PUML/PUML.h"
 #include "PUML/Downward.h"
+#include "PUML/PUML.h"
 #include "PUML/Upward.h"
 
 #include "WeightsModels.h"
 
-#include "Initializer/Typedefs.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/Typedefs.h"
 #include "Parallel/MPI.h"
 
 #include "generated_code/init.h"
-
 
 namespace seissol::initializer::time_stepping {
 
 void ExponentialWeights::setVertexWeights() {
   assert(m_ncon == 1 && "single constraint partitioning");
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+  int maxCluster =
+      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
     int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
@@ -31,10 +31,10 @@ void ExponentialWeights::setAllowedImbalances() {
   m_imbalances[0] = tinyLtsWeightImbalance;
 }
 
-
 void ExponentialBalancedWeights::setVertexWeights() {
   assert(m_ncon == 2 && "binary constaints partitioning");
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+  int maxCluster =
+      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
     int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
@@ -44,7 +44,6 @@ void ExponentialBalancedWeights::setVertexWeights() {
     m_vertexWeights[m_ncon * cell + 1] = memoryWeight;
   }
 }
-
 
 void ExponentialBalancedWeights::setAllowedImbalances() {
   assert(m_ncon == 2 && "binary constaints partitioning");
@@ -57,12 +56,11 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
   m_imbalances[1] = mediumLtsMemoryImbalance;
 }
 
-
 int EncodedBalancedWeights::evaluateNumberOfConstraints() {
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
+  int maxCluster =
+      getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
   return maxCluster + 1;
 }
-
 
 void EncodedBalancedWeights::setVertexWeights() {
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
@@ -73,7 +71,6 @@ void EncodedBalancedWeights::setVertexWeights() {
   }
 }
 
-
 void EncodedBalancedWeights::setAllowedImbalances() {
   m_imbalances.resize(m_ncon);
 
@@ -82,4 +79,4 @@ void EncodedBalancedWeights::setAllowedImbalances() {
     m_imbalances[i] = mediumLtsWeightImbalance;
   }
 }
-}
+} // namespace seissol::initializer::time_stepping
