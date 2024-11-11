@@ -139,6 +139,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
+  warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
+
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 
   return ReceiverOutputParameters{
