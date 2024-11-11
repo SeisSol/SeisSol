@@ -15,6 +15,7 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
+        src/Initializer/TimeStepping/LtsWeights
         src/Initializer/Tree
         src/IO
         src/Kernels
