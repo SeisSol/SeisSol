@@ -32,8 +32,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -88,27 +90,32 @@
 
 namespace seissol::kernels {
 
-void NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
-  for( int neighbor = 0; neighbor < 4; ++neighbor ) {
-    assert( (reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % alignment == 0 );
-    assert( (reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) % alignment == 0 );
-    assert( (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) % alignment == 0 );
+  for (int neighbor = 0; neighbor < 4; ++neighbor) {
+    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) %
+               alignment ==
+           0);
+    assert(
+        (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
+            alignment ==
+        0);
   }
 
-  for( int h = 0; h < 3; ++h ) {
-    assert( (reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0 );
+  for (int h = 0; h < 3; ++h) {
+    assert((reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0);
   }
 
   for (int i = 0; i < 4; ++i) {
-    for(int h = 0; h < 3; ++h) {
-      assert( (reinterpret_cast<uintptr_t>(global->nodalFluxMatrices(i,h))) % alignment == 0 );
+    for (int h = 0; h < 3; ++h) {
+      assert((reinterpret_cast<uintptr_t>(global->nodalFluxMatrices(i, h))) % alignment == 0);
     }
   }
 #endif
 }
 
-void Neighbor::setHostGlobalData(GlobalData const* global) {
+void Neighbor::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
@@ -136,34 +143,32 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Neighbor::computeNeighborsIntegral(NeighborData& data,
-                                                          CellDRMapping const (&cellDrMapping)[4],
-                                                          real* timeIntegrated[4],
-                                                          real* faceNeighborsPrefetch[4]) {
+                                        const CellDRMapping (&cellDrMapping)[4],
+                                        real* timeIntegrated[4],
+                                        real* faceNeighborsPrefetch[4]) {
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
 
   for (unsigned int face = 0; face < 4; face++) {
     switch (data.cellInformation().faceTypes[face]) {
     case FaceType::Regular:
       // Fallthrough intended
-    case FaceType::Periodic:
-      {
+    case FaceType::Periodic: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
-      assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0 );
-      assert(data.cellInformation().faceRelations[face][0] < 4
-             && data.cellInformation().faceRelations[face][1] < 3);
+      assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
+      assert(data.cellInformation().faceRelations[face][0] < 4 &&
+             data.cellInformation().faceRelations[face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
       nfKrnl.Q = data.dofs();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
       nfKrnl.execute(data.cellInformation().faceRelations[face][1],
-		     data.cellInformation().faceRelations[face][0],
-		     face);
+                     data.cellInformation().faceRelations[face][0],
+                     face);
       break;
-      }
-    case FaceType::DynamicRupture:
-      {
+    }
+    case FaceType::DynamicRupture: {
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
 
@@ -174,7 +179,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
-      }
+    }
     default:
       // No contribution for all other cases.
       // Note: some other bcs are handled in the local kernel.
@@ -183,7 +188,8 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table, seissol::parallel::runtime::StreamRuntime& runtime) {
+void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+                                               seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
@@ -195,65 +201,68 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &
     }
   };
 
-  for(size_t face = 0; face < 4; face++) {
+  for (size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
 
-    runtime.envMany((*FaceRelations::Count)+(*DrFaceRelations::Count), [&](void* stream, size_t i) {
+    runtime.envMany(
+        (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
+          if (i < (*FaceRelations::Count)) {
+            // regular and periodic
+            unsigned faceRelation = i;
 
-      if (i < (*FaceRelations::Count)) {
-        // regular and periodic
-        unsigned faceRelation = i;
+            ConditionalKey key(*KernelNames::NeighborFlux,
+                               (FaceKinds::Regular || FaceKinds::Periodic),
+                               face,
+                               faceRelation);
 
-        ConditionalKey key(*KernelNames::NeighborFlux,
-                          (FaceKinds::Regular || FaceKinds::Periodic),
-                          face,
-                          faceRelation);
+            if (table.find(key) != table.end()) {
+              auto& entry = table[key];
 
-        if(table.find(key) != table.end()) {
-          auto &entry = table[key];
+              const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+              neighFluxKrnl.numElements = numElements;
 
-          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-          neighFluxKrnl.numElements = numElements;
+              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.I = const_cast<const real**>(
+                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+              neighFluxKrnl.AminusT = const_cast<const real**>(
+                  (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
-          neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-          neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-          neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+              tmpMem = reinterpret_cast<real*>(
+                  device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+              neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
-          tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
-          neighFluxKrnl.linearAllocator.initialize(tmpMem);
+              neighFluxKrnl.streamPtr = stream;
+              (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
+              ++streamCounter;
+            }
+          } else {
+            unsigned faceRelation = i - (*FaceRelations::Count);
 
-          neighFluxKrnl.streamPtr = stream;
-          (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
-          ++streamCounter;
-        }
-      }
-      else {
-        unsigned faceRelation = i - (*FaceRelations::Count);
-        
-        ConditionalKey key(*KernelNames::NeighborFlux,
-                          *FaceKinds::DynamicRupture,
-                          face,
-                          faceRelation);
+            ConditionalKey key(
+                *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
-        if(table.find(key) != table.end()) {
-          auto &entry = table[key];
+            if (table.find(key) != table.end()) {
+              auto& entry = table[key];
 
-          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-          drKrnl.numElements = numElements;
+              const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+              drKrnl.numElements = numElements;
 
-          drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
-          drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-          drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              drKrnl.fluxSolver = const_cast<const real**>(
+                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+              drKrnl.QInterpolated = const_cast<const real**>(
+                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+              drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-          tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
-          drKrnl.linearAllocator.initialize(tmpMem);
+              tmpMem = reinterpret_cast<real*>(
+                  device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+              drKrnl.linearAllocator.initialize(tmpMem);
 
-          drKrnl.streamPtr = stream;
-          (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
-          ++streamCounter;
-        }
-      }
-    });
+              drKrnl.streamPtr = stream;
+              (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
+              ++streamCounter;
+            }
+          }
+        });
 
     resetDeviceCurrentState(streamCounter);
   }
@@ -263,18 +272,18 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &
 }
 
 void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
-                                                        const int neighboringIndices[4][2],
-                                                        CellDRMapping const (&cellDrMapping)[4],
-                                                        unsigned int &nonZeroFlops,
-                                                        unsigned int &hardwareFlops,
-                                                        long long& drNonZeroFlops,
-                                                        long long& drHardwareFlops) {
+                                      const int neighboringIndices[4][2],
+                                      const CellDRMapping (&cellDrMapping)[4],
+                                      unsigned int& nonZeroFlops,
+                                      unsigned int& hardwareFlops,
+                                      long long& drNonZeroFlops,
+                                      long long& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
   drNonZeroFlops = 0;
   drHardwareFlops = 0;
-  
+
   for (unsigned int face = 0; face < 4; face++) {
     // compute the neighboring elements flux matrix id.
     switch (faceTypes[face]) {
@@ -283,30 +292,32 @@ void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
     case FaceType::Periodic:
       // regular neighbor
       assert(neighboringIndices[face][0] < 4 && neighboringIndices[face][1] < 3);
-      nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(neighboringIndices[face][1], neighboringIndices[face][0], face);
-      hardwareFlops += kernel::neighboringFlux::hardwareFlops(neighboringIndices[face][1], neighboringIndices[face][0], face);
+      nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(
+          neighboringIndices[face][1], neighboringIndices[face][0], face);
+      hardwareFlops += kernel::neighboringFlux::hardwareFlops(
+          neighboringIndices[face][1], neighboringIndices[face][0], face);
       break;
     case FaceType::DynamicRupture:
-      drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
-      drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(
+          cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(
+          cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     default:
-      //Handled in local kernel
+      // Handled in local kernel
       break;
     }
   }
 }
 
-
-unsigned Neighbor::bytesNeighborsIntegral()
-{
+unsigned Neighbor::bytesNeighborsIntegral() {
   unsigned reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
   reals += 4 * tensor::I::size() + 2 * tensor::Q::size();
   // flux solvers load
   reals += 4 * tensor::AminusT::size();
-  
+
   return reals * sizeof(real);
 }
 

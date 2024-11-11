@@ -9,7 +9,7 @@
 namespace seissol {
 
 std::pair<long long, long long>
-GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
+    GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
   long long hardwareFlops = 0;
   long long nonZeroFlops = 0;
 
@@ -20,19 +20,21 @@ GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType
   nonZeroFlops += 1 * NumberOfNodes;
 
   // Before adjusting the range of the loop, check range of loop in computation!
-  for (std::size_t order = 1; order < ConvergenceOrder+ 1; ++order) {
+  for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {
 #ifdef USE_ELASTIC
-    constexpr auto FlopsPerQuadpoint =
-        4 + // Computing coefficient
-        6 + // Updating displacement
-        2; // Updating integral of displacement
+    constexpr auto FlopsPerQuadpoint = 4 + // Computing coefficient
+                                       6 + // Updating displacement
+                                       2;  // Updating integral of displacement
 #else
     constexpr auto flopsPerQuadpoint = 0;
 #endif
     constexpr auto FlopsUpdates = FlopsPerQuadpoint * NumberOfNodes;
 
-    nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face) + FlopsUpdates;
-    hardwareFlops += kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face) + FlopsUpdates;
+    nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face) +
+                    FlopsUpdates;
+    hardwareFlops +=
+        kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face) +
+        FlopsUpdates;
   }
 
   // Two rotations: One to face-aligned, one to global
