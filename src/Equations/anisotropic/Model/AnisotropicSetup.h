@@ -283,7 +283,7 @@ inline void getTransposedGodunovState(const AnisotropicMaterial& local,
   }
 }
 
-template<>
+template <>
 inline AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
                                                           AnisotropicMaterial& material) {
   AnisotropicMaterial rotatedMaterial;
