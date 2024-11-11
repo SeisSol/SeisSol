@@ -515,7 +515,7 @@ if (WITH_GPU)
   install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
+  target_sources(SeisSol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 # C++ compiler settings
