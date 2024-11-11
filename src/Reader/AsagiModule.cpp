@@ -112,8 +112,8 @@ void AsagiModule::postMPIInit() {
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     const int rank = MPI::mpi.rank();
-    logWarning(rank) << "Running with only one OMP thread."
-                     << "Using MPI window communication instead of threads.";
+    logWarning() << "Running with only one OMP thread."
+                 << "Using MPI window communication instead of threads.";
   }
 }
 

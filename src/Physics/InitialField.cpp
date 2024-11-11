@@ -297,8 +297,8 @@ seissol::physics::PressureInjection::PressureInjection(
   const auto o3 = m_parameters.origin[2];
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
-  logInfo(0) << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2
-             << ", " << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
+  logInfo() << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2 << ", "
+            << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
 void seissol::physics::PressureInjection::evaluate(

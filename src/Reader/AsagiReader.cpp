@@ -38,8 +38,8 @@ namespace seissol::asagi {
   if (asagiThreads == 0) {
     asagiThreads = AsagiModule::totalThreads();
   } else if (static_cast<int>(asagiThreads) > AsagiModule::totalThreads()) {
-    logWarning(rank) << "Only" << AsagiModule::totalThreads()
-                     << "threads can be used for ASAGI initialization.";
+    logWarning() << "Only" << AsagiModule::totalThreads()
+                 << "threads can be used for ASAGI initialization.";
     asagiThreads = AsagiModule::totalThreads();
   }
 

@@ -660,17 +660,17 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   } else {
     const auto rank = MPI::mpi.rank();
     if (anisotropy) {
-      logWarning(rank)
+      logWarning()
           << "Material Averaging is not implemented for anisotropic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(cellToVertex);
     } else if (plasticity) {
-      logWarning(rank)
+      logWarning()
           << "Material Averaging is not implemented for plastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(cellToVertex);
     } else if (poroelasticity) {
-      logWarning(rank)
+      logWarning()
           << "Material Averaging is not implemented for poroelastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(cellToVertex);

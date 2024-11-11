@@ -152,7 +152,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Computing LTS weights.";
+  logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
@@ -172,11 +172,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     ComputeWiggleFactorResult wiggleFactorResult{};
     if (autoMergeBaseline == seissol::initializer::parameters::AutoMergeCostBaseline::BestWiggleFactor) {
       // First compute wiggle factor without merging as baseline cost
-      logInfo(rank) << "Using best wiggle factor as baseline cost for auto merging.";
-      logInfo(rank) << "1. Compute best wiggle factor without merging clusters";
+      logInfo() << "Using best wiggle factor as baseline cost for auto merging.";
+      logInfo() << "1. Compute best wiggle factor without merging clusters";
       const auto wiggleFactorResultBaseline = computeBestWiggleFactor(std::nullopt, false);
       // Compute wiggle factor a second time with merging and using the previous cost as baseline
-      logInfo(rank) << "2. Compute best wiggle factor with merging clusters, using the previous cost estimate as baseline";
+      logInfo() << "2. Compute best wiggle factor with merging clusters, using the previous cost estimate as baseline";
       const auto baselineCost = wiggleFactorResultBaseline.cost;
       wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters.isAutoMergeUsed());
     } else {
@@ -199,7 +199,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
 
-  logInfo(rank) << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
+  logInfo() << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
 
   int maxNumberOfClusters = *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
@@ -215,7 +215,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   setVertexWeights();
   setAllowedImbalances();
 
-  logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
+  logInfo() << "Computing LTS weights. Done. " << utils::nospace << '('
                                     << finalNumberOfReductions << " reductions.)";
 }
 LtsWeights::ComputeWiggleFactorResult
@@ -241,7 +241,7 @@ LtsWeights::ComputeWiggleFactorResult
   auto totalWiggleFactorReductions = 0u;
 
   if (baselineCost) {
-    logInfo(rank) << "Baseline cost before cluster merging is" << *baselineCost;
+    logInfo() << "Baseline cost before cluster merging is" << *baselineCost;
   } else {
     // Compute baselineCost cost before wiggle factor and merging of clusters
     totalWiggleFactorReductions +=
@@ -252,7 +252,7 @@ LtsWeights::ComputeWiggleFactorResult
                                                  maxWiggleFactor,
                                                  m_details.globalMinTimeStep,
                                                  MPI::mpi.comm());
-    logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
+    logInfo() << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
   }
   assert(baselineCost);
 
@@ -260,7 +260,7 @@ LtsWeights::ComputeWiggleFactorResult
       ltsParameters.getAllowedPerformanceLossRatioAutoMerge() * *baselineCost;
 
   if (isAutoMergeUsed) {
-    logInfo(rank) << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
+    logInfo() << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
   }
 
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
@@ -315,10 +315,10 @@ LtsWeights::ComputeWiggleFactorResult
       if (cost <= maxAdmissibleCost) {
         foundAdmissibleMerge = true;
         minAdmissibleMaxClusterId = std::min(minAdmissibleMaxClusterId, noOfClusters);
-        logDebug(rank) << "Admissible. cluster:" << noOfClusters << ",cost" << cost
+        logDebug() << "Admissible. cluster:" << noOfClusters << ",cost" << cost
                        << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       } else {
-        logDebug(rank) << "Not admissible. cluster:" << noOfClusters << ",cost" << cost
+        logDebug() << "Not admissible. cluster:" << noOfClusters << ",cost" << cost
                        << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       }
     }
@@ -334,23 +334,23 @@ LtsWeights::ComputeWiggleFactorResult
             ->first;
   }
 
-  logInfo(rank) << "Enforcing maximum difference when finding best wiggle factor took"
+  logInfo() << "Enforcing maximum difference when finding best wiggle factor took"
                 << totalWiggleFactorReductions << "reductions.";
 
   const auto bestWiggleFactor = maxMapClusterIdToBestWiggleFactor[minAdmissibleMaxClusterId];
   const auto bestCostEstimate = mapMaxClusterIdToLowestCost[minAdmissibleMaxClusterId];
-  logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
+  logInfo() << "The best wiggle factor is" << bestWiggleFactor << "with cost"
                 << bestCostEstimate << "and" << minAdmissibleMaxClusterId + 1 << "time clusters";
 
   if (baselineCost > bestCostEstimate) {
-    logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
+    logInfo() << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
                   << "% with absolute cost decrease of" << *baselineCost - bestCostEstimate
                   << "compared to the baseline";
   } else {
-    logInfo(rank) << "Cost increased" << (bestCostEstimate - *baselineCost) / *baselineCost * 100
+    logInfo() << "Cost increased" << (bestCostEstimate - *baselineCost) / *baselineCost * 100
                   << "% with absolute cost increase of" << bestCostEstimate - *baselineCost
                   << "compared to the baseline";
-    logInfo(rank) << "Note: Cost increased due to cluster merging!";
+    logInfo() << "Note: Cost increased due to cluster merging!";
   }
 
   return ComputeWiggleFactorResult{minAdmissibleMaxClusterId, bestWiggleFactor, bestCostEstimate};

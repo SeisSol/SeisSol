@@ -98,10 +98,10 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
   m_enabled = true;
 
 	int const rank = seissol::MPI::mpi.rank();
-	logInfo(rank) << "Initializing free surface integrator.";
+	logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
   initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
-	logInfo(rank) << "Initializing free surface integrator. Done.";
+	logInfo() << "Initializing free surface integrator. Done.";
 }
 
 void seissol::solver::FreeSurfaceIntegrator::calculateOutput()

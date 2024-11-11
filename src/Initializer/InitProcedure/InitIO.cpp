@@ -438,13 +438,13 @@ void setIntegralMask(seissol::SeisSol& seissolInstance) {
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Begin init output.";
+  logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
   if (!filesystem::exists(outputDir)) {
-    logWarning(rank) << "Output directory does not exist yet. We therefore create it now.";
+    logWarning() << "Output directory does not exist yet. We therefore create it now.";
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }
@@ -457,5 +457,5 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   initFaultOutputManager(seissolInstance);
   setupCheckpointing(seissolInstance);
   setupOutput(seissolInstance);
-  logInfo(rank) << "End init output.";
+  logInfo() << "End init output.";
 }

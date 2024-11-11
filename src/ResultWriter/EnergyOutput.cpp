@@ -86,7 +86,7 @@ void EnergyOutput::init(
     return;
   }
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Initializing energy output.";
+  logInfo() << "Initializing energy output.";
 
   energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
@@ -132,7 +132,7 @@ void EnergyOutput::init(
 void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Writing energy output at time" << time;
+  logInfo() << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
   if (isCheckAbortCriteraSlipRateEnabled) {
@@ -163,7 +163,7 @@ void EnergyOutput::syncPoint(double time) {
     writeEnergies(time);
   }
   ++outputId;
-  logInfo(rank) << "Writing energy output at time" << time << "Done.";
+  logInfo() << "Writing energy output at time" << time << "Done.";
 }
 
 void EnergyOutput::simulationStart() {
@@ -622,41 +622,40 @@ void EnergyOutput::printEnergies() {
 
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
-        logInfo(rank) << std::setprecision(outputPrecision)
-                      << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                      << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+        logInfo() << std::setprecision(outputPrecision)
+                  << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+                  << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (shouldPrint(totalAcousticEnergy)) {
-        logInfo(rank) << std::setprecision(outputPrecision)
-                      << "Acoustic energy (total, % kinematic, % potential): "
-                      << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
-                      << ratioAcousticPotential;
+        logInfo() << std::setprecision(outputPrecision)
+                  << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                  << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
       }
       if (shouldPrint(energiesStorage.gravitationalEnergy())) {
-        logInfo(rank) << std::setprecision(outputPrecision)
-                      << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+        logInfo() << std::setprecision(outputPrecision)
+                  << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
       }
       if (shouldPrint(energiesStorage.plasticMoment())) {
-        logInfo(rank) << std::setprecision(outputPrecision)
-                      << "Plastic moment (value, equivalent Mw, % total moment):"
-                      << energiesStorage.plasticMoment() << " ,"
-                      << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
-                      << ratioPlasticMoment;
+        logInfo() << std::setprecision(outputPrecision)
+                  << "Plastic moment (value, equivalent Mw, % total moment):"
+                  << energiesStorage.plasticMoment() << " ,"
+                  << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
+                  << ratioPlasticMoment;
       }
-      logInfo(rank) << std::setprecision(outputPrecision)
-                    << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
-                    << " ," << totalMomentumZ;
+      logInfo() << std::setprecision(outputPrecision)
+                << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
+                << totalMomentumZ;
     } else {
-      logInfo(rank) << "Volume energies skipped at this step";
+      logInfo() << "Volume energies skipped at this step";
     }
 
     if (shouldPrint(totalFrictionalWork)) {
-      logInfo(rank) << std::setprecision(outputPrecision)
-                    << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
-                    << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-      logInfo(rank) << std::setprecision(outputPrecision)
-                    << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
-                    << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
+      logInfo() << std::setprecision(outputPrecision)
+                << "Frictional work (total, % static, % radiated): " << totalFrictionalWork << " ,"
+                << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
+      logInfo() << std::setprecision(outputPrecision)
+                << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
+                << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     }
 
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
@@ -670,13 +669,11 @@ void EnergyOutput::checkAbortCriterion(real timeSinceThreshold, const std::strin
   if (rank == 0) {
     if ((timeSinceThreshold > 0) and (timeSinceThreshold < std::numeric_limits<real>::max())) {
       if (static_cast<double>(timeSinceThreshold) < terminatorMaxTimePostRupture) {
-        logInfo(rank) << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
-                      << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
-                      << "s)";
+        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
+                  << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
       } else {
-        logInfo(rank) << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
-                      << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
-                      << "s)";
+        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
+                  << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
         abort = true;
       }
     }

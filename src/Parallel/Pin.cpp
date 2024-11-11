@@ -122,8 +122,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = parseOnlineCpuMask(buffer.str(), get_nprocs_conf());
 
   } else {
-    logWarning(MPI::mpi.rank()) << "Could not read" << onlineFilePath
-                                << "Assuming that all cpus are online.";
+    logWarning() << "Could not read" << onlineFilePath << "Assuming that all cpus are online.";
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
@@ -156,8 +155,8 @@ void Pinning::checkEnvVariables() {
       bool isMaskGood{true};
       const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
       if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask.size())) {
-        logInfo(rank) << "There are more communication (and/or output-writing) threads"
-                      << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
+        logInfo() << "There are more communication (and/or output-writing) threads"
+                  << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
       } else {
@@ -166,9 +165,9 @@ void Pinning::checkEnvVariables() {
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
             if (cpu > maxCpuId) {
-              logInfo(rank) << "Free cpu mask of the local process" << localProcessId
-                            << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
-                            << maxCpuId;
+              logInfo() << "Free cpu mask of the local process" << localProcessId
+                        << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
+                        << maxCpuId;
               isMaskGood = false;
               break;
             }
@@ -177,15 +176,15 @@ void Pinning::checkEnvVariables() {
       }
 
       if (isMaskGood) {
-        logInfo(rank) << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logInfo() << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
       } else {
-        logWarning(rank) << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
-        logWarning(rank) << "`SEISSOL_FREE_CPUS_MASK` Format:"
-                         << "(<int>|<range: int-int>|<list: {int,+}>),+";
+        logWarning() << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logWarning() << "`SEISSOL_FREE_CPUS_MASK` Format:"
+                     << "(<int>|<range: int-int>|<list: {int,+}>),+";
         parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
       }
     } else {
-      logWarning(rank) << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
+      logWarning() << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
     }
   }
 #endif // __APPLE__

@@ -243,9 +243,9 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
   globalClusterHistogram = localClusterHistogram;
 #endif
   if (rank == 0) {
-    logInfo(rank) << "Number of elements in dynamic rupture time clusters:";
+    logInfo() << "Number of elements in dynamic rupture time clusters:";
     for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
-      logInfo(rank) << utils::nospace << cluster << " (dr):" << utils::space << globalClusterHistogram[cluster];
+      logInfo() << utils::nospace << cluster << " (dr):" << utils::space << globalClusterHistogram[cluster];
     }
 #ifdef USE_MPI
     delete[] globalClusterHistogram;
@@ -650,9 +650,9 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
   globalClusterHistogram = localClusterHistogram;
 #endif
   if (rank == 0) {
-    logInfo(rank) << "Number of elements in time clusters:";
+    logInfo() << "Number of elements in time clusters:";
     for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
-      logInfo(rank) << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
+      logInfo() << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
     }
 #ifdef USE_MPI
     delete[] globalClusterHistogram;
@@ -1196,7 +1196,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   l_clusteringSpeedup *= wiggleFactor;
 
   // get maximum speedup
-  logInfo(rank) << "maximum theoretical speedup (compared to GTS):"
+  logInfo() << "maximum theoretical speedup (compared to GTS):"
                   << l_perCellSpeedup << "per cell LTS," << l_clusteringSpeedup << "with the used clustering.";
 
   // derive clustered copy and interior layout

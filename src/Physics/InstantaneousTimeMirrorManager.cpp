@@ -41,19 +41,19 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   Module::syncPoint(currentTime);
 
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
+  logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
   if (!isEnabled) {
-    logInfo(rank) << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
-                  << "as it is disabled";
+    logInfo() << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
+              << "as it is disabled";
     return;
   }
 
-  logInfo(rank) << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
+  logInfo() << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
 
-  logInfo(rank) << "Scaling velocitites by factor of " << velocityScalingFactor;
+  logInfo() << "Scaling velocitites by factor of " << velocityScalingFactor;
   updateVelocities();
 
-  logInfo(rank) << "Updating CellLocalMatrices";
+  logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(*meshReader,
                                            ltsTree,
                                            lts,
@@ -62,10 +62,10 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
                                            seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
-  logInfo(rank) << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
+  logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
   updateTimeSteps();
 
-  logInfo(rank) << "Finished flipping.";
+  logInfo() << "Finished flipping.";
   isEnabled = false;
 }
 
