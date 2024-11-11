@@ -136,7 +136,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
-  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
