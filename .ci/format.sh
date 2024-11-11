@@ -24,6 +24,7 @@ format() {
         src/Kernels
         src/Modules
         src/Monitoring
+        src/Model
         src/Numerical
         src/Parallel
         src/Physics
@@ -56,8 +57,6 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Model/CommonDatastructures.h
-        src/Model/Plasticity.h
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
