@@ -43,9 +43,24 @@
 #include "LtsWeights.h"
 
 #include "Geometry/PUMLReader.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
-#include <Eigen/Eigenvalues>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/ParameterDB.h>
+#include <Initializer/Parameters/LtsParameters.h>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <limits>
+#include <map>
+#include <optional>
+#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 
 #include "PUML/Downward.h"
 #include "PUML/PUML.h"
@@ -245,7 +260,7 @@ LtsWeights::ComputeWiggleFactorResult
     return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
   };
 
-  auto totalWiggleFactorReductions = 0u;
+  auto totalWiggleFactorReductions = 0U;
 
   if (baselineCost) {
     logInfo(rank) << "Baseline cost before cluster merging is" << *baselineCost;
@@ -413,7 +428,7 @@ int LtsWeights::ipow(int x, int y) {
     return 1;
   }
   int result = x;
-  while (--y) {
+  while (--y != 0) {
     result *= x;
   }
   return result;
@@ -484,7 +499,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
 
 int LtsWeights::enforceMaximumDifference() {
   int totalNumberOfReductions = 0;
-  int globalNumberOfReductions;
+  int globalNumberOfReductions = 0;
   do {
     int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
@@ -522,7 +537,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
     for (unsigned f = 0; f < 4; ++f) {
       int difference = maxDifference;
-      int boundary = getBoundaryCondition(boundaryCond, cell, f);
+      const int boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (boundary == 0 || boundary == 3 || boundary == 6) {
         // We treat MPI neighbours later
@@ -531,8 +546,9 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
           int cellIds[2];
           PUML::Upward::cells(*m_mesh, face, cellIds);
 
-          int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          int otherTimeCluster = m_clusterIds[neighbourCell];
+          const int neighbourCell =
+              (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
+          const int otherTimeCluster = m_clusterIds[neighbourCell];
 
           if (boundary == 3) {
             difference = 0;
@@ -555,7 +571,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   }
 
 #ifdef USE_MPI
-  FaceSorter faceSorter(faces);
+  FaceSorter const faceSorter(faces);
   for (auto& sharedFaces : rankToSharedFaces) {
     std::sort(sharedFaces.second.begin(), sharedFaces.second.end(), faceSorter);
   }
@@ -598,20 +614,20 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     auto exchangeSize = exchange->second.size();
     for (unsigned n = 0; n < exchangeSize; ++n) {
       int difference = maxDifference;
-      int otherTimeCluster = ghost[ex][n];
+      const int otherTimeCluster = ghost[ex][n];
 
       int cellIds[2];
       PUML::Upward::cells(*m_mesh, faces[exchange->second[n]], cellIds);
-      int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
+      const int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
 
       unsigned int faceids[4];
       PUML::Downward::faces(*m_mesh, cells[cell], faceids);
       unsigned f = 0;
-      for (; f < 4 && static_cast<int>(faceids[f]) != exchange->second[n]; ++f)
-        ;
+      for (; f < 4 && static_cast<int>(faceids[f]) != exchange->second[n]; ++f) {
+      }
       assert(f != 4);
 
-      int boundary = getBoundaryCondition(boundaryCond, cell, f);
+      const int boundary = getBoundaryCondition(boundaryCond, cell, f);
       if (boundary == 3) {
         difference = 0;
       }

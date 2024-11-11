@@ -64,7 +64,7 @@ class SeisSol;
 namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  std::string velocityModel{};
+  std::string velocityModel;
   unsigned rate{};
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
@@ -100,9 +100,9 @@ class LtsWeights {
   virtual ~LtsWeights() = default;
   void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
 
-  const int* vertexWeights() const;
-  const double* imbalances() const;
-  int nWeightsPerVertex() const;
+  [[nodiscard]] const int* vertexWeights() const;
+  [[nodiscard]] const double* imbalances() const;
+  [[nodiscard]] int nWeightsPerVertex() const;
 
   private:
   seissol::SeisSol& seissolInstance;
@@ -129,17 +129,17 @@ class LtsWeights {
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel{};
+  std::string m_velocityModel;
   unsigned m_rate{};
-  std::vector<int> m_vertexWeights{};
-  std::vector<double> m_imbalances{};
-  std::vector<int> m_cellCosts{};
+  std::vector<int> m_vertexWeights;
+  std::vector<double> m_imbalances;
+  std::vector<int> m_cellCosts;
   int m_vertexWeightElement{};
   int m_vertexWeightDynamicRupture{};
   int m_vertexWeightFreeSurfaceWithGravity{};
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML* m_mesh{nullptr};
-  std::vector<int> m_clusterIds{};
+  std::vector<int> m_clusterIds;
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds)> clusteringCache; // Maps wiggle factor to clustering
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
