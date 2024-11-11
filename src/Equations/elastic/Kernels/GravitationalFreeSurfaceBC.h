@@ -11,6 +11,8 @@
 #include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.h>
 
+#include <utility>
+
 #ifdef ACL_DEVICE
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
@@ -59,7 +61,7 @@ class GravitationalFreeSurfaceBc {
     assert(boundaryMapping.TData != nullptr);
     auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
     auto t = init::Tinv::view::create(boundaryMapping.TData);
-    auto projectKernel = projectKernelPrototype;
+    auto projectKernel = std::forward<MappingKrnl>(projectKernelPrototype);
     projectKernel.Tinv = tinv.data();
 
     // Prepare projection of displacement/velocity to face-nodal basis.

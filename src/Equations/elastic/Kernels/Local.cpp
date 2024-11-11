@@ -150,7 +150,7 @@ struct ApplyAnalyticalSolution {
   LocalDataType& localData;
 };
 
-void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             LocalData& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -158,12 +158,12 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
                             const CellBoundaryMapping (*cellBoundaryMapping)[4],
                             double time,
                             double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs();
-  volKrnl.I = iTimeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
@@ -173,8 +173,8 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs();
-  lfKrnl.I = iTimeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = iTimeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
 
   volKrnl.execute();
@@ -190,7 +190,7 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = iTimeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
     nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
 
@@ -217,7 +217,7 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
             }
           };
 
-      dirichletBoundary.evaluate(iTimeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
                                  m_projectRotatedKrnlPrototype,
@@ -244,7 +244,7 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(iTimeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
                                  m_projectRotatedKrnlPrototype,
@@ -264,7 +264,7 @@ void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size
       assert(initConds->size() == 1);
       ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
-      dirichletBoundary.evaluateTimeDependent(iTimeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
                                               (*cellBoundaryMapping)[face],
                                               m_projectKrnlPrototype,

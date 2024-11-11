@@ -105,9 +105,9 @@ void seissol::model::getFaceRotationMatrix(const Eigen::Vector3d& normal,
   getFaceRotationMatrix(n, s, t, matT, matTinv);
 }
 
-void seissol::model::getFaceRotationMatrix(const VrtxCoords& normal,
-                                           const VrtxCoords& tangent1,
-                                           const VrtxCoords& tangent2,
+void seissol::model::getFaceRotationMatrix(const VrtxCoords normal,
+                                           const VrtxCoords tangent1,
+                                           const VrtxCoords tangent2,
                                            init::T::view::type& matT,
                                            init::Tinv::view::type& matTinv) {
   matT.setZero();
@@ -137,8 +137,8 @@ void seissol::model::getFaceRotationMatrix(const VrtxCoords& normal,
                                                            MaterialT::NumElasticQuantities);
 #elif USE_POROELASTIC
   // pressure
-  T(9, 9) = 1;
-  Tinv(9, 9) = 1;
+  matT(9, 9) = 1;
+  matTinv(9, 9) = 1;
   // fluid velocities
   unsigned origin = 10;
   seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, origin, origin);

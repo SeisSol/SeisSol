@@ -113,9 +113,9 @@ void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv);
 
-void getFaceRotationMatrix(const VrtxCoords& normal,
-                           const VrtxCoords& tangent1,
-                           const VrtxCoords& tangent2,
+void getFaceRotationMatrix(const VrtxCoords normal,
+                           const VrtxCoords tangent1,
+                           const VrtxCoords tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv);
 

@@ -9,6 +9,10 @@
 #include "Kernels/DirichletBoundary.h"
 #pragma GCC diagnostic pop
 
+#ifndef NDEBUG
+#include <cstdint>
+#endif
+
 namespace seissol::kernels {
 
 void computeAverageDisplacement(double deltaT,
