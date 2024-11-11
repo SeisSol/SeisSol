@@ -37,10 +37,10 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& 
 }
 #pragma GCC diagnostic pop
 
-}
+} // namespace
 
-namespace seissol {
-namespace kernels {
+
+namespace seissol::kernels {
 
 class DirichletBoundary {
  public:
@@ -196,7 +196,7 @@ void computeAverageDisplacement(double deltaT,
 				const unsigned int derivativesOffsets[ConvergenceOrder],
 				real timeIntegrated[tensor::I::size()]);
 
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels
+
 
 #endif

@@ -7,8 +7,8 @@
 
 #include "Initializer/Typedefs.h"
 
-#include "Numerical/Quadrature.h"
 #include "Numerical/ODEInt.h"
+#include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.h>
 
 #ifdef ACL_DEVICE
@@ -36,7 +36,7 @@ public:
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
                 TimeKrnl& timeKernel,
-                real* derivatives,
+                const real* derivatives,
                 double timeStepWidth,
                 CellMaterialData& materialData,
                 FaceType faceType) {
@@ -56,10 +56,10 @@ public:
     assert(boundaryMapping.nodes != nullptr);
     assert(boundaryMapping.TinvData != nullptr);
     assert(boundaryMapping.TData != nullptr);
-    auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-    auto T = init::Tinv::view::create(boundaryMapping.TData);
+    auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+    auto t = init::Tinv::view::create(boundaryMapping.TData);
     auto projectKernel = projectKernelPrototype;
-    projectKernel.Tinv = Tinv.data();
+    projectKernel.Tinv = tinv.data();
 
     // Prepare projection of displacement/velocity to face-nodal basis.
     alignas(Alignment) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
@@ -69,8 +69,8 @@ public:
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
         // Extract part that rotates velocity from T
-        rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
-        rotateDisplacementToGlobal(i,j) = T(i+6, j+6);
+        rotateDisplacementToFaceNormal(i, j) = tinv(i + 6, j + 6);
+        rotateDisplacementToGlobal(i,j) = t(i+6, j+6);
       }
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
@@ -116,7 +116,7 @@ public:
 
     const double rho = materialData.local.rho;
     const double g = gravitationalAcceleration; // [m/s^2]
-    const double Z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
+    const double z = std::sqrt(materialData.local.getLambdaBar() * rho) ;
 
     // Note: Probably need to increase ConvergenceOrderby 1 here!
     for (std::size_t order = 1; order < ConvergenceOrder+1; ++order) {
@@ -130,15 +130,15 @@ public:
 #pragma omp simd
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         // Derivatives of interior variables
-        constexpr int pIdx = 0;
-        constexpr int uIdx = 6;
+        constexpr int PIdx = 0;
+        constexpr int UIdx = 6;
 
-        const auto uInside = dofsFaceNodal(i, uIdx + 0);
-        const auto vInside = dofsFaceNodal(i, uIdx + 1);
-        const auto wInside = dofsFaceNodal(i, uIdx + 2);
-        const auto pressureInside = dofsFaceNodal(i, pIdx);
+        const auto uInside = dofsFaceNodal(i, UIdx + 0);
+        const auto vInside = dofsFaceNodal(i, UIdx + 1);
+        const auto wInside = dofsFaceNodal(i, UIdx + 2);
+        const auto pressureInside = dofsFaceNodal(i, PIdx);
 
-        const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
+        const double curCoeff = uInside - (1.0/z) * (rho * g * prevCoefficients[i] + pressureInside);
         // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
         // 2 add, 2 mul = 4 flops
 

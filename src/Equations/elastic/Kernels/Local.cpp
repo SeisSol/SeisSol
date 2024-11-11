@@ -41,15 +41,28 @@
 
 #include "Kernels/Local.h"
 
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Kernels/LocalBase.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <Physics/InitialField.h>
+#include <cstddef>
+#include <generated_code/init.h>
+#include <generated_code/kernel.h>
 #include <tensor.h>
+#include <vector>
 #include <yateto.h>
 
 
 #include <array>
 #include <cassert>
 #include <stdint.h>
-#include "GravitationalFreeSurfaceBC.h"
-#include "SeisSol.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -138,7 +151,7 @@ private:
   LocalDataType& localData;
 };
 
-void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real iTimeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
                                               LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -151,7 +164,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs();
-  volKrnl.I = i_timeIntegratedDegreesOfFreedom;
+  volKrnl.I = iTimeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
@@ -161,8 +174,8 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs();
-  lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = iTimeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = iTimeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
   
   volKrnl.execute();
@@ -178,7 +191,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.I = iTimeIntegratedDegreesOfFreedom + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
     nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
 
@@ -206,7 +219,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
           }
       };
 
-      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(iTimeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
                                  m_projectRotatedKrnlPrototype,
@@ -235,7 +248,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(iTimeIntegratedDegreesOfFreedom,
 				 face,
 				 (*cellBoundaryMapping)[face],
 				 m_projectRotatedKrnlPrototype,
@@ -256,7 +269,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       assert(initConds->size() == 1);
       ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
-      dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluateTimeDependent(iTimeIntegratedDegreesOfFreedom,
                                               face,
                                               (*cellBoundaryMapping)[face],
                                               m_projectKrnlPrototype,

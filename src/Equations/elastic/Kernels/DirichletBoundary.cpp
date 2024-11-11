@@ -1,3 +1,9 @@
+#include <Common/Constants.h>
+#include <Kernels/Precision.h>
+#include <cassert>
+#include <cstddef>
+#include <generated_code/kernel.h>
+#include <generated_code/tensor.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "Kernels/DirichletBoundary.h"

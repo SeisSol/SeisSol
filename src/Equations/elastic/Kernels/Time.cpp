@@ -69,18 +69,20 @@
  * Time kernel of SeisSol.
  **/
 
-#include "Kernels/TimeBase.h"
-#include "Kernels/GravitationalFreeSurfaceBC.h"
 #include "Kernels/Time.h"
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
-#pragma GCC diagnostic pop
-
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
+#include "Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/TimeBase.h"
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <algorithm>
+#include <generated_code/kernel.h>
+#include <generated_code/tensor.h>
+#include <iterator>
 
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
@@ -88,7 +90,6 @@ extern long long libxsmm_num_total_flops;
 #include <cstring>
 #include <cassert>
 #include <stdint.h>
-#include <omp.h>
 
 #include <yateto.h>
 
@@ -356,8 +357,8 @@ void Time::computeIntegral( double                            expansionPoint,
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real deltaTLower = integrationStart - expansionPoint;
-  real deltaTUpper = integrationEnd   - expansionPoint;
+  real const deltaTLower = integrationStart - expansionPoint;
+  real const deltaTUpper = integrationEnd   - expansionPoint;
 
   // initialization of scalars in the taylor series expansion (0th term)
   real firstTerm  = (real) 1;
@@ -456,7 +457,7 @@ void Time::computeTaylorExpansion( real         time,
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );
 
-  real deltaT = time - expansionPoint;
+  real const deltaT = time - expansionPoint;
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
