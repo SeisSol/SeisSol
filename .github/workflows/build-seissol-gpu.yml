@@ -6,6 +6,9 @@ name: build-seissol-gpu
 on:
   - push
 
+env:
+  precomputed-hash: be764d550211b997819c85bb898f6eb6007d3418
+
 jobs:
   seissol-build-test:
     name: seissol-build-test
@@ -117,12 +120,35 @@ jobs:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
+  seissol-cache-precomputed:
+    name: seissol-cache-precomputed
+    runs-on: sccs-ci-nv-sm60
+    container: seissol/gha-cpu:davschneller-gpu-image
+    if: ${{ github.repository == 'SeisSol/SeisSol' }}
+    steps:
+      - id: cache-precomputed-solutions
+        name: cache-precomputed-solutions
+        uses: corca-ai/local-cache@v3
+        with:
+          key: ${{env.precomputed-hash}}
+          path: precomputed
+          base: /home/runner/_cache
+          clean-key: true
+      - id: get-precomputed-solutions
+        name: get-precomputed-solutions
+        uses: actions/checkout@v4
+        if: steps.cache-precomputed-solutions.outputs.cache-hit != 'true'
+        with:
+          repository: seissol/precomputed-seissol
+          ref: ${{env.precomputed-hash}}
+          path: precomputed
+
   seissol-run-test:
     name: seissol-run-test
     runs-on: sccs-ci-nv-sm60
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    needs: [seissol-build-test]
+    needs: [seissol-build-test, seissol-cache-precomputed]
     if: ${{ github.repository == 'SeisSol/SeisSol' }}
     strategy:
       fail-fast: false
@@ -242,7 +268,7 @@ jobs:
             threads: 1
             commthread: false
     steps:
-      - name: install-packages
+      - name: install-packages # TODO: move to containers
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
 
@@ -252,13 +278,13 @@ jobs:
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
       
-      - id: get-precomputed-solutions
-        name: get-precomputed-solutions
-        uses: actions/checkout@v4
+      - id: load-precomputed-solutions
+        name: load-precomputed-solutions
+        uses: corca-ai/local-cache@v3
         with:
-          repository: seissol/precomputed-seissol
-          ref: be764d550211b997819c85bb898f6eb6007d3418
+          key: ${{env.precomputed-hash}}
           path: precomputed
+          base: /home/runner/_cache
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
