@@ -1,8 +1,12 @@
+# SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Minimal makefile for Sphinx documentation
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = -W --keep-going -n
 SPHINXBUILD   = sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build
