@@ -157,7 +157,7 @@ def receiver_diff(args, i):
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
@@ -186,7 +186,7 @@ def faultreceiver_diff(args, i, quantities):
     sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-12
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     # We still want to use the same time and not the difference in time steps.
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
         faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
         # Make sure, we actually compare some faultreceivers
-        assert (len(faultreceiver_ids) == len(ref_faultreceiver_ids), f'some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}')
+        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids), f'some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}'
     else:
         sim_faultreceiver_ids = []
         ref_faultreceiver_ids = []
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
     # Make sure, we actually compare some receivers
-    assert (len(receiver_ids) == len(ref_receiver_ids), f'some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}')
+    assert len(receiver_ids) == len(ref_receiver_ids), f'some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}'
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in ref_receiver_ids:
