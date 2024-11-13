@@ -44,6 +44,7 @@
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
+#include <utils/env.h>
 #include <vector>
 
 #include "FreeSurfaceWriterExecutor.h"
