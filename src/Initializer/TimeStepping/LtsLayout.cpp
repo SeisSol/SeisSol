@@ -844,6 +844,13 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
     l_localClusters.insert( m_cellClusterIds[l_cell] );
   }
 
+  // HACK: add ghost cell clusters as well
+  for( int i = 0; i < m_plainNeighboringRanks.size(); ++i ) {
+    for (int j = 0; j < m_numberOfPlainGhostCells[i]; ++j) {
+      l_localClusters.insert( m_plainGhostCellClusterIds[i][j] );
+    }
+  }
+
   // convert set to vector
   m_localClusters = std::vector< unsigned int > ( l_localClusters.begin(), l_localClusters.end() );
 
