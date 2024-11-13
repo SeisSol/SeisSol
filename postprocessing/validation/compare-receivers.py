@@ -224,7 +224,7 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*-*.dat")
     else:
         file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")
-    extract_id = re.compile(r".+/\w+-\w+-(\d+)-\d+.dat")
+    extract_id = re.compile(r".+/\w+-\w+-(\d+)-\d+.dat$")
 
     receiver_ids = []
     for fn in file_candidates:
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
         faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
         # Make sure, we actually compare some faultreceivers
-        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
+        assert (len(faultreceiver_ids) == len(ref_faultreceiver_ids), f'some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}')
     else:
         sim_faultreceiver_ids = []
         ref_faultreceiver_ids = []
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
     # Make sure, we actually compare some receivers
-    assert len(receiver_ids) == len(ref_receiver_ids)
+    assert (len(receiver_ids) == len(ref_receiver_ids), f'some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}')
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in ref_receiver_ids:
