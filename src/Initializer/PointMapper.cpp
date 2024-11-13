@@ -139,7 +139,7 @@ void findMeshIds(const Eigen::Vector3d* points,
         for (unsigned dim = 0; dim < 4; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
-        notInside += (resultFace > -tolerance) ? 1 : 0;
+        notInside += (resultFace > tolerance) ? 1 : 0;
       }
       if (notInside == 0) {
 #ifdef _OPENMP
