@@ -53,14 +53,16 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshId);
+                 unsigned* meshId,
+                 double tolerance = 0);
 
 void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Vertex>& vertices,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds);
+                 unsigned* meshIds,
+                 double tolerance = 0);
 #ifdef USE_MPI
 void cleanDoubles(short* contained, std::size_t numPoints);
 #endif
