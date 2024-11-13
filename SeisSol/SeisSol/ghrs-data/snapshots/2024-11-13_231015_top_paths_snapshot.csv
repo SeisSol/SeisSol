@@ -1,0 +1,11 @@
+url_path,views_total,views_unique
+/SeisSol/SeisSol,165,92
+/SeisSol/SeisSol/pulls,38,9
+/SeisSol/SeisSol/pull/1197,24,3
+/SeisSol/SeisSol/tree/master/src,17,12
+/SeisSol/SeisSol/issues,15,9
+/SeisSol/SeisSol/pull/1198,14,3
+/SeisSol/SeisSol/pull/1197/commits,10,2
+/SeisSol/SeisSol/tree/master/Documentation,8,4
+/SeisSol/SeisSol/pull/1196,7,3
+/SeisSol/SeisSol/blob/davschneller/interleaved-kernels/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp,7,1
