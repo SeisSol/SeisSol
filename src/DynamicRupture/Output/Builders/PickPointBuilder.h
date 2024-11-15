@@ -71,8 +71,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                       faultElements,
                                       numReceiverPoints,
                                       contained.data(),
-                                      localIds.data(),
-                                      1e-12);
+                                      localIds.data());
 
     const auto& meshElements = meshReader->getElements();
     const auto& meshVertices = meshReader->getVertices();
