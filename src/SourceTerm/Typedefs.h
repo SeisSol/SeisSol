@@ -44,8 +44,8 @@
 #define SOURCETERM_TYPEDEFS_HPP_
 
 #include "Common/Constants.h"
-#include "Initializer/MemoryAllocator.h"
 #include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>

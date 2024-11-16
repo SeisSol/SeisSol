@@ -3,8 +3,8 @@
 
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>

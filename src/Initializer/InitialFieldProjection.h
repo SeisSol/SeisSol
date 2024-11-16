@@ -44,10 +44,10 @@
 #include <memory>
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
 #include "Initializer/MemoryManager.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Lut.h"
 #include "Physics/InitialField.h"
 
 namespace seissol::initializer {

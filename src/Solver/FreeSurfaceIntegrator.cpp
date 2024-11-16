@@ -39,7 +39,7 @@
 
 #include "FreeSurfaceIntegrator.h"
 
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"

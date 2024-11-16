@@ -2,9 +2,9 @@
 #include "Recorders.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <cstddef>
 #include <tensor.h>
 #include <vector>

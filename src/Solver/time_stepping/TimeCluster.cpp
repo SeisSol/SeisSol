@@ -71,7 +71,7 @@
 
 #include "Parallel/MPI.h"
 #include <Common/Executor.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 

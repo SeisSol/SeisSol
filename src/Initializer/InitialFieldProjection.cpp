@@ -41,7 +41,7 @@
 
 #include "InitialFieldProjection.h"
 
-#include "Initializer/Tree/LTSSync.h"
+#include "Memory/Tree/LTSSync.h"
 
 #include "Initializer/MemoryManager.h"
 #include "Numerical/Quadrature.h"
@@ -52,11 +52,11 @@
 #include "Initializer/PreProcessorMacros.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Lut.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Lut.h>
 #include <Physics/InitialField.h>
 #include <array>
 #include <cstddef>

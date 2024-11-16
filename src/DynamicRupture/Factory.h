@@ -7,7 +7,7 @@
 
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
-#include "Initializer/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
 
 namespace seissol {

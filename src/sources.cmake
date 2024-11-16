@@ -14,7 +14,7 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 add_library(SeisSol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
-src/Initializer/GlobalData.cpp
+src/Memory/GlobalData.cpp
 src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
 src/Solver/time_stepping/AbstractTimeCluster.cpp
 src/Solver/time_stepping/ActorState.cpp
@@ -113,7 +113,7 @@ src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InternalState.cpp
-src/Initializer/MemoryAllocator.cpp
+src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
 
@@ -131,7 +131,7 @@ src/Initializer/Parameters/SourceParameters.cpp
 src/Initializer/TimeStepping/GlobalTimestep.cpp
 src/Initializer/TimeStepping/LtsLayout.cpp
 
-src/Initializer/Tree/Lut.cpp
+src/Memory/Tree/Lut.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp

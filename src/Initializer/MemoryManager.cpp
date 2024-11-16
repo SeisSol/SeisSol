@@ -72,17 +72,17 @@
 #include <omp.h>
 #endif
 
-#include "MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include "GlobalData.h"
+#include "Memory/GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"

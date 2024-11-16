@@ -1,7 +1,7 @@
 #ifndef SEISSOL_CLUSTERINGWRITER_H
 #define SEISSOL_CLUSTERINGWRITER_H
 
-#include "Initializer/Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include <string>
 #include <type_traits>
 #include <vector>

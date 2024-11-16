@@ -2,10 +2,10 @@
 #define SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include "Solver/time_stepping/TimeCluster.h"

@@ -1,7 +1,7 @@
 #ifndef SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
 #define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <functional>
 #include <omp.h>
 #include <utility>

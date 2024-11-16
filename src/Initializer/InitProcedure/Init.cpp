@@ -1,6 +1,6 @@
 #include "Init.h"
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Monitoring/Stopwatch.h>
 #include <utils/logger.h>
 

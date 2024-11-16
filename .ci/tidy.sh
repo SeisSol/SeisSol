@@ -15,9 +15,9 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
-        src/Initializer/Tree
         src/IO
         src/Kernels
+        src/Memory
         src/Modules
         src/Monitoring
         src/Numerical
@@ -43,17 +43,12 @@ format() {
         src/Equations/Datastructures.h
         src/Equations/Setup.h
         src/Initializer/BasicTypedefs.h
-        src/Initializer/Boundary.h
-        src/Initializer/DynamicRupture.h
         src/Initializer/DeviceGraph.h
-        src/Initializer/GlobalData.h
-        src/Initializer/GlobalData.cpp
+        src/Memory/GlobalData.h
+        src/Memory/GlobalData.cpp
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp
         src/Initializer/InputAux.h
-        src/Initializer/LTS.h
-        src/Initializer/MemoryAllocator.h
-        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/PointMapper.h

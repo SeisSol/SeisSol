@@ -8,10 +8,10 @@
 #include "SeisSol.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>

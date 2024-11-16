@@ -12,8 +12,8 @@
 #include <IO/Reader/File/Hdf5Reader.h>
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Writer.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <string>
 #include <unordered_map>
 

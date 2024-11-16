@@ -56,10 +56,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/LTS.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/GlobalData.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/GlobalData.h"
 #include "Solver/time_stepping/MiniSeisSol.cpp"
 #include <yateto.h>
 #include <unordered_set>

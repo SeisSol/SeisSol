@@ -42,12 +42,11 @@
 #define INITIALIZER_LTS_H_
 
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "Tree/Layer.h"
 #include "generated_code/tensor.h"
 
 #ifdef ACL_DEVICE

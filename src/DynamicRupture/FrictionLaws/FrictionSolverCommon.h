@@ -5,9 +5,9 @@
 #include <type_traits>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/GaussianNucleationFunction.h"
 
 /**

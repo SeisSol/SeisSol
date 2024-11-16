@@ -45,12 +45,12 @@
 #include "generated_code/kernel.h"
 #include <Common/Constants.h>
 #include <Common/Executor.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
 #include <algorithm>
 #include <cmath>

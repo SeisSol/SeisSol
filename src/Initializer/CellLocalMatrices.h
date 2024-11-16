@@ -42,12 +42,12 @@
 #define CELLLOCALMATRICES_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/Boundary.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
+#include "Memory/Descriptor/Boundary.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Initializer/Parameters/ModelParameters.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
 
 namespace seissol {

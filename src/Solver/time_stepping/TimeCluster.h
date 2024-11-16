@@ -79,8 +79,8 @@
 #include "Initializer/Typedefs.h"
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
 
 #include "Kernels/Time.h"
 #include "Kernels/Local.h"
@@ -92,7 +92,7 @@
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/ActorStateStatistics.h"
-#include "Initializer/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include <Common/Executor.h>
