@@ -51,7 +51,6 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
-#include <xdmfwriter/scorep_wrapper.h>
 #include <yaml-cpp/yaml.h>
 
 #include "Initializer/InitProcedure/Init.h"

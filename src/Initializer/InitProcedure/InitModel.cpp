@@ -13,6 +13,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/PreProcessorMacros.h>
 #include <Initializer/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
