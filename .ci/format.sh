@@ -23,6 +23,7 @@ format() {
         src/Parallel
         src/Physics
         src/Reader
+        src/Solver
         src/ResultWriter
         src/SourceTerm
         src/tests

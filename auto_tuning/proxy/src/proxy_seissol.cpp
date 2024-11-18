@@ -56,6 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
+#include <Parallel/Host/CpuExecutor.h>
+#include <Parallel/Host/SyncExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <sys/time.h>
 #ifdef _OPENMP
@@ -172,7 +174,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
 
-  runtime = new seissol::parallel::runtime::StreamRuntime();
+  runtime = new seissol::parallel::runtime::StreamRuntime(std::make_shared<parallel::host::SyncExecutor>());
 
   if (config.verbose) {
     printf("...done\n\n");

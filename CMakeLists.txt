@@ -513,6 +513,29 @@ if (WITH_GPU)
   install(TARGETS general-sycl-offloading LIBRARY)
   install(TARGETS SeisSol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
+
+  option(CCL "Enable NCCL/RCCL/oneCCL support" OFF)
+
+  if (CCL)
+    target_compile_definitions(SeisSol-common-properties INTERFACE USE_CCL)
+    if (DEVICE_BACKEND STREQUAL "cuda")
+      find_package(NCCL REQUIRED)
+      target_include_directories(SeisSol-common-properties INTERFACE ${NCCL_INCLUDE_DIRS})
+      target_link_libraries(SeisSol-common-properties INTERFACE ${NCCL_LIBRARIES})
+      target_compile_definitions(SeisSol-common-properties INTERFACE CCL_NCCL)
+    endif()
+    if (DEVICE_BACKEND STREQUAL "hip")
+      find_package(RCCL REQUIRED)
+      target_include_directories(SeisSol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
+      target_link_libraries(SeisSol-common-properties INTERFACE ${RCCL_LIBRARIES})
+      target_compile_definitions(SeisSol-common-properties INTERFACE CCL_RCCL)
+    endif()
+    if (DEVICE_BACKEND STREQUAL "oneapi")
+      find_package(oneCCL REQUIRED)
+      target_link_libraries(SeisSol-common-properties INTERFACE oneCCL)
+      target_compile_definitions(SeisSol-common-properties INTERFACE CCL_ONECCL)
+    endif()
+  endif()
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
@@ -636,7 +659,6 @@ if (TESTING)
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Parallel/TestParallel.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
           src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp

@@ -25,8 +25,8 @@ class PointSourceCluster {
 };
 
 struct PointSourceClusterPair {
-  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
-  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
+  std::shared_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::shared_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /**
