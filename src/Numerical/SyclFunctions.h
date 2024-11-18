@@ -15,6 +15,10 @@ struct SyclStdFunctions {
   static inline T exp(T value) {
     return cl::sycl::exp(value);
   }
+  template <typename T>
+  static inline T expm1(T value) {
+    return cl::sycl::expm1(value);
+  }
   template <typename T1, typename... T>
   static inline T1 max(T1 value1, T... value) {
     return cl::sycl::max(value1, value...);

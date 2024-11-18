@@ -46,6 +46,10 @@ struct HostStdFunctions {
   static T exp(T value) {
     return std::exp(value);
   }
+  template <typename T>
+  static T expm1(T value) {
+    return std::expm1(value);
+  }
   template <typename T1, typename... T>
   static T1 max(T1 value1, T... value) {
     return std::max(value1, value...);
