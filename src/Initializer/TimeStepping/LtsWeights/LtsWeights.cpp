@@ -151,7 +151,6 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       boundaryFormat(config.boundaryFormat) { }
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
-  const auto rank = seissol::MPI::mpi.rank();
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
@@ -220,7 +219,6 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 }
 LtsWeights::ComputeWiggleFactorResult
     LtsWeights::computeBestWiggleFactor(std::optional<double> baselineCost, bool isAutoMergeUsed) {
-  const auto rank = seissol::MPI::mpi.rank();
 
   // Maps that keep track of number of clusters vs cost
   auto mapMaxClusterIdToLowestCost = std::map<int, double>{};

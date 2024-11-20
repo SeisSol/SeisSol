@@ -12,8 +12,6 @@ namespace seissol::asagi {
 ::asagi::Grid* AsagiReader::open(const char* file, const char* varname) {
   SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const int rank = seissol::MPI::mpi.rank();
-
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
   if (utils::Env::get<bool>((envPrefix + "_SPARSE").c_str(), false)) {

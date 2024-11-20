@@ -147,8 +147,6 @@ void seissol::writer::FreeSurfaceWriter::init(
     return;
   }
 
-  const int rank = seissol::MPI::mpi.rank();
-
   m_freeSurfaceIntegrator = freeSurfaceIntegrator;
 
   logInfo() << "Initializing free surface output.";
@@ -224,8 +222,6 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   }
 
   m_stopwatch.start();
-
-  const int rank = seissol::MPI::mpi.rank();
 
   wait();
 

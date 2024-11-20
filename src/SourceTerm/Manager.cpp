@@ -362,8 +362,6 @@ auto loadSourcesFromFSRM(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
-  const int rank = seissol::MPI::mpi.rank();
-
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(std::string(fileName));
 

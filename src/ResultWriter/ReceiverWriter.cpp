@@ -184,7 +184,6 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   auto time = m_stopwatch.stop();
-  const int rank = seissol::MPI::mpi.rank();
   logInfo() << "Wrote receivers in" << time << "seconds.";
 }
 void ReceiverWriter::init(
@@ -213,7 +212,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::LTS& lts,
                                const GlobalData* global) {
   std::vector<Eigen::Vector3d> points;
-  const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
     points = parseReceiverFile(m_receiverFileName);

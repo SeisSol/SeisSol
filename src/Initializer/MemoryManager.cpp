@@ -937,7 +937,6 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const int rank = seissol::MPI::mpi.rank();
   logInfo() << "Initialize Friction Model";
 
   auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);

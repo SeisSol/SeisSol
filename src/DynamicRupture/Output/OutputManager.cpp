@@ -123,7 +123,6 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
-  const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
     logInfo() << "Enabling on-fault receiver output";
     ppOutputBuilder = std::make_unique<PickPointBuilder>();

@@ -164,8 +164,6 @@ void SeisSol::finalize() {
 
   Modules::callHook<ModuleHook::Shutdown>();
 
-  const int rank = seissol::MPI::mpi.rank();
-
   m_timeManager.freeDynamicResources();
 
   seissol::MPI::finalize();

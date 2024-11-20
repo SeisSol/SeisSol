@@ -80,8 +80,6 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         double interval,
                                         xdmfwriter::BackendType backend,
                                         const std::string& backupTimeStamp) {
-  const int rank = seissol::MPI::mpi.rank();
-
   logInfo() << "Initializing XDMF fault output.";
 
   // Initialize the asynchronous module

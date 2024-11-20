@@ -34,15 +34,14 @@
 namespace {
 
 template <typename TT>
-TT _checkH5Err(TT&& status, const char* file, int line, int rank) {
+TT _checkH5Err(TT&& status, const char* file, int line) {
   if (status < 0) {
-    logError() << utils::nospace << "An HDF5 error occurred in PUML (" << file << ": " << line
-               << ") on rank " << rank;
+    logError() << utils::nospace << "An HDF5 error occurred (" << file << ": " << line << ")";
   }
   return std::forward<TT>(status);
 }
 
-#define _eh(status) _checkH5Err(status, __FILE__, __LINE__, rank)
+#define _eh(status) _checkH5Err(status, __FILE__, __LINE__)
 
 void postMeshread(seissol::geometry::MeshReader& meshReader,
                   const Eigen::Vector3d& displacement,
@@ -51,8 +50,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
-    logWarning() << "There are no local mesh elements on this rank (" << seissol::MPI::mpi.rank()
-                 << "). Is your mesh big enough?";
+    logWarning(true) << "There are no local mesh elements on this rank. Is your mesh big enough?";
   }
 
   meshReader.displaceMesh(displacement);
@@ -74,7 +72,6 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
 #if defined(USE_HDF) && defined(USE_MPI)
-  const int rank = seissol::MPI::mpi.rank();
   double nodeWeight = 1.0;
 
   if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {

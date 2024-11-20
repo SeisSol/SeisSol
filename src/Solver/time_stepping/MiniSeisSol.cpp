@@ -237,7 +237,6 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   ltsTree.fixate();
 
   auto config = mini::getConfig();
-  const auto rank = seissol::MPI::mpi.rank();
   logInfo() << "miniSeisSol configured with"
                 << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";

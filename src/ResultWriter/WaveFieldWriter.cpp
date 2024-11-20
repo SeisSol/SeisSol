@@ -81,7 +81,6 @@ void seissol::writer::WaveFieldWriter::enable() { m_enabled = true; }
 
 seissol::refinement::TetrahedronRefiner<double>*
     seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
-  const int rank = seissol::MPI::mpi.rank();
   refinement::TetrahedronRefiner<double>* tetRefiner = nullptr;
   switch (refinement) {
   case 0:
@@ -178,8 +177,6 @@ void seissol::writer::WaveFieldWriter::init(
 
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-
-  const int rank = seissol::MPI::mpi.rank();
 
   logInfo() << "Initializing XDMF wave field output.";
 
@@ -464,8 +461,6 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   }
 
   m_stopwatch.start();
-
-  const int rank = seissol::MPI::mpi.rank();
 
   SCOREP_USER_REGION_DEFINE(r_wait);
   SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);

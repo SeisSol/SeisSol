@@ -146,7 +146,6 @@ Pinning::Pinning() {
 
 void Pinning::checkEnvVariables() {
 #ifndef __APPLE__
-  const auto rank = MPI::mpi.rank();
   if (const char* envVariable = std::getenv("SEISSOL_FREE_CPUS_MASK")) {
     auto parsedResult = seissol::IntegerMaskParser::parse(std::string(envVariable));
     if (parsedResult) {

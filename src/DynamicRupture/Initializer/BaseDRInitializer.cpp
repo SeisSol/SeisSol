@@ -25,7 +25,6 @@
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
-  const int rank = seissol::MPI::mpi.rank();
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;

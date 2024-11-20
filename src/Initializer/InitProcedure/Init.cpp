@@ -25,11 +25,10 @@ namespace {
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto rank = seissol::MPI::mpi.rank();
   if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
     std::stringstream stream;
 
-    stream << "Memory of device (" << rank << ") is overloaded." << std::endl
+    stream << "Memory of the device is overloaded." << std::endl
            << "Totally allocated device memory: "
            << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedMem()) << std::endl
            << "Allocated unified memory: "

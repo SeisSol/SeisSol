@@ -40,7 +40,6 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   Module::syncPoint(currentTime);
 
-  const auto rank = MPI::mpi.rank();
   logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
   if (!isEnabled) {
     logInfo() << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime

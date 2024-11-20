@@ -658,7 +658,6 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   if (!useCellHomogenizedMaterial) {
     queryGen = new ElementBarycentreGenerator(cellToVertex);
   } else {
-    const auto rank = MPI::mpi.rank();
     if (anisotropy) {
       logWarning()
           << "Material Averaging is not implemented for anisotropic materials. Falling back to "
