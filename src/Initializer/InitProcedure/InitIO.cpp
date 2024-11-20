@@ -12,6 +12,7 @@
 #include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
 #include <cstring>
@@ -205,31 +206,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
-    // TODO: make those being read from the material class
-    std::vector<std::string> quantityLabels = {
-        "sigma_xx",
-        "sigma_yy",
-        "sigma_zz",
-        "sigma_xy",
-        "sigma_yz",
-        "sigma_xz",
-        "u",
-        "v",
-        "w",
-#ifdef USE_POROELASTIC
-        "p",
-        "u_f",
-        "v_f",
-        "w_f",
-#endif
-    };
-    std::vector<std::string> plasticityLabels = {
-        "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};
-    for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::NumQuantities;
+    for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
          ++quantity) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
         writer.addPointData<real>(
-            quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
+            seissol::model::MaterialT::Quantities[quantity],
+            {},
+            [=](real* target, std::size_t index) {
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
@@ -242,10 +225,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
     if (seissolParams.model.plasticity) {
-      for (std::size_t quantity = 0; quantity < 7; ++quantity) {
+      for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
+           ++quantity) {
         if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
           writer.addPointData<real>(
-              plasticityLabels[quantity], {}, [=](real* target, std::size_t index) {
+              seissol::model::PlasticityData::Quantities[quantity],
+              {},
+              [=](real* target, std::size_t index) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;

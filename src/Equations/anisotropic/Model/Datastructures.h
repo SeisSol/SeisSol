@@ -60,7 +60,7 @@ struct AnisotropicMaterial : Material {
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities = {
-      "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
+      "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
   double c11;
   double c12;

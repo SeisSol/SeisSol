@@ -64,7 +64,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities = {
-      "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"};
+      "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];
