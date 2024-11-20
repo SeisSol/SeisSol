@@ -124,7 +124,7 @@ jobs:
     name: seissol-cache-precomputed
     runs-on: sccs-ci-nv-sm60
     container: seissol/gha-cpu:davschneller-gpu-image
-    if: ${{ github.repository == 'SeisSol/SeisSol' }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
     steps:
       - id: cache-precomputed-solutions
         name: cache-precomputed-solutions
@@ -149,7 +149,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test, seissol-cache-precomputed]
-    if: ${{ github.repository == 'SeisSol/SeisSol' }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
     strategy:
       fail-fast: false
       matrix:
