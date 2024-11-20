@@ -505,7 +505,7 @@ auto loadSourcesFromNRF(const char* fileName,
   if (rank == 0) {
     const int numSourceOutside = nrf.size() - globalnumSources;
     if (numSourceOutside > 0) {
-      logError() << nrf.size() - globalnumSources << " point sources are outside the domain.";
+      logWarning(rank) << numSourceOutside << " point sources are outside the domain.";
     }
   }
 
