@@ -14,7 +14,7 @@ For a good overview and easy, we recommend the use of ``ccmake``. To do so, simp
 (i.e. add a "c" in front of the command)
 Alternatively, you may also modify the ``CMakeCache.txt`` in your build directory directly (for it to exist, ``cmake`` needs to be run first).
 
-Simulation- and Optimization-specific Parameters
+Simulation- and optimization-specific parameters
 ------------------------------------------------
 
 The following parameters will alter the name of the SeisSol executable.
@@ -33,7 +33,7 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``anisotropic``: anisotropic elastic; essentially uses the same kernels as the ``elastic`` mode, but with more general matrices
     * ``poroelastic``: isotropic poroelastic
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic simulations. For all other equations, this parameter is required to be 0.
-- ``ORDER``: the order of the used polynomial used, that is, its degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
+- ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:
 
     * ``single``: use single precision. Recommended in general for faster simulations. But especially for consumer GPUs (i.e. Nvidia GeForce, AMD Radeon, Intel ARC etc.), since these have usually a high performance difference between single and double precision.
@@ -44,9 +44,10 @@ Besides these, the host or, if enabled, the device architecture and backend are 
 Generic parameters
 ------------------
 
+- ``LOG_LEVEL_MASTER``: determines the minimum relevance level of log messages that are printed. Possible values are ``error``, ``warning``, ``info``, and ``debug``.
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
-- ``DR_QUAD_RULE``: the quadrature rule used for the 
+- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
 - ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
 
     * ``nb``: nodal basis
@@ -98,8 +99,4 @@ Options currently known to be broken
 The following options are available, but need to be left in the state that they are in. Not doing so will most likely break the build process or the software.
 
 - ``INTEGRATE_QUANTITIES``: assumed to be always disabled. Currently broken; it will probably be replaced in some version soon—when we refactor the IO component of SeisSol.
-- ``MPI``: assumed to be always enabled. Builds without MPI will most likely give incorrect results at the moment. If you want to build without MPI support, you will at the current moment have to explicitly disable the graph partitioning, as each of the supported libraries will need MPI on its own already. Official support for builds without MPI is very low priority.
-- ``OPENMP``: assumed to be always enabled. Probably more dispensable than the ``MPI`` flag, but no guarantee (nor testing) for correctness is given. There are currently no specific plans to make this
-- ``HDF5``: assumed to be always enabled.
-- ``LOG_LEVEL_MASTER``: currently unused. Use ``LOG_LEVEL`` instead.
 - ``NUMBER_OF_FUSED_SIMULATIONS``: needs to be 0 or 1. Currently still broken for any higher number; but a fix is planned, cf. https://github.com/SeisSol/SeisSol/pull/385

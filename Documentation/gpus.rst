@@ -12,11 +12,11 @@ General
 
 .. _gpu_process_pinning:
 
-The current GPU version of SeisSol targets the latest NVidia Graphics cards. Therefore, you
-need to have at least **CUDA 11** or ROCm 5.2 installed in your environment. Moreover, make sure
+The current GPU version of SeisSol targets the latest NVIDIA and AMD graphics cards. Therefore, you
+need to have at least CUDA 11.8 or ROCm 6.0 installed in your environment. Moreover, make sure
 that your installed MPI implementation is GPU-aware. If you are unsure, consult the documentation of the cluster you are using.
 
-You can also `UCX communication layer
+You can also utilize `UCX communication layer
 <https://github.com/openucx/ucx>`_ if you need to manually configure CUDA-Aware MPI for a cluster or your local server 
 with an open-source MPI implementation e.g., OpenMPI.
 
@@ -30,8 +30,8 @@ GPUs. This problem is also known as GPU affinity. Latest versions of workload
 managers (e.g. SLURM) are aware of this problem and try to provide an 
 automatic, GPU-aware process pinning. Consider the following SLURM options:
 
-- `--ntasks-per-gpu`
-- `--gpu-bind`
+- ``--ntasks-per-gpu``
+- ``--gpu-bind``
 
 You can also enforce good GPU affinity with rankfiles if your GPU cluster or local server
 does not use a workload manager but is equipped with multiple GPUs per node.
@@ -140,7 +140,7 @@ The default value is ``direct`` which copies the data out of the GPU buffers dir
    :width: 10.0cm
    :align: center
 
-The variable ``SEISSOL_SERIAL_NODE_DEVICE_INIT`` exists to mitigate some possible execution bugs
+The environment variable ``SEISSOL_SERIAL_NODE_DEVICE_INIT`` exists to mitigate some possible execution bugs
 with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
 To enable it, set ``SEISSOL_SERIAL_NODE_DEVICE_INIT=1``. To explicitly disable it,
 write ``SEISSOL_SERIAL_NODE_DEVICE_INIT=0``.

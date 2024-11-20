@@ -76,7 +76,7 @@ Other boundary formats (``int64``) have a 16-bit offset and use 0xffff as a mask
 | 5: absorbing
 | 6: periodic
 | 7: analytical
-| n>7: dynamic rupture (See :doc:`fault-tagging`)
+| n>64: dynamic rupture (See :doc:`fault-tagging`)
 
 The following convention for defining a face ID is used:
 

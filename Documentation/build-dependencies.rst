@@ -61,11 +61,13 @@ For the GPU version, the following packages need to be installed as well:
 Installation with Spack
 -----------------------
 
-The `Spack <https://github.com/spack/spack/wiki>`_ package ``seissol-env`` allows to automatically install all dependencies of SeisSol (e.g. mpi, hdf5, netcdf, easi, asagi, etc),
-leaving only SeisSol itself left to be build.
+The `Spack <https://github.com/spack/spack/wiki>`_ repository contains ``seissol`` as a package which automatically installs all necessary dependencies.
+All relevant :ref:`build parameters <build_parameters>` are mapped to Spack variants; and architecture information is mostly inferred automatically—as known by Spack.
 
-See https://github.com/SeisSol/seissol-spack-aid/tree/main/spack for details on the installation with spack.
-See also for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
+In case you work on a cluster with an older Spack version which does not have SeisSol as a package yet,
+we also provide an out-of-tree dependency setup environment under https://github.com/SeisSol/seissol-spack-aid/tree/main/spack as ``seissol-env``.
+See for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
+However, ``seissol-env`` is deprecated; we strongly advise switching to the upstream Spack package instead.
 
 Manual installation
 -------------------
@@ -78,6 +80,8 @@ make sure to check the installed module files. That is, type ``module avail`` an
 Type ``module load NAME`` to load the respective software (with ``NAME`` being the name of the software, including the text after the slash, e.g. ``module load cmake/3.20.0``).
 
 However, in some cases, the modules may be incomplete. Check that especially when using NVHPC, or the components for building AdaptiveCpp (LLVM, Boost).
+
+.. _build_env:
 
 Setting helpful environment variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -65,7 +65,7 @@ Execution
 *  Link the SeisSol binary to your working directory (``Examples/tpv33``).
 
 *  Now run: ``export OMP_NUM_THREADS=<threads>``, where ``<threads>`` is the
-   number of threads.
+   number of hardware threads. Furthermore, we highly recommend pinning the OpenMP threads to cores, by setting ``export OMP_PLACES="cores(<cores>)"``.
    If you are on a cluster or want to run with multiple MPI ranks, then you should set the number of OMP threads to the number of available threads
    minus 1 (the last thread is used for communication). In this case, you will also need to set ``export OMP_PLACES="cores(<cores-1>)"``,
    in order for SeisSol to detect one CPU core as "free".
@@ -82,7 +82,7 @@ Execution
 be different from ``mpiexec`` (e.g. ``mpiexec.hydra``, ``mpirun``, ``srun``).
 For more infos about how to get optimal performance, have a look at the :ref:`optimal_environment_variables_on_supermuc_ng`.
 
-Result Visualization and Verification
+Result visualization and verification
 -------------------------------------
 
 SeisSol produces various output files:
@@ -97,5 +97,5 @@ SeisSol produces various output files:
 The :code:`xdmf` files can be visualized with `Paraview <https://www.paraview.org/>`__.
 For the :code:`dat` files, you can use `viewrec <https://github.com/SeisSol/SeisSol/blob/master/postprocessing/visualization/receiver/bin/viewrec>`__.
 
-To verify the correctness of your installation, you may compare your output files with our reference output (cf. e.g. the precomputed-seissol repository).
+For a smaller mesh and convergence order 6, we provide a reference solution in the ``precomputed-seissol`` repository which you may use to verify your installation.
 Furthermore, the SCEC benchmark from the SCEC Code Verification Project `website <http://scecdata.usc.edu/cvws/cgi-bin/cvws.cgi>`__ has output files from other software to compare with.

@@ -6,18 +6,11 @@
 Fault tagging
 =============
 
-| In SeisSol, boundary conditions are tagged as:
-| 0: regular
-| 1: free surface
-| 2: free surface + gravity (water surface)
-| 3 or n>64: dynamic rupture
-| 5: absorbing
-| 6: periodic
+The dynamic rupture has the boundary tag 3, or anything larger than 64.
 
-Dynamic rupture can therefore be tagged using a range of possible tags.
-This allows initializing fault parameters segment-wise
-easily. For example, if we have 2 segments, and we want them to have
-different dynamic friction, we can tag them with 3 and 65 and then use:
+Using multiple fault tags enables us to initialize fault parameters segment-wise
+easily. For example, when we want to model 2 segments having different dynamic friction,
+we can do so by tagging them with 3 and 65. That can be then used in the fault easi file as follows:
 
 .. code-block:: yaml
 

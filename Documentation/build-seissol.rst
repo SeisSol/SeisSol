@@ -9,9 +9,9 @@ Compiling and Running SeisSol
 -----------------------------
 
 For this page, we will assume that all the environment variables
-from the previous section to be loaded (cf. section ). That is, you have your SeisSol build directory in ``$SEISSOL_BASE``.
+from the :ref:`previous section <build_env>` to be loaded. That is, you have installed your dependencies to ``$SEISSOL_PREFIX``.
 
-Get the latest version of SeisSol on git by cloning the repository,
+To build SeisSol, fetch the latest version of SeisSol on git by cloning the repository,
 including all submodules:
 
 .. code-block:: bash
@@ -42,7 +42,7 @@ Note that you may need to adjust your host architecture, especially if you are o
 Sometimes, the ninja build tool can speed up your build process. To use it, add ``-GNinja`` to the cmake command (you might need to delete your cmake folder first to switch from make).
 
 Generally, we recommend using ``PRECISION=single`` for faster simulations. If you experience Inf/NaN errors (cf. also https://github.com/SeisSol/SeisSol/issues/200 ), then setting ``PRECISION=double`` is a good idea.
-The ``ORDER`` equals the degree of the used polynomials plus one. In general, we optimize for the orders 3 to 6 the most.
+The ``ORDER`` equals the convergence order which in turn equals degree of the used polynomials plus one.
 
 A full list of build flags can be found :ref:`here <build_parameters>`.
 
@@ -116,7 +116,7 @@ Why different builds?
 Currently, SeisSol builds have the following constraints: they are restricted to one PDE, one precision and one polynomial degree usage for discretization
 
 * a single equation system (isotropic elastic, anisotropic elastic, viscoelastic, poroelastic)
-* a single polynomial discretization degree (2 to 7)
+* a single polynomial discretization degree (2 to 8)
 * a precision (float or double)
 * a target architecture
 
@@ -128,20 +128,22 @@ Finding out your target architecture
 
 For SeisSol to work optimally, you will need to find out your CPU and GPU architecture
 you want to run on. That is, if you have a cluster, you will usually find the specifications
-within the documentation of it. A list of the supported architectures can be found under TODO.
+within the documentation of it. A list of the supported architectures can be found on :ref:`the build parameters page <build_parameters>`.
 
 Generally speaking, if you encounter ``SIGILL`` errors, change your ``HOST_ARCH`` to a less demanding one (e.g. ``skx`` to ``hsw``).
 
 A few heuristics may help in the beginning:
 
-* if you work with your personal computer or laptop, you will be good with ``hsw`` or ``rome``.\footnote{If your computer is very old (i.e. 2013 or earlier), then you may have to check out snb, wsm or noarch instead} 
-* on a cluster, or a high-end workstation (which supports AVX-512, or AVX10/512), you may use ``skx`` (e.g.: SuperMUC-NG, or any cluster with Intel CPUs, or AMD CPUs with Zen 4 or newer).
-* on an ARM machine, use ``neon`` and specify your CPU over the ``-mcpu`` parameter. If your machine supports SVE (such as A64FX or the Nvidia Grace CPU), then you can also use ``sve128``, ``sve256``, or ``sve512``; but you will still need to specify ``-mcpu``.
-* if nothing else works, try out ``noarch``.
+* ``hsw`` if you work with your personal computer or laptop. [#]_
+* ``skx`` if on an x86_64 cluster, or a high-end workstation which supports AVX-512, or AVX10/512. (e.g.: SuperMUC-NG, or any cluster with Intel CPUs, or AMD CPUs with Zen 4 or newer).
+* ``neon`` on an ARM machine, and specify your CPU over the ``-mcpu`` parameter. If your machine supports SVE (such as A64FX or the Nvidia Grace CPU), then you can also use ``sve128``, ``sve256``, or ``sve512``; but you will still need to specify ``-mcpu``.
+* ``noarch`` if nothing else works
+
+.. [#] If your computer is very old (i.e. 2013 or earlier), then you may have to check out ``snb``, ``wsm`` or ``noarch`` instead.
 
 It shall be noted that support for the latest Apple Macbooks using Apple M1 or M2 processors is highly experimental and may lead to an unstable build or incorrect results.
 
-For a list of known CPU configurations, check out TODO.
+For a list of known CPU (and GPU) configurations, see :ref:`here <build_archs>`.
 
 
 For GPUs, you may determine the local GPU if you have a viable ``llvm``/``clang`` installation available, e.g. by loading a module.
@@ -154,8 +156,6 @@ Alternatively, you can also use:
 * ``nvidia-smi --query-gpu compute_cap --format=csv`` for Nvidia GPUs. The numbers will be printed in the format "x.y" which corresponds to "sm_xy". E.g., "8.6" will become "sm_86".
 * ``clinfo -l`` for AMD GPUs or Intel GPUs.
 * ``rocminfo | grep gfx`` for AMD GPUs.
-
-Once again, see TODO for a list of host arch parameters.
 
 Minimal Builds
 ~~~~~~~~~~~~~~

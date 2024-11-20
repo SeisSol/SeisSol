@@ -3,6 +3,8 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
+.. _build_archs:
+
 Build Architectures
 ===================
 
@@ -198,46 +200,51 @@ The following architectures are supported:
      - Nvidia Hopper
      - Nvidia H100, H200
      - split; unified on GH superchip
+   * - ``sm_100``
+     - ``cuda``
+     - Nvidia Blackwell
+     - Nvidia B100, B200
+     - split; unified on GB superchip
    * - ``gfx900``
      - ``hip``
      - AMD GCN 5 (Vega)
      - AMD Instinct MI25, Radeon RX Vega 56, Radeon RX Vega 64
-     - splitFOOTNOTE1
+     - split [#xnack1]_
    * - ``gfx906``
      - ``hip``
      - AMD GCN 5 (Vega)
      - AMD Instinct MI50, Radeon VII
-     - splitFOOTNOTE1
+     - split [#xnack1]_
    * - ``gfx908``
      - ``hip``
      - AMD CDNA 1
      - AMD Instinct MI100X
-     - splitFOOTNOTE1
+     - split [#xnack1]_
    * - ``gfx90a``
      - ``hip``
      - AMD CDNA 2
-     - AMD Instinct MI210X, MI250X
-     - splitFOOTNOTE1
+     - AMD Instinct MI210, MI250X
+     - split [#xnack1]_
    * - ``gfx942``
      - ``hip``
      - AMD CDNA 3
      - AMD Instinct MI300A, MI300X
-     - splitFOOTNOTE1; unified on MI300A
+     - split [#xnack1]_; unified on MI300A
    * - ``gfx1010``
      - ``hip``
      - AMD RDNA 1
      - AMD Radeon 5000 series
-     - splitFOOTNOTE1
+     - split [#xnack1]_
    * - ``gfx1030``
      - ``hip``
      - AMD RDNA 2
      - AMD Radeon 6000 series
-     - splitFOOTNOTE2
+     - split [#xnack2]_
    * - ``gfx1100``
      - ``hip``
      - AMD RDNA 3
      - AMD Radeon 7000 series
-     - splitFOOTNOTE2
+     - split [#xnack2]_
    * - ``pvc``
      - ``oneapi``
      - Intel Ponte Vecchio
@@ -250,10 +257,12 @@ Sources:
 * https://llvm.org/docs/AMDGPUUsage.html
 * https://intel.github.io/llvm-docs/UsersManual.html
 
-
 About AMD GPUs: for unified memory to perform well, you will need to set ``HSA_XNACK=1``.
 
 For unsupported AMD GPU architectures (e.g. ``gfx90c``), you can proceed as follows:
 
 * compile for a compatible GPU architecture. In the case of ``gfx90c``, your best choice is ``gfx900`` (or ``gfx906``).
 * run SeisSol with specifying the environment variable ``HSA_OVERRIDE_GFX_VERSION`` in accordance to the architecture you compiled against in the previous step. That is, you need to convert ``gfxAABC`` to a version of the form ``AA.B.C``. E.g., if you compiled for ``gfx906``, you will need to set ``HSA_OVERRIDE_GFX_VERSION=9.0.6``. Letters become numbers, akin to the hexadecimal notation, i.e. ``gfx90a`` becomes 9.0.10.
+
+.. [#xnack1] For managed memory support to perform well, you will need to set ``HSA_XNACK=1`` as environment variable.
+.. [#xnack2] Do not support managed memory.
