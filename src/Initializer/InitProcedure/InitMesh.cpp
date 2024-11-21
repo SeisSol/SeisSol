@@ -269,7 +269,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   watch.start();
 
   const std::string realMeshFileName = seissolParams.mesh.meshFileName;
-  bool addNC = true;
+  [[maybe_unused]] bool addNC = true;
   if (realMeshFileName.size() >= 3) {
     const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
     addNC = lastCharacters != ".nc";

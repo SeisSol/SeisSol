@@ -43,7 +43,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
