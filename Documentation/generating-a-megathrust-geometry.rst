@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Proposed workflow for generating a CAD model of a megathrust earthquake
 ========================================================================
 

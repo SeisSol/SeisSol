@@ -1,9 +1,14 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _parameter-file:
 
-Parameter File
+Parameter file
 ==============
 
-General Information
+General information
 -------------------
 
 The parameter file in SeisSol is based on the Fortran NAMELIST format.
@@ -36,8 +41,8 @@ Sections
 Additional, more detailed information on several sections are listed
 here.
 
-DynamicRupture
-~~~~~~~~~~~~~~
+Dynamic rupture
+~~~~~~~~~~~~~~~
 
 Reference point
 ^^^^^^^^^^^^^^^

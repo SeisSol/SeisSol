@@ -1,5 +1,9 @@
-.. SeisSol documentation master file, created by
-   sphinx-quickstart on Wed Nov  7 15:42:26 2018.
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
+.. Main SeisSol documentation file.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -30,21 +34,23 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :caption: Introduction
 
   introduction
-  installing-dependencies
-  compiling-seissol
-  a-first-example
   acknowledge
   reproducible-research
   related-publications
 
 .. toctree::
   :maxdepth: 2
-  :caption: Structural models
+  :caption: Installing SeisSol
 
-  cad-models
-  meshing-with-simmodeler
-  meshing-with-pumgen
-  gmsh
+  build-overview
+  build-dependencies
+  build-seissol
+  gpus
+  build-run
+  a-first-example
+  build-parameters
+  build-archs
+  build-problems
 
 .. toctree::
   :maxdepth: 2
@@ -58,7 +64,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   easi
   fault-tagging
   environment-variables
-  gpus
   memory-requirements
 
 .. toctree::
@@ -75,6 +80,17 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   leonardo
   lumi
   supermuc-ng-phase2
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Structural models and Meshing
+
+  cad-models
+  meshing-with-simmodeler
+  meshing-with-pumgen
+  gmsh
+  asagi
+  PUML-mesh-format
 
 .. toctree::
   :maxdepth: 2
@@ -102,8 +118,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: Further documentation
 
-  PUML-mesh-format
-  asagi
   sycl
   computing-time-vs-order-of-accuracy
   performance-measurement

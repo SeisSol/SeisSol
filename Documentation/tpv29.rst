@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _tpv29:
 
 SCEC TPV29
@@ -72,13 +77,12 @@ following general Gmsh process.
 
   & gmsh tpv29_step2.geo -3 -optimize_netgen -o tpv29_step2.msh
   
-option optimize_netgen is necessary for optimizing meshing with good quality.
+The option ``-optimize_netgen`` is necessary for optimizing meshing with good quality.
 
-6.Then convert the .msh file to 3D Gambit neutral file and PUML format as same as shown in TPV5
+6.Then convert the .msh file to the PUML format; in the same way as it is shown for TPV5:
 
 ::
-   $ gmsh2gambit -i tpv29_step2.msh -o tpv29.neu
-   $ pumgen tpv29.neu tpv29
+   $ pumgen -m msh2 tpv29_step2.msh tpv29
 
 
 The mesh can be created by using the bash script https://github.com/SeisSol/Examples/blob/master/tpv29/generating_the_mesh.sh.

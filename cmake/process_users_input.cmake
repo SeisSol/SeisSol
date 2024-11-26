@@ -5,7 +5,7 @@ set(HDF5 ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
 
 set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library for mesh partitioning")
-set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
+set(GRAPH_PARTITIONING_LIB_OPTIONS none parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
 # FIXME: forced to be on

@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _tpv24:
 
 SCEC TPV24
