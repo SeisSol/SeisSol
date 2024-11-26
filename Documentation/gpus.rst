@@ -65,7 +65,7 @@ locations for the *i*-th local MPI process.
   # Note, it is allowed to mix the formats of list elements. For example,
   export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
 
-Supported SeisSol Features
+Supported SeisSol features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - elastic (isotropic, anisotropic) wave propagation model

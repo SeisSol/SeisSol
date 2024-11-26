@@ -3,12 +3,12 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
-Environment Variables
+Environment variables
 =====================
 
 SeisSol can be tuned with several environment variables.
 
-Communication Thread
+Communication thread
 --------------------
 
 By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
@@ -16,7 +16,7 @@ For that, it is required to leave at least one thread vacant in your OpenMP thre
 
 If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
 
-Load Balancing
+Load balancing
 --------------
 
 When running with multiple ranks, SeisSol will estimate the node-level performance, enabling better load balancing.
@@ -26,7 +26,7 @@ thus estimating the performance of all nodes relative to each other. The number 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer, especially when running only on a single node with multiple ranks.
 To disable it, set ``SEISSOL_MINISEISSOL=0``.
 
-Persistent MPI Operations
+Persistent MPI operations
 -------------------------
 
 Since SeisSol has a static communication pattern which means, we issue the same MPI transfer requests. 
@@ -45,7 +45,7 @@ in the corresponding
 
 .. _asynchronous-output:
 
-Asynchronous Output
+Asynchronous output
 ~~~~~~~~~~~~~~~~~~~
 
 In addition to the variables in SeisSol, the

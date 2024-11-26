@@ -3,7 +3,7 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
-Initial Conditions
+Initial conditions
 ==================
 
 Currently we provide the following initial conditions:

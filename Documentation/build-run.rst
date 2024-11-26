@@ -14,7 +14,7 @@ Note that for different scenarios, you will need different binaries, as the unde
 Here, we will only focus on successfully running SeisSol.
 And for that, we are going to use the ``SeisSol/Examples`` repository.
 
-Running the Proxy
+Running the proxy
 -----------------
 
 To test if your SeisSol installation works, and to get an estimate on its performance,
@@ -88,7 +88,7 @@ locations for the *i*-th MPI process on the node.
   # Note, it is allowed to mix the formats of list elements. For example,
   export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
 
-IO Setup
+IO setup
 --------
 
 For the IO, the following environment variables are recommended to be set, when running on a cluster:
@@ -101,7 +101,7 @@ For the IO, the following environment variables are recommended to be set, when 
     export ASYNC_MODE=THREAD
     export ASYNC_BUFFER_ALIGNMENT=8388608
 
-GPU Visibility
+GPU visibility
 --------------
 
 For GPUs, SeisSol should be best launched with one rank per GPU. To select, SeisSol will automatically pick the first visible GPU to it.

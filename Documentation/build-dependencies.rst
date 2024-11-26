@@ -5,7 +5,7 @@
 
 .. _build_dependencies:
 
-Installing Dependencies
+Installing dependencies
 =======================
 
 For compiling SeisSol, you will need the following dependencies during build:
@@ -17,7 +17,7 @@ For compiling SeisSol, you will need the following dependencies during build:
   - Clang (tested: 18, 19)
   - NVHPC (tested: 24.09; currently still slow!)
   - Cray CE (however: no commthread support; needs ``SEISSOL_COMMTHREAD=0``)
-  - ICC 2021.9 is supported up to v1.2.0 only
+  - ICC 2021.9 (except v1.3.0)
 - CMake (>= 3.20)
 - Python (>= 3.9)
 
@@ -112,7 +112,7 @@ for building—adjust to your actual location.
 
   # run "source ~/my-seissol-installation/setup.sh" to apply environment to the current shell
 
-Required Dependencies
+Required dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
 We assume that you have a compiler already installed. The same goes for a suitable Python installation.
@@ -127,7 +127,7 @@ If you do not have CMake in a new enough version available, you may also install
 
 Note that this extracts CMake to the directory ``${SEISSOL_PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
 
-Required Libraries
+Required libraries
 ~~~~~~~~~~~~~~~~~~
 
 The following libraries need to be installed for all SeisSol CPU and GPU builds.
@@ -181,7 +181,7 @@ You can find the installation instructions for it `under this link <https://easy
 
 And with that, we're good to go!
 
-Code Generators for CPUs (optional, recommended)
+Code generators for CPUs (optional, recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We support the following CPU code generators:
@@ -222,8 +222,8 @@ PSpaMM is a Python package, meaning that you can directly install it via pip:
 
 Usually PSpaMM is fast, but a bit slower than LIBXSMM. However, in some cases, it supersedes it.
 
-Mesh Partitioning (optional, recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mesh partitioning library (optional, recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For a good load balance on large clusters, SeisSol utilizes a mesh partitioning library during the startup of the simulation.
 Currently, the software supports the following libraries:
@@ -260,21 +260,21 @@ Again, make sure to use the MPI compiler wrappers here, and adjust accordingly, 
 Also, make sure ``$SEISSOL_PREFIX/include`` contains ``metis.h`` and ``$SEISSOL_PREFIX/lib`` contains
 ``libmetis.a``. Otherwise, a compile error may come up.
 
-Ohter Functionality (optional, recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Other functionalities (optional, recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 netCDF
 """"""
 
-NetCDF is needed for convergence tests, as these use periodic boundary conditions—and such are not yet supported by the PUML mesh format.
+NetCDF is needed for convergence tests, as these use periodic boundary conditions, and such are not yet supported by the PUML mesh format.
 Also, point sources utilize the netCDF backend for one type of them.
 Once again, if you do not have it installed (sometimes it comes bundled with HDF5), you may do so manually.
 
 .. code-block:: bash
 
-  wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
-  tar -xaf netcdf-4.9.2.tar.gz
-  cd netcdf-4.9.2
+  wget https://downloads.unidata.ucar.edu/netcdf-c/4.8.1/netcdf-c-4.8.1.tar.gz
+  tar -xaf netcdf-4.8.1.tar.gz
+  cd netcdf-4.8.1
   CFLAGS="-fPIC ${CFLAGS}" CC=h5pcc ./configure --enable-shared=no --prefix=$SEISSOL_PREFIX --disable-dap
   #NOTE: Check for this line to make sure netCDF is built with parallel I/O: 
   #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
@@ -290,7 +290,7 @@ ASAGI
 See section :ref:`Installing ASAGI <installing_ASAGI>`. A working parallel Netcdf installation is required for ASAGI.
 Furthermore, you will need to compile easi with ASAGI support, by setting ``ASAGI=ON`` in the easi CMake after having installed ASAGI.
 
-Additional Requirements for GPUs
+Additional requirements for GPUs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For GPUs, we need some more packages.

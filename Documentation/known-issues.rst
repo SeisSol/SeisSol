@@ -3,7 +3,7 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
-Known Issues
+Known issues
 ============
 
 Download

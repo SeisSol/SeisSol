@@ -5,7 +5,7 @@
 
 .. _build_archs:
 
-Build Architectures
+Build architectures
 ===================
 
 Currently, SeisSol needs information about the host architecture on which the code is going to run.
@@ -13,7 +13,7 @@ Currently, SeisSol needs information about the host architecture on which the co
 Besides setting the necessary compiler tuning variables (usually corresponding to ``-march=TARGET_ARCH -mtune=TARGET_ARCH``),
 it also sets the code generators.
 
-CPU Architectures
+CPU architectures
 ~~~~~~~~~~~~~~~~~
 
 .. list-table::
@@ -136,7 +136,7 @@ CPU Architectures
      -
      - 
 
-GPU Architectures
+GPU architectures
 ~~~~~~~~~~~~~~~~~
 
 For GPUs, SeisSol supports two types of memory management on GPUs.

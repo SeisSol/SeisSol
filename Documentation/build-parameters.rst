@@ -5,7 +5,7 @@
 
 .. _build_parameters:
 
-Build Parameter Reference
+Build parameter reference
 =========================
 
 **For Developers:** if you add a CMake parameter, make sure to document it here.

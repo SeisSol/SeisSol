@@ -3,7 +3,7 @@
 
   SPDX-License-Identifier: BSD-3-Clause
 
-Frequent Build and Running Issues
+Frequent build and running issues
 =================================
 
 The following issues appear frequently when trying to compile or to run SeisSol.
@@ -15,7 +15,7 @@ Your submodules are probably not fully initialized.
 Run ``git submodule update --init --recursive`` when inside the Git repository. In particular, that also works if you have your build directory inside the repository.
 It is recommended to run this command after each repository update.
 
-Code Generation fails
+Code generation fails
 ---------------------
 
 There is unfortunately no general remedy to that, as the problem may lie elsewhere.

@@ -8,7 +8,7 @@ Point source (older implementation)
 
 Using ``Type = 50`` is an older and less-optimized way to include a point
 source in SeisSol. It might nevertheless still be useful for modeling a
-non-double-couple point source which is not currently possible with the nrf
+non-double-couple point source, which is not currently possible with the nrf
 source description.
 
 Add the following section to your parameter file:

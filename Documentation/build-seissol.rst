@@ -5,7 +5,7 @@
 
 .. _build_seissol:
 
-Compiling and Running SeisSol
+Compiling and running SeisSol
 -----------------------------
 
 For this page, we will assume that all the environment variables
@@ -98,7 +98,7 @@ On an Intel Data Center Max GPU 1550, you could set
    cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DDEVICE_BACKEND=oneapi -DSYCL_CC=dpcpp -DDEVICE_ARCH=pvc ..
    make -j 4
 
-Cray Compiler Environments and GPUs
+Cray compiler environments and GPUs
 """""""""""""""""""""""""""""""""""
 
 When compiling AdaptiveCpp with the Cray Compiler Environment, it may not find some MPI files.
@@ -157,7 +157,7 @@ Alternatively, you can also use:
 * ``clinfo -l`` for AMD GPUs or Intel GPUs.
 * ``rocminfo | grep gfx`` for AMD GPUs.
 
-Minimal Builds
+Minimal builds
 ~~~~~~~~~~~~~~
 For a minimal build (used e.g. to test), you can run:
 
