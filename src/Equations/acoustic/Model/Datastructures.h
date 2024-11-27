@@ -6,9 +6,10 @@
  *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
  *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Jinwen Pan (jinwen.pan AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2020, SeisSol Group
+ * Copyright (c) 2015 - 2024, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +39,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
+ * This header file defines the AcousticMaterial struct, which represents the acoustic material
+ * properties used in simulations. It inherits from the Material class and includes:
+ * 
+ * 1. Static constants for the number of quantities, material type, and solver type.
+ * 
+ * 2. The material's properties such as density (rho) and lambda, along with methods for 
+ *    calculating wave speeds (P-wave and S-wave) and the stiffness tensor.
+ * 
+ * 3. A constructor to initialize the material from provided values, and a method to return 
+ *    the maximum wave speed for the acoustic material.
  **/
 
 #ifndef MODEL_ACOUSTIC_DATASTRUCTURES_H_
@@ -59,8 +70,10 @@ struct AcousticMaterial : Material {
   static constexpr MaterialType Type = MaterialType::Acoustic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "acoustic";
+  // The stress-velocity formulation of the elastic model is reused. 
+  // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {
-      "p", "v1", "v2", "v3"};
+      "-p", "v1", "v2", "v3"};
 
   double lambda;
 
@@ -78,6 +91,7 @@ struct AcousticMaterial : Material {
 
   ~AcousticMaterial() override = default;
 
+  // The stiffness tensor of the elastic model is reused. 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 
     auto stiffnessTensorView =

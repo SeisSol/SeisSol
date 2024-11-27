@@ -4,9 +4,10 @@
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Jinwen Pan (jinwen.pan AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2020, SeisSol Group
+ * Copyright (c) 2015 - 2024, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +37,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
+ * This header file contains functions related to the setup of acoustic materials.
+ * Specifically, it includes:
+ * 
+ * 1. A function to compute the transposed flux matrices for a given acoustic material,
+ *    which involves the material's properties such as density (rho) and Lamé constant (lambda).
+ * 
+ * 2. A function to compute the transposed Godunov state or the solution to the Riemann problem
+ *    based on the face type (e.g., FreeSurface) and material properties. 
  **/
 #ifndef ACOUSTIC_SETUP_H_
 #define ACOUSTIC_SETUP_H_

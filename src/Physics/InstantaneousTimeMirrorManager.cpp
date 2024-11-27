@@ -70,8 +70,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 }
 
 void InstantaneousTimeMirrorManager::updateVelocities() {
-#if defined(USE_ANISOTROPIC) || defined(USE_ACOUSTIC)
-  logError() << "This feature has not been implemented for anisotropic and acoustic yet";
+#ifdef USE_ANISOTROPIC
+  logError() << "This feature has not been implemented for anisotropic yet";
 #else
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
@@ -82,10 +82,14 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves
+        #ifndef USE_ACOUSTIC
         material.local.mu *= velocityScalingFactor * velocityScalingFactor;
+        #endif
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
         for (int i = 0; i < 4; i++) {
+          #ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor * velocityScalingFactor;
+          #endif
           material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
         }
       }
@@ -96,11 +100,15 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
+        #ifndef USE_ACOUSTIC
         material.local.mu *= velocityScalingFactor;
+        #endif
         material.local.rho *= velocityScalingFactor;
         for (int i = 0; i < 4; i++) {
           material.neighbor[i].lambda *= velocityScalingFactor;
+          #ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor;
+          #endif
           material.neighbor[i].rho *= velocityScalingFactor;
         }
       }
@@ -127,11 +135,13 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         // material.local.mu *= velocityScalingFactor;
         // material.local.rho *= velocityScalingFactor;
         material.local.rho = material.local.rho * material.local.lambda /
-                             (material.local.lambda + 2.0 * material.local.mu -
-                              2.0 * material.local.mu * velocityScalingFactor);
-        material.local.lambda = material.local.lambda + 2.0 * material.local.mu -
-                                2.0 * material.local.mu * velocityScalingFactor;
+                             (material.local.lambda + 2.0 * material.local.getMuBar() -
+                              2.0 * material.local.getMuBar() * velocityScalingFactor);
+        material.local.lambda = material.local.lambda + 2.0 * material.local.getMuBar() -
+                                2.0 * material.local.getMuBar() * velocityScalingFactor;
+        #ifndef USE_ACOUSTIC                        
         material.local.mu = velocityScalingFactor * material.local.mu;
+        #endif
 
         for (int i = 0; i < 4; i++) {
           // material.neighbor[i].lambda =
@@ -141,12 +151,14 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
           // material.neighbor[i].mu *= velocityScalingFactor;
           // material.neighbor[i].rho *= velocityScalingFactor;
           material.neighbor[i].rho = material.neighbor[i].rho * material.neighbor[i].lambda /
-                                     (material.neighbor[i].lambda + 2.0 * material.neighbor[i].mu -
-                                      2.0 * material.neighbor[i].mu * velocityScalingFactor);
+                                     (material.neighbor[i].lambda + 2.0 * material.neighbor[i].getMuBar() -
+                                      2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor);
           material.neighbor[i].lambda = material.neighbor[i].lambda +
-                                        2.0 * material.neighbor[i].mu -
-                                        2.0 * material.neighbor[i].mu * velocityScalingFactor;
+                                        2.0 * material.neighbor[i].getMuBar() -
+                                        2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor;
+          #ifndef USE_ACOUSTIC    
           material.neighbor[i].mu = velocityScalingFactor * material.neighbor[i].mu;
+          #endif
         }
       }
     }

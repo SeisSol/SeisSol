@@ -4,9 +4,10 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-#
+# @author Jinwen Pan (jinwen.pan AT tum.de)
+
 # @section LICENSE
-# Copyright (c) 2016-2018, SeisSol Group
+# Copyright (c) 2016-2024, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -36,6 +37,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # @section DESCRIPTION
+# This code defines a class named AcousticADERDG, which inherits from LinearADERDG. 
+# It is designed for simulating wave propagation in acoustic materials using the ADER-DG method. 
+# The class implements specific configurations and operations tailored for acoustic systems, 
+# where the four quantities represent pressure and the three velocity components.
 #
 
 import numpy as np
@@ -56,6 +61,7 @@ class AcousticADERDG(LinearADERDG):
     memoryLayoutFromFile(memLayout, self.db, clones)
     self.kwargs = kwargs
 
+  # The 4 quantities are pressure and three velocity components in acoustic materials. 
   def numberOfQuantities(self):
     return 4
 

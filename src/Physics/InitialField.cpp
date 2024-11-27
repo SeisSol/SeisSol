@@ -537,7 +537,7 @@ void seissol::physics::Ocean::evaluate(double time,
     if (std::abs(g - 9.81e-3) > 10e-15) {
       logError() << "Ocean scenario only supports g=9.81e-3 currently!";
     }
-    if (materialData.local.getMuBar() != 0.0) {
+    if (materialData.local.getMuBar() > 10e-15) {
       logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
     }
     const double pi = std::acos(-1);
