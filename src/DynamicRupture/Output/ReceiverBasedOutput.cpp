@@ -64,7 +64,7 @@ void ReceiverOutput::calcFaultOutput(
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
-  const auto faultInfos = meshReader->getFault();
+  const auto& faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -101,7 +101,7 @@ void ReceiverOutput::calcFaultOutput(
     local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
 
-    const auto faultInfo = faultInfos[faceIndex];
+    const auto& faultInfo = faultInfos[faceIndex];
 
 #ifdef ACL_DEVICE
     {
