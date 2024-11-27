@@ -145,4 +145,4 @@ Then pip or git should be reachable. You can e.g. install pip packages with:
 
 In addition, you might need to add the `--no-build-isolation` flag to the pip command.
 
-for more information, see also this :ref:`link <https://doku.lrz.de/faq-installing-your-own-applications-on-supermug-ng-internet-access-from-supermuc-ng-10746066.html>`.
+for more information, see also this `link <https://doku.lrz.de/faq-installing-your-own-applications-on-supermug-ng-internet-access-from-supermuc-ng-10746066.html>`.
