@@ -169,7 +169,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     checkNcError(nc_inq_varid(ncFile, "boundary_element_localids", &ncVarBndElemLocalIds));
     collectiveAccess(ncFile, ncVarBndElemLocalIds);
 
-    logInfo(rank) << "Start reading mesh from netCDF file";
+    logInfo() << "Start reading mesh from netCDF file";
 
     // Elements
     sizes = new int[groupSize];
@@ -558,7 +558,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
   delete[] sizes;
 
-  logInfo(rank) << "Finished reading mesh";
+  logInfo() << "Finished reading mesh";
 
   // Close netcdf file
   if (masterRank >= 0) {

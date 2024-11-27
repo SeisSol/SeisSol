@@ -242,12 +242,10 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
-  logInfo(MPI::mpi.rank()) << "Using the" << toStringView(partType)
-                           << "partition library and strategy.";
+  logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
   if (partType == PUML::PartitionerType::None) {
-    logWarning(MPI::mpi.rank())
-        << partitioningLib
-        << "not found. Expect poor performance as the mesh is not properly partitioned.";
+    logWarning() << partitioningLib
+                 << "not found. Expect poor performance as the mesh is not properly partitioned.";
   }
   auto partitioner = PUML::TETPartition::getPartitioner(partType);
   if (partitioner == nullptr) {
