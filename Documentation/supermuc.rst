@@ -12,7 +12,7 @@ SuperMUC-NG
 Setting up GitHub on SuperMuc-NG
 --------------------------------
 
-see :ref:`git_behind_firewall`.
+see :ref:`pypi_behind_firewall`.
 
 Building SeisSol
 ----------------
@@ -82,6 +82,7 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
   #SBATCH --mail-user=<your email address>
 
   #Setup of execution environment
+  # note that if you report an issue to LRZ, they will prefer --export=NONE
   #SBATCH --export=ALL
   #SBATCH --account=<project id>
   #SBATCH --no-requeue
@@ -113,7 +114,6 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
   export SEISSOL_CHECKPOINT_DIRECT=1
   export ASYNC_MODE=THREAD
   export ASYNC_BUFFER_ALIGNMENT=8388608
-  source /etc/profile.d/modules.sh
 
   echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
