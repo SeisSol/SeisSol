@@ -82,6 +82,7 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
   #SBATCH --mail-user=<your email address>
 
   #Setup of execution environment
+  # note that if you report an issue to LRZ, they will prefer --export=NONE
   #SBATCH --export=ALL
   #SBATCH --account=<project id>
   #SBATCH --no-requeue
