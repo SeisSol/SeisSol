@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 ASAGI
 =====
 
@@ -37,7 +42,7 @@ Installing ASAGI
 ----------------
 
 Be careful that the python and gcc package is the same as for the
-compilation of SeisSol in a later step!
+compilation of SeisSol in a later step.
 First clone ASAGI with:
 
 .. code-block:: bash
@@ -67,22 +72,22 @@ Run cmake, and compile with:
   (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
-building SeisSol with ASAGI support
+Building SeisSol with ASAGI support
 -----------------------------------
 
 Simply turn on the option ``ASAGI=ON`` in the using ccmake.
 
-generating the NetCDF input file
+Generating the NetCDF input file
 --------------------------------
 
-using python 
+Using python 
 ~~~~~~~~~~~~~~~
 
 The most straightforward way to generate ASAGI file is to use the netCDF4 module of python.
 A typical example which generates a 2D ASAGI file can be found 
 `here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/generating_ASAGI_file.py>`__.
 
-using asagiconv
+Using asagiconv
 ~~~~~~~~~~~~~~~
 
 Asagiconv (Located
@@ -92,7 +97,7 @@ allows querying data, vizualising and exporting to NetCDF data from the
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
 
 
-velocity models given as structured grids
+Velocity models given as structured grids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 | Asagi expects a 1D, 2D, 3D (or higher dimensions) structured grid NetCDF files. Such files can be

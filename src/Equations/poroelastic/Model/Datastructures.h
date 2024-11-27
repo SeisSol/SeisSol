@@ -16,8 +16,19 @@ struct PoroElasticMaterial : ElasticMaterial {
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
-  static inline const std::array<std::string, NumQuantities> Quantities = {
-      "xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3", "p", "v1_f", "v2_f", "v3_f"};
+  static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
+                                                                        "s_yy",
+                                                                        "s_zz",
+                                                                        "s_xy",
+                                                                        "s_yz",
+                                                                        "s_xz",
+                                                                        "v1",
+                                                                        "v2",
+                                                                        "v3",
+                                                                        "p",
+                                                                        "v1_f",
+                                                                        "v2_f",
+                                                                        "v3_f"};
 
   double bulkSolid;
   double porosity;

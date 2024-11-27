@@ -1,4 +1,9 @@
-Initial Conditions
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
+Initial conditions
 ==================
 
 Currently we provide the following initial conditions:
