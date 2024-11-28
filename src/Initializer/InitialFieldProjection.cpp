@@ -127,36 +127,18 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
       const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
 #ifdef MULTIPLE_SIMULATIONS
-      auto dofs = ltsLut.lookup(lts.dofs, meshId);
-      real dummydofs[tensor::Q::size()] = {0.0};
-      kernel::dofsModified dofsModifiedKrnl;
-      dofsModifiedKrnl.Q = dofs;
-      dofsModifiedKrnl.Q_ijs = dummydofs;
-      dofsModifiedKrnl.execute();
-
       for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-        iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
-        krnl.QSingleSim = dummydofs + tensor::Q::Shape[1] * tensor::Q::Shape[2] * s;
-      if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-        kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
-      }
-        krnl.execute();
+        auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
+        iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
       }
 #else
     iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
-    krnl.Q = ltsLut.lookup(lts.dofs, meshId);
+#endif
+      krnl.Q = ltsLut.lookup(lts.dofs, meshId);
       if constexpr (kernels::HasSize<tensor::Qane>::Value) {
         kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
       }
     krnl.execute();
-#endif
-
-#ifdef MULITPLE_SIMULATIONS
-      kernel::dofsModifiedReversed dofModifiedReversedKrnl;
-      dofModifiedReversedKrnl.Q = dofs;
-      dofModifiedReversedKrnl.Q_ijs = dummydofs;
-      dofModifiedReversedKrnl.execute();
-#endif
     }
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
   }

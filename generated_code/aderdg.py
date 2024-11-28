@@ -263,10 +263,11 @@ class LinearADERDG(ADERDGBase):
     super().addInit(generator)
 
     iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
-    iniCond = Tensor('iniCond', iniShape, alignStride=True)
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
     dofsQP = Tensor('dofsQP', iniShape, alignStride=True)
 
-    generator.add('projectIniCond', self.QsingleSim['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.QsingleSim['lp'])
     dofsModified = self.Q_ijs['ijs'] <= self.Q['ij']
     generator.add('dofsModified', dofsModified)
