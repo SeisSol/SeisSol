@@ -1,7 +1,6 @@
 #ifndef SEISSOL_SYCL_FUNCTIONS_H
 #define SEISSOL_SYCL_FUNCTIONS_H
 
-#include <CL/sycl.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -13,23 +12,23 @@ namespace seissol::functions {
 struct SyclStdFunctions {
   template <typename T>
   static inline T exp(T value) {
-    return cl::sycl::exp(value);
+    return std::exp(value);
   }
   template <typename T1, typename... T>
   static inline T1 max(T1 value1, T... value) {
-    return cl::sycl::max(value1, value...);
+    return std::max(value1, value...);
   }
   template <typename T1, typename... T>
   static inline T1 min(T1 value1, T... value) {
-    return cl::sycl::min(value1, value...);
+    return std::min(value1, value...);
   }
   template <typename T>
   static inline T ceil(T value) {
-    return cl::sycl::ceil(value);
+    return std::ceil(value);
   }
   template <typename T>
   static inline T floor(T value) {
-    return cl::sycl::floor(value);
+    return std::floor(value);
   }
 };
 } // namespace seissol::functions
