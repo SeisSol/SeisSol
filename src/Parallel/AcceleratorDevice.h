@@ -23,6 +23,8 @@ class AcceleratorDevice {
     bindNativeDevice(deviceId);
   }
 
+  void printInfo();
+
   private:
   void bindNativeDevice(int mpiRank);
 };

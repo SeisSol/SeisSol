@@ -65,7 +65,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
     devSpaceWeights = static_cast<real*>(omp_aligned_alloc(Alignment, requiredNumBytes));
   }
 }
@@ -84,10 +84,8 @@ void FrictionSolverDetails::copyStaticDataToDevice() {
   }
 
   {
-    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
     memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
   }
-
-  queue.wait_and_throw();
 }
 } // namespace seissol::dr::friction_law::gpu

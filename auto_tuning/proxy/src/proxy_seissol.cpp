@@ -153,7 +153,7 @@ void testKernel(Kernel kernel, unsigned timesteps, unsigned phase, bool skip) {
         advanceTd(t, phase, skip);
       }
       break;
-    case dynrup:
+    case Kernel::Dynrup:
       for (; t < timesteps; ++t) {
         computeDynamicRupture();
         advanceTd(t, phase, skip);
@@ -213,8 +213,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   double total_cycles = 0.0;
 
   // run Godunov DR kernel first
-  if (config.kernel == dynrup) {
-    testKernel(godunov_dr, 1, 10, true);
+  if (config.kernel == Kernel::Dynrup) {
+    testKernel(Kernel::GodunovDR, 1, 10, true);
   }
 
   // init OpenMP and LLC
@@ -273,7 +273,7 @@ ProxyOutput runProxy(ProxyConfig config) {
       flop_fun = &flops_drgod_actual;
       bytes_fun = &bytes_noestimate;
       break;
-    case dynrup:
+    case Kernel::Dynrup:
       flop_fun = &flops_noestimate;
       bytes_fun = &bytes_noestimate;
       break;

@@ -48,7 +48,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
 
     std::size_t mappingsize = mapping.size();
 
-    if (sources_.mode == sourceterm::PointSources::NRF) {
+    if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
       #pragma omp target loop device(TARGETDART_ANY) map(to: mappingsize)
       for (int i = 0; i < mappingsize; ++i) {
           unsigned startSource = mappingPtr[i].pointSourcesOffset;

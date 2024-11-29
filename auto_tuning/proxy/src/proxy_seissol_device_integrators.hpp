@@ -135,7 +135,8 @@ namespace proxy::device {
     m_frictionSolver->evaluate(layerData,
                            m_dynRup.get(),
                            seissol::miniSeisSolTimeStep,
-                           m_dynRupKernel.timeWeights);
+                           m_dynRupKernel.timeWeights,
+                           *runtime);
   }
 } // namespace proxy::device
 

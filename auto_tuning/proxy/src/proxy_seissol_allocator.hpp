@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/Tree/LTSTree.h>
 #include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
@@ -71,7 +71,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <device.h>
 #include <unordered_set>
 #include <Initializer/BatchRecorders/Recorders.h>
-#include <Solver/Pipeline/DrPipeline.h>
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #endif
 
@@ -142,9 +141,13 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   m_ltsTree->allocateBuckets();
   
   if (enableDynamicRupture) {
-    seissol::dr::DRParameters parameters;
+    seissol::initializer::parameters::SeisSolParameters params;
+    seissol::initializer::parameters::DRParameters parameters;
     parameters.frictionLawType = static_cast<decltype(parameters.frictionLawType)>(frictionLaw);
-    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::dr::DRParameters>(parameters))->produce();
+    seissol::SeisSol seissol(params);
+    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::initializer::parameters::DRParameters>(parameters,
+      seissol
+    ))->produce();
     m_dynRup = std::move(drTuple.ltsTree);
     m_frictionSolver = std::move(drTuple.frictionLaw);
 

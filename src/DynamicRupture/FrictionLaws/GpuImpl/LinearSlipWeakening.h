@@ -75,7 +75,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         devSlipRateMagnitude[ltsFace][pointIndex] =
-            sycl::max(static_cast<real>(0.0),
+            std::max(static_cast<real>(0.0),
                       (absoluteShearStress - strength[pointIndex]) * devImpAndEta[ltsFace].invEtaS);
         const auto divisor = strength[pointIndex] +
                              devImpAndEta[ltsFace].etaS * devSlipRateMagnitude[ltsFace][pointIndex];
@@ -110,10 +110,13 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devMuD{this->muD};
     auto* queue{this->queue};
 
+    auto* devPeakSlipRate{this->peakSlipRate};
+    auto* devSlipRateMagnitude{this->slipRateMagnitude};
+
     auto chunksize{this->chunksize};
 
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(devPeakSlipRate), CCHUNK(devSlipRateMagnitude)) map(tofrom: CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -156,7 +159,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
-            sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
+            std::abs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
                 devDC[ltsFace][pointIndex]) {
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
@@ -287,6 +290,7 @@ class LinearSlipWeakeningLaw
     const real tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
     const auto layerSize{this->currLayerSize};
+    const auto tpProxyExponent{this->drParameters->tpProxyExponent};
 
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
@@ -296,7 +300,7 @@ class LinearSlipWeakeningLaw
     auto chunksize{this->chunksize};
 
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, tn, t0, deltaT) map(to: CCHUNK(devSlipRateMagnitude), CCHUNK(devForcedRuptureTime), CCHUNK(devDC), devResample[0:resampleSize]) map(tofrom: CCHUNK(devAccumulatedSlipMagnitude)) map(from: CCHUNK(devStateVariableBuffer)) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:tpProxyExponent, chunksize, tn, t0, deltaT) map(to: CCHUNK(devSlipRateMagnitude), CCHUNK(devForcedRuptureTime), CCHUNK(devDC), devResample[0:resampleSize]) map(tofrom: CCHUNK(devAccumulatedSlipMagnitude)) map(from: CCHUNK(devStateVariableBuffer)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
@@ -322,7 +326,7 @@ class LinearSlipWeakeningLaw
         if (t0 == 0) {
           f2 = 1.0 * (tn >= devForcedRuptureTime[ltsFace][pointIndex]);
         } else {
-          f2 = sycl::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
+          f2 = std::clamp((tn - devForcedRuptureTime[ltsFace][pointIndex]) / t0,
                            static_cast<real>(0.0),
                            static_cast<real>(1.0));
         }
@@ -371,7 +375,7 @@ class NoSpecialization {
                                 real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
-    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
   static real strengthHook(Details details,
@@ -421,7 +425,7 @@ class BiMaterialFault {
                                 real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
-    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
   static real strengthHook(Details details,
@@ -475,8 +479,8 @@ class TPApprox {
                                 real tpProxyExponent,
                                 size_t ltsFace,
                                 size_t pointIndex) {
-    const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
-    return 1.0 - sycl::pow(factor, -tpProxyExponent);
+    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+    return 1.0 - std::pow(factor, -tpProxyExponent);
   };
 
   static real strengthHook(Details details,

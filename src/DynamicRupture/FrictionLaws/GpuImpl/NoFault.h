@@ -20,12 +20,16 @@ class NoFault : public BaseFrictionSolver<NoFault> {
     auto* devFaultStresses{this->faultStresses};
     auto* devTractionResults{this->tractionResults};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
+    auto layerSize{this->layerSize};
+    auto* queue{this->queue};
 
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:CCHUNK(devFaultStresses))) map(from: CCHUNK(devTractionResults), CCHUNK(traction1), CCHUNK(traction2)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         auto& faultStresses = devFaultStresses[ltsFace];
         auto& tractionResults = devTractionResults[ltsFace];
 
@@ -36,8 +40,8 @@ class NoFault : public BaseFrictionSolver<NoFault> {
             faultStresses.traction2[timeIndex][pointIndex];
         devTraction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
         devTraction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
-      });
-    });
+      }
+    }
   }
 
   /*
