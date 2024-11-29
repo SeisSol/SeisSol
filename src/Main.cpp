@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
   const int rank = seissol::MPI::mpi.rank();
 
 #ifdef USE_TARGETDART
-  initTargetDART(reinterpret_cast<void*>(&targetDartTextPointer));
+  td_init(reinterpret_cast<void*>(&targetDartTextPointer));
 #endif
 
   LIKWID_MARKER_INIT;

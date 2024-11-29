@@ -9,7 +9,7 @@ void targetDartTextPointer2() {}
 int main(int argc, char* argv[]) {
   // the proxy does not have MPI
 #ifdef USE_TARGETDART
-  initTargetDART(reinterpret_cast<void*>(&targetDartTextPointer2));
+  td_init(reinterpret_cast<void*>(&targetDartTextPointer2));
 #endif
 
   // argument reading
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
 
   // again, no MPI
 #ifdef USE_TARGETDART
-  finalizeTargetDART();
+  //finalizeTargetDART();
 #endif
   return 0;
 }

@@ -172,7 +172,7 @@ void SeisSol::finalize() {
   seissol::MPI::finalize();
 
 #ifdef USE_TARGETDART
-  finalizeTargetDART();
+  //finalizeTargetDART();
 #endif
 
   logInfo(rank) << "SeisSol done. Goodbye.";
