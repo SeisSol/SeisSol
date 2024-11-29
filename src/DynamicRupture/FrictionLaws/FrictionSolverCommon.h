@@ -366,6 +366,7 @@ template <RangeType Type = RangeType::CPU,
 // NOLINTNEXTLINE
 inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::NumPaddedPoints][6],
+                                const real nucleationStressInFaultCS2[misc::NumPaddedPoints][6],
                                 // See https://github.com/llvm/llvm-project/issues/60163
                                 // NOLINTNEXTLINE
                                 real initialPressure[misc::NumPaddedPoints],
@@ -374,9 +375,14 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoint
                                 real t0,
                                 real dt,
                                 unsigned startIndex = 0) {
-  if (fullUpdateTime <= t0) {
+  const real t02 = 30.0;
+  //if (fullUpdateTime <= t0) {
+  if ((fullUpdateTime <= t0) or (abs(fullUpdateTime - (t02 + 0.5*t0)) <= 0.5*t0)) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
+    const real gNuc2 = 
+        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime - t02, 
+        dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 
@@ -386,7 +392,8 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoint
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto pointIndex{startIndex + index};
       for (unsigned i = 0; i < 6; i++) {
-        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
+        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc +
+                                                 nucleationStressInFaultCS2[pointIndex][i] * gNuc2;
       }
       initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }

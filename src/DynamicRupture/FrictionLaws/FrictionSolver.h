@@ -61,6 +61,7 @@ class FrictionSolver {
   // CS = coordinate system
   real (*initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
   real (*nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*nucleationStressInFaultCS2)[misc::NumPaddedPoints][6]{};
   real (*cohesion)[misc::NumPaddedPoints]{};
   real (*mu)[misc::NumPaddedPoints]{};
   real (*accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};

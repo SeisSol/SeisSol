@@ -83,6 +83,7 @@ struct DynamicRupture {
   // CS = coordinate system
   Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;
   Variable<real[dr::misc::NumPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[dr::misc::NumPaddedPoints][6]> nucleationStressInFaultCS2;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
   Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
@@ -131,6 +132,7 @@ struct DynamicRupture {
     tree.addVar(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
     tree.addVar(initialStressInFaultCS, mask, 1, allocationModeDR());
     tree.addVar(nucleationStressInFaultCS, mask, 1, allocationModeDR(), true);
+    tree.addVar(nucleationStressInFaultCS2, mask, 1, allocationModeDR(), true);
     tree.addVar(initialPressure, mask, 1, allocationModeDR());
     tree.addVar(nucleationPressure, mask, 1, allocationModeDR(), true);
     tree.addVar(ruptureTime, mask, 1, allocationModeDR());
