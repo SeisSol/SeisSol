@@ -5,6 +5,8 @@
 
 namespace seissol::dr::friction_law::gpu {
 
+class NoSpecialization;
+
 /**
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
@@ -17,6 +19,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
+  #pragma omp declare target
   void updateFrictionAndSlip(unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     static_cast<Derived*>(this)->calcStrengthHook(
@@ -38,6 +41,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
                                real (*devStrengthBuffer)[misc::NumPaddedPoints],
                                unsigned int timeIndex) {
 
+    const auto layerSize{this->currLayerSize};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devImpAndEta{this->impAndEta};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -48,12 +52,16 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devSlip1{this->slip1};
     auto* devSlip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
+    auto* queue{this->queue};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
+
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devFaultStresses), CCHUNK(devStrengthBuffer), CCHUNK(devInitialStressInFaultCS), CCHUNK(devImpAndEta)) map(tofrom: CCHUNK(devSlipRateMagnitude), CCHUNK(devSlipRate1), CCHUNK(devSlipRate2), CCHUNK(devSlip1), CCHUNK(devSlip2)) map(from: CCHUNK(devTraction1), CCHUNK(devTraction2), CCHUNK(devTractionResults)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
         auto& faultStresses = devFaultStresses[ltsFace];
         auto& tractionResults = devTractionResults[ltsFace];
@@ -87,8 +95,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
         // update directional slip
         devSlip1[ltsFace][pointIndex] += devSlipRate1[ltsFace][pointIndex] * deltaT;
         devSlip2[ltsFace][pointIndex] += devSlipRate2[ltsFace][pointIndex] * deltaT;
-      });
-    });
+      }
+    }
   }
 
   /**
@@ -96,18 +104,20 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
   void frictionFunctionHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
+    const auto layerSize{this->currLayerSize};
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
-    auto* devSlipRateMagnitude{this->slipRateMagnitude};
-    auto* devPeakSlipRate{this->peakSlipRate};
-    auto devHealingThreshold{this->drParameters->healingThreshold};
+    auto* queue{this->queue};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
+
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
         auto& stateVariable = stateVariableBuffer[ltsFace];
         devMu[ltsFace][pointIndex] =
@@ -119,8 +129,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
           devMu[ltsFace][pointIndex] = devMuS[ltsFace][pointIndex];
           stateVariable[pointIndex] = 0.0;
         }
-      });
-    });
+      }
+    }
   }
 
   /*
@@ -128,17 +138,22 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * currently only for linear slip weakening
    */
   void saveDynamicStressOutput() {
+    const auto layerSize{this->currLayerSize};
     auto fullUpdateTime{this->mFullUpdateTime};
     auto* devDynStressTime{this->dynStressTime};
     auto* devDynStressTimePending{this->dynStressTimePending};
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* devDC{this->dC};
+    auto* queue{this->queue};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
+
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize,fullUpdateTime) map(to: CCHUNK(devAccumulatedSlipMagnitude), CCHUNK(devDC)) map(tofrom: CCHUNK(devDynStressTimePending)) map(from: CCHUNK(devDynStressTime)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
         if (devDynStressTimePending[ltsFace][pointIndex] &&
             sycl::fabs(devAccumulatedSlipMagnitude[ltsFace][pointIndex]) >=
@@ -146,20 +161,21 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
           devDynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           devDynStressTimePending[ltsFace][pointIndex] = false;
         }
-      });
-    });
+      }
+    }
   }
 
   void preHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
   void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
 
   protected:
-  static constexpr real U0 = 10e-14;
+  static constexpr real u0 = 10e-14;
   real (*dC)[misc::NumPaddedPoints];
   real (*muS)[misc::NumPaddedPoints];
   real (*muD)[misc::NumPaddedPoints];
   real (*cohesion)[misc::NumPaddedPoints];
   real (*forcedRuptureTime)[misc::NumPaddedPoints];
+  #pragma omp end declare target
 };
 
 template <class SpecializationT>
@@ -185,46 +201,78 @@ class LinearSlipWeakeningLaw
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
+  #pragma omp declare target
   void calcStrengthHook(FaultStresses* devFaultStresses,
                         real (*devStrengthBuffer)[misc::NumPaddedPoints],
                         unsigned int timeIndex) {
 
+                          const auto layerSize{this->currLayerSize};
     auto deltaT{this->deltaT[timeIndex]};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
     auto* devCohesion{this->cohesion};
     auto* devMu{this->mu};
+    auto* queue{this->queue};
 
     const auto vStar{this->drParameters->vStar};
     const auto prakashLength{this->drParameters->prakashLength};
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
 
-        auto& faultStresses = devFaultStresses[ltsFace];
-        auto& strength = devStrengthBuffer[ltsFace];
+    if constexpr(std::is_same_v<SpecializationT, NoSpecialization>) {
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) nowait
+      #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+        CCHUNKLOOP(ltsFace) {
+          #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+          for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
-        const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
-                                       faultStresses.normalStress[timeIndex][pointIndex];
-        strength[pointIndex] =
-            -devCohesion[ltsFace][pointIndex] -
-            devMu[ltsFace][pointIndex] * sycl::min(totalNormalStress, static_cast<real>(0.0));
+          auto& faultStresses = devFaultStresses[ltsFace];
+          auto& strength = devStrengthBuffer[ltsFace];
 
-        strength[pointIndex] =
-            SpecializationT::strengthHook(currentLayerDetails,
-                                          strength[pointIndex],
-                                          devSlipRateMagnitude[ltsFace][pointIndex],
-                                          deltaT,
-                                          vStar,
-                                          prakashLength,
-                                          ltsFace,
-                                          pointIndex);
-      });
-    });
+          const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
+                                        faultStresses.normalStress[timeIndex][pointIndex];
+          auto localStrength =
+              -devCohesion[ltsFace][pointIndex] -
+              devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+
+          strength[pointIndex] = localStrength;
+        }
+      }
+    }
+    else {
+      auto* regStrength = currentLayerDetails.regularisedStrength;
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, vStar, deltaT, prakashLength) map(to: CCHUNK(devMu), CCHUNK(devCohesion), CCHUNK(devSlipRateMagnitude), CCHUNK(devInitialStressInFaultCS), CCHUNK(devFaultStresses)) map(from: CCHUNK(devStrengthBuffer)) map(tofrom:CCHUNK(regStrength)) nowait
+        #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+        CCHUNKLOOP(ltsFace) {
+          #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+          for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+            typename SpecializationT::Details currentLayerDetails;
+            currentLayerDetails.regularisedStrength = regStrength;
+
+          auto& faultStresses = devFaultStresses[ltsFace];
+          auto& strength = devStrengthBuffer[ltsFace];
+
+          const real totalNormalStress = devInitialStressInFaultCS[ltsFace][pointIndex][0] +
+                                        faultStresses.normalStress[timeIndex][pointIndex];
+          auto localStrength =
+              -devCohesion[ltsFace][pointIndex] -
+              devMu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
+
+          strength[pointIndex] =
+              SpecializationT::strengthHook(currentLayerDetails,
+                                            localStrength,
+                                            devSlipRateMagnitude[ltsFace][pointIndex],
+                                            deltaT,
+                                            vStar,
+                                            prakashLength,
+                                            ltsFace,
+                                            pointIndex);
+        }
+      }
+    }
   }
 
   void calcStateVariableHook(real (*devStateVariableBuffer)[misc::NumPaddedPoints],
@@ -238,16 +286,25 @@ class LinearSlipWeakeningLaw
     auto deltaT{this->deltaT[timeIndex]};
     const real tn{this->mFullUpdateTime + deltaT};
     const auto t0{this->drParameters->t0};
-    const auto tpProxyExponent{this->drParameters->tpProxyExponent};
+    const auto layerSize{this->currLayerSize};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        auto ltsFace = item.get_group().get_group_id(0);
-        auto pointIndex = item.get_local_id(0);
+    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
+    constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
+    auto* queue{this->queue};
 
-        const real resampledSlipRate = SpecializationT::resampleSlipRate(
+    auto chunksize{this->chunksize};
+
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, tn, t0, deltaT) map(to: CCHUNK(devSlipRateMagnitude), CCHUNK(devForcedRuptureTime), CCHUNK(devDC), devResample[0:resampleSize]) map(tofrom: CCHUNK(devAccumulatedSlipMagnitude)) map(from: CCHUNK(devStateVariableBuffer)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+
+        real resampledSlipRate = SpecializationT::resampleSlipRate(
             devResample, devSlipRateMagnitude[ltsFace], pointIndex);
+        auto& stateVariable = devStateVariableBuffer[ltsFace];
 
         // integrate slip rate to get slip = state variable
         devAccumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate * deltaT;
@@ -269,13 +326,14 @@ class LinearSlipWeakeningLaw
                            static_cast<real>(0.0),
                            static_cast<real>(1.0));
         }
-        devStateVariableBuffer[ltsFace][pointIndex] = sycl::max(localStateVariable, f2);
-      });
-    });
+        stateVariable[pointIndex] = std::max(localStateVariable, f2);
+      }
+    }
   }
 
   protected:
   SpecializationT specialization;
+  #pragma omp end declare target
 };
 
 class NoSpecialization {
@@ -286,8 +344,9 @@ class NoSpecialization {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  static real resampleSlipRate(const real* resampleMatrix,
-                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
+  #pragma omp declare target
+  static real resampleSlipRate(real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
                                size_t pointIndex) {
 
     // perform matrix vector multiplication
@@ -324,7 +383,8 @@ class NoSpecialization {
                            size_t ltsFace,
                            size_t pointIndex) {
     return strength;
-  };
+  }
+  #pragma omp end declare target
 };
 
 class BiMaterialFault {
@@ -340,8 +400,9 @@ class BiMaterialFault {
                                               seissol::initializer::AllocationPlace::Device);
   }
 
-  static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
-                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
+  #pragma omp declare target
+  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
@@ -374,7 +435,7 @@ class BiMaterialFault {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
 
-    const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
+    const real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                    deltaT / prakashLength);
 
     const real newStrength =
@@ -386,6 +447,7 @@ class BiMaterialFault {
 
   private:
   real (*regularisedStrength)[misc::NumPaddedPoints];
+  #pragma omp end declare target
 };
 
 class TPApprox {

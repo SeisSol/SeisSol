@@ -99,39 +99,64 @@ using namespace proxy::device;
 using namespace proxy::cpu;
 #endif
 
-void testKernel(Kernel kernel, unsigned timesteps) {
+namespace {
+static inline void advanceTd(unsigned t, unsigned phase, bool skip) {
+#ifdef USE_TARGETDART
+  if (!skip) {
+    td_advance(1);
+    if (t % phase == 0) {
+      td_phase_progress(1);
+    }
+  }
+#endif
+}
+} // namespace
+
+void testKernel(Kernel kernel, unsigned timesteps, unsigned phase, bool skip) {
   unsigned t = 0;
   switch (kernel) {
     case Kernel::All:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
         computeNeighboringIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case Kernel::Local:
       for (; t < timesteps; ++t) {
         computeLocalIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case Kernel::Neighbor:
     case Kernel::NeighborDR:
       for (; t < timesteps; ++t) {
         computeNeighboringIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case Kernel::Ader:
       for (; t < timesteps; ++t) {
         computeAderIntegration();
+        advanceTd(t, phase, skip);
       }
       break;
     case Kernel::LocalWOAder:
       for (; t < timesteps; ++t) {
         computeLocalWithoutAderIntegration();
+        advanceTd(t, phase, skip);
       }
       break;    
     case Kernel::GodunovDR:
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();
+        advanceTd(t, phase, skip);
+      }
+      break;
+    case dynrup:
+      for (; t < timesteps; ++t) {
+        computeDynamicRupture();
+        advanceTd(t, phase, skip);
       }
       break;
     default:
@@ -146,16 +171,18 @@ ProxyOutput runProxy(ProxyConfig config) {
   registerMarkers();
 
   bool enableDynamicRupture = false;
-  if (config.kernel == Kernel::NeighborDR || config.kernel == Kernel::GodunovDR) {
+  if (config.kernel == Kernel::NeighborDR || config.kernel == Kernel::GodunovDR || config.kernel == Kernel::Dynrup) {
     enableDynamicRupture = true;
   }
 
 #ifdef ACL_DEVICE
-  deviceType &device = deviceType::getInstance();
-  device.api->setDevice(0);
+#ifdef USE_MPI
+  seissol::MPI::mpi.bindAcceleratorDevice();
+#endif // USE_MPI
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
   device.api->allocateStackMem();
-#endif
+#endif // ACL_DEVICE
 
   m_ltsTree = new seissol::initializer::LTSTree;
   m_dynRupTree = new seissol::initializer::LTSTree;
@@ -167,7 +194,7 @@ ProxyOutput runProxy(ProxyConfig config) {
     printf("Allocating fake data...\n");
 
   initGlobalData();
-  config.cells = initDataStructures(config.cells, enableDynamicRupture);
+  config.cells = initDataStructures(config.cells, enableDynamicRupture, config.fault);
 #ifdef ACL_DEVICE
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
@@ -185,8 +212,13 @@ ProxyOutput runProxy(ProxyConfig config) {
   double total = 0.0;
   double total_cycles = 0.0;
 
+  // run Godunov DR kernel first
+  if (config.kernel == dynrup) {
+    testKernel(godunov_dr, 1, 10, true);
+  }
+
   // init OpenMP and LLC
-  testKernel(config.kernel, 1);
+  testKernel(config.kernel, 1, 10, true);
 
   runtime->wait();
 
@@ -197,7 +229,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   cycles_start = __rdtsc();
 #endif
 
-  testKernel(config.kernel, config.timesteps);
+  testKernel(config.kernel, config.timesteps, config.phase, false);
 
   runtime->wait();
 
@@ -231,18 +263,21 @@ ProxyOutput runProxy(ProxyConfig config) {
       break;
     case Kernel::Ader:
       flop_fun = &flops_ader_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
     case Kernel::LocalWOAder:
       flop_fun = &flops_localWithoutAder_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
     case Kernel::GodunovDR:
       flop_fun = &flops_drgod_actual;
-      bytes_fun = &noestimate;
+      bytes_fun = &bytes_noestimate;
       break;
-  }
- 
+    case dynrup:
+      flop_fun = &flops_noestimate;
+      bytes_fun = &bytes_noestimate;
+      break;
+  } 
 
   assert(flop_fun != nullptr);
   assert(bytes_fun != nullptr);
@@ -266,6 +301,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
   output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
 
+  m_frictionSolver.reset();
   delete m_ltsTree;
   delete m_dynRupTree;
   delete m_allocator;

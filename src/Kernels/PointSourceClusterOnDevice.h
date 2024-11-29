@@ -21,6 +21,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   unsigned size() const override;
 
   private:
+  #pragma omp declare target
   static void addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
                                               const real* mInvJInvPhisAtSources,
                                               const real* tensor,
@@ -35,6 +36,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
                                                double from,
                                                double to,
                                                real* dofs);
+  #pragma omp end declare target
 
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
   std::shared_ptr<sourceterm::PointSources> sources_;

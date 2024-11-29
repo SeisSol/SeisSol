@@ -124,9 +124,7 @@ inline void precomputeStressFromQInterpolated(
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
       faultStresses.normalStress[o][i] =
@@ -278,9 +276,7 @@ inline void postcomputeImposedStateFromNewStress(
     auto weight = timeWeights[o];
 
     using NumPointsRange = typename NumPoints<Type>::Range;
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
@@ -380,9 +376,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoint
 
     using Range = typename NumPoints<Type>::Range;
 
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto pointIndex{startIndex + index};
       for (unsigned i = 0; i < 6; i++) {
@@ -415,9 +409,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints
 
   using Range = typename NumPoints<Type>::Range;
 
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
     constexpr real RuptureFrontThreshold = 0.001;
@@ -443,9 +435,7 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedP
 
   using Range = typename NumPoints<Type>::Range;
 
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
@@ -518,9 +508,7 @@ inline void computeFrictionEnergy(
   for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
 
-#ifndef ACL_DEVICE
 #pragma omp simd
-#endif
     for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
       const size_t i{startIndex + index};
 

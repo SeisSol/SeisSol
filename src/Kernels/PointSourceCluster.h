@@ -39,6 +39,7 @@ struct PointSourceClusterPair {
  * @param sample Pointer to sample
  * @param sampleSize Size of the sample
  */
+#pragma omp declare target
 template <typename MathFunctions = seissol::functions::HostStdFunctions>
 inline real computeSampleTimeIntegral(double from,
                                       double to,
@@ -97,6 +98,7 @@ inline real computeSampleTimeIntegral(double from,
   integral += integrate(toIndex - 1, (toIndex - 1) * samplingInterval, to);
   return integral;
 }
+#pragma omp end declare target
 
 } // namespace seissol::kernels
 

@@ -26,6 +26,7 @@ class FastVelocityWeakeningLaw
     ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
+  #pragma omp declare target
   struct Details {
     decltype(FastVelocityWeakeningLaw::a) a;
     decltype(FastVelocityWeakeningLaw::sl0) sl0;
@@ -33,7 +34,10 @@ class FastVelocityWeakeningLaw
     decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
     decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
     decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
+    std::size_t layerSize;
   };
+
+  #pragma omp declare mapper(Details det) map(det, det.a[0:det.layerSize], det.srW[0:det.layerSize], det.sl0[0:det.layerSize])
 
   Details getCurrentLtsLayerDetails() {
     Details details{};
@@ -43,46 +47,61 @@ class FastVelocityWeakeningLaw
     details.rsSr0 = this->drParameters->rsSr0;
     details.rsF0 = this->drParameters->rsF0;
     details.rsB = this->drParameters->rsB;
+    details.layerSize = this->currLayerSize;
     return details;
   }
 
   void updateStateVariable(double timeIncrement) {
+    const auto layerSize{this->currLayerSize};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVariableBuffer{this->stateVariableBuffer};
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto* queue{this->queue};
 
-        const double localSl0 = details.sl0[ltsFace][pointIndex];
-        const double localA = details.a[ltsFace][pointIndex];
-        const double localSrW = details.srW[ltsFace][pointIndex];
+    auto* detSl0 = details.sl0;
+    auto* detA = details.a;
+    auto* detSrW = details.srW;
+
+    auto detRsF0 = details.rsF0;
+    auto detRsB = details.rsB;
+    auto detRsSr0 = details.rsSr0;
+
+    auto chunksize{this->chunksize};
+
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, detRsF0, detRsB, detRsSr0, muW, timeIncrement) map(to: CCHUNK(detSl0), CCHUNK(detA), CCHUNK(detSrW), CCHUNK(devStateVarReference), CCHUNK(devLocalSlipRate)) map(from: CCHUNK(devStateVariableBuffer)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+
+        const double localSl0 = detSl0[ltsFace][pointIndex];
+        const double localA = detA[ltsFace][pointIndex];
+        const double localSrW = detSrW[ltsFace][pointIndex];
         const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
 
         const double lowVelocityFriction =
-            details.rsF0 - (details.rsB - localA) * sycl::log(localSlipRate / details.rsSr0);
+            detRsF0 - (detRsB - localA) * std::log(localSlipRate / detRsSr0);
 
         const double steadyStateFrictionCoefficient =
             muW + (lowVelocityFriction - muW) /
-                      sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                      std::pow(1.0 + std::pow(localSlipRate / localSrW, 8.0), 1.0 / 8.0);
 
         const double steadyStateStateVariable =
-            localA * sycl::log(details.rsSr0 / localSlipRate *
-                               (sycl::exp(steadyStateFrictionCoefficient / localA) -
-                                sycl::exp(-steadyStateFrictionCoefficient / localA)));
+            localA * std::log(detRsSr0 / localSlipRate *
+                               (std::exp(steadyStateFrictionCoefficient / localA) -
+                                std::exp(-steadyStateFrictionCoefficient / localA)));
 
-        const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
+        const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
         const double localStateVariable = steadyStateStateVariable * (1.0 - exp1) +
                                           exp1 * devStateVarReference[ltsFace][pointIndex];
 
         devStateVariableBuffer[ltsFace][pointIndex] = localStateVariable;
-      });
-    });
+      }
+    }
   }
 
   static double updateMu(double localSlipRateMagnitude,
@@ -92,8 +111,8 @@ class FastVelocityWeakeningLaw
                          size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
     const double x =
-        0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA) * localSlipRateMagnitude;
-    return localA * sycl::asinh(x);
+        0.5 / details.rsSr0 * std::exp(localStateVariable / localA) * localSlipRateMagnitude;
+    return localA * std::asinh(x);
   }
 
   static double updateMuDerivative(double localSlipRateMagnitude,
@@ -102,48 +121,52 @@ class FastVelocityWeakeningLaw
                                    size_t ltsFace,
                                    size_t pointIndex) {
     const double localA = details.a[ltsFace][pointIndex];
-    const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    const double c = 0.5 / details.rsSr0 * std::exp(localStateVariable / localA);
+    return localA * c / std::sqrt(std::pow(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   void resampleStateVar(real (*devStateVariableBuffer)[misc::NumPaddedPoints]) {
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPoints);
-    static_assert(Dim0 >= Dim1);
+    const auto layerSize{this->currLayerSize};
+    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
+    constexpr auto resampleSize = dim0 * dim1 * sizeof(real);
+    static_assert(dim0 == misc::NumPaddedPoints);
+    static_assert(dim0 >= dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      // NOLINTNEXTLINE
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::NumPaddedPoints, cgh);
+    auto* queue{this->queue};
 
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    auto chunksize{this->chunksize};
 
-        const auto localStateVariable = devStateVariable[ltsFace][pointIndex];
-        deltaStateVar[pointIndex] =
-            devStateVariableBuffer[ltsFace][pointIndex] - localStateVariable;
-        item.barrier(sycl::access::fence_space::local_space);
-
+    for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devStateVariableBuffer), resampleMatrix[0:resampleSize]) map(tofrom: CCHUNK(devStateVariable)) nowait
+    #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        real deltaStateVar[misc::NumPaddedPoints];
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          deltaStateVar[pointIndex] =
+              devStateVariableBuffer[ltsFace][pointIndex] - devStateVariable[ltsFace][pointIndex];
+        }
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         real resampledDeltaStateVar{0.0};
         for (size_t i{0}; i < Dim1; ++i) {
           resampledDeltaStateVar += resampleMatrix[pointIndex + i * Dim0] * deltaStateVar[i];
         }
 
-        devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
-      });
-    });
+        devStateVariable[ltsFace][pointIndex] += resampledDeltaStateVar;
+      }
+    }
   }
 
   void executeIfNotConverged() {}
 
   protected:
   real (*srW)[misc::NumPaddedPoints];
+  #pragma omp end declare target
 };
 } // namespace seissol::dr::friction_law::gpu
 

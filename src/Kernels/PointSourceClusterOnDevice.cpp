@@ -31,11 +31,8 @@ unsigned PointSourceClusterOnDevice::size() const { return sources_->numberOfSou
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
-  auto& queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
-    runtime.syncToSycl(&queue);
-
     auto* mappingPtr = mapping.data();
     auto* mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources.data();
     auto* tensor = sources_->tensor.data();
@@ -49,13 +46,14 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
     auto sample = std::array<real*, 3u>{
         sources_->sample[0].data(), sources_->sample[1].data(), sources_->sample[2].data()};
 
-    sycl::range rng{mapping.size()};
-    if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
-      queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          const unsigned startSource = mappingPtr[id[0]].pointSourcesOffset;
-          const unsigned endSource =
-              mappingPtr[id[0]].pointSourcesOffset + mappingPtr[id[0]].numberOfPointSources;
+    std::size_t mappingsize = mapping.size();
+
+    if (sources_.mode == sourceterm::PointSources::NRF) {
+      #pragma omp target loop device(TARGETDART_ANY) map(to: mappingsize)
+      for (int i = 0; i < mappingsize; ++i) {
+          unsigned startSource = mappingPtr[i].pointSourcesOffset;
+          unsigned endSource = mappingPtr[i].pointSourcesOffset +
+                               mappingPtr[i].numberOfPointSources;
           for (unsigned source = startSource; source < endSource; ++source) {
             std::array<real, 3u> slip;
             for (int i = 0; i < 3; ++i) {
@@ -64,24 +62,23 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
               slip[i] = computeSampleTimeIntegral<seissol::functions::SyclStdFunctions>(
                   from, to, onsetTime[source], samplingInterval[source], sample[i] + o0, o1 - o0);
             }
-
-            addTimeIntegratedPointSourceNRF(slip,
-                                            mInvJInvPhisAtSources[source].data(),
-                                            tensor[source].data(),
-                                            a[source],
-                                            stiffnessTensor[source].data(),
-                                            from,
-                                            to,
-                                            *mappingPtr[id[0]].dofs);
+            addTimeIntegratedPointSourceNRF(
+                slip,
+                mInvJInvPhisAtSources[source].data(),
+                tensor[source].data(),
+                a[source],
+                stiffnessTensor[source].data(),
+                from,
+                to,
+                *mappingPtr[i].dofs);
           }
-        });
-      });
+      }
     } else {
-      queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          const unsigned startSource = mappingPtr[id[0]].pointSourcesOffset;
-          const unsigned endSource =
-              mappingPtr[id[0]].pointSourcesOffset + mappingPtr[id[0]].numberOfPointSources;
+      #pragma omp target loop device(TARGETDART_ANY) map(to: mappingsize)
+      for (int i = 0; i < mappingsize; ++i) {
+          unsigned startSource = mappingPtr[i].pointSourcesOffset;
+          unsigned endSource = mappingPtr[i].pointSourcesOffset +
+                               mappingPtr[i].numberOfPointSources;
           for (unsigned source = startSource; source < endSource; ++source) {
             auto o0 = sampleOffsets[0][source];
             auto o1 = sampleOffsets[0][source + 1];
@@ -92,12 +89,10 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
                                              tensor[source].data(),
                                              from,
                                              to,
-                                             *mappingPtr[id[0]].dofs);
+                                             *mappingPtr[i].dofs);
           }
-        });
-      });
+      }
     }
-    runtime.syncFromSycl(&queue);
   }
 }
 

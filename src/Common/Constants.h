@@ -9,7 +9,7 @@
 
 namespace seissol {
 // TODO: remove these, once properly templated
-constexpr std::size_t ConvergenceOrder = CONVERGENCE_ORDER;
+constexpr std::size_t ConvergenceOrder = ConvergenceOrder;
 
 constexpr std::size_t Alignment = ALIGNMENT;
 constexpr std::size_t Vectorsize = VECTORSIZE;

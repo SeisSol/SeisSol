@@ -368,6 +368,11 @@ public:
   void setLastSubTime(double lastSubTime) {
     this->lastSubTime = lastSubTime;
   }
+  
+  // TODO(David): move these two methods
+  ClusterTimes clusterTimes() const {
+    return ct;
+  }
 
 
   void reset() override;

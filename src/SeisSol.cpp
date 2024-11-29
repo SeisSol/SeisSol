@@ -63,9 +63,9 @@ namespace seissol {
 bool SeisSol::init(int argc, char* argv[]) {
   const auto rank = seissol::MPI::mpi.rank();
 
-  if (rank == 0) {
-    const auto& hostNames = seissol::MPI::mpi.getHostNames();
-    logInfo() << "Running on (rank=0):" << hostNames.front();
+  if (MPI::mpi.rank() == 0) {
+    const auto& hostNames = MPI::mpi.getHostNames();
+    logInfo() << "Running on:" << hostNames.front();
   }
 
 #ifdef USE_MPI
@@ -170,6 +170,10 @@ void SeisSol::finalize() {
   m_timeManager.freeDynamicResources();
 
   seissol::MPI::finalize();
+
+#ifdef USE_TARGETDART
+  finalizeTargetDART();
+#endif
 
   logInfo(rank) << "SeisSol done. Goodbye.";
 }

@@ -19,6 +19,7 @@ set(OPENMP ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
+option(TARGETDART "Enable support for the targetDART runtime" ON) # TODO(David): if ever merged to a production branch, switch to OFF
 
 option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
 option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
