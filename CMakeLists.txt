@@ -17,24 +17,27 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
                       "${CMAKE_ROOT}/Modules")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-  set(NVHPC_REQUIRED_VERSION "22.1.0")
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
-    message(FATAL_ERROR "NVHPC version ${NVHPC_REQUIRED_VERSION} or higher is required")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.0")
+    message(FATAL_ERROR "NVHPC version 22.1.0 or higher is required")
+  endif()
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "24.7.0")
+    message(WARNING "NVHPC version 24.7.0 or higher is recommended")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   set(GNU_REQUIRED_VERSION "9.0")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
-    message(WARNING "GNU versions below ${GNU_REQUIRED_VERSION} are not supported")
+    message(WARNING "GCC versions below ${GNU_REQUIRED_VERSION} are not supported.")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-  set(INTEL_REQUIRED_VERSION "2021")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS INTEL_REQUIRED_VERSION)
-    message(WARNING "INTEL versions below ${INTEL_REQUIRED_VERSION} are not supported")
-  endif()
+  message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
+  message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
 
 # set hardware specific definition needed for seissol compilation
