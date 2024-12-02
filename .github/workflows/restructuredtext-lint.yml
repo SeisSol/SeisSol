@@ -10,6 +10,7 @@ jobs:
   restructuredtext-lint:
     name: restructuredtext-lint
     runs-on: ubuntu-24.04
+    if: False # disabled for now (only needed for SQAAS)
     steps:
       - uses: actions/checkout@v4
         name: checkout-seissol
