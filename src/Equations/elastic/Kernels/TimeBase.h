@@ -95,16 +95,6 @@ class TimeBase {
 #endif
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
-  /*
-   *! Offsets of the derivatives.
-   *
-   * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing
-   *derivatives follow: 1st derivative: o_derivativesOffset[1] 2nd derivative:
-   *o_derivativesOffset[2]
-   *   ...
-   * * Offset are always counted from position zero; for example the sixth derivative will include
-   *all jumps over prior derivatives 0 to 5.
-   */
   unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
