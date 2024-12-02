@@ -124,7 +124,7 @@ class ADERDGBase(ABC):
 
     self.db.update(project2nFaceTo3m)
 
-    selectVelocitySpp = self.mapToVelocities()
+    selectVelocitySpp = self.mapToVelocities()[:,:3]
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
     self.selectTractionSpp = self.mapToTractions()
