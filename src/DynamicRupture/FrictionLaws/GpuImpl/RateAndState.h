@@ -206,8 +206,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                                              solverSettings,
                                                                              item);
 
+          /*
+          // current without effect
+          auto group = item.get_group();
+          const bool converged =
+            sycl::all_of_group(group, std::fabs(g) < solverSettings.newtonTolerance);
           if (pointIndex == 0)
             devHasConverged[ltsFace] = hasConvergedLocal;
+          */
 
           devLocalSlipRate[ltsFace][pointIndex] =
               0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
@@ -361,12 +367,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       g = -invEtaS * (sycl::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
 
-      auto group = item.get_group();
-      const bool converged =
-          sycl::all_of_group(group, std::fabs(g) < solverSettings.newtonTolerance);
-
-      if (converged)
+      const bool converged = std::fabs(g) < solverSettings.newtonTolerance;
+      if (converged) {
         return true;
+      }
 
       dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
       slipRateTest =
