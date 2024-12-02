@@ -29,7 +29,7 @@ To disable it, set ``SEISSOL_MINISEISSOL=0``.
 Persistent MPI operations
 -------------------------
 
-Since SeisSol has a static communication pattern which means, we issue the same MPI transfer requests. 
+Since SeisSol has a static communication pattern which means, we issue the same MPI transfer requests.
 Thus, we use persistent MPI communication which may reduce communication latency.
 
 To disable persistent communication, set ``SEISSOL_MPI_PERSISTENT=0``. Then, SeisSol will use ``MPI_Isend`` and ``MPI_Irecv`` instead. To explicitly enable the persistent communication, set ``SEISSOL_MPI_PERSISTENT=1``. Right now, it is enabled by default.
@@ -77,7 +77,7 @@ Here are some proposed environment variables to be added before invoking SeisSol
    export ASYNC_MODE=THREAD
    export ASYNC_BUFFER_ALIGNMENT=8388608
 
-A complete batch script for SuperMUC-NG can be found in the chapter about ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
+A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
 
 In previous versions of SeisSol, you had to explicitly compile the software with ``-DCOMMTHREAD=ON``. That is not necessary anymore, as
 any configuration with more than one MPI rank uses the communication thread by default.

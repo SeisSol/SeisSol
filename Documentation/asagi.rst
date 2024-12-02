@@ -8,7 +8,7 @@ ASAGI
 
 The software package `ASAGI <https://github.com/TUM-I5/ASAGI>`__ can be
 used to map gridded simulation properties of the domain to the mesh used
-for a SeisSol simulation. 
+for a SeisSol simulation.
 ASAGI reads NetCDF files, which follow the COARDS Convention for netCDF files.
 This convention in particular states that:
 
@@ -80,11 +80,11 @@ Simply turn on the option ``ASAGI=ON`` in the using ccmake.
 Generating the NetCDF input file
 --------------------------------
 
-Using python 
+Using python
 ~~~~~~~~~~~~~~~
 
 The most straightforward way to generate ASAGI file is to use the netCDF4 module of python.
-A typical example which generates a 2D ASAGI file can be found 
+A typical example which generates a 2D ASAGI file can be found
 `here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/generating_ASAGI_file.py>`__.
 
 Using asagiconv

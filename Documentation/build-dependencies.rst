@@ -93,7 +93,7 @@ for building—adjust to your actual location.
 
   # For the Intel compiler
   # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
-  
+
   # write the path here which you created your directory in (you can figure it out via the `pwd` command)
   # here, $HOME/my-seissol-installation is used as an example; customize to your likening
   export SEISSOL_BASE=$HOME/my-seissol-installation
@@ -105,7 +105,7 @@ for building—adjust to your actual location.
   export PKG_CONFIG_PATH=$SEISSOL_PREFIX/lib/pkgconfig:$SEISSOL_PREFIX/lib64/pkgconfig:$PKG_CONFIG_PATH
   export CMAKE_PREFIX_PATH=$SEISSOL_PREFIX:$CMAKE_PREFIX_PATH
   export CMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
-  export CPATH=$SEISSOL_PREFIX/include:$CPATH 
+  export CPATH=$SEISSOL_PREFIX/include:$CPATH
   export C_INCLUDE_PATH=$SEISSOL_PREFIX/include:$C_INCLUDE_PATH
   export CXX_INCLUDE_PATH=$SEISSOL_PREFIX/include:$CXX_INCLUDE_PATH
   export EDITOR=nano # or e.g. vi,vim
@@ -249,7 +249,7 @@ ParMETIS may be installed as follows:
   tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
-  make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX 
+  make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
   make install
   cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
   cp metis/include/metis.h $SEISSOL_PREFIX/include
@@ -276,7 +276,7 @@ Once again, if you do not have it installed (sometimes it comes bundled with HDF
   tar -xaf netcdf-4.8.1.tar.gz
   cd netcdf-4.8.1
   CFLAGS="-fPIC ${CFLAGS}" CC=h5pcc ./configure --enable-shared=no --prefix=$SEISSOL_PREFIX --disable-dap
-  #NOTE: Check for this line to make sure netCDF is built with parallel I/O: 
+  #NOTE: Check for this line to make sure netCDF is built with parallel I/O:
   #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
   make -j8
   make install
