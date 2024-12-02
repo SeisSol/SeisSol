@@ -23,12 +23,12 @@ class StreamRuntime {
   static constexpr size_t RingbufferSize = 4;
 
   StreamRuntime() : disposed(false) {
-    streamPtr = device().api->createGenericStream();
+    streamPtr = device().api->createStream();
     ringbufferPtr.resize(RingbufferSize);
     forkEvents.resize(RingbufferSize);
     joinEvents.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
-      ringbufferPtr[i] = device().api->createGenericStream();
+      ringbufferPtr[i] = device().api->createStream();
       forkEvents[i] = device().api->createEvent();
       joinEvents[i] = device().api->createEvent();
     }

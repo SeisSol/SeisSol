@@ -6,13 +6,23 @@ name: build-docker
 
 on:
   - workflow_dispatch
+  # - push
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - gha-cpu
+          - gha-gpu-nv
+          - gha-gpu-amd
+          - gha-gpu-intel
+          - gha-gpu-nvhpc
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
     - name: Set up Docker Buildx
@@ -27,14 +37,14 @@ jobs:
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: seissol/gha-cpu
-        tags: type=sha
+        images: seissol/${{matrix.image}}
+        # tags: type=sha
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
         context: .
-        file: .ci/gha-cpu/Dockerfile
+        file: .ci/${{matrix.image}}/Dockerfile
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
