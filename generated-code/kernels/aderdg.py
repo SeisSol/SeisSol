@@ -183,9 +183,9 @@ class ADERDGBase(ABC):
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
-    multsimToFirstSim = Tensor('multsimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
+    multSimToFirstSim = Tensor('multSimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
     if self.Q.hasOptDim():
-      copyQToQFortran = QFortran['kp'] <= self.Q['kp'] * multsimToFirstSim['s']
+      copyQToQFortran = QFortran['kp'] <= self.Q['kp'] * multSimToFirstSim['s']
     else:
       copyQToQFortran = QFortran['kp'] <= self.Q['kp']
 
