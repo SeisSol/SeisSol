@@ -1,8 +1,75 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
+
+.. _pypi_behind_firewall:
+
+Accessing internet behind a firewall
+------------------------------------
+
+
+Many HPC facilities have rather tight security restrictions, which may include a firewall, preventing any outgoing connections.
+To be able to access git or PyPi behind a firewall, we can create a reverse SSH tunnel for internet access.
+We describe how to proceed in the following.
+
+
+1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
+
+::
+
+    Host supermucNG
+        ...
+        RemoteForward ddddd localhost:8899
+
+where ddddd is an arbitrary port number with 5 digits.
+ddddd is the port on the remote server that is forwarded to your port 8899 of your local machine.
+(This number should be different from port number used in other RemoteForward entries.)
+
+2. Install proxy.py on your local machine.
+
+::
+
+    pip install --upgrade --user proxy.py
+
+3. Start proxy.py on your local machine. (And keep it running.)
+
+
+::
+
+    ~/.local/bin/proxy --port 8899 &
+
+4. Login to the HPC cluster (e.g. ``ssh supermucNG``). 
+Check that you do not get: `Warning: remote port forwarding failed for listen port ddddd`.
+In this case you would need to change ddddd to a different port.
+Note that the problem might also be you have already an opened connection to the HPC cluster.
+
+Add to your ``~/.bashrc`` file on the HPC cluster:
+
+::
+
+    export http_proxy=http://localhost:ddddd
+    export https_proxy=http://localhost:ddddd
+
+where ddddd is your arbitrary port number.
+
+Then pip or git should be reachable. You can e.g. install pip packages with:
+
+::
+
+    pip install <package name> 
+
+In addition, you might need to add the ``--no-build-isolation`` flag to the pip command.
+
+For more information, see also this `link <https://doku.lrz.de/faq-installing-your-own-applications-on-supermug-ng-internet-access-from-supermuc-ng-10746066.html>`.
 
 .. _git_behind_firewall:
 
-Accessing github behind a firewall
------------------------------------
+Accessing github behind a firewall (outdated)
+---------------------------------------------
+
+Warning: This procedure works, but a much simpler procedure is available at :ref:`pypi_behind_firewall`.
 
 Some HPC clusters (e.g. SuperMUC-NG) restricts access to outside sources and thus does not allow connections to https servers. 
 Nevertheless, GitHub can be used if remote port forwarding is correctly set.
@@ -81,50 +148,5 @@ If it works, you will see several lines, for example:
   Resolving deltas: 100% (19382/19382), done.
 
 
-.. _pypi_behind_firewall:
 
-Accessing PyPI behind a firewall
---------------------------------
-
-Many post-processing scripts of SeisSol require Python dependencies.
-We describe how to use pip on a HPC cluster with restricts access to outside sources in the following.
-
-
-1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
-
-::
-
-    Host supermucNG
-        ...
-        RemoteForward ddddd localhost:8899
-
-where ddddd is an arbitrary port number with 5 digits.
-(This number should be different from port number used in other RemoteForward entries.)
-
-2. Install proxy.py on your local machine.
-
-::
-
-    pip install --upgrade --user proxy.py
-
-3. Start proxy.py on your local machine. (And keep it running.)
-
-
-::
-
-    ~/.local/bin/proxy --port 8899
-
-4. Login to the HPC cluster (e.g. `ssh supermucNG`). 
-Check that you do not get: `Warning: remote port forwarding failed for listen port ddddd`.
-In this case you would need to change ddddd to a different port.
-Note that the problem might also be you have already an opened connection to the HPC cluster.
-
-Once connected to the HPC cluster, pip can be used with
-
-::
-
-    pip install <package name> --user --proxy http://localhost:ddddd/
-
-where ddddd is your arbitrary port number.
-In addition, you might need to add the `--no-build-isolation` flag to the pip command.
 

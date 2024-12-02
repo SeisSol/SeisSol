@@ -1,5 +1,10 @@
-Meshing with PUMGen
-===================
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
+Mesh Conversion PUMGen
+======================
 
 PUMGen
 ------

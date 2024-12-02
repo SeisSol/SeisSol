@@ -3,6 +3,7 @@
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
+#include <Initializer/InitialFieldProjection.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -95,6 +96,16 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
+  std::vector<double> data;
+
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
+    data = initializer::projectEasiFields(
+        {seissolInstance.getSeisSolParameters().initialization.filename},
+        simulationTime,
+        *meshReader,
+        seissolInstance.getSeisSolParameters().initialization.hasTime);
+  }
+
   double quadraturePoints[NumQuadPoints][3];
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
@@ -176,19 +187,39 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       const auto volume = MeshTools::volume(elements[meshId], vertices);
       const auto jacobiDet = 6 * volume;
 
-      // Compute global position of quadrature points.
-      const double* elementCoords[4];
-      for (unsigned v = 0; v < 4; ++v) {
-        elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+      if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+        // Compute global position of quadrature points.
+        const double* elementCoords[4];
+        for (unsigned v = 0; v < 4; ++v) {
+          elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+        }
+        for (unsigned int i = 0; i < NumQuadPoints; ++i) {
+          seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                                 elementCoords[1],
+                                                                 elementCoords[2],
+                                                                 elementCoords[3],
+                                                                 quadraturePoints[i],
+                                                                 quadraturePointsXyz[i].data());
+        }
+
+        // Evaluate analytical solution at quad. nodes
+        const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
+        iniFields[sim % iniFields.size()]->evaluate(
+            simulationTime, quadraturePointsXyz, material, analyticalSolution);
+      } else {
+        for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+          for (std::size_t j = 0; j < NumQuantities; ++j) {
+            analyticalSolution(i, j) =
+                data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+          }
+        }
       }
-      for (unsigned int i = 0; i < NumQuadPoints; ++i) {
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                               elementCoords[1],
-                                                               elementCoords[2],
-                                                               elementCoords[3],
-                                                               quadraturePoints[i],
-                                                               quadraturePointsXyz[i].data());
-      }
+
+#ifdef MULTIPLE_SIMULATIONS
+      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+#else
+      auto numSub = numericalSolution;
+#endif
 
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;
@@ -196,16 +227,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       krnl.dofsQP = numericalSolutionData;
       krnl.Q = ltsLut->lookup(lts->dofs, meshId);
       krnl.execute();
-
-      // Evaluate analytical solution at quad. nodes
-      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
-      iniFields[sim % iniFields.size()]->evaluate(
-          simulationTime, quadraturePointsXyz, material, analyticalSolution);
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
-      auto numSub = numericalSolution;
-#endif
 
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
