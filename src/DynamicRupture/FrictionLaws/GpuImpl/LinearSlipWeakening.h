@@ -112,11 +112,12 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     auto* devPeakSlipRate{this->peakSlipRate};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
+    auto devHealingThreshold{this->drParameters->healingThreshold};
 
     auto chunksize{this->chunksize};
 
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)
-    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(devPeakSlipRate), CCHUNK(devSlipRateMagnitude)) map(tofrom: CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
+    #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: devHealingThreshold, CCHUNK(devMuS), CCHUNK(devMuD), CCHUNK(devPeakSlipRate), CCHUNK(devSlipRateMagnitude)) map(tofrom: CCHUNK(stateVariableBuffer)) map(from: CCHUNK(devMu)) nowait
     #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
       CCHUNKLOOP(ltsFace) {
         #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)

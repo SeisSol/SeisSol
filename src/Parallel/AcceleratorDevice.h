@@ -27,6 +27,7 @@ class AcceleratorDevice {
 
   private:
   void bindNativeDevice(int mpiRank);
+  std::vector<std::string> infoMessages;
 };
 } // namespace seissol
 

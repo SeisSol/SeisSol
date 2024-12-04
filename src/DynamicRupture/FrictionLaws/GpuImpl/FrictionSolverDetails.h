@@ -11,7 +11,7 @@
 // #define CCHUNK(var) (var + std::min(this->currLayerSize,this->chunksize*chunk))[0:std::min(this->currLayerSize,this->chunksize*(chunk+1))]
 
 #define CCHUNK(var) var[std::min(layerSize,chunksize*chunk):std::min(layerSize,chunksize*(chunk+1))-std::min(layerSize,chunksize*chunk)]
-#define CCHUNKLOOP(var) for (int var = std::min(layerSize,chunksize*chunk); var < std::min(layerSize,chunksize*(chunk+1)); ++var)
+#define CCHUNKLOOP(var) for (std::size_t var = std::min(layerSize,chunksize*chunk); var < std::min(layerSize,chunksize*(chunk+1)); ++var)
 
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {

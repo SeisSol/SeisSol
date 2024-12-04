@@ -21,7 +21,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
     auto* devTractionResults{this->tractionResults};
 
     auto chunksize{this->chunksize};
-    auto layerSize{this->layerSize};
+    auto layerSize{this->currLayerSize};
     auto* queue{this->queue};
 
     for (int chunk = 0; chunk < this->chunkcount; ++chunk)

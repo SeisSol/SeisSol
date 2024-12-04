@@ -145,9 +145,9 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
     seissol::initializer::parameters::DRParameters parameters;
     parameters.frictionLawType = static_cast<decltype(parameters.frictionLawType)>(frictionLaw);
     seissol::SeisSol seissol(params);
-    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::initializer::parameters::DRParameters>(parameters,
+    auto drTuple = seissol::dr::factory::getFactory(std::make_shared<seissol::initializer::parameters::DRParameters>(parameters),
       seissol
-    ))->produce();
+    )->produce();
     m_dynRup = std::move(drTuple.ltsTree);
     m_frictionSolver = std::move(drTuple.frictionLaw);
 
