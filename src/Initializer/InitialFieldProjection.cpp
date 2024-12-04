@@ -71,6 +71,7 @@
 #include <vector>
 
 #ifdef USE_ASAGI
+#include <Reader/AsagiReader.h>
 #include <easi/util/AsagiReader.h>
 #endif
 
