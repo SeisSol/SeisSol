@@ -109,7 +109,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     replicateInitialLoadingM = Tensor(name='replicateInitialLoadingM',
                                       shape=(numberOfNodes, 1),
                                       spp=np.ones((numberOfNodes, 1)))
-    initialLoadingM = Tensor('initialLoadingM', (1, 6))
+    #initialLoadingM = Tensor('initialLoadingM', (1, 6))
+    initialLoadingM = OptionalDimTensor('initialLoadingM', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (1,6), alignStride=True)
 
     # Note: the last term was change on purpose because
     # GemmForge doesn't currently support tensor product operation
