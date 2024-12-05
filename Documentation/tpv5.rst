@@ -24,7 +24,7 @@ different from the rest of the fault surface.
 
    Diagram of TPV5. The central square patch is the nucleation zone,
    while pink and green patches with higher and lower initial stress
-   than neighbour region, respectively. 
+   than neighbour region, respectively.
 
 Geometry
 --------
@@ -40,7 +40,7 @@ The nucleation point is centered both along-dip and along-strike of the
 along-strike and 7500m depth.
 
 The mesh is generated in GMSH. All the files that are needed for the
-simulation are provided. 
+simulation are provided.
 The ``tpv5.geo`` file contains the geometry for
 the fault in a cubit region.
 
@@ -51,7 +51,7 @@ To convert it to a SeisSol input, two steps are necessary:
 ``$ gmsh tpv5.geo -3 -optimize -o tpv5.msh``
 
 2. Then, convert the GMSH file to the PUML format for SeisSol by:
-  
+
 ``$ pumgen -m msh2 tpv5.msh tpv5``
 
 The compilation and usage of PUMGen can be found in https://github.com/SeisSol/PUMGen/wiki and https://seissol.readthedocs.io/en/latest/
@@ -61,12 +61,12 @@ the same two steps (running GMSH and PUMgen) as described above.
 
 
 .. figure:: LatexFigures/mesh5.png
-   :alt: Diagram of fault geometry of TPV5. 
+   :alt: Diagram of fault geometry of TPV5.
    :width: 10.00000cm
    :align: center
 
    Diagram of fault geometry of TPV5. The fault is 30000 m long and
-   15000 m wide. The square patch has a side-length of 3000m. 
+   15000 m wide. The square patch has a side-length of 3000m.
 
 Parameters
 ----------
@@ -81,7 +81,7 @@ slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
-and fault properties in the ``parameters.par``. 
+and fault properties in the ``parameters.par``.
 It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
 Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
@@ -118,12 +118,12 @@ Notice that there are two patches with different initial stress: the one centere
 Results
 ~~~~~~~
 
-All examples here generate surface and volume output files that can be visualized with ParaView. 
+All examples here generate surface and volume output files that can be visualized with ParaView.
 The *output* folder contains a series of files for
-fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), 
-on-fault receiver (.dat) and off-fault receivers (.dat). 
-The fault dynamic rupture and wavefield files can be loaded in Paraview. 
-For example, open Paraview and then go through File 
+fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf),
+on-fault receiver (.dat) and off-fault receivers (.dat).
+The fault dynamic rupture and wavefield files can be loaded in Paraview.
+For example, open Paraview and then go through File
 :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
 .. figure:: LatexFigures/tpv5_SRs_3s.png
@@ -132,7 +132,7 @@ For example, open Paraview and then go through File
    :align: center
 
    Fault slip rate in the along-strike direction (SRs) at 4 seconds in
-   TPV5, illustrated in Paraview. 
+   TPV5, illustrated in Paraview.
 
 In the wave filed output file (prefix.xdmf, prefix\_vertex.h5 and
 prefix\_cell.hf), the variables are shown in Table [table:wavefield]

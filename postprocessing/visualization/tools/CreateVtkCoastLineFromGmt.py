@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import os
+import subprocess
 import numpy as np
 
 parser = argparse.ArgumentParser(description="create coastline vtk file from gmt")
@@ -14,26 +14,24 @@ args = parser.parse_args()
 
 
 # export cordinates from GMT
-os.system("module load gmt")
-os.system(f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W > coastline.dat")
+result = subprocess.run(["gmt", "pscoast", f"-R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]}", f"-D{args.resolution[0]}", "-M", "-W"], capture_output=True, text=True)
 
 # Read GMT file
 xyz = []
 segments = []
 nvert = 0
 newPolyLine = True
-with open("coastline.dat") as fid:
-    for line in fid:
-        if line.startswith("#"):
-            continue
-        if line.startswith(">"):
-            newPolyLine = True
-        else:
-            xyz.append([float(val) for val in line.split()])
-            nvert = nvert + 1
-            if not newPolyLine:
-                segments.append([nvert - 1, nvert])
-            newPolyLine = False
+for line in result.stdout.split('\n'):
+    if line.startswith("#"):
+        continue
+    if line.startswith(">"):
+        newPolyLine = True
+    else:
+        xyz.append([float(val) for val in line.split()])
+        nvert = nvert + 1
+        if not newPolyLine:
+            segments.append([nvert - 1, nvert])
+        newPolyLine = False
 
 xyz = np.asarray(xyz)
 # add extra column for z coordinates

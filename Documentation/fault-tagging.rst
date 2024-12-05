@@ -27,7 +27,7 @@ we can do so by tagging them with 3 and 65. That can be then used in the fault e
            map:
              mu_d:    0.4
 
-Currently, the only way to tag fault faces other tags than 3 with SimModeler is to use the `--xml` option of pumgen. 
+Currently, the only way to tag fault faces other tags than 3 with SimModeler is to use the `--xml` option of pumgen.
 For example, to tag face 2 as 3 and face 8 and 9 as 65, we would
 use:
 
@@ -42,19 +42,19 @@ Then pumgen is run using the xml option:
 
    pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 
-Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either: 
+Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either:
 
 .. code-block:: xml
 
-   <boundaryCondition tag="3">2</boundaryCondition> 
+   <boundaryCondition tag="3">2</boundaryCondition>
 
 or
 
 .. code-block:: xml
 
-   <dynamicRupture>2</dynamicRupture> 
+   <dynamicRupture>2</dynamicRupture>
 
-Note also that if a face is tagged twice, only the first tag will be considered. 
+Note also that if a face is tagged twice, only the first tag will be considered.
 
 
 Using more than 189 dynamic rupture tags

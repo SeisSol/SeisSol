@@ -34,5 +34,5 @@ Supercomputing Conference (SC17). SeisSol results imply that
 acknowledging geometrical complexity, realistic fault properties, and
 velocity models affect not only earthquake source dynamics but the
 synthetic ground shaking crucially. The software package is available to
-the community as an open-source distribution 
+the community as an open-source distribution
 (https://github.com/SeisSol/SeisSol).

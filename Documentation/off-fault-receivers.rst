@@ -66,7 +66,7 @@ Compiling place_receivers on SuperMUC
 Load the relevant :ref:`modules <compile_run_supermuc>`.
 
 .. code-block:: bash
-  
+
   git submodule update --init
   mkdir build && cd build
   cmake ..

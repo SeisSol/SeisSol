@@ -127,28 +127,28 @@ def recreateXdmf(prefix, prefix_new, nvertex, ncells, nmem, dt, indices, lsData,
 
 
 def ReadNcellsFromXdmf(xdmfFile):
-    out = subprocess.check_output(["grep connect " + xdmfFile + " | head -n1"], shell=True)
+    out = subprocess.check_output(["grep", "connect", xdmfFile], text=True).split('\n')[0]
     e = xml.etree.ElementTree.fromstring(out)
     dimstring = e.attrib["Dimensions"].split()
     return int(dimstring[0])
 
 
 def ReadDtFromXdmf(xdmfFile):
-    out = subprocess.check_output(["grep Time " + xdmfFile + " | head -n3| tail -n1"], shell=True)
+    out = subprocess.check_output(["grep", "Time", xdmfFile]).split('\n')[2]
     e = xml.etree.ElementTree.fromstring(out)
     dimstring = e.attrib["Value"].split()
     return float(dimstring[0])
 
 
 def ReadNvertexFromXdmf(xdmfFile):
-    out = subprocess.check_output(["grep geometry " + xdmfFile + " | head -n1"], shell=True)
+    out = subprocess.check_output(["grep", "geometry", xdmfFile]).split('\n')[0]
     e = xml.etree.ElementTree.fromstring(out)
     dimstring = e.attrib["Dimensions"].split()
     return int(dimstring[0])
 
 
 def ReadNdtNmemFromXdmf(xdmfFile):
-    out = subprocess.check_output(["grep DataItem " + xdmfFile + " | tail -n2 | head -n1"], shell=True)
+    out = subprocess.check_output(["grep", "DataItem", xdmfFile]).split('\n')[1]
     e = xml.etree.ElementTree.fromstring(out)
     dimstring = e.attrib["Dimensions"].split()
     # return (int(dimstring[0])-1, int(dimstring[1]))

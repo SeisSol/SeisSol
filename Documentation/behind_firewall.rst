@@ -40,7 +40,7 @@ ddddd is the port on the remote server that is forwarded to your port 8899 of yo
 
     ~/.local/bin/proxy --port 8899 &
 
-4. Login to the HPC cluster (e.g. ``ssh supermucNG``). 
+4. Login to the HPC cluster (e.g. ``ssh supermucNG``).
 Check that you do not get: `Warning: remote port forwarding failed for listen port ddddd`.
 In this case you would need to change ddddd to a different port.
 Note that the problem might also be you have already an opened connection to the HPC cluster.
@@ -58,11 +58,11 @@ Then pip or git should be reachable. You can e.g. install pip packages with:
 
 ::
 
-    pip install <package name> 
+    pip install <package name>
 
 In addition, you might need to add the ``--no-build-isolation`` flag to the pip command.
 
-For more information, see also this `link <https://doku.lrz.de/faq-installing-your-own-applications-on-supermug-ng-internet-access-from-supermuc-ng-10746066.html>`.
+For more information, see also this `link <https://doku.lrz.de/faq-installing-your-own-applications-on-supermug-ng-internet-access-from-supermuc-ng-10746066.html>_`.
 
 .. _git_behind_firewall:
 
@@ -71,7 +71,7 @@ Accessing github behind a firewall (outdated)
 
 Warning: This procedure works, but a much simpler procedure is available at :ref:`pypi_behind_firewall`.
 
-Some HPC clusters (e.g. SuperMUC-NG) restricts access to outside sources and thus does not allow connections to https servers. 
+Some HPC clusters (e.g. SuperMUC-NG) restricts access to outside sources and thus does not allow connections to https servers.
 Nevertheless, GitHub can be used if remote port forwarding is correctly set.
 Here, we described the procedure to set up such port forwarding.
 
@@ -82,17 +82,17 @@ Here, we described the procedure to set up such port forwarding.
 
   Host supermucNG
      Hostname skx.supermuc.lrz.de
-     User <Your Login>    
+     User <Your Login>
      RemoteForward ddddd github.com:22
 
 where ddddd is an arbitrary 5-digital port number, smaller than 65535.
-  
+
 2. Use the following command to login onto the HPC cluster:
 
 .. code-block:: bash
 
-  ssh supermucNG 
-  
+  ssh supermucNG
+
 Add the following lines to your ~/.ssh/config (on the HPC cluster):
 
 ::
@@ -101,17 +101,17 @@ Add the following lines to your ~/.ssh/config (on the HPC cluster):
      HostName localhost
      User git
      Port ddddd
-    
+
 With ddddd the same port number as before.
 
 3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 .. code-block:: bash
 
-  ssh-keygen -t rsa 
+  ssh-keygen -t rsa
 
-4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on the HPC cluster). 
-   
+4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on the HPC cluster).
+
 5. To allow cloning using ssh on SuperMUC-NG with the https address of git repository, add to ``~/.gitconfig``:
 
 ::
@@ -135,7 +135,7 @@ You should now be able to clone any GitHub repository, e.g. SeisSol including th
   git clone --recursive https://github.com/SeisSol/SeisSol.git
 
 
-If it works, you will see several lines, for example: 
+If it works, you will see several lines, for example:
 
 ::
 

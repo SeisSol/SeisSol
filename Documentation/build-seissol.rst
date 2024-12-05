@@ -46,7 +46,7 @@ The ``ORDER`` equals the convergence order which in turn equals degree of the us
 
 A full list of build flags can be found :ref:`here <build_parameters>`.
 
-In case of a manual installation of dependencies (and not using the ``setup.sh`` script from the "Installing Dependencies" page), you may have to prepend :code:``CMAKE_PREFIX_PATH`` and :code:``PKG_CONFIG_PATH`` to the cmake command, e.g. for dependencies installed in :code:``${PREFIX}``:
+In case of a manual installation of dependencies (and not using the ``setup.sh`` script from the "Installing Dependencies" page), you may have to prepend :code:`CMAKE_PREFIX_PATH` and :code:`PKG_CONFIG_PATH` to the cmake command, e.g. for dependencies installed in :code:`${PREFIX}`:
 
 .. code-block:: bash
 
@@ -55,7 +55,7 @@ In case of a manual installation of dependencies (and not using the ``setup.sh``
    export LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LIBRARY_PATH
    export LD_LIBRARY_PATH=$SEISSOL_PREFIX/lib:$SEISSOL_PREFIX/lib64:$LD_LIBRARY_PATH
 
-It is also important that the executables of the matrix multiplication generators (LIBXSMM, PSpaMM) have to be located in your CMake prefix or your :code:``PATH`` variable.
+It is also important that the executables of the matrix multiplication generators (LIBXSMM, PSpaMM) have to be located in your CMake prefix or your :code:`PATH` variable.
 
 You can also compile just the proxy by ``make SeisSol-proxy`` or only the SeisSol executable with ``make SeisSol-bin``.
 Note that currently that compiling the proxy only will still require all necessary dependencies like MPI and Hdf5, even though it does not make use of it.

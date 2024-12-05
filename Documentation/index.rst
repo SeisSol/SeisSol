@@ -25,7 +25,7 @@ Characteristics of the SeisSol simulation software are:
 
 -----
 
-We gratefully acknowledge the funding of the German Research Foundation (as part of project no. 391134334 - "CoCoReCS"), which massively contributed to creating all documentation, tutorials, example workflows and reproducible setups published on this website. 
+We gratefully acknowledge the funding of the German Research Foundation (as part of project no. 391134334 - "CoCoReCS"), which massively contributed to creating all documentation, tutorials, example workflows and reproducible setups published on this website.
 
 -----
 
@@ -55,7 +55,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 .. toctree::
   :maxdepth: 2
   :caption: Invoking SeisSol
-  
+
   configuration
   parameter-file
   initial-condition
@@ -104,7 +104,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 .. toctree::
   :maxdepth: 2
   :caption: Output
-  
+
   io
   off-fault-receivers
   fault-output
@@ -113,7 +113,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   energy-output
   checkpointing
   postprocessing-and-visualization
- 
+
 .. toctree::
   :maxdepth: 2
   :caption: Further documentation
@@ -122,7 +122,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
-  physical-models 
+  physical-models
   scaling
   basic-code-structure
   known-issues
@@ -131,7 +131,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 .. toctree::
   :maxdepth: 2
   :caption: Tutorials
-  
+
   simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
   generating-a-megathrust-geometry
@@ -139,7 +139,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad
-  
+
 .. toctree::
   :maxdepth: 2
   :caption: Cookbook

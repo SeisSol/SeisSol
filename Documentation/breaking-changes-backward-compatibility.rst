@@ -14,7 +14,7 @@ Energy Output
 ~~~~~~~~~~~~~
 (since 0.9.0, `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_, April 2022)
 
-Since we merged GitHub pull request `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_ (April 2022), the seismic moment time history output, 
+Since we merged GitHub pull request `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_ (April 2022), the seismic moment time history output,
 from which the moment rate can be post-processed, is integrated into the energy output (see :ref:`energy_output`).
 Therefore, the parameters `magnitude_output_on`, `energy_rate_output_on` and `energy_rate_printtimeinterval` have been removed from the `DynamicRupture` namelist in the main parameter file.
 
