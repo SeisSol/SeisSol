@@ -13,6 +13,7 @@
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include <TensorForge/TensorView.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -23,7 +24,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"

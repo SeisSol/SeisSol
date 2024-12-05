@@ -106,8 +106,8 @@ void NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 void Neighbor::setHostGlobalData(GlobalData const* global) {
   checkGlobalData(global, Alignment);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
@@ -123,8 +123,8 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif

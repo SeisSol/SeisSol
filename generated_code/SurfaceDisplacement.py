@@ -40,8 +40,8 @@
 
 
 import numpy as np
-from yateto import Tensor, simpleParameterSpace
-from yateto.memory import CSCMemoryLayout
+from tensorforge import Tensor, simpleParameterSpace
+from tensorforge.memory import CSCMemoryLayout
 from multSim import OptionalDimTensor
 from common import generate_kernel_name_prefix
 

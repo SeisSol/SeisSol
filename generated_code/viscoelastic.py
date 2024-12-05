@@ -39,8 +39,8 @@
 #
   
 import numpy as np
-from yateto import Tensor
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from tensorforge import Tensor
+from tensorforge.input import parseXMLMatrixFile, memoryLayoutFromFile
 
 from aderdg import LinearADERDG
 

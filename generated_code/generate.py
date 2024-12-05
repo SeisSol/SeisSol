@@ -44,10 +44,10 @@ import importlib.util
 import sys
 import os
 
-from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
-from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
-from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
+from tensorforge import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
+from tensorforge import gemm_configuration
+from tensorforge.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, TensorForge
+from tensorforge.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
 import Plasticity
@@ -80,7 +80,7 @@ cmdLineParser.set_defaults(enable_premultiply_flux=False)
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+gpu_platforms = ['cuda', 'hip', 'hipsycl', 'dpcpp', 'acpp', 'oneapi', 'omptarget', 'targetdart']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
 subfolders = []
@@ -176,7 +176,7 @@ for tool in gemm_tool_list:
 
 
 cost_estimators = BoundingBoxCostEstimator
-if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
+if 'gpu' in targets:
   try:
     chainforge_spec = importlib.util.find_spec('chainforge')
     chainforge_spec.loader.load_module()

@@ -38,9 +38,9 @@
 # @section DESCRIPTION
 #
   
-from yateto.type import Tensor
-from yateto.ast.node import IndexedTensor
-from yateto.memory import DenseMemoryLayout
+from tensorforge.type import Tensor
+from tensorforge.ast.node import IndexedTensor
+from tensorforge.memory import DenseMemoryLayout
 
 class OptionalDimTensor(Tensor):
   # dimSize = 1 is considered optional

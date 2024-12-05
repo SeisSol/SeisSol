@@ -40,13 +40,15 @@
 
 import numpy as np
 from common import *
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.input import parseJSONMatrixFile
+from tensorforge import Tensor, Scalar, simpleParameterSpace
+from tensorforge.ast.node import Add
+from tensorforge.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from tensorforge.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from copy import deepcopy
 import numpy as np
+
+import kernels.dynamicrupture
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
@@ -212,5 +214,24 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']
   generator.add('computeImposedStateM', computeImposedStateM)
   generator.add('computeImposedStateP', computeImposedStateP)
+
+  """
+  kernels.dynamicrupture.LinearSlipWeakening(aderdg, numberOfPoints).generate('gpu_frictionLaw(16)', generator)
+  kernels.dynamicrupture.BiMaterialFault(aderdg, numberOfPoints).generate('gpu_frictionLaw(6)', generator)
+  kernels.dynamicrupture.TPApprox(aderdg, numberOfPoints).generate('gpu_frictionLaw(1058)', generator)
+
+  # TODO: add fl7
+
+  kernels.dynamicrupture.AgingLaw(aderdg, numberOfPoints, kernels.dynamicrupture.NoTP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(3)', generator)
+  kernels.dynamicrupture.SlipLaw(aderdg, numberOfPoints, kernels.dynamicrupture.NoTP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(4)', generator)
+  kernels.dynamicrupture.FastVelocityWeakeningLaw(aderdg, numberOfPoints, kernels.dynamicrupture.NoTP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(103)', generator)
+
+  kernels.dynamicrupture.AgingLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1003)', generator)
+  kernels.dynamicrupture.SlipLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1004)', generator)
+  kernels.dynamicrupture.FastVelocityWeakeningLaw(aderdg, numberOfPoints, kernels.dynamicrupture.TP(aderdg, numberOfPoints)).generate('gpu_frictionLaw(1103)', generator)
+
+  kernels.dynamicrupture.YoffeSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(33)', generator)
+  kernels.dynamicrupture.GaussianSTF(aderdg, numberOfPoints).generate('gpu_frictionLaw(34)', generator)
+"""
 
   return {db.resample, db.quadpoints, db.quadweights}

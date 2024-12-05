@@ -20,7 +20,7 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
-#include <yateto.h>
+#include <TensorForge/TensorView.h>
 
 // FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
 // (template specializations for the equations).

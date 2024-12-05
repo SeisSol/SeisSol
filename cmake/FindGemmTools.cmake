@@ -79,6 +79,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(GemmForge 0.0.207 REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
+    elseif ("${component}" STREQUAL "TensorForge")
+        set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/submodules/TensorForge/tensorforge/share/cmake" ${CMAKE_MODULE_PATH})
+        find_package(TensorForge REQUIRED)
+        set(DEVICE_SRC ${DEVICE_SRC} ${TensorForge_SOURCES})
+        set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${TensorForge_INCLUDE_DIRS})
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

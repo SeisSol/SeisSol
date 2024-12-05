@@ -45,7 +45,7 @@
 #include "Kernels/Common.h"
 #include "Numerical/Transformation.h"
 
-#include <yateto.h>
+#include <TensorForge/TensorView.h>
 #include "generated_code/init.h"
 
 namespace seissol {

@@ -6,7 +6,7 @@
 #include <cassert>
 
 #include <Eigen/Dense>
-#include <yateto.h>
+#include <TensorForge/TensorView.h>
 
 #include "Model/Common.h"
 #include "Kernels/Common.h"
