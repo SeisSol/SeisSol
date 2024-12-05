@@ -88,11 +88,11 @@ void NeighborBase::checkGlobalData(GlobalData const* global, size_t alignment) {
   for( int neighbor = 0; neighbor < 4; ++neighbor ) {
     assert( (reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % alignment == 0 );
     assert( (reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) % alignment == 0 );
-    assert( (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) % alignment == 0 );
+    assert( (reinterpret_cast<uintptr_t>(global->neighborChangeOfBasisMatricesTransposed(neighbor))) % alignment == 0 );
   }
 
   for( int h = 0; h < 3; ++h ) {
-    assert( (reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0 );
+    assert( (reinterpret_cast<uintptr_t>(global->neighborFluxMatrices(h))) % alignment == 0 );
   }
 
   for (int i = 0; i < 4; ++i) {

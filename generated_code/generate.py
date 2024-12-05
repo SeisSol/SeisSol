@@ -215,7 +215,7 @@ def generate_general(subfolders):
   general.addStiffnessTensor(generator)
   generator.generate(outputDir=outputDir,
                     namespace='seissol_general',
-                    gemm_cfg=GeneratorCollection([Eigen(arch)]),
+                    gemm_cfg=GeneratorCollection([]),
                     cost_estimator=cost_estimators,
                     include_tensors=general.includeMatrices(cmdLineArgs.matricesDir))
 

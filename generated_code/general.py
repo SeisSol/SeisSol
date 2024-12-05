@@ -1,5 +1,5 @@
-from yateto import Tensor
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
+from tensorforge import Tensor
+from tensorforge.input import parseXMLMatrixFile, parseJSONMatrixFile
 
 def addStiffnessTensor(generator):
     stiffnessTensor = Tensor('stiffnessTensor', (3, 3, 3, 3))
