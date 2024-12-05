@@ -3,7 +3,7 @@ from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from common import generate_kernel_name_prefix
-from yateto import Tensor, Scalar, simpleParameterSpace
+from tensorforge import Tensor, Scalar, simpleParameterSpace
 
 def addKernels(generator, aderdg, matricesDir, targets=['cpu']):
     for target in targets:
