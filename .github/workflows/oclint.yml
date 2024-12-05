@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: oclint
+on:
+  - push
+
+jobs:
+  oclint:
+    name: oclint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+
+          sudo pip3 install numpy --break-system-packages
+          sudo mkdir -p /opt/dependencies
+
+      - name: checkout-easi
+        uses: actions/checkout@master
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          make -j $(nproc) && make install
+
+      - name: checkout-seissol
+        uses: actions/checkout@v4
+        with:
+          repository: SeisSol/SeisSol
+      
+      - name: get-oclint
+        run: |
+          wget -q https://github.com/oclint/oclint/releases/download/v24.11/oclint-24.11-llvm-16.0.4-x86_64-linux-ubuntu-24.04.tar.gz
+          tar -xf oclint-24.11-llvm-16.0.4-x86_64-linux-ubuntu-24.04.tar.gz
+          cd oclint-24.11
+          sudo cp -r . /opt/dependencies
+
+      - name: run-oclint
+        run: |
+          export PATH=/opt/dependencies/bin:$PATH
+          export LD_LIBRARY_PATH=/opt/dependencies/lib64:/opt/dependencies/lib:$LD_LIBRARY_PATH
+          set -euo pipefail
+          which oclint
+          git submodule update --init
+          mkdir -p build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          make SeisSol-codegen
+          sed -i 's/-fprofile-abs-path //g' compile_commands.json
+          oclint-json-compilation-database
