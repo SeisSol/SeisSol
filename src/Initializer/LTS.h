@@ -60,6 +60,9 @@
   seissol::initializer::ScratchpadMemory                        idofsAneScratch;
   seissol::initializer::ScratchpadMemory                        dofsExtScratch;
   seissol::initializer::ScratchpadMemory                        analyticScratch;
+#ifdef MULTIPLE_SIMULATIONS
+  seissol::initializer::ScratchPadMemory                        singleSimDofsScratch;
+#endif
 #endif
 
 namespace seissol::tensor {

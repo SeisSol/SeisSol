@@ -701,6 +701,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
     std::size_t integratedDofsCounter{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
+    std::size_t singleSimDofsScratchCounter{0};
 
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
@@ -709,35 +710,43 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       }
       ++integratedDofsCounter;
 
-      // include data provided by ghost layers
-      for (unsigned face = 0; face < 4; ++face) {
-        real *neighborBuffer = faceNeighbors[cell][face];
+      if (CellLocalInformation[cell].faceTypes[0] == FaceType::DynamicRupture ||
+          CellLocalInformation[cell].faceTypes[1] == FaceType::DynamicRupture ||
+          CellLocalInformation[cell].faceTypes[2] == FaceType::DynamicRupture ||
+          CellLocalInformation[cell].faceTypes[3] == FaceType::DynamicRupture) {
+            ++singleSimDofsScratchCounter;
+          }
 
-        // check whether a neighbour element idofs has not been counted twice
-        if ((registry.find(neighborBuffer) == registry.end())) {
+        // include data provided by ghost layers
+        for (unsigned face = 0; face < 4; ++face) {
+          real* neighborBuffer = faceNeighbors[cell][face];
 
-          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
-                cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+          // check whether a neighbour element idofs has not been counted twice
+          if ((registry.find(neighborBuffer) == registry.end())) {
 
-              bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
-              if (isNeighbProvidesDerivatives) {
-                ++integratedDofsCounter;
+            // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+            if (neighborBuffer != nullptr) {
+              if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
+                  cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
+
+                bool isNeighbProvidesDerivatives =
+                    ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
+                if (isNeighbProvidesDerivatives) {
+                  ++integratedDofsCounter;
+                }
+                registry.insert(neighborBuffer);
               }
-              registry.insert(neighborBuffer);
             }
           }
-        }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
-          ++nodalDisplacementsCounter;
-        }
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+            ++nodalDisplacementsCounter;
+          }
 
-        if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
-          ++analyticCounter;
+          if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
+            ++analyticCounter;
+          }
         }
-      }
     }
     layer->setScratchpadSize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
@@ -757,6 +766,8 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 #endif
     layer->setScratchpadSize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
+    layer->setScratchpadSize(lts.singleSimDofsScratch,
+                              singleSimDofsScratchCounter*(tensor::Q::Shape[1] + tensor::Q::Shape[2]) * sizeof(real));
   }
 }
 

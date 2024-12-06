@@ -243,7 +243,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       real** timeDerivativePlus =
           (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
-
+      //(TO DISCUSS: are these interleaved?)
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
                                                  timeDerivativePlus,
